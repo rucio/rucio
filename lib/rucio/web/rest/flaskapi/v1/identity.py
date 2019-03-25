@@ -17,7 +17,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -30,7 +30,7 @@ from flask.views import MethodView
 
 from rucio.api.identity import (add_identity, add_account_identity,
                                 list_accounts_for_identity)
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
 
 URLS = (
@@ -52,6 +52,7 @@ class UserPass(MethodView):
 
         :reqheader X-Rucio-Username: the desired username.
         :reqheader X-Rucio-Password: the desired password.
+        :reqheader X-Rucio-Email: the desired email.
         :param account: the affected account.
         :status 201: Created.
         :status 400: Missing username or password.
@@ -60,18 +61,20 @@ class UserPass(MethodView):
         """
         username = request.environ.get('HTTP_X_RUCIO_USERNAME')
         password = request.environ.get('HTTP_X_RUCIO_PASSWORD')
+        email = request.environ.get('HTTP_X_RUCIO_EMAIL')
 
         if username is None or password is None:
             return 'Username and Password must be set.', 400
 
         try:
-            add_identity(username, 'userpass', password)
+            add_identity(username, 'userpass', email, password)
         except Exception as error:
             return error, 500
 
         try:
             add_account_identity(username, 'userpass', account,
-                                 email=None, issuer=request.environ.get('issuer'))
+                                 email=email, password=password,
+                                 issuer=request.environ.get('issuer'))
         except Exception as error:
             return error, 500
 
@@ -88,19 +91,22 @@ class X509(MethodView):
         .. :quickref: X509; add new x509 identity.
 
         :param account: the affected account.
+        :reqheader X-Rucio-Email: the desired email.
         :status 201: Created.
         :status 401: Invalid Auth Token.
         :status 500: Internal Error.
         """
         dn = request.environ.get('SSL_CLIENT_S_DN')
+        email = request.environ.get('HTTP_X_RUCIO_EMAIL')
+
         try:
-            add_identity(dn, 'x509', email=None)
+            add_identity(dn, 'x509', email=email)
         except Exception as error:
             return error, 500
 
         try:
             add_account_identity(dn, 'x509', account,
-                                 email=None, issuer=request.environ.get('issuer'))
+                                 email=email, issuer=request.environ.get('issuer'))
         except Exception as error:
             return error, 500
 
@@ -117,19 +123,22 @@ class GSS(MethodView):
         .. :quickref: GSS; add new GSS identity.
 
         :param account: the affected account.
+        :reqheader X-Rucio-Email: the desired email.
         :status 201: Created.
         :status 401: Invalid Auth Token.
         :status 500: Internal Error.
         """
         gsscred = request.environ.get('REMOTE_USER')
+        email = request.environ.get('HTTP_X_RUCIO_EMAIL')
+
         try:
-            add_identity(gsscred, 'gss', email=None)
+            add_identity(gsscred, 'gss', email=email)
         except Exception as error:
             return error, 500
 
         try:
             add_account_identity(gsscred, 'gss', account,
-                                 email=None, issuer=request.environ.get('issuer'))
+                                 email=email, issuer=request.environ.get('issuer'))
         except Exception as error:
             return error, 500
 
@@ -139,6 +148,7 @@ class GSS(MethodView):
 class Accounts(MethodView):
     """ Retrieve list of accounts mapped to an identity. """
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, identity_key, type):
         """
         Return all identities mapped to an account.
@@ -150,6 +160,7 @@ class Accounts(MethodView):
         :resheader Content-Type: application/json
         :status 200: OK.
         :status 401: Invalid Auth Token.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: List of identities.
         """

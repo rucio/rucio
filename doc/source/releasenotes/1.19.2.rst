@@ -1,0 +1,13 @@
+===================
+1.19.2 (WebUI only)
+===================
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- WebUI: Add the possibility to declare bad files in the WebUI `#2173 <https://github.com/rucio/rucio/issues/2173>`_

@@ -1,4 +1,4 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,31 +13,33 @@
 # limitations under the License.
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2018
-#
-# Add index to quarantined replicas
-#
-# Revision ID: b818052fa670
-# Revises: 2962ece31cf4
-# Create Date: 2018-03-07 14:45:46.484383
+# - Martin Barisits <martin.barisits@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
+''' add index to quarantined replicas '''
+
+from alembic import context
 from alembic.op import (create_index, drop_index)
 
 
 # revision identifiers, used by Alembic.
-revision = 'b818052fa670'  # pylint: disable=invalid-name
-down_revision = '2962ece31cf4'  # pylint: disable=invalid-name
+revision = 'b818052fa670'
+down_revision = '2962ece31cf4'
 
 
 def upgrade():
     '''
-    upgrade method
+    Upgrade the database to this revision
     '''
-    create_index('QUARANTINED_REPLICAS_PATH_IDX', 'quarantined_replicas', ['path', 'rse_id'], unique=True)
+
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        create_index('QUARANTINED_REPLICAS_PATH_IDX', 'quarantined_replicas', ['path', 'rse_id'], unique=True)
 
 
 def downgrade():
     '''
-    downgrade method
+    Downgrade the database to the previous revision
     '''
-    drop_index('QUARANTINED_REPLICAS_PATH_IDX', 'quarantined_replicas')
+
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        drop_index('QUARANTINED_REPLICAS_PATH_IDX', 'quarantined_replicas')

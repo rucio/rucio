@@ -47,11 +47,11 @@ def sections(use_cache=True, expiration_time=3600, session=None):
     sections_key = 'sections'
     all_sections = NoValue()
     if use_cache:
-        all_sections = REGION.get(sections_key, expiration_time=expiration_time)
+        all_sections = read_from_cache(sections_key, expiration_time)
     if isinstance(all_sections, NoValue):
         query = session.query(models.Config.section).distinct().all()
         all_sections = [section[0] for section in query]
-        REGION.set(sections_key, all_sections)
+        write_to_cache(sections_key, all_sections)
 
     return all_sections
 
@@ -81,11 +81,11 @@ def has_section(section, use_cache=True, expiration_time=3600, session=None):
     has_section_key = 'has_section_%s' % section
     has_section = NoValue()
     if use_cache:
-        has_section = REGION.get(has_section_key, expiration_time=expiration_time)
+        has_section = read_from_cache(has_section_key, expiration_time)
     if isinstance(has_section, NoValue):
         query = session.query(models.Config).filter_by(section=section)
         has_section = True if query.first() else False
-        REGION.set(has_section_key, has_section)
+        write_to_cache(has_section_key, has_section)
     return has_section
 
 
@@ -103,11 +103,11 @@ def options(section, use_cache=True, expiration_time=3600, session=None):
     options_key = 'options'
     options = NoValue()
     if use_cache:
-        options = REGION.get(options_key, expiration_time=expiration_time)
+        options = read_from_cache(options_key, expiration_time)
     if isinstance(options, NoValue):
         query = session.query(models.Config.opt).filter_by(section=section).distinct().all()
         options = [option[0] for option in query]
-        REGION.set(options_key, options)
+        write_to_cache(options_key, options)
     return options
 
 
@@ -126,11 +126,11 @@ def has_option(section, option, use_cache=True, expiration_time=3600, session=No
     has_option_key = 'has_option_%s_%s' % (section, option)
     has_option = NoValue()
     if use_cache:
-        has_option = REGION.get(has_option_key, expiration_time=expiration_time)
+        has_option = read_from_cache(has_option_key, expiration_time)
     if isinstance(has_option, NoValue):
         query = session.query(models.Config).filter_by(section=section, opt=option)
         has_option = True if query.first() else False
-        REGION.set(has_option_key, has_option)
+        write_to_cache(has_option_key, has_option)
     return has_option
 
 
@@ -153,12 +153,12 @@ def get(section, option, default=None, use_cache=True, expiration_time=3600, ses
     value_key = 'get_%s_%s' % (section, option)
     value = NoValue()
     if use_cache:
-        value = REGION.get(value_key, expiration_time=expiration_time)
+        value = read_from_cache(value_key, expiration_time)
     if isinstance(value, NoValue):
         tmp = session.query(models.Config.value).filter_by(section=section, opt=option).first()
         if tmp is not None:
             value = __convert_type(tmp[0])
-            REGION.set(value_key, tmp[0])
+            write_to_cache(value_key, tmp[0])
         elif default is None:
             raise ConfigNotFound
         else:
@@ -182,10 +182,10 @@ def items(section, use_cache=True, expiration_time=3600, session=None):
     items_key = 'items_%s' % section
     items = NoValue()
     if use_cache:
-        items = REGION.get(items_key, expiration_time=expiration_time)
+        items = read_from_cache(items_key, expiration_time)
     if isinstance(items, NoValue):
         items = session.query(models.Config.opt, models.Config.value).filter_by(section=section).all()
-        REGION.set(items_key, items)
+        write_to_cache(items_key, items)
     return [(item[0], __convert_type(item[1])) for item in items]
 
 
@@ -273,3 +273,26 @@ def __convert_type(value):
             pass
 
     return value
+
+
+def read_from_cache(key, expiration_time=3600):
+    """
+    Try to read a value from a cache.
+
+    :param key: Key that stores the value.
+    :param expiration_time: Time in seconds that a value should not be older than.
+    """
+    key = key.replace(' ', '')
+    value = REGION.get(key, expiration_time=expiration_time)
+    return value
+
+
+def write_to_cache(key, value):
+    """
+    Set a value on a key in a cache.
+
+    :param key: Key that stores the value.
+    :param value: Value to be stored.
+    """
+    key = key.replace(' ', '')
+    REGION.set(key, value)

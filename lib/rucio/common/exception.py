@@ -22,7 +22,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
 # - Tobias Wegner <twegner@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -922,3 +922,23 @@ class MetalinkJsonParsingError(RucioException):
         super(MetalinkJsonParsingError, self).__init__(*args, **kwargs)
         self._message = 'Failed parsing of %s. MetalinkError: %s. JsonError: %s' % (data, metalink_err, json_err)
         self.error_code = 87
+
+
+class ReplicaIsLocked(RucioException):
+    """
+    Replia has one or more locks.
+    """
+    def __init__(self, *args, **kwargs):
+        super(ReplicaIsLocked, self).__init__(*args, **kwargs)
+        self._message = 'Replica is locked'
+        self.error_code = 88
+
+
+class UnsupportedRequestedContentType(RucioException):
+    """
+    The requested content type is not supported by the API endpoint.
+    """
+    def __init__(self, *args, **kwargs):
+        super(UnsupportedRequestedContentType, self).__init__(*args, **kwargs)
+        self._message = 'The requested content type is not supported.'
+        self.error_code = 89

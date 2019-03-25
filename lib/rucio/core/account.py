@@ -1,28 +1,28 @@
-"""
- Copyright European Organization for Nuclear Research (CERN)
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
+# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013, 2017
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2019
+# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
+#
+# PY3K COMPATIBLE
 
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at
- http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
- - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
- - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013, 2017
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
- - Martin Barisits, <martin.barisits@cern.ch>, 2014
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015, 2017
- - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
- - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
-
- PY3K COMPATIBLE
-"""
 
 from datetime import datetime
 from re import match
 from traceback import format_exc
 
+from sqlalchemy import and_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import exc
 
@@ -177,9 +177,12 @@ def list_identities(account, session=None):
     except exc.NoResultFound:
         raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account)
 
-    query = session.query(models.IdentityAccountAssociation).filter_by(account=account)
+    query = session.query(models.IdentityAccountAssociation, models.Identity)\
+                   .join(models.Identity, and_(models.Identity.identity == models.IdentityAccountAssociation.identity,
+                                               models.Identity.identity_type == models.IdentityAccountAssociation.identity_type))\
+                   .filter(models.IdentityAccountAssociation.account == account)
     for identity in query:
-        identity_list.append({'type': identity.identity_type, 'identity': identity.identity})
+        identity_list.append({'type': identity[0].identity_type, 'identity': identity[0].identity, 'email': identity[1].email})
 
     return identity_list
 
@@ -251,7 +254,7 @@ def add_account_attribute(account, key, value, session=None):
            or error.args[0] == "(IntegrityError) column account/key is not unique" \
            or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]):
             raise exception.Duplicate('Key {0} already exist for account {1}!'.format(key, account))
-    except:
+    except Exception:
         raise exception.RucioException(str(format_exc()))
 
 
@@ -268,3 +271,43 @@ def del_account_attribute(account, key, session=None):
     if aid is None:
         raise exception.AccountNotFound('Attribute ({0}) does not exist for the account {1}!'.format(key, account))
     aid.delete(session=session)
+
+
+@read_session
+def get_usage(rse_id, account, session=None):
+    """
+    Returns current values of the specified counter, or raises CounterNotFound if the counter does not exist.
+
+    :param rse_id:           The id of the RSE.
+    :param account:          The account name.
+    :param session:          The database session in use.
+    :returns:                A dictionary with total and bytes.
+    """
+
+    try:
+        counter = session.query(models.AccountUsage).filter_by(rse_id=rse_id, account=account).one()
+        return {'bytes': counter.bytes, 'files': counter.files, 'updated_at': counter.updated_at}
+    except exc.NoResultFound:
+        return {'bytes': 0, 'files': 0, 'updated_at': None}
+
+
+@read_session
+def get_usage_history(rse_id, account, session=None):
+    """
+    Returns historical values of the specified counter, or raises CounterNotFound if the counter does not exist.
+
+    :param rse_id:           The id of the RSE.
+    :param account:          The account name.
+    :param session:          The database session in use.
+    :returns:                A dictionary with total and bytes.
+    """
+
+    result = []
+    AccountUsageHistory = models.AccountUsage.__history_mapper__.class_
+    try:
+        query = session.query(AccountUsageHistory).filter_by(rse_id=rse_id, account=account).order_by(AccountUsageHistory.updated_at)
+        for row in query.all():
+            result.append({'bytes': row.bytes, 'files': row.files, 'updated_at': row.updated_at})
+    except exc.NoResultFound:
+        raise exception.CounterNotFound('No usage can be found for account %s on RSE with id %s' % (account, rse_id))
+    return result

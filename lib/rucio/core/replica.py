@@ -1,4 +1,4 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,12 +17,13 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2019
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2019
 # - David Cameron <d.g.cameron@gmail.com>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
+# - Robert Illingworth, <illingwo@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -36,7 +37,7 @@ from re import match
 from six import string_types
 from traceback import format_exc
 
-from sqlalchemy import func, and_, or_, exists, not_
+from sqlalchemy import func, and_, or_, exists, not_, update
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql import label
 from sqlalchemy.orm.exc import FlushError, NoResultFound
@@ -53,9 +54,9 @@ from rucio.core.rse_counter import decrease, increase
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import (DIDType, ReplicaState, OBSOLETE, DIDAvailability,
-                                     BadFilesStatus, RuleState)
+                                     BadFilesStatus, RuleState, BadPFNStatus)
 from rucio.db.sqla.session import (read_session, stream_session, transactional_session,
-                                   DEFAULT_SCHEMA_NAME)
+                                   DEFAULT_SCHEMA_NAME, get_engine)
 from rucio.rse import rsemanager as rsemgr
 
 
@@ -311,7 +312,7 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
                 scope = path.split('/')[0]
                 name = parsed_pfn[pfn]['name']
             __exists, scope, name, already_declared, size = __exists_replicas(rse_id, scope, name, path=None, session=session)
-            if __exists and ((status == BadFilesStatus.BAD and not already_declared) or status == BadFilesStatus.SUSPICIOUS):
+            if __exists and ((str(status) == str(BadFilesStatus.BAD) and not already_declared) or str(status) == str(BadFilesStatus.SUSPICIOUS)):
                 replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
                 new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer, bytes=size)
                 new_bad_replica.save(session=session, flush=False)
@@ -329,7 +330,7 @@ def __declare_bad_file_replicas(pfns, rse, reason, issuer, status=BadFilesStatus
                             break
                     if no_hidden_char:
                         unknown_replicas.append('%s %s' % (pfn, 'Unknown replica'))
-        if status == BadFilesStatus.BAD:
+        if str(status) == str(BadFilesStatus.BAD):
             # For BAD file, we modify the replica state, not for suspicious
             try:
                 # there shouldn't be any exceptions since all replicas exist
@@ -499,6 +500,11 @@ def list_bad_replicas(limit=10000, thread=None, total_threads=None, session=None
         elif session.bind.dialect.name == 'postgresql':
             query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
 
+    query = query.join(models.DataIdentifier,
+                       and_(models.DataIdentifier.scope == models.RSEFileAssociation.scope,
+                            models.DataIdentifier.name == models.RSEFileAssociation.name)).\
+        filter(models.DataIdentifier.availability != DIDAvailability.LOST)
+
     query = query.limit(limit)
     rows = []
     rse_map = {}
@@ -660,7 +666,6 @@ def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, sessio
                        models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name)).\
         join(models.RSE, models.RSE.id == models.RSEFileAssociation.rse_id).\
         filter(models.RSE.deleted == false()).\
-        filter(models.RSE.staging_area == false()).\
         filter(or_(*dataset_clause)).\
         order_by(models.DataIdentifierAssociation.child_scope,
                  models.DataIdentifierAssociation.child_name)
@@ -687,25 +692,21 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, sessi
             if rse_clause is None:
                 whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
                                    models.RSE.deleted == false(),
-                                   models.RSE.staging_area == false(),
                                    or_(*replica_condition))
             else:
                 whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
                                    models.RSE.deleted == false(),
-                                   models.RSE.staging_area == false(),
                                    or_(*replica_condition),
                                    or_(*rse_clause))
         else:
             if rse_clause is None:
                 whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
                                    models.RSE.deleted == false(),
-                                   models.RSE.staging_area == false(),
                                    state_clause,
                                    or_(*replica_condition))
             else:
                 whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
                                    models.RSE.deleted == false(),
-                                   models.RSE.staging_area == false(),
                                    state_clause,
                                    or_(*replica_condition),
                                    or_(*rse_clause))
@@ -788,6 +789,16 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
             # if the file is a constituent, find the available archives and add them to the list of possible PFNs
             # taking into account the original rse_expression
             if '%s:%s' % (scope, name) in constituents:
+
+                # special protocol handling for constituents
+                # force the use of root if client didn't specify
+                if not schemes:
+                    schemes = ['root']
+                else:
+                    # always add root for archives
+                    schemes.append('root')
+                    schemes = list(set(schemes))
+
                 archive_result = list_replicas(dids=constituents['%s:%s' % (scope, name)],
                                                schemes=schemes, client_location=client_location,
                                                domain=domain, sign_urls=sign_urls,
@@ -827,6 +838,8 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                 new_pfn = add_url_query(tmp_archive, {'xrdcl.unzip': name})
                                 archive['pfns'][new_pfn] = archive['pfns'].pop(tmp_archive)
                                 tmp_archive = new_pfn
+                                # any number larger than the number of availabe protocols is fine
+                                archive['pfns'][tmp_archive]['priority'] -= 99
                             if 'xrdcl.unzip' not in tmp_archive:
                                 archive['pfns'][tmp_archive]['client_extract'] = True
 
@@ -845,16 +858,20 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                         if archive_pfn.startswith('root://'):
                             # use direct addressable path for root
                             pfn = add_url_query(archive_pfn, {'xrdcl.unzip': name})
+                            # any number larger than the number of availabe protocols is fine
+                            archive[archive_pfn]['priority'] -= 99
+                            priority = archive[archive_pfn]['priority']
                             client_extract = False
                         else:
                             # otherwise just use the zip and tell the client to extract
                             pfn = archive_pfn
+                            priority = archive[archive_pfn]['priority']
                             client_extract = True
 
                         # use zip domain for sorting, and pass through all the information
                         # we need it later to reconstruct the final PFNS
                         # ('pfn', 'domain', 'priority', 'client_extract', archive-passthrough)
-                        pfns.append((pfn, 'zip', archive[archive_pfn]['priority'], client_extract, archive[archive_pfn]))
+                        pfns.append((pfn, 'zip', priority, client_extract, archive[archive_pfn]))
 
             if show_pfns and rse:
                 if rse not in rse_info:
@@ -996,14 +1013,22 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                     # --> exploit that L(AN) comes before W(AN) before Z(IP) alphabetically
                     # and use 1-indexing to be compatible with metalink
                     tmp = sorted([(file['pfns'][p]['domain'], file['pfns'][p]['priority'], p) for p in file['pfns']])
+
                     for i in range(0, len(tmp)):
                         file['pfns'][tmp[i][2]]['priority'] = i + 1
                         file['rses'] = {}
-                        for t_rse, t_pfn in [(file['pfns'][t_pfn]['rse'], t_pfn) for t_pfn in file['pfns']]:
+
+                        rse_pfns = []
+                        for t_rse, t_priority, t_pfn in [(file['pfns'][t_pfn]['rse'], file['pfns'][t_pfn]['priority'], t_pfn) for t_pfn in file['pfns']]:
+                            rse_pfns.append((t_rse, t_priority, t_pfn))
+                        rse_pfns = sorted(rse_pfns)
+
+                        for t_rse, t_priority, t_pfn in rse_pfns:
                             if t_rse in file['rses']:
                                 file['rses'][t_rse].append(t_pfn)
                             else:
                                 file['rses'][t_rse] = [t_pfn]
+
                     yield file
                     file = {}
 
@@ -1053,7 +1078,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
         rse_pfns = []
         for t_rse, t_priority, t_pfn in [(file['pfns'][t_pfn]['rse'], file['pfns'][t_pfn]['priority'], t_pfn) for t_pfn in file['pfns']]:
             rse_pfns.append((t_rse, t_priority, t_pfn))
-            rse_pfns = sorted(rse_pfns)
+        rse_pfns = sorted(rse_pfns)
 
         for t_rse, t_priority, t_pfn in rse_pfns:
             if t_rse in file['rses']:
@@ -1665,7 +1690,7 @@ def update_replicas_states(replicas, nowait=False, session=None):
                                             broken_message=replica.get('broken_message', None),
                                             nowait=nowait, session=session)
         elif replica['state'] == ReplicaState.TEMPORARY_UNAVAILABLE:
-            query = query.filter_by(state=ReplicaState.AVAILABLE)
+            query = query.filter(or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE, models.RSEFileAssociation.state == ReplicaState.TEMPORARY_UNAVAILABLE))
 
         if 'path' in replica and replica['path']:
             values['path'] = replica['path']
@@ -2532,9 +2557,16 @@ def bulk_add_bad_replicas(replicas, account, state=BadFilesStatus.TEMPORARY_UNAV
     :returns: True is successful.
     """
     for replica in replicas:
-        new_bad_replica = models.BadReplicas(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], reason=reason,
-                                             state=state, account=account, bytes=None, expires_at=expires_at)
-        new_bad_replica.save(session=session, flush=False)
+        insert_new_row = True
+        if state == BadFilesStatus.TEMPORARY_UNAVAILABLE:
+            query = session.query(models.BadReplicas).filter_by(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], state=state)
+            if query.count():
+                query.update({'state': BadFilesStatus.TEMPORARY_UNAVAILABLE, 'updated_at': datetime.utcnow(), 'account': account, 'reason': reason, 'expires_at': expires_at}, synchronize_session=False)
+                insert_new_row = False
+        if insert_new_row:
+            new_bad_replica = models.BadReplicas(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], reason=reason,
+                                                 state=state, account=account, bytes=None, expires_at=expires_at)
+            new_bad_replica.save(session=session, flush=False)
     try:
         session.flush()
     except IntegrityError as error:
@@ -2607,7 +2639,9 @@ def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, session=Non
     :returns: True is successful.
     """
     if isinstance(state, string_types):
-        rep_state = ReplicaState.from_sym(state)
+        rep_state = BadPFNStatus.from_sym(state)
+    else:
+        rep_state = state
 
     pfns = clean_surls(pfns)
     for pfn in pfns:
@@ -2677,6 +2711,7 @@ def get_replicas_state(scope=None, name=None, session=None):
     return states
 
 
+@read_session
 def get_suspicious_files(rse_expression, younger_than=None, nattempts=None, session=None):
     """
     List the list of suspicious files on a list of RSEs
@@ -2705,7 +2740,7 @@ def get_suspicious_files(rse_expression, younger_than=None, nattempts=None, sess
         query = query.filter(models.BadReplicas.created_at > younger_than)
     query = query.group_by(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id)
     if nattempts:
-        query = query.having(func.count(models.RSEFileAssociation.scope) > nattempts)
+        query = query.having(func.count(models.RSEFileAssociation.scope) > int(nattempts))
 
     replicas_clause = []
     suspicious = {}
@@ -2733,3 +2768,29 @@ def get_suspicious_files(rse_expression, younger_than=None, nattempts=None, sess
             rses[rse_id] = rse
         result.append({'scope': scope, 'name': name, 'rse': rses[rse_id], 'cnt': cnt, 'created_at': created_at})
     return result
+
+
+@transactional_session
+def set_tombstone(rse, scope, name, rse_id=None, session=None):
+    """
+    Sets a tombstone on a replica.
+
+    :param rse: name of the RSE.
+    :param scope: scope of the replica DID.
+    :param name: name of the replica DID.
+    :param rse_id: optional ID of RSE.
+    :param session: database session in use.
+    """
+    if not rse_id:
+        rse_id = get_rse_id(rse)
+    conn = get_engine().connect()
+    stmt = update(models.RSEFileAssociation).where(and_(models.RSEFileAssociation.rse_id == rse_id, models.RSEFileAssociation.name == name, models.RSEFileAssociation.scope == scope,
+                                                        ~session.query(models.ReplicaLock).filter_by(scope=scope, name=name, rse_id=rse_id).exists()))\
+                                            .values(tombstone=OBSOLETE)
+    result = conn.execute(stmt)
+    if not result.rowcount:
+        try:
+            session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, rse_id=rse_id).one()
+            raise exception.ReplicaIsLocked('Replica %s:%s on RSE %s is locked.' % (scope, name, rse))
+        except NoResultFound:
+            raise exception.ReplicaNotFound('Replica %s:%s on RSE %s could not be found.' % (scope, name, rse))

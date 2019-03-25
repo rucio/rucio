@@ -9,7 +9,7 @@ The Rucio daemons run on Python 2.7 on any Unix-like platform.
 Install via pip
 ~~~~~~~~~~~~~~~
 
-Heads up: We recommend to use the docker-based install (see next section) as it will configure many things for you automatically. Only use the pip-based install if you have a good reason and know how to configure your webservices manually:
+Heads up: We recommend to use the docker-based install (see next section) as it will configure many things for you automatically. Only use the pip-based install if you have a good reason and know how to configure your web service manually:
 
 ``pip install rucio``
 
@@ -19,7 +19,7 @@ This will pull the latest release from `PyPi <https://pypi.python.org/pypi/rucio
 Install via Docker
 ~~~~~~~~~~~~~~~~~~
 
-This image provides the Rucio daemons. Each daemon has to be run in a separate container. It supports MySQL, PostgreSQL, Oracle and SQLite as database backends.
+This image provides the Rucio daemons. Each daemon has to be run in a separate container. It supports MySQL, PostgreSQL, Oracle, and SQLite as database backends.
 
 This image expects that there is an already initialised Rucio DB. To start a simple `judge-cleaner` daemon using a database on `mysql.db` without an additional parameters just run this:
 
@@ -52,7 +52,7 @@ Any additional command line parameter can be specified here, e.g., `--run-once`.
 
 `RUCIO_ENABLE_LOGFILE`
 ----------------------
-By default the log output of the daemon is written to stdout and stderr. If you set this variable to `True` the output will be written to `access_log` and `error_log` under `/var/log/rucio`.
+By default, the log output of the daemon is written to stdout and stderr. If you set this variable to `True` the output will be written to `access_log` and `error_log` under `/var/log/rucio`.
 
 `RUCIO_CFG` configuration parameters:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

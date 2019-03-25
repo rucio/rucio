@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2016
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2017
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
@@ -31,21 +31,23 @@ Methods common to different conveyor submitter daemons.
 """
 
 from __future__ import division
+from json import loads
 
 import datetime
 import logging
 import time
 import traceback
 
-from rucio.common.exception import InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound
+from rucio.common.config import config_get
+from rucio.common.exception import InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound, ConfigNotFound
 from rucio.common.utils import chunks
 from rucio.core import request, transfer as transfer_core
+from rucio.core.config import get
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla.constants import RequestState
 from rucio.rse import rsemanager as rsemgr
-from rucio.common.config import config_get
 
 USER_ACTIVITY = config_get('conveyor', 'user_activities', False, ['user', 'user_test'])
 USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
@@ -162,20 +164,34 @@ def submit_transfer(external_host, job, submitter='submitter', logging_prepend_s
             logging.error(prepend_str + 'Failed to cancel transfers %s on %s with error: %s' % (eid, external_host, traceback.format_exc()))
 
 
-def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_strategy='auto', max_time_in_queue=None):
+def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strategy=None, max_time_in_queue=None):
     """
     Group transfers in bulk based on certain criterias
 
     :param transfers:             List of transfers to group.
     :param plicy:                 Policy to use to group.
     :param group_bulk:            Bulk sizes.
-    :param fts_source_strategy:   Strategy to group fts sources
+    :param source_strategy:       Strategy to group sources
     :param max_time_in_queue:     Maximum time in queue
     :return:                      List of grouped transfers.
     """
 
     grouped_transfers = {}
     grouped_jobs = {}
+
+    try:
+        default_source_strategy = get(section='conveyor', option='default-source-strategy')
+    except ConfigNotFound:
+        default_source_strategy = 'orderly'
+
+    try:
+        activity_source_strategy = get(section='conveyor', option='activity-source-strategy')
+        activity_source_strategy = loads(activity_source_strategy)
+    except ConfigNotFound:
+        activity_source_strategy = {}
+    except ValueError:
+        logging.warning('activity_source_strategy not properly defined')
+        activity_source_strategy = {}
 
     for request_id in transfers:
         transfer = transfers[request_id]
@@ -187,7 +203,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, fts_source_str
                 'filesize': int(transfer['file_metadata']['filesize']),
                 'checksum': None,
                 'verify_checksum': verify_checksum,
-                'selection_strategy': fts_source_strategy,
+                'selection_strategy': source_strategy if source_strategy else activity_source_strategy.get(str(transfer['file_metadata']['activity']), default_source_strategy),
                 'request_type': transfer['file_metadata'].get('request_type', None),
                 'activity': str(transfer['file_metadata']['activity'])}
         if verify_checksum != 'none':

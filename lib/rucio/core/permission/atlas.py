@@ -15,9 +15,9 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2016
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -106,7 +106,9 @@ def has_permission(issuer, action, kwargs):
             'update_lifetime_exceptions': perm_update_lifetime_exceptions,
             'get_ssh_challenge_token': perm_get_ssh_challenge_token,
             'get_signed_url': perm_get_signed_url,
-            'add_bad_pfns': perm_add_bad_pfns}
+            'add_bad_pfns': perm_add_bad_pfns,
+            'del_account_identity': perm_del_account_identity,
+            'del_identity': perm_del_identity}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -322,6 +324,30 @@ def perm_add_account_identity(issuer, kwargs):
     """
 
     return issuer == 'root' or issuer == kwargs.get('account')
+
+
+def perm_del_account_identity(issuer, kwargs):
+    """
+    Checks if an account can delete an identity to an account.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+
+    return issuer == 'root' or issuer == kwargs.get('account')
+
+
+def perm_del_identity(issuer, kwargs):
+    """
+    Checks if an account can delete an identity.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+
+    return issuer == 'root' or issuer in kwargs.get('accounts')
 
 
 def perm_add_did(issuer, kwargs):
@@ -1005,9 +1031,9 @@ def perm_add_bad_pfns(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    if kwargs['state'] in [BadPFNStatus.BAD, BadPFNStatus.TEMPORARY_UNAVAILABLE]:
+    if kwargs['state'] in [str(BadPFNStatus.BAD), str(BadPFNStatus.TEMPORARY_UNAVAILABLE)]:
         is_cloud_admin = bool([acc_attr for acc_attr in list_account_attributes(account=issuer) if (acc_attr['key'].startswith('cloud-')) and (acc_attr['value'] == 'admin')])
         return issuer == 'root' or has_account_attribute(account=issuer, key='admin') or is_cloud_admin
-    elif kwargs['state'] == BadPFNStatus.SUSPICIOUS:
+    elif kwargs['state'] == str(BadPFNStatus.SUSPICIOUS):
         return True
     return issuer == 'root'

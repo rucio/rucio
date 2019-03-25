@@ -12,13 +12,13 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015, 2017
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
 from json import dumps, loads
 
-from nose.tools import assert_equal, assert_true, assert_raises, raises
+from nose.tools import assert_equal, assert_true, assert_raises, raises, assert_in
 from paste.fixture import TestApp
 
 from rucio.api.account import add_account, account_exists, del_account, update_account, get_account_info
@@ -26,7 +26,9 @@ from rucio.client.accountclient import AccountClient
 from rucio.common.config import config_get
 from rucio.common.exception import AccountNotFound, Duplicate, InvalidObject
 from rucio.common.utils import generate_uuid as uuid
-from rucio.db.sqla.constants import AccountStatus
+from rucio.core.account import list_identities
+from rucio.core.identity import add_account_identity, add_identity
+from rucio.db.sqla.constants import AccountStatus, IdentityType
 from rucio.tests.common import account_name_generator
 from rucio.web.rest.account import APP as account_app
 from rucio.web.rest.authentication import APP as auth_app
@@ -56,6 +58,16 @@ class TestAccountCoreApi():
         email = get_account_info(account=usr)['email']
         assert_equal(email, 'test')
         del_account(usr, 'root')
+
+    def test_list_account_identities(self):
+        """ ACCOUNT (CORE): Test listing of account identities """
+        email = 'email'
+        identity = uuid()
+        identity_type = IdentityType.USERPASS
+        account = 'root'
+        add_account_identity(identity, identity_type, account, email, password='secret')
+        identities = list_identities(account)
+        assert_in({'type': identity_type, 'identity': identity, 'email': email}, identities)
 
 
 class TestAccountRestApi():
@@ -281,6 +293,58 @@ class TestAccountRestApi():
         assert_equal(body['status'], 'SUSPENDED')
         assert_equal(body['email'], 'test')
         assert_equal(res4.status, 200)
+
+    def test_delete_identity_of_account(self):
+        """ ACCOUNT (REST): send a DELETE to remove an identity of an account."""
+        mw = []
+        account = account_name_generator()
+        identity = uuid()
+        password = 'secret'
+        add_account(account, 'USER', 'rucio@email.com', 'root')
+        add_identity(identity, IdentityType.USERPASS, 'email@email.com', password)
+        add_account_identity(identity, IdentityType.USERPASS, account, 'email@email.com')
+        headers1 = {'X-Rucio-Account': account, 'X-Rucio-Username': identity, 'X-Rucio-Password': password}
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+        token = str(res1.header('X-Rucio-Auth-Token'))
+
+        # normal deletion
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
+        data = dumps({'authtype': 'USERPASS', 'identity': identity})
+        res2 = TestApp(account_app.wsgifunc(*mw)).delete('/' + account + '/identities', headers=headers2, params=data, expect_errors=True)
+        assert_equal(res2.status, 200)
+
+        # unauthorized deletion
+        other_account = account_name_generator()
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
+        data = dumps({'authtype': 'USERPASS', 'identity': identity})
+        res2 = TestApp(account_app.wsgifunc(*mw)).delete('/' + other_account + '/identities', headers=headers2, params=data, expect_errors=True)
+        assert_equal(res2.status, 401)
+
+    def test_add_identity_to_account(self):
+        """ ACCOUNT (REST): send a POST to add an identity to an account."""
+        mw = []
+        account = 'root'
+        headers1 = {'X-Rucio-Account': account, 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+        assert_equal(res1.status, 200)
+        token = str(res1.header('X-Rucio-Auth-Token'))
+        identity = uuid()
+
+        # normal addition
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
+        data = dumps({'authtype': 'USERPASS', 'email': 'rucio@email.com', 'password': 'password', 'identity': identity})
+        res2 = TestApp(account_app.wsgifunc(*mw)).post('/' + account + '/identities', headers=headers2, params=data, expect_errors=True)
+        assert_equal(res2.status, 201)
+
+        # duplicate identity
+        res4 = TestApp(account_app.wsgifunc(*mw)).post('/' + account + '/identities', headers=headers2, params=data, expect_errors=True)
+        assert_equal(res4.status, 409)
+
+        # missing password
+        identity = uuid()
+        data = dumps({'authtype': 'USERPASS', 'email': 'rucio@email.com', 'identity': identity})
+        res3 = TestApp(account_app.wsgifunc(*mw)).post('/' + account + '/identities', headers=headers2, params=data, expect_errors=True)
+        assert_equal(res3.status, 400)
 
 
 class TestAccountClient():

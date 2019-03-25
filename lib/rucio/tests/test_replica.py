@@ -20,6 +20,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 
 from __future__ import print_function
 from datetime import datetime, timedelta
@@ -31,20 +32,22 @@ from nose.tools import assert_equal, assert_in, assert_raises
 from paste.fixture import TestApp
 
 
-from rucio.db.sqla.constants import DIDType, ReplicaState
+from rucio.db.sqla.constants import DIDType, ReplicaState, OBSOLETE
 from rucio.client.baseclient import BaseClient
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.common.config import config_get
-from rucio.common.exception import DataIdentifierNotFound, AccessDenied, UnsupportedOperation, RucioException
 from rucio.common.utils import generate_uuid, clean_surls
+from rucio.common.exception import (DataIdentifierNotFound, AccessDenied, UnsupportedOperation,
+                                    RucioException, ReplicaIsLocked, ReplicaNotFound)
 from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files, get_did_atime
 from rucio.core.replica import (add_replica, add_replicas, delete_replicas, get_replicas_state,
                                 update_replica_lock_counter, get_replica, list_replicas,
                                 declare_bad_file_replicas, list_bad_replicas,
                                 update_replicas_paths, update_replica_state,
-                                get_replica_atime, touch_replica, get_bad_pfns)
+                                get_replica_atime, touch_replica, get_bad_pfns, set_tombstone)
 from rucio.core.rse import add_rse, add_protocol, add_rse_attribute, del_rse_attribute
+from rucio.client.ruleclient import RuleClient
 from rucio.daemons.badreplicas.necromancer import run as necromancer_run
 from rucio.daemons.badreplicas.minos import run as minos_run
 from rucio.daemons.badreplicas.minos_temporary_expiration import run as minos_temp_run
@@ -382,6 +385,30 @@ class TestReplicaCore:
                                                 client_location={'site': 'SOMEWHERE'})]
         assert_in('root://', replicas[0]['pfns'].keys()[0])
 
+    def test_set_tombstone(self):
+        """ REPLICA (CORE): set tombstone on replica """
+        # Set tombstone on one replica
+        rse = 'MOCK4'
+        scope = 'mock'
+        user = 'root'
+        name = generate_uuid()
+        add_replica(rse, scope, name, 4, user)
+        assert_equal(get_replica(rse, scope, name)['tombstone'], None)
+        set_tombstone(rse, scope, name)
+        assert_equal(get_replica(rse, scope, name)['tombstone'], OBSOLETE)
+
+        # Set tombstone on locked replica
+        name = generate_uuid()
+        add_replica(rse, scope, name, 4, user)
+        RuleClient().add_replication_rule([{'name': name, 'scope': scope}], 1, rse, locked=True)
+        with assert_raises(ReplicaIsLocked):
+            set_tombstone(rse, scope, name)
+
+        # Set tombstone on not found replica
+        name = generate_uuid()
+        with assert_raises(ReplicaNotFound):
+            set_tombstone(rse, scope, name)
+
 
 class TestReplicaClients:
 
@@ -560,6 +587,52 @@ class TestReplicaClients:
                 nb_tot_bad_files2 += int(line.get('BAD', 0))
         assert_equal(nb_tot_bad_files1, nb_tot_bad_files2)
 
+    def test_list_replicas_content_type(self):
+        """ REPLICA (REST): send a GET to list replicas with specific ACCEPT header."""
+        mw = []
+        account = 'root'
+        headers1 = {'X-Rucio-Account': account, 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+        assert_equal(res1.status, 200)
+        token = str(res1.header('X-Rucio-Auth-Token'))
+        scope = 'mock'
+        name = 'file_%s' % generate_uuid()
+        files1 = [{'scope': scope, 'name': name, 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}}]
+        self.replica_client.add_replicas(rse='MOCK', files=files1)
+
+        # unsupported requested content type
+        headers = {'X-Rucio-Auth-Token': str(token), 'Accept': 'application/unsupported'}
+        res = TestApp(rep_app.wsgifunc(*mw)).get('/%s/%s' % (scope, name), headers=headers, expect_errors=True)
+        assert_equal(res.status, 406)
+
+        # content type json stream
+        headers = {'X-Rucio-Auth-Token': str(token), 'Accept': 'application/x-json-stream'}
+        res = TestApp(rep_app.wsgifunc(*mw)).get('/%s/%s' % (scope, name), headers=headers, expect_errors=True)
+        assert_equal([header[1] for header in res.headers if header[0] == 'Content-Type'][0], 'application/x-json-stream')
+
+        # content type metalink4
+        headers = {'X-Rucio-Auth-Token': str(token), 'Accept': 'application/metalink4+xml'}
+        res = TestApp(rep_app.wsgifunc(*mw)).get('/%s/%s' % (scope, name), headers=headers, expect_errors=True)
+        assert_equal([header[1] for header in res.headers if header[0] == 'Content-Type'][0], 'application/metalink4+xml')
+
+        # no requested content type
+        headers = {'X-Rucio-Auth-Token': str(token)}
+        res = TestApp(rep_app.wsgifunc(*mw)).get('/%s/%s' % (scope, name), headers=headers, expect_errors=True)
+        assert_equal([header[1] for header in res.headers if header[0] == 'Content-Type'][0], 'application/x-json-stream')
+
+        # all content types
+        headers = {'X-Rucio-Auth-Token': str(token), 'Accept': '*/*'}
+        res = TestApp(rep_app.wsgifunc(*mw)).get('/%s/%s' % (scope, name), headers=headers, expect_errors=True)
+        assert_equal([header[1] for header in res.headers if header[0] == 'Content-Type'][0], 'application/x-json-stream')
+
+        # multiple content types
+        headers = {'X-Rucio-Auth-Token': str(token), 'Accept': 'application/unsupported, application/x-json-stream'}
+        res = TestApp(rep_app.wsgifunc(*mw)).get('/%s/%s' % (scope, name), headers=headers, expect_errors=True)
+        assert_equal([header[1] for header in res.headers if header[0] == 'Content-Type'][0], 'application/x-json-stream')
+        headers = {'X-Rucio-Auth-Token': str(token), 'Accept': 'application/unsupported, */*;q=0.8'}
+        res = TestApp(rep_app.wsgifunc(*mw)).get('/%s/%s' % (scope, name), headers=headers, expect_errors=True)
+        assert_equal([header[1] for header in res.headers if header[0] == 'Content-Type'][0], 'application/x-json-stream')
+
     def test_add_list_replicas(self):
         """ REPLICA (CLIENT): Add, change state and list file replicas """
         tmp_scope = 'mock'
@@ -666,6 +739,30 @@ class TestReplicaClients:
         for did in files:
             rep = get_replicas_state(scope=did['scope'], name=did['name'])
             assert_equal(str(rep.keys()[0]), 'AVAILABLE')
+
+    def test_set_tombstone(self):
+        """ REPLICA (CLIENT): set tombstone on replica """
+        # Set tombstone on one replica
+        rse = 'MOCK4'
+        scope = 'mock'
+        user = 'root'
+        name = generate_uuid()
+        add_replica(rse, scope, name, 4, user)
+        assert_equal(get_replica(rse, scope, name)['tombstone'], None)
+        self.replica_client.set_tombstone([{'rse': rse, 'scope': scope, 'name': name}])
+        assert_equal(get_replica(rse, scope, name)['tombstone'], OBSOLETE)
+
+        # Set tombstone on locked replica
+        name = generate_uuid()
+        add_replica(rse, scope, name, 4, user)
+        RuleClient().add_replication_rule([{'name': name, 'scope': scope}], 1, rse, locked=True)
+        with assert_raises(ReplicaIsLocked):
+            self.replica_client.set_tombstone([{'rse': rse, 'scope': scope, 'name': name}])
+
+        # Set tombstone on not found replica
+        name = generate_uuid()
+        with assert_raises(ReplicaNotFound):
+            self.replica_client.set_tombstone([{'rse': rse, 'scope': scope, 'name': name}])
 
 
 class TestReplicaMetalink:

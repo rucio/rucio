@@ -18,11 +18,11 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2013
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -162,7 +162,7 @@ class AccountClient(BaseClient):
         """
         return self.get_account('whoami')
 
-    def add_identity(self, account, identity, authtype, email, default=False):
+    def add_identity(self, account, identity, authtype, email, default=False, password=None):
         """
         Adds a membership association between identity and account.
 
@@ -171,9 +171,10 @@ class AccountClient(BaseClient):
         :param authtype: The type of the authentication (x509, gss, userpass).
         :param default: If True, the account should be used by default with the provided identity.
         :param email: The Email address associated with the identity.
+        :param password: Password if authtype is userpass.
         """
 
-        data = dumps({'identity': identity, 'authtype': authtype, 'default': default, 'email': email})
+        data = dumps({'identity': identity, 'authtype': authtype, 'default': default, 'email': email, 'password': password})
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'identities'])
 
         url = build_url(choice(self.list_hosts), path=path)
@@ -287,6 +288,22 @@ class AccountClient(BaseClient):
         res = self._send_request(url, type='GET')
         if res.status_code == codes.ok:
             return self._load_json_data(res)
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
+            raise exc_cls(exc_msg)
+
+    def get_account_usage_history(self, account, rse):
+        """
+        List the account usage history of this account on rse.
+
+        :param account: The account name.
+        :param rse:     The rse name.
+        """
+        path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage/history', rse])
+        url = build_url(choice(self.list_hosts), path=path)
+        res = self._send_request(url, type='GET')
+        if res.status_code == codes.ok:
+            return next(self._load_json_data(res))
         else:
             exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
             raise exc_cls(exc_msg)

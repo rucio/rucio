@@ -18,7 +18,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -37,7 +37,8 @@ from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replica
                                get_did_from_pfns, update_replicas_states,
                                declare_bad_file_replicas, add_bad_pfns, get_suspicious_files,
                                declare_suspicious_file_replicas, list_bad_replicas_status,
-                               get_bad_replicas_summary, list_datasets_per_rse)
+                               get_bad_replicas_summary, list_datasets_per_rse,
+                               set_tombstone)
 from rucio.db.sqla.constants import BadFilesStatus
 from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, InvalidType,
                                     DataIdentifierNotFound, Duplicate, InvalidPath,
@@ -45,11 +46,12 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
                                     RSENotFound, UnsupportedOperation, ReplicaNotFound)
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
 from rucio.common.utils import generate_http_error_flask, parse_response, APIEncoder, render_json_list
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
 
 class Replicas(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream', 'application/metalink4+xml'])
     def get(self, scope, name):
         """
         List all replicas for data identifiers.
@@ -70,6 +72,7 @@ class Replicas(MethodView):
         :status 200: OK.
         :status 401: Invalid auth token.
         :status 404: DID not found.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: A dictionary containing all replicas information.
         :returns: A metalink description of replicas if metalink(4)+xml is specified in Accept:
@@ -271,6 +274,7 @@ class Replicas(MethodView):
 
 class ListReplicas(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream', 'application/metalink4+xml'])
     def post(self):
         """
         List all replicas for data identifiers.
@@ -294,6 +298,7 @@ class ListReplicas(MethodView):
         :status 400: Cannot decode json parameter list.
         :status 401: Invalid auth token.
         :status 404: DID not found.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: A dictionary containing all replicas information.
         :returns: A metalink description of replicas if metalink(4)+xml is specified in Accept:
@@ -414,6 +419,7 @@ class ListReplicas(MethodView):
 
 class ReplicasDIDs(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def post(self):
         """
         List the DIDs associated to a list of replicas.
@@ -425,6 +431,7 @@ class ReplicasDIDs(MethodView):
         :resheader Content-Type: application/x-json-string
         :status 200: OK.
         :status 400: Cannot decode json parameter list.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: A list of dictionaries containing the mapping PFNs to DIDs.
         """
@@ -536,6 +543,7 @@ class SuspiciousReplicas(MethodView):
             return error, 500
         return Response(dumps(not_declared_files), status=201, content_type='application/x-json-stream')
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
         """
         List the suspicious replicas on a list of RSEs.
@@ -544,6 +552,7 @@ class SuspiciousReplicas(MethodView):
 
         :resheader Content-Type: application/json
         :status 200: OK.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: List of suspicious file replicas.
         """
@@ -566,6 +575,7 @@ class SuspiciousReplicas(MethodView):
 
 class BadReplicasStates(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
         """
         List the bad or suspicious replicas by states.
@@ -581,6 +591,7 @@ class BadReplicasStates(MethodView):
         :resheader Content-Type: application/x-json-stream
         :status 200: OK.
         :status 401: Invalid auth token.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: List of dicts of bad file replicas.
         """
@@ -619,6 +630,7 @@ class BadReplicasStates(MethodView):
 
 class BadReplicasSummary(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
         """
         Return a summary of the bad replicas by incident.
@@ -631,6 +643,7 @@ class BadReplicasSummary(MethodView):
         :resheader Content-Type: application/x-json-stream
         :status 200: OK.
         :status 401: Invalid auth token.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: List of bad replicas by incident.
         """
@@ -660,6 +673,7 @@ class BadReplicasSummary(MethodView):
 
 class DatasetReplicas(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope, name):
         """
         List dataset replicas.
@@ -670,6 +684,7 @@ class DatasetReplicas(MethodView):
         :resheader Content-Type: application/x-json-stream
         :status 200: OK.
         :status 401: Invalid auth token.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: A dictionary containing all replicas information.
         """
@@ -688,6 +703,7 @@ class DatasetReplicas(MethodView):
 
 class ReplicasRSE(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, rse):
         """
         List dataset replicas per RSE.
@@ -697,6 +713,7 @@ class ReplicasRSE(MethodView):
         :resheader Content-Type: application/x-json-stream
         :status 200: OK.
         :status 401: Invalid auth token.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: A dictionary containing all replicas on the RSE.
         """
@@ -750,10 +767,6 @@ class BadPFNs(MethodView):
                 reason = params['state']
             if 'expires_at' in params:
                 expires_at = datetime.strptime(params['expires_at'], "%Y-%m-%dT%H:%M:%S.%f")
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
-
-        try:
             add_bad_pfns(pfns=pfns, issuer=request.environ.get('issuer'), state=state, reason=reason, expires_at=expires_at)
         except (ValueError, InvalidType) as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
@@ -763,6 +776,45 @@ class BadPFNs(MethodView):
             return generate_http_error_flask(404, 'ReplicaNotFound', error.args[0])
         except Duplicate as error:
             return generate_http_error_flask(409, 'Duplicate', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return error, 500
+        return 'Created', 201
+
+
+class Tombstone(MethodView):
+
+    def post(self):
+        """
+        Set a tombstone on a list of replicas.
+
+        .. :quickref: Tombstone; Set a tombstone on a list of replicas.
+
+        :<json string replicas: list fo replicas
+        :resheader Content-Type: application/x-json-string
+        :status 201: Created.
+        :status 401: Invalid auth token.
+        :status 404: ReplicaNotFound.
+        :status 500: Internal Error.
+        """
+
+        json_data = request.data
+        replicas = []
+
+        try:
+            params = parse_response(json_data)
+            if 'replicas' in params:
+                replicas = params['replicas']
+        except ValueError:
+            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            for replica in replicas:
+                set_tombstone(replica['rse'], replica['scope'], replica['name'], issuer=request.environ.get('issuer'))
+        except ReplicaNotFound as error:
+            return generate_http_error_flask(404, 'ReplicaNotFound', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -794,6 +846,8 @@ replicas_dids_view = ReplicasDIDs.as_view('replicas_dids')
 bp.add_url_rule('/dids', view_func=replicas_dids_view, methods=['post', ])
 suspicious_replicas_view = SuspiciousReplicas.as_view('suspicious_replicas')
 bp.add_url_rule('/suspicious', view_func=suspicious_replicas_view, methods=['post', ])
+set_tombstone_view = Tombstone.as_view('set_tombstone')
+bp.add_url_rule('/tombstone', view_func=set_tombstone_view, methods=['post', ])
 
 application = Flask(__name__)
 application.register_blueprint(bp)

@@ -1,0 +1,66 @@
+======
+1.19.1
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Clients: Tools to monitor account usage history `#1952 <https://github.com/rucio/rucio/issues/1952>`_
+- Core & Internals: Allow staging_area replicas to be used as transfer sources and include them in the list replicas output `#2069 <https://github.com/rucio/rucio/issues/2069>`_
+- Core & Internals: Email missing from list identities `#2142 <https://github.com/rucio/rucio/issues/2142>`_
+- Documentation: import errors in the readthedocs environment `#2107 <https://github.com/rucio/rucio/issues/2107>`_
+- Documentation: Improve conveyor daemon documentation `#2126 <https://github.com/rucio/rucio/issues/2126>`_
+- Documentation: Fix typos in documentation, demo and dev. `#2185 <https://github.com/rucio/rucio/issues/2185>`_
+- Documentation: Fix grammatical errors and typos in the documentation `#2186 <https://github.com/rucio/rucio/issues/2186>`_
+- Documentation: Fix grammatical errors in the documentation `#2194 <https://github.com/rucio/rucio/issues/2194>`_
+- Probes & Alarms: New way to compute freespace `#2174 <https://github.com/rucio/rucio/issues/2174>`_
+- Recovery: Optimizations on the necromancer `#2181 <https://github.com/rucio/rucio/issues/2181>`_
+- Release management: Updated psycopg2 package to psycopg2-binary `#1159 <https://github.com/rucio/rucio/issues/1159>`_
+- Testing: remove rucio-systemd-cc7 from remaining docker images `#2137 <https://github.com/rucio/rucio/issues/2137>`_
+- Testing: fix broken Oracle XE in travis `#2177 <https://github.com/rucio/rucio/issues/2177>`_
+- Testing: add python3.5 test for rucio server on travis `#2200 <https://github.com/rucio/rucio/issues/2200>`_
+
+****
+Bugs
+****
+
+- Core & Internals: Update permissions for identity API `#2155 <https://github.com/rucio/rucio/issues/2155>`_
+- Core & Internals: rucio-admin command to put tombstone on a replica `#82 <https://github.com/rucio/rucio/issues/82>`_
+- Documentation: Fix readthedocs sidebar error `#2127 <https://github.com/rucio/rucio/issues/2127>`_
+- Infrastructure: missing file for dev Docker image build `#2180 <https://github.com/rucio/rucio/issues/2180>`_
+- Release management: alembic always tests sqlite `#2090 <https://github.com/rucio/rucio/issues/2090>`_
+- Testing: missing usercert.pem in dev dockerfile `#2089 <https://github.com/rucio/rucio/issues/2089>`_
+- Testing: problem with test_account due to overlapping PRs `#2203 <https://github.com/rucio/rucio/issues/2203>`_
+- Traces: bad replica declaration failing in kronos `#1766 <https://github.com/rucio/rucio/issues/1766>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: kill download/upload after expiration of transfer timeout `#1055 <https://github.com/rucio/rucio/issues/1055>`_
+- Clients: print message when declaring files as bad `#2038 <https://github.com/rucio/rucio/issues/2038>`_
+
+****
+Bugs
+****
+
+- Clients: impossible to create userpass identity `#2140 <https://github.com/rucio/rucio/issues/2140>`_
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- WebUI: Switch DDM dashboard link in webui to new monitoring `#2105 <https://github.com/rucio/rucio/issues/2105>`_

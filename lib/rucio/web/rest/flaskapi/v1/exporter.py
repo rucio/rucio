@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -25,12 +25,13 @@ from flask.views import MethodView
 from rucio.api.exporter import export_data
 from rucio.common.exception import RucioException
 from rucio.common.utils import generate_http_error_flask, render_json
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
 
 class Export(MethodView):
     """ Export data. """
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
         """ Export data from Rucio.
 
@@ -55,6 +56,7 @@ class Export(MethodView):
         :resheader Content-Type: application/json
         :status 200: DIDs found
         :status 401: Invalid Auth Token
+        :status 406: Not Acceptable
         :returns: dictionary with rucio data
         """
 

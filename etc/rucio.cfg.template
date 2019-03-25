@@ -31,6 +31,7 @@ client_x509_proxy = $X509_USER_PROXY
 ssh_private_key = $HOME/.ssh/id_rsa
 account = root
 request_retries = 3
+protocol_stat_retries = 6
 
 [upload]
 #transfer_timeout = 3600

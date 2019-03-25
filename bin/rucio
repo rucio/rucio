@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2018
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2019
 # - Vincent Garonne, <vgaronne@gmail.com>, 2012-2018
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012-2018
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2017
@@ -26,7 +26,7 @@
 # - Wen Guan, <wguan.icedew@gmail.com>, 2014
 # - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Evangelia Liotiri, <evangelia.liotiri@cern.ch>, 2015
-# - Tobias Wegner, <twegner@cern.ch>, 2017-2018
+# - Tobias Wegner, <twegner@cern.ch>, 2017-2019
 # - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017-2018
 # - Nicolo Magini, <Nicolo.Magini@cern.ch>, 2018
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2018
@@ -1105,7 +1105,7 @@ def add_did_meta(args):
     """
     client = get_client(args)
     scope, name = extract_scope(args.did)
-    client.add_did_meta(scope=scope, name=name, key=args.key, value=args.value)
+    client.add_did_meta(scope=scope, name=name, meta={args.key: args.value})
     return SUCCESS
 
 
@@ -1137,7 +1137,7 @@ def list_dids_by_meta(args):
         else:
             key, value = key_value.split('=')
             select[key] = value
-    client.list_dids_by_meta(select=select)
+    client.list_dids_by_meta(scope=args.scope, select=select)
     return SUCCESS
 
 
@@ -1659,7 +1659,7 @@ def get_parser():
                                                '\n'
                                                'The returned value is the version of Rucio installed on the server.'
                                                '\n')
-    ping_parser.set_defaults(which='ping')
+    ping_parser.set_defaults(function=ping)
 
     # The whoami command
     whoami_parser = subparsers.add_parser('whoami', help='Get information about account whose token is used.', formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1673,7 +1673,7 @@ def get_parser():
 The returned value is the account currently used.
                                                  ''')
 
-    whoami_parser.set_defaults(which='whoami_account')
+    whoami_parser.set_defaults(function=whoami_account)
 
     # The list-file-replicas command
     list_file_replicas_parser = subparsers.add_parser('list-file-replicas', help='List the replicas of a DID and its PFNs.', description='This method allows to list all the replicas of a given Data IDentifier (DID). \
@@ -1701,7 +1701,7 @@ To list the missing replica of a dataset of a given RSE::
     | user.jdoe | user.jdoe.test.data.1234.2 |
     +-----------+----------------------------+
     ''')
-    list_file_replicas_parser.set_defaults(which='list_file_replicas')
+    list_file_replicas_parser.set_defaults(function=list_file_replicas)
     list_file_replicas_parser.add_argument('--protocols', dest='protocols', action='store', help='List of comma separated protocols. (i.e. https, root, srm).', required=False)
     list_file_replicas_parser.add_argument('--all-states', dest='all_states', action='store_true', default=False, help='To select all replicas (including unavailable ones).', required=False)
     list_file_replicas_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
@@ -1733,7 +1733,7 @@ To list the missing replica of a dataset of a given RSE::
     | SITE2_DISK |       2 |       2 |
     +------------+---------+---------+
     ''')
-    list_dataset_replicas_parser.set_defaults(which='list_dataset_replicas')
+    list_dataset_replicas_parser.set_defaults(function=list_dataset_replicas)
     list_dataset_replicas_parser.add_argument(dest='did', action='store', help='The name of the DID to search.')
     list_dataset_replicas_parser.add_argument('--deep', action='store_true', help='Make a deep check.')
     list_dataset_replicas_parser.add_argument('--csv', dest='csv', action='store_true', default=False, help='Comma Separated Value output.',)
@@ -1749,7 +1749,7 @@ To list the missing replica of a dataset of a given RSE::
 
     ''')
 
-    add_dataset_parser.set_defaults(which='add_dataset')
+    add_dataset_parser.set_defaults(function=add_dataset)
     add_dataset_parser.add_argument('--monotonic', action='store_true', help='Monotonic status to True.')
     add_dataset_parser.add_argument(dest='did', action='store', help='The name of the dataset to add.')
     add_dataset_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Lifetime in seconds.')
@@ -1765,7 +1765,7 @@ To list the missing replica of a dataset of a given RSE::
 
     ''')
 
-    add_container_parser.set_defaults(which='add_container')
+    add_container_parser.set_defaults(function=add_container)
     add_container_parser.add_argument('--monotonic', action='store_true', help='Monotonic status to True.')
     add_container_parser.add_argument(dest='did', action='store', help='The name of the container to add.')
     add_container_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Lifetime in seconds.')
@@ -1782,7 +1782,7 @@ To list the missing replica of a dataset of a given RSE::
 
     ''')
 
-    attach_parser.set_defaults(which='attach')
+    attach_parser.set_defaults(function=attach)
     attach_parser.add_argument(dest='todid', action='store', help='Destination Data IDentifier (either dataset or container).')
     attach_parser.add_argument('-f', '--from-file', dest='fromfile', action='store_true', default=False, help='Attach the DIDs contained in a file. The file should contain one did per line.')
     attach_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers (or a file containing one did per line, if -f is present).')
@@ -1799,7 +1799,7 @@ To list the missing replica of a dataset of a given RSE::
 
     ''')
 
-    detach_parser.set_defaults(which='detach')
+    detach_parser.set_defaults(function=detach)
     detach_parser.add_argument(dest='fromdid', action='store', help='Target Data IDentifier (must be a dataset or container).')
     detach_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
 
@@ -1837,13 +1837,18 @@ You can filter by key/value, e.g.::
     +-------------------------------------------+--------------+
     ''')
 
-    ls_parser.set_defaults(which='list_dids')
+    ls_parser.set_defaults(function=list_dids)
     ls_parser.add_argument('-r', '--recursive', dest='recursive', action='store_true', default=False, help='List data identifiers recursively.')
     ls_parser.add_argument('--filter', dest='filter', action='store', help='Filter arguments in form `key=value,another_key=next_value`. Valid keys are name, type.')
     ls_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
     ls_parser.add_argument(dest='did', nargs=1, action='store', default=None, help='Data IDentifier pattern.')
 
-    list_parser = subparsers.add_parser('list-dids', help='List the data identifiers matching some metadata (synonym for ls).', description='List the Data IDentifiers matching certain pattern. Only the collections (i.e. dataset or container) are returned by default. With the filter option, you can specify a list of metadata that the Data IDentifier should match. Please use the filter option `--filter type=all` to find all types of Data IDentifiers.',  # NOQA: E501
+    list_parser = subparsers.add_parser('list-dids',
+                                        help='List the data identifiers matching some metadata (synonym for ls).',
+                                        description='''List the Data IDentifiers matching certain pattern.
+Only the collections (i.e. dataset or container) are returned by default.
+With the filter option, you can specify a list of metadata that the Data IDentifier should match.
+Please use the filter option `--filter type=all` to find all types of Data IDentifiers.''',
                                         formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''Usage example
 """""""""""""
 
@@ -1875,7 +1880,7 @@ You can filter by key/value, e.g.::
     | user.jdoe:user.jdoe.test.cont.1234.2      | CONTAINER    |
     +-------------------------------------------+--------------+''')
 
-    list_parser.set_defaults(which='list_dids')
+    list_parser.set_defaults(function=list_dids)
     list_parser.add_argument('--recursive', dest='recursive', action='store_true', default=False, help='List data identifiers recursively.')
     list_parser.add_argument('--filter', dest='filter', action='store', help='Filter arguments in form `key=value,another_key>=next_value`. Valid keys are type and length. Use `type` to specify a DID type to search for. Valid values are `ALL`, `COLLECTION`, `CONTAINER`, `DATASET`, `FILE`. Use `length` to filter for an amount of corresponding Data IDentifiers. Valid operators are `=`, `>`, `>=`, `<`, `<=`.')  # noqa: E501
     list_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
@@ -1895,7 +1900,7 @@ You can filter by key/value, e.g.::
     +--------------------------------------+--------------+
 
     ''')
-    list_parent_parser.set_defaults(which='list_parent_dids')
+    list_parent_parser.set_defaults(function=list_parent_dids)
     list_parent_parser.add_argument(dest='did', action='store', nargs='?', default=None, help='Data identifier.')
     list_parent_parser.add_argument('--pfn', dest='pfns', action='store', nargs='+', help='List parent dids for these pfns.')
     list_parent_parser.add_argument('--guid', dest='guids', action='store', nargs='+', help='List parent dids for these guids.')
@@ -1915,7 +1920,7 @@ You can filter by key/value, e.g.::
 
     ''')
 
-    list_parent_datasets_parser.set_defaults(which='list_parent_datasets')
+    list_parent_datasets_parser.set_defaults(function=list_parent_dids)
     list_parent_datasets_parser.add_argument(dest='did', action='store', nargs='?', default=None, help='Data identifier.')
     list_parent_datasets_parser.add_argument('--pfn', dest='pfns', action='store', nargs='+', help='List parent dids for these pfns.')
     list_parent_datasets_parser.add_argument('--guid', dest='guids', action='store', nargs='+', help='List parent dids for these guids.')
@@ -1934,52 +1939,52 @@ You can filter by key/value, e.g.::
 
     ''')
 
-    scope_list_parser.set_defaults(which='list_scopes')
+    scope_list_parser.set_defaults(function=list_scopes)
 
     # The close command
     close_parser = subparsers.add_parser('close', help='Close a dataset or container.')
-    close_parser.set_defaults(which='close')
+    close_parser.set_defaults(function=close)
     close_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
 
     # The reopen command
     reopen_parser = subparsers.add_parser('reopen', help='Reopen a dataset or container (only for privileged users).')
-    reopen_parser.set_defaults(which='reopen')
+    reopen_parser.set_defaults(function=reopen)
     reopen_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
 
     # The stat command
     stat_parser = subparsers.add_parser('stat', help='List attributes and statuses about data identifiers.')
-    stat_parser.set_defaults(which='stat')
+    stat_parser.set_defaults(function=stat)
     stat_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
 
     # The erase command
     erase_parser = subparsers.add_parser('erase', help='Delete a data identifier.', description='This command sets the lifetime of the DID in order to expire in the next 24 hours.\
             After this time, the dataset is eligible for deletion. The deletion is not reversible after 24 hours grace time period expired.')
-    erase_parser.set_defaults(which='erase')
+    erase_parser.set_defaults(function=erase)
     erase_parser.add_argument('--undo', dest='undo', action='store_true', default=False, help='Undo erase DIDs. Only works if has been less than 24 hours since erase operation.')
     erase_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
 
     # The list_files command
     list_files_parser = subparsers.add_parser('list-files', help='List DID contents', description='List all the files in a Data IDentifier. The DID can be a container, dataset or a file.\
                                                                   What is returned is a list of files in the DID with : <scope>:<name>\t<filesize>\t<checksum>\t<guid>')
-    list_files_parser.set_defaults(which='list_files')
+    list_files_parser.set_defaults(function=list_files)
     list_files_parser.add_argument('--csv', dest='csv', action='store_true', default=False, help='Comma Separated Value output. This output format is preferred for easy parsing and scripting.')
     list_files_parser.add_argument('--pfc', dest='LOCALPATH', action='store', default=False, help='Outputs the list of files in the dataset with the LOCALPATH prepended as a PoolFileCatalog')
     list_files_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
 
     # The list_content command
     list_content_parser = subparsers.add_parser('list-content', help='List the content of a collection.')
-    list_content_parser.set_defaults(which='list_content')
+    list_content_parser.set_defaults(function=list_content)
     list_content_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
     list_content_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
 
     # The list_content_history command
     list_content_history_parser = subparsers.add_parser('list-content-history', help='List the content history of a collection.')
-    list_content_history_parser.set_defaults(which='list_content_history')
+    list_content_history_parser.set_defaults(function=list_content_history)
     list_content_history_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
 
     # The upload subparser
     upload_parser = subparsers.add_parser('upload', help='Upload method.')
-    upload_parser.set_defaults(which='upload')
+    upload_parser.set_defaults(function=upload)
     upload_parser.add_argument('--rse', dest='rse', action='store', help='Rucio Storage Element (RSE) name.', required=True).completer = rse_completer
     upload_parser.add_argument('--lifetime', type=int, action='store', help='Lifetime of the rule in seconds.')
     upload_parser.add_argument('--scope', dest='scope', action='store', help='Scope name.')
@@ -1998,7 +2003,7 @@ You can filter by key/value, e.g.::
     get_parser = subparsers.add_parser('get', help='Download method (synonym for download)')
     download_parser = subparsers.add_parser('download', help='Download method (synonym for get)')
     for selected_parser in [get_parser, download_parser]:
-        selected_parser.set_defaults(which='download')
+        selected_parser.set_defaults(function=download)
         selected_parser.add_argument('--dir', dest='dir', default='.', action='store', help='The directory to store the downloaded file.')
         selected_parser.add_argument(dest='dids', nargs='*', action='store', help='List of space separated data identifiers.')
         selected_parser.add_argument('--allow-tape', action='store_true', default=False, help="Also consider tape endpoints as source of the download.")
@@ -2025,65 +2030,62 @@ You can filter by key/value, e.g.::
 
     # The get-metadata subparser
     get_metadata_parser = subparsers.add_parser('get-metadata', help='Get metadata for DIDs.')
-    get_metadata_parser.set_defaults(which='get_metadata')
+    get_metadata_parser.set_defaults(function=get_metadata)
     get_metadata_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
 
     # The set-metadata subparser
     set_metadata_parser = subparsers.add_parser('set-metadata', help='set-metadata method')
-    set_metadata_parser.set_defaults(which='set_metadata')
-    set_metadata_parser.add_argument('--did', dest='did', action='store', help='Data identifier to add', required=True)
+    set_metadata_parser.set_defaults(function=set_metadata)
+    set_metadata_parser.add_argument('--did', dest='did', action='store', help='Data identifier whose metadata will be set', required=True)
     set_metadata_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
     set_metadata_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
 
-    # The delete-metadata subparser
-    # delete_metadata_parser = subparsers.add_parser('delete-metadata', help='Delete metadata')
-    # delete_metadata_parser.set_defaults(which='delete_metadata')
-
     # The get-did-meta subparser
     get_did_meta_parser = subparsers.add_parser('get-did-meta', help='Get generic metadata for DIDs.')
-    get_did_meta_parser.set_defaults(which='get_did_meta')
+    get_did_meta_parser.set_defaults(function=get_did_meta)
     get_did_meta_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
 
     # Add add-did-meta subparser
     add_did_meta_parser = subparsers.add_parser('add-did-meta', help='Add or update metadata')
-    add_did_meta_parser.set_defaults(which='add_did_meta')
-    add_did_meta_parser.add_argument('--did', dest='did', action='store', help='Data identifier to add', required=True)
+    add_did_meta_parser.set_defaults(function=add_did_meta)
+    add_did_meta_parser.add_argument('--did', dest='did', action='store', help='Data identifier to which the metadata will be added', required=True)
     add_did_meta_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
     add_did_meta_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
 
     # delete-did-meta subparser
     delete_did_meta_parser = subparsers.add_parser('delete-did-meta', help='delete metadata')
-    delete_did_meta_parser.set_defaults(which='delete_did_meta')
+    delete_did_meta_parser.set_defaults(function=delete_did_meta)
     delete_did_meta_parser.add_argument('--did', dest='did', action='store', help='Data identifier to delete', required=True)
     delete_did_meta_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
 
     # Get dids by metadata key value
-    list_dids_by_meta_parser = subparsers.add_parser('list-dids-by-meta', help='list dids by a key value pair')
-    list_dids_by_meta_parser.set_defaults(which='list_dids_by_meta')
+    list_dids_by_meta_parser = subparsers.add_parser('list-dids-by-meta', help='list dids by a key value pairs')
+    list_dids_by_meta_parser.set_defaults(function=list_dids_by_meta)
     list_dids_by_meta_parser.add_argument(dest='key_values', nargs='+', action='store', help='KeyValue pairs')
+    list_dids_by_meta_parser.add_argument('--scope', dest='scope', action='store', default=None, help='The scope of the search.')
 
     # The list-rse-usage subparser
     list_rse_usage_parser = subparsers.add_parser('list-rse-usage', help='Shows the total/free/used space for a given RSE. This values can differ for different RSE source.')
-    list_rse_usage_parser.set_defaults(which='list_rse_usage')
+    list_rse_usage_parser.set_defaults(function=list_rse_usage)
     list_rse_usage_parser.add_argument(dest='rse', action='store', help='Rucio Storage Element (RSE) name.').completer = rse_completer
     list_rse_usage_parser.add_argument('--history', dest='history', default=False, action='store', help='List RSE usage history. [Unimplemented]')
     list_rse_usage_parser.add_argument('--show-accounts', dest='show_accounts', action='store_true', default=False, help='List accounts usages of RSE')
 
     # The list-account-usage subparser
     list_account_usage_parser = subparsers.add_parser('list-account-usage', help='Shows the space used, the quota limit and the quota left for an account for every RSE where the user have quota.')
-    list_account_usage_parser.set_defaults(which='list_account_usage')
+    list_account_usage_parser.set_defaults(function=list_account_usage)
     list_account_usage_parser.add_argument(dest='usage_account', action='store', help='Account name.')
     list_account_usage_parser.add_argument('--rse', action='store', help='Show usage for only for this RSE.')
 
     # The list-account-limits subparser
     list_account_limits_parser = subparsers.add_parser('list-account-limits', help='List quota limits for an account in every RSEs.')
-    list_account_limits_parser.set_defaults(which='list_account_limits')
+    list_account_limits_parser.set_defaults(function=list_account_limits)
     list_account_limits_parser.add_argument('limit_account', action='store', help='The account name.')
     list_account_limits_parser.add_argument('--rse', dest='rse', action='store', help='If this option is given, the results are restricted to only this RSE.').completer = rse_completer
 
     # Add replication rule subparser
     add_rule_parser = subparsers.add_parser('add-rule', help='Add replication rule.')
-    add_rule_parser.set_defaults(which='add_rule')
+    add_rule_parser.set_defaults(function=add_rule)
     add_rule_parser.add_argument(dest='dids', action='store', nargs='+', help='DID(s) to apply the rule to')
     add_rule_parser.add_argument(dest='copies', action='store', type=int, help='Number of copies')
     add_rule_parser.add_argument(dest='rse_expression', action='store', help='RSE Expression')
@@ -2102,7 +2104,7 @@ You can filter by key/value, e.g.::
 
     # Delete replication rule subparser
     delete_rule_parser = subparsers.add_parser('delete-rule', help='Delete replication rule.')
-    delete_rule_parser.set_defaults(which='delete_rule')
+    delete_rule_parser.set_defaults(function=delete_rule)
     delete_rule_parser.add_argument(dest='rule_id', action='store', help='Rule id or DID. If DID, the RSE expression is mandatory.')
     delete_rule_parser.add_argument('--purge-replicas', dest='purge_replicas', action='store_true', help='Purge rule replicas')
     delete_rule_parser.add_argument('--all', dest='delete_all', action='store_true', default=False, help='Delete all the rules, even the ones that are not owned by the account')
@@ -2111,7 +2113,7 @@ You can filter by key/value, e.g.::
 
     # Info replication rule subparser
     info_rule_parser = subparsers.add_parser('rule-info', help='Retrieve information about a rule.')
-    info_rule_parser.set_defaults(which='info_rule')
+    info_rule_parser.set_defaults(function=info_rule)
     info_rule_parser.add_argument(dest='rule_id', action='store', help='The rule ID')
     info_rule_parser.add_argument('--examine', dest='examine', action='store_true', help='Detailed analysis of transfer errors')
     info_rule_parser.add_argument('--estimate-ttc', dest='estimate_ttc', action='store_true', help='Show Estimated Time To Complete for the rule. Calculation can be time consuming.')
@@ -2139,7 +2141,7 @@ You can filter by account::
 
                                               ''')
 
-    list_rules_parser.set_defaults(which='list_rules')
+    list_rules_parser.set_defaults(function=list_rules)
     list_rules_parser.add_argument(dest='did', action='store', nargs='?', default=None, help='List by did')
     list_rules_parser.add_argument('--id', dest='rule_id', action='store', help='List by rule id')
     list_rules_parser.add_argument('--traverse', dest='traverse', action='store_true', help='Traverse the did tree and search for rules affecting this did')
@@ -2150,12 +2152,12 @@ You can filter by account::
 
     # The list_rules_history command
     list_rules_history_parser = subparsers.add_parser('list-rules-history', help='List replication rules history for a DID.')
-    list_rules_history_parser.set_defaults(which='list_rules_history')
+    list_rules_history_parser.set_defaults(function=list_rules_history)
     list_rules_history_parser.add_argument(dest='did', action='store', help='The Data IDentifier.')
 
     # The update_rule command
     update_rule_parser = subparsers.add_parser('update-rule', help='Update replication rule.')
-    update_rule_parser.set_defaults(which='update_rule')
+    update_rule_parser.set_defaults(function=update_rule)
     update_rule_parser.add_argument(dest='rule_id', action='store', help='Rule id')
     update_rule_parser.add_argument('--lifetime', dest='lifetime', action='store', help='Lifetime in seconds.')
     update_rule_parser.add_argument('--locked', dest='locked', action='store', help='Locked (True/False).')
@@ -2170,35 +2172,35 @@ You can filter by account::
 
     # The move_rule command
     move_rule_parser = subparsers.add_parser('move-rule', help='Move a replication rule to another RSE.')
-    move_rule_parser.set_defaults(which='move_rule')
+    move_rule_parser.set_defaults(function=move_rule)
     move_rule_parser.add_argument(dest='rule_id', action='store', help='Rule id')
     move_rule_parser.add_argument(dest='rse_expression', action='store', help='RSE expression of new rule')
 
     # The list-rses command
     list_rses_parser = subparsers.add_parser('list-rses', help='Show the list of all the registered Rucio Storage Elements (RSEs).')
-    list_rses_parser.set_defaults(which='list_rses')
+    list_rses_parser.set_defaults(function=list_rses)
     list_rses_parser.add_argument('--expression', dest='rse_expression', action='store', help='The RSE filter expression. A comprehensive help about RSE expressions \
 can be found in ' + Color.BOLD + 'http://rucio.cern.ch/client_tutorial.html#adding-rules-for-replication' + Color.END)
 
     # The list-rses-attributes command
     list_rse_attributes_parser = subparsers.add_parser('list-rse-attributes', help='List the attributes of an RSE.', description='This command is useful to create RSE filter expressions.')
-    list_rse_attributes_parser.set_defaults(which='list_rse-attributes')
+    list_rse_attributes_parser.set_defaults(function=list_rse_attributes)
     list_rse_attributes_parser.add_argument(dest='rse', action='store', help='The RSE name').completer = rse_completer
 
     # The list-datasets-rse command
     list_datasets_rse_parser = subparsers.add_parser('list-datasets-rse', help='List all the datasets at a RSE', description='This method allows to list all the datasets on a given Rucio Storage Element.\
         ' + Color.BOLD + 'Warning: ' + Color.END + 'This command can take a long time depending on the number of datasets in the RSE.')
-    list_datasets_rse_parser.set_defaults(which='list_datasets_rse')
+    list_datasets_rse_parser.set_defaults(function=list_datasets_rse)
     list_datasets_rse_parser.add_argument(dest='rse', action='store', default=None, help='The RSE name').completer = rse_completer
     list_datasets_rse_parser.add_argument('--long', dest='long', action='store_true', default=False, help='The long option')
 
     # The test-server command
     test_server_parser = subparsers.add_parser('test-server', help='Test Server', description='Run a battery of nosetests against the Rucio Servers.')
-    test_server_parser.set_defaults(which='test_server')
+    test_server_parser.set_defaults(function=test_server)
 
     # The get-metadata subparser
     touch_parser = subparsers.add_parser('touch', help='Touch one or more DIDs and set the last accessed date to the current date')
-    touch_parser.set_defaults(which='touch')
+    touch_parser.set_defaults(function=touch)
     touch_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
     touch_parser.add_argument('--rse', dest='rse', action='store', help="The RSE of the DIDs that are touched.").completer = rse_completer
 
@@ -2215,52 +2217,11 @@ if __name__ == '__main__':
 
     args = oparser.parse_args(sys.argv[1:])
 
-    commands = {'add_container': add_container,
-                'add_dataset': add_dataset,
-                'add_rule': add_rule,
-                'attach': attach,
-                'close': close,
-                'reopen': reopen,
-                'erase': erase,
-                'delete_rule': delete_rule,
-                'detach': detach,
-                'download': download,
-                'get': download,
-                'get_metadata': get_metadata,
-                'info_rule': info_rule,
-                'list_account_limits': list_account_limits,
-                'list_account_usage': list_account_usage,
-                'list_datasets_rse': list_datasets_rse,
-                'list_parent_dids': list_parent_dids,
-                'list_parent_datasets': list_parent_dids,
-                'list_files': list_files,
-                'list_content': list_content,
-                'list_content_history': list_content_history,
-                'list_dids': list_dids,
-                'list_dataset_replicas': list_dataset_replicas,
-                'list_file_replicas': list_file_replicas,
-                'list_rses': list_rses,
-                'list_rse-attributes': list_rse_attributes,
-                'list_rse_usage': list_rse_usage,
-                'list_rules': list_rules,
-                'list_rules_history': list_rules_history,
-                'list_scopes': list_scopes,
-                'ping': ping,
-                'set_metadata': set_metadata,
-                'stat': stat,
-                'test_server': test_server,
-                'touch': touch,
-                'update_rule': update_rule,
-                'move_rule': move_rule,
-                'upload': upload,
-                'whoami_account': whoami_account}
-
     try:
         if args.verbose:
             logger.setLevel(logging.DEBUG)
         start_time = time.time()
-        command = commands.get(args.which)
-        result = command(args)
+        result = args.function(args)
         end_time = time.time()
         if args.verbose:
             print("Completed in %-0.4f sec." % (end_time - start_time))

@@ -8,9 +8,10 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2019
 
 from rucio.common.utils import generate_uuid as uuid
-from rucio.core.account_counter import get_counter
+from rucio.core.account import get_usage
 from rucio.core.account_limit import set_account_limit
 from rucio.core.did import add_did, attach_dids, detach_dids
 from rucio.core.lock import get_replica_locks, get_dataset_locks
@@ -122,14 +123,14 @@ class TestJudgeEvaluator():
         # Add a first rule to the DS
         add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-        account_counter_before = get_counter(self.rse1_id, 'jdoe')
+        account_counter_before = get_usage(self.rse1_id, 'jdoe')
         attach_dids(scope, dataset, files, 'jdoe')
 
         # Fake judge
         re_evaluator(once=True)
         account_update(once=True)
 
-        account_counter_after = get_counter(self.rse1_id, 'jdoe')
+        account_counter_after = get_usage(self.rse1_id, 'jdoe')
         assert(account_counter_before['bytes'] + 3 * 100 == account_counter_after['bytes'])
         assert(account_counter_before['files'] + 3 == account_counter_after['files'])
 
@@ -149,7 +150,7 @@ class TestJudgeEvaluator():
 
         account_update(once=True)
 
-        account_counter_before = get_counter(self.rse1_id, 'jdoe')
+        account_counter_before = get_usage(self.rse1_id, 'jdoe')
 
         detach_dids(scope, dataset, [files[0]])
 
@@ -157,7 +158,7 @@ class TestJudgeEvaluator():
         re_evaluator(once=True)
         account_update(once=True)
 
-        account_counter_after = get_counter(self.rse1_id, 'jdoe')
+        account_counter_after = get_usage(self.rse1_id, 'jdoe')
         assert(account_counter_before['bytes'] - 100 == account_counter_after['bytes'])
         assert(account_counter_before['files'] - 1 == account_counter_after['files'])
 
