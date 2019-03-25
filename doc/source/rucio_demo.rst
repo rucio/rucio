@@ -22,7 +22,7 @@ Rucio demo
 Starting a Rucio demo instance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The instructions can be found in `Setting up a Rucio demo environment <http://rucio.readthedocs.io/installing_demo.html>`_
+The instructions can be found in `Setting up a Rucio demo environment <https://hub.docker.com/r/rucio/demo>`_
 
 Boostrap the Rucio demo
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -257,4 +257,3 @@ To delete the rule::
   ID                                ACCOUNT    SCOPE:NAME                                       STATE[OK/REPL/STUCK]    RSE_EXPRESSION      COPIES  EXPIRES (UTC)    CREATED (UTC)
   --------------------------------  ---------  -----------------------------------------------  ----------------------  ----------------  --------  ---------------  -------------------
   7744c0e0dcce4243b906a2afbc8bc87f  root       tests:test.24659.automatix_stream.recon.AOD.917  OK[2/0/0]               SITE1_DISK               1                   2018-02-19 13:47:06
-

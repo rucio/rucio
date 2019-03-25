@@ -23,7 +23,7 @@ from web import (application, header, loadhook, ctx)
 from rucio.common.exception import RucioException
 from rucio.common.utils import generate_http_error, render_json
 from rucio.api.exporter import export_data
-from rucio.web.rest.common import rucio_loadhook, RucioController
+from rucio.web.rest.common import rucio_loadhook, RucioController, check_accept_header_wrapper
 
 URLS = (
     '/', 'Export',
@@ -34,6 +34,7 @@ URLS = (
 class Export(RucioController):
     """ Export data from Rucio. """
 
+    @check_accept_header_wrapper(['application/json'])
     def GET(self):
         """ Export data from Rucio.
 
@@ -44,6 +45,7 @@ class Export(RucioController):
             400 Bad request
             401 Unauthorized
             404 Resource not Found
+            406 Not Acceptable
             500 InternalError
         """
         header('Content-Type', 'application/json')

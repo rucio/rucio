@@ -14,6 +14,7 @@
 #
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -23,8 +24,11 @@ import os
 
 from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
+from rucio.client.accountclient import AccountClient
 from rucio.client.uploadclient import UploadClient
 from rucio.common.utils import generate_uuid
+from rucio.core.account import get_usage_history
+from rucio.core.account_counter import update_account_counter_history
 from rucio.core.account_limit import get_account_usage, set_account_limit
 from rucio.core.rse import get_rse
 from rucio.daemons.undertaker import undertaker
@@ -40,6 +44,7 @@ class TestAbacusAccount():
         self.account = 'root'
         self.scope = 'mock'
         self.upload_client = UploadClient()
+        self.account_client = AccountClient()
         self.file_sizes = 2
         self.rse = 'MOCK4'
         self.rse_id = get_rse(self.rse).id
@@ -64,6 +69,17 @@ class TestAbacusAccount():
         account_usage = get_account_usage(account=self.account, rse_id=self.rse_id)[0]
         assert_equal(account_usage['bytes'], len(self.files) * self.file_sizes)
         assert_equal(account_usage['files'], len(self.files))
+
+        # Update and check the account history with the core method
+        update_account_counter_history(account=self.account, rse_id=self.rse_id)
+        usage_history = get_usage_history(rse_id=self.rse_id, account=self.account)
+        assert_equal(usage_history[-1]['bytes'], len(self.files) * self.file_sizes)
+        assert_equal(usage_history[-1]['files'], len(self.files))
+
+        # Check the account history with the client
+        usage_history = self.account_client.get_account_usage_history(rse=self.rse, account=self.account)
+        assert_equal(usage_history[-1]['bytes'], len(self.files) * self.file_sizes)
+        assert_equal(usage_history[-1]['files'], len(self.files))
 
         # Delete rules -> account usage should decrease
         cleaner.run(once=True)

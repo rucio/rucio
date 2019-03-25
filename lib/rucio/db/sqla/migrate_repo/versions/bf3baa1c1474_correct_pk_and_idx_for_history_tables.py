@@ -14,70 +14,65 @@
 #
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
-#
-# Topic: Correct PK and IDX for history tables
-# Revision ID: bf3baa1c1474
-# Revises: 9eb936a81eb1
-# Creation Date: 2019-01-28 16:25:57.818345
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
-from alembic.op import (create_primary_key,
-                        drop_constraint, create_index,
-                        drop_index, drop_column, add_column)
-
-from alembic import context
-
-from rucio.db.sqla.types import GUID
+''' correct PK and IDX for history tables '''
 
 import sqlalchemy as sa
 
+from alembic import context
+from alembic.op import (create_primary_key, drop_constraint,
+                        drop_index, drop_column, add_column)
 
-# revision identifiers used by alembic
-revision = 'bf3baa1c1474'       # pylint: disable=invalid-name
-down_revision = '9eb936a81eb1'  # pylint: disable=invalid-name
+from rucio.db.sqla.types import GUID
+
+
+# Alembic revision identifiers
+revision = 'bf3baa1c1474'
+down_revision = '9eb936a81eb1'
 
 
 def upgrade():
     '''
     Upgrade the database to this revision
     '''
-    if context.get_context().dialect.name != 'sqlite':  # pylint: disable=no-member
+
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         # CONTENTS_HISTORY
-        drop_constraint('CONTENTS_HIST_PK', 'contents_history')
+        drop_constraint('CONTENTS_HIST_PK', 'contents_history', type_='primary')
 
         # ARCHIVE_CONTENTS_HISTORY
-        drop_constraint('ARCH_CONTENTS_HISOTRY_PK', 'archive_contents_history')
-        create_index('ARCH_CONT_HIST_IDX', 'archive_contents_history', ["scope", "name"])
+        drop_constraint(constraint_name='ARCH_CONT_HIST_PK', table_name='archive_contents_history', type_='primary')
 
         # RULES_HIST_RECENT
-        drop_constraint('RULES_HIST_RECENT_PK', 'rules_hist_recent')
-        drop_column('rules_hist_recent', 'history_id')
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        drop_constraint(constraint_name='RULES_HIST_RECENT_PK', table_name='rules_hist_recent', type_='primary')
+        drop_column('rules_hist_recent', 'history_id', schema=schema)
 
         # RULES_HISTORY
-        drop_constraint('RULES_HIST_LONGTERM_PK', 'rules_history')
-        drop_column('rules_history', 'history_id')
-
-        # MESSAGES_HISTORY
-        drop_constraint('MESSAGES_HIST_ID_PK', 'messages_history')
+        drop_column('rules_history', 'history_id', schema=schema)
 
 
 def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
-    if context.get_context().dialect.name != 'sqlite':  # pylint: disable=no-member
+
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         # CONTENTS_HISTORY
         create_primary_key('CONTENTS_HIST_PK', 'contents_history', ['scope', 'name', 'child_scope', 'child_name'])
 
         # ARCHIVE_CONTENTS_HISTORY
-        create_primary_key('ARCH_CONTENTS_HISOTRY_PK', 'archive_contents_history', ['scope', 'name', 'child_scope', 'child_name'])
+        create_primary_key('ARCH_CONT_HIST_PK', 'archive_contents_history', ['scope', 'name', 'child_scope', 'child_name'])
         drop_index('ARCH_CONT_HIST_IDX', 'archive_contents_history')
 
         # RULES_HIST_RECENT
-        add_column('rules_hist_recent', sa.Column('history_id', GUID()))
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        add_column('rules_hist_recent', sa.Column('history_id', GUID()), schema=schema)
         create_primary_key('RULES_HIST_RECENT_PK', 'rules_hist_recent', ['history_id'])
 
         # RULES_HISTORY
-        add_column('rules_history', sa.Column('history_id', GUID()))
+        add_column('rules_history', sa.Column('history_id', GUID()), schema=schema)
         create_primary_key('RULES_HIST_LONGTERM_PK', 'rules_history', ['history_id'])
 
         # MESSAGES_HISTORY

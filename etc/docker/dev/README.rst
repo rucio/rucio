@@ -19,7 +19,7 @@ run against the development code without having to rebuild the environment for e
 docker-compose
 --------------
 
-YAML for docker compose has been provided to allow easily setup the containers from the rucio code directory::
+YAML for docker compose has been provided to allow easy setup the containers from the rucio code directory::
 
    $> docker-compose --file etc/docker/dev/docker-compose.yml up -d
 
@@ -37,7 +37,7 @@ The container environment may also be setup by hand. First setup the mysql serve
            -e MYSQL_PASSWORD=rucio \
            mysql/mysql-server:5.7
 
-And to provide a server for rucio monitoring to report to:
+And to provide a server for rucio monitoring to report to::
 
   $> docker run -d\
                 --name graphite\

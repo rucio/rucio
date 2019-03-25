@@ -41,8 +41,11 @@ from requests.packages.urllib3 import disable_warnings  # pylint: disable=import
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 
-from fts3.rest.client.easy import Context, delegate  # pylint: disable=no-name-in-module,import-error
-from fts3.rest.client.exceptions import BadEndpoint, ClientError, ServerError  # pylint: disable=no-name-in-module,import-error
+try:
+    from fts3.rest.client.easy import Context, delegate  # pylint: disable=no-name-in-module,import-error
+    from fts3.rest.client.exceptions import BadEndpoint, ClientError, ServerError  # pylint: disable=no-name-in-module,import-error
+except ImportError:
+    pass
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer
 from rucio.core.monitor import record_counter, record_timer
@@ -452,6 +455,86 @@ class FTS3Transfertool(Transfertool):
         if result and result.status_code == 200:
             return result.json()
         raise Exception('Could not retrieve transfer information: %s', result.content)
+
+    def get_se_config(self, storage_element):
+        """
+        Get the Json response for the configuration of a storage element.
+        :returns: a Json result for the configuration of a storage element.
+        :param storage_element: the storage element you want the configuration for.
+        """
+
+        try:
+            result = requests.get('%s/config/se' % (self.external_host),
+                                  verify=self.verify,
+                                  cert=self.cert,
+                                  headers={'Content-Type': 'application/json'},
+                                  timeout=None)
+        except Exception:
+            logging.warn('Could not get config of %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
+        if result and result.status_code == 200:
+            C = result.json()
+            config_se = C[storage_element]
+            return config_se
+        raise Exception('Could not get the configuration of %s , status code returned : %s', (storage_element, result.status_code if result else None))
+
+    def set_se_config(self, storage_element, inbound_max_active=None, outbound_max_active=None, inbound_max_throughput=None, outbound_max_throughput=None, staging=None):
+        """
+        Set the configuration for a storage element. Used for alleviating transfer failures due to timeout.
+        :returns: JSON post response in case of success, otherwise raise Exception.
+        :param storage_element: The storage element to be configured
+        :param inbound_max_active: the integer to set the inbound_max_active for the SE.
+        :param outbound_max_active: the integer to set the outbound_max_active for the SE.
+        :param inbound_max_throughput: the float to set the inbound_max_throughput for the SE.
+        :param outbound_max_throughput: the float to set the outbound_max_throughput for the SE.
+        :param staging: the integer to set the staging for the operation of a SE.
+        """
+
+        params_dict = {storage_element: {'operations': {}, 'se_info': {}}}
+        if staging is not None:
+            try:
+                policy = config_get('permission', 'policy')
+            except Exception:
+                logging.warn('Could not get policy from config')
+            params_dict[storage_element]['operations'] = {policy: {'staging': staging}}
+        # A lot of try-excepts to avoid dictionary overwrite's,
+        # see https://stackoverflow.com/questions/27118687/updating-nested-dictionaries-when-data-has-existing-key/27118776
+        if inbound_max_active is not None:
+            try:
+                params_dict[storage_element]['se_info']['inbound_max_active'] = inbound_max_active
+            except KeyError:
+                params_dict[storage_element]['se_info'] = {'inbound_max_active': inbound_max_active}
+        if outbound_max_active is not None:
+            try:
+                params_dict[storage_element]['se_info']['outbound_max_active'] = outbound_max_active
+            except KeyError:
+                params_dict[storage_element]['se_info'] = {'outbound_max_active': outbound_max_active}
+        if inbound_max_throughput is not None:
+            try:
+                params_dict[storage_element]['se_info']['inbound_max_throughput'] = inbound_max_throughput
+            except KeyError:
+                params_dict[storage_element]['se_info'] = {'inbound_max_throughput': inbound_max_throughput}
+        if outbound_max_throughput is not None:
+            try:
+                params_dict[storage_element]['se_info']['outbound_max_throughput'] = outbound_max_throughput
+            except KeyError:
+                params_dict[storage_element]['se_info'] = {'outbound_max_throughput': outbound_max_throughput}
+
+        params_str = json.dumps(params_dict)
+
+        try:
+            result = requests.post('%s/config/se' % (self.external_host),
+                                   verify=self.verify,
+                                   cert=self.cert,
+                                   data=params_str,
+                                   headers={'Content-Type': 'application/json'},
+                                   timeout=None)
+
+        except Exception:
+            logging.warn('Could not set the config of %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
+        if result and result.status_code == 200:
+            configSe = result.json()
+            return configSe
+        raise Exception('Could not set the configuration of %s , status code returned : %s', (storage_element, result.status_code if result else None))
 
     def set_se_status(self, storage_element, message, ban=True, timeout=None):
         """

@@ -17,6 +17,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -29,7 +30,7 @@ from flask.views import MethodView
 
 from rucio.api import request
 from rucio.common.utils import generate_http_error_flask, APIEncoder
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
 
 LOGGER = getLogger("rucio.request")
@@ -41,6 +42,7 @@ LOGGER.addHandler(SH)
 class RequestGet(MethodView):
     """ REST API to get requests. """
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, scope, name, rse):
         """
         List request for given DID to a destination RSE.
@@ -53,6 +55,7 @@ class RequestGet(MethodView):
         :reqheader Content-Type: application/json
         :status 200: Request found.
         :status 404: Request not found.
+        :status 406: Not Acceptable.
         """
 
         try:

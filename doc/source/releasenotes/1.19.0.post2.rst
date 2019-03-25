@@ -1,0 +1,135 @@
+================================
+1.19.0.post2 "Fantastic Donkeys"
+================================
+
+--------------------
+Upgrade Instructions
+--------------------
+
+This feature release requires a database schema upgrade. Please consult the `documentation <https://rucio.readthedocs.io/en/latest/database.html>`_ about upgrading your database schema.
+
+The following changes are necessary and are covered by the ``alembic upgrade head`` command:
+
+1. ``bad_replicas_table`` changes (Alembic revision ``b96a1c7e1cc4``)
+   
+   - New ``expires_at`` column.
+   - Primary key change.
+   - New ``BAD_REPLICAS_EXPIRES_AT_IDX`` Index.
+   - Constraint ``BAD_REPLICAS_STATE_CHK`` change.
+
+2. New ``bad_pfns`` table (Alembic revision ``b96a1c7e1cc4``)
+
+3. Change of ``rse_attr_map`` and ``account_attr_map`` boolean values (Alembic revision ``9eb936a81eb1``)
+   
+   - ``True`` to ``true``
+   - ``False`` to ``false``
+
+4. Changes in history tables (Alembic revision ``bf3baa1c1474``)
+
+   - Drop of Primary Key ``CONTENTS_HIST_PK`` for table ``contents_history``.
+   - Drop of Primary Key ``ARCH_CONTENTS_HISOTRY_PK`` for table ``archive_contents_history``.
+   - Creation of Index ``ARCH_CONT_HIST_IDX`` for table ``archive_contents_history``.
+   - Drop of Primary Key ``RULES_HIST_RECENT_PK`` for table ``rules_hist_recent``.
+   - Drop of column ``history_id`` for table ``rules_hist_recent``.
+   - Drop of Primary Key ``RULES_HIST_LONGTERM_PK`` for table ``rules_history``.
+   - Drop of column ``history_id`` for table ``rules_history``.
+   - Drop of Primary Key ``MESSAGES_HIST_ID_PK`` for table ``messages_history``.
+
+5. Adding of new ``payload_nolimit`` column to messages tables (Alembic revision ``90f47792bb76``)
+
+   - Add column ``payload_nolimit`` to table ``messages``.
+   - Add column ``payload_nolimit`` to table ``messages_history``.
+
+6. Change of constraint ``RULES_NOTIFICATION_CHK`` for ``rules`` (Alembic revision ``01eaf73ab656``)
+
+7. Change of Primary Key ``REPLICAS_PK`` for table ``replicas`` (Alembic revision ``3345511706b8``)
+
+The following change are necessary and are **NOT** covered by the ``alembic upgrade head`` command:
+
+1. The boolean values upgrade on the ``rse_attr_map`` and ``account_attr_map`` tables from ``0`` to ``false`` and ``1`` to ``true`` need to be executed manually, since the script cannot distinguish between the integer or boolean interpretation of the attribute. It is very important that you only upgrade ``0`` and ``1`` which actualy correspond to boolean values, otherwise functionality might be degraded (Alembic revision ``9eb936a81eb1``)
+
+-------
+General
+-------
+
+********
+Features
+********
+
+- Core & Internals: Mark replicas as temporarily unavailable `#1550 <https://github.com/rucio/rucio/issues/1550>`_
+- Core & Internals: PK in history tables mostly wrong `#1818 <https://github.com/rucio/rucio/issues/1818>`_
+- Core & Internals: Limit the maximum space usage on an RSE `#1965 <https://github.com/rucio/rucio/issues/1965>`_
+- Core & Internals: Messages payload are limited to 4000 characters and throw exception `#48 <https://github.com/rucio/rucio/issues/48>`_
+- Core & Internals: json based import for RSEs, protocols, distances `#716 <https://github.com/rucio/rucio/issues/716>`_
+- Rules: New Rule Notification Mode `#1922 <https://github.com/rucio/rucio/issues/1922>`_
+- Transfers: Remove conveyor-transfer-submitter `#1632 <https://github.com/rucio/rucio/issues/1632>`_
+
+************
+Enhancements
+************
+
+- Clients: Allow upload of replicas to non-det RSEs by users `#1172 <https://github.com/rucio/rucio/issues/1172>`_
+- Core & Internals: Core migration to python3 `#1912 <https://github.com/rucio/rucio/issues/1912>`_
+- Core & Internals: Daemon migration to python3 `#1924 <https://github.com/rucio/rucio/issues/1924>`_
+- Core & Internals: fix last python3 incompatibilities `#1961 <https://github.com/rucio/rucio/issues/1961>`_
+- Core & Internals: Add missing wsgi alias for import/export `#1990 <https://github.com/rucio/rucio/issues/1990>`_
+- Messaging: improve connection handling to broker `#1479 <https://github.com/rucio/rucio/issues/1479>`_
+- Rebalancing: bb8 - replacing sql query with sql alchemy `#1861 <https://github.com/rucio/rucio/issues/1861>`_
+- Rebalancing: BB8 should avoid reducing the replication factor of a dataset `#484 <https://github.com/rucio/rucio/issues/484>`_
+- Release management: Address security issue in paramiko due to CVE-2018-1000805 `#1646 <https://github.com/rucio/rucio/issues/1646>`_
+- Release management: Upgrade of dependencies for 1.19.0 `#2028 <https://github.com/rucio/rucio/issues/2028>`_
+- Release management: Rucio py3 compatibility `#67 <https://github.com/rucio/rucio/issues/67>`_
+- Testing: switch oracle image for travis tests `#2010 <https://github.com/rucio/rucio/issues/2010>`_
+- Traces: kronos: activemq connect is missing wait=True `#321 <https://github.com/rucio/rucio/issues/321>`_
+
+****
+Bugs
+****
+
+- Core & Internals: Primary Key for replicas table is in wrong order in models.py `#1749 <https://github.com/rucio/rucio/issues/1749>`_
+- Core & Internals: list-rse-usage with --show-accounts does not work `#2040 <https://github.com/rucio/rucio/issues/2040>`_
+- Deletion: The reaper may ignore some rses if there is more than one rse handled per thread `#1729 <https://github.com/rucio/rucio/issues/1729>`_
+- Deletion: Reaper crashes if no RSEs are defined `#1917 <https://github.com/rucio/rucio/issues/1917>`_
+- Documentation: Documentation build fails `#1774 <https://github.com/rucio/rucio/issues/1774>`_
+- Documentation: Broken links in documentation sidebar `#2065 <https://github.com/rucio/rucio/issues/2065>`_
+- Probes & Alarms: The FTS probe sometimes doesn't whitelist a SE after the end of downtime `#2015 <https://github.com/rucio/rucio/issues/2015>`_
+- Probes & Alarms: Synchronisation with VOMS fails under Nagios due to non-ASCII characters `#2051 <https://github.com/rucio/rucio/issues/2051>`_
+- Rebalancing: BB8 crash with RSEBlacklisted exception `#313 <https://github.com/rucio/rucio/issues/313>`_
+- Release management: Define stricter depdency ranges for pip-requires-client `#1692 <https://github.com/rucio/rucio/issues/1692>`_
+- Transfers: REST call for requests is broken by '/' in DIDs `#1791 <https://github.com/rucio/rucio/issues/1791>`_
+
+
+-------
+Clients
+-------
+
+********
+Features
+********
+
+- Clients: Expose request details (e.g. FTS job ID) to the client `#1786 <https://github.com/rucio/rucio/issues/1786>`_
+
+************
+Enhancements
+************
+
+- Clients: rucio download should be able to use locally cached metalink `#1415 <https://github.com/rucio/rucio/issues/1415>`_
+- Clients: Handling of istape=False in the client `#1455 <https://github.com/rucio/rucio/issues/1455>`_
+- Clients: fix python3 incompatibilities not found by pylint `#2020 <https://github.com/rucio/rucio/issues/2020>`_
+
+****
+Bugs
+****
+
+- Clients: authentication type selection safeguard `#2006 <https://github.com/rucio/rucio/issues/2006>`_
+
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- WebUI: View for suspicious files `#2054 <https://github.com/rucio/rucio/issues/2054>`_

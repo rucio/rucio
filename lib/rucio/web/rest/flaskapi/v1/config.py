@@ -17,6 +17,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -27,7 +28,7 @@ from flask.views import MethodView
 
 from rucio.api import config
 from rucio.common.utils import generate_http_error_flask
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
 
 LOGGER = getLogger("rucio.config")
@@ -44,6 +45,7 @@ URLS = ('/(.+)/(.+)/(.*)', 'OptionSet',
 class Config(MethodView):
     """ REST API for full configuration. """
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
         """
         List full configuration.
@@ -53,6 +55,7 @@ class Config(MethodView):
         :resheader Content-Type: application/json
         :status 200: OK.
         :status 401: Invalid Auth Token.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         """
 
@@ -68,6 +71,7 @@ class Config(MethodView):
 class Section(MethodView):
     """ REST API for the sections in the configuration. """
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, section):
         """
         List configuration of a section
@@ -79,6 +83,7 @@ class Section(MethodView):
         :status 200: OK.
         :status 401: Invalid Auth Token.
         :status 404: Config not found.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         """
 
@@ -95,6 +100,7 @@ class Section(MethodView):
 class OptionGetDel(MethodView):
     """ REST API for reading or deleting the options in the configuration. """
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, section, option):
         """
         Retrieve the value of an option.
@@ -106,6 +112,7 @@ class OptionGetDel(MethodView):
         :status 200: OK.
         :status 401: Invalid Auth Token.
         :status 404: Config not found.
+        :status 406: Not Acceptable.
         :status 500: Internal Error.
         """
 

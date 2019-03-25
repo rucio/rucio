@@ -1,3 +1,4 @@
+
 Database operations
 ===================
 
@@ -14,7 +15,7 @@ PostgreSQL: ``postgresql://rucio:rucio@localhost:6601/rucio``
 
 SQLite: ``sqlite:////tmp/rucio.db``
 
-Please ensure correct UNIX permissions on the SQLite file, such that the webserver process can read and write to it.
+Please ensure correct UNIX permissions on the SQLite file, such that the web server process can read and write to it. 
 
 Upgrading and downgrading the database schema
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

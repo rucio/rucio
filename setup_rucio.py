@@ -1,4 +1,4 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2014-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,11 +13,10 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2014
-# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2012-2018
-# - Wen Guan <wguan.icedew@gmail.com>, 2014
+# - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
 '''
 Setup.py which moves kerberos modules in extra dependencies to be buildthedocs compliant.
@@ -165,7 +164,7 @@ def write_requirements():
 
 
 oracle_extras = ['cx_oracle==6.3.1']
-postgresql_extras = ['psycopg2>=2.4.2']
+postgresql_extras = ['psycopg2-binary>=2.4.2']
 mysql_extras = ['PyMySQL']
 kerberos_extras = ['kerberos>=1.3.0', 'pykerberos>=1.2.1', 'requests-kerberos>=0.12.0']
 dev_extras = parse_requirements(requirements_files=['tools/pip-requires-test', ])

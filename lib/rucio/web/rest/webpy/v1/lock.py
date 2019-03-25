@@ -17,7 +17,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2014
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -32,7 +32,7 @@ from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks
 from rucio.common.exception import RucioException, RSENotFound
 from rucio.common.schema import SCOPE_NAME_REGEXP
 from rucio.common.utils import generate_http_error, render_json
-from rucio.web.rest.common import rucio_loadhook
+from rucio.web.rest.common import rucio_loadhook, check_accept_header_wrapper
 
 LOGGER = getLogger("rucio.lock")
 SH = StreamHandler()
@@ -46,6 +46,7 @@ URLS = ('%s' % SCOPE_NAME_REGEXP, 'LockByScopeName',
 class LockByRSE(object):
     """ REST APIs for dataset locks. """
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, rse):
         """ get locks for a given rse.
 
@@ -54,6 +55,7 @@ class LockByRSE(object):
 
         HTTP Error:
             404 Not Found
+            406 Not Acceptable
             500 InternalError
 
         :returns: JSON dict containing informations about the requested user.
@@ -81,6 +83,7 @@ class LockByRSE(object):
 class LockByScopeName(object):
     """ REST APIs for dataset locks. """
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, scope, name):
         """ get locks for a given scope, name.
 
@@ -89,6 +92,7 @@ class LockByScopeName(object):
 
         HTTP Error:
             404 Not Found
+            406 Not Acceptable
             500 InternalError
 
         :returns: JSON dict containing informations about the requested user.

@@ -1,22 +1,8 @@
-Rucio - Scientific Data Management
----
-(Demo Container)
-===
-
-Rucio is a software framework that provides functionality to organize, manage, and access large volumes of scientific data using customisable policies. The data can be spread across globally distributed locations and across heterogeneous data centers, uniting different storage and network technologies as a single federated entity. Rucio offers advanced features such as distributed data recovery or adaptive replication, and is highly scalable, modular, and extensible. Rucio has been originally developed to meet the requirements of the high-energy physics experiment ATLAS, and is continuously extended to support LHC experiments and other diverse scientific communities.
-
-Documentation
--------------
-
-General information and latest documentation about Rucio can be found at [readthedocs](<http://rucio.readthedocs.io>).
-
-Developers
-----------
-
-For information on how to contribute to Rucio, please refer and follow our [CONTRIBUTING](<https://github.com/rucio/rucio/blob/master/CONTRIBUTING.rst>) guidelines.
+Setting up a Rucio demo environment
+===================================
 
 Prerequisites
---------------
+~~~~~~~~~~~~~
 
 Setting up a Rucio demo environment requires to have `docker` and `docker-compose`
 installed. Docker is an application that makes it simple and easy to run
@@ -28,9 +14,9 @@ The containers provided here can be used to easily setup a small demo instance o
 Rucio with some mock data to play around with some Rucio commands.
 
 docker-compose
----------------
+~~~~~~~~~~~~~~
 
-A YAML file for `docker-compose` has been provided to allow easily setup of the containers.
+A YAML file for `docker-compose` has been provided to allow easy setup of the containers.
 to have access to this `docker-compose.yml file <https://github.com/rucio/rucio/blob/master/etc/docker/demo/docker-compose.yml>`_,
 you can either:
 
@@ -46,7 +32,7 @@ Here we assume that the command is executed at the root of the Rucio cloned repo
 The names of the two containers (rucio and mysql) should be printed in the terminal for you.
 
 Checking the containers
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 After you run the docker-compose command you can check the status of the containers::
 
@@ -56,7 +42,7 @@ After you run the docker-compose command you can check the status of the contain
     8d5f8253f3d8        mysql/mysql-server:5.7   "/entrypoint.sh mysql"   13 minutes ago      Up 13 minutes (healthy)    3306/tcp, 33060/tcp    demo_mysql_1
 
 Initial setup of demo data
---------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 After the first start of the demo containers you will have to setup the demo account
 and the demo data to be able to use the Rucio commands and the WebUI. To do this you
@@ -65,6 +51,7 @@ have to simply run the following command::
     $ sudo docker exec -it demo_rucio_1 /setup_demo.sh
 
 You might see the following error message::
+
     ...
     sqlalchemy.exc.OperationalError: (_mysql_exceptions.OperationalError) (2003, "Can't connect to MySQL server on 'mysql' (111)") (Background on this error at: http://sqlalche.me/e/e3q8)
 
@@ -93,7 +80,7 @@ get the rucio version::
     1.15.0
 
 Using the container
--------------------
+~~~~~~~~~~~~~~~~~~~
 
 When everything is ready you can log into the container
 and start playing around with rucio::
@@ -114,14 +101,14 @@ and start playing around with rucio::
     [root@ad03d8dc3b4a rucio]#
 
 Stopping the demo
------------------
+~~~~~~~~~~~~~~~~~
 
 To stop the demo, you can do::
 
     $ docker-compose --file etc/docker/demo/docker-compose.yml down
 
 Accessing the WebUI
--------------------
+~~~~~~~~~~~~~~~~~~~
 
 In the demo container is also an instance of the Rucio WebUI started.
 
@@ -131,8 +118,8 @@ certificate under::
 
     etc/docker/demo/certs/rucio_demo_cert.p12
 
-The import password is `rucio-demo`.
+The import password is **rucio-demo**.
 
-Then you can access the WebUI using this url: ´https://<hostname>/ui/´
+Then you can access the WebUI using this URL: **https://<hostname>/ui/**
 
-Normally, it's https://localhost/ui/
+Normally, it's https://localhost/ui/.

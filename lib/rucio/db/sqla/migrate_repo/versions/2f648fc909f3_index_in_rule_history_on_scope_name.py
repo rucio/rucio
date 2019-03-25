@@ -1,38 +1,46 @@
-"""
-  Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+''' index in rule_history on scope, name '''
 
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
-
-Index in rule_history on scope, name
-
-Revision ID: 2f648fc909f3
-Revises: 269fee20dee9
-Create Date: 2015-07-21 13:04:18.896813
-
-"""
-
+from alembic import context
 from alembic.op import create_index, drop_index
 
-# revision identifiers, used by Alembic.
-revision = '2f648fc909f3'   # pylint:disable=invalid-name
-down_revision = 'bb695f45c04'  # pylint:disable=invalid-name
+
+# Alembic revision identifiers
+revision = '2f648fc909f3'
+down_revision = 'bb695f45c04'
 
 
 def upgrade():
     '''
-    upgrade method
+    Upgrade the database to this revision
     '''
-    create_index('RULES_HISTORY_SCOPENAME_IDX', 'rules_history', ['scope', 'name'])
+
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        create_index('RULES_HISTORY_SCOPENAME_IDX', 'rules_history', ['scope', 'name'])
 
 
 def downgrade():
     '''
-    downgrade method
+    Downgrade the database to the previous revision
     '''
-    drop_index('RULES_HISTORY_SCOPENAME_IDX', 'rules_history')
+
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        drop_index('RULES_HISTORY_SCOPENAME_IDX', 'rules_history')

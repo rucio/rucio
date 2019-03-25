@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2016-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2016-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,10 @@
 # limitations under the License.
 #
 # Authors:
-# - Wen Guan, <wguan.icedew@gmail.com>, 2016
-# - Vincent Garonne, <vgaronne@gmail.com>, 2018
+# - Wen Guan <wguan.icedew@gmail.com>, 2016
+# - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -33,7 +35,48 @@ def get_parser():
     """
     Returns the argparse parser.
     """
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="The Conveyor-Throttler daemon is responsible for managing the internal queue of transfer requests. Depending of transfer limits and current and waiting transfers, it decides whether a transfer should be put in the queue or not.", epilog='''
+In this example, the transfer limit will be one transfer which means that there should be only one active transfer at the time.
+There will be two waiting transfer requests and no current active transfer.
+After running the daemon, there will be one transfer in the queue which can then be started.
+
+Setup the transfer limit::
+
+  $ python
+  from rucio.core.rse import set_rse_transfer_limits
+  set_rse_transfer_limits('MOCK2', 'User Subscriptions', max_transfers=1)
+  $ rucio-admin config set --section throttler --option 'User Subscriptions,MOCK2' --value 1
+
+Upload two files and create replication rules to the same RSE::
+
+  $ rucio upload --scope mock --rse MOCK --name file1 filename.txt
+  $ rucio add-rule mock:file 1 MOCK2
+  $ rucio upload --scope mock --rse MOCK --name file2 filename.txt
+  $ rucio add-rule mock:file2 1 MOCK2
+
+Check transfer requests::
+
+    $ python
+    from rucio.db.sqla import session,models
+    [request.to_dict() for request in session.get_session().query(models.Request).all()]
+    # [{'state': WAITING, ...}, {'state': WAITING, ...}
+
+Two transfer requests with the state 'WAITING' got created.
+
+Run the daemon::
+
+  $ rucio-conveyor-throttler --run-once
+
+Check transfer requests::
+
+    $ python
+    from rucio.db.sqla import session,models
+    [request.to_dict() for request in session.get_session().query(models.Request).all()]
+    # [{'state': WAITING, ...}, {'state': QUEUED, ...}
+
+Finally one of the transfer requests got put in the queue and can be picked up by the Conyevor-Submitter daemon to submit the transfer job to the transfertool.
+The other request will have to wait until one of the queued requests is done or until the transfer limit changes.
+''')
     parser.add_argument("--run-once", action="store_true", default=False,
                         help='One iteration only')
     parser.add_argument('--sleep-time', action="store", default=600, type=int,

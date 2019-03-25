@@ -44,6 +44,14 @@ class TestConfigCore:
         value = config_core.get(section, 'new_option', default=default_value, use_cache=False)
         assert_equal(value, default_value)
 
+        # key with space character
+        section = str(generate_uuid() + ' ')
+        option = str(generate_uuid() + ' ')
+        expected_value = str(generate_uuid())
+        config_core.set(section=section, option=option, value=expected_value)
+        value = config_core.get(section, option, use_cache=False)
+        assert_equal(value, expected_value)
+
 
 class TestConfigClients:
 

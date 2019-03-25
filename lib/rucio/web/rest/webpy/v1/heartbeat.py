@@ -16,6 +16,7 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -27,7 +28,7 @@ from web import application, ctx, loadhook, header
 
 from rucio.api.heartbeat import list_heartbeats
 from rucio.common.utils import APIEncoder
-from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrapper
+from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrapper, check_accept_header_wrapper
 
 
 LOGGER = getLogger("rucio.heartbeat")
@@ -42,6 +43,7 @@ class Heartbeat(RucioController):
     """ REST API for Heartbeats. """
 
     @exception_wrapper
+    @check_accept_header_wrapper(['application/json'])
     def GET(self):
         """
         List all heartbeats.
@@ -51,6 +53,7 @@ class Heartbeat(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
         """
 
         header('Content-Type', 'application/json')

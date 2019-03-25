@@ -20,7 +20,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2017
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -45,7 +45,7 @@ from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, Acce
                                     ManualRuleApprovalBlocked, UnsupportedOperation)
 from rucio.common.schema import SCOPE_NAME_REGEXP
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
-from rucio.web.rest.common import rucio_loadhook
+from rucio.web.rest.common import rucio_loadhook, check_accept_header_wrapper
 
 LOGGER = getLogger("rucio.rule")
 SH = StreamHandler()
@@ -65,6 +65,7 @@ URLS = ('/(.+)/locks', 'ReplicaLocks',
 class Rule:
     """ REST APIs for replication rules. """
 
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, rule_id):
         """ get rule information for given rule id.
 
@@ -74,6 +75,7 @@ class Rule:
         HTTP Error:
             401 Unauthorized
             404 Not Found
+            406 Not Acceptable
             500 InternalError
 
         :returns: JSON dict containing informations about the requested user.
@@ -168,6 +170,7 @@ class Rule:
 class AllRule:
     """ REST APIs for all rules. """
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self):
         """
         Return all rules of a given account.
@@ -178,6 +181,7 @@ class AllRule:
         HTTP Error:
             401 Unauthorized
             404 Not Found
+            406 Not Acceptable
 
         :param scope: The scope name.
         """
@@ -317,6 +321,7 @@ class AllRule:
 class ReplicaLocks:
     """ REST APIs for replica locks. """
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, rule_id):
         """ get locks for a given rule_id.
 
@@ -325,6 +330,7 @@ class ReplicaLocks:
 
         HTTP Error:
             404 Not Found
+            406 Not Acceptable
             500 InternalError
 
         :returns: JSON dict containing informations about the requested user.
@@ -435,6 +441,7 @@ class MoveRule:
 class RuleHistory:
     """ REST APIs for rule history. """
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, rule_id):
         """ get history for a given rule_id.
 
@@ -443,6 +450,7 @@ class RuleHistory:
 
         HTTP Error:
             404 Not Found
+            406 Not Acceptable
             500 InternalError
 
         :returns: JSON dict containing informations about the requested user.
@@ -462,6 +470,7 @@ class RuleHistory:
 class RuleHistoryFull:
     """ REST APIs for rule history for DIDs. """
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, scope, name):
         """ get history for a given DID.
 
@@ -470,6 +479,7 @@ class RuleHistoryFull:
 
         HTTP Error:
             404 Not Found
+            406 Not Acceptable
             500 InternalError
 
         :returns: JSON dict containing informations about the requested user.
@@ -489,6 +499,7 @@ class RuleHistoryFull:
 class RuleAnalysis:
     """ REST APIs for rule analysis. """
 
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, rule_id):
         """ get analysis for given rule.
 
@@ -497,11 +508,12 @@ class RuleAnalysis:
 
         HTTP Error:
             404 Not Found
+            406 Not Acceptable
             500 InternalError
 
         :returns: JSON dict containing informations about the requested user.
         """
-        header('Content-Type', 'application/x-json-stream')
+        header('Content-Type', 'application/json')
         try:
             analysis = examine_replication_rule(rule_id)
         except RucioException as error:

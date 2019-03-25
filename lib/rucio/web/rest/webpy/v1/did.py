@@ -21,7 +21,7 @@
 # - Yun-Pin Sun <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Martin Baristis <martin.barisits@cern.ch>, 2014-2015
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -50,7 +50,7 @@ from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     InvalidMetadata)
 from rucio.common.schema import SCOPE_NAME_REGEXP
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
-from rucio.web.rest.common import rucio_loadhook, RucioController
+from rucio.web.rest.common import rucio_loadhook, RucioController, check_accept_header_wrapper
 
 URLS = (
     '/(.*)/$', 'Scope',
@@ -78,6 +78,7 @@ URLS = (
 
 class Scope(RucioController):
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, scope):
         """
         Return all data identifiers in the given scope.
@@ -87,6 +88,7 @@ class Scope(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
             404 Not Found
 
         :param scope: The scope name.
@@ -113,6 +115,7 @@ class Scope(RucioController):
 
 class Search(RucioController):
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, scope):
         """
         List all data identifiers in a scope which match a given metadata.
@@ -123,6 +126,7 @@ class Search(RucioController):
         HTTP Error:
             401 Unauthorized
             404 KeyNotFound
+            406 Not Acceptable
             409 UnsupportedOperation
 
         :param scope: The scope name.
@@ -226,6 +230,7 @@ class Attachments(RucioController):
 
 class DIDs(RucioController):
 
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, scope, name):
         """
         Retrieve a single data identifier.
@@ -235,6 +240,7 @@ class DIDs(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
             404 Not Found
 
         :param scope: The scope name.
@@ -356,6 +362,7 @@ class DIDs(RucioController):
 
 class Attachment(RucioController):
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, scope, name):
         """
         Returns the contents of a data identifier.
@@ -365,6 +372,7 @@ class Attachment(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
             500 InternalError
 
         :param scope: The scope of the data identifier.
@@ -461,6 +469,7 @@ class Attachment(RucioController):
 
 class AttachmentHistory(RucioController):
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, scope, name):
         """
         Returns the contents history of a data identifier.
@@ -470,6 +479,7 @@ class AttachmentHistory(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
             500 InternalError
 
         :param scope: The scope of the data identifier.
@@ -498,6 +508,7 @@ class Replicas(RucioController):
 
 class Files(RucioController):
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, scope, name):
         """ List all replicas of a data identifier.
 
@@ -506,6 +517,7 @@ class Files(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
             500 InternalError
 
         :returns: A dictionary containing all replicas information.
@@ -530,6 +542,7 @@ class Files(RucioController):
 
 class Parents(RucioController):
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, scope, name):
         """ List all parents of a data identifier.
 
@@ -538,6 +551,7 @@ class Parents(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
             500 InternalError
 
         :returns: A list of dictionary containing all dataset information.
@@ -557,6 +571,7 @@ class Parents(RucioController):
 
 class Meta(RucioController):
 
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, scope, name):
         """
         List all meta of a data identifier.
@@ -567,6 +582,7 @@ class Meta(RucioController):
         HTTP Error:
             401 Unauthorized
             404 DataIdentifierNotFound
+            406 Not Acceptable
             500 InternalError
 
         :param scope: The scope name.
@@ -636,6 +652,7 @@ class Meta(RucioController):
 
 class Rules(RucioController):
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, scope, name):
         """
         Return all rules of a given DID.
@@ -645,6 +662,7 @@ class Rules(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
             404 Not Found
 
         :param scope: The scope name.
@@ -663,6 +681,7 @@ class Rules(RucioController):
 
 class AssociatedRules(RucioController):
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, scope, name):
         """
         Return all associated rules of a file.
@@ -672,6 +691,7 @@ class AssociatedRules(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
             404 Not Found
 
         :param scope: The scope name.
@@ -688,6 +708,7 @@ class AssociatedRules(RucioController):
 
 class GUIDLookup(RucioController):
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, guid):
         """
         Return the file associated to a GUID.
@@ -697,6 +718,7 @@ class GUIDLookup(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
             404 Not Found
 
         :param scope: The scope name.
@@ -758,6 +780,8 @@ class Sample(RucioController):
 
 
 class NewDIDs(RucioController):
+
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self):
         """
         Returns list of recent identifiers.
@@ -767,6 +791,7 @@ class NewDIDs(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            406 Not Acceptable
 
         :param type: The DID type.
         """
@@ -832,6 +857,7 @@ class Resurrect(RucioController):
 
 class ListByMeta(RucioController):
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self):
         """
         List all data identifiers in a scope(optional) which match a given metadata.
@@ -840,6 +866,7 @@ class ListByMeta(RucioController):
             200 OK
 
         HTTP Error:
+            406 Not Acceptable
             500 Server Error
 
         :param scope: The scope name.
@@ -905,6 +932,7 @@ class DidMeta(RucioController):
             raise InternalError(error)
         raise Created()
 
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, scope, name):
         """
         Gets metadata for a did
@@ -914,9 +942,10 @@ class DidMeta(RucioController):
         HTTP Error:
             401 Unauthorized
             404 DataIdentifier Not found
+            406 Not Acceptable
             409 NotImplemented
         """
-        header('Content-Type', 'application/json')
+        header('Content-Type', 'application/x-json-stream')
         try:
             meta = get_did_meta(scope=scope, name=name)
             yield dumps(meta, cls=APIEncoder) + "\n"

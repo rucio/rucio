@@ -128,6 +128,7 @@ class UploadClient:
         # clear this set again to ensure that we only try to register datasets once
         registered_dataset_dids = set()
         num_succeeded = 0
+        summary = []
         for file in files:
             basename = file['basename']
             logger.info('Preparing upload for file %s' % basename)
@@ -185,7 +186,6 @@ class UploadClient:
             protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=force_scheme)
             protocols.reverse()
             success = False
-            summary = []
             state_reason = ''
             while not success and len(protocols):
                 protocol = protocols.pop()

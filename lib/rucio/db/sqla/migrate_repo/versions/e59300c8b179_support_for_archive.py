@@ -1,62 +1,77 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
-"""support for archive
+''' support for archive '''
 
-Revision ID: e59300c8b179
-Revises: 6e572a9bfbf3
-Create Date: 2017-02-08 09:58:58.700799
+import datetime
 
-"""
+import sqlalchemy as sa
 
+from alembic import context
 from alembic.op import (create_table, create_primary_key, create_foreign_key, add_column,
                         create_index, drop_column, drop_table)
-from alembic import context
-import sqlalchemy as sa
 
 from rucio.db.sqla.models import String
 from rucio.db.sqla.types import GUID
 
-# revision identifiers, used by Alembic.
+
+# Alembic revision identifiers
 revision = 'e59300c8b179'
 down_revision = '6e572a9bfbf3'
 
 
 def upgrade():
     '''
-    upgrade method
+    Upgrade the database to this revision
     '''
-    create_table('archive_contents',
-                 sa.Column('child_scope', String(25)),
-                 sa.Column('child_name', String(255)),
-                 sa.Column('scope', String(25)),
-                 sa.Column('name', String(255)),
-                 sa.Column('bytes', sa.BigInteger),
-                 sa.Column('adler32', String(8)),
-                 sa.Column('md5', String(32)),
-                 sa.Column('guid', GUID()),
-                 sa.Column('length', sa.BigInteger))
 
-    create_table('archive_contents_history',
-                 sa.Column('child_scope', String(25)),
-                 sa.Column('child_name', String(255)),
-                 sa.Column('scope', String(25)),
-                 sa.Column('name', String(255)),
-                 sa.Column('bytes', sa.BigInteger),
-                 sa.Column('adler32', String(8)),
-                 sa.Column('md5', String(32)),
-                 sa.Column('guid', GUID()),
-                 sa.Column('length', sa.BigInteger))
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        create_table('archive_contents',
+                     sa.Column('child_scope', String(25)),
+                     sa.Column('child_name', String(255)),
+                     sa.Column('scope', String(25)),
+                     sa.Column('name', String(255)),
+                     sa.Column('bytes', sa.BigInteger),
+                     sa.Column('adler32', String(8)),
+                     sa.Column('md5', String(32)),
+                     sa.Column('guid', GUID()),
+                     sa.Column('length', sa.BigInteger),
+                     sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
+                     sa.Column("updated_at", sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
 
-    if context.get_context().dialect.name != 'sqlite':
+        create_table('archive_contents_history',
+                     sa.Column('child_scope', String(25)),
+                     sa.Column('child_name', String(255)),
+                     sa.Column('scope', String(25)),
+                     sa.Column('name', String(255)),
+                     sa.Column('bytes', sa.BigInteger),
+                     sa.Column('adler32', String(8)),
+                     sa.Column('md5', String(32)),
+                     sa.Column('guid', GUID()),
+                     sa.Column('length', sa.BigInteger),
+                     sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
+                     sa.Column("updated_at", sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
+
         create_primary_key('ARCH_CONTENTS_PK',
                            'archive_contents',
+                           ['scope', 'name', 'child_scope', 'child_name'])
+        create_primary_key('ARCH_CONT_HIST_PK',
+                           'archive_contents_history',
                            ['scope', 'name', 'child_scope', 'child_name'])
         create_foreign_key('ARCH_CONTENTS_PARENT_FK', 'archive_contents', 'dids',
                            ['scope', 'name'], ['scope', 'name'])
@@ -69,23 +84,26 @@ def upgrade():
         create_index('ARCH_CONT_HIST_IDX', 'archive_contents_history',
                      ['scope', 'name'])
 
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         add_column('dids', sa.Column('is_archive',
-                                     sa.Boolean(name='DIDS_ARCHIVE_CHK')))
+                                     sa.Boolean(name='DIDS_ARCHIVE_CHK')), schema=schema)
         add_column('dids', sa.Column('constituent',
-                                     sa.Boolean(name='DIDS_CONSTITUENT_CHK')))
-
-        add_column('deleted_dids', sa.Column('is_archive', sa.Boolean()))
-        add_column('deleted_dids', sa.Column('constituent', sa.Boolean()))
+                                     sa.Boolean(name='DIDS_CONSTITUENT_CHK')), schema=schema)
+        add_column('deleted_dids', sa.Column('is_archive', sa.Boolean()), schema=schema)
+        add_column('deleted_dids', sa.Column('constituent', sa.Boolean()), schema=schema)
 
 
 def downgrade():
     '''
-    downgrade method
+    Downgrade the database to the previous revision
     '''
-    drop_table('archive_contents')
-    drop_table('archive_contents_history')
-    if context.get_context().dialect.name != 'sqlite':
-        drop_column('dids', 'is_archive')
-        drop_column('dids', 'constituent')
-        drop_column('deleted_dids', 'is_archive')
-        drop_column('deleted_dids', 'constituent')
+
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        drop_table('archive_contents')
+        drop_table('archive_contents_history')
+
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        drop_column('dids', 'is_archive', schema=schema)
+        drop_column('dids', 'constituent', schema=schema)
+        drop_column('deleted_dids', 'is_archive', schema=schema)
+        drop_column('deleted_dids', 'constituent', schema=schema)

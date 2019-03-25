@@ -16,12 +16,12 @@
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2015
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2014
 # - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
 # - Joaquin Bogado <joaquin.bogado@cern.ch>, 2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -33,14 +33,14 @@ from traceback import format_exc
 from flask import Flask, Blueprint, Response, request, redirect
 from flask.views import MethodView
 
-from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities, list_account_attributes, add_account_attribute, del_account_attribute, update_account
+from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities, list_account_attributes, add_account_attribute, del_account_attribute, update_account, get_usage_history
 from rucio.api.identity import add_account_identity, del_account_identity
 from rucio.api.account_limit import get_account_limits, get_account_limit, get_account_usage
 from rucio.api.rule import list_replication_rules
 from rucio.api.scope import add_scope, get_scopes
-from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound, RSENotFound, IdentityError
+from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound, RSENotFound, IdentityError, CounterNotFound
 from rucio.common.utils import generate_http_error_flask, APIEncoder, render_json
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
 
 LOGGER = getLogger("rucio.account")
@@ -51,6 +51,7 @@ LOGGER.addHandler(SH)
 
 class Attributes(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account):
         """ list all attributes for an account.
 
@@ -61,6 +62,7 @@ class Attributes(MethodView):
         :status 200: OK
         :status 401: Invalid auth token.
         :status 404: Account not found.
+        :status 406: Not Acceptable
         :status 500: Database Exception.
         :returns: JSON dict containing informations about the requested account.
         """
@@ -144,6 +146,7 @@ class Attributes(MethodView):
 
 
 class Scopes(MethodView):
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account):
         """ list all scopes for an account.
 
@@ -155,6 +158,7 @@ class Scopes(MethodView):
         :status 401: Invalid auth token.
         :status 404: Account not found.
         :status 404: Scope not found.
+        :statsu 406: Not Acceptable
         :status 500: Database exception.
         :returns: A list containing all scope names for an account.
         """
@@ -206,6 +210,7 @@ class Scopes(MethodView):
 class AccountParameter(MethodView):
     """ create, update, get and disable rucio accounts. """
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account):
         """ get account parameters for given account name.
 
@@ -215,6 +220,7 @@ class AccountParameter(MethodView):
         :status 200: OK.
         :status 401: Invalid auth token.
         :status 404: Account not found.
+        :status 406: Not Acceptable.
         :status 500: Database exception.
         :returns: JSON dict containing informations about the requested user.
         """
@@ -352,6 +358,7 @@ class AccountParameter(MethodView):
 
 
 class Account(MethodView):
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
         """ list all rucio accounts.
 
@@ -360,6 +367,7 @@ class Account(MethodView):
         :resheader Content-Type: application/x-json-stream
         :status 200: OK.
         :status 401: Invalid auth token.
+        :status 406: Not Acceptable
         :status 500: Database exception
         :returns: A list containing all account names as dict.
         """
@@ -376,6 +384,7 @@ class Account(MethodView):
 
 
 class AccountLimits(MethodView):
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account, rse=None):
         """ get the current limits for an account on a specific RSE
 
@@ -387,6 +396,7 @@ class AccountLimits(MethodView):
         :status 200: OK.
         :status 401: Invalid auth token.
         :status 404: RSE not found.
+        :status 406: Not Acceptable.
         :status 500: Database exception
         :returns: JSON dict containing informations about the requested user.
         """
@@ -429,6 +439,7 @@ class Identities(MethodView):
             identity = parameter['identity']
             authtype = parameter['authtype']
             email = parameter['email']
+            password = parameter.get('password', None)
         except KeyError as error:
             if error.args[0] == 'authtype' or error.args[0] == 'identity' or error.args[0] == 'email':
                 return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(error))
@@ -436,7 +447,7 @@ class Identities(MethodView):
                 return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            add_account_identity(identity_key=identity, id_type=authtype, account=account, email=email, issuer=request.environ.get('issuer'))
+            add_account_identity(identity_key=identity, id_type=authtype, account=account, email=email, password=password, issuer=request.environ.get('issuer'))
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except Duplicate as error:
@@ -449,6 +460,7 @@ class Identities(MethodView):
 
         return "Created", 201
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account):
         """
         Get all identities mapped to an account.
@@ -460,6 +472,7 @@ class Identities(MethodView):
         :status 200: OK.
         :status 401: Invalid auth token.
         :status 404: Account not found.
+        :statsu 406: Not Acceptable.
         :status 500: Database exception
         :returns: Line separated dicts of identities.
         """
@@ -504,7 +517,7 @@ class Identities(MethodView):
         except TypeError:
             return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
         try:
-            del_account_identity(identity, authtype, account)
+            del_account_identity(identity, authtype, account, request.environ.get('issuer'))
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except AccountNotFound as error:
@@ -520,6 +533,7 @@ class Identities(MethodView):
 
 class Rules(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account):
         """
         Return all rules of a given account.
@@ -531,6 +545,7 @@ class Rules(MethodView):
         :status 200: OK.
         :status 401: Invalid auth token.
         :status 404: Rule not found.
+        :status 406: Not Acceptable.
         :status 500: Database exception.
         :returns: Line separated list of rules.
         """
@@ -551,8 +566,42 @@ class Rules(MethodView):
             return error, 500
 
 
+class UsageHistory(MethodView):
+
+    @check_accept_header_wrapper_flask(['application/json'])
+    def get(self, account, rse):
+        """
+        Return the account usage of the account.
+
+        .. :quickref: UsageHistory; Get account usage history.
+
+        :param account: The account name.
+        :param rse: The RSE.
+        :resheader Content-Type: application/json
+        :status 200: OK.
+        :status 401: Invalid auth token.
+        :status 404: Account not found.
+        :status 406: Not Acceptable.
+        :status 500: Database exception.
+        :returns: Line separated list of account usages.
+        Return the account usage of the account.
+        """
+        try:
+            return get_usage_history(account=account, rse=None, issuer=request.environ.get('issuer'))
+        except AccountNotFound as error:
+            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
+        except CounterNotFound as error:
+            return generate_http_error_flask(404, 'CounterNotFound', error.args[0])
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return error, 500
+
+
 class Usage1(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account):
         """
         Return the account usage of the account.
@@ -564,6 +613,7 @@ class Usage1(MethodView):
         :status 200: OK.
         :status 401: Invalid auth token.
         :status 404: Account not found.
+        :status 406: Not Acceptable.
         :status 500: Database exception.
         :returns: Line separated list of account usages.
         """
@@ -584,6 +634,7 @@ class Usage1(MethodView):
 
 class Usage2(MethodView):
 
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account, rse):
         """
         Return the account usage of the account.
@@ -597,6 +648,7 @@ class Usage2(MethodView):
         :status 401: Invalid auth token.
         :status 404: Account not found.
         :status 404: RSE not found.
+        :status 406: Not Acceptable.
         :status 500: Database exception.
         :returns: Line separated list of account usages.
         """
@@ -639,6 +691,8 @@ identities_view = Identities.as_view('identities')
 bp.add_url_rule('/<account>/identities', view_func=identities_view, methods=['get', 'post', 'delete'])
 rules_view = Rules.as_view('rules')
 bp.add_url_rule('/<account>/rules', view_func=rules_view, methods=['get', ])
+usagehistory_view = UsageHistory.as_view('usagehistory')
+bp.add_url_rule('/<account>/usage/history/<rse>', view_func=usagehistory_view, methods=['get', ])
 usage1_view = Usage1.as_view('usage1')
 bp.add_url_rule('/<account>/usage', view_func=usage1_view, methods=['get', ])
 usage2_view = Usage2.as_view('usage2')
