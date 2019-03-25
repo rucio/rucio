@@ -1146,7 +1146,7 @@ class DownloadClient:
             if force_scheme:
                 schemes = force_scheme if isinstance(force_scheme, list) else [force_scheme]
             else:
-                schemes = ['davs', 'gsiftp', 'https', 'root', 'srm', 'file']
+                schemes = ['davs', 'gsiftp', 'http', 'https', 'root', 'srm', 'file']
             logger.debug('schemes: %s' % schemes)
 
             # extend RSE expression to exclude tape RSEs for non-admin accounts
