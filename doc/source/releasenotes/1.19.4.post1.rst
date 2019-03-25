@@ -1,0 +1,13 @@
+============
+1.19.4.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Core & Internals: Sorting of replicas in legacy RSE field corrupted `#2363 <https://github.com/rucio/rucio/issues/2363>`_
