@@ -17,7 +17,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018-2019
-# - Tobias Wegner <tobias.wegner@cern.ch>, 2018
+# - Tobias Wegner <tobias.wegner@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
@@ -1313,9 +1313,12 @@ class DownloadClient:
 
                     file_item['sources'] = sources
 
+                    # if there are no cea sources we are done for this item
+                    if min_cea_priority is None:
+                        continue
                     # decide if file item belongs to the pure or mixed map
                     # if no non-archive src exists or the highest prio src is an archive src we put it in the pure map
-                    if num_non_cea_sources == 0 or min_cea_priority == 1:
+                    elif num_non_cea_sources == 0 or min_cea_priority == 1:
                         logger.debug('Adding fiid to cea pure map: '
                                      'num_non_cea_sources=%d; min_cea_priority=%d; num_cea_sources=%d'
                                      % (num_non_cea_sources, min_cea_priority, len(cea_ids)))
