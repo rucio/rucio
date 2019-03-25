@@ -120,10 +120,6 @@ def get_signed_url(service, operation, url, lifetime=600):
                                                                                                      signature)
 
     elif service == 's3':
-        # S3 can't sign delete URLs
-        if operation == 'delete':
-            raise UnsupportedOperation('Delete operation not supported for S3 signed URLs')
-
         # split URL to get hostname, bucket and key
         components = urlparse(url)
         host = components.netloc
@@ -152,8 +148,10 @@ def get_signed_url(service, operation, url, lifetime=600):
 
         if operation == 'read':
             s3op = 'get_object'
-        else:
+        elif operation == 'write':
             s3op = 'put_object'
+        else:
+            s3op = 'delete_object'
 
         with record_timer_block('credential.signs3'):
             s3 = boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_key, config=Config(signature_version=signature_version, region_name=region_name))
