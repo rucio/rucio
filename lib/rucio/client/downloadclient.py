@@ -251,7 +251,7 @@ class DownloadClient:
                 trace['rse'] = archive_replicas[0]['pfns'][pfn]['rse']
                 try:
                     start_time = time.time()
-                    cmd = 'xrdcp -vf %s -z %s file://%s' % (pfn, file_extract_name, dest_dir_path)
+                    cmd = 'xrdcp -vf %s -z %s %s' % (pfn, file_extract_name, dest_dir_path)
                     logger.debug('%sExecuting: %s' % (log_prefix, cmd))
                     status, out, err = execute(cmd)
                     end_time = time.time()
@@ -598,7 +598,7 @@ class DownloadClient:
 
                 dest_file_path = os.path.join(os.path.dirname(dest_file_path), filename_in_archive)
                 temp_file_path = '%s.part' % dest_file_path
-                cmd = 'xrdcp -vf %s -z %s file://%s' % (pfn, filename_in_archive, temp_file_path)
+                cmd = 'xrdcp -vf %s -z %s %s' % (pfn, filename_in_archive, temp_file_path)
                 start_time = time.time()
                 try:
                     logger.debug('Executing: %s' % cmd)
