@@ -1017,11 +1017,18 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                     for i in range(0, len(tmp)):
                         file['pfns'][tmp[i][2]]['priority'] = i + 1
                         file['rses'] = {}
-                        for t_rse, t_pfn in [(file['pfns'][t_pfn]['rse'], t_pfn) for t_pfn in file['pfns']]:
+
+                        rse_pfns = []
+                        for t_rse, t_priority, t_pfn in [(file['pfns'][t_pfn]['rse'], file['pfns'][t_pfn]['priority'], t_pfn) for t_pfn in file['pfns']]:
+                            rse_pfns.append((t_rse, t_priority, t_pfn))
+                        rse_pfns = sorted(rse_pfns)
+
+                        for t_rse, t_priority, t_pfn in rse_pfns:
                             if t_rse in file['rses']:
                                 file['rses'][t_rse].append(t_pfn)
                             else:
                                 file['rses'][t_rse] = [t_pfn]
+
                     yield file
                     file = {}
 
@@ -1071,7 +1078,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
         rse_pfns = []
         for t_rse, t_priority, t_pfn in [(file['pfns'][t_pfn]['rse'], file['pfns'][t_pfn]['priority'], t_pfn) for t_pfn in file['pfns']]:
             rse_pfns.append((t_rse, t_priority, t_pfn))
-            rse_pfns = sorted(rse_pfns)
+        rse_pfns = sorted(rse_pfns)
 
         for t_rse, t_priority, t_pfn in rse_pfns:
             if t_rse in file['rses']:
