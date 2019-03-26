@@ -357,7 +357,7 @@ class BaseClient(object):
             raise exc_cls(exc_msg)
 
         self.auth_token = result.headers['x-rucio-auth-token']
-        LOG.debug('got new token \'%s\'' % self.auth_token)
+        LOG.debug('got new token')
         return True
 
     def __get_token_x509(self):
@@ -418,7 +418,7 @@ class BaseClient(object):
             raise exc_cls(exc_msg)
 
         self.auth_token = result.headers['x-rucio-auth-token']
-        LOG.debug('got new token \'%s\'' % self.auth_token)
+        LOG.debug('got new token')
         return True
 
     def __get_token_ssh(self):
@@ -497,7 +497,7 @@ class BaseClient(object):
             raise exc_cls(exc_msg)
 
         self.auth_token = result.headers['x-rucio-auth-token']
-        LOG.debug('got new token \'%s\'' % self.auth_token)
+        LOG.debug('got new token')
         return True
 
     def __get_token_gss(self):
@@ -535,7 +535,7 @@ class BaseClient(object):
             raise exc_cls(exc_msg)
 
         self.auth_token = result.headers['x-rucio-auth-token']
-        LOG.debug('got new token \'%s\'' % self.auth_token)
+        LOG.debug('got new token')
         return True
 
     def __get_token(self):
@@ -586,7 +586,7 @@ class BaseClient(object):
         except Exception:
             raise
 
-        LOG.debug('read token \'%s\' from file' % self.auth_token)
+        LOG.debug('got token from file')
         return True
 
     def __write_token(self):
