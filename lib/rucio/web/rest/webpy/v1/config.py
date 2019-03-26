@@ -23,10 +23,11 @@
 import json
 
 from logging import getLogger, StreamHandler, DEBUG
-
-from web import application, ctx, Created, loadhook, header
+from traceback import format_exc
+from web import application, ctx, Created, loadhook, header, InternalError
 
 from rucio.api import config
+from rucio.common.exception import ConfigurationError
 from rucio.common.utils import generate_http_error
 from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrapper, check_accept_header_wrapper
 
@@ -166,8 +167,11 @@ class OptionSet(RucioController):
 
         try:
             config.set(section=section, option=option, value=value, issuer=ctx.env.get('issuer'))
-        except:
+        except ConfigurationError:
             raise generate_http_error(500, 'ConfigurationError', 'Could not set value \'%s\' for section \'%s\' option \'%s\'' % (value, section, option))
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
         raise Created()
 
 
