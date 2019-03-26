@@ -16,7 +16,7 @@
 # - Tomas Javurek <tomasjavurek09@gmail.com>, 2018
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
-# - Nicolo Magini <nicolo.magini@cern.ch>, 2018
+# - Nicolo Magini <nicolo.magini@cern.ch>, 2018-2019
 # - Tobias Wegner <tobias.wegner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
@@ -330,7 +330,9 @@ class DownloadClient:
             dest_file_path = os.path.join(dest_dir_path, did_name)
             item['dest_file_paths'] = [dest_file_path]
             item['temp_file_path'] = '%s.part' % dest_file_path
-            item.setdefault('ignore_checksum', True)
+            options = item.setdefault('merged_options', {})
+            options.setdefault('ignore_checksum', item.pop('ignore_checksum', True))
+            options.setdefault('transfer_timeout', item.pop('transfer_timeout', None))
 
             input_items.append(item)
 
@@ -653,7 +655,7 @@ class DownloadClient:
                 start_time = time.time()
 
                 try:
-                    protocol.get(pfn, temp_file_path, transfer_timeout=item.get('transfer_timeout'))
+                    protocol.get(pfn, temp_file_path, transfer_timeout=item.get('merged_options', {}).get('transfer_timeout'))
                     success = True
                 except Exception as error:
                     logger.debug(error)
@@ -661,7 +663,7 @@ class DownloadClient:
 
                 end_time = time.time()
 
-                if success and not item.get('ignore_checksum', False):
+                if success and not item.get('merged_options', {}).get('ignore_checksum', False):
                     rucio_checksum = item.get('adler32')
                     local_checksum = None
                     if not rucio_checksum:
