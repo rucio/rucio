@@ -943,6 +943,7 @@ def list_all_parent_dids(scope, name, session=None):
         for pdid in list_all_parent_dids(scope=did.scope, name=did.name, session=session):
             yield {'scope': pdid['scope'], 'name': pdid['name'], 'type': pdid['type']}
 
+
 @transactional_session
 def list_child_datasets(scope, name, session=None):
     """
