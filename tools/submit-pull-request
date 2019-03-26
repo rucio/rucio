@@ -11,7 +11,7 @@
 # - Luke Kreczko, <kreczko@cern.ch>, 2018
 from __future__ import print_function
 
-import commands
+import subprocess
 import sys
 import requests
 import json
@@ -33,7 +33,7 @@ def submit_pull_request(user, current_branch, target_branch, message, label):
     return False
 
 
-root_git_dir = commands.getstatusoutput('git rev-parse --show-toplevel')[1]
+root_git_dir = subprocess.check_output('git rev-parse --show-toplevel'.split()).strip().decode()
 
 # Load OAUTH token
 print('Loading github OAUTH token ...', end='')
@@ -53,9 +53,9 @@ user = json.loads(r.text)['login']
 
 # Check if current branch is not master or next
 print('Checking if current branch is a patch/feature/hotfix branch ...', end='')
-current_branch = commands.getstatusoutput('git rev-parse --abbrev-ref HEAD')[1]
+current_branch = subprocess.check_output('git rev-parse --abbrev-ref HEAD'.split()).strip().decode()
 commit_msg = current_branch
-for line in commands.getstatusoutput('git log -1')[1].splitlines():
+for line in subprocess.check_output('git log -1'.split()).strip().decode().split('\n'):
     if line.strip().startswith('Author') or line.strip().startswith('Date') or line.strip().startswith('commit') or line.strip() == '':
         continue
     commit_msg = line.strip()
@@ -83,12 +83,11 @@ else:
 
 # Push the branch to origin
 print('Pushing the feature/patch/hotfix branch to origin ...', end='')
-op = commands.getstatusoutput('git push origin %s' % current_branch)
-if op[0] == 0:
+try:
+    op = subprocess.check_output('git push origin %s' %current_branch, stderr=subprocess.STDOUT,shell=True).strip().decode()
     print('OK')
-else:
+except:
     print('ERROR')
-    print(op[1])
     sys.exit(-1)
 
 # Create the Pull-requests
