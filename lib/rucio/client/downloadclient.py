@@ -1142,11 +1142,9 @@ class DownloadClient:
         merged_items_with_sources = []
         for item in merged_items:
             # since we're using metalink we need to explicitly give all schemes
-            force_scheme = item.get('force_scheme')
-            if force_scheme:
-                schemes = force_scheme if isinstance(force_scheme, list) else [force_scheme]
-            else:
-                schemes = ['davs', 'gsiftp', 'http', 'https', 'root', 'srm', 'file']
+            schemes = item.get('force_scheme')
+            if schemes:
+                schemes = schemes if isinstance(schemes, list) else [schemes]
             logger.debug('schemes: %s' % schemes)
 
             # extend RSE expression to exclude tape RSEs for non-admin accounts
