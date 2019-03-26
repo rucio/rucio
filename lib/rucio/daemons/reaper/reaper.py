@@ -92,15 +92,15 @@ def __check_rse_usage(rse, rse_id):
     # Check from which sources to get used and total spaces
     # Default is storage
     source_for_total_space, source_for_used_space = 'storage', 'storage'
-    values = get_rse_attribute(rse_id=rse_id, key='sourceForTotalSpace')
+    values = get_rse_attribute(rse_id=rse_id, key='source_for_total_space')
     if values:
         source_for_total_space = values[0]
-    values = get_rse_attribute(rse_id=rse_id, key='sourceForUsedSpace')
+    values = get_rse_attribute(rse_id=rse_id, key='source_for_used_space')
     if values:
         source_for_used_space = values[0]
 
-    logging.debug('RSE: %(rse)s, sourceForTotalSpace: %(source_for_total_space)s, '
-                  'sourceForUsedSpace: %(source_for_used_space)s' % locals())
+    logging.debug('RSE: %(rse)s, source_for_total_space: %(source_for_total_space)s, '
+                  'source_for_used_space: %(source_for_used_space)s' % locals())
 
     # Get total and used space
     usage = rse_core.get_rse_usage(rse=rse, rse_id=rse_id, source=source_for_total_space)

@@ -76,7 +76,7 @@ if __name__ == '__main__':
         sys.exit(WARNING)
 
     SPACE_USAGE = [rse['rse'] for rse in get_rses_with_attribute('space_usage_method')]
-    SOURCE_USED_SPACE = [rse['rse'] for rse in get_rses_with_attribute('sourceForUsedSpace')]
+    SOURCE_USED_SPACE = [rse['rse'] for rse in get_rses_with_attribute('source_for_used_space')]
     HAS_PROXY = [rse['rse'] for rse in get_rses_with_attribute('root-proxy-internal')]
     NOT_FOR_EXTRA_COPY = [rse['rse'] for rse in get_rses_with_attribute('notforextracopy')]
     SCRATCHDISK_WITHOUT_SPACE = [rse['rse'] for rse in parse_expression(expression='type=SCRATCHDISK&freespace<50')]
@@ -118,9 +118,9 @@ if __name__ == '__main__':
             elif name in SPACE_USAGE:
                 del_rse_attribute(name, 'space_usage_method', session=session)
             if rse['space_method'] == 'rucio':
-                add_rse_attribute(name, 'sourceForUsedSpace', 'rucio', session=session)
+                add_rse_attribute(name, 'source_for_used_space', 'rucio', session=session)
             elif name in SOURCE_USED_SPACE:
-                del_rse_attribute(name, 'sourceForUsedSpace', session=session)
+                del_rse_attribute(name, 'source_for_used_space', session=session)
             if rse['type'] == 'LOCALGROUPDISK' or rse['type'] == 'LOCALGROUPTAPE':
                 country = COUNTRYCODES[str(rse['country'])]
                 if name.startswith('CERN'):
