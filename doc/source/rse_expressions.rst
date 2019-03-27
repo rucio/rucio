@@ -13,6 +13,7 @@ Simple RSE Expressions
 Rucio allows to test RSE Expressions, using the command **list-rses**. The most simple RSE Expression is the one containing the name of a particular RSE.
 
 1) The following expression returns all RSEs::
+
      jbogadog@lxplus0058:~$ rucio list-rses --expression '*'
      IFIC-LCG2_LOCALGROUPDISK
      IFAE_PRODDISK

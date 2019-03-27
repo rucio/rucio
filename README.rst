@@ -19,7 +19,7 @@ Rucio is a software framework that provides functionality to organize, manage, a
 Documentation
 -------------
 
-General information and latest documentation about Rucio can be found at `readthedocs <https://rucio.readthedocs.io>`_ or our `webpage <https://rucio.cern.ch>`_.
+General information and latest documentation about Rucio can be found at `readthedocs <https://rucio.readthedocs.io>`_ or on our `webpage <https://rucio.cern.ch>`_.
 
 Developers
 ----------
