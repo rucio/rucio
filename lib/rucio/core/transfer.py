@@ -413,8 +413,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                                                rses=rses,
                                                                session=session)
 
-    unavailable_read_rse_ids = __get_unavailable_rse_ids(activity='read', session=session)
-    unavailable_write_rse_ids = __get_unavailable_rse_ids(activity='write', session=session)
+    unavailable_read_rse_ids = __get_unavailable_rse_ids(operation='read', session=session)
+    unavailable_write_rse_ids = __get_unavailable_rse_ids(operation='write', session=session)
 
     bring_online_local = bring_online
     transfers, rses_info, protocols, rse_attrs, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = {}, {}, {}, {}, [], [], []
@@ -896,26 +896,26 @@ def __set_transfer_state(external_host, transfer_id, new_state, session=None):
 
 
 @read_session
-def __get_unavailable_rse_ids(activity, session=None):
+def __get_unavailable_rse_ids(operation, session=None):
     """
-    Get unavailable rse ids for a given activity : read, write, delete
+    Get unavailable rse ids for a given operation : read, write, delete
     """
 
-    if activity not in ['read', 'write', 'delete']:
-        logging.error("Wrong activity specified : %s" % (activity))
+    if operation not in ['read', 'write', 'delete']:
+        logging.error("Wrong operation specified : %s" % (operation))
         return []
-    key = 'unavailable_%s_rse_ids' % activity
+    key = 'unavailable_%s_rse_ids' % operation
     result = REGION_SHORT.get(key)
     if isinstance(result, NoValue):
         try:
-            logging.debug("Refresh unavailable %s rses" % activity)
-            availability_key = 'availability_%s' % activity
+            logging.debug("Refresh unavailable %s rses" % operation)
+            availability_key = 'availability_%s' % operation
             unavailable_rses = list_rses(filters={availability_key: False}, session=session)
             unavailable_rse_ids = [rse['id'] for rse in unavailable_rses]
             REGION_SHORT.set(key, unavailable_rse_ids)
             return unavailable_rse_ids
         except Exception:
-            logging.warning("Failed to refresh unavailable %s rses, error: %s" % (activity, traceback.format_exc()))
+            logging.warning("Failed to refresh unavailable %s rses, error: %s" % (operation, traceback.format_exc()))
             return []
     return result
 
