@@ -36,6 +36,7 @@ Individual contributors to the source code
 - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 - Vivek Nigam <viveknigam.nigam3@gmail.com>, 2019
+- Kaustubh Hiware <hiwarekaustubh@gmail.com>, 2019
 
 Organisations employing contributors
 ------------------------------------
@@ -54,3 +55,4 @@ Organisations employing contributors
 - Academia Sinica (Taiwan)
 - University of Edinburgh (UK)
 - Birla Institute of Technology, Mesra (India)
+- Indian Institute of Technology, Kharagpur (India)
