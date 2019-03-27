@@ -11,6 +11,7 @@
 FROM rucio/rucio-systemd-cc7
 
 ADD ca.repo /etc/yum.repos.d/ca.repo
+RUN pip install --upgrade pip
 RUN pip install --upgrade setuptools
 RUN pip install rucio rucio-webui
 
