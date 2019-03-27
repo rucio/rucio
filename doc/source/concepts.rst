@@ -1,7 +1,7 @@
 Concepts and terminology
 ========================
 
-The following concepts define how data is organised, accessed, and catalogued by Rucio. Some concepts, such as accounts, data identifiers, or replication rules are fundamental for all types of users, while other concepts, such as notifications or subscriptions, are suitable for more advanced use cases.
+The following concepts define how data is organised, accessed, and catalogued by Rucio. Some concepts, such as accounts, data identifiers, or replication rules are fundamental for all types of users, while other concepts, such as notifications or subscriptions are suitable for more advanced use cases.
 
 .. toctree::
     :maxdepth: 1
