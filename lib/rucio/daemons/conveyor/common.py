@@ -39,7 +39,7 @@ import time
 import traceback
 
 from rucio.common.config import config_get
-from rucio.common.exception import InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound, ConfigNotFound
+from rucio.common.exception import InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound, ConfigNotFound, DuplicateFileTransferSubmission
 from rucio.common.utils import chunks
 from rucio.core import request, transfer as transfer_core
 from rucio.core.config import get
@@ -69,26 +69,26 @@ def submit_transfer(external_host, job, submitter='submitter', logging_prepend_s
     if logging_prepend_str:
         prepend_str = logging_prepend_str
 
-    # prepare submitting
+    # Prepare submitting
     xfers_ret = {}
 
     try:
-        for file in job['files']:
-            file_metadata = file['metadata']
+        for t_file in job['files']:
+            file_metadata = t_file['metadata']
             request_id = file_metadata['request_id']
             log_str = prepend_str + 'PREPARING REQUEST %s DID %s:%s TO SUBMITTING STATE PREVIOUS %s FROM %s TO %s USING %s ' % (file_metadata['request_id'],
                                                                                                                                 file_metadata['scope'],
                                                                                                                                 file_metadata['name'],
                                                                                                                                 file_metadata['previous_attempt_id'] if 'previous_attempt_id' in file_metadata else None,
-                                                                                                                                file['sources'],
-                                                                                                                                file['destinations'],
+                                                                                                                                t_file['sources'],
+                                                                                                                                t_file['destinations'],
                                                                                                                                 external_host)
-            xfers_ret[request_id] = {'state': RequestState.SUBMITTING, 'external_host': external_host, 'external_id': None, 'dest_url': file['destinations'][0]}
-            logging.info("%s" % (log_str))
-            xfers_ret[request_id]['file'] = file
-        logging.debug(prepend_str + 'Start to prepare transfer')
+            xfers_ret[request_id] = {'state': RequestState.SUBMITTING, 'external_host': external_host, 'external_id': None, 'dest_url': t_file['destinations'][0]}
+            logging.info("%s", log_str)
+            xfers_ret[request_id]['file'] = t_file
+        logging.debug('%s Start to prepare transfer', prepend_str)
         transfer_core.prepare_sources_for_transfers(xfers_ret)
-        logging.debug(prepend_str + 'Finished to prepare transfer')
+        logging.debug('%s Finished to prepare transfer', prepend_str)
     except RequestNotFound as error:
         logging.error(prepend_str + str(error))
         return
@@ -96,11 +96,26 @@ def submit_transfer(external_host, job, submitter='submitter', logging_prepend_s
         logging.error(prepend_str + 'Failed to prepare requests %s state to SUBMITTING (Will not submit jobs but return directly) with error: %s' % (list(xfers_ret.keys()), traceback.format_exc()))
         return
 
-    # submit the job
-    eid = None
+    # Prepare the dictionary for xfers results
+    xfers_ret = {}
+    for t_file in job['files']:
+        file_metadata = t_file['metadata']
+        request_id = file_metadata['request_id']
+        xfers_ret[request_id] = {'scope': file_metadata['scope'],
+                                 'name': file_metadata['name'],
+                                 'external_host': external_host,
+                                 'external_id': None,
+                                 'request_type': t_file.get('request_type', None),
+                                 'dst_rse': file_metadata.get('dst_rse', None),
+                                 'src_rse': file_metadata.get('src_rse', None),
+                                 'src_rse_id': file_metadata['src_rse_id'],
+                                 'metadata': file_metadata}
+
+    # Submit the job
     try:
         start_time = time.time()
         logging.info(prepend_str + 'About to submit job to %s with timeout %s' % (external_host, timeout))
+        # A eid is returned if the job is properly submitted otherwise an exception is raised
         eid = transfer_core.submit_bulk_transfers(external_host,
                                                   files=job['files'],
                                                   transfertool='fts3',
@@ -112,56 +127,97 @@ def submit_transfer(external_host, job, submitter='submitter', logging_prepend_s
         record_timer('daemons.conveyor.%s.submit_bulk_transfer.per_file' % submitter, (time.time() - start_time) * 1000 / len(job['files']))
         record_counter('daemons.conveyor.%s.submit_bulk_transfer' % submitter, len(job['files']))
         record_timer('daemons.conveyor.%s.submit_bulk_transfer.files' % submitter, len(job['files']))
+
+        # Update all the requests to SUBMITTED and cancel the transfer job in case the update failed
+        try:
+            for t_file in job['files']:
+                file_metadata = t_file['metadata']
+                request_id = file_metadata['request_id']
+                xfers_ret[request_id]['state'] = RequestState.SUBMITTED
+                xfers_ret[request_id]['external_id'] = eid
+                logging.info(prepend_str + 'COPYING REQUEST %s DID %s:%s USING %s with state(%s) with eid(%s)' % (file_metadata['request_id'], file_metadata['scope'], file_metadata['name'], external_host, RequestState.SUBMITTED, eid))
+            logging.debug(prepend_str + 'Start to bulk register transfer state for eid %s' % eid)
+            transfer_core.set_transfers_state(xfers_ret, datetime.datetime.utcnow())
+            logging.debug('%s Finished to register transfer state', prepend_str)
+        except Exception:
+            logging.error('%s Failed to register transfer state with error: %s', prepend_str, traceback.format_exc())
+            try:
+                logging.info('%s Cancel transfer %s on %s', prepend_str, eid, external_host)
+                request.cancel_request_external_id(eid, external_host)
+            except Exception:
+                # The job is still submitted in the file transfer service but the request is not updated. Possibility to have a double submission during the next cycle
+                logging.error(prepend_str + 'Failed to cancel transfers %s on %s with error: %s' % (eid, external_host, traceback.format_exc()))
+
+    # This exception is raised if one job is already submitted for one file
+    except DuplicateFileTransferSubmission as error:
+        logging.warn('%s Failed to submit a job because of duplicate file : %s', prepend_str, str(error))
+        logging.info('%s Submitting files one by one', prepend_str)
+
+        try:
+            # In this loop we submit the jobs and update the requests state one by one
+            single_xfers_ret = {}
+            for t_file in job['files']:
+                single_xfers_ret = {}
+                single_xfers_ret[request_id] = xfers_ret[request_id]
+                file_metadata = t_file['metadata']
+                request_id = file_metadata['request_id']
+                start_time = time.time()
+                logging.info('%s About to submit job to %s with timeout %s', prepend_str, external_host, timeout)
+                eid = transfer_core.submit_bulk_transfers(external_host,
+                                                          files=[t_file],
+                                                          transfertool='fts3',
+                                                          job_params=job['job_params'],
+                                                          timeout=timeout,
+                                                          user_transfer_job=user_transfer_job)
+                duration = time.time() - start_time
+                logging.info(prepend_str + 'Submit job %s to %s in %s seconds' % (eid, external_host, duration))
+                record_timer('daemons.conveyor.%s.submit_bulk_transfer.per_file' % submitter, (time.time() - start_time) * 1000)
+                record_counter('daemons.conveyor.%s.submit_bulk_transfer' % submitter, 1)
+                record_timer('daemons.conveyor.%s.submit_bulk_transfer.files' % submitter, 1)
+                single_xfers_ret[request_id]['state'] = RequestState.SUBMITTED
+                single_xfers_ret[request_id]['external_id'] = eid
+                logging.info(prepend_str + 'COPYING REQUEST %s DID %s:%s USING %s with state(%s) with eid(%s)' % (file_metadata['request_id'], file_metadata['scope'], file_metadata['name'], external_host, RequestState.SUBMITTED, eid))
+                try:
+                    logging.debug('%s Start to register transfer state', prepend_str)
+                    transfer_core.set_transfers_state(single_xfers_ret, datetime.datetime.utcnow())
+                    logging.debug('%s Finished to register transfer state', prepend_str)
+                except Exception:
+                    logging.error('%s Failed to register transfer state with error: %s', prepend_str, traceback.format_exc())
+                    try:
+                        logging.info('%s Cancel transfer %s on %s', prepend_str, eid, external_host)
+                        request.cancel_request_external_id(eid, external_host)
+                    except Exception:
+                        logging.error(prepend_str + 'Failed to cancel transfers %s on %s with error: %s' % (eid, external_host, traceback.format_exc()))
+
+        except (DuplicateFileTransferSubmission, TransferToolTimeout, TransferToolWrongAnswer, Exception) as error:
+            request_id = single_xfers_ret.keys()[0]
+            single_xfers_ret[request_id]['state'] = RequestState.SUBMISSION_FAILED
+            logging.error('%s Cannot submit the job for request %s : %s', prepend_str, request_id, str(error))
+            try:
+                logging.debug('%s Update the transfer state to fail', prepend_str)
+                transfer_core.set_transfers_state(single_xfers_ret, datetime.datetime.utcnow())
+                logging.debug('%s Finished to register transfer state', prepend_str)
+            except Exception:
+                logging.error('%s Failed to register transfer state with error: %s', prepend_str, traceback.format_exc())
+                # No need to cancel the job here
+
+    # The following exceptions are raised if the job failed to be submitted
     except (TransferToolTimeout, TransferToolWrongAnswer) as error:
         logging.error(prepend_str + str(error))
+        try:
+            for t_file in job['files']:
+                file_metadata = t_file['metadata']
+                request_id = file_metadata['request_id']
+                xfers_ret[request_id]['state'] = RequestState.SUBMISSION_FAILED
+            logging.debug('%s Start to register transfer state', prepend_str)
+            transfer_core.set_transfers_state(xfers_ret, datetime.datetime.utcnow())
+            logging.debug('%s Finished to register transfer state', prepend_str)
+        except Exception:
+            logging.error('%s Failed to register transfer state with error: %s', prepend_str, traceback.format_exc())
+            # No need to cancel the job here
 
     except Exception as error:
-        logging.error(prepend_str + 'Failed to submit a job with error %s: %s' % (str(error), traceback.format_exc()))
-
-    # register transfer
-    xfers_ret = {}
-    try:
-        for file in job['files']:
-            file_metadata = file['metadata']
-            request_id = file_metadata['request_id']
-            log_str = prepend_str + 'COPYING REQUEST %s DID %s:%s USING %s' % (file_metadata['request_id'], file_metadata['scope'], file_metadata['name'], external_host)
-            if eid:
-                xfers_ret[request_id] = {'scope': file_metadata['scope'],
-                                         'name': file_metadata['name'],
-                                         'state': RequestState.SUBMITTED,
-                                         'external_host': external_host,
-                                         'external_id': eid,
-                                         'request_type': file.get('request_type', None),
-                                         'dst_rse': file_metadata.get('dst_rse', None),
-                                         'src_rse': file_metadata.get('src_rse', None),
-                                         'src_rse_id': file_metadata['src_rse_id'],
-                                         'metadata': file_metadata}
-                log_str += ' with state(%s) with eid(%s)' % (RequestState.SUBMITTED, eid)
-                logging.info("%s" % (log_str))
-            else:
-                xfers_ret[request_id] = {'scope': file_metadata['scope'],
-                                         'name': file_metadata['name'],
-                                         'state': RequestState.SUBMISSION_FAILED,
-                                         'external_host': external_host,
-                                         'external_id': None,
-                                         'request_type': file.get('request_type', None),
-                                         'dst_rse': file_metadata.get('dst_rse', None),
-                                         'src_rse': file_metadata.get('src_rse', None),
-                                         'src_rse_id': file_metadata['src_rse_id'],
-                                         'metadata': file_metadata}
-                log_str += ' with state(%s) with eid(%s)' % (RequestState.SUBMISSION_FAILED, None)
-                logging.warn("%s" % (log_str))
-        logging.debug(prepend_str + 'Start to register transfer state')
-        transfer_core.set_transfers_state(xfers_ret, datetime.datetime.utcnow())
-        logging.debug(prepend_str + 'Finished to register transfer state')
-    except Exception:
-        logging.error(prepend_str + 'Failed to register transfer state with error: %s' % (traceback.format_exc()))
-        try:
-            if eid:
-                logging.info(prepend_str + 'Cancel transfer %s on %s' % (eid, external_host))
-                request.cancel_request_external_id(eid, external_host)
-        except Exception:
-            logging.error(prepend_str + 'Failed to cancel transfers %s on %s with error: %s' % (eid, external_host, traceback.format_exc()))
+        logging.error('%s Failed to submit a job with error %s: %s', prepend_str, str(error), traceback.format_exc())
 
 
 def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strategy=None, max_time_in_queue=None):
@@ -197,24 +253,24 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
         transfer = transfers[request_id]
 
         verify_checksum = transfer['file_metadata'].get('verify_checksum', 'both')
-        file = {'sources': transfer['sources'],
-                'destinations': transfer['dest_urls'],
-                'metadata': transfer['file_metadata'],
-                'filesize': int(transfer['file_metadata']['filesize']),
-                'checksum': None,
-                'verify_checksum': verify_checksum,
-                'selection_strategy': source_strategy if source_strategy else activity_source_strategy.get(str(transfer['file_metadata']['activity']), default_source_strategy),
-                'request_type': transfer['file_metadata'].get('request_type', None),
-                'activity': str(transfer['file_metadata']['activity'])}
+        t_file = {'sources': transfer['sources'],
+                  'destinations': transfer['dest_urls'],
+                  'metadata': transfer['file_metadata'],
+                  'filesize': int(transfer['file_metadata']['filesize']),
+                  'checksum': None,
+                  'verify_checksum': verify_checksum,
+                  'selection_strategy': source_strategy if source_strategy else activity_source_strategy.get(str(transfer['file_metadata']['activity']), default_source_strategy),
+                  'request_type': transfer['file_metadata'].get('request_type', None),
+                  'activity': str(transfer['file_metadata']['activity'])}
         if verify_checksum != 'none':
-            if 'md5' in list(file['metadata'].keys()) and file['metadata']['md5']:
-                file['checksum'] = 'MD5:%s' % str(file['metadata']['md5'])
-            if 'adler32' in list(file['metadata'].keys()) and file['metadata']['adler32']:
-                file['checksum'] = 'ADLER32:%s' % str(file['metadata']['adler32'])
+            if 'md5' in list(t_file['metadata'].keys()) and t_file['metadata']['md5']:
+                t_file['checksum'] = 'MD5:%s' % str(t_file['metadata']['md5'])
+            if 'adler32' in list(t_file['metadata'].keys()) and t_file['metadata']['adler32']:
+                t_file['checksum'] = 'ADLER32:%s' % str(t_file['metadata']['adler32'])
 
         external_host = transfer['external_host']
-        scope = file['metadata']['scope']
-        activity = file['activity']
+        scope = t_file['metadata']['scope']
+        activity = t_file['activity']
 
         if external_host not in grouped_transfers:
             grouped_transfers[external_host] = {}
@@ -250,9 +306,9 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
         if len(transfer['sources']) > 1:
             job_params['job_metadata']['multi_sources'] = True
             if USER_TRANSFERS not in ['cms'] or activity not in USER_ACTIVITY:
-                grouped_jobs[external_host].append({'files': [file], 'job_params': job_params})
+                grouped_jobs[external_host].append({'files': [t_file], 'job_params': job_params})
             elif activity in USER_ACTIVITY:
-                grouped_jobs[external_host][scope].append({'files': [file], 'job_params': job_params})
+                grouped_jobs[external_host][scope].append({'files': [t_file], 'job_params': job_params})
         else:
             job_params['job_metadata']['multi_sources'] = False
             job_key = '%s,%s,%s,%s,%s,%s,%s,%s' % (job_params['verify_checksum'], job_params.get('spacetoken', None),
@@ -272,29 +328,29 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
             if policy == 'rule':
                 policy_key = '%s' % (transfer['rule_id'])
             if policy == 'dest':
-                policy_key = '%s' % (file['metadata']['dst_rse'])
+                policy_key = '%s' % (t_file['metadata']['dst_rse'])
             if policy == 'src_dest':
-                policy_key = '%s,%s' % (file['metadata']['src_rse'], file['metadata']['dst_rse'])
+                policy_key = '%s,%s' % (t_file['metadata']['src_rse'], t_file['metadata']['dst_rse'])
             if policy == 'rule_src_dest':
-                policy_key = '%s,%s,%s' % (transfer['rule_id'], file['metadata']['src_rse'], file['metadata']['dst_rse'])
+                policy_key = '%s,%s,%s' % (transfer['rule_id'], t_file['metadata']['src_rse'], t_file['metadata']['dst_rse'])
             if policy == 'activity_dest':
-                policy_key = '%s %s' % (activity, file['metadata']['dst_rse'])
+                policy_key = '%s %s' % (activity, t_file['metadata']['dst_rse'])
                 policy_key = "_".join(policy_key.split(' '))
             if policy == 'activity_src_dest':
-                policy_key = '%s %s %s' % (activity, file['metadata']['src_rse'], file['metadata']['dst_rse'])
+                policy_key = '%s %s %s' % (activity, t_file['metadata']['src_rse'], t_file['metadata']['dst_rse'])
                 policy_key = "_".join(policy_key.split(' '))
             # maybe here we need to hash the key if it's too long
 
             if USER_TRANSFERS not in ['cms'] or activity not in USER_ACTIVITY:
                 if policy_key not in grouped_transfers[external_host][job_key]:
-                    grouped_transfers[external_host][job_key][policy_key] = {'files': [file], 'job_params': job_params}
+                    grouped_transfers[external_host][job_key][policy_key] = {'files': [t_file], 'job_params': job_params}
                 else:
-                    grouped_transfers[external_host][job_key][policy_key]['files'].append(file)
+                    grouped_transfers[external_host][job_key][policy_key]['files'].append(t_file)
             elif activity in USER_ACTIVITY:
                 if policy_key not in grouped_transfers[external_host][scope][job_key]:
-                    grouped_transfers[external_host][scope][job_key][policy_key] = {'files': [file], 'job_params': job_params}
+                    grouped_transfers[external_host][scope][job_key][policy_key] = {'files': [t_file], 'job_params': job_params}
                 else:
-                    grouped_transfers[external_host][scope][job_key][policy_key]['files'].append(file)
+                    grouped_transfers[external_host][scope][job_key][policy_key]['files'].append(t_file)
 
     # for jobs with different job_key, we cannot put in one job.
     for external_host in grouped_transfers:
@@ -337,7 +393,7 @@ def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None):
         try:
             parsed_rses = parse_expression(include_rses, session=None)
         except InvalidRSEExpression as error:
-            logging.error("Invalid RSE exception %s to include RSEs" % (include_rses))
+            logging.error("Invalid RSE exception %s to include RSEs", include_rses)
         else:
             for rse in parsed_rses:
                 if rse not in working_rses:
@@ -350,7 +406,7 @@ def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None):
         try:
             parsed_rses = parse_expression(exclude_rses, session=None)
         except InvalidRSEExpression as error:
-            logging.error("Invalid RSE exception %s to exclude RSEs: %s" % (exclude_rses, error))
+            logging.error("Invalid RSE exception %s to exclude RSEs: %s", exclude_rses, error)
         else:
             working_rses = [rse for rse in working_rses if rse not in parsed_rses]
 
