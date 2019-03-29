@@ -8,7 +8,7 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017-2018
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2018
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2018-2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 # - Robert Illingworth, <illingwo@fnal.gov>, 2019
 #
@@ -413,11 +413,19 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                                                rses=rses,
                                                                session=session)
 
-    unavailable_read_rse_ids = __get_unavailable_read_rse_ids(session=session)
+    unavailable_read_rse_ids = __get_unavailable_rse_ids(operation='read', session=session)
+    unavailable_write_rse_ids = __get_unavailable_rse_ids(operation='write', session=session)
 
     bring_online_local = bring_online
     transfers, rses_info, protocols, rse_attrs, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = {}, {}, {}, {}, [], [], []
+    rse_map = {}
+
     for req_id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, previous_attempt_id, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path, retry_count, src_url, ranking, link_ranking in req_sources:
+        if dest_rse_id in unavailable_write_rse_ids:
+            if dest_rse_id not in rse_map:
+                rse_map[dest_rse_id] = get_rse_name(rse_id=dest_rse_id, session=session)
+            logging.warning('RSE %s is blacklisted for write. Will skip the submission of new jobs' % (rse_map[dest_rse_id]))
+            continue
         transfer_src_type = "DISK"
         transfer_dst_type = "DISK"
         allow_tape_source = True
@@ -651,7 +659,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 attr = None
                 if attributes:
-                    if type(attributes) is dict:
+                    if isinstance(attributes, dict):
                         attr = json.loads(json.dumps(attributes))
                     else:
                         attr = json.loads(str(attributes))
@@ -862,8 +870,7 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
             if dest_rse_id in rses:
                 result.append(item)
         return result
-    else:
-        return query.all()
+    return query.all()
 
 
 @transactional_session
@@ -889,22 +896,26 @@ def __set_transfer_state(external_host, transfer_id, new_state, session=None):
 
 
 @read_session
-def __get_unavailable_read_rse_ids(session=None):
+def __get_unavailable_rse_ids(operation, session=None):
     """
-    Get unavailable read rse ids
+    Get unavailable rse ids for a given operation : read, write, delete
     """
 
-    key = 'unavailable_read_rse_ids'
+    if operation not in ['read', 'write', 'delete']:
+        logging.error("Wrong operation specified : %s" % (operation))
+        return []
+    key = 'unavailable_%s_rse_ids' % operation
     result = REGION_SHORT.get(key)
-    if type(result) is NoValue:
+    if isinstance(result, NoValue):
         try:
-            logging.debug("Refresh unavailable read rses")
-            unavailable_read_rses = list_rses(filters={'availability_read': False}, session=session)
-            unavailable_read_rse_ids = [r['id'] for r in unavailable_read_rses]
-            REGION_SHORT.set(key, unavailable_read_rse_ids)
-            return unavailable_read_rse_ids
+            logging.debug("Refresh unavailable %s rses" % operation)
+            availability_key = 'availability_%s' % operation
+            unavailable_rses = list_rses(filters={availability_key: False}, session=session)
+            unavailable_rse_ids = [rse['id'] for rse in unavailable_rses]
+            REGION_SHORT.set(key, unavailable_rse_ids)
+            return unavailable_rse_ids
         except Exception:
-            logging.warning("Failed to refresh unavailable read rses, error: %s" % (traceback.format_exc()))
+            logging.warning("Failed to refresh unavailable %s rses, error: %s" % (operation, traceback.format_exc()))
             return []
     return result
 
