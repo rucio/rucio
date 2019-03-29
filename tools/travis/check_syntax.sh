@@ -20,7 +20,7 @@ echo '==============================='
 echo 'Running flake8                 '
 echo '==============================='
 
-flake8 --ignore=E501,E722 --exclude="*.cfg" bin/* lib/ tools/*.py tools/probes/common/*
+flake8 --ignore=E501,E722 --exclude="*.cfg" bin/* lib/ tools/*.py
 
 if [ $? -ne 0 ]; then
     exit 1
