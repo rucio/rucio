@@ -23,7 +23,7 @@ import time
 
 from subprocess32 import TimeoutExpired
 
-requests.packages.urllib3.disable_warnings()
+requests.packages.urllib3.disable_warnings()  # pylint: disable=no-member
 
 
 def needs_testing(mr_id):
