@@ -54,8 +54,6 @@ data_files = [('rucio/etc/', glob.glob('etc/*.template')),
               ('rucio/etc/schemas', glob.glob('etc/schemas/*.json')),
               ('rucio/tools/', ['tools/pip-requires', 'tools/pip-requires-client', 'tools/pip-requires-test',
                                 'tools/bootstrap.py', 'tools/reset_database.py']),
-              ('rucio/tools/probes/common/', ['tools/probes/common/graphite2nagios', ]),
-              ('rucio/tools/probes/common/', glob.glob('tools/probes/common/check*')),
               ('rucio/etc/mail_templates/', glob.glob('etc/mail_templates/*.tmpl'))]
 
 scripts = glob.glob('bin/rucio*')
