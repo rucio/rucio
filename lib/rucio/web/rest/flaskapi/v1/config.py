@@ -25,8 +25,10 @@ import json
 from logging import getLogger, StreamHandler, DEBUG
 from flask import Flask, Blueprint, Response, request as request
 from flask.views import MethodView
+from traceback import format_exc
 
 from rucio.api import config
+from rucio.common.exception import ConfigurationError
 from rucio.common.utils import generate_http_error_flask
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
@@ -152,8 +154,11 @@ class OptionSet(MethodView):
 
         try:
             config.set(section=section, option=option, value=value, issuer=request.environ.get('issuer'))
-        except Exception:
+        except ConfigurationError:
             return generate_http_error_flask(500, 'ConfigurationError', 'Could not set value \'%s\' for section \'%s\' option \'%s\'' % (value, section, option))
+        except Exception as error:
+            print(format_exc())
+            return error, 500
         return "Created", 201
 
 

@@ -18,6 +18,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -82,8 +83,7 @@ class ConfigClient(BaseClient):
         url = build_url(choice(self.list_hosts), path=path)
 
         r = self._send_request(url, type='PUT')
-
-        if r.status_code != codes.ok:
+        if r.status_code == codes.created:
             return True
         else:
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
