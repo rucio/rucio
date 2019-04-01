@@ -784,7 +784,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
             # full name used due to circular import dependency between modules
             if resolve_parents and 'parents' not in file:
                 file['parents'] = ['%s:%s' % (parent['scope'], parent['name'])
-                                   for parent in rucio.core.did.list_parent_dids(scope, name, session=session)]
+                                   for parent in rucio.core.did.list_all_parent_dids(scope, name, session=session)]
 
             # if the file is a constituent, find the available archives and add them to the list of possible PFNs
             # taking into account the original rse_expression
@@ -1071,7 +1071,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
         # also do it for the last replica if necessary
         if resolve_parents and 'parents' not in file:
             file['parents'] = ['%s:%s' % (parent['scope'], parent['name'])
-                               for parent in rucio.core.did.list_parent_dids(file['scope'], file['name'], session=session)]
+                               for parent in rucio.core.did.list_all_parent_dids(file['scope'], file['name'], session=session)]
 
         # also sort the pfns inside the rse structure
         rse_pfns = []
