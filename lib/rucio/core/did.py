@@ -17,7 +17,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2015
@@ -925,7 +925,7 @@ def list_parent_dids(scope, name, session=None):
 @stream_session
 def list_all_parent_dids(scope, name, session=None):
     """
-    List all parent datasets and containers of a did, no matter on what level
+    List all parent datasets and containers of a did, no matter on what level.
 
     :param scope:     The scope.
     :param name:      The name.
@@ -939,7 +939,9 @@ def list_all_parent_dids(scope, name, session=None):
                           models.DataIdentifierAssociation.did_type).filter_by(child_scope=scope, child_name=name)
     for did in query.yield_per(5):
         yield {'scope': did.scope, 'name': did.name, 'type': did.did_type}
-        list_all_parent_dids(scope=did.scope, name=did.name, session=session)
+        # Note that only Python3 supports recursive yield, that's the reason to do the nested for.
+        for pdid in list_all_parent_dids(scope=did.scope, name=did.name, session=session):
+            yield {'scope': pdid['scope'], 'name': pdid['name'], 'type': pdid['type']}
 
 
 @transactional_session
