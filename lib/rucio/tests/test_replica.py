@@ -369,7 +369,7 @@ class TestReplicaCore:
 
         add_replicas(rse=rse, files=[file_item], account='root')
 
-        replicas = list(rc.list_replicas([{'scope': scope, 'name': name}], schemes=['http']))
+        replicas = list(rc.list_replicas([{'scope': scope, 'name': name}]))
         assert_in('http://', replicas[0]['pfns'].keys()[0])
 
     def test_replica_no_site(self):
