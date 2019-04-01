@@ -666,9 +666,12 @@ class DownloadClient:
                 if success and not item.get('merged_options', {}).get('ignore_checksum', False):
                     rucio_checksum = item.get('adler32')
                     local_checksum = None
-                    if not rucio_checksum:
+                    if rucio_checksum is None:
                         rucio_checksum = item.get('md5')
-                        local_checksum = md5(temp_file_path)
+                        if rucio_checksum is None:
+                            logger.warning('%sNo remote checksum available. Skipping validation.' % log_prefix)
+                        else:
+                            local_checksum = md5(temp_file_path)
                     else:
                         local_checksum = adler32(temp_file_path)
 
@@ -677,10 +680,6 @@ class DownloadClient:
                         os.unlink(temp_file_path)
                         logger.warning('%sChecksum validation failed for file: %s' % (log_prefix, did_str))
                         logger.debug('Local checksum: %s, Rucio checksum: %s' % (local_checksum, rucio_checksum))
-                        try:
-                            self.client.declare_suspicious_file_replicas([pfn], reason='Corrupted')
-                        except Exception:
-                            pass
                         trace['clientState'] = 'FAIL_VALIDATE'
                 if not success:
                     logger.warning('%sDownload attempt failed. Try %s/%s' % (log_prefix, attempt, retries))
@@ -1412,7 +1411,7 @@ class DownloadClient:
                             'dest_file_paths': [dest_path],
                             'temp_file_path': '%s.part' % dest_path,
                             'sources': file_item['sources'],
-                            'ignore_checksum': True,  # we currently dont have checksums for the archive
+                            'merged_options': {'ignore_checksum': True},  # we currently dont have checksums for the archive
                             'archive_items': []
                             }
                     cea_id_to_pack[cea_id] = pack
