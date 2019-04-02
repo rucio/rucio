@@ -1,3 +1,4 @@
+
 # Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,6 +16,7 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 
 ''' create sources table '''
 
@@ -54,7 +56,7 @@ def upgrade():
 
         create_primary_key('SOURCES_PK', 'sources', ['request_id', 'rse_id', 'scope', 'name'])
         create_foreign_key('SOURCES_REQ_ID_FK', 'sources', 'requests', ['request_id'], ['id'])
-        create_foreign_key('SOURCES_REPLICA_FK', 'sources', 'replicas', ['scope', 'name', 'rse_id'], ['scope', 'name', 'rse_id'])
+        create_foreign_key('SOURCES_REPLICA_FK', 'sources', 'replicas', ['rse_id', 'scope', 'name'], ['rse_id', 'scope', 'name'])
         create_foreign_key('SOURCES_RSES_FK', 'sources', 'rses', ['rse_id'], ['id'])
         create_foreign_key('SOURCES_DST_RSES_FK', 'sources', 'rses', ['dest_rse_id'], ['id'])
         create_check_constraint('SOURCES_CREATED_NN', 'sources', 'created_at is not null')
