@@ -1,0 +1,59 @@
+======
+1.19.5
+======
+
+-------
+General
+-------
+
+********
+Features
+********
+
+- Core & Internals: Symlink as a new storm protocol `#2160 <https://github.com/rucio/rucio/issues/2160>`_
+
+************
+Enhancements
+************
+
+- Documentation: Fix grammatical and formatting errors `#2375 <https://github.com/rucio/rucio/issues/2375>`_
+- Probes & Alarms: Update probe for changes in AGIS `#2298 <https://github.com/rucio/rucio/issues/2298>`_
+- Probes & Alarms: Storage Resource Reporting `#806 <https://github.com/rucio/rucio/issues/806>`_
+- Subscriptions: Keep the history of the susbcriptions `#1810 <https://github.com/rucio/rucio/issues/1810>`_
+- Testing: Proxy support for building demo. `#2359 <https://github.com/rucio/rucio/issues/2359>`_
+- Testing: upgrading pip version inside demo docker build `#2367 <https://github.com/rucio/rucio/issues/2367>`_
+- Testing: ipaddress installation in demo. `#2370 <https://github.com/rucio/rucio/issues/2370>`_
+- Testing: Using subprocess instead of commands module in submit-pull-request `#2378 <https://github.com/rucio/rucio/issues/2378>`_
+
+****
+Bugs
+****
+
+- Clients: rucio-admin config set silently fails `#2261 <https://github.com/rucio/rucio/issues/2261>`_
+- Core & Internals: List_replicas needs to resolve parent dids recursively for containers `#2217 <https://github.com/rucio/rucio/issues/2217>`_
+- Core & Internals: config cache prevents updating a value before expiration `#2390 <https://github.com/rucio/rucio/issues/2390>`_
+- Core & Internals: Client raising the wrong error `#2398 <https://github.com/rucio/rucio/issues/2398>`_
+- Documentation: New check_accept_header_wrapper block auto-documentation of REST endpoints `#2344 <https://github.com/rucio/rucio/issues/2344>`_
+- Probes & Alarms: 'unavailable' counter not updated if there are no replicas `#2265 <https://github.com/rucio/rucio/issues/2265>`_
+- Transfers: Implement protection against double submission `#1953 <https://github.com/rucio/rucio/issues/1953>`_
+- Transfers: Submitter continues to submit transfers jobs even for sites blacklisted for write `#2352 <https://github.com/rucio/rucio/issues/2352>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Download client should report suspicious files properly `#1593 <https://github.com/rucio/rucio/issues/1593>`_
+- Clients: Remove file:// prefix when doing the forced xrdcp -z download for zips `#2314 <https://github.com/rucio/rucio/issues/2314>`_
+- Clients: removing token from logs `#2379 <https://github.com/rucio/rucio/issues/2379>`_
+
+****
+Bugs
+****
+
+- Clients: transfer_timeout and other options not propagated to download functions `#2076 <https://github.com/rucio/rucio/issues/2076>`_
+- Clients: Format error with `rucio download` `#2362 <https://github.com/rucio/rucio/issues/2362>`_
+- Clients: propagate correct ignore_checksum for archive download `#2413 <https://github.com/rucio/rucio/issues/2413>`_

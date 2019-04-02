@@ -1,0 +1,13 @@
+============
+1.19.4.post2
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Rules: Add new rule notification mode P to schema validator `#2248 <https://github.com/rucio/rucio/issues/2248>`_
