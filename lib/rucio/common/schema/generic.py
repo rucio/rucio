@@ -1,20 +1,24 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015, 2017
-  - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
-  - Martin Barisits, <martin.barisits@cern.ch>, 2016
-
-  PY3K COMPATIBLE
-'''
+# Copyright 2017-2019 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vgaronne@gmail.com>, 2017
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Robert Illingworth <illingwo@fnal.gov>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
 from jsonschema import validate, ValidationError
 
@@ -110,7 +114,7 @@ GROUPING = {"description": "Rule grouping",
 
 NOTIFY = {"description": "Rule notification setting",
           "type": ["string", "null"],
-          "enum": ["Y", "C", "N", None]}
+          "enum": ["Y", "C", "N", "P", None]}
 
 COMMENT = {"description": "Rule comment",
            "type": ["string", "null"],
