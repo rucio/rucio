@@ -17,37 +17,57 @@
 #
 # PY3K COMPATIBLE
 
-from nose.tools import assert_true
+import logging
 
+import nose.tools
+import os.path
+
+from rucio.client.client import Client
 from rucio.client.downloadclient import DownloadClient
+from rucio.client.uploadclient import UploadClient
 from rucio.common.utils import generate_uuid
-from rucio.tests.common import execute, file_generator
+from rucio.tests.common import file_generator
 
 
 class TestDownloadClient(object):
 
+    def setup(self):
+        logger = logging.getLogger('dlul_client')
+        logger.addHandler(logging.StreamHandler())
+        logger.setLevel(logging.DEBUG)
+        self.client = Client()
+        self.upload_client = UploadClient(_client=self.client, logger=logger)
+        self.download_client = DownloadClient(client=self.client, logger=logger)
+
+    def create_and_upload_tmp_file(self, rse, scope='mock'):
+        file_path = file_generator()
+        item = {'path': file_path,
+                'rse': rse,
+                'did_scope': scope,
+                'did_name': os.path.basename(file_path),
+                'guid': generate_uuid()}
+        nose.tools.assert_equal(self.upload_client.upload([item]), 0)
+        return item
+
     def test_download_item(self):
         """ DOWNLOAD (CLIENT): download DIDs. """
-        download_client = DownloadClient()
-        tmp_file1 = file_generator()
-        scope = 'mock'
-        name = tmp_file1[5:]
-        uuid = generate_uuid()
-        cmd = 'rucio upload --rse {0} --scope {1} --guid {2} {3}'.format('MOCK4', scope, uuid, tmp_file1)
-        exitcode, out, err = execute(cmd)
+        item = self.create_and_upload_tmp_file('MOCK4')
+        scope = item['did_scope']
+        name = item['did_name']
+        uuid = item['guid']
 
         # Download specific DID
-        result = download_client.download_dids([{'did': '%s:%s' % (scope, name)}])
-        assert_true(result)
+        result = self.download_client.download_dids([{'did': '%s:%s' % (scope, name)}])
+        nose.tools.assert_true(result)
 
         # Download with wildcard
-        result = download_client.download_dids([{'did': '%s:%s' % (scope, name[:10] + '*')}])
-        assert_true(result)
+        result = self.download_client.download_dids([{'did': '%s:%s' % (scope, name[:-2] + '*')}])
+        nose.tools.assert_true(result)
 
         # Download with filter
-        result = download_client.download_dids([{'filters': {'guid': uuid, 'scope': scope}}])
-        assert_true(result)
+        result = self.download_client.download_dids([{'filters': {'guid': uuid, 'scope': scope}}])
+        nose.tools.assert_true(result)
 
         # Download with wildcard and name
-        result = download_client.download_dids([{'did': '%s:%s' % (scope, '*'), 'filters': {'guid': uuid}}])
-        assert_true(result)
+        result = self.download_client.download_dids([{'did': '%s:%s' % (scope, '*'), 'filters': {'guid': uuid}}])
+        nose.tools.assert_true(result)
