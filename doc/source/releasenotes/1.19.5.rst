@@ -19,6 +19,7 @@ Enhancements
 - Documentation: Fix grammatical and formatting errors `#2375 <https://github.com/rucio/rucio/issues/2375>`_
 - Probes & Alarms: Update probe for changes in AGIS `#2298 <https://github.com/rucio/rucio/issues/2298>`_
 - Probes & Alarms: Storage Resource Reporting `#806 <https://github.com/rucio/rucio/issues/806>`_
+- Subscriptions: Keep the history of the susbcriptions `#1810 <https://github.com/rucio/rucio/issues/1810>`_
 - Testing: Proxy support for building demo. `#2359 <https://github.com/rucio/rucio/issues/2359>`_
 - Testing: upgrading pip version inside demo docker build `#2367 <https://github.com/rucio/rucio/issues/2367>`_
 - Testing: ipaddress installation in demo. `#2370 <https://github.com/rucio/rucio/issues/2370>`_
