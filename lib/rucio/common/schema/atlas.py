@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2017
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -113,7 +113,7 @@ GROUPING = {"description": "Rule grouping",
 
 NOTIFY = {"description": "Rule notification setting",
           "type": ["string", "null"],
-          "enum": ["Y", "C", "N", None]}
+          "enum": ["Y", "C", "N", "P", None]}
 
 COMMENT = {"description": "Rule comment",
            "type": ["string", "null"],
