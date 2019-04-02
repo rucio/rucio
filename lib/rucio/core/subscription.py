@@ -1,21 +1,26 @@
-"""
- Copyright European Organization for Nuclear Research (CERN)
-
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at
- http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
- - Martin Barisits, <martin.barisits@cern.ch>, 2012
- - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014, 2017
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
- - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
-
- PY3K COMPATIBLE
-"""
+# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2012
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2019
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+#
+# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -29,7 +34,8 @@ from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import NoResultFound
 
-from rucio.common.exception import SubscriptionNotFound, SubscriptionDuplicate, RucioException
+from rucio.common.exception import SubscriptionNotFound, SubscriptionDuplicate, RucioException, ConfigNotFound
+from rucio.core.config import get
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import SubscriptionState
 from rucio.db.sqla.session import transactional_session, stream_session, read_session
@@ -63,7 +69,12 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
 
     :returns: The subscriptionid
     """
+    try:
+        keep_history = get('subscriptions', 'keep_history')
+    except ConfigNotFound:
+        keep_history = False
 
+    SubscriptionHistory = models.Subscription.__history_mapper__.class_
     retroactive = bool(retroactive)  # Force boolean type, necessary for strict SQL
     state = SubscriptionState.ACTIVE
     lifetime = None
@@ -71,10 +82,29 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
         state = SubscriptionState.NEW
     if lifetime:
         lifetime = datetime.datetime.utcnow() + datetime.timedelta(days=lifetime)
-    new_subscription = models.Subscription(name=name, filter=filter, account=account, replication_rules=replication_rules, state=state, lifetime=lifetime,
-                                           retroactive=retroactive, policyid=priority, comments=comments)
+    new_subscription = models.Subscription(name=name,
+                                           filter=filter,
+                                           account=account,
+                                           replication_rules=replication_rules,
+                                           state=state,
+                                           lifetime=lifetime,
+                                           retroactive=retroactive,
+                                           policyid=priority, comments=comments)
+    if keep_history:
+        subscription_history = SubscriptionHistory(id=new_subscription.id,
+                                                   name=new_subscription.name,
+                                                   filter=new_subscription.filter,
+                                                   account=new_subscription.account,
+                                                   replication_rules=new_subscription.replication_rules,
+                                                   state=new_subscription.state,
+                                                   lifetime=new_subscription.lifetime,
+                                                   retroactive=new_subscription.retroactive,
+                                                   policyid=new_subscription.policyid,
+                                                   comments=new_subscription.comments)
     try:
         new_subscription.save(session=session)
+        if keep_history:
+            subscription_history.save(session=session)
     except IntegrityError as error:
         if re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTIONS_PK.*violated.*', error.args[0])\
            or re.match(".*IntegrityError.*UNIQUE constraint failed: subscriptions.name, subscriptions.account.*", error.args[0])\
@@ -101,6 +131,10 @@ def update_subscription(name, account, metadata=None, session=None):
     :param session: The database session in use.
     :raises: SubscriptionNotFound if subscription is not found
     """
+    try:
+        keep_history = get('subscriptions', 'keep_history')
+    except ConfigNotFound:
+        keep_history = False
     values = {'state': SubscriptionState.UPDATED}
     if 'filter' in metadata and metadata['filter']:
         values['filter'] = dumps(metadata['filter'])
@@ -122,12 +156,28 @@ def update_subscription(name, account, metadata=None, session=None):
         values['state'] = SubscriptionState.INACTIVE
         values['expired_at'] = datetime.datetime.utcnow()
 
+    SubscriptionHistory = models.Subscription.__history_mapper__.class_
     try:
-        rowcount = session.query(models.Subscription).filter_by(account=account, name=name).update(values)
-        if rowcount == 0:
-            raise SubscriptionNotFound("Subscription for account '%(account)s' named '%(name)s' not found" % locals())
-    except IntegrityError as error:
-        raise RucioException(error.args)
+        subscription = session.query(models.Subscription).filter_by(account=account, name=name).one()
+        subscription.update(values)
+        if keep_history:
+            subscription_history = SubscriptionHistory(id=subscription.id,
+                                                       name=subscription.name,
+                                                       filter=subscription.filter,
+                                                       account=subscription.account,
+                                                       replication_rules=subscription.replication_rules,
+                                                       state=subscription.state,
+                                                       lifetime=subscription.lifetime,
+                                                       retroactive=subscription.retroactive,
+                                                       policyid=subscription.policyid,
+                                                       comments=subscription.comments,
+                                                       last_processed=subscription.last_processed,
+                                                       expired_at=subscription.expired_at,
+                                                       updated_at=subscription.updated_at,
+                                                       created_at=subscription.created_at)
+            subscription_history.save(session=session)
+    except NoResultFound:
+        raise SubscriptionNotFound("Subscription for account '%(account)s' named '%(name)s' not found" % locals())
 
 
 @stream_session
