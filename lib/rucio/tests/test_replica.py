@@ -346,6 +346,32 @@ class TestReplicaCore:
             assert_in('/i/prefer/the/wan', stdout)
             assert_in('/i/prefer/the/lan', stdout)
 
+    def test_list_replica_with_schemes(self):
+        """ REPLICA (CORE): Add and list file replicas forcing schemes"""
+
+        rc = ReplicaClient()
+
+        rse = 'APERTURE_%s' % rse_name_generator()
+        add_rse(rse)
+
+        add_protocol(rse, {'scheme': 'http',
+                           'hostname': 'http.aperture.com',
+                           'port': 80,
+                           'prefix': '//test/chamber/',
+                           'impl': 'rucio.rse.protocols.gfalv2.Default',
+                           'domains': {
+                               'lan': {'read': 1, 'write': 1, 'delete': 1},
+                               'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+
+        scope = 'mock'
+        name = 'element_%s' % generate_uuid()
+        file_item = {'scope': scope, 'name': name, 'bytes': 1234, 'adler32': 'deadbeef'}
+
+        add_replicas(rse=rse, files=[file_item], account='root')
+
+        replicas = list(rc.list_replicas([{'scope': scope, 'name': name}]))
+        assert_in('http://', replicas[0]['pfns'].keys()[0])
+
     def test_replica_no_site(self):
         """ REPLICA (CORE): Test listing replicas without site attribute """
 
