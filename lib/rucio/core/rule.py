@@ -610,6 +610,11 @@ def inject_rule(rule_id, session=None):
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
 
+    # Check if rule will expire in the next 5 minutes:
+    if rule.child_rule_id is None and rule.expires_at is not None and rule.expires_at < datetime.utcnow() + timedelta(seconds=300):
+        logging.info('Rule %s expiring soon, skipping', str(rule.id))
+        return
+
     # Special R2D2 container handling
     if (rule.did_type == DIDType.CONTAINER and '.r2d2_request.' in rule.name) or (rule.split_container and rule.did_type == DIDType.CONTAINER):
         logging.debug("Creating dataset rules for Split Container rule %s", str(rule.id))
