@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2015-2016
+# - Martin Barisits, <martin.barisits@cern.ch>, 2015-2019
 
 from nose.tools import assert_raises
 
@@ -136,7 +136,7 @@ class TestJudgeEvaluator():
             add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
             attach_dids(scope, dataset, files, 'jdoe')
             attach_dids(scope, container, [{'scope': scope, 'name': dataset}], 'jdoe')
-        rule_id = add_rule(dids=[{'scope': scope, 'name': container}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=100, locked=False, subscription_id=None, ask_approval=True)[0]
+        rule_id = add_rule(dids=[{'scope': scope, 'name': container}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=900, locked=False, subscription_id=None, ask_approval=True)[0]
         approve_rule(rule_id, approver='root')
         assert(get_rule(rule_id)['state'] == RuleState.INJECT)
         rule_injector(once=True)
@@ -159,8 +159,8 @@ class TestJudgeEvaluator():
             add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
             attach_dids(scope, dataset, files, 'jdoe')
             attach_dids(scope, container, [{'scope': scope, 'name': dataset}], 'jdoe')
-        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=100, locked=False, subscription_id=None, ask_approval=False)
-        rule_id = add_rule(dids=[{'scope': scope, 'name': container}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=100, locked=False, subscription_id=None, ask_approval=True)[0]
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=900, locked=False, subscription_id=None, ask_approval=False)
+        rule_id = add_rule(dids=[{'scope': scope, 'name': container}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=900, locked=False, subscription_id=None, ask_approval=True)[0]
         approve_rule(rule_id, approver='root')
         assert(get_rule(rule_id)['state'] == RuleState.INJECT)
         rule_injector(once=True)
