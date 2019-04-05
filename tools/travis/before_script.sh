@@ -39,7 +39,7 @@ elif [[ $RDBMS == "mysql" ]]; then
 
 
 elif [[ $RDBMS == "postgres" ]]; then
-    docker run --name=postgres -e POSTGRES_PASSWORD=secret -d postgres -c 'max_connections=300'
+    docker run --name=postgres -e POSTGRES_PASSWORD=secret -d postgres:9.6 -c 'max_connections=300'
     docker run --name=activemq -d webcenter/activemq:latest
     sleep 100
     docker run -d --link postgres:postgres --link activemq:activemq --name=rucio rucio/rucio
