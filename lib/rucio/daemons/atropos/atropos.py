@@ -15,7 +15,7 @@
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2018
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
-# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
@@ -32,7 +32,7 @@ from traceback import format_exception
 
 from rucio.db.sqla.constants import LifetimeExceptionsState
 from rucio.common.config import config_get
-from rucio.common.exception import RuleNotFound
+from rucio.common.exception import InvalidRSEExpression, RuleNotFound
 from rucio.core import heartbeat
 import rucio.core.lifetime_exception
 from rucio.core.lock import get_dataset_locks
@@ -99,8 +99,13 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
 
                     if (rule_idx % 1000) == 0:
                         logging.info(prepend_str + '%s/%s rules processed' % (rule_idx, len(rules)))
+
                     # We compute the expected eol_at
-                    rses = parse_expression(rule.rse_expression)
+                    try:
+                        rses = parse_expression(rule.rse_expression)
+                    except InvalidRSEExpression:
+                        logging.warning(prepend_str + 'Rule %s has an RSE expression that results in an empty set: %s' % (rule.id, rule.rse_expression))
+                        continue
                     eol_at = rucio.core.lifetime_exception.define_eol(rule.scope, rule.name, rses)
                     if eol_at != rule.eol_at:
                         logging.warning(prepend_str + 'The computed eol %s differs from the one recorded %s for rule %s on %s at %s' % (eol_at, rule.eol_at, rule.id,
