@@ -114,6 +114,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
                             update_rule(rule.id, options={'eol_at': eol_at})
                         except RuleNotFound:
                             logging.warning(prepend_str + 'Cannot find rule %s on DID %s' % (rule.id, did))
+                            continue
 
                     # Check the exceptions
                     if did in lifetime_exceptions:
@@ -129,6 +130,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
                                 update_rule(rule.id, options={'eol_at': lifetime_exceptions[did]})
                             except RuleNotFound:
                                 logging.warning(prepend_str + 'Cannot find rule %s on DID %s' % (rule.id, did))
+                                continue
 
                     # Now check that the new eol_at is expired
                     if eol_at and eol_at < date_check:
@@ -152,6 +154,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
                                 update_rule(rule.id, options=options)
                             except RuleNotFound:
                                 logging.warning(prepend_str + 'Cannot find rule %s on DID %s' % (rule.id, did))
+                                continue
             except Exception:
                 exc_type, exc_value, exc_traceback = exc_info()
                 logging.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
