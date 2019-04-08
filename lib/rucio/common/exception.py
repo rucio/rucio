@@ -926,7 +926,7 @@ class MetalinkJsonParsingError(RucioException):
 
 class ReplicaIsLocked(RucioException):
     """
-    Replia has one or more locks.
+    Replica has one or more locks.
     """
     def __init__(self, *args, **kwargs):
         super(ReplicaIsLocked, self).__init__(*args, **kwargs)
@@ -946,7 +946,7 @@ class UnsupportedRequestedContentType(RucioException):
 
 class DuplicateFileTransferSubmission(RucioException):
     """
-    The requested content type is not supported by the API endpoint.
+    A transfer for the same file is already  submitted to the Transfer Tool.
     """
     def __init__(self, *args, **kwargs):
         super(DuplicateFileTransferSubmission, self).__init__(*args, **kwargs)
