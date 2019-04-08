@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
 '''
@@ -162,7 +162,7 @@ def write_requirements():
 
 
 oracle_extras = ['cx_oracle==6.3.1']
-postgresql_extras = ['psycopg2-binary>=2.4.2']
+postgresql_extras = ['psycopg2-binary>=2.4.2,<2.8']
 mysql_extras = ['PyMySQL']
 kerberos_extras = ['kerberos>=1.3.0', 'pykerberos>=1.2.1', 'requests-kerberos>=0.12.0']
 dev_extras = parse_requirements(requirements_files=['tools/pip-requires-test', ])
