@@ -31,7 +31,7 @@ import traceback
 import time
 import logging
 import socket
-from sys import stdout
+from sys import stdout, argv
 from re import match
 from datetime import datetime, timedelta
 
@@ -39,7 +39,8 @@ from sqlalchemy.exc import DatabaseError
 
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
-from rucio.core.replica import list_replicas, declare_bad_file_replicas, get_available_suspicious_replicas
+from rucio.core.replica import list_replicas, declare_bad_file_replicas, get_suspicious_files
+from rucio.core.rse_expression_parser import parse_expression
 
 from rucio.db.sqla.constants import BadFilesStatus
 from rucio.db.sqla.util import get_db_time
@@ -57,7 +58,7 @@ logging.basicConfig(stream=stdout,
 GRACEFUL_STOP = threading.Event()
 
 
-def declare_suspicious_replicas_bad(once=False, younger_than=3, cnt_threshold=10, rse_like='MOCK', max_replicas_per_rse=100):
+def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rse_expression='MOCK', max_replicas_per_rse=100):
 
     """
     Main loop to check for available replicas which are labeled as suspicious
@@ -67,40 +68,62 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, cnt_threshold=10
 
     :param once: If True, the loop is run just once, otherwise the daemon continues looping until stopped.
     :param younger_than: The number of days since which bad_replicas table will be searched
-                         for finding replicas suspicious at a specific RSE ('rse_like'),
-                         but available on other RSE(s).
-    :param cnt_threshold: The minimum number of appearances in the bad_replica DB table
-                          in order to appear in the resulting list of replicas for recovery.
-    :param rse_like: Search for suspicious replicas on RSEs containing 'rse_like' in their
-                     RSE expression.
+                         for finding replicas declared 'SUSPICIOUS' at a specific RSE ('rse_expression'),
+                         but 'AVAILABLE' on other RSE(s).
+    :param nattempts: The minimum number of appearances in the bad_replica DB table
+                      in order to appear in the resulting list of replicas for recovery.
+    :param rse_expression: Search for suspicious replicas on RSEs matching the 'rse_expression'.
     :param max_replicas_per_rse: Maximum number of replicas which are allowed to be labeled as bad per RSE.
                                  If more is found, processing is skipped and warning is printed.
     :returns: None
-
     """
 
-    sanity_check(executable='rucio-replica-recoverer', hostname=socket.gethostname())
+    # assembling the worker name identifier ('executable') including the rses from <rse_expression>
+    # in order to have the possibility to detect a start of a second instance with the same set of RSES
 
-    # make an initial heartbeat so that all replica-recoverers have the correct worker number on the next try
-    # heartbeat mechanism is used in this daemon only for information purposes,
-    # due to expected low load, the actual DB query does not filter the result based on worker number
-    live(executable='rucio-replica-recoverer', hostname=socket.gethostname(), pid=os.getpid(), thread=threading.current_thread())
+    executable = argv[0]
+    rses = []
+    for rse in parse_expression(expression=rse_expression):
+        rses.append(rse['rse'])
+    rses.sort()
+    executable += ' --rse-expression ' + str(rses)
+
+    sanity_check(executable=executable, hostname=socket.gethostname())
+
+    # make an initial heartbeat - expected only one replica-recoverer thread on one node
+    # heartbeat mechanism is used in this daemon only for information purposes
+    # (due to expected low load, the actual DB query does not filter the result based on worker number)
+    live(executable=executable, hostname=socket.gethostname(), pid=os.getpid(), thread=threading.current_thread())
+
     # wait a moment in case all workers started at the same time
     GRACEFUL_STOP.wait(1)
 
     while not GRACEFUL_STOP.is_set():
         try:
-            # issuing the heartbeat for a second time to make all workers aware of each other
-            heartbeat = live(executable='rucio-replica-recoverer', hostname=socket.gethostname(), pid=os.getpid(), thread=threading.current_thread())
+            # issuing the heartbeat for a second time to make all workers aware of each other (there is only 1 worker allowed for this daemon)
+            heartbeat = live(executable=executable, hostname=socket.gethostname(), pid=os.getpid(), thread=threading.current_thread())
             total_workers = heartbeat['nr_threads']
             worker_number = heartbeat['assign_thread'] + 1
 
+            # there is only 1 worker allowed for this daemon
+            if total_workers != 1:
+                logging.error('replica_recoverer: Another running instance on %s has been detected. Stopping gracefully.', socket.gethostname())
+                die(executable=executable, hostname=socket.gethostname(), pid=os.getpid(), thread=threading.current_thread())
+                break
+
             start = time.time()
 
-            logging.info('replica_recoverer[%i/%i]: ready to query replicas at RSEs like *%s*, reported suspicious in the last %i days at least %i times which are available on other RSEs.',
-                         worker_number, total_workers, rse_like, younger_than, cnt_threshold)
+            logging.info('replica_recoverer[%i/%i]: ready to query replicas at RSE %s,' +
+                         ' reported suspicious in the last %i days at least %i times which are available on other RSEs.',
+                         worker_number, total_workers, rse_expression, younger_than, nattempts)
 
-            recoverable_replicas = get_available_suspicious_replicas(rse_like, younger_than, cnt_threshold)
+            getfileskwargs = {'younger_than': younger_than,
+                              'nattempts': nattempts,
+                              'exclude_states': ['B', 'R', 'D', 'L', 'T'],
+                              'available_elsewhere': True,
+                              'is_suspicious': True}
+
+            recoverable_replicas = get_suspicious_files(rse_expression, **getfileskwargs)
 
             logging.info('replica_recoverer[%i/%i]: suspicious replica query took %.2f seconds, total of %i replicas were found.',
                          worker_number, total_workers, time.time() - start, len(recoverable_replicas))
@@ -161,18 +184,19 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, cnt_threshold=10
         if once:
             break
 
-    die(executable='rucio-replica-recoverer', hostname=socket.gethostname(), pid=os.getpid(), thread=threading.current_thread())
+    die(executable=executable, hostname=socket.gethostname(), pid=os.getpid(), thread=threading.current_thread())
     logging.info('replica_recoverer[%i/%i]: graceful stop done', worker_number, total_workers)
 
 
-def run(once=False, threads=1, younger_than=3, cnt_threshold=10, rse_like='MOCK', max_replicas_per_rse=100):
+def run(once=False, younger_than=3, nattempts=10, rse_expression='MOCK', max_replicas_per_rse=100):
 
     """
     Starts up the Suspicious-Replica-Recoverer threads.
     """
+
     client_time, db_time = datetime.utcnow(), get_db_time()
     max_offset = timedelta(hours=1, seconds=10)
-    if type(db_time) is datetime:
+    if isinstance(db_time, datetime):
         if db_time - client_time > max_offset or client_time - db_time > max_offset:
             logging.critical('Offset between client and db time too big. Stopping Suspicious-Replica-Recoverer.')
             return
@@ -180,20 +204,22 @@ def run(once=False, threads=1, younger_than=3, cnt_threshold=10, rse_like='MOCK'
     sanity_check(executable='rucio-replica-recoverer', hostname=socket.gethostname())
 
     if once:
-        declare_suspicious_replicas_bad(once, younger_than, cnt_threshold, rse_like, max_replicas_per_rse)
+        declare_suspicious_replicas_bad(once, younger_than, nattempts, rse_expression, max_replicas_per_rse)
     else:
-        logging.info('Suspicious file replicas recovery starting %i threads', threads)
-        threads = [threading.Thread(target=declare_suspicious_replicas_bad,
-                                    kwargs={'once': once, 'younger_than': younger_than,
-                                            'cnt_threshold': cnt_threshold, 'rse_like': rse_like,
-                                            'max_replicas_per_rse': max_replicas_per_rse}) for i in range(0, threads)]
-        [t.start() for t in threads]
+        logging.info('Suspicious file replicas recovery starting 1 worker.')
+        t = threading.Thread(target=declare_suspicious_replicas_bad,
+                             kwargs={'once': once, 'younger_than': younger_than,
+                                     'nattempts': nattempts, 'rse_expression': rse_expression,
+                                     'max_replicas_per_rse': max_replicas_per_rse})
+        t.start()
+        logging.info('waiting for interrupts')
+
         # Interruptible joins require a timeout.
-        while threads[0].is_alive():
-            [t.join(timeout=3.14) for t in threads]
+        while t.isAlive():
+            t.join(timeout=3.14)
 
 
-def stop(signum=None, frame=None):
+def stop():
     """
     Graceful exit.
     """
