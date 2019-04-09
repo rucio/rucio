@@ -84,9 +84,9 @@ rucio add-dataset mock:dataset_of_suspicious_replicas'_'$id0
 
 Added mock:dataset_of_suspicious_replicas_2ba45524-860b-43f9-a601-6ccec2c46778
 
-$ rucio add-rule mock:dataset_of_suspicious_replicas 1 MOCK_SUSPICIOUS
-$ rucio add-rule --source-replica-expression MOCK_SUSPICIOUS mock:dataset_of_suspicious_replicas 1 MOCK_RECOVERY
-$ rucio list-rules mock:dataset_of_suspicious_replicas
+$ rucio add-rule mock:dataset_of_suspicious_replicas'_'$id0 1 MOCK_SUSPICIOUS
+$ rucio add-rule --source-replica-expression MOCK_SUSPICIOUS mock:dataset_of_suspicious_replicas'_'$id0 1 MOCK_RECOVERY
+$ rucio list-rules mock:dataset_of_suspicious_replicas'_'$id0
 
 ID                                ACCOUNT    SCOPE:NAME                                                                STATE[OK/REPL/STUCK]    RSE_EXPRESSION      COPIES  EXPIRES (UTC)    CREATED (UTC)
 --------------------------------  ---------  ------------------------------------------------------------------------  ----------------------  ----------------  --------  ---------------  -------------------
@@ -134,7 +134,7 @@ Modifying the file statuses in the DB:
 
 $ python
 
-# the paths below point to MOCK_SUSPICIOUS RSE (.../rucio_rse2)
+# the paths below point to MOCK_SUSPICIOUS RSE (.../rucio_rse1)
 
 $$ file1 = ['file://localhost:0/tmp/rucio_rse1/mock/1f/6b/file_available_suspicious_5180be3e-4ebc-4c34-b528-efbfd09f067e',]
 $$ file2 = ['file://localhost:0/tmp/rucio_rse1/mock/1d/2d/file_available_suspicious_and_bad_46964411-95d4-46c4-a973-72c045195835',]
@@ -160,7 +160,6 @@ $$ replica_client.declare_bad_file_replicas(file2, 'This is a good reason')
 
 $$ replica_client.update_replicas_states('MOCK_RECOVERY', [{'scope':'mock', 'name':'file_notavailable_suspicious_6157f589-80db-492c-acdd-ef5f0c45112f', 'state':'U'}])
 
-# !!!??? The function 'get_suspicious_files' seems to do almost the same as the new get_available_suspicious_replicas, couldwe make them one function ?
 
 # Checking the results of the file status changes:
   ------------------------------------------------
@@ -183,7 +182,7 @@ $$ exit()
 Run the daemon:
 ---------------
 
-  $ python bin/rucio-replica-recoverer --run-once
+  $ python bin/rucio-replica-recoverer --run-once --rse-expression='MOCK_SUSPICIOUS'
 
 Terminal output:
 ----------------
@@ -206,28 +205,24 @@ $$ from datetime import datetime, timedelta
 $$ from_date = datetime.now() - timedelta(days=3)
 $$ from rucio.core.replica import list_bad_replicas_status
 
-$$ get_suspicious_files('MOCK_SUSPICIOUS',from_date,10)
+$$ get_suspicious_files('MOCK_SUSPICIOUS',younger_than=from_date, nattempts=10, is_suspicious=True, available_elsewhere=True)
 
->>> get_suspicious_files('MOCK_SUSPICIOUS',from_date,10)
-[{'created_at': datetime.datetime(2019, 2, 19, 14, 12, 56), 'scope': u'mock', 'cnt': 11L, 'name': u'file_notavailable_suspicious_6157f589-80db-492c-acdd-ef5f0c45112f', 'rse': u'MOCK_SUSPICIOUS'}]
+>>> get_suspicious_files('MOCK_SUSPICIOUS',younger_than=from_date, nattempts=10, is_suspicious=True, available_elsewhere=True)
+[]
 
 $$ list_bad_replicas_status(rse='MOCK_SUSPICIOUS', younger_than=from_date)
 
 [{'name': u'file_available_suspicious_5180be3e-4ebc-4c34-b528-efbfd09f067e', 'rse': u'MOCK_SUSPICIOUS', 'created_at': datetime.datetime(2019, 2, 19, 14, 39, 24), 'updated_at': datetime.datetime(2019, 2, 19, 14, 39, 24), 'state': BAD, 'scope': u'mock'},
  {'name': u'file_available_suspicious_and_bad_46964411-95d4-46c4-a973-72c045195835', 'rse': u'MOCK_SUSPICIOUS', 'created_at': datetime.datetime(2019, 2, 19, 14, 18, 33), 'updated_at': datetime.datetime(2019, 2, 19, 14, 18, 33), 'state': BAD, 'scope': u'mock'}]
 
-$$ from rucio.core.replica import get_available_suspicious_replicas
-$$ get_available_suspicious_replicas('MOCK',3,10)
-[]
 $$ exit()
 
 ''')
-    parser.add_argument("--cnt-threshold", action="store", default=10, help='Minimum count of suspicious file replica appearance in bad_replicas table. Default value is 10.')
+    parser.add_argument("--nattempts", action="store", default=10, help='Minimum count of suspicious file replica appearance in bad_replicas table.Default value is 10.')
     parser.add_argument("--younger-than", action="store", default=3, help='Consider all file replicas logged in bad_replicas table since speicified number of younger-than. Default value is 3.')
-    parser.add_argument("--rse-like", action="store", default='MOCK', help='The RSE on which the recovery should be happening.')
-    parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
+    parser.add_argument("--rse-expression", action="store", default='MOCK', help='The RSE on which the recovery should be happening.')
+    parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only.')
     parser.add_argument("--max-replicas-per-rse", action="store", default=100, help='The maximum number of suspicious replicas found on an RSE which may be declared bad. If a higher count is found, no action is be taken.')
-    parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: total number of threads on this process')
     return parser
 
 
@@ -236,6 +231,6 @@ if __name__ == "__main__":
     PARSER = get_parser()
     ARGS = PARSER.parse_args()
     try:
-        run(once=ARGS.run_once, threads=ARGS.threads, younger_than=ARGS.younger_than, cnt_threshold=ARGS.cnt_threshold, rse_like=ARGS.rse_like, max_replicas_per_rse=ARGS.max_replicas_per_rse)
+        run(once=ARGS.run_once, younger_than=ARGS.younger_than, nattempts=ARGS.nattempts, rse_expression=ARGS.rse_expression, max_replicas_per_rse=ARGS.max_replicas_per_rse)
     except KeyboardInterrupt:
         stop()
