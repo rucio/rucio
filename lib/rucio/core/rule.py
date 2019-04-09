@@ -3047,7 +3047,7 @@ def __progress_class(replicating_locks, total_locks):
     """
 
     try:
-        return int(float(replicating_locks) / float(total_locks) * 10) * 10
+        return int(float(total_locks - replicating_locks) / float(total_locks) * 10) * 10
     except Exception:
         return 0
 
