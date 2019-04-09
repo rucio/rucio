@@ -2769,7 +2769,7 @@ def get_suspicious_files(rse_expression, **kwargs):
     # finally, the results are grouped by RSE, scope, name and required to have
     # at least 'nattempts' occurrences in the result of the query per replica
     query_result = query.group_by(models.RSEFileAssociation.rse_id, bad_replicas_alias.scope, bad_replicas_alias.name).having(func.count() > nattempts).all()
-    #print(query)
+    # print(query)
     # translating the rse_id to RSE name and assembling the return list of dictionaries
     result = []
     rses = {}
