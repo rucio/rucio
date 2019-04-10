@@ -43,7 +43,7 @@ from rucio import version
 
 class UploadClient:
 
-    def __init__(self, _client=None, logger=None, tracing=True):
+    def __init__(self, _client: object = None, logger: object = None, tracing: object = True) -> object:
         """
         Initialises the basic settings for an UploadClient object
 
@@ -67,6 +67,7 @@ class UploadClient:
         self.trace['account'] = self.client.account
         self.trace['eventType'] = 'upload'
         self.trace['eventVersion'] = version.RUCIO_VERSION[0]
+
 
     def upload(self, items, summary_file_path=None):
         """
@@ -105,6 +106,7 @@ class UploadClient:
         # and cache rse settings
         registered_dataset_dids = set()
         registered_file_dids = set()
+
         for file in files:
             rse = file['rse']
             if not self.rses.get(rse):
@@ -129,6 +131,7 @@ class UploadClient:
         registered_dataset_dids = set()
         num_succeeded = 0
         summary = []
+
         for file in files:
             basename = file['basename']
             logger.info('Preparing upload for file %s' % basename)
@@ -312,8 +315,11 @@ class UploadClient:
             meta = self.client.get_metadata(file_scope, file_name)
             logger.info('File DID already exists')
             logger.debug('local checksum: %s, remote checksum: %s' % (file['adler32'], meta['adler32']))
+
             if meta['adler32'] != file['adler32']:
+                logger.info("Here")
                 logger.error('Local checksum %s does not match remote checksum %s' % (file['adler32'], meta['adler32']))
+
                 raise DataIdentifierAlreadyExists
 
             # add file to rse if it is not registered yet

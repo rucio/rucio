@@ -875,10 +875,8 @@ def upload(args):
 
     client = get_client(args)
     upload_client = UploadClient(client, logger)
-
     summary_file_path = 'rucio_upload.json' if args.summary else None
     upload_client.upload(items, summary_file_path)
-
     return SUCCESS
 
 
