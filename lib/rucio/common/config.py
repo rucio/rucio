@@ -55,7 +55,7 @@ def config_get(section, option, raise_exception=True, default=None):
     try:
         return __CONFIG.get(section, option)
     except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as err:
-        if raise_exception:
+        if raise_exception and default is None:
             raise err
         return default
 
