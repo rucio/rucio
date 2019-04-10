@@ -1134,10 +1134,15 @@ def list_dids_by_meta(args):
     for key_value in args.key_values:
         if len(key_value.split('=')) != 2:
             logger.error("Usage: rucio list-dids-by-meta key1=value1 key2=value2 ......")
+            return FAILURE
         else:
             key, value = key_value.split('=')
             select[key] = value
-    client.list_dids_by_meta(scope=args.scope, select=select)
+    dids = client.list_dids_by_meta(scope=args.scope, select=select)
+    if not dids:
+        logger.info('No DIDs found.')
+    for did in dids:
+        logger.info('%s:%s' % (did['scope'], did['name']))
     return SUCCESS
 
 
