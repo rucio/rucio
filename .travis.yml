@@ -16,7 +16,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2018
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 
 sudo:
   - required
@@ -49,8 +49,8 @@ before_script:
 script:
   - if [[ $SUITE == "syntax" ]]; then ./tools/travis/check_syntax.sh  ; fi
   - if [[ $SUITE == "python3" ]]; then ./tools/travis/check_python_3.sh  ; fi
-  - if [[ $SUITE == "client"  && "$TRAVIS_PYTHON_VERSION" !=  "3.6"  ]]; then nosetests -v lib/rucio/tests/test_clients.py; nosetests -v lib/rucio/tests/test_module_import.py ; fi
-  - if [[ $SUITE == "client"  && "$TRAVIS_PYTHON_VERSION" ==  "3.6"  ]]; then nosetests -v lib/rucio/tests/test_clients.py; nosetests -v lib/rucio/tests/test_bin_rucio.py ; fi
+  - if [[ $SUITE == "client"  && "$TRAVIS_PYTHON_VERSION" !=  "3.6"  ]]; then nosetests -v lib/rucio/tests/test_clients.py; if [ $? -ne 0 ]; then exit 1 ; fi ; nosetests -v lib/rucio/tests/test_module_import.py; if [ $? -ne 0 ]; then exit 1 ; fi ; fi
+  - if [[ $SUITE == "client"  && "$TRAVIS_PYTHON_VERSION" ==  "3.6"  ]]; then nosetests -v lib/rucio/tests/test_clients.py; if [ $? -ne 0 ]; then exit 1 ; fi ; nosetests -v lib/rucio/tests/test_bin_rucio.py; if [ $? -ne 0 ]; then exit 1 ; fi ; fi
   - if [[ $SUITE == "all" ]]; then docker exec -it rucio /bin/sh -c "/opt/rucio/tools/run_tests_docker.sh" ; fi
 
 env:
