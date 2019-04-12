@@ -574,8 +574,9 @@ class DownloadClient:
             self._send_trace(trace)
             return item
 
-        success = False
         # try different PFNs until one succeeded
+        temp_file_path = item['temp_file_path']
+        success = False
         i = 0
         while not success and i < len(sources):
             source = sources[i]
@@ -583,43 +584,6 @@ class DownloadClient:
             pfn = source['pfn']
             rse_name = source['rse']
             scheme = pfn.split(':')[0]
-
-            # this is a workaround to fix that gfal doesnt use root's -z option for archives
-            # this will be removed as soon as gfal has fixed this
-            temp_file_path = item['temp_file_path']
-            dest_file_path = item['dest_file_paths'][0]
-            unzip_arg_name = '?xrdcl.unzip='
-            if scheme == 'root' and unzip_arg_name in pfn:
-                logger.info('%sFound xrdcl.unzip in PFN. Using xrdcp overwrite.' % log_prefix)
-                filename_in_archive = ''
-                pfn_filename_start = pfn.find(unzip_arg_name) + len(unzip_arg_name)
-                for c in pfn[pfn_filename_start:]:
-                    if c == '&' or c == '?':
-                        break
-                    filename_in_archive += c
-
-                dest_file_path = os.path.join(os.path.dirname(dest_file_path), filename_in_archive)
-                temp_file_path = '%s.part' % dest_file_path
-                cmd = 'xrdcp -vf %s -z %s %s' % (pfn, filename_in_archive, temp_file_path)
-                start_time = time.time()
-                try:
-                    logger.debug('Executing: %s' % cmd)
-                    status, out, err = execute(cmd)
-                except Exception as error:
-                    logger.debug('xrdcp execution failed')
-                    logger.debug(error)
-                    continue
-                end_time = time.time()
-                success = (status == 0)
-                if not success:
-                    logger.debug('xrdcp status: %s' % status)
-                    logger.debug('xrdcp stdout: %s' % out)
-                    logger.debug('xrdcp stderr: %s' % err)
-                    trace['clientState'] = ('%s' % err)
-                    self._send_trace(trace)
-                    continue
-                else:
-                    break
 
             try:
                 rse = rsemgr.get_rse_info(rse_name)
