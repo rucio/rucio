@@ -1,4 +1,4 @@
-# Copyright 2016-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2016-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
+# - Vincent Garonne <vgaronne@gmail.com>, 2016-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
@@ -53,6 +53,8 @@ from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import add_message
 from rucio.core.replica import (list_unlocked_replicas, update_replicas_states,
                                 delete_replicas)
+from rucio.core.reaper import (get_thread_number, get_rse_thread_number,
+                               list_rses_for_thread)
 from rucio.core.rse import get_rse_attribute, sort_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.rse import rsemanager as rsemgr
@@ -126,7 +128,8 @@ def __check_rse_usage(rse, rse_id):
 
 
 def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=100,
-           once=False, greedy=False, scheme=None, delay_seconds=0):
+           once=False, greedy=False, scheme=None, delay_seconds=0, auto=False,
+           dry_mode=False):
     """
     Main loop to select and delete files.
 
@@ -139,26 +142,61 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
     :param greedy: If True, delete right away replicas with tombstone.
     :param scheme: Force the reaper to use a particular protocol, e.g., mock.
     :param exclude_rses: RSE expression to exclude RSEs from the Reaper.
+    :param auto: Automatic mode for the RSEs with the tombstone RSE attribute.
+    :param dry_mode: Show what would have been deleted.
     """
-    logging.info('Starting Reaper: Worker %(worker_number)s, '
-                 'child %(child_number)s will work on RSEs: ' % locals() + ', '.join([rse['rse'] for rse in rses]))
-
     pid = os.getpid()
     thread = threading.current_thread()
     hostname = socket.gethostname()
-    executable = ' '.join(sys.argv)
-    # Generate a hash just for the subset of RSEs
-    rse_names = [rse['rse'] for rse in rses]
-    hash_executable = hashlib.sha256(sys.argv[0] + ''.join(rse_names)).hexdigest()
+    if auto:
+        executable = 'rucio-reaper --auto'
+        hash_executable = hashlib.sha256(executable).hexdigest()
+    else:
+        executable = ' '.join(sys.argv)
+        # Generate a hash just for the subset of RSEs
+        rse_names = [rse['rse'] for rse in rses]
+        hash_executable = hashlib.sha256(sys.argv[0] + ''.join(rse_names)).hexdigest()
+
     sanity_check(executable=None, hostname=hostname)
+
+    if auto:
+        logging.info('Starting Reaper (auto mode): Worker %(worker_number)s, '
+                     'child %(child_number)s ' % locals())
+        heartbeat = live(executable=executable,
+                         hostname=hostname,
+                         pid=pid,
+                         thread=thread,
+                         hash_executable=hash_executable)
+        time.sleep(30)
+    else:
+        logging.info('Starting Reaper: Worker %(worker_number)s, '
+                     'child %(child_number)s will work on RSEs: ' % locals() + ', '.join([rse['rse'] for rse in rses]))
 
     nothing_to_do = {}
     while not GRACEFUL_STOP.is_set():
         try:
             # heartbeat
-            heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=thread, hash_executable=hash_executable)
+            heartbeat = live(executable=executable,
+                             hostname=hostname,
+                             pid=pid,
+                             thread=thread,
+                             hash_executable=hash_executable)
             checkpoint_time = datetime.datetime.now()
             # logging.info('Reaper({0[worker_number]}/{0[child_number]}): Live gives {0[heartbeat]}'.format(locals()))
+
+            if auto:
+                # get the list of rses for a worker number
+                thread_number = get_thread_number(
+                    hostname=hostname,
+                    pid=pid,
+                    thread_id=thread.ident)
+                logging.info('Reaper({0[worker_number]}/{0[child_number]}):'.format(locals()) +
+                             ' Thread got assigned {[thread_number]}'.format(locals()))
+
+                rses = list_rses_for_thread(**thread_number)
+                logging.info('Reaper({0[worker_number]}/{0[child_number]}):'
+                             ' will work on RSEs: '.format(locals()) +
+                             ', '.join([rse['rse'] for rse in rses]))
 
             max_deleting_rate = 0
             for rse in sort_rses(rses):
@@ -181,6 +219,11 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                         nothing_to_do[rse['id']] = datetime.datetime.now() + datetime.timedelta(minutes=30)
                         continue
 
+                    if not auto and rse_core.has_rse_attribute(rse['id'], 'tombstone'):
+                        logging.info('Reaper %s-%s: RSE %s is not available for deletion (tombstone)', worker_number, child_number, rse_info['rse'])
+                        nothing_to_do[rse['id']] = datetime.datetime.now() + datetime.timedelta(minutes=30)
+                        continue
+
                     # Temporary hack to force gfal for deletion
                     for protocol in rse_info['protocols']:
                         if protocol['impl'] == 'rucio.rse.protocols.srm.Default' or protocol['impl'] == 'rucio.rse.protocols.gsiftp.Default':
@@ -191,7 +234,11 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
 
                     needed_free_space, max_being_deleted_files = None, 100
                     needed_free_space_per_child = None
-                    if not greedy:
+
+                    greedy_condition = (auto and rse_core.has_rse_attribute(rse['id'], 'greedy')) or (not auto and greedy)
+                    if greedy_condition:
+                        logging.info('Reaper %(worker_number)s-%(child_number)s: Greedy mode enabled for RSE %(rse)s' % locals())
+                    else:
                         max_being_deleted_files, needed_free_space, used, free = __check_rse_usage(rse=rse['rse'], rse_id=rse['id'])
                         logging.info('Reaper %(worker_number)s-%(child_number)s: Space usage for RSE %(rse)s - max_being_deleted_files: %(max_being_deleted_files)s, needed_free_space: %(needed_free_space)s, used: %(used)s, free: %(free)s' % locals())
                         if needed_free_space <= 0:
@@ -203,12 +250,34 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
 
                     start = time.time()
                     with monitor.record_timer_block('reaper.list_unlocked_replicas'):
-                        replicas = list_unlocked_replicas(rse=rse['rse'], rse_id=rse['id'],
-                                                          bytes=needed_free_space_per_child,
-                                                          limit=max_being_deleted_files,
-                                                          worker_number=child_number,
-                                                          total_workers=total_children,
-                                                          delay_seconds=delay_seconds)
+                        if auto:
+
+                            rse_thread_number = get_rse_thread_number(
+                                rse=rse['rse'],
+                                total_threads=thread_number['total_threads'],
+                                thread_number=thread_number['thread_number'])
+
+                            if dry_mode:
+                                logging.info('Reaper %(worker_number)s-%(child_number)s: RSE %(rse)s thread got assigned ' % locals() +
+                                             str(rse_thread_number))
+                                continue
+
+                            replicas = list_unlocked_replicas(
+                                rse=rse['rse'], rse_id=rse['id'],
+                                bytes=needed_free_space_per_child,
+                                limit=max_being_deleted_files,
+                                worker_number=rse_thread_number['thread_number'],
+                                total_workers=rse_thread_number['total_threads'],
+                                delay_seconds=delay_seconds)
+                        else:
+                            replicas = list_unlocked_replicas(
+                                rse=rse['rse'], rse_id=rse['id'],
+                                bytes=needed_free_space_per_child,
+                                limit=max_being_deleted_files,
+                                worker_number=child_number,
+                                total_workers=total_children,
+                                delay_seconds=delay_seconds)
+
                     logging.debug('Reaper %s-%s: list_unlocked_replicas on %s for %s bytes in %s seconds: %s replicas', worker_number, child_number, rse['rse'], needed_free_space_per_child, time.time() - start, len(replicas))
 
                     if not replicas:
@@ -327,7 +396,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                 except:
                     logging.critical(traceback.format_exc())
 
-            if once:
+            if once or dry_mode:
                 break
 
             time.sleep(1)
@@ -350,7 +419,9 @@ def stop(signum=None, frame=None):
     GRACEFUL_STOP.set()
 
 
-def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, greedy=False, rses=[], scheme=None, exclude_rses=None, include_rses=None, delay_seconds=0):
+def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False,
+        greedy=False, rses=[], scheme=None, exclude_rses=None, include_rses=None,
+        delay_seconds=0, auto=False, dry_mode=False):
     """
     Starts up the reaper threads.
 
@@ -363,53 +434,76 @@ def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, gr
     :param scheme: Force the reaper to use a particular protocol/scheme, e.g., mock.
     :param exclude_rses: RSE expression to exclude RSEs from the Reaper.
     :param include_rses: RSE expression to include RSEs.
+    :param auto: Automatic mode on RSEs marked with the tombstone rse attributes.
+    :param dry_mode: Show what would have been deleted.
     """
     logging.info('main: starting processes')
 
-    all_rses = rse_core.list_rses()
-    if rses:
-        invalid = set(rses) - set([rse['rse'] for rse in all_rses])
-        if invalid:
-            msg = 'RSE{} {} cannot be found'.format('s' if len(invalid) > 1 else '',
-                                                    ', '.join([repr(rse) for rse in invalid]))
-            raise RSENotFound(msg)
-        rses = [rse for rse in all_rses if rse['rse'] in rses]
-    else:
-        rses = all_rses
-
-    if exclude_rses:
-        excluded_rses = parse_expression(exclude_rses)
-        rses = [rse for rse in rses if rse not in excluded_rses]
-
-    if include_rses:
-        included_rses = parse_expression(include_rses)
-        rses = [rse for rse in rses if rse in included_rses]
-
-    if not rses:
-        logging.error('Reaper: No RSEs found. Exiting.')
-        return
-
-    logging.info('Reaper: This instance will work on RSEs: ' + ', '.join([rse['rse'] for rse in rses]))
-
     threads = []
-    nb_rses_per_worker = int(math.ceil(len(rses) / float(total_workers))) or 1
-    rses = random.sample(rses, len(rses))
-    for worker in range(total_workers):
-        for child in range(threads_per_worker or 1):
-            rses_list = rses[worker * nb_rses_per_worker: worker * nb_rses_per_worker + nb_rses_per_worker]
-            if not rses_list:
-                logging.warning('Reaper: Empty RSEs list for worker %(worker)s' % locals())
-                continue
-            kwargs = {'worker_number': worker,
-                      'child_number': child + 1,
-                      'total_children': threads_per_worker or 1,
-                      'once': once,
-                      'chunk_size': chunk_size,
-                      'greedy': greedy,
-                      'rses': rses_list,
-                      'delay_seconds': delay_seconds,
-                      'scheme': scheme}
-            threads.append(threading.Thread(target=reaper, kwargs=kwargs, name='Worker: %s, child: %s' % (worker, child + 1)))
+    if auto:
+        for worker in range(total_workers):
+            for child in range(threads_per_worker or 1):
+                kwargs = {'worker_number': worker,
+                          'child_number': child + 1,
+                          'total_children': threads_per_worker or 1,
+                          'once': once,
+                          'chunk_size': chunk_size,
+                          'greedy': False,
+                          'rses': [],
+                          'delay_seconds': delay_seconds,
+                          'scheme': scheme,
+                          'auto': auto,
+                          'dry_mode': dry_mode}
+                threads.append(threading.Thread(target=reaper, kwargs=kwargs, name='Worker: %s, child: %s' % (worker, child + 1)))
+    else:
+
+        all_rses = rse_core.list_rses()
+        if rses:
+            invalid = set(rses) - set([rse['rse'] for rse in all_rses])
+            if invalid:
+                msg = 'RSE{} {} cannot be found'.format('s' if len(invalid) > 1 else '',
+                                                        ', '.join([repr(rse) for rse in invalid]))
+                raise RSENotFound(msg)
+            rses = [rse for rse in all_rses if rse['rse'] in rses]
+        else:
+            rses = all_rses
+
+        if exclude_rses:
+            excluded_rses = parse_expression(exclude_rses)
+            rses = [rse for rse in rses if rse not in excluded_rses]
+
+        if include_rses:
+            included_rses = parse_expression(include_rses)
+            rses = [rse for rse in rses if rse in included_rses]
+
+        if not rses:
+            logging.error('Reaper: No RSEs found. Exiting.')
+            return
+
+        logging.info('Reaper: This instance will work on RSEs: ' + ', '.join([rse['rse'] for rse in rses]))
+
+        nb_rses_per_worker = int(math.ceil(len(rses) / float(total_workers))) or 1
+        rses = random.sample(rses, len(rses))
+        for worker in range(total_workers):
+            for child in range(threads_per_worker or 1):
+                rses_list = rses[worker * nb_rses_per_worker: worker * nb_rses_per_worker + nb_rses_per_worker]
+                if not rses_list:
+                    logging.warning('Reaper: Empty RSEs list for worker %(worker)s' % locals())
+                    continue
+                kwargs = {'worker_number': worker,
+                          'child_number': child + 1,
+                          'total_children': threads_per_worker or 1,
+                          'once': once,
+                          'chunk_size': chunk_size,
+                          'greedy': greedy,
+                          'rses': rses_list,
+                          'delay_seconds': delay_seconds,
+                          'scheme': scheme,
+                          'auto': False,
+                          'dry_mode': dry_mode
+                          }
+                threads.append(threading.Thread(target=reaper, kwargs=kwargs, name='Worker: %s, child: %s' % (worker, child + 1)))
+
     [t.start() for t in threads]
     while threads[0].is_alive():
         [t.join(timeout=3.14) for t in threads]

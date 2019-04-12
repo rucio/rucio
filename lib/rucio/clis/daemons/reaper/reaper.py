@@ -1,4 +1,4 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vgaronne@gmail.com>, 2012-2018
+# - Vincent Garonne, <vgaronne@gmail.com>, 2012-2019
 # - Wen Guan, <wguan.icedew@gmail.com>, 2014
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 
@@ -69,6 +69,8 @@ Check if the replica exists::
     parser.add_argument('--include-rses', action="store", default=None, type=str, help='RSEs expression to include RSEs')
     parser.add_argument('--rses', nargs='+', type=str, help='List of RSEs')
     parser.add_argument('--delay-seconds', action="store", default=3600, type=int, help='Delay to retry failed deletion')
+    parser.add_argument('--auto', action='store_true', default=False, help='Automatic mode')
+    parser.add_argument('--dry-mode', action='store_true', default=False, help='Show what would have been deleted')
     return parser
 
 
@@ -78,8 +80,11 @@ def main():
     parser = get_parser()
     args = parser.parse_args()
     try:
-        run(total_workers=args.total_workers, chunk_size=args.chunk_size, greedy=args.greedy,
-            once=args.run_once, scheme=args.scheme, rses=args.rses, threads_per_worker=args.threads_per_worker,
-            exclude_rses=args.exclude_rses, include_rses=args.include_rses, delay_seconds=args.delay_seconds)
+        run(total_workers=args.total_workers, chunk_size=args.chunk_size,
+            greedy=args.greedy,
+            once=args.run_once, scheme=args.scheme, rses=args.rses,
+            threads_per_worker=args.threads_per_worker, exclude_rses=args.exclude_rses,
+            include_rses=args.include_rses, delay_seconds=args.delay_seconds,
+            auto=args.auto, dry_mode=args.dry_mode)
     except KeyboardInterrupt:
         stop()
