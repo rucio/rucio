@@ -1314,20 +1314,22 @@ class DownloadClient:
                 # dont move from mixed list to pure list
                 continue
 
-            # remove mixed cea id from mixed map and add it to pure map
-            cea_id_mixed_to_fiids.pop(cea_id_mixed)
+            # first add cea_id to pure map so it can be removed from mixed map later
             cea_id_pure_to_fiids.setdefault(cea_id_mixed, set()).update(fiids_mixed)
 
-            # move file items from mixed list to pure list
-            for fiid_mixed in fiids_mixed:
+            # now update all file_item mixed/pure maps
+            for fiid_mixed in list(fiids_mixed):
                 file_item = fiid_to_file_item[fiid_mixed]
+                # add cea id to file_item pure map
                 file_item.setdefault('cea_ids_pure', set()).add(cea_id_mixed)
 
-                # remove references from file to mixed archive and from mixed archive to file
-                for cea_id_mixed in file_item.pop('cea_ids_mixed'):
-                    cea_id_mixed_to_fiids[cea_id_mixed].discard(fiid_mixed)
-                    if not len(cea_id_mixed_to_fiids[cea_id_mixed]):
-                        cea_id_mixed_to_fiids.pop(cea_id_mixed)
+                # remove file item mixed map and
+                # remove references from all other mixed archives to file_item
+                for cea_id_mixed2 in file_item.pop('cea_ids_mixed'):
+                    cea_id_mixed_to_fiids[cea_id_mixed2].remove(fiid_mixed)
+
+            # finally remove cea_id from mixed map
+            cea_id_mixed_to_fiids.pop(cea_id_mixed)
 
         for file_item in all_file_items:
             cea_ids_pure = file_item.get('cea_ids_pure', set())
