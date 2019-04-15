@@ -171,7 +171,9 @@ class Replicas(RucioController):
                             break
                     yield ' </file>\n'
 
-            # don't forget to send the metalink footer
+            # ensure complete metalink
+            if __first and metalink:
+                yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
             if metalink:
                 yield '</metalink>\n'
 
@@ -455,7 +457,9 @@ class ListReplicas(RucioController):
                             break
                     yield ' </file>\n'
 
-            # don't forget to send the metalink footer
+            # ensure complete metalink
+            if __first and metalink:
+                yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
             if metalink:
                 yield '</metalink>\n'
 
