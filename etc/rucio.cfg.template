@@ -79,6 +79,7 @@ transfertool = fts3
 ftshosts = https://fts3-pilot.cern.ch:8446, https://fts3-pilot.cern.ch:8446
 cacert = /opt/rucio/etc/web/ca.crt
 usercert = /opt/rucio/tools/x509up
+fts_throttler_cycle = fts_throttler_cycle.json
 
 [messaging-fts3]
 port = 61123
