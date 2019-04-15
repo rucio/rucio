@@ -102,17 +102,17 @@ class FTSThrottler(object):
                         logging.warn('configuration for storage element was not found, config will be set from default values')
                         # all FTS Host servers have a default reference storage named '*' that holds the default values for all storages that arent listed yet.
                         default_storage = t.get_se_config('*')
-                        t.set_se_config(url, inbound_max_active=int((100/(100+n))*default_storage['se_info']['inbound_max_active']),
-                                        outbound_max_active=int((100/(100+n))*default_storage['se_info']['outbound_max_active']))
+                        t.set_se_config(url, inbound_max_active=int((100/(100 + n)) * default_storage['se_info']['inbound_max_active']),
+                                        outbound_max_active=int((100/(100 + n)) * default_storage['se_info']['outbound_max_active']))
 
-                        logging.info(url + 'inbound_max_active changed from ' + str(default_storage['se_info']['inbound_max_active']) + ' to ' + str(int((100/(100+n))*default_storage['se_info']['inbound_max_active'])) +
-                                     ', outbound_max_active changed from ' + str(default_storage['se_info']['outbound_max_active']) + ' to ' + str(int((100/(100+n))*default_storage['se_info']['outbound_max_active'])))
+                        logging.info(url + 'inbound_max_active changed from ' + str(default_storage['se_info']['inbound_max_active']) + ' to ' + str(int((100/(100 + n)) * default_storage['se_info']['inbound_max_active'])) +
+                                     ', outbound_max_active changed from ' + str(default_storage['se_info']['outbound_max_active']) + ' to ' + str(int((100/(100 + n)) * default_storage['se_info']['outbound_max_active'])))
 
                         # cycle_info_dict is used to write changes down to the cycle file.
                         cycle_info_dict['storages'].append({'storage': url, 'inbound_max_active': default_storage['se_info']['inbound_max_active'],
                                                             'outbound_max_active': default_storage['se_info']['outbound_max_active'], 'failure_ratio': n,
-                                                            'tuned_inbound_max_active': int((100/(100+n))*default_storage['se_info']['inbound_max_active']),
-                                                            'tuned_outbound_max_active': int((100/(100+n))*default_storage['se_info']['outbound_max_active']),
+                                                            'tuned_inbound_max_active': int((100/(100 + n)) * default_storage['se_info']['inbound_max_active']),
+                                                            'tuned_outbound_max_active': int((100/(100 + n)) * default_storage['se_info']['outbound_max_active']),
                                                             'fts-host': rse_info[1], 'time': str(datetime.datetime.now())})
                         continue
                     except Exception, error:
@@ -141,14 +141,14 @@ class FTSThrottler(object):
 
                     # append existing information to dict and write to file.
                     cycle_info_dict['storages'].append({'storage': url, 'inbound_max_active': ima, 'outbound_max_active': oma, 'failure_ratio': n,
-                                                        'tuned_inbound_max_active': int((100/(100+n))*ima), 'tuned_outbound_max_active': int((100/(100+n))*oma),
+                                                        'tuned_inbound_max_active': int((100/(100 + n)) * ima), 'tuned_outbound_max_active': int((100/(100 + n)) * oma),
                                                         'fts-host': rse_info[1], 'time': str(datetime.datetime.now())})
 
                     # tune down the configuration of a storage relative to the failure ratio(n) and existing configuration.
-                    t.set_se_config(url, inbound_max_active=int((100/(100+n))*ima), outbound_max_active=int((100/(100+n))*oma))
+                    t.set_se_config(url, inbound_max_active=int((100/(100+n)) * ima), outbound_max_active=int((100/(100 + n)) * oma))
 
-                    logging.info(url + 'inbound_max_active changed from ' + str(ima) + ' to ' + str(int((100/(100+n))*ima)) +
-                                 ', outbound_max_active changed from ' + str(oma) + ' to ' + str(int((100/(100+n))*oma)))
+                    logging.info(url + 'inbound_max_active changed from ' + str(ima) + ' to ' + str(int((100/(100 + n)) * ima)) +
+                                 ', outbound_max_active changed from ' + str(oma) + ' to ' + str(int((100/(100 + n)) * oma)))
 
             if cycle_info_dict['storages'] == []:
                 logging.info('no storages are failing significantly due to timeout errors, therefor no tuning happened.')
@@ -179,8 +179,8 @@ class FTSThrottler(object):
                 t = FTS3Transfertool(storage['fts-host'])
                 print(storage)
                 t.set_se_config(storage['storage'], inbound_max_active=storage['inbound_max_active'], outbound_max_active=storage['outbound_max_active'])
-                logging.info('on storage ' + storage['storage'] + ' outbound_max_active reverted from '
-                             + str(storage['tuned_outbound_max_active']) + ' to ' + str(storage['outbound_max_active']) +
+                logging.info('on storage ' + storage['storage'] + ' outbound_max_active reverted from ' +
+                             str(storage['tuned_outbound_max_active']) + ' to ' + str(storage['outbound_max_active']) +
                              ', inbound_max_active reverted from ' + str(storage['tuned_inbound_max_active']) + ' to ' + str(storage['inbound_max_active']))
             logging.info('revert performed')
         return True
@@ -195,86 +195,86 @@ class FTSThrottler(object):
         """
 
         params_dict = {
-                        'query': {
-                            'bool': {
-                                'must': [{
-                                    'range': {
-                                        '@timestamp': {
-                                            'gte': 'now-'+str(last_hours)+'h',
-                                            'lte': 'now',
-                                            'format': 'epoch_millis'
-                                        }
-                                    }
-                                }]
+            'query': {
+                'bool': {
+                    'must': [{
+                        'range': {
+                            '@timestamp': {
+                                'gte': 'now-' + str(last_hours) + 'h',
+                                'lte': 'now',
+                                'format': 'epoch_millis'
+                            }
+                        }
+                    }]
+                }
+            },
+            'size': 0,
+            'aggs': {
+                'rse': {
+                    'terms': {
+                    },
+                    'aggs': {
+                        'destination': {
+                            'top_hits': {
+                                '_source': {
+                                },
+                                'size': 1
                             }
                         },
-                        'size': 0,
-                        'aggs': {
-                            'rse': {
-                                'terms': {
-                                    },
-                                'aggs': {
-                                    'destination': {
-                                        'top_hits': {
-                                            '_source': {
-                                            },
-                                            'size': 1
-                                        }
-                                    },
-                                    'transfers_failed_timeout': {
-                                        'filter': {
-                                            'bool': {
-                                                'should': [
-                                                    # this is the list of the errors so far that are taken into consideration for the ratio calculation, add more if needed.
-                                                    {'match': {'payload.reason': {'query': 'TRANSFER [110] TRANSFER Operation timed out', 'operator': 'and'}}},
-                                                    {'match': {'payload.reason': {'query': ('TRANSFER [110] TRANSFER Transfer canceled because the gsiftp performance marker '
-                                                                                            'timeout of 360 seconds has been exceeded, or all performance '
-                                                                                            'markers during that period indicated zero bytes transferred'), 'operator': 'and'}}},
-                                                    {'match': {'payload.reason': {'query': ('SOURCE [70] globus_ftp_client: the server responded with an error 421 Service busy:'
-                                                                                            ' Connection limit exceeded. Please try again later. Closing control connection.'), 'operator': 'and'}}},
-                                                ],
-                                                'minimum_should_match': 1
-                                            }
-                                        }
-                                    },
-                                    'timeout_bucket_filter': {
-                                        'bucket_selector': {
-                                            'buckets_path': {
-                                                'timeoutCount': 'transfers_failed_timeout>_count'
-                                            },
-                                            'script': 'params.timeoutCount > '+str(transfer_timeouts_lower_boundary)
-                                        }
-                                    },
-                                    'transfers_succeeded': {
-                                        'filter': {
-                                            'bool': {
-                                                'must': [
-                                                    {'term': {'type': 'transfer-done'}}
-                                                ]
-                                            }
-                                        }
-                                    },
-                                    'success_bucket_filter': {
-                                        'bucket_selector': {
-                                            'buckets_path': {
-                                                'transferSuccessCount': 'transfers_succeeded>_count'
-                                            },
-                                            'script': 'params.transferSuccessCount > '+str(transfer_successes_lower_boundary)
-                                        }
-                                    },
-                                    'failure_ratio': {
-                                        'bucket_script': {
-                                            'buckets_path': {
-                                                'transfersFailedTimeout': 'transfers_failed_timeout>_count',
-                                                'transfersSucceeded': 'transfers_succeeded>_count'
-                                            },
-                                            'script': 'params.transfersFailedTimeout / params.transfersSucceeded * 100'
-                                        }
-                                    }
+                        'transfers_failed_timeout': {
+                            'filter': {
+                                'bool': {
+                                    'should': [
+                                        # this is the list of the errors so far that are taken into consideration for the ratio calculation, add more if needed.
+                                        {'match': {'payload.reason': {'query': 'TRANSFER [110] TRANSFER Operation timed out', 'operator': 'and'}}},
+                                        {'match': {'payload.reason': {'query': ('TRANSFER [110] TRANSFER Transfer canceled because the gsiftp performance marker '
+                                                                                'timeout of 360 seconds has been exceeded, or all performance '
+                                                                                'markers during that period indicated zero bytes transferred'), 'operator': 'and'}}},
+                                        {'match': {'payload.reason': {'query': ('SOURCE [70] globus_ftp_client: the server responded with an error 421 Service busy:'
+                                                                                ' Connection limit exceeded. Please try again later. Closing control connection.'), 'operator': 'and'}}},
+                                    ],
+                                    'minimum_should_match': 1
                                 }
+                            }
+                        },
+                        'timeout_bucket_filter': {
+                            'bucket_selector': {
+                                'buckets_path': {
+                                    'timeoutCount': 'transfers_failed_timeout>_count'
+                                },
+                                'script': 'params.timeoutCount > ' + str(transfer_timeouts_lower_boundary)
+                            }
+                        },
+                        'transfers_succeeded': {
+                            'filter': {
+                                'bool': {
+                                    'must': [
+                                        {'term': {'type': 'transfer-done'}}
+                                    ]
+                                }
+                            }
+                        },
+                        'success_bucket_filter': {
+                            'bucket_selector': {
+                                'buckets_path': {
+                                    'transferSuccessCount': 'transfers_succeeded>_count'
+                                },
+                                'script': 'params.transferSuccessCount > '+str(transfer_successes_lower_boundary)
+                            }
+                        },
+                        'failure_ratio': {
+                            'bucket_script': {
+                                'buckets_path': {
+                                    'transfersFailedTimeout': 'transfers_failed_timeout>_count',
+                                    'transfersSucceeded': 'transfers_succeeded>_count'
+                                },
+                                'script': 'params.transfersFailedTimeout / params.transfersSucceeded * 100'
                             }
                         }
                     }
+                }
+            }
+        }
 
         # if destination is true, we request data for destination RSE's, else we request source RSE's
         if destination:
@@ -301,16 +301,10 @@ class FTSThrottler(object):
 
     def testread(self):
         """
-        tune the configuration settings
+        Read the failure ratio of storages without tuning
         """
         result = self.request_timeout_data()
         if result is not None:
-
-            try:
-                cycle_file = config_get('conveyor', 'fts_throttler_cycle')
-            except Exception:
-                logging.warn('could not get the cycle file')
-                return
 
             rses = result['aggregations']['rse']['buckets']
             for rse in rses:
@@ -330,7 +324,7 @@ class FTSThrottler(object):
                         se = t.get_se_config(url)
                         print(se)
                     except KeyError:
-                        logging.warn('configuration for storage element was not found, config will be set from default values')
+                        logging.warn('configuration for storage element was not found')
                     except Exception, error:
                         logging.warn('an error occured when trying to get the storage configuration')
                         print str(error)
