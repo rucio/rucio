@@ -1,4 +1,4 @@
-# Copyright 2017-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2017-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2019
-# - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
+# - Vincent Garonne <vgaronne@gmail.com>, 2017-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2017-2018
 
@@ -45,7 +45,7 @@ RUN yum -y update && yum clean all && yum install -y epel-release &&\
       mysql-devel \
       memcached
 
-ENV RUCIOHOME=/opt/rucio
+ENV RUCIOHOME=/etc/rucio
 RUN mkdir -p $RUCIOHOME
 WORKDIR $RUCIOHOME
 RUN mkdir -p \
@@ -60,27 +60,22 @@ COPY pylintrc /etc/pylintrc
 COPY etc etc
 COPY tools tools
 
+#RUN virtualenv env
 RUN pip install --upgrade pip && pip install --upgrade setuptools
-RUN rm -rf /usr/lib/python2.7/site-packages/ipaddress*
-RUN pip install \
-      -r tools/pip-requires-client \
-      -r tools/pip-requires \
-      -r tools/pip-requires-test \
-      mysql
-RUN ln -s $RUCIOHOME/lib/rucio /usr/lib/python2.7/site-packages/rucio
-RUN ln -s $RUCIOHOME/lib/rucio /usr/lib/python3.4/site-packages/rucio
+RUN python setup.py develop
 
 RUN mkdir /var/log/rucio /var/log/rucio/trace && chmod 777 /var/log/rucio
 
-COPY etc/docker/dev/rucio.cfg etc/rucio.cfg
-COPY etc/docker/dev/alembic_mysql.ini etc/alembic.ini
-COPY etc/docker/dev/aliases-py27.conf etc/web/aliases-py27.conf
-COPY etc/docker/dev/ui-aliases-py27.conf etc/web/ui-aliases-py27.conf
-COPY etc/docker/travis/google-cloud-storage-test.json etc/google-cloud-storage-test.json
-COPY etc/docker/dev/httpd.conf /etc/httpd/conf/httpd.conf
-COPY etc/docker/dev/rucio.conf /etc/httpd/conf.d/rucio.conf
+COPY etc/docker/dev/rucio.cfg  $RUCIOHOME/etc/rucio.cfg
+COPY etc/alembic.ini.template  $RUCIOHOME/etc/alembic.ini
+COPY etc/docker/dev/aliases-py27.conf $RUCIOHOME/etc/web/aliases-py27.conf
+COPY etc/docker/dev/ui-aliases-py27.conf $RUCIOHOME/etc/web/ui-aliases-py27.conf
+COPY etc/docker/travis/google-cloud-storage-test.json $RUCIOHOME/etc/google-cloud-storage-test.json
 COPY etc/docker/dev/certs/ca.pem $RUCIOHOME/etc/web/CERN-bundle.pem
 COPY etc/docker/dev/certs/ca.pem $RUCIOHOME/etc/web/ca.crt
+
+COPY etc/docker/dev/httpd.conf /etc/httpd/conf/httpd.conf
+COPY etc/docker/dev/rucio.conf /etc/httpd/conf.d/rucio.conf
 COPY etc/docker/dev/certs/usercert.pem $RUCIOHOME/etc/web/usercert.pem
 COPY etc/docker/dev/certs/server.crt /etc/grid-security/hostcert.pem
 COPY etc/docker/dev/certs/server.key /etc/grid-security/hostkey.pem
@@ -98,6 +93,5 @@ RUN chmod 400 /etc/grid-security/hostkey.pem &&\
     echo "" > /etc/httpd/conf.d/welcome.conf
 
 EXPOSE 443
-ENV PATH $PATH:$RUCIOHOME/bin
 
 CMD ["httpd","-D","FOREGROUND"]

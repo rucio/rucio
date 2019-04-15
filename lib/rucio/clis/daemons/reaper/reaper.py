@@ -1,4 +1,4 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vgaronne@gmail.com>, 2012-2018
+# - Vincent Garonne, <vgaronne@gmail.com>, 2012-2019
 # - Wen Guan, <wguan.icedew@gmail.com>, 2014
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 
@@ -23,6 +23,7 @@ Reaper is a daemon to manage file deletion
 
 import argparse
 import signal
+import sys
 
 from rucio.daemons.reaper.reaper import run, stop
 
@@ -72,11 +73,19 @@ Check if the replica exists::
     return parser
 
 
-def main():
+def main(argv=None):
+    """
+    The main reaper method called by the command.
 
+    :param argv: Command-line arguments. Default to  sys.argv if not set.
+    """
     signal.signal(signal.SIGTERM, stop)
+
+    if argv is None:
+        argv = sys.argv[1:]
+
     parser = get_parser()
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     try:
         run(total_workers=args.total_workers, chunk_size=args.chunk_size, greedy=args.greedy,
             once=args.run_once, scheme=args.scheme, rses=args.rses, threads_per_worker=args.threads_per_worker,
