@@ -1,4 +1,4 @@
-# Copyright 2016-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -102,17 +102,17 @@ class FTSThrottler(object):
                         logging.warn('configuration for storage element was not found, config will be set from default values')
                         # all FTS Host servers have a default reference storage named '*' that holds the default values for all storages that arent listed yet.
                         default_storage = t.get_se_config('*')
-                        t.set_se_config(url, inbound_max_active=int((100/(100 + n)) * default_storage['se_info']['inbound_max_active']),
-                                        outbound_max_active=int((100/(100 + n)) * default_storage['se_info']['outbound_max_active']))
+                        t.set_se_config(url, inbound_max_active=int((100 / (100 + n)) * default_storage['se_info']['inbound_max_active']),
+                                        outbound_max_active=int((100 / (100 + n)) * default_storage['se_info']['outbound_max_active']))
 
-                        logging.info(url + 'inbound_max_active changed from ' + str(default_storage['se_info']['inbound_max_active']) + ' to ' + str(int((100/(100 + n)) * default_storage['se_info']['inbound_max_active'])) +
-                                     ', outbound_max_active changed from ' + str(default_storage['se_info']['outbound_max_active']) + ' to ' + str(int((100/(100 + n)) * default_storage['se_info']['outbound_max_active'])))
+                        logging.info(url + 'inbound_max_active changed from ' + str(default_storage['se_info']['inbound_max_active']) + ' to ' + str(int((100 / (100 + n)) * default_storage['se_info']['inbound_max_active'])) +
+                                     ', outbound_max_active changed from ' + str(default_storage['se_info']['outbound_max_active']) + ' to ' + str(int((100 / (100 + n)) * default_storage['se_info']['outbound_max_active'])))
 
                         # cycle_info_dict is used to write changes down to the cycle file.
                         cycle_info_dict['storages'].append({'storage': url, 'inbound_max_active': default_storage['se_info']['inbound_max_active'],
                                                             'outbound_max_active': default_storage['se_info']['outbound_max_active'], 'failure_ratio': n,
-                                                            'tuned_inbound_max_active': int((100/(100 + n)) * default_storage['se_info']['inbound_max_active']),
-                                                            'tuned_outbound_max_active': int((100/(100 + n)) * default_storage['se_info']['outbound_max_active']),
+                                                            'tuned_inbound_max_active': int((100 / (100 + n)) * default_storage['se_info']['inbound_max_active']),
+                                                            'tuned_outbound_max_active': int((100 / (100 + n)) * default_storage['se_info']['outbound_max_active']),
                                                             'fts-host': rse_info[1], 'time': str(datetime.datetime.now())})
                         continue
                     except Exception, error:
@@ -141,21 +141,20 @@ class FTSThrottler(object):
 
                     # append existing information to dict and write to file.
                     cycle_info_dict['storages'].append({'storage': url, 'inbound_max_active': ima, 'outbound_max_active': oma, 'failure_ratio': n,
-                                                        'tuned_inbound_max_active': int((100/(100 + n)) * ima), 'tuned_outbound_max_active': int((100/(100 + n)) * oma),
+                                                        'tuned_inbound_max_active': int((100 / (100 + n)) * ima), 'tuned_outbound_max_active': int((100 / (100 + n)) * oma),
                                                         'fts-host': rse_info[1], 'time': str(datetime.datetime.now())})
 
                     # tune down the configuration of a storage relative to the failure ratio(n) and existing configuration.
-                    t.set_se_config(url, inbound_max_active=int((100/(100+n)) * ima), outbound_max_active=int((100/(100 + n)) * oma))
+                    t.set_se_config(url, inbound_max_active=int((100 / (100+n)) * ima), outbound_max_active=int((100 / (100 + n)) * oma))
 
-                    logging.info(url + 'inbound_max_active changed from ' + str(ima) + ' to ' + str(int((100/(100 + n)) * ima)) +
-                                 ', outbound_max_active changed from ' + str(oma) + ' to ' + str(int((100/(100 + n)) * oma)))
+                    logging.info(url + 'inbound_max_active changed from ' + str(ima) + ' to ' + str(int((100 / (100 + n)) * ima)) +
+                                 ', outbound_max_active changed from ' + str(oma) + ' to ' + str(int((100 / (100 + n)) * oma)))
 
             if cycle_info_dict['storages'] == []:
                 logging.info('no storages are failing significantly due to timeout errors, therefor no tuning happened.')
 
             with open(cycle_file, 'w') as outfile:
                 json.dump(cycle_info_dict, outfile)
-            return rses
         else:
             logging.warn('Could not detect any storages with sufficient failure ratio for tuning, trying again next cycle')
         return
@@ -165,6 +164,7 @@ class FTSThrottler(object):
         Reverts the changes from previous tuning, this is to avoid recursively tuning with no reference point,
         the manually configured attributes or the default attributes will stay as the reference point
         Before each cycle, all tunings will be reverted to the original reference point.
+        :returns: bool indicating if revert was successful or not.
         """
         try:
             cycle_file = config_get('conveyor', 'fts_throttler_cycle')
@@ -188,6 +188,7 @@ class FTSThrottler(object):
     def request_timeout_data(self, destination=True, last_hours=1, transfer_successes_lower_boundary=30, transfer_timeouts_lower_boundary=30, kserver='http://atlas-kibana.mwt2.org:9200/rucio-events-*/_search'):
         """
         requests timeout data using elastic search
+        :returns: JSON result of the elastic search query.
         :param destination: bool that decides whether to query for source rse's(false) or destination rse's(true)
         :param last_hours: integer to choose how many hours back we want to query from
         :param transfer_successes_lower_boundary: integer for the lower boundary for transfers succeeded on a rse.
@@ -259,7 +260,7 @@ class FTSThrottler(object):
                                 'buckets_path': {
                                     'transferSuccessCount': 'transfers_succeeded>_count'
                                 },
-                                'script': 'params.transferSuccessCount > '+str(transfer_successes_lower_boundary)
+                                'script': 'params.transferSuccessCount > ' + str(transfer_successes_lower_boundary)
                             }
                         },
                         'failure_ratio': {
@@ -302,6 +303,7 @@ class FTSThrottler(object):
     def testread(self):
         """
         Read the failure ratio of storages without tuning
+        :returns: filtered JSON response from Elastic search.
         """
         result = self.request_timeout_data()
         if result is not None:
