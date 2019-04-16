@@ -1,0 +1,47 @@
+======
+1.19.6
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Clients: Fix for update_replicas_states function description in replicaclient.py `#2240 <https://github.com/rucio/rucio/issues/2240>`_
+- Documentation: ChangeLog seems to be a COPYRIGHT file? `#2434 <https://github.com/rucio/rucio/issues/2434>`_
+- Rules: Injector should not inject a rule which is about to expire soon `#2219 <https://github.com/rucio/rucio/issues/2219>`_
+- Testing: Test reaper console script `#2149 <https://github.com/rucio/rucio/issues/2149>`_
+- Transfers: Automatically recover requests in state "protocol mismatch" `#2115 <https://github.com/rucio/rucio/issues/2115>`_
+
+****
+Bugs
+****
+
+- Core & Internals: PostgreSQL alembic upgrade problems `#2212 <https://github.com/rucio/rucio/issues/2212>`_
+- Core & Internals: ineffective `list-dids-by-meta` `#2403 <https://github.com/rucio/rucio/issues/2403>`_
+- Core & Internals: New psycopg2-binary release incompatible with current sqlalchemy version `#2446 <https://github.com/rucio/rucio/issues/2446>`_
+- Core & Internals: list_replicas should raise DID not found `#2468 <https://github.com/rucio/rucio/issues/2468>`_
+- Life time model: Atropos doesn’t gracefully handle InvalidRSEExpression `#2432 <https://github.com/rucio/rucio/issues/2432>`_
+- Life time model: Atropos command-line option --unlock-rules has no effect `#2456 <https://github.com/rucio/rucio/issues/2456>`_
+- Rules: Calculation error of progress class for Rule PROGRESS notifications `#2440 <https://github.com/rucio/rucio/issues/2440>`_
+- Testing: nosetests commands override return codes  `#2465 <https://github.com/rucio/rucio/issues/2465>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: revert xrdcp workaround in downloadclient as soon as gfal is fixed `#1598 <https://github.com/rucio/rucio/issues/1598>`_
+
+****
+Bugs
+****
+
+- Clients: If policy section not available in client config, no exception should be raised `#1485 <https://github.com/rucio/rucio/issues/1485>`_
+- Clients: Issue in client_extract download  `#2485 <https://github.com/rucio/rucio/issues/2485>`_
