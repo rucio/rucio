@@ -145,7 +145,7 @@ class FTSThrottler(object):
                                                         'fts-host': rse_info[1], 'time': str(datetime.datetime.now())})
 
                     # tune down the configuration of a storage relative to the failure ratio(n) and existing configuration.
-                    t.set_se_config(url, inbound_max_active=int((100 / (100+n)) * ima), outbound_max_active=int((100 / (100 + n)) * oma))
+                    t.set_se_config(url, inbound_max_active=int((100 / (100 + n)) * ima), outbound_max_active=int((100 / (100 + n)) * oma))
 
                     logging.info(url + 'inbound_max_active changed from ' + str(ima) + ' to ' + str(int((100 / (100 + n)) * ima)) +
                                  ', outbound_max_active changed from ' + str(oma) + ' to ' + str(int((100 / (100 + n)) * oma)))
