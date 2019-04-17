@@ -14,9 +14,12 @@
 [client]
 rucio_host = https://voatlasrucio-server-prod.cern.ch:443
 auth_host = https://voatlasrucio-auth-prod.cern.ch:443
-ca_cert = $RUCIO_HOME/etc/ca.crt
+ca_cert =
+client_cert = $X509_USER_PROXY
+client_key = $X509_USER_PROXY
 client_x509_proxy = $X509_USER_PROXY
 request_retries = 3
+auth_type = x509
 
 [policy]
 permission = atlas
