@@ -50,5 +50,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     try:
         run(once=args.run_once, cycle_interval=args.cycle_interval)
+        # signal pause makes the CLI usage work for now, although doesnt work on windows.
+        signal.pause()
     except KeyboardInterrupt:
         stop()
