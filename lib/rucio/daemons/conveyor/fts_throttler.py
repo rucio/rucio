@@ -24,6 +24,7 @@ depending on how many time out errors occur at the storage. If a storage has sub
 of transer failures due to time outs, it is usually due to bad connectivity and the amount of failures can be
 alleviated by limiting the transfer settings of FTS transfers on the particular fts storage.
 """
+from __future__ import division
 
 import logging
 import sys
@@ -33,10 +34,10 @@ import socket
 import time
 import traceback
 import json
-import requests
 import datetime
+import requests
 
-# from rucio.transfertool.fts3 import set_se_config
+
 from rucio.common.config import config_get
 from rucio.core import heartbeat
 from rucio.transfertool.fts3 import FTS3Transfertool
