@@ -68,10 +68,8 @@ class UploadClient:
         self.trace['eventType'] = 'upload'
         self.trace['eventVersion'] = version.RUCIO_VERSION[0]
 
-
     def upload(self, items, summary_file_path=None):
         """
-
         :param items: List of dictionaries. Each dictionary describing a file to upload. Keys:
             path                  - path of the file that will be uploaded
             rse                   - rse name (e.g. 'CERN-PROD_DATADISK') where to upload the file
