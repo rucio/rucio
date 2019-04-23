@@ -43,7 +43,7 @@ from rucio import version
 
 class UploadClient:
 
-    def __init__(self, _client: object = None, logger: object = None, tracing: object = True) -> object:
+    def __init__(self, _client=None, logger=None, tracing=True):
         """
         Initialises the basic settings for an UploadClient object
 
@@ -317,7 +317,6 @@ class UploadClient:
             logger.debug('local checksum: %s, remote checksum: %s' % (file['adler32'], meta['adler32']))
 
             if meta['adler32'] != file['adler32']:
-                logger.info("Here")
                 logger.error('Local checksum %s does not match remote checksum %s' % (file['adler32'], meta['adler32']))
 
                 raise DataIdentifierAlreadyExists

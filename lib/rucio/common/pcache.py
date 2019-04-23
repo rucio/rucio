@@ -874,19 +874,12 @@ class Pcache:
             except:
                 maxfd = MAXFD  # use default value
 
-        #try to be backwards compatible with Python2 (?)
-        try:
-            for fd in xrange(0, maxfd + 1):
-                try:
-                    os.close(fd)
-                except:
-                    pass
-        except NameError:
-            for fd in range(0, maxfd + 1):
-                try:
-                    os.close(fd)
-                except:
-                    pass
+        for fd in range(0, maxfd + 1):
+            try:
+                os.close(fd)
+            except:
+                pass
+
 
     # Panda server callback functions
     def do_http_post(self, url, data):
