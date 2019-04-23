@@ -880,7 +880,6 @@ class Pcache:
             except:
                 pass
 
-
     # Panda server callback functions
     def do_http_post(self, url, data):
         # see http://www.faqs.org/faqs/unix-faq/faq/part3/section-13.html
@@ -1138,7 +1137,6 @@ class Pcache:
                 pass
             else:
                 # Don't use log here, log dir may not exist
-                #print >> sys.stderr, e
                 print(sys.stderr.write(), e)
                 return e.errno
 
