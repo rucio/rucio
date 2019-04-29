@@ -18,14 +18,17 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
 from rucio.api import permission
 from rucio.db.sqla.constants import BadFilesStatus
 from rucio.core import replica
+from rucio.core.rse import get_rse_id, get_rse_name
 from rucio.common import exception
 from rucio.common.schema import validate_schema
+from rucio.common.utils import api_update_return_dict
 
 
 def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None):
@@ -36,7 +39,8 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None):
     :param to_date: The end date.
     :param session: The database session in use.
     """
-    return replica.get_bad_replicas_summary(rse_expression=rse_expression, from_date=from_date, to_date=to_date)
+    replicas = replica.get_bad_replicas_summary(rse_expression=rse_expression, from_date=from_date, to_date=to_date)
+    return [api_update_return_dict(r) for r in replicas]
 
 
 def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=None, older_than=None, limit=None, list_pfns=False):
@@ -48,7 +52,12 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=No
     :param older_than:  datetime object to select bad replicas older than this date.
     :param limit: The maximum number of replicas returned.
     """
-    return replica.list_bad_replicas_status(state=state, rse=rse, younger_than=younger_than, older_than=older_than, limit=limit, list_pfns=list_pfns)
+    rse_id = None
+    if rse is not None:
+        rse_id = get_rse_id(rse=rse)
+
+    replicas = replica.list_bad_replicas_status(state=state, rse_id=rse_id, younger_than=younger_than, older_than=older_than, limit=limit, list_pfns=list_pfns)
+    return [api_update_return_dict(r) for r in replicas]
 
 
 def declare_bad_file_replicas(pfns, reason, issuer):
@@ -62,7 +71,16 @@ def declare_bad_file_replicas(pfns, reason, issuer):
     kwargs = {}
     if not permission.has_permission(issuer=issuer, action='declare_bad_file_replicas', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not declare bad replicas' % (issuer))
-    return replica.declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=issuer, status=BadFilesStatus.BAD)
+
+    replicas = replica.declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=issuer, status=BadFilesStatus.BAD)
+
+    for k in replicas:
+        try:
+            rse = get_rse_name(rse_id=k)
+            replicas[rse] = replicas.pop(k)
+        except exception.RSENotFound:
+            pass
+    return replicas
 
 
 def declare_suspicious_file_replicas(pfns, reason, issuer):
@@ -76,7 +94,17 @@ def declare_suspicious_file_replicas(pfns, reason, issuer):
     kwargs = {}
     if not permission.has_permission(issuer=issuer, action='declare_suspicious_file_replicas', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not declare suspicious replicas' % (issuer))
-    return replica.declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=issuer, status=BadFilesStatus.SUSPICIOUS)
+
+    replicas = replica.declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=issuer, status=BadFilesStatus.SUSPICIOUS)
+
+    for k in replicas:
+        try:
+            rse = get_rse_name(rse_id=k)
+            replicas[rse] = replicas.pop(k)
+        except exception.RSENotFound:
+            pass
+
+    return replicas
 
 
 def get_did_from_pfns(pfns, rse):
@@ -87,7 +115,8 @@ def get_did_from_pfns(pfns, rse):
     :param rse: The RSE name.
     :returns: A dictionary {pfn: {'scope': scope, 'name': name}}
     """
-    return replica.get_did_from_pfns(pfns=pfns, rse=rse)
+    rse_id = get_rse_id(rse=rse)
+    return replica.get_did_from_pfns(pfns=pfns, rse_id=rse_id)
 
 
 def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
@@ -118,13 +147,28 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     if permission.has_permission(issuer=issuer, action='get_signed_url', kwargs={}):
         sign_urls = True
 
-    return replica.list_replicas(dids=dids, schemes=schemes, unavailable=unavailable,
-                                 request_id=request_id,
-                                 ignore_availability=ignore_availability,
-                                 all_states=all_states, rse_expression=rse_expression,
-                                 client_location=client_location, domain=domain,
-                                 sign_urls=sign_urls, signature_lifetime=signature_lifetime,
-                                 resolve_archives=resolve_archives, resolve_parents=resolve_parents)
+    replicas = replica.list_replicas(dids=dids, schemes=schemes, unavailable=unavailable,
+                                     request_id=request_id,
+                                     ignore_availability=ignore_availability,
+                                     all_states=all_states, rse_expression=rse_expression,
+                                     client_location=client_location, domain=domain,
+                                     sign_urls=sign_urls, signature_lifetime=signature_lifetime,
+                                     resolve_archives=resolve_archives, resolve_parents=resolve_parents)
+
+    for rep in replicas:
+        # 'rses' and 'states' use rse_id as the key. This needs updating to be rse.
+        keys = ['rses', 'states']
+        for k in keys:
+            old_dict = rep.get(k, None)
+            if old_dict is not None:
+                new_dict = {}
+                for rse_id in old_dict:
+                    key = None
+                    if rse_id is not None:
+                        key = get_rse_name(rse_id=rse_id)
+                    new_dict[key] = old_dict[rse_id]
+                rep[k] = new_dict
+        yield rep
 
 
 def add_replicas(rse, files, issuer, ignore_availability=False):
@@ -140,12 +184,15 @@ def add_replicas(rse, files, issuer, ignore_availability=False):
     """
     validate_schema(name='dids', obj=files)
 
-    kwargs = {'rse': rse}
+    rse_id = get_rse_id(rse=rse)
+
+    kwargs = {'rse': rse, 'rse_id': rse_id}
     if not permission.has_permission(issuer=issuer, action='add_replicas', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not add file replicas on %s' % (issuer, rse))
     if not permission.has_permission(issuer=issuer, action='skip_availability_check', kwargs=kwargs):
         ignore_availability = False
-    replica.add_replicas(rse=rse, files=files, account=issuer, ignore_availability=ignore_availability)
+
+    replica.add_replicas(rse_id=rse_id, files=files, account=issuer, ignore_availability=ignore_availability)
 
 
 def delete_replicas(rse, files, issuer, ignore_availability=False):
@@ -161,12 +208,15 @@ def delete_replicas(rse, files, issuer, ignore_availability=False):
     """
     validate_schema(name='r_dids', obj=files)
 
-    kwargs = {'rse': rse}
+    rse_id = get_rse_id(rse=rse)
+
+    kwargs = {'rse': rse, 'rse_id': rse_id}
     if not permission.has_permission(issuer=issuer, action='delete_replicas', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not delete file replicas on %s' % (issuer, rse))
     if not permission.has_permission(issuer=issuer, action='skip_availability_check', kwargs=kwargs):
         ignore_availability = False
-    replica.delete_replicas(rse=rse, files=files, ignore_availability=ignore_availability)
+
+    replica.delete_replicas(rse_id=rse_id, files=files, ignore_availability=ignore_availability)
 
 
 def update_replicas_states(rse, files, issuer):
@@ -180,13 +230,15 @@ def update_replicas_states(rse, files, issuer):
     """
     validate_schema(name='dids', obj=files)
 
-    kwargs = {'rse': rse}
+    rse_id = get_rse_id(rse=rse)
+
+    kwargs = {'rse': rse, 'rse_id': rse_id}
     if not permission.has_permission(issuer=issuer, action='update_replicas_states', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not update file replicas state on %s' % (issuer, rse))
     replicas = []
     for file in files:
         rep = file
-        rep['rse'] = rse
+        rep['rse_id'] = rse_id
         replicas.append(rep)
     replica.update_replicas_states(replicas=replicas)
 
@@ -212,7 +264,11 @@ def list_datasets_per_rse(rse, filters=None, limit=None):
 
     :returns: A list of dict dataset replicas
     """
-    return replica.list_datasets_per_rse(rse, filters=filters, limit=limit)
+
+    rse_id = get_rse_id(rse=rse)
+
+    for r in replica.list_datasets_per_rse(rse_id, filters=filters, limit=limit):
+        yield api_update_return_dict(r)
 
 
 def add_bad_pfns(pfns, issuer, state, reason=None, expires_at=None):
@@ -242,7 +298,9 @@ def get_suspicious_files(rse_expression, younger_than=None, nattempts=None):
     :param younger_than: datetime object to select the suspicious replicas younger than this date.
     :param nattempts: The number of time the replicas have been declared suspicious
     """
-    return replica.get_suspicious_files(rse_expression=rse_expression, younger_than=younger_than, nattempts=nattempts)
+    replicas = replica.get_suspicious_files(rse_expression=rse_expression, younger_than=younger_than, nattempts=nattempts)
+
+    return [api_update_return_dict(r) for r in replicas]
 
 
 def set_tombstone(rse, scope, name, issuer):
@@ -254,6 +312,9 @@ def set_tombstone(rse, scope, name, issuer):
     :param name: name of the replica DID.
     :param issuer: The issuer account
     """
+
+    rse_id = get_rse_id(rse)
+
     if not permission.has_permission(issuer=issuer, action='set_tombstone', kwargs={}):
         raise exception.AccessDenied('Account %s can not set tombstones' % (issuer))
-    replica.set_tombstone(rse, scope, name)
+    replica.set_tombstone(rse_id, scope, name)

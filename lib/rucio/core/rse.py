@@ -24,6 +24,7 @@
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -104,7 +105,7 @@ def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None
         raise exception.RucioException(error.args)
 
     # Add rse name as a RSE-Tag
-    add_rse_attribute(rse=rse, key=rse, value=True, session=session)
+    add_rse_attribute(rse_id=new_rse.id, key=rse, value=True, session=session)
 
     # Add counter to monitor the space usage
     add_counter(rse_id=new_rse.id, session=session)
@@ -158,48 +159,47 @@ def sort_rses(rses, session=None):
 
 
 @transactional_session
-def del_rse(rse, session=None):
+def del_rse(rse_id, session=None):
     """
-    Disable a rse with the given rse name.
+    Disable a rse with the given rse id.
 
-    :param rse: the rse name.
+    :param rse_id: the rse id.
     :param session: The database session in use.
     """
 
     old_rse = None
     try:
-        old_rse = session.query(models.RSE).filter_by(rse=rse).one()
-        if not rse_is_empty(rse=rse, session=session):
-            raise exception.RSEOperationNotSupported('RSE \'%s\' is not empty' % rse)
+        old_rse = session.query(models.RSE).filter_by(id=rse_id).one()
+        if not rse_is_empty(rse_id=rse_id, session=session):
+            raise exception.RSEOperationNotSupported('RSE \'%s\' is not empty' % rse_id)
     except sqlalchemy.orm.exc.NoResultFound:
-        raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse)
+        raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse_id)
+    rse = old_rse.rse
     old_rse.delete(session=session)
     try:
-        del_rse_attribute(rse=rse, key=rse, session=session)
+        del_rse_attribute(rse_id=rse_id, key=rse, session=session)
     except exception.RSEAttributeNotFound:
         pass
 
 
 @read_session
-def rse_is_empty(rse, session=None):
+def rse_is_empty(rse_id, session=None):
     """
     Check if a RSE is empty.
 
-    :param rse: the rse name.
+    :param rse_id: the rse id.
     :param session: the database session in use.
     """
 
-    rse_id = get_rse(rse, session=session)['id']
     return get_counter(rse_id, session=session)['bytes'] == 0
 
 
 @read_session
-def get_rse(rse, rse_id=None, session=None):
+def get_rse(rse_id, session=None):
     """
     Get a RSE or raise if it does not exist.
 
-    :param rse:     The rse name.
-    :param rse_id:  The rse id. To be used if the rse parameter is none.
+    :param rse_id:  The rse id.
     :param session: The database session in use.
 
     :raises RSENotFound: If referred RSE was not found in the database.
@@ -207,24 +207,18 @@ def get_rse(rse, rse_id=None, session=None):
 
     false_value = False  # To make pep8 checker happy ...
     try:
-        if rse:
-            tmp = session.query(models.RSE).\
-                filter(sqlalchemy.and_(models.RSE.deleted == false_value,
-                                       models.RSE.rse == rse))\
-                .one()
-        else:
-            tmp = session.query(models.RSE).\
-                filter(sqlalchemy.and_(models.RSE.deleted == false_value,
-                                       models.RSE.id == rse_id))\
-                .one()
+        tmp = session.query(models.RSE).\
+            filter(sqlalchemy.and_(models.RSE.deleted == false_value,
+                                   models.RSE.id == rse_id))\
+            .one()
         tmp['type'] = tmp.rse_type
         return tmp
     except sqlalchemy.orm.exc.NoResultFound:
-        raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse)
+        raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse_id)
 
 
 @read_session
-def get_rse_id(rse, session=None):
+def get_rse_id(rse, session=None, ignore_deleted=True):
     """
     Get a RSE ID or raise if it does not exist.
 
@@ -236,13 +230,16 @@ def get_rse_id(rse, session=None):
     :raises RSENotFound: If referred RSE was not found in the database.
     """
     try:
-        return session.query(models.RSE.id).filter_by(rse=rse).one()[0]
+        query = session.query(models.RSE.id).filter_by(rse=rse)
+        if ignore_deleted:
+            query = query.filter_by(deleted=False)
+        return query.one()[0]
     except sqlalchemy.orm.exc.NoResultFound:
         raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse)
 
 
 @read_session
-def get_rse_name(rse_id, session=None):
+def get_rse_name(rse_id, session=None, ignore_deleted=True):
     """
     Get a RSE name or raise if it does not exist.
 
@@ -254,7 +251,10 @@ def get_rse_name(rse_id, session=None):
     :raises RSENotFound: If referred RSE was not found in the database.
     """
     try:
-        return session.query(models.RSE.rse).filter_by(id=rse_id).one()[0]
+        query = session.query(models.RSE.rse).filter_by(id=rse_id)
+        if ignore_deleted:
+            query = query.filter_by(deleted=False)
+        return query.one()[0]
     except sqlalchemy.orm.exc.NoResultFound:
         raise exception.RSENotFound('RSE with ID \'%s\' cannot be found' % rse_id)
 
@@ -338,10 +338,10 @@ def list_rses(filters={}, session=None):
 
 
 @transactional_session
-def add_rse_attribute(rse, key, value, session=None):
+def add_rse_attribute(rse_id, key, value, session=None):
     """ Adds a RSE attribute.
 
-    :param rse: the rse name.
+    :param rse_id: the rse id.
     :param key: the key name.
     :param value: the value name.
     :param issuer: The issuer account.
@@ -349,28 +349,26 @@ def add_rse_attribute(rse, key, value, session=None):
 
     :returns: True is successful
     """
-    rse_id = get_rse_id(rse, session=session)
     try:
         new_rse_attr = models.RSEAttrAssociation(rse_id=rse_id, key=key, value=value)
         new_rse_attr = session.merge(new_rse_attr)
         new_rse_attr.save(session=session)
     except IntegrityError:
-        raise exception.Duplicate("RSE attribute '%(key)s-%(value)s\' for RSE '%(rse)s' already exists!" % locals())
+        raise exception.Duplicate("RSE attribute '%(key)s-%(value)s\' for RSE '%(rse_id)s' already exists!" % locals())
     return True
 
 
 @transactional_session
-def del_rse_attribute(rse, key, session=None):
+def del_rse_attribute(rse_id, key, session=None):
     """
     Delete a RSE attribute.
 
-    :param rse: the name of the rse.
+    :param rse_id: the id of the rse.
     :param key: the attribute key.
     :param session: The database session in use.
 
     :return: True if RSE attribute was deleted.
     """
-    rse_id = get_rse_id(rse, session=session)
     rse_attr = None
     try:
         query = session.query(models.RSEAttrAssociation).filter_by(rse_id=rse_id).filter(models.RSEAttrAssociation.key == key)
@@ -382,20 +380,16 @@ def del_rse_attribute(rse, key, session=None):
 
 
 @read_session
-def list_rse_attributes(rse, rse_id=None, session=None):
+def list_rse_attributes(rse_id, session=None):
     """
     List RSE attributes for a RSE.
-    If both rse and rse_id is set, the rse_id will be used for the lookup.
 
-    :param rse:     the rse name.
     :param rse_id:  The RSE id.
     :param session: The database session in use.
 
     :returns: A dictionary with RSE attributes for a RSE.
     """
     rse_attrs = {}
-    if rse_id is None:
-        rse_id = get_rse_id(rse=rse, session=session)
 
     query = session.query(models.RSEAttrAssociation).filter_by(rse_id=rse_id)
     for attr in query:
@@ -521,11 +515,11 @@ def get_rse_attribute(key, rse_id=None, value=None, session=None):
 
 
 @transactional_session
-def set_rse_usage(rse, source, used, free, session=None):
+def set_rse_usage(rse_id, source, used, free, session=None):
     """
     Set RSE usage information.
 
-    :param rse: the location name.
+    :param rse_id: the location id.
     :param source: The information source, e.g. srm.
     :param used: the used space in bytes.
     :param free: the free in bytes.
@@ -533,7 +527,6 @@ def set_rse_usage(rse, source, used, free, session=None):
 
     :returns: True if successful, otherwise false.
     """
-    rse_id = get_rse_id(rse, session=session)
     rse_usage = models.RSEUsage(rse_id=rse_id, source=source, used=used, free=free)
     # versioned_session(session)
     rse_usage = session.merge(rse_usage)
@@ -546,20 +539,17 @@ def set_rse_usage(rse, source, used, free, session=None):
 
 
 @read_session
-def get_rse_usage(rse, source=None, rse_id=None, session=None, per_account=False):
+def get_rse_usage(rse_id, source=None, session=None, per_account=False):
     """
     get rse usage information.
 
-    :param rse: The rse name.
-    :param source: The information source, e.g. srm.
     :param rse_id:  The RSE id.
+    :param source: The information source, e.g. srm.
     :param session: The database session in use.
     :param per_account: Boolean whether the usage should be also calculated per account or not.
 
     :returns: List of RSE usage data.
     """
-    if not rse_id:
-        rse_id = get_rse_id(rse, session=session)
 
     query_rse_usage = session.query(models.RSEUsage).filter_by(rse_id=rse_id)
     usage = list()
@@ -569,7 +559,8 @@ def get_rse_usage(rse, source=None, rse_id=None, session=None, per_account=False
 
     for row in query_rse_usage:
         total = (row.free or 0) + (row.used or 0)
-        rse_usage = {'rse': rse, 'source': row.source,
+        rse_usage = {'rse_id': rse_id,
+                     'source': row.source,
                      'used': row.used, 'free': row.free,
                      'total': total,
                      'files': row.files,
@@ -588,18 +579,17 @@ def get_rse_usage(rse, source=None, rse_id=None, session=None, per_account=False
 
 
 @transactional_session
-def set_rse_limits(rse, name, value, session=None):
+def set_rse_limits(rse_id, name, value, session=None):
     """
     Set RSE limits.
 
-    :param rse: The RSE name.
+    :param rse_id: The RSE id.
     :param name: The name of the limit.
     :param value: The feature value. Set to -1 to remove the limit.
     :param session: The database session in use.
 
     :returns: True if successful, otherwise false.
     """
-    rse_id = get_rse_id(rse, session=session)
     rse_limit = models.RSELimit(rse_id=rse_id, name=name, value=value)
     rse_limit = session.merge(rse_limit)
     rse_limit.save(session=session)
@@ -607,18 +597,15 @@ def set_rse_limits(rse, name, value, session=None):
 
 
 @read_session
-def get_rse_limits(rse, name=None, rse_id=None, session=None):
+def get_rse_limits(rse_id, name=None, session=None):
     """
     Get RSE limits.
 
-    :param rse: The RSE name.
-    :param name: A Limit name.
     :param rse_id: The RSE id.
+    :param name: A Limit name.
 
     :returns: A dictionary with the limits {'limit.name': limit.value}.
     """
-    if not rse_id:
-        rse_id = get_rse_id(rse=rse, session=session)
 
     query = session.query(models.RSELimit).filter_by(rse_id=rse_id)
     if name:
@@ -630,28 +617,25 @@ def get_rse_limits(rse, name=None, rse_id=None, session=None):
 
 
 @transactional_session
-def delete_rse_limit(rse, name=None, rse_id=None, session=None):
+def delete_rse_limit(rse_id, name=None, session=None):
     """
     Delete RSE limit.
 
-    :param rse: The RSE name.
-    :param name: The name of the limit.
     :param rse_id: The RSE id.
+    :param name: The name of the limit.
     """
     try:
-        if not rse_id:
-            rse_id = get_rse_id(rse=rse, session=session)
         session.query(models.RSELimit).filter_by(rse_id=rse_id, name=name).delete()
     except IntegrityError as error:
         raise exception.RucioException(error.args)
 
 
 @transactional_session
-def set_rse_transfer_limits(rse, activity, rse_id=None, rse_expression=None, max_transfers=0, transfers=0, waitings=0, session=None):
+def set_rse_transfer_limits(rse_id, activity, rse_expression=None, max_transfers=0, transfers=0, waitings=0, session=None):
     """
     Set RSE transfer limits.
 
-    :param rse: The RSE name.
+    :param rse_id: The RSE id.
     :param activity: The activity.
     :param rse_expression: RSE expression string.
     :param max_transfers: Maximum transfers.
@@ -662,9 +646,6 @@ def set_rse_transfer_limits(rse, activity, rse_id=None, rse_expression=None, max
     :returns: True if successful, otherwise false.
     """
     try:
-        if not rse_id:
-            rse_id = get_rse_id(rse=rse, session=session)
-
         rse_tr_limit = models.RSETransferLimit(rse_id=rse_id, activity=activity, rse_expression=rse_expression, max_transfers=max_transfers, transfers=transfers, waitings=waitings)
         rse_tr_limit = session.merge(rse_tr_limit)
         rowcount = rse_tr_limit.save(session=session)
@@ -674,20 +655,16 @@ def set_rse_transfer_limits(rse, activity, rse_id=None, rse_expression=None, max
 
 
 @read_session
-def get_rse_transfer_limits(rse=None, activity=None, rse_id=None, session=None):
+def get_rse_transfer_limits(rse_id=None, activity=None, session=None):
     """
     Get RSE transfer limits.
 
-    :param rse: The RSE name.
-    :param activity: The activity.
     :param rse_id: The RSE id.
+    :param activity: The activity.
 
     :returns: A dictionary with the limits {'limit.activity': {'limit.rse_id': limit.max_transfers}}.
     """
     try:
-        if not rse_id and rse:
-            rse_id = get_rse_id(rse=rse, session=session)
-
         query = session.query(models.RSETransferLimit)
         if rse_id:
             query = query.filter_by(rse_id=rse_id)
@@ -707,18 +684,14 @@ def get_rse_transfer_limits(rse=None, activity=None, rse_id=None, session=None):
 
 
 @transactional_session
-def delete_rse_transfer_limits(rse, activity=None, rse_id=None, session=None):
+def delete_rse_transfer_limits(rse_id, activity=None, session=None):
     """
     Delete RSE transfer limits.
 
-    :param rse: The RSE name.
-    :param activity: The activity.
     :param rse_id: The RSE id.
+    :param activity: The activity.
     """
     try:
-        if not rse_id:
-            rse_id = get_rse_id(rse=rse, session=session)
-
         query = session.query(models.RSETransferLimit).filter_by(rse_id=rse_id)
         if activity:
             query = query.filter_by(activity=activity)
@@ -729,32 +702,31 @@ def delete_rse_transfer_limits(rse, activity=None, rse_id=None, session=None):
 
 
 @stream_session
-def list_rse_usage_history(rse, source=None, session=None):
+def list_rse_usage_history(rse_id, source=None, session=None):
     """
     List RSE usage history information.
 
-    :param RSE: The RSE name.
+    :param rse_id: The RSE id.
     :param source: The source of the usage information (srm, rucio).
     :param session: The database session in use.
 
     :returns: A list of historic RSE usage.
     """
-    rse_id = get_rse_id(rse=rse, session=session)
     query = session.query(models.RSEUsage.__history_mapper__.class_).filter_by(rse_id=rse_id).order_by(models.RSEUsage.__history_mapper__.class_.updated_at.desc())
     if source:
         query = query.filter_by(source=source)
 
     for usage in query.yield_per(5):
-        yield ({'rse': rse, 'source': usage.source, 'used': usage.used if usage.used else 0, 'total': usage.used if usage.used else 0 + usage.free if usage.free else 0, 'free': usage.free if usage.free else 0, 'updated_at': usage.updated_at})
+        yield ({'rse_id': rse_id, 'source': usage.source, 'used': usage.used if usage.used else 0, 'total': usage.used if usage.used else 0 + usage.free if usage.free else 0, 'free': usage.free if usage.free else 0, 'updated_at': usage.updated_at})
 
 
 @transactional_session
-def add_protocol(rse, parameter, session=None):
+def add_protocol(rse_id, parameter, session=None):
     """
     Add a protocol to an existing RSE. If entries with equal or less priority for
     an operation exist, the existing one will be reorded (i.e. +1).
 
-    :param rse: the name of the new rse.
+    :param rse_id: the id of the new rse.
     :param parameter: parameters of the new protocol entry.
     :param session: The database session in use.
 
@@ -766,11 +738,12 @@ def add_protocol(rse, parameter, session=None):
                        for the given RSE.
     """
 
-    rid = get_rse_id(rse=rse, session=session)
-    if not rid:
-        raise exception.RSENotFound('RSE \'%s\' not found')
+    try:
+        get_rse(rse_id=rse_id, session=session)
+    except exception.RSENotFound:
+        raise exception.RSENotFound('RSE id \'%s\' not found' % rse_id)
     # Insert new protocol entry
-    parameter['rse_id'] = rid
+    parameter['rse_id'] = rse_id
 
     # Default values
     parameter['port'] = parameter.get('port', 0)
@@ -810,7 +783,7 @@ def add_protocol(rse, parameter, session=None):
            or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
            or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0])\
            or match('.*IntegrityError.*columns.*are not unique.*', error.args[0]):
-            raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (parameter['scheme'], parameter['port'], rse, parameter['hostname']))
+            raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (parameter['scheme'], parameter['port'], rse_id, parameter['hostname']))
         elif 'may not be NULL' in error.args[0] \
              or match('.*IntegrityError.*ORA-01400: cannot insert NULL into.*RSE_PROTOCOLS.*IMPL.*', error.args[0]) \
              or match('.*OperationalError.*cannot be null.*', error.args[0]):
@@ -820,11 +793,11 @@ def add_protocol(rse, parameter, session=None):
 
 
 @read_session
-def get_rse_protocols(rse, schemes=None, session=None):
+def get_rse_protocols(rse_id, schemes=None, session=None):
     """
     Returns protocol information. Parameter combinations are: (operation OR default) XOR scheme.
 
-    :param rse: The name of the rse.
+    :param rse_id: The id of the rse.
     :param schemes: a list of schemes to filter by.
     :param session: The database session.
 
@@ -833,7 +806,7 @@ def get_rse_protocols(rse, schemes=None, session=None):
     :raises RSENotFound: If RSE is not found.
     """
 
-    _rse = get_rse(rse=rse, session=session)
+    _rse = get_rse(rse_id=rse_id, session=session)
     if not _rse:
         raise exception.RSENotFound('RSE \'%s\' not found')
 
@@ -917,12 +890,12 @@ def get_rse_protocols(rse, schemes=None, session=None):
 
 
 @transactional_session
-def update_protocols(rse, scheme, data, hostname, port, session=None):
+def update_protocols(rse_id, scheme, data, hostname, port, session=None):
     """
     Updates an existing protocol entry for an RSE. If necessary, priorities for read,
     write, and delete operations of other protocol entires will be updated too.
 
-    :param rse: the name of the new rse.
+    :param rse_id: the id of the new rse.
     :param scheme: Protocol identifer.
     :param data: Dict with new values (keys must match column names in the database).
     :param hostname: Hostname defined for the scheme, used if more than one scheme
@@ -941,7 +914,6 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
                        for the given RSE.
     """
 
-    rid = get_rse_id(rse=rse, session=session)
     # Transform nested domains to match DB schema e.g. [domains][lan][read] => [read_lan]
     if 'domains' in data:
         for s in data['domains']:
@@ -954,7 +926,7 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
                 if op != 'third_party_copy':
                     op_name = ''.join([op, '_', s])
                 no = session.query(models.RSEProtocols).\
-                    filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
+                    filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rse_id,
                                            getattr(models.RSEProtocols, op_name) >= 0)).\
                     count()
                 if not 0 <= data['domains'][s][op] <= no:
@@ -968,10 +940,12 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
         except ValueError:
             pass  # String is not JSON
 
-    if not rid:
-        raise exception.RSENotFound('RSE \'%s\' not found')
+    try:
+        get_rse(rse_id=rse_id, session=session)
+    except exception.RSENotFound:
+        raise exception.RSENotFound('RSE \'%s\' not found' % rse_id)
 
-    terms = [models.RSEProtocols.rse_id == rid,
+    terms = [models.RSEProtocols.rse_id == rse_id,
              models.RSEProtocols.scheme == scheme,
              models.RSEProtocols.hostname == hostname,
              models.RSEProtocols.port == port]
@@ -979,7 +953,7 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
     try:
         up = session.query(models.RSEProtocols).filter(*terms).first()
         if up is None:
-            msg = 'RSE \'%s\' does not support protocol \'%s\' for hostname \'%s\' on port \'%s\'' % (rse, scheme, hostname, port)
+            msg = 'RSE \'%s\' does not support protocol \'%s\' for hostname \'%s\' on port \'%s\'' % (rse_id, scheme, hostname, port)
             raise exception.RSEProtocolNotSupported(msg)
 
         # Preparing gaps if priority is updated
@@ -992,26 +966,26 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
                     prots = []
                     if (not getattr(up, op_name)) and data[op_name]:  # reactivate protocol e.g. from 0 to 1
                         prots = session.query(models.RSEProtocols).\
-                            filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
+                            filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rse_id,
                                                    getattr(models.RSEProtocols, op_name) >= data[op_name])).\
                             order_by(getattr(models.RSEProtocols, op_name).asc())
                         val = data[op_name] + 1
                     elif getattr(up, op_name) and (not data[op_name]):  # deactivate protocol e.g. from 1 to 0
                         prots = session.query(models.RSEProtocols).\
-                            filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
+                            filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rse_id,
                                                    getattr(models.RSEProtocols, op_name) > getattr(up, op_name))).\
                             order_by(getattr(models.RSEProtocols, op_name).asc())
                         val = getattr(up, op_name)
                     elif getattr(up, op_name) > data[op_name]:  # shift forward e.g. from 5 to 2
                         prots = session.query(models.RSEProtocols).\
-                            filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
+                            filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rse_id,
                                                    getattr(models.RSEProtocols, op_name) >= data[op_name],
                                                    getattr(models.RSEProtocols, op_name) < getattr(up, op_name))).\
                             order_by(getattr(models.RSEProtocols, op_name).asc())
                         val = data[op_name] + 1
                     elif getattr(up, op_name) < data[op_name]:  # shift backward e.g. from 1 to 3
                         prots = session.query(models.RSEProtocols).\
-                            filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
+                            filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rse_id,
                                                    getattr(models.RSEProtocols, op_name) <= data[op_name],
                                                    getattr(models.RSEProtocols, op_name) > getattr(up, op_name))).\
                             order_by(getattr(models.RSEProtocols, op_name).asc())
@@ -1024,7 +998,7 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
         up.update(data, flush=True, session=session)
     except (IntegrityError, OperationalError) as error:
         if 'UNIQUE'.lower() in error.args[0].lower() or 'Duplicate' in error.args[0]:  # Covers SQLite, Oracle and MySQL error
-            raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (scheme, port, rse, hostname))
+            raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (scheme, port, rse_id, hostname))
         elif 'may not be NULL' in error.args[0] or "cannot be null" in error.args[0]:
             raise exception.InvalidObject('Missing values: %s' % error.args[0])
         raise error
@@ -1035,11 +1009,11 @@ def update_protocols(rse, scheme, data, hostname, port, session=None):
 
 
 @transactional_session
-def del_protocols(rse, scheme, hostname=None, port=None, session=None):
+def del_protocols(rse_id, scheme, hostname=None, port=None, session=None):
     """
     Deletes an existing protocol entry for an RSE.
 
-    :param rse: the name of the new rse.
+    :param rse_id: the id of the new rse.
     :param scheme: Protocol identifer.
     :param hostname: Hostname defined for the scheme, used if more than one scheme
                      is registered with the same identifier.
@@ -1050,11 +1024,11 @@ def del_protocols(rse, scheme, hostname=None, port=None, session=None):
     :raises RSENotFound: If RSE is not found.
     :raises RSEProtocolNotSupported: If no macthing scheme was found for the given RSE.
     """
-
-    rid = get_rse_id(rse=rse, session=session)
-    if not rid:
-        raise exception.RSENotFound('RSE \'%s\' not found')
-    terms = [models.RSEProtocols.rse_id == rid, models.RSEProtocols.scheme == scheme]
+    try:
+        get_rse(rse_id=rse_id, session=session)
+    except exception.RSENotFound:
+        raise exception.RSENotFound('RSE \'%s\' not found' % rse_id)
+    terms = [models.RSEProtocols.rse_id == rse_id, models.RSEProtocols.scheme == scheme]
     if hostname:
         terms.append(models.RSEProtocols.hostname == hostname)
         if port:
@@ -1062,7 +1036,7 @@ def del_protocols(rse, scheme, hostname=None, port=None, session=None):
     p = session.query(models.RSEProtocols).filter(*terms)
 
     if not p.all():
-        msg = 'RSE \'%s\' does not support protocol \'%s\'' % (rse, scheme)
+        msg = 'RSE \'%s\' does not support protocol \'%s\'' % (rse_id, scheme)
         msg += ' for hostname \'%s\'' % hostname if hostname else ''
         msg += ' on port \'%s\'' % port if port else ''
         raise exception.RSEProtocolNotSupported(msg)
@@ -1076,7 +1050,7 @@ def del_protocols(rse, scheme, hostname=None, port=None, session=None):
             op_name = ''.join([op, '_', domain])
             if getattr(models.RSEProtocols, op_name, None):
                 prots = session.query(models.RSEProtocols).\
-                    filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rid,
+                    filter(sqlalchemy.and_(models.RSEProtocols.rse_id == rse_id,
                                            getattr(models.RSEProtocols, op_name) > 0)).\
                     order_by(getattr(models.RSEProtocols, op_name).asc())
                 i = 1
@@ -1086,22 +1060,22 @@ def del_protocols(rse, scheme, hostname=None, port=None, session=None):
 
 
 @transactional_session
-def update_rse(rse, parameters, session=None):
+def update_rse(rse_id, parameters, session=None):
     """
     Update RSE properties like availability or name.
 
-    :param rse: the name of the new rse.
+    :param rse_id: the id of the new rse.
     :param  parameters: A dictionnary with property (name, read, write, delete as keys).
     :param session: The database session in use.
 
     :raises RSENotFound: If RSE is not found.
     """
     try:
-        query = session.query(models.RSE).filter_by(rse=rse).one()
+        query = session.query(models.RSE).filter_by(id=rse_id).one()
     except sqlalchemy.orm.exc.NoResultFound:
-        raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse)
-    rse_id = query.id
+        raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse_id)
     availability = 0
+    rse = query.rse
     for column in query:
         if column[0] == 'availability':
             availability = column[1] or availability
@@ -1118,24 +1092,21 @@ def update_rse(rse, parameters, session=None):
     param['availability'] = availability
     query.update(param)
     if 'name' in parameters:
-        add_rse_attribute(rse=parameters['name'], key=parameters['name'], value=1, session=session)
+        add_rse_attribute(rse_id=rse_id, key=parameters['name'], value=1, session=session)
         query = session.query(models.RSEAttrAssociation).filter_by(rse_id=rse_id).filter(models.RSEAttrAssociation.key == rse)
         rse_attr = query.one()
         rse_attr.delete(session=session)
 
 
 @read_session
-def export_rse(rse, rse_id=None, session=None):
+def export_rse(rse_id, session=None):
     """
     Get the internal representation of an RSE.
 
-    :param rse: The RSE name.
     :param rse_id: The RSE id.
 
     :returns: A dictionary with the internal representation of an RSE.
     """
-    if not rse_id:
-        rse_id = get_rse_id(rse=rse, session=session)
 
     query = session.query(models.RSE).filter_by(id=rse_id)
 
@@ -1145,10 +1116,10 @@ def export_rse(rse, rse_id=None, session=None):
             rse_data[k] = v
 
     # get RSE attributes
-    rse_data['attributes'] = list_rse_attributes(rse, rse_id=rse_id)
+    rse_data['attributes'] = list_rse_attributes(rse_id=rse_id)
 
     # get RSE protocols
-    rse_data['protocols'] = get_rse_protocols(rse)
+    rse_data['protocols'] = get_rse_protocols(rse_id=rse_id)
 
     # remove duplicated keys returned by get_rse_protocols()
     rse_data['protocols'].pop('id')
@@ -1159,9 +1130,9 @@ def export_rse(rse, rse_id=None, session=None):
     rse_data['protocols'].pop('volatile')
 
     # get RSE limits
-    rse_data['limits'] = get_rse_limits(rse)
+    rse_data['limits'] = get_rse_limits(rse_id=rse_id)
 
     # get RSE xfer limits
-    rse_data['transfer_limits'] = get_rse_transfer_limits(rse)
+    rse_data['transfer_limits'] = get_rse_transfer_limits(rse_id=rse_id)
 
     return rse_data

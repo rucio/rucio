@@ -19,6 +19,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -53,7 +54,7 @@ from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import add_message
 from rucio.core.replica import (list_unlocked_replicas, update_replicas_states,
                                 delete_replicas)
-from rucio.core.rse import get_rse_attribute, sort_rses
+from rucio.core.rse import get_rse_attribute, sort_rses, get_rse_name
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.rse import rsemanager as rsemgr
 
@@ -70,19 +71,19 @@ logging.basicConfig(stream=sys.stdout,
 GRACEFUL_STOP = threading.Event()
 
 
-def __check_rse_usage(rse, rse_id):
+def __check_rse_usage(rse_id):
     """
     Internal method to check RSE usage and limits.
 
-    :param rse_id: the rse name.
     :param rse_id: the rse id.
 
     :returns : max_being_deleted_files, needed_free_space, used, free.
     """
     max_being_deleted_files, needed_free_space, used, free = None, None, None, None
 
+    rse = get_rse_name(rse_id=rse_id)
     # Get RSE limits
-    limits = rse_core.get_rse_limits(rse=rse, rse_id=rse_id)
+    limits = rse_core.get_rse_limits(rse_id=rse_id)
     if not limits and 'MinFreeSpace' not in limits and 'MaxBeingDeletedFiles' not in limits:
         return max_being_deleted_files, needed_free_space, used, free
 
@@ -103,7 +104,7 @@ def __check_rse_usage(rse, rse_id):
                   'source_for_used_space: %(source_for_used_space)s' % locals())
 
     # Get total and used space
-    usage = rse_core.get_rse_usage(rse=rse, rse_id=rse_id, source=source_for_total_space)
+    usage = rse_core.get_rse_usage(rse_id=rse_id, source=source_for_total_space)
     if not usage:
         return max_being_deleted_files, needed_free_space, used, free
     for var in usage:
@@ -111,7 +112,7 @@ def __check_rse_usage(rse, rse_id):
         break
 
     if source_for_total_space != source_for_used_space:
-        usage = rse_core.get_rse_usage(rse=rse, rse_id=rse_id, source=source_for_used_space)
+        usage = rse_core.get_rse_usage(rse_id=rse_id, source=source_for_used_space)
         if not usage:
             return max_being_deleted_files, needed_free_space, None, free
         for var in usage:
@@ -174,7 +175,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                  rse['rse'], nothing_to_do.get(rse['id']))
 
                     rse_info = rsemgr.get_rse_info(rse['rse'])
-                    rse_protocol = rse_core.get_rse_protocols(rse['rse'])
+                    rse_protocol = rse_core.get_rse_protocols(rse_id=rse['id'])
 
                     if not rse_protocol['availability_delete']:
                         logging.info('Reaper %s-%s: RSE %s is not available for deletion', worker_number, child_number, rse_info['rse'])
@@ -192,7 +193,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                     needed_free_space, max_being_deleted_files = None, 100
                     needed_free_space_per_child = None
                     if not greedy:
-                        max_being_deleted_files, needed_free_space, used, free = __check_rse_usage(rse=rse['rse'], rse_id=rse['id'])
+                        max_being_deleted_files, needed_free_space, used, free = __check_rse_usage(rse_id=rse['id'])
                         logging.info('Reaper %(worker_number)s-%(child_number)s: Space usage for RSE %(rse)s - max_being_deleted_files: %(max_being_deleted_files)s, needed_free_space: %(needed_free_space)s, used: %(used)s, free: %(free)s' % locals())
                         if needed_free_space <= 0:
                             needed_free_space, needed_free_space_per_child = 0, 0
@@ -203,7 +204,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
 
                     start = time.time()
                     with monitor.record_timer_block('reaper.list_unlocked_replicas'):
-                        replicas = list_unlocked_replicas(rse=rse['rse'], rse_id=rse['id'],
+                        replicas = list_unlocked_replicas(rse_id=rse['id'],
                                                           bytes=needed_free_space_per_child,
                                                           limit=max_being_deleted_files,
                                                           worker_number=child_number,
@@ -258,6 +259,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                         add_message('deletion-done', {'scope': replica['scope'],
                                                                       'name': replica['name'],
                                                                       'rse': rse_info['rse'],
+                                                                      'rse_id': rse_info['id'],
                                                                       'file-size': replica['bytes'],
                                                                       'bytes': replica['bytes'],
                                                                       'url': replica['pfn'],
@@ -271,6 +273,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                             add_message('deletion-failed', {'scope': replica['scope'],
                                                                             'name': replica['name'],
                                                                             'rse': rse_info['rse'],
+                                                                            'rse_id': rse_info['id'],
                                                                             'file-size': replica['bytes'],
                                                                             'bytes': replica['bytes'],
                                                                             'url': replica['pfn'],
@@ -280,6 +283,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                         add_message('deletion-failed', {'scope': replica['scope'],
                                                                         'name': replica['name'],
                                                                         'rse': rse_info['rse'],
+                                                                        'rse_id': rse_info['id'],
                                                                         'file-size': replica['bytes'],
                                                                         'bytes': replica['bytes'],
                                                                         'url': replica['pfn'],
@@ -289,6 +293,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                         add_message('deletion-failed', {'scope': replica['scope'],
                                                                         'name': replica['name'],
                                                                         'rse': rse_info['rse'],
+                                                                        'rse_id': rse_info['id'],
                                                                         'file-size': replica['bytes'],
                                                                         'bytes': replica['bytes'],
                                                                         'url': replica['pfn'],
@@ -301,6 +306,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                     add_message('deletion-failed', {'scope': replica['scope'],
                                                                     'name': replica['name'],
                                                                     'rse': rse_info['rse'],
+                                                                    'rse_id': rse_info['id'],
                                                                     'file-size': replica['bytes'],
                                                                     'bytes': replica['bytes'],
                                                                     'url': replica['pfn'],
@@ -310,7 +316,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                 prot.close()
                             start = time.time()
                             with monitor.record_timer_block('reaper.delete_replicas'):
-                                delete_replicas(rse=rse['rse'], files=deleted_files)
+                                delete_replicas(rse_id=rse['id'], files=deleted_files)
                             logging.debug('Reaper %s-%s: delete_replicas successes %s %s %s', worker_number, child_number, rse['rse'], len(deleted_files), time.time() - start)
                             monitor.record_counter(counters='reaper.deletion.done', delta=len(deleted_files))
 

@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2015-2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
 from nose.tools import assert_raises
 
@@ -15,7 +16,7 @@ from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account_limit import set_account_limit
 from rucio.core.did import add_did, attach_dids
 from rucio.core.lock import get_replica_locks
-from rucio.core.rse import add_rse_attribute, get_rse
+from rucio.core.rse import add_rse_attribute, get_rse_id
 from rucio.core.rule import add_rule, get_rule, approve_rule, deny_rule, list_rules
 from rucio.daemons.judge.injector import rule_injector
 from rucio.db.sqla.constants import DIDType, RuleState
@@ -32,24 +33,24 @@ class TestJudgeEvaluator():
         cls.rse4 = 'MOCK4'
         cls.rse5 = 'MOCK5'
 
-        cls.rse1_id = get_rse(cls.rse1).id
-        cls.rse3_id = get_rse(cls.rse3).id
-        cls.rse4_id = get_rse(cls.rse4).id
-        cls.rse5_id = get_rse(cls.rse5).id
+        cls.rse1_id = get_rse_id(rse=cls.rse1)
+        cls.rse3_id = get_rse_id(rse=cls.rse3)
+        cls.rse4_id = get_rse_id(rse=cls.rse4)
+        cls.rse5_id = get_rse_id(rse=cls.rse5)
 
         # Add Tags
         cls.T1 = tag_generator()
         cls.T2 = tag_generator()
-        add_rse_attribute(cls.rse1, cls.T1, True)
-        add_rse_attribute(cls.rse3, cls.T1, True)
-        add_rse_attribute(cls.rse4, cls.T2, True)
-        add_rse_attribute(cls.rse5, cls.T1, True)
+        add_rse_attribute(cls.rse1_id, cls.T1, True)
+        add_rse_attribute(cls.rse3_id, cls.T1, True)
+        add_rse_attribute(cls.rse4_id, cls.T2, True)
+        add_rse_attribute(cls.rse5_id, cls.T1, True)
 
         # Add fake weights
-        add_rse_attribute(cls.rse1, "fakeweight", 10)
-        add_rse_attribute(cls.rse3, "fakeweight", 0)
-        add_rse_attribute(cls.rse4, "fakeweight", 0)
-        add_rse_attribute(cls.rse5, "fakeweight", 0)
+        add_rse_attribute(cls.rse1_id, "fakeweight", 10)
+        add_rse_attribute(cls.rse3_id, "fakeweight", 0)
+        add_rse_attribute(cls.rse4_id, "fakeweight", 0)
+        add_rse_attribute(cls.rse5_id, "fakeweight", 0)
 
         # Add quota
         set_account_limit('jdoe', cls.rse1_id, -1)
@@ -65,7 +66,7 @@ class TestJudgeEvaluator():
     def test_judge_inject_rule(self):
         """ JUDGE INJECTOR: Test the judge when injecting a rule"""
         scope = 'mock'
-        files = create_files(3, scope, self.rse1)
+        files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
         attach_dids(scope, dataset, files, 'jdoe')
@@ -85,7 +86,7 @@ class TestJudgeEvaluator():
     def test_judge_ask_approval(self):
         """ JUDGE INJECTOR: Test the judge when asking approval for a rule"""
         scope = 'mock'
-        files = create_files(3, scope, self.rse1)
+        files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
         attach_dids(scope, dataset, files, 'jdoe')
@@ -109,7 +110,7 @@ class TestJudgeEvaluator():
     def test_judge_deny_rule(self):
         """ JUDGE INJECTOR: Test the judge when asking approval for a rule and denying it"""
         scope = 'mock'
-        files = create_files(3, scope, self.rse1)
+        files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
         attach_dids(scope, dataset, files, 'jdoe')
@@ -130,7 +131,7 @@ class TestJudgeEvaluator():
         add_did(scope, container, DIDType.from_sym('CONTAINER'), 'jdoe')
         datasets = []
         for i in range(3):
-            files = create_files(3, scope, self.rse1)
+            files = create_files(3, scope, self.rse1_id)
             dataset = 'dataset_' + str(uuid())
             datasets.append(dataset)
             add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
@@ -153,7 +154,7 @@ class TestJudgeEvaluator():
         add_did(scope, container, DIDType.from_sym('CONTAINER'), 'jdoe')
         datasets = []
         for i in range(3):
-            files = create_files(3, scope, self.rse1)
+            files = create_files(3, scope, self.rse1_id)
             dataset = 'dataset_' + str(uuid())
             datasets.append(dataset)
             add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')

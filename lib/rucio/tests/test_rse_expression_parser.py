@@ -8,6 +8,7 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
 from random import choice
 from string import ascii_uppercase, digits, ascii_lowercase
@@ -50,29 +51,29 @@ class TestRSEExpressionParserCore(object):
         # Add Attributes
         self.attribute = attribute_name_generator()
 
-        rse.add_rse_attribute(self.rse1, self.attribute, "at")
-        rse.add_rse_attribute(self.rse2, self.attribute, "de")
-        rse.add_rse_attribute(self.rse3, self.attribute, "fr")
-        rse.add_rse_attribute(self.rse4, self.attribute, "uk")
-        rse.add_rse_attribute(self.rse5, self.attribute, "us")
+        rse.add_rse_attribute(self.rse1_id, self.attribute, "at")
+        rse.add_rse_attribute(self.rse2_id, self.attribute, "de")
+        rse.add_rse_attribute(self.rse3_id, self.attribute, "fr")
+        rse.add_rse_attribute(self.rse4_id, self.attribute, "uk")
+        rse.add_rse_attribute(self.rse5_id, self.attribute, "us")
 
         # Add numeric Attributes
         self.attribute_numeric = attribute_name_generator()
 
-        rse.add_rse_attribute(self.rse1, self.attribute_numeric, 10)
-        rse.add_rse_attribute(self.rse2, self.attribute_numeric, 20)
-        rse.add_rse_attribute(self.rse3, self.attribute_numeric, 30)
-        rse.add_rse_attribute(self.rse4, self.attribute_numeric, 40)
-        rse.add_rse_attribute(self.rse5, self.attribute_numeric, 50)
+        rse.add_rse_attribute(self.rse1_id, self.attribute_numeric, 10)
+        rse.add_rse_attribute(self.rse2_id, self.attribute_numeric, 20)
+        rse.add_rse_attribute(self.rse3_id, self.attribute_numeric, 30)
+        rse.add_rse_attribute(self.rse4_id, self.attribute_numeric, 40)
+        rse.add_rse_attribute(self.rse5_id, self.attribute_numeric, 50)
 
         # Add Tags
         self.tag1 = tag_generator()
         self.tag2 = tag_generator()
-        rse.add_rse_attribute(self.rse1, self.tag1, True)
-        rse.add_rse_attribute(self.rse2, self.tag1, True)
-        rse.add_rse_attribute(self.rse3, self.tag1, True)
-        rse.add_rse_attribute(self.rse4, self.tag2, True)
-        rse.add_rse_attribute(self.rse5, self.tag2, True)
+        rse.add_rse_attribute(self.rse1_id, self.tag1, True)
+        rse.add_rse_attribute(self.rse2_id, self.tag1, True)
+        rse.add_rse_attribute(self.rse3_id, self.tag1, True)
+        rse.add_rse_attribute(self.rse4_id, self.tag2, True)
+        rse.add_rse_attribute(self.rse5_id, self.tag2, True)
 
     @raises(InvalidRSEExpression)
     def test_unconnected_operator(self):
@@ -151,11 +152,11 @@ class TestRSEExpressionParserCore(object):
 
         attribute = attribute_name_generator()
 
-        rse.add_rse_attribute(rsewrite_name, attribute, "de")
-        rse.add_rse_attribute(rsenowrite_name, attribute, "de")
+        rse.add_rse_attribute(rsewrite_id, attribute, "de")
+        rse.add_rse_attribute(rsenowrite_id, attribute, "de")
 
-        rse.update_rse(rsewrite_name, {'availability_write': True})
-        rse.update_rse(rsenowrite_name, {'availability_write': False})
+        rse.update_rse(rsewrite_id, {'availability_write': True})
+        rse.update_rse(rsenowrite_id, {'availability_write': False})
 
         assert_equal(sorted([item['id'] for item in rse_expression_parser.parse_expression("%s=de" % attribute)]),
                      sorted([rsewrite_id, rsenowrite_id]))
@@ -193,20 +194,20 @@ class TestRSEExpressionParserClient(object):
         # Add Attributes
         self.attribute = attribute_name_generator()
 
-        rse.add_rse_attribute(self.rse1, self.attribute, "at")
-        rse.add_rse_attribute(self.rse2, self.attribute, "de")
-        rse.add_rse_attribute(self.rse3, self.attribute, "fr")
-        rse.add_rse_attribute(self.rse4, self.attribute, "uk")
-        rse.add_rse_attribute(self.rse5, self.attribute, "us")
+        rse.add_rse_attribute(self.rse1_id, self.attribute, "at")
+        rse.add_rse_attribute(self.rse2_id, self.attribute, "de")
+        rse.add_rse_attribute(self.rse3_id, self.attribute, "fr")
+        rse.add_rse_attribute(self.rse4_id, self.attribute, "uk")
+        rse.add_rse_attribute(self.rse5_id, self.attribute, "us")
 
         # Add Tags
         self.tag1 = tag_generator()
         self.tag2 = tag_generator()
-        rse.add_rse_attribute(self.rse1, self.tag1, True)
-        rse.add_rse_attribute(self.rse2, self.tag1, True)
-        rse.add_rse_attribute(self.rse3, self.tag1, True)
-        rse.add_rse_attribute(self.rse4, self.tag2, True)
-        rse.add_rse_attribute(self.rse5, self.tag2, True)
+        rse.add_rse_attribute(self.rse1_id, self.tag1, True)
+        rse.add_rse_attribute(self.rse2_id, self.tag1, True)
+        rse.add_rse_attribute(self.rse3_id, self.tag1, True)
+        rse.add_rse_attribute(self.rse4_id, self.tag2, True)
+        rse.add_rse_attribute(self.rse5_id, self.tag2, True)
 
         self.rse_client = RSEClient()
 

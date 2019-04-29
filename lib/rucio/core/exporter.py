@@ -14,6 +14,7 @@
 #
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -29,7 +30,7 @@ def export_data(session=None):
     :param session: database session in use.
     """
     data = {
-        'rses': [rse_module.export_rse(rse['rse'], session=session) for rse in rse_module.list_rses(session=session)],
+        'rses': [rse_module.export_rse(rse_id=rse['id'], session=session) for rse in rse_module.list_rses(session=session)],
         'distances': distance_module.export_distances(session=session)
     }
     return data

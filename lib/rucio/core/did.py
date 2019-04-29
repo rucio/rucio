@@ -24,6 +24,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Tobias Wegner <twegner@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -119,7 +120,7 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
 
 @transactional_session
 def add_did(scope, name, type, account, statuses=None, meta=None, rules=None,
-            lifetime=None, dids=None, rse=None, session=None):
+            lifetime=None, dids=None, rse_id=None, session=None):
     """
     Add data identifier.
 
@@ -132,13 +133,13 @@ def add_did(scope, name, type, account, statuses=None, meta=None, rules=None,
     :rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
     :param lifetime: DID's lifetime (in seconds).
     :param dids: The content.
-    :param rse: The RSE name when registering replicas.
+    :param rse_id: The RSE id when registering replicas.
     :param session: The database session in use.
     """
     return add_dids(dids=[{'scope': scope, 'name': name, 'type': type,
                            'statuses': statuses or {}, 'meta': meta or {},
                            'rules': rules, 'lifetime': lifetime,
-                           'dids': dids, 'rse': rse}],
+                           'dids': dids, 'rse_id': rse_id}],
                     account=account, session=session)
 
 
@@ -179,7 +180,7 @@ def add_dids(dids, account, session=None):
 
                 if did.get('dids', None):
                     attach_dids(scope=did['scope'], name=did['name'], dids=did['dids'],
-                                account=account, rse=did.get('rse'), session=session)
+                                account=account, rse_id=did.get('rse_id'), session=session)
 
                 if did.get('rules', None):
                     rucio.core.rule.add_rules(dids=[did, ], rules=did['rules'], session=session)
@@ -327,7 +328,7 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
 
 
 @transactional_session
-def __add_files_to_dataset(scope, name, files, account, rse, ignore_duplicate=False, session=None):
+def __add_files_to_dataset(scope, name, files, account, rse_id, ignore_duplicate=False, session=None):
     """
     Add files to dataset.
 
@@ -335,7 +336,7 @@ def __add_files_to_dataset(scope, name, files, account, rse, ignore_duplicate=Fa
     :param name: The data identifier name.
     :param files: .
     :param account: The account owner.
-    :param rse: The RSE name for the replicas.
+    :param rse_id: The RSE id for the replicas.
     :param ignore_duplicate: If True, ignore duplicate entries.
     :param session: The database session in use.
     """
@@ -345,8 +346,8 @@ def __add_files_to_dataset(scope, name, files, account, rse, ignore_duplicate=Fa
     except:
         dataset_meta = None
 
-    if rse:
-        rucio.core.replica.add_replicas(rse=rse, files=files, dataset_meta=dataset_meta,
+    if rse_id:
+        rucio.core.replica.add_replicas(rse_id=rse_id, files=files, dataset_meta=dataset_meta,
                                         account=account, session=session)
 
     files = get_files(files=files, session=session)
@@ -470,7 +471,7 @@ def __add_collections_to_container(scope, name, collections, account, session):
 
 
 @transactional_session
-def attach_dids(scope, name, dids, account, rse=None, session=None):
+def attach_dids(scope, name, dids, account, rse_id=None, session=None):
     """
     Append data identifier.
 
@@ -478,10 +479,10 @@ def attach_dids(scope, name, dids, account, rse=None, session=None):
     :param name: The data identifier name.
     :param dids: The content.
     :param account: The account owner.
-    :param rse: The RSE name for the replicas.
+    :param rse_id: The RSE id for the replicas.
     :param session: The database session in use.
     """
-    return attach_dids_to_dids(attachments=[{'scope': scope, 'name': name, 'dids': dids, 'rse': rse}], account=account, session=session)
+    return attach_dids_to_dids(attachments=[{'scope': scope, 'name': name, 'dids': dids, 'rse_id': rse_id}], account=account, session=session)
 
 
 @transactional_session
@@ -528,7 +529,7 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
                 __add_files_to_dataset(scope=attachment['scope'], name=attachment['name'],
                                        files=attachment['dids'], account=account,
                                        ignore_duplicate=ignore_duplicate,
-                                       rse=attachment.get('rse'),
+                                       rse_id=attachment.get('rse_id'),
                                        session=session)
 
             elif parent_did.did_type == DIDType.CONTAINER:
@@ -1714,8 +1715,8 @@ def create_did_sample(input_scope, input_name, output_scope, output_name, accoun
     files = [did for did in list_files(scope=input_scope, name=input_name, long=False, session=session)]
     random.shuffle(files)
     output_files = files[:int(nbfiles)]
-    add_did(scope=output_scope, name=output_name, type=DIDType.DATASET, account=account, statuses={}, meta=[], rules=[], lifetime=None, dids=[], rse=None, session=session)
-    attach_dids(scope=output_scope, name=output_name, dids=output_files, account=account, rse=None, session=session)
+    add_did(scope=output_scope, name=output_name, type=DIDType.DATASET, account=account, statuses={}, meta=[], rules=[], lifetime=None, dids=[], rse_id=None, session=session)
+    attach_dids(scope=output_scope, name=output_name, dids=output_files, account=account, rse_id=None, session=session)
 
 
 @transactional_session

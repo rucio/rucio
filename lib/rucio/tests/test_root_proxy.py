@@ -16,6 +16,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -46,8 +47,8 @@ class TestROOTProxy(object):
                                               'fqdn': 'anomalous-materials.blackmesa.com',
                                               'site': 'BLACKMESA1'}
         self.rse_without_proxy = rse_name_generator()
-        add_rse(self.rse_without_proxy)
-        add_rse_attribute(rse=self.rse_without_proxy,
+        self.rse_without_proxy_id = add_rse(self.rse_without_proxy)
+        add_rse_attribute(rse_id=self.rse_without_proxy_id,
                           key='site',
                           value='BLACKMESA1')
 
@@ -55,11 +56,11 @@ class TestROOTProxy(object):
                                            'fqdn': 'test-chamber.aperture.com',
                                            'site': 'APERTURE1'}
         self.rse_with_proxy = rse_name_generator()
-        add_rse(self.rse_with_proxy)
-        add_rse_attribute(rse=self.rse_with_proxy,
+        self.rse_with_proxy_id = add_rse(self.rse_with_proxy)
+        add_rse_attribute(rse_id=self.rse_with_proxy_id,
                           key='root-proxy-internal',
                           value='root://proxy.aperture.com:1094')
-        add_rse_attribute(rse=self.rse_with_proxy,
+        add_rse_attribute(rse_id=self.rse_with_proxy_id,
                           key='site',
                           value='APERTURE1')
 
@@ -68,16 +69,29 @@ class TestROOTProxy(object):
                        'bytes': 1234,
                        'adler32': 'deadbeef',
                        'meta': {'events': 666}} for i in range(1, 4)]
-        for rse in [self.rse_with_proxy, self.rse_without_proxy]:
-            add_replicas(rse=rse,
+        for rse_id in [self.rse_with_proxy_id, self.rse_without_proxy_id]:
+            add_replicas(rse_id=rse_id,
                          files=self.files,
                          account='root',
                          ignore_availability=True)
 
-        add_protocol(self.rse_without_proxy, {'scheme': 'root',
-                                              'hostname': 'root.blackmesa.com',
+        add_protocol(self.rse_without_proxy_id, {'scheme': 'root',
+                                                 'hostname': 'root.blackmesa.com',
+                                                 'port': 1409,
+                                                 'prefix': '//training/facility/',
+                                                 'impl': 'rucio.rse.protocols.xrootd.Default',
+                                                 'domains': {
+                                                     'lan': {'read': 1,
+                                                             'write': 1,
+                                                             'delete': 1},
+                                                     'wan': {'read': 1,
+                                                             'write': 1,
+                                                             'delete': 1}}})
+
+        add_protocol(self.rse_with_proxy_id, {'scheme': 'root',
+                                              'hostname': 'root.aperture.com',
                                               'port': 1409,
-                                              'prefix': '//training/facility/',
+                                              'prefix': '//test/chamber/',
                                               'impl': 'rucio.rse.protocols.xrootd.Default',
                                               'domains': {
                                                   'lan': {'read': 1,
@@ -87,24 +101,11 @@ class TestROOTProxy(object):
                                                           'write': 1,
                                                           'delete': 1}}})
 
-        add_protocol(self.rse_with_proxy, {'scheme': 'root',
-                                           'hostname': 'root.aperture.com',
-                                           'port': 1409,
-                                           'prefix': '//test/chamber/',
-                                           'impl': 'rucio.rse.protocols.xrootd.Default',
-                                           'domains': {
-                                               'lan': {'read': 1,
-                                                       'write': 1,
-                                                       'delete': 1},
-                                               'wan': {'read': 1,
-                                                       'write': 1,
-                                                       'delete': 1}}})
-
     def tearDown(self):
-        for rse in [self.rse_with_proxy, self.rse_without_proxy]:
-            delete_replicas(rse=rse, files=self.files)
-        del_rse(self.rse_with_proxy)
-        del_rse(self.rse_without_proxy)
+        for rse_id in [self.rse_with_proxy_id, self.rse_without_proxy_id]:
+            delete_replicas(rse_id=rse_id, files=self.files)
+        del_rse(self.rse_with_proxy_id)
+        del_rse(self.rse_without_proxy_id)
 
     def test_client_list_replicas(self):
         """ ROOT (CLIENT): Test internal proxy prepend """

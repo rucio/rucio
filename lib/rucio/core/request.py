@@ -14,6 +14,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2017-2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -34,7 +35,7 @@ from rucio.common.utils import generate_uuid, chunks
 from rucio.core import transfer_limits as transfer_limits_core
 from rucio.core.message import add_message
 from rucio.core.monitor import record_counter, record_timer
-from rucio.core.rse import get_rse_id, get_rse_name
+from rucio.core.rse import get_rse_name
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RequestState, RequestType, FTSState, ReplicaState, LockState, RequestErrMsg
 from rucio.db.sqla.session import read_session, transactional_session
@@ -550,14 +551,13 @@ def get_requests_by_transfer(external_host, transfer_id, session=None):
 
 
 @read_session
-def get_request_by_did(scope, name, rse, rse_id=None, request_type=None, session=None):
+def get_request_by_did(scope, name, rse_id, request_type=None, session=None):
     """
     Retrieve a request by its DID for a destination RSE.
 
     :param scope:          The scope of the data identifier.
     :param name:           The name of the data identifier.
-    :param rse:            The destination RSE of the request.
-    :param rse_id:         The destination RSE ID of the request. Overrides rse param!
+    :param rse_id:         The destination RSE ID of the request.
     :param request_type:   The type of request as rucio.db.sqla.constants.RequestType.
     :param session:        Database session to use.
     :returns:              Request as a dictionary.
@@ -568,10 +568,7 @@ def get_request_by_did(scope, name, rse, rse_id=None, request_type=None, session
         tmp = session.query(models.Request).filter_by(scope=scope,
                                                       name=name)
 
-        if rse_id:
-            tmp = tmp.filter_by(dest_rse_id=rse_id)
-        else:
-            tmp = tmp.filter_by(dest_rse_id=get_rse_id(rse))
+        tmp = tmp.filter_by(dest_rse_id=rse_id)
 
         if request_type:
             tmp = tmp.filter_by(request_type=request_type)
@@ -887,18 +884,15 @@ def get_stats_by_activity_dest_state(state, session=None):
 
 
 @transactional_session
-def release_waiting_requests(rse, activity=None, rse_id=None, count=None, account=None, session=None):
+def release_waiting_requests(rse_id, activity=None, count=None, account=None, session=None):
     """
     Release waiting requests.
 
-    :param rse:       The RSE name.
-    :param activity:  The activity.
     :param rse_id:    The RSE id.
+    :param activity:  The activity.
     :param count:     The count to be released. If None, release all waiting requests.
     """
     try:
-        if not rse_id:
-            rse_id = get_rse_id(rse=rse, session=session)
         rowcount = 0
 
         if count is None:

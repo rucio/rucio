@@ -9,6 +9,7 @@
  Authors:
  - Wen Guan, <wen.guan@cern.ch>, 2015-2016
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+ - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
  PY3K COMPATIBLE
 """
@@ -160,7 +161,7 @@ def list_distances(filter={}, session=None):
 @read_session
 def export_distances(session=None):
     """
-    Export distances between all the RSEs using RSE names.
+    Export distances between all the RSEs using RSE ids.
     :param session: The database session to use.
     :returns distance: dictionary of dictionaries with all the distances.
     """
@@ -169,18 +170,18 @@ def export_distances(session=None):
     try:
         rse_src = aliased(RSE)
         rse_dest = aliased(RSE)
-        query = session.query(Distance, rse_src.rse, rse_dest.rse)\
+        query = session.query(Distance, rse_src.id, rse_dest.id)\
                        .join(rse_src, rse_src.id == Distance.src_rse_id)\
                        .join(rse_dest, rse_dest.id == Distance.dest_rse_id)
         for result in query.all():
             distance = result[0]
-            src_name = result[1]
-            dst_name = result[2]
-            if src_name not in distances:
-                distances[src_name] = {}
-            distances[src_name][dst_name] = {}
-            distances[src_name][dst_name] = distance.to_dict()
-            del distances[src_name][dst_name]['_sa_instance_state']
+            src_id = result[1]
+            dst_id = result[2]
+            if src_id not in distances:
+                distances[src_id] = {}
+            distances[src_id][dst_id] = {}
+            distances[src_id][dst_id] = distance.to_dict()
+            del distances[src_id][dst_id]['_sa_instance_state']
         return distances
     except IntegrityError as error:
         raise exception.RucioException(error.args)

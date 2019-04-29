@@ -22,6 +22,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
 from __future__ import print_function
 
@@ -114,7 +115,7 @@ class TestDIDCore:
         files = [{'scope': tmp_scope, 'name': lfn,
                   'bytes': 724963570, 'adler32': '0cc737eb',
                   'meta': {'guid': str(generate_uuid()), 'events': 100}}]
-        attach_dids(scope=tmp_scope, name=dsn, rse='MOCK', dids=files, account='root')
+        attach_dids(scope=tmp_scope, name=dsn, rse_id=get_rse_id(rse='MOCK'), dids=files, account='root')
 
         set_metadata(scope=tmp_scope, name=lfn, key='adler32', value='0cc737ee')
         assert_equal(get_metadata(scope=tmp_scope, name=lfn)['adler32'], '0cc737ee')
@@ -133,9 +134,11 @@ class TestDIDCore:
         tmp_dsn3 = 'dsn_%s' % generate_uuid()
         tmp_dsn4 = 'dsn_%s' % generate_uuid()
 
+        rse_id = get_rse_id(rse='MOCK')
+
         add_did(scope=tmp_scope, name=tmp_dsn1, type=DIDType.DATASET, account='root')
-        add_replica(rse='MOCK', scope=tmp_scope, name=tmp_dsn2, bytes=10, account='root')
-        add_replica(rse='MOCK', scope=tmp_scope, name=tmp_dsn3, bytes=10, account='root')
+        add_replica(rse_id=rse_id, scope=tmp_scope, name=tmp_dsn2, bytes=10, account='root')
+        add_replica(rse_id=rse_id, scope=tmp_scope, name=tmp_dsn3, bytes=10, account='root')
         attach_dids(scope=tmp_scope, name=tmp_dsn1, dids=[{'scope': tmp_scope, 'name': tmp_dsn2}, {'scope': tmp_scope, 'name': tmp_dsn3}], account='root')
 
         add_did(scope=tmp_scope, name=tmp_dsn4, type=DIDType.CONTAINER, account='root')
@@ -153,11 +156,13 @@ class TestDIDCore:
         child_name = 'child_%s' % generate_uuid()
         files = [{'scope': tmp_scope, 'name': child_name,
                   'bytes': 12345, 'adler32': '0cc737eb'}]
-        attach_dids(scope=tmp_scope, name=parent_name, rse='MOCK', dids=files, account='root')
+
+        rse_id = get_rse_id('MOCK')
+        attach_dids(scope=tmp_scope, name=parent_name, rse_id=rse_id, dids=files, account='root')
 
         detach_dids(scope=tmp_scope, name=parent_name, dids=files)
 
-        attach_dids(scope=tmp_scope, name=parent_name, rse='MOCK', dids=files, account='root')
+        attach_dids(scope=tmp_scope, name=parent_name, rse_id=rse_id, dids=files, account='root')
 
         detach_dids(scope=tmp_scope, name=parent_name, dids=files)
 
@@ -647,7 +652,7 @@ class TestDIDClients:
         for r in result:
             if r['name'] == dst[1]:
                 assert_equal(r['level'], 0)
-            if r['type'] is 'file':
+            if r['type'] == 'file':
                 if (r['name'] in file[6:9]):
                     assert_equal(r['level'], 0)
                 else:

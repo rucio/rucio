@@ -11,6 +11,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2018-2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 # - Robert Illingworth, <illingwo@fnal.gov>, 2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -455,15 +456,13 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 # Get destination rse information
                 if dest_rse_id not in rses_info:
-                    dest_rse = get_rse_name(rse_id=dest_rse_id, session=session)
-                    rses_info[dest_rse_id] = rsemgr.get_rse_info(dest_rse, session=session)
+                    rses_info[dest_rse_id] = rsemgr.get_rse_info(rse=rse_map[dest_rse_id], session=session)
                 if dest_rse_id not in rse_attrs:
                     rse_attrs[dest_rse_id] = get_rse_attributes(dest_rse_id, session=session)
 
                 # Get the source rse information
                 if source_rse_id not in rses_info:
-                    source_rse = get_rse_name(rse_id=source_rse_id, session=session)
-                    rses_info[source_rse_id] = rsemgr.get_rse_info(source_rse, session=session)
+                    rses_info[source_rse_id] = rsemgr.get_rse_info(rse=rse_map[source_rse_id], session=session)
                 if source_rse_id not in rse_attrs:
                     rse_attrs[source_rse_id] = get_rse_attributes(source_rse_id, session=session)
 
@@ -483,8 +482,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                         logging.error("Invalid RSE exception %s: %s" % (source_replica_expression, error))
                         continue
                     else:
-                        allowed_rses = [x['rse'] for x in parsed_rses]
-                        if rse not in allowed_rses:
+                        allowed_rses = [x['id'] for x in parsed_rses]
+                        if source_rse_id not in allowed_rses:
                             continue
 
                 # parse allow tape source expression, not finally version.
@@ -587,7 +586,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 # get external_host
                 fts_hosts = rse_attrs[dest_rse_id].get('fts', None)
                 if not fts_hosts:
-                    logging.error('Destination RSE %s FTS attribute not defined - SKIP REQUEST %s' % (dest_rse, req_id))
+                    logging.error('Destination RSE %s FTS attribute not defined - SKIP REQUEST %s' % (rses_info[dest_rse_id]['rse'], req_id))
                     continue
                 if retry_count is None:
                     retry_count = 0
@@ -673,8 +672,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                         logging.error("Invalid RSE exception %s: %s" % (source_replica_expression, error))
                         continue
                     else:
-                        allowed_rses = [x['rse'] for x in parsed_rses]
-                        if rse not in allowed_rses:
+                        allowed_rses = [x['id'] for x in parsed_rses]
+                        if source_rse_id not in allowed_rses:
                             continue
 
                 # parse allow tape source expression, not finally version.
@@ -682,8 +681,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 # Compute the source rse information
                 if source_rse_id not in rses_info:
-                    source_rse = get_rse_name(rse_id=source_rse_id, session=session)
-                    rses_info[source_rse_id] = rsemgr.get_rse_info(source_rse, session=session)
+                    rses_info[source_rse_id] = rsemgr.get_rse_info(rse=rse_map[source_rse_id], session=session)
 
                 # Get protocol
                 source_rse_id_key = '%s_%s' % (source_rse_id, '_'.join(current_schemes))
