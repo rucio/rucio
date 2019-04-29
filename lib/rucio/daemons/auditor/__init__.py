@@ -19,6 +19,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -44,7 +45,7 @@ from rucio.common.dumper import temp_file
 from rucio.common.dumper.consistency import Consistency
 from rucio.core.quarantined_replica import add_quarantined_replicas
 from rucio.core.replica import declare_bad_file_replicas, list_replicas
-from rucio.core.rse import get_rse_usage
+from rucio.core.rse import get_rse_usage, get_rse_id
 from rucio.daemons.auditor.hdfs import ReplicaFromHDFS
 from rucio.daemons.auditor import srmdumps
 from rucio.db.sqla.constants import BadFilesStatus
@@ -165,7 +166,8 @@ def process_output(output, sanity_check=True, compress=True):
         raise error
 
     rse = os.path.basename(output[:output.rfind('_')])
-    usage = get_rse_usage(rse, source='rucio')[0]
+    rse_id = get_rse_id(rse=rse)
+    usage = get_rse_usage(rse_id=rse_id, source='rucio')[0]
     threshold = config.config_get('auditor', 'threshold', False, 0.2)
 
     # Perform a basic sanity check by comparing the number of entries
@@ -185,10 +187,10 @@ def process_output(output, sanity_check=True, compress=True):
 
     # While converting LOST replicas to PFNs, entries that do not
     # correspond to a replica registered in Rucio are silently dropped.
-    lost_pfns = [r['rses'][rse][0] for r in list_replicas(lost_replicas)
-                 if rse in r['rses']]
+    lost_pfns = [r['rses'][rse_id][0] for r in list_replicas(lost_replicas)
+                 if rse_id in r['rses']]
 
-    add_quarantined_replicas(rse, dark_replicas)
+    add_quarantined_replicas(rse_id=rse_id, replicas=dark_replicas)
     logger.debug('Processed %d DARK files from "%s"', len(dark_replicas),
                  output)
     declare_bad_file_replicas(lost_pfns, reason='Reported by Auditor',

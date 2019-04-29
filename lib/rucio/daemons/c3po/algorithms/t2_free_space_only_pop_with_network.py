@@ -8,6 +8,7 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2016-2017
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -20,7 +21,7 @@ from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import DataIdentifierNotFound
 from rucio.core.did import get_did
 from rucio.core.replica import list_dataset_replicas
-from rucio.core.rse import list_rse_attributes, get_rse
+from rucio.core.rse import list_rse_attributes, get_rse, get_rse_name
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.daemons.c3po.collectors.free_space import FreeSpaceCollector
 from rucio.daemons.c3po.collectors.network_metrics import NetworkMetricsCollector
@@ -58,9 +59,9 @@ class PlacementAlgorithm:
         self._rses = {}
         self._sites = {}
         for rse in rses:
-            rse_attrs = list_rse_attributes(rse['rse'])
-            rse_attrs['rse'] = rse['rse']
-            self._rses[rse['rse']] = rse_attrs
+            rse_attrs = list_rse_attributes(rse_id=rse['id'])
+            rse_attrs['rse_id'] = rse['id']
+            self._rses[rse['id']] = rse_attrs
             self._sites[rse_attrs['site']] = rse_attrs
 
         self._dst_penalties = {}
@@ -78,13 +79,13 @@ class PlacementAlgorithm:
         logging.debug('Max existing replicas: %d' % self._max_replicas)
 
     def __update_penalties(self):
-        for rse, penalty in self._dst_penalties.items():
+        for rse_id, penalty in self._dst_penalties.items():
             if penalty < 100.0:
-                self._dst_penalties[rse] += 10.0
+                self._dst_penalties[rse_id] += 10.0
 
-        for rse, penalty in self._src_penalties.items():
+        for rse_id, penalty in self._src_penalties.items():
             if penalty < 100.0:
-                self._src_penalties[rse] += 10.0
+                self._src_penalties[rse_id] += 10.0
 
     def check_did(self, did):
         decision = {'did': ':'.join(did)}
@@ -164,13 +165,13 @@ class PlacementAlgorithm:
         space_info = self._fsc.get_rse_space()
         max_mbps = 0.0
         for rep in reps:
-            rse_attr = list_rse_attributes(rep['rse'])
-            src_rse = rep['rse']
+            rse_attr = list_rse_attributes(rep['id'])
+            src_rse_id = rep['id']
             if 'site' not in rse_attr:
                 continue
 
             src_site = rse_attr['site']
-            src_rse_info = get_rse(src_rse)
+            src_rse_info = get_rse(rse_id=src_rse_id)
 
             if 'type' not in rse_attr:
                 continue
@@ -191,21 +192,21 @@ class PlacementAlgorithm:
                         break
                 if len(net_metrics) == 0:
                     continue
-                available_reps[src_rse] = {}
+                available_reps[src_rse_id] = {}
                 for dst_site, mbps in net_metrics.items():
                     if src_site == dst_site:
                         continue
                     if dst_site in self._sites:
                         if mbps > max_mbps:
                             max_mbps = mbps
-                        dst_rse = self._sites[dst_site]['rse']
-                        dst_rse_info = get_rse(dst_rse)
+                        dst_rse_id = self._sites[dst_site]['rse_id']
+                        dst_rse_info = get_rse(rse_id=dst_rse_id)
 
                         if dst_rse_info['availability'] & 2 == 0:
                             continue
 
-                        site_added_bytes = sum(self._added_bytes.get_series(dst_rse))
-                        site_added_files = sum(self._added_files.get_series(dst_rse))
+                        site_added_bytes = sum(self._added_bytes.get_series(dst_rse_id))
+                        site_added_files = sum(self._added_files.get_series(dst_rse_id))
 
                         if ((site_added_bytes + meta['bytes']) > self._max_bytes_hour_rse):
                             continue
@@ -217,16 +218,16 @@ class PlacementAlgorithm:
                         # logging.debug('queued %s -> %s: %d' % (src_site, dst_site, queued))
                         if queued > 0:
                             continue
-                        rse_space = space_info.get(dst_rse, {'free': 0, 'total': 1})
-                        if src_rse not in self._src_penalties:
-                            self._src_penalties[src_rse] = 100.0
-                        src_penalty = self._src_penalties[src_rse]
-                        if dst_rse not in self._dst_penalties:
-                            self._dst_penalties[dst_rse] = 100.0
-                        dst_penalty = self._dst_penalties[dst_rse]
+                        rse_space = space_info.get(dst_rse_id, {'free': 0, 'total': 1})
+                        if src_rse_id not in self._src_penalties:
+                            self._src_penalties[src_rse_id] = 100.0
+                        src_penalty = self._src_penalties[src_rse_id]
+                        if dst_rse_id not in self._dst_penalties:
+                            self._dst_penalties[dst_rse_id] = 100.0
+                        dst_penalty = self._dst_penalties[dst_rse_id]
 
                         free_space = float(rse_space['free']) / float(rse_space['total']) * 100.0
-                        available_reps[src_rse][dst_rse] = {'free_space': free_space, 'src_penalty': src_penalty, 'dst_penalty': dst_penalty, 'mbps': float(mbps), 'metrics_type': net_metrics_type}
+                        available_reps[src_rse_id][dst_rse_id] = {'free_space': free_space, 'src_penalty': src_penalty, 'dst_penalty': dst_penalty, 'mbps': float(mbps), 'metrics_type': net_metrics_type}
 
                 num_reps += 1
 
@@ -243,16 +244,16 @@ class PlacementAlgorithm:
             decision['error_reason'] = 'could not find enough network metrics'
             return decision
 
-        for src, dsts in available_reps.items():
-            for dst, metrics in dsts.items():
-                if dst in available_reps:
+        for src_id, dst_ids in available_reps.items():
+            for dst_id, metrics in dst_ids.items():
+                if dst_id in available_reps:
                     continue
                 bdw = (metrics['mbps'] / max_mbps) * 100.0
-                src_penalty = self._src_penalties[src]
-                dst_penalty = self._dst_penalties[dst]
+                src_penalty = self._src_penalties[src_id]
+                dst_penalty = self._dst_penalties[dst_id]
 
                 ratio = ((metrics['free_space'] / 4.0) + bdw) * src_penalty * dst_penalty
-                src_dst_ratios.append((src, dst, ratio))
+                src_dst_ratios.append((src_id, dst_id, ratio))
 
         if len(src_dst_ratios) == 0:
             decision['error_reason'] = 'found no suitable src/dst for replication'
@@ -262,8 +263,8 @@ class PlacementAlgorithm:
         logging.debug(sorted_ratios)
         destination_rse = sorted_ratios[0][1]
         source_rse = sorted_ratios[0][0]
-        decision['destination_rse'] = destination_rse
-        decision['source_rse'] = source_rse
+        decision['destination_rse'] = get_rse_name(rse_id=destination_rse)
+        decision['source_rse'] = get_rse_name(rse_id=source_rse)
         # decision['rse_ratios'] = src_dst_ratios
         self._dst_penalties[destination_rse] = 10.0
         self._src_penalties[source_rse] = 10.0

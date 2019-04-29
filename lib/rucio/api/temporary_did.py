@@ -8,11 +8,13 @@
 
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
+  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
   PY3K COMPATIBLE
 '''
 
 from rucio.core import temporary_did
+from rucio.core.rse import get_rse_id
 
 
 def add_temporary_dids(dids, issuer):
@@ -22,4 +24,8 @@ def add_temporary_dids(dids, issuer):
     :param dids: A list of dids.
     :param issuer: The issuer account.
     """
+    for did in dids:
+        if 'rse' in did and 'rse_id' not in did:
+            did['rse_id'] = get_rse_id(rse=did['rse'])
+
     return temporary_did.add_temporary_dids(dids=dids, account=issuer)

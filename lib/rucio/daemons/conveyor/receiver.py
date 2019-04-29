@@ -20,6 +20,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -108,6 +109,7 @@ class Receiver(object):
                                 'dst_rse': msg['job_metadata'].get('dst_rse', None),
                                 'request_id': msg['job_metadata'].get('request_id', None),
                                 'activity': msg['job_metadata'].get('activity', None),
+                                'src_rse_id': msg['job_metadata'].get('src_rse_id', None),
                                 'dest_rse_id': msg['job_metadata'].get('dest_rse_id', None),
                                 'previous_attempt_id': msg['job_metadata'].get('previous_attempt_id', None),
                                 'adler32': msg['job_metadata'].get('adler32', None),

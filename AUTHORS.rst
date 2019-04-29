@@ -37,6 +37,7 @@ Individual contributors to the source code
 - Vivek Nigam <viveknigam.nigam3@gmail.com>, 2019
 - Kaustubh Hiware <hiwarekaustubh@gmail.com>, 2019
 - Florido Paganelli <florido.paganelli@hep.lu.se>, 2019
+- Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 
 Organisations employing contributors
 ------------------------------------
@@ -55,3 +56,4 @@ Organisations employing contributors
 - Academia Sinica (Taiwan)
 - Birla Institute of Technology, Mesra (India)
 - Indian Institute of Technology, Kharagpur (India)
+- Science and Technology Facilities Council (UK)

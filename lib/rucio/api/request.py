@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -17,6 +18,7 @@ Interface for the requests abstraction layer
 from rucio.api import permission
 from rucio.common import exception
 from rucio.core import request
+from rucio.core.rse import get_rse_id, get_rse_name
 
 
 def queue_requests(requests, issuer):
@@ -80,11 +82,13 @@ def cancel_request_did(scope, name, dest_rse, request_type, issuer, account):
     :param account: Account identifier as a string.
     """
 
+    dest_rse_id = get_rse_id(rse=dest_rse)
+
     kwargs = {'account': account, 'issuer': issuer}
     if not permission.has_permission(issuer=issuer, action='cancel_request_did', kwargs=kwargs):
         raise exception.AccessDenied('%(account)s cannot cancel %(request_type)s request for %(scope)s:%(name)s' % locals())
 
-    return request.cancel_request_did(scope, name, dest_rse, request_type)
+    return request.cancel_request_did(scope, name, dest_rse_id, request_type)
 
 
 def get_next(request_type, state, issuer, account):
@@ -102,7 +106,13 @@ def get_next(request_type, state, issuer, account):
     if not permission.has_permission(issuer=issuer, action='get_next', kwargs=kwargs):
         raise exception.AccessDenied('%(account)s cannot get the next request of type %(request_type)s in state %(state)s' % locals())
 
-    return request.get_next(request_type, state)
+    reqs = request.get_next(request_type, state)
+    for req in reqs:
+        if 'dest_rse_id' in req and 'dest_rse' not in req:
+            req['dest_rse'] = get_rse_name(rse_id=req['dest_rse_id']) if req['dest_rse_id'] is not None else None
+        if 'source_rse_id' in req and 'source_rse' not in req:
+            req['source_rse'] = get_rse_name(rse_id=req['source_rse_id']) if req['source_rse_id'] is not None else None
+    return reqs
 
 
 def get_request_by_did(scope, name, rse, issuer):
@@ -115,9 +125,16 @@ def get_request_by_did(scope, name, rse, issuer):
     :param issuer: Issuing account as a string.
     :returns: Request as a dictionary.
     """
+    rse_id = get_rse_id(rse=rse)
 
-    kwargs = {'scope': scope, 'name': name, 'rse': rse, 'issuer': issuer}
+    kwargs = {'scope': scope, 'name': name, 'rse': rse, 'rse_id': rse_id, 'issuer': issuer}
     if not permission.has_permission(issuer=issuer, action='get_request_by_did', kwargs=kwargs):
         raise exception.AccessDenied('%(issuer)s cannot retrieve the request DID %(scope)s:%(name)s to RSE %(rse)s' % locals())
 
-    return request.get_request_by_did(scope, name, rse)
+    req = request.get_request_by_did(scope, name, rse_id)
+
+    if 'dest_rse_id' in req and 'dest_rse' not in req:
+        req['dest_rse'] = get_rse_name(rse_id=req['dest_rse_id']) if req['dest_rse_id'] is not None else None
+    if 'source_rse_id' in req and 'source_rse' not in req:
+        req['source_rse'] = get_rse_name(rse_id=req['source_rse_id']) if req['source_rse_id'] is not None else None
+    return req

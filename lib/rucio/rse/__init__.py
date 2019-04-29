@@ -9,6 +9,7 @@
  - Ralph Vigne, <ralph.vigne@cern.ch>, 2013 - 2014
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+ - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 '''
 
 from dogpile.cache import make_region
@@ -60,8 +61,13 @@ if rsemanager.CLIENT_MODE:   # pylint:disable=no-member
 
 
 if rsemanager.SERVER_MODE:   # pylint:disable=no-member
-    from rucio.core.rse import get_rse_protocols
-    setattr(rsemanager, '__request_rse_info', get_rse_protocols)
+    from rucio.core.rse import get_rse_protocols, get_rse_id
+
+    def tmp_rse_info(rse, session=None):
+        rse_id = get_rse_id(rse=rse)
+        return get_rse_protocols(rse_id=rse_id, session=session)
+
+    setattr(rsemanager, '__request_rse_info', tmp_rse_info)
     RSE_REGION = make_region(function_key_generator=rse_key_generator).configure(
         'dogpile.cache.memcached',
         expiration_time=3600,

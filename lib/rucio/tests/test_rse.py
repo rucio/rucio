@@ -23,6 +23,7 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -71,9 +72,9 @@ class TestRSECoreApi(object):
             'longitude': 1.0,
             'latitude': 2.0
         }
-        add_rse(rse_name, **properties)
-        assert_equal(rse_exists(rse_name), True)
-        rse = get_rse(rse_name)
+        rse_id = add_rse(rse_name, **properties)
+        assert_equal(rse_exists(rse=rse_name), True)
+        rse = get_rse(rse_id=rse_id)
         assert_equal(rse.rse, rse_name)
         assert_equal(rse.deterministic, properties['deterministic'])
         assert_equal(rse.volatile, properties['volatile'])
@@ -93,30 +94,30 @@ class TestRSECoreApi(object):
 
         with assert_raises(Duplicate):
             add_rse(rse_name)
-        del_rse(rse_name)
-        assert_equal(rse_exists(rse_name), False)
+        del_rse(rse_id=rse_id)
+        assert_equal(rse_exists(rse=rse_name), False)
 
     def test_list_rses(self):
         """ RSE (CORE): Test the listing of all RSEs """
         rse = rse_name_generator()
-        add_rse(rse)
-        assert_equal(rse_exists(rse), True)
-        add_rse_attribute(rse=rse, key='tier', value='1')
+        rse_id = add_rse(rse)
+        assert_equal(rse_exists(rse=rse), True)
+        add_rse_attribute(rse_id=rse_id, key='tier', value='1')
         rses = list_rses(filters={'tier': '1'})
-        assert_in(rse, [r['rse'] for r in rses])
-        add_rse_attribute(rse=rse, key='country', value='us')
+        assert_in((rse_id, rse), [(r['id'], r['rse']) for r in rses])
+        add_rse_attribute(rse_id=rse_id, key='country', value='us')
 
         rses = list_rses(filters={'tier': '1', 'country': 'us'})
-        assert_in(rse, [r['rse'] for r in rses])
+        assert_in((rse_id, rse), [(r['id'], r['rse']) for r in rses])
 
-        del_rse(rse)
+        del_rse(rse_id)
 
     def test_list_rse_attributes(self):
         """ RSE (CORE): Test the listing of RSE attributes """
         rse = rse_name_generator()
         rse_id = add_rse(rse)
-        add_rse_attribute(rse=rse, key='tier', value='1')
-        attr = list_rse_attributes(rse=None, rse_id=rse_id)
+        add_rse_attribute(rse_id=rse_id, key='tier', value='1')
+        attr = list_rse_attributes(rse_id=rse_id)
         assert_in('tier', list(attr.keys()))
         assert_in(rse, list(attr.keys()))
 
@@ -127,72 +128,69 @@ class TestRSECoreApi(object):
         max_transfers = 100
         transfers = 90
         waitings = 20
-        add_rse(rse)
-        rse_id = get_rse_id(rse)
+        rse_id = add_rse(rse)
 
-        set_rse_transfer_limits(rse=rse, activity=activity, max_transfers=max_transfers, transfers=transfers, waitings=waitings)
-        limits = get_rse_transfer_limits(rse=rse, activity=activity)
+        set_rse_transfer_limits(rse_id=rse_id, activity=activity, max_transfers=max_transfers, transfers=transfers, waitings=waitings)
+        limits = get_rse_transfer_limits(rse_id=rse_id, activity=activity)
         assert_in(activity, list(limits.keys()))
         assert_in(rse_id, limits[activity])
         assert_equal(max_transfers, limits[activity][rse_id]['max_transfers'])
         assert_equal(transfers, limits[activity][rse_id]['transfers'])
         assert_equal(waitings, limits[activity][rse_id]['waitings'])
 
-        set_rse_transfer_limits(rse=rse, activity=activity, max_transfers=max_transfers + 1, transfers=transfers + 1, waitings=waitings + 1)
-        limits = get_rse_transfer_limits(rse=rse, activity=activity)
+        set_rse_transfer_limits(rse_id=rse_id, activity=activity, max_transfers=max_transfers + 1, transfers=transfers + 1, waitings=waitings + 1)
+        limits = get_rse_transfer_limits(rse_id=rse_id, activity=activity)
         assert_in(activity, list(limits.keys()))
         assert_in(rse_id, limits[activity])
         assert_equal(max_transfers + 1, limits[activity][rse_id]['max_transfers'])
         assert_equal(transfers + 1, limits[activity][rse_id]['transfers'])
         assert_equal(waitings + 1, limits[activity][rse_id]['waitings'])
 
-        delete_rse_transfer_limits(rse=rse, activity=activity)
-        limits = get_rse_transfer_limits(rse=rse, activity=activity)
+        delete_rse_transfer_limits(rse_id=rse_id, activity=activity)
+        limits = get_rse_transfer_limits(rse_id=rse_id, activity=activity)
         deleted = not limits or activity not in limits or rse_id not in limits[activity]
         assert_equal(deleted, True)
 
-        del_rse(rse)
+        del_rse(rse_id=rse_id)
 
     def test_delete_rse_attribute(self):
         """ RSE (CORE): Test the deletion of a RSE attribute. """
         rse_name = rse_name_generator()
-        add_rse(rse_name)
-        del_rse_attribute(rse=rse_name, key=rse_name)
-        assert_equal(get_rse_attribute(key=rse_name, rse_id=get_rse_id(rse_name)), [])
+        rse_id = add_rse(rse_name)
+        del_rse_attribute(rse_id=rse_id, key=rse_name)
+        assert_equal(get_rse_attribute(key=rse_name, rse_id=rse_id), [])
 
         with assert_raises(RSEAttributeNotFound):
-            del_rse_attribute(rse=rse_name, key=rse_name)
+            del_rse_attribute(rse_id=rse_id, key=rse_name)
 
     def test_delete_rse(self):
         """ RSE (CORE): Test deletion of RSE """
         # Deletion of not empty RSE
         rse_name = rse_name_generator()
-        add_rse(rse_name)
-        rse_id = get_rse_id(rse_name)
+        rse_id = add_rse(rse_name)
         db_session = session.get_session()
         rse_usage = db_session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').one()
         rse_usage.used = 1
         db_session.commit()
         with assert_raises(RSEOperationNotSupported):
-            del_rse(rse_name)
+            del_rse(rse_id)
 
         # Deletion of not found RSE:
-        rse_name = rse_name_generator()
-        with assert_raises(RSENotFound):
-            del_rse(rse_name)
+        # rse_name = rse_name_generator() #- No longer valid syntax
+        # with assert_raises(RSENotFound):
+        #     del_rse(rse=rse_name)
 
     def test_empty_rse(self):
         """ RSE (CORE): Test if RSE is empty """
         rse_name = rse_name_generator()
-        add_rse(rse_name)
-        rse_id = get_rse_id(rse_name)
-        assert_equal(rse_is_empty(rse_name), True)
+        rse_id = add_rse(rse_name)
+        assert_equal(rse_is_empty(rse_id=rse_id), True)
 
         db_session = session.get_session()
         rse_usage = db_session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').one()
         rse_usage.used = 1
         db_session.commit()
-        assert_equal(rse_is_empty(rse_name), False)
+        assert_equal(rse_is_empty(rse_id=rse_id), False)
 
 
 class TestRSE(object):
@@ -226,7 +224,7 @@ class TestRSE(object):
         }
         r2 = TestApp(rse_app.wsgifunc(*mw)).post('/' + rse_name, headers=headers2, expect_errors=True, params=dumps(properties))
         assert_equal(r2.status, 201)
-        rse = get_rse(rse_name)
+        rse = get_rse(rse_id=get_rse_id(rse=rse_name))
         assert_equal(rse.rse, rse_name)
         assert_equal(rse.deterministic, properties['deterministic'])
         assert_equal(rse.volatile, properties['volatile'])
@@ -331,23 +329,22 @@ class TestRSE(object):
         add_rse(rse_name)
         headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
         r2 = TestApp(rse_app.wsgifunc(*mw)).delete('/{0}'.format(rse_name), headers=headers2, expect_errors=True)
-        assert_equal(r2.status, 200)
+        assert_equal(r2.status, 200, r2.body)
 
         # Second deletion
         headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
         r2 = TestApp(rse_app.wsgifunc(*mw)).delete('/{0}'.format(rse_name), headers=headers2, expect_errors=True)
-        assert_equal(r2.status, 404)
+        assert_equal(r2.status, 404, r2.body)
 
         # Deletion of not found RSE
         rse_name = rse_name_generator()
         headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
         r2 = TestApp(rse_app.wsgifunc(*mw)).delete('/{0}'.format(rse_name), headers=headers2, expect_errors=True)
-        assert_equal(r2.status, 404)
+        assert_equal(r2.status, 404, r2.body)
 
         # Deletion of not empty RSE
         rse_name = rse_name_generator()
-        add_rse(rse_name)
-        rse_id = get_rse_id(rse_name)
+        rse_id = add_rse(rse_name)
         db_session = session.get_session()
         rse_usage = db_session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').one()
         rse_usage.used = 1
@@ -382,7 +379,7 @@ class TestRSEClient(object):
         }
         ret = self.client.add_rse(rse_name, **properties)
         assert_true(ret)
-        rse = get_rse(rse_name)
+        rse = get_rse(rse_id=get_rse_id(rse=rse_name))
         assert_equal(rse.rse, rse_name)
         assert_equal(rse.deterministic, properties['deterministic'])
         assert_equal(rse.volatile, properties['volatile'])
@@ -1469,23 +1466,23 @@ class TestRSEClient(object):
     def test_get_rse_protocols_includes_verify_checksum(self):
         """ RSE (CORE): Test validate_checksum in RSEs info"""
         rse = rse_name_generator()
-        add_rse(rse)
-        add_rse_attribute(rse=rse, key='verify_checksum', value=False)
-        info = get_rse_protocols(rse)
+        rse_id = add_rse(rse)
+        add_rse_attribute(rse_id=rse_id, key='verify_checksum', value=False)
+        info = get_rse_protocols(rse_id)
 
         assert_in('verify_checksum', info)
         assert_equal(info['verify_checksum'], False)
 
-        del_rse(rse)
+        del_rse(rse_id)
 
         rse = rse_name_generator()
-        add_rse(rse)
-        add_rse_attribute(rse=rse, key='verify_checksum', value=True)
-        info = get_rse_protocols(rse)
+        rse_id = add_rse(rse)
+        add_rse_attribute(rse_id=rse_id, key='verify_checksum', value=True)
+        info = get_rse_protocols(rse_id)
 
         assert_in('verify_checksum', info)
         assert_equal(info['verify_checksum'], True)
-        del_rse(rse)
+        del_rse(rse_id)
 
     def test_delete_rse_attribute(self):
         """ RSE (CLIENT): Test the deletion of a RSE attribute. """

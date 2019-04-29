@@ -8,6 +8,7 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -20,7 +21,7 @@ from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import DataIdentifierNotFound
 from rucio.core.did import get_did
 from rucio.core.replica import list_dataset_replicas
-from rucio.core.rse import list_rse_attributes
+from rucio.core.rse import list_rse_attributes, get_rse_name
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.daemons.c3po.collectors.free_space import FreeSpaceCollector
 from rucio.daemons.c3po.utils.expiring_dataset_cache import ExpiringDatasetCache
@@ -41,19 +42,19 @@ class PlacementAlgorithm:
 
         self._rses = []
         for rse in rse_attrs:
-            self._rses.append(rse['rse'])
+            self._rses.append(rse['id'])
 
         self.__setup_penalties()
 
     def __setup_penalties(self):
         self._penalties = {}
-        for rse in self._rses:
-            self._penalties[rse] = 1.0
+        for rse_id in self._rses:
+            self._penalties[rse_id] = 1.0
 
     def __update_penalties(self):
-        for rse, penalty in self._penalties.items():
+        for rse_id, penalty in self._penalties.items():
             if penalty > 1.0:
-                self._penalties[rse] = penalty - 1
+                self._penalties[rse_id] = penalty - 1
 
     def place(self, did):
         self.__update_penalties()
@@ -92,15 +93,15 @@ class PlacementAlgorithm:
         reps = list_dataset_replicas(did[0], did[1])
         num_reps = 0
         for rep in reps:
-            rse_attr = list_rse_attributes(rep['rse'])
+            rse_attr = list_rse_attributes(rse_id=rep['rse_id'])
             if 'type' not in rse_attr:
                 continue
             if rse_attr['type'] != 'DATADISK':
                 continue
             if rep['state'] == ReplicaState.AVAILABLE:
-                if rep['rse'] in free_rses:
-                    free_rses.remove(rep['rse'])
-                available_reps.append(rep['rse'])
+                if rep['rse_id'] in free_rses:
+                    free_rses.remove(rep['rse_id'])
+                available_reps.append(rep['rse_id'])
                 num_reps += 1
 
         decision['replica_rses'] = available_reps
@@ -112,13 +113,13 @@ class PlacementAlgorithm:
 
         rse_ratios = {}
         space_info = self._fsc.get_rse_space()
-        for rse in free_rses:
-            rse_space = space_info[rse]
-            penalty = self._penalties[rse]
-            rse_ratios[rse] = float(rse_space['free']) / float(rse_space['total']) * 100.0 / penalty
+        for rse_id in free_rses:
+            rse_space = space_info[rse_id]
+            penalty = self._penalties[rse_id]
+            rse_ratios[rse_id] = float(rse_space['free']) / float(rse_space['total']) * 100.0 / penalty
 
         sorted_rses = sorted(rse_ratios.items(), key=itemgetter(1), reverse=True)
-        decision['destination_rse'] = sorted_rses[0][0]
+        decision['destination_rse'] = get_rse_name(sorted_rses[0][0])
         decision['rse_ratios'] = sorted_rses
         self._penalties[sorted_rses[0][0]] = 10.0
 

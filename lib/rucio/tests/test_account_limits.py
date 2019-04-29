@@ -8,6 +8,7 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
 import string
 import random
@@ -18,7 +19,7 @@ from rucio.client.accountclient import AccountClient
 from rucio.client.accountlimitclient import AccountLimitClient
 from rucio.core import account_limit
 from rucio.core.account import add_account
-from rucio.core.rse import get_rse
+from rucio.core.rse import get_rse_id
 from rucio.db.sqla.constants import AccountType
 
 
@@ -34,8 +35,8 @@ class TestCoreAccountLimits():
         cls.rse1 = 'MOCK'
         cls.rse2 = 'MOCK2'
 
-        cls.rse1_id = get_rse(cls.rse1).id
-        cls.rse2_id = get_rse(cls.rse2).id
+        cls.rse1_id = get_rse_id(rse=cls.rse1)
+        cls.rse2_id = get_rse_id(rse=cls.rse2)
 
     def test_set_account_limit(self):
         """ ACCOUNT_LIMIT (CORE): Setting account limit """
@@ -57,8 +58,8 @@ class TestAccountClient():
         cls.rse1 = 'MOCK'
         cls.rse2 = 'MOCK2'
 
-        cls.rse1_id = get_rse(cls.rse1).id
-        cls.rse2_id = get_rse(cls.rse2).id
+        cls.rse1_id = get_rse_id(rse=cls.rse1)
+        cls.rse2_id = get_rse_id(rse=cls.rse2)
 
     def setup(self):
         self.client = AccountClient()

@@ -14,6 +14,7 @@
 #
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -44,22 +45,19 @@ class TestImporter(object):
 
         # RSE 1 that already exists
         self.old_rse_1 = rse_name_generator()
-        add_rse(self.old_rse_1, availability=1)
-        add_protocol(self.old_rse_1, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'impl'})
-        self.old_rse_id_1 = get_rse_id(self.old_rse_1)
-        set_rse_limits(rse=self.old_rse_1, name='limit1', value='10')
-        set_rse_transfer_limits(rse=self.old_rse_1, activity='activity1', max_transfers=10)
-        add_rse_attribute(rse=self.old_rse_1, key='attr1', value='test10')
+        self.old_rse_id_1 = add_rse(self.old_rse_1, availability=1)
+        add_protocol(self.old_rse_id_1, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'impl'})
+        set_rse_limits(rse_id=self.old_rse_id_1, name='limit1', value='10')
+        set_rse_transfer_limits(rse_id=self.old_rse_id_1, activity='activity1', max_transfers=10)
+        add_rse_attribute(rse_id=self.old_rse_id_1, key='attr1', value='test10')
 
         # RSE 2 that already exists
         self.old_rse_2 = rse_name_generator()
-        add_rse(self.old_rse_2)
-        self.old_rse_id_2 = get_rse_id(self.old_rse_2)
+        self.old_rse_id_2 = add_rse(self.old_rse_2)
 
         # RSE 3 that already exists
         self.old_rse_3 = rse_name_generator()
-        add_rse(self.old_rse_3)
-        self.old_rse_id_3 = get_rse_id(self.old_rse_3)
+        self.old_rse_id_3 = add_rse(self.old_rse_3)
 
         # Distance that already exists
         add_distance(self.old_rse_id_1, self.old_rse_id_2)
@@ -113,12 +111,12 @@ class TestImporter(object):
                 },
                 'transfer_limits': {
                     'activity1': {
-                        self.old_rse_id_1: {
+                        self.old_rse_1: {
                             'max_transfers': 1
                         }
                     },
                     'activity2': {
-                        self.old_rse_id_1: {
+                        self.old_rse_1: {
                             'max_transfers': 2
                         }
                     }
@@ -130,8 +128,8 @@ class TestImporter(object):
             }],
             'distances': {
                 self.old_rse_1: {
-                    self.old_rse_2: {'src_rse_id': self.old_rse_id_1, 'dest_rse_id': self.old_rse_id_2, 'ranking': 10},
-                    self.old_rse_3: {'src_rse_id': self.old_rse_id_1, 'dest_rse_id': self.old_rse_id_3, 'ranking': 4}
+                    self.old_rse_2: {'src_rse': self.old_rse_1, 'dest_rse': self.old_rse_2, 'ranking': 10},
+                    self.old_rse_3: {'src_rse': self.old_rse_1, 'dest_rse': self.old_rse_3, 'ranking': 4}
                 }
             }
         }
@@ -143,42 +141,43 @@ class TestImporter(object):
         import_data(data=self.data1)
 
         # RSE that had not existed before
-        rse = get_rse(self.new_rse)
+        new_rse_id = get_rse_id(rse=self.new_rse)
+        rse = get_rse(rse_id=new_rse_id)
         assert_equal(rse['availability'], 5)
         assert_equal(rse['city'], 'NewCity')
         assert_equal(rse['rse_type'], RSEType.TAPE)
 
-        protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port']} for protocol in get_rse_protocols(self.new_rse)['protocols']]
+        protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port']} for protocol in get_rse_protocols(new_rse_id)['protocols']]
         assert_true({'scheme': 'scheme', 'hostname': 'hostname', 'port': 1000} in protocols)
 
-        attributes = list_rse_attributes(rse=self.new_rse)
+        attributes = list_rse_attributes(rse_id=new_rse_id)
         assert_equal(attributes['attr1'], 'test')
 
-        limits = get_rse_limits(rse=self.new_rse)
+        limits = get_rse_limits(rse_id=new_rse_id)
         assert_equal(limits['limit1'], 0)
 
-        transfer_limits = get_rse_transfer_limits(rse=self.new_rse)
-        assert_equal(transfer_limits['activity1'][get_rse_id(self.new_rse)]['max_transfers'], 1)
+        transfer_limits = get_rse_transfer_limits(rse_id=new_rse_id)
+        assert_equal(transfer_limits['activity1'][new_rse_id]['max_transfers'], 1)
 
         # RSE 1 that already exists
-        rse = get_rse(self.old_rse_1)
+        rse = get_rse(self.old_rse_id_1)
         assert_equal(rse['rse'], self.old_rse_1)
 
-        protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl'], 'prefix': protocol['prefix']} for protocol in get_rse_protocols(self.old_rse_1)['protocols']]
+        protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl'], 'prefix': protocol['prefix']} for protocol in get_rse_protocols(self.old_rse_id_1)['protocols']]
         assert_true({'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'prefix': 'prefix', 'impl': 'impl1'} in protocols)
         assert_true({'scheme': 'scheme2', 'hostname': 'hostname2', 'port': 1001, 'impl': 'impl', 'prefix': ''} in protocols)
 
-        attributes = list_rse_attributes(rse=self.old_rse_1)
+        attributes = list_rse_attributes(rse_id=self.old_rse_id_1)
         assert_equal(attributes['attr1'], 'test1')
         assert_equal(attributes['attr2'], 'test2')
 
-        limits = get_rse_limits(rse=self.old_rse_1)
+        limits = get_rse_limits(rse_id=self.old_rse_id_1)
         assert_equal(limits['limit1'], 0)
         assert_equal(limits['limit2'], 2)
 
-        transfer_limits = get_rse_transfer_limits(rse=self.old_rse_1)
-        assert_equal(transfer_limits['activity1'][get_rse_id(self.old_rse_1)]['max_transfers'], 1)
-        assert_equal(transfer_limits['activity2'][get_rse_id(self.old_rse_1)]['max_transfers'], 2)
+        transfer_limits = get_rse_transfer_limits(rse_id=self.old_rse_id_1)
+        assert_equal(transfer_limits['activity1'][self.old_rse_id_1]['max_transfers'], 1)
+        assert_equal(transfer_limits['activity2'][self.old_rse_id_1]['max_transfers'], 2)
 
         # Distances
         distance = get_distances(self.old_rse_id_1, self.old_rse_id_2)[0]
@@ -196,41 +195,42 @@ class TestImporter(object):
         import_client.import_data(data=self.data1)
 
         # RSE that had not existed before
-        rse = get_rse(self.new_rse)
+        new_rse_id = get_rse_id(rse=self.new_rse)
+        rse = get_rse(rse_id=new_rse_id)
         assert_equal(rse['availability'], 5)
         assert_equal(rse['city'], 'NewCity')
         assert_equal(rse['rse_type'], RSEType.TAPE)
-        protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port']} for protocol in get_rse_protocols(self.new_rse)['protocols']]
+        protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port']} for protocol in get_rse_protocols(new_rse_id)['protocols']]
         assert_true({'scheme': 'scheme', 'hostname': 'hostname', 'port': 1000} in protocols)
 
-        attributes = list_rse_attributes(rse=self.new_rse)
+        attributes = list_rse_attributes(rse_id=new_rse_id)
         assert_equal(attributes['attr1'], 'test')
 
-        limits = get_rse_limits(rse=self.new_rse)
+        limits = get_rse_limits(rse_id=new_rse_id)
         assert_equal(limits['limit1'], 0)
 
-        transfer_limits = get_rse_transfer_limits(rse=self.new_rse)
-        assert_equal(transfer_limits['activity1'][get_rse_id(self.new_rse)]['max_transfers'], 1)
+        transfer_limits = get_rse_transfer_limits(rse_id=new_rse_id)
+        assert_equal(transfer_limits['activity1'][new_rse_id]['max_transfers'], 1)
 
         # RSE 1 that already exists
-        rse = get_rse(self.old_rse_1)
+        rse = get_rse(self.old_rse_id_1)
         assert_equal(rse['rse'], self.old_rse_1)
 
-        protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl'], 'prefix': protocol['prefix']} for protocol in get_rse_protocols(self.old_rse_1)['protocols']]
+        protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl'], 'prefix': protocol['prefix']} for protocol in get_rse_protocols(self.old_rse_id_1)['protocols']]
         assert_true({'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'prefix': 'prefix', 'impl': 'impl1'} in protocols)
         assert_true({'scheme': 'scheme2', 'hostname': 'hostname2', 'port': 1001, 'impl': 'impl', 'prefix': ''} in protocols)
 
-        attributes = list_rse_attributes(rse=self.old_rse_1)
+        attributes = list_rse_attributes(rse_id=self.old_rse_id_1)
         assert_equal(attributes['attr1'], 'test1')
         assert_equal(attributes['attr2'], 'test2')
 
-        limits = get_rse_limits(rse=self.old_rse_1)
+        limits = get_rse_limits(rse_id=self.old_rse_id_1)
         assert_equal(limits['limit1'], 0)
         assert_equal(limits['limit2'], 2)
 
-        transfer_limits = get_rse_transfer_limits(rse=self.old_rse_1)
-        assert_equal(transfer_limits['activity1'][get_rse_id(self.old_rse_1)]['max_transfers'], 1)
-        assert_equal(transfer_limits['activity2'][get_rse_id(self.old_rse_1)]['max_transfers'], 2)
+        transfer_limits = get_rse_transfer_limits(rse_id=self.old_rse_id_1)
+        assert_equal(transfer_limits['activity1'][self.old_rse_id_1]['max_transfers'], 1)
+        assert_equal(transfer_limits['activity2'][self.old_rse_id_1]['max_transfers'], 2)
 
         # Distances
         distance = get_distances(self.old_rse_id_1, self.old_rse_id_2)[0]
@@ -251,45 +251,46 @@ class TestImporter(object):
         headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
 
         r2 = TestApp(import_app.wsgifunc(*mw)).post('/', headers=headers2, expect_errors=True, params=render_json(**self.data1))
-        assert_equal(r2.status, 201)
+        assert_equal(r2.status, 201, r2.body)
 
         # RSE that not existed before
-        rse = get_rse(self.new_rse)
+        new_rse_id = get_rse_id(rse=self.new_rse)
+        rse = get_rse(rse_id=new_rse_id)
         assert_equal(rse['availability'], 5)
         assert_equal(rse['city'], 'NewCity')
         assert_equal(rse['rse_type'], RSEType.TAPE)
 
-        protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port']} for protocol in get_rse_protocols(self.new_rse)['protocols']]
+        protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port']} for protocol in get_rse_protocols(rse_id=new_rse_id)['protocols']]
         assert_true({'scheme': 'scheme', 'hostname': 'hostname', 'port': 1000} in protocols)
 
-        attributes = list_rse_attributes(rse=self.new_rse)
+        attributes = list_rse_attributes(rse_id=new_rse_id)
         assert_equal(attributes['attr1'], 'test')
 
-        limits = get_rse_limits(rse=self.new_rse)
+        limits = get_rse_limits(rse_id=new_rse_id)
         assert_equal(limits['limit1'], 0)
 
-        transfer_limits = get_rse_transfer_limits(rse=self.new_rse)
-        assert_equal(transfer_limits['activity1'][get_rse_id(self.new_rse)]['max_transfers'], 1)
+        transfer_limits = get_rse_transfer_limits(rse_id=new_rse_id)
+        assert_equal(transfer_limits['activity1'][new_rse_id]['max_transfers'], 1)
 
         # RSE 1 that already existed before
-        rse = get_rse(self.old_rse_1)
+        rse = get_rse(rse_id=self.old_rse_id_1)
         assert_equal(rse['rse'], self.old_rse_1)
 
-        protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl'], 'prefix': protocol['prefix']} for protocol in get_rse_protocols(self.old_rse_1)['protocols']]
+        protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl'], 'prefix': protocol['prefix']} for protocol in get_rse_protocols(self.old_rse_id_1)['protocols']]
         assert_true({'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'prefix': 'prefix', 'impl': 'impl1'} in protocols)
         assert_true({'scheme': 'scheme2', 'hostname': 'hostname2', 'port': 1001, 'impl': 'impl', 'prefix': ''} in protocols)
 
-        attributes = list_rse_attributes(rse=self.old_rse_1)
+        attributes = list_rse_attributes(rse_id=self.old_rse_id_1)
         assert_equal(attributes['attr1'], 'test1')
         assert_equal(attributes['attr2'], 'test2')
 
-        limits = get_rse_limits(rse=self.old_rse_1)
+        limits = get_rse_limits(rse_id=self.old_rse_id_1)
         assert_equal(limits['limit1'], 0)
         assert_equal(limits['limit2'], 2)
 
-        transfer_limits = get_rse_transfer_limits(rse=self.old_rse_1)
-        assert_equal(transfer_limits['activity1'][get_rse_id(self.old_rse_1)]['max_transfers'], 1)
-        assert_equal(transfer_limits['activity2'][get_rse_id(self.old_rse_1)]['max_transfers'], 2)
+        transfer_limits = get_rse_transfer_limits(rse_id=self.old_rse_id_1)
+        assert_equal(transfer_limits['activity1'][self.old_rse_id_1]['max_transfers'], 1)
+        assert_equal(transfer_limits['activity2'][self.old_rse_id_1]['max_transfers'], 2)
 
         # Distances
         distance = get_distances(self.old_rse_id_1, self.old_rse_id_2)[0]
@@ -310,7 +311,7 @@ class TestExporter(object):
     def test_export_core(self):
         """ EXPORT (CORE): Test the export of data."""
         data = export_data()
-        assert_equal(data['rses'], [export_rse(rse['rse']) for rse in list_rses()])
+        assert_equal(data['rses'], [export_rse(rse['id']) for rse in list_rses()])
         assert_equal(data['distances'], export_distances())
 
     def test_export_client(self):
@@ -329,8 +330,8 @@ class TestExporter(object):
         headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
 
         r2 = TestApp(export_app.wsgifunc(*mw)).get('/', headers=headers2, expect_errors=True)
-        rses = [export_rse(rse['rse']) for rse in list_rses()]
-        assert_equal(r2.status, 200)
+        rses = [export_rse(rse['id']) for rse in list_rses()]
+        assert_equal(r2.status, 200, r2.body)
         assert_equal(r2.body, render_json(**{'rses': rses, 'distances': export_distances()}))
 
 

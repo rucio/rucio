@@ -18,6 +18,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -83,10 +84,10 @@ class Consumer(object):
             if isinstance(msg, dict) and 'operation' in msg.keys():
                 if msg['operation'] == 'add_replicas':
                     logging.info('add_replicas to RSE %s: %s ' % (msg['rse'], str(msg['files'])))
-                    add_volatile_replicas(rse=msg['rse'], replicas=msg['files'])
+                    add_volatile_replicas(rse_id=msg['rse_id'], replicas=msg['files'])
                 elif msg['operation'] == 'delete_replicas':
                     logging.info('delete_replicas to RSE %s: %s ' % (msg['rse'], str(msg['files'])))
-                    delete_volatile_replicas(rse=msg['rse'], replicas=msg['files'])
+                    delete_volatile_replicas(rse_id=msg['rse_id'], replicas=msg['files'])
         except:
             logging.error(str(format_exc()))
 
