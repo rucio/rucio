@@ -39,9 +39,7 @@ paramiko==2.4.2                                   # SSH2 protocol library
 Flask==1.0.2                                      # Python web framework
 idna==2.7                                         # Internationalized Domain Names in Applications (IDNA) - Dependency of requests
 MyProxyClient==2.1.0                              # myproxy client bindings
-
 # All dependencies needed to run rucio client should be defined here
-
 setuptools>=36.8.0,<37.0.0                        # Python packaging utilities (36.8.0 last py2.6 compatible version)
 argparse>=1.4.0; python_version == '2.6'          # Command-line parsing library
 argcomplete>=1.9.0,<1.10.0                        # Bash tab completion for argparse
@@ -56,7 +54,7 @@ bz2file>=0.98,<0.99                               # Read and write bzip2-compres
 python-magic>=0.4.15,<0.5.0                       # File type identification using libmagic
 futures>=3.2.0; python_version < '3.0'            # Clean single-source support for Python 3 and 2
 six>=1.11.0                                       # Python 2 and 3 compatibility utilities
-
+boto3>=1.9.86					  # S3 boto protocol (new version)
 # All dependencies needed to develop/test rucio should be defined here
 
 pinocchio==0.4.2            # Extensions for the 'nose' unit testing framework
@@ -65,7 +63,6 @@ unittest2==1.1.0            # backport of unittest lib in python 2.7
 coverage==4.5.2             # Nose module for test coverage
 Sphinx==1.8.3               # required to build documentation
 sphinx-rtd-theme==0.4.2     # Read the Docs theme for Sphinx
-Jinja2==2.10                # template engine
 sphinxcontrib-httpdomain==1.7.0 # Provides a Sphinx domain for describing RESTful HTTP APIs
 stub==0.2.1; python_version == '2.7' # Temporarily modify callable behaviour and object attributes
 Pygments==2.2.0             # Python Syntax highlighter
