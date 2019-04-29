@@ -19,7 +19,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012-2018
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2017
 # - Yun-Pin Sun, <winter0128@gmail.com>, 2012-2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2019
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - David Cameron, <d.g.cameron@gmail.com>, 2014
 # - Tomas Kouba, <tomas.kouba@cern.ch>, 2014
@@ -228,7 +228,10 @@ def exception_handler(function):
             logger.error(error)
             contact = config_get('policy', 'support', raise_exception=False)
             support = ("If it's a problem concerning your experiment or if you're unsure what to do, please followup at: %s\n" % contact) if contact else ''
-            contact = config_get('policy', 'support_rucio', default='https://github.com/rucio/rucio/issues')
+            try:
+                contact = config_get('policy', 'support_rucio', default='https://github.com/rucio/rucio/issues')
+            except NoSectionError:
+                contact = 'https://github.com/rucio/rucio/issues'
             support += "If you're sure there is a problem with Rucio itself, please followup at: " + contact
             logger.error('\nRucio exited with an unexpected/unknown error.\n'
                          'Please rerun the last command with the "-v" option to gather more information.\n'
