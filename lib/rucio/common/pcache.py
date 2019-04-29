@@ -141,6 +141,8 @@ class Pcache:
         self.pcache_dir = self.scratch_dir + "pcache/"
         self.log_file = self.pcache_dir + "pcache.log"
         self.max_space = "80%"
+        self.percent_max = None
+        self.bytes_max = None
         # self.max_space = "10T"
         self.hysterisis = 0.75
         # self.hysterisis = 0.9
@@ -159,6 +161,8 @@ class Pcache:
         self.sitename = None  # XXX can we get this from somewhere?
         self.update_panda = False
         self.panda_url = "https://pandaserver.cern.ch:25443/server/panda/"
+        self.local_src = None
+        self.skip_download = False
 
         # internal variables
         self.sleep_interval = 15
@@ -172,7 +176,7 @@ class Pcache:
 
         try:
             opts, args = getopt.getopt(args,
-                                       "s:x:m:Cy:A:R:t:r:g:fFl:VvdqpPH:S:",
+                                       "s:x:m:Cy:A:R:t:r:g:fFl:VvdqpPH:S:L:X:",
                                        ["scratch-dir=",
                                         "storage-root=",
                                         "max-space=",
@@ -193,7 +197,8 @@ class Pcache:
                                         "print-stats",
                                         "panda",
                                         "hostname",
-                                        "sitename"])
+                                        "sitename",
+                                        "local-src"])
 
             # XXXX cache, stats, reset, clean, delete, inventory
             # TODO: move checksum/size validation from lsm to pcache
@@ -258,19 +263,14 @@ class Pcache:
                 self.hostname = arg
             elif opt in ("-S", "--sitename"):
                 self.sitename = arg
+            elif opt in ("-L", "--local-src"):
+                self.local_src = str(arg)
+            elif opt in ("-X", "--skip-download"):
+                if str(arg) in ('True', 'true') or arg:
+                    self.skip_download = True
 
-        # Convert max_space arg to percent_max or bytes_max
-        if self.max_space.endswith('%'):
-            self.percent_max = float(self.max_space[:-1])
-            self.bytes_max = None
-        else:  # handle suffix
-            self.percent_max = None
-            m = self.max_space.upper()
-            index = "BKMGTPEZY".find(m[-1])
-            if index >= 0:
-                self.bytes_max = float(m[:-1]) * (1024**index)
-            else:  # Numeric value w/o units (exception if invalid)
-                self.bytes_max = float(self.max_space)
+        # Treatment of limits on pcache size
+        self._convert_max_space()
 
         # Convert timeout to seconds
         t = self.transfer_timeout
@@ -300,8 +300,159 @@ class Pcache:
         # All done
         self.args = args
 
+    def _convert_max_space(self):
+        '''
+        Added by Rucio team. Converts max allowed space usage of pcache into units used by this tool.
+        :input self.max_space: limit set by user
+        :output self.percent_max: max percentage of pcache space used
+        :output self.bytes_max: max size in bytes of pcache space used
+        '''
+
+        # Convert max_space arg to percent_max or bytes_max
+        if self.max_space.endswith('%'):
+            self.percent_max = float(self.max_space[:-1])
+            self.bytes_max = None
+        else:  # handle suffix
+            self.percent_max = None
+            m = self.max_space.upper()
+            index = "BKMGTPEZY".find(m[-1])
+            if index >= 0:
+                self.bytes_max = float(m[:-1]) * (1024**index)
+            else:  # Numeric value w/o units (exception if invalid)
+                self.bytes_max = float(self.max_space)
+
+    def clean_pcache(self, max_space=None):
+        '''
+        Added by Rucio team. Cleans pcache in case it is over limit.
+        Used for tests of the pcache functionality. Can be called without other init.
+        '''
+
+        self.t0 = time.time()
+        self.progname = "pcache"
+
+        # set max. occupancy of pcache:
+        if max_space:
+            self.max_space = max_space
+        self._convert_max_space()
+
+        # Fail on extra args
+        if not self.scratch_dir:
+            self.Usage()
+            self.fail(100)
+
+        # hardcoded pcache dir
+        self.pcache_dir = self.scratch_dir + '/pcache/'
+
+        # clean pcache
+        self.maybe_start_cleaner_thread()
+
+    def check_and_link(self, src='', dst='', dst_prefix='', scratch_dir='/scratch/', storage_root=None, force=False,
+                       guid=None, log=None, version='', hostname=None, sitename=None, local_src=None):
+        '''
+        Added by Rucio team. Replacement for the main method.
+        Checks whether a file is in pcache:
+         - if yes: creates a hardlink to the file in pcahce
+         - if not:
+              - returns 500 and leaves it to Rucio
+              - Rucio downloads a file
+        Makes hardlink in pcache to downloaded file:
+         - needs :param local_src: path to downloaded file
+        '''
+        self.t0 = time.time()
+        self.progname = "pcache"
+        self.pcache_dir = scratch_dir + '/pcache/'
+        self.src = src
+        self.dst = dst
+        self.dst_prefix = dst_prefix
+        self.sitename = sitename
+        self.hostname = hostname
+        self.guid = guid
+        if log:
+            self.log = log
+        self.local_src = local_src
+        self.version = version
+        self.storage_root = storage_root
+
+        # Cache dir may have been wiped
+        if ((not os.path.exists(self.pcache_dir)) and self.update_panda):
+            self.panda_flush_cache()
+
+        # Create the pCache directory
+        if (self.mkdir_p(self.pcache_dir)):
+            self.fail(101)
+
+        self.log(INFO, "%s %s invoked as: API", self.progname, self.version)
+
+        # Fail on extra args
+        if not scratch_dir:
+            self.Usage()
+            self.fail(100)
+
+        # If the source is lfn:, execute original command, no further action
+        if (self.src.startswith('lfn:')):
+            # status = os.execvp(self.copy_util, self.args)
+            os._exit(1)
+
+        # If the destination is a local file, do some rewrites
+        if (self.dst.startswith('file:')):
+            self.dst_prefix = 'file:'
+            self.dst = self.dst[5:]
+            # Leave one '/' on dst
+            while ((len(self.dst) > 1) and (self.dst[1] == '/')):
+                self.dst_prefix += '/'
+                self.dst = self.dst[1:]
+
+        # load file into pcache
+        self.create_pcache_dst_dir()
+        # XXXX TODO _ dst_dir can get deleted before lock!
+        waited = False
+
+        # If another transfer is active, lock_dir will block
+        if (self.lock_dir(self.pcache_dst_dir, blocking=False)):
+            waited = True
+            self.log(INFO, "%s locked, waiting", self.pcache_dst_dir)
+            self.lock_dir(self.pcache_dst_dir, blocking=True)
+
+        if (waited):
+            self.log(INFO, "waited %.2f secs", time.time() - self.t0)
+
+        if force:
+            self.empty_dir(self.pcache_dst_dir)
+
+        # The name of the cached version of this file
+        cache_file = self.pcache_dst_dir + "data"
+
+        # Check if the file is in cache or we need to transfer it down
+        if (os.path.exists(cache_file)):
+            exit_status = 0
+            copy_status = None
+            self.log(INFO, "check_and_link: file found in cache")
+            self.log(INFO, "cache hit %s", self.src)
+            self.update_stats("cache_hits")
+            self.finish()
+            if (os.path.exists(self.dst)):
+                copy_status = 1
+        elif self.local_src:
+            exit_status = 1
+            copy_status = None
+            self.log(INFO, "check_and_link: local replica found, linking to pcache")
+            self.finish()
+        else:
+            self.log(INFO, "check_and_link: %s file not found in pcache and was not downloaded yet", self.src)
+            return (500, None)
+
+        self.unlock_dir(self.pcache_dst_dir)
+        self.log(INFO, "total time %.2f secs", time.time() - self.t0)
+
+        # in case that the pcache is over limit
+        self.maybe_start_cleaner_thread()
+
+        # Return if the file was cached, copied or an error (and its code)
+        return (exit_status, copy_status)
+
     def main(self, args):
 
+        # args
         self.cmdline = ' '.join(args)
         self.t0 = time.time()
         self.progname = args[0] or "pcache"
@@ -364,7 +515,7 @@ class Pcache:
 
         # Execute original command, no further action
         if (not (self.dst.startswith(self.scratch_dir) and self.accept(self.src) and (not self.reject(self.src)))):
-            # status = os.execvp(self.copy_util, self.args)
+            os.execvp(self.copy_util, self.args)
             os._exit(1)
 
         # XXXX todo:  fast-path - try to acquire lock
@@ -399,6 +550,8 @@ class Pcache:
             self.update_stats("cache_hits")
             self.finish()
         else:
+            if self.skip_download:
+                return (500, None)
             self.update_stats("cache_misses")
             exit_status, copy_status = self.pcache_copy_in()
             if ((exit_status == 0) or (exit_status == 2)):
@@ -412,11 +565,15 @@ class Pcache:
         # Return if the file was cached, copied or an error (and its code)
         return (exit_status, copy_status)
 
-    def finish(self):
-        self.update_mru()
+    def finish(self, local_src=None):
         cache_file = self.pcache_dst_dir + "data"
-        if (self.make_hard_link(cache_file, self.dst)):
-            self.fail(102)
+        self.update_mru()
+        if self.local_src:
+            if (self.make_hard_link(self.local_src, cache_file)):
+                self.fail(102)
+        else:
+            if (self.make_hard_link(cache_file, self.dst)):
+                self.fail(102)
 
     def pcache_copy_in(self):
 
@@ -474,7 +631,10 @@ class Pcache:
                 copy_status = retry
 
             # Update the cache information
-            self.update_cache_size(os.stat(cache_file).st_size)
+            if self.local_src:
+                self.update_cache_size(os.stat(self.local_src).st_size)
+            else:
+                self.update_cache_size(os.stat(cache_file).st_size)
 
             # Update the panda cache
             if (self.guid and self.update_panda):
@@ -496,16 +656,13 @@ class Pcache:
 
         # self.log(INFO, '%s', self.storage_root)
         # self.log(INFO, '%s', d)
-
         # XXXX any more patterns to look for?
         d = os.path.normpath(self.pcache_dir + "CACHE/" + d)
-
         if (not d.endswith('/')):
             d += '/'
 
         self.pcache_dst_dir = d
         status = self.mkdir_p(d)
-
         if (status):
             self.log(ERROR, "mkdir %s %s", d, status)
             self.fail(103)
@@ -627,7 +784,10 @@ class Pcache:
         t0 = time.time()
 
         # Do the copy with a timeout
-        copy_status, copy_output = run_cmd(args, self.transfer_timeout)
+        if self.local_src:
+            return(0, None)
+        else:
+            copy_status, copy_output = run_cmd(args, self.transfer_timeout)
 
         # Did the command timeout
         if (copy_status == -1):
@@ -638,10 +798,6 @@ class Pcache:
             self.log(ERROR, "copy command was not found")
             self.cleanup_failed_transfer()
             return (5, None)
-
-        # Display any output from the copy
-        if (copy_output):
-            print '%s' % copy_output
 
         # Did the copy succeed (good status and an existing file)
         if ((copy_status > 0) or (not os.path.exists(xfer_file))):
@@ -1192,6 +1348,7 @@ class Pcache:
 #  107 - Cache cleanup error
 #  108 - Cache MRU update error
 #  109 - Cache MRU link error
+#  500 - Is file in pcache? No other action
 
 
 if (__name__ == "__main__"):
