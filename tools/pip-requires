@@ -40,4 +40,5 @@ paramiko==2.4.2                                   # SSH2 protocol library
 Flask==1.0.2                                      # Python web framework
 idna==2.7                                         # Internationalized Domain Names in Applications (IDNA) - Dependency of requests
 fts3-rest-API==3.7.1                              # FTS rest API
+M2Crypto<0.33                                     # Dependency of FTS rest API; Temporary fix since 0.33 does not install on CC7
 MyProxyClient==2.1.0                              # myproxy client bindings
