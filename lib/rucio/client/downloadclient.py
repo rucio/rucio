@@ -42,6 +42,7 @@ from threading import Thread
 from rucio.client.client import Client
 from rucio.common.exception import (InputValidationError, NoFilesDownloaded, ServiceUnavailable,
                                     NotAllFilesDownloaded, RSENotFound, RucioException, SourceNotFound)
+from rucio.common.pcache import Pcache
 from rucio.common.utils import adler32, md5, detect_client_location, generate_uuid, parse_replicas_from_string, send_trace, sizefmt, execute, parse_replicas_from_file
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
@@ -114,7 +115,7 @@ class BaseExtractionTool:
 
 class DownloadClient:
 
-    def __init__(self, client=None, logger=None, tracing=True, check_admin=False):
+    def __init__(self, client=None, logger=None, tracing=True, check_admin=False, check_pcache=False):
         """
         Initialises the basic settings for an DownloadClient object
 
@@ -125,6 +126,7 @@ class DownloadClient:
             logger = logging.getLogger('%s.null' % __name__)
             logger.disabled = True
 
+        self.check_pcache = check_pcache
         self.logger = logger
         self.tracing = tracing
         if not self.tracing:
@@ -536,6 +538,8 @@ class DownloadClient:
         :returns: dictionary with all attributes from the input item and a clientState attribute
         """
         logger = self.logger
+        pcache = Pcache()
+
         did_scope = item['scope']
         did_name = item['name']
         did_str = '%s:%s' % (did_scope, did_name)
@@ -573,6 +577,43 @@ class DownloadClient:
             trace['clientState'] = 'FILE_NOT_FOUND'
             self._send_trace(trace)
             return item
+
+        # checking Pcache
+        storage_prefix = None
+        if self.check_pcache:
+
+            # to check only first replica is enough
+            pfn = sources[0]['pfn']
+            rse_name = sources[0]['rse']
+
+            # protocols are needed to extract deterministic part of the pfn
+            scheme = None
+            prots = self.client.get_protocols(rse_name)
+            for prot in prots:
+                if prot['scheme'] in pfn and prot['prefix'] in pfn:
+                    scheme = prot['scheme']
+                    storage_prefix = prot['prefix']
+
+            # proceed with the actual check
+            logger.info('Checking whether %s is in pcache' % dest_file_path)
+            pcache_state = None
+            hardlink_state = None
+            try:
+                pcache_state, hardlink_state = pcache.check_and_link(src=pfn, storage_root=storage_prefix, dst=dest_file_path)
+            except Exception as e:
+                logger.warning('Pcache failure: %s' % str(e))
+
+            # if file found in pcache, send trace and return
+            if pcache_state == 0 and hardlink_state == 1:
+                logger.info('File found in pcache.')
+                item['clientState'] = 'FOUND_IN_PCACHE'
+                trace['transferStart'] = time.time()
+                trace['transferEnd'] = time.time()
+                trace['clientState'] = 'FOUND_IN_PCACHE'
+                self._send_trace(trace)
+                return item
+            else:
+                logger.info('File not found in pcache.')
 
         # try different PFNs until one succeeded
         temp_file_path = item['temp_file_path']
@@ -660,6 +701,16 @@ class DownloadClient:
         first_dest_file_path = next(dest_file_path_iter)
         logger.debug("renaming '%s' to '%s'" % (temp_file_path, first_dest_file_path))
         os.rename(temp_file_path, first_dest_file_path)
+
+        # if the file was downloaded with success, it can be linked to pcache
+        if self.check_pcache:
+            logger.info('File %s is going to be registerred into pcache.' % dest_file_path)
+            try:
+                pcache_state, hardlink_state = pcache.check_and_link(src=pfn, storage_root=storage_prefix, local_src=first_dest_file_path)
+                logger.info('File %s is now registerred into pcache.' % first_dest_file_path)
+            except Exception as e:
+                logger.warning('Failed to load file to pcache: %s' % str(e))
+
         for cur_dest_file_path in dest_file_path_iter:
             logger.debug("copying '%s' to '%s'" % (first_dest_file_path, cur_dest_file_path))
             shutil.copy2(first_dest_file_path, cur_dest_file_path)
