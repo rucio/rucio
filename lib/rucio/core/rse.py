@@ -24,6 +24,7 @@
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Gabriele Fronze' <gfronze@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 #
@@ -56,6 +57,7 @@ import rucio.core.account_counter
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.common import exception, utils
 from rucio.common.config import get_lfn2pfn_algorithm_default, config_get
+from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, is_checksum_valid, get_checksum_attr_key
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RSEType
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
@@ -69,8 +71,7 @@ REGION = make_region().configure('dogpile.cache.memcached',
 
 @transactional_session
 def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None,
-            ISP=None, staging_area=False, rse_type=RSEType.DISK, longitude=None, latitude=None, ASN=None, availability=7,
-            session=None):
+            ISP=None, staging_area=False, rse_type=RSEType.DISK, longitude=None, latitude=None, ASN=None, availability=7, session=None):
     """
     Add a rse with the given location name.
 
@@ -107,6 +108,15 @@ def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None
 
     # Add rse name as a RSE-Tag
     add_rse_attribute(rse_id=new_rse.id, key=rse, value=True, session=session)
+
+    # # Add supported checksums in rse_attr_map if specified
+    # if supported_checksums:
+    #     for checksum in GLOBALLY_SUPPORTED_CHECKSUMS:
+    #         if checksum in supported_checksums:
+    #             add_rse_checksum(rse=rse, checksum_name=checksum, session=session)
+    # else:
+    #     for checksum in GLOBALLY_SUPPORTED_CHECKSUMS:
+    #         add_rse_checksum(rse=rse, checksum_name=checksum, session=session)
 
     # Add counter to monitor the space usage
     add_counter(rse_id=new_rse.id, session=session)
@@ -377,6 +387,21 @@ def add_rse_attribute(rse_id, key, value, session=None):
         raise exception.Duplicate("RSE attribute '%(key)s-%(value)s\' for RSE '%(rse)s' already exists!" % locals())
     return True
 
+@transactional_session
+def add_rse_checksum(rse, checksum_name, session=None):
+    """ Adds a RSE attribute.
+
+    :param rse: the rse name.
+    :param checksum_name: the checksum name.
+    :param session: The database session in use.
+
+    :returns: True is successful
+    """
+    if is_checksum_valid(checksum_name):
+        return add_rse_attribute(rse=rse, key=get_checksum_attr_key(checksum_name), value=True, session=session)
+    else:
+        return False
+
 
 @transactional_session
 def del_rse_attribute(rse_id, key, session=None):
@@ -398,6 +423,18 @@ def del_rse_attribute(rse_id, key, session=None):
     rse_attr.delete(session=session)
     return True
 
+@transactional_session
+def del_rse_checksum(rse, checksum_name, session=None):
+    """
+    Delete a RSE attribute.
+
+    :param rse: the name of the rse.
+    :param checksum_name: the checksum name.
+    :param session: The database session in use.
+
+    :return: True if RSE attribute was deleted.
+    """
+    return del_rse_attribute(rse=rse, key=get_checksum_attr_key(checksum_name), session=session)
 
 @read_session
 def list_rse_attributes(rse_id, session=None):
@@ -535,6 +572,43 @@ def get_rse_attribute(key, rse_id=None, value=None, use_cache=True, session=None
 
     return result
 
+
+@read_session
+def get_rse_supported_checksums(rse_id=None, session=None):
+    """
+    Retrieve RSE attribute value.
+
+    :param rse_id: The RSE id.
+    :param session: The database session in use.
+
+    :returns: The list of checksums supported by the selected RSE.
+    """
+
+    # Collect enabled and disabled checksums
+    checksum_attr_list = list(filter(lambda x: (get_rse_attribute(get_checksum_attr_key(x), rse_id=rse_id, session=session) is not None), GLOBALLY_SUPPORTED_CHECKSUMS))
+
+    # If none either enabled or disabled, then all checksums are supported
+    if (checksum_attr_list is None):
+        return GLOBALLY_SUPPORTED_CHECKSUMS
+    # Otherwise return the list of enabled checksums (key=True)
+    else:
+        return list(filter(lambda x: (get_rse_attribute(get_checksum_attr_key(x), rse_id=rse_id, value=True, session=session) is not None), GLOBALLY_SUPPORTED_CHECKSUMS))
+
+@read_session
+def get_rse_is_checksum_supported(checksum_name, rse_id=None, session=None):
+    """
+    Retrieve RSE attribute value.
+
+    :param checksum_name: The desired checksum name for the attribute.
+    :param rse_id: The RSE id.
+    :param session: The database session in use.
+
+    :returns: True if required checksum is supported, False otherwise.
+    """
+    if is_checksum_valid(checksum_name):
+        return (checksum_name in  get_rse_supported_checksums(rse_id=rse_id, session=session))
+    else:
+        return False
 
 @transactional_session
 def set_rse_usage(rse_id, source, used, free, session=None):

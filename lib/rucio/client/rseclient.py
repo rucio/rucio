@@ -21,6 +21,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014
 # - Wen Guan <wguan.icedew@gmail.com>, 2014
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Gabriele Fronze' <gfronze@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -33,7 +34,7 @@ except ImportError:
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
-from rucio.common.utils import build_url
+from rucio.common.utils import build_url, is_checksum_valid, get_checksum_attr_key
 
 
 class RSEClient(BaseClient):
@@ -86,6 +87,7 @@ class RSEClient(BaseClient):
         :param longitude: Longitude coordinate of RSE.
         :param ASN: Access service network.
         :param availability: Availability.
+        :param supported_checksums: The checksums supported by the RSE.
 
         :return: True if location was created successfully else False.
         :raises Duplicate: if rse already exists.
@@ -171,6 +173,22 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
+    def add_rse_checksum(self, rse, checksum_name):
+        """
+        Sends the request to add a RSE checksum.
+
+        :param rse: the name of the rse.
+        :param checksum_name: the checksum name.
+
+        :return: True if RSE attribute was created successfully else False.
+        :raises Duplicate: if RSE attribute already exists.
+        """
+
+        if is_checksum_valid(checksum_name):
+            return self.add_rse_attribute(rse=rse, key=get_checksum_attr_key(checksum_name), value=True)
+        else:
+            return False
+
     def delete_rse_attribute(self, rse, key):
         """
         Sends the request to delete a RSE attribute.
@@ -189,6 +207,17 @@ class RSEClient(BaseClient):
         else:
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
+
+    def delete_rse_checksum(self, rse, checksum_name):
+        """
+        Sends the request to delete a RSE attribute.
+
+        :param rse: the RSE name.
+        :param checksum_name: the checksum name.
+
+        :return: True if RSE attribute was deleted successfully else False.
+        """
+        return self.delete_rse_attribute(rse=rse, key=get_checksum_attr_key(checksum_name))
 
     def list_rse_attributes(self, rse):
         """
