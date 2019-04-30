@@ -179,6 +179,30 @@ def clean_headers(msg):
         msg = str(msg).replace(c, ' ')
     return msg
 
+GLOBALLY_SUPPORTED_CHECKSUMS = ["md5", "adler32"]
+CHECKSUM_PATTERN_PREFIX = "is_"
+CHECKSUM_PATTERN_SUFFIX = "_supported"
+
+def is_checksum_valid(checksum_name):
+    """
+    A simple function to check wether a checksum algorithm is supported.
+    Relies on GLOBALLY_SUPPORTED_CHECKSUMS to allow for expandability.
+
+    :param checksum_name: The name of the checksum to be verified.
+    :returns: True if checksum_name is in GLOBALLY_SUPPORTED_CHECKSUMS list, False otherwise.
+    """
+    
+    return checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS
+
+def get_checksum_attr_key(checksum_name):
+    """
+    A function to generate the attribute name based on the privided checksum name.
+
+    :param checksum_name: The name of the checksum the attribute key should nbe generated for.
+    :returns: The checksum name packed inside the attribute pattern.
+    """
+
+    return CHECKSUM_PATTERN_PREFIX+checksum_name+CHECKSUM_PATTERN_SUFFIX
 
 def adler32(file):
     """
