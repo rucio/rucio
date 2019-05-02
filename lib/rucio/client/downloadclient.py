@@ -1510,7 +1510,7 @@ class DownloadClient:
         :raises NoFilesDownloaded:
         :raises NotAllFilesDownloaded:
         """
-        success_states = ['ALREADY_DONE', 'DONE']
+        success_states = ['ALREADY_DONE', 'DONE', 'FOUND_IN_PCACHE']
         # failure_states = ['FILE_NOT_FOUND', 'FAIL_VALIDATE', 'FAILED']
         num_successful = 0
         num_failed = 0
