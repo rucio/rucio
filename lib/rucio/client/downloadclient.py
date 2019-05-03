@@ -16,8 +16,8 @@
 # - Tomas Javurek <tomasjavurek09@gmail.com>, 2018
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
-# - Nicolo Magini <nicolo.magini@cern.ch>, 2018
-# - Tobias Wegner <tobias.wegner@cern.ch>, 2018
+# - Nicolo Magini <nicolo.magini@cern.ch>, 2018-2019
+# - Tobias Wegner <tobias.wegner@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
@@ -251,7 +251,7 @@ class DownloadClient:
                 trace['rse'] = archive_replicas[0]['pfns'][pfn]['rse']
                 try:
                     start_time = time.time()
-                    cmd = 'xrdcp -vf %s -z %s file://%s' % (pfn, file_extract_name, dest_dir_path)
+                    cmd = 'xrdcp -vf %s -z %s %s' % (pfn, file_extract_name, dest_dir_path)
                     logger.debug('%sExecuting: %s' % (log_prefix, cmd))
                     status, out, err = execute(cmd)
                     end_time = time.time()
@@ -330,7 +330,9 @@ class DownloadClient:
             dest_file_path = os.path.join(dest_dir_path, did_name)
             item['dest_file_paths'] = [dest_file_path]
             item['temp_file_path'] = '%s.part' % dest_file_path
-            item.setdefault('ignore_checksum', True)
+            options = item.setdefault('merged_options', {})
+            options.setdefault('ignore_checksum', item.pop('ignore_checksum', True))
+            options.setdefault('transfer_timeout', item.pop('transfer_timeout', None))
 
             input_items.append(item)
 
@@ -572,8 +574,9 @@ class DownloadClient:
             self._send_trace(trace)
             return item
 
-        success = False
         # try different PFNs until one succeeded
+        temp_file_path = item['temp_file_path']
+        success = False
         i = 0
         while not success and i < len(sources):
             source = sources[i]
@@ -581,43 +584,6 @@ class DownloadClient:
             pfn = source['pfn']
             rse_name = source['rse']
             scheme = pfn.split(':')[0]
-
-            # this is a workaround to fix that gfal doesnt use root's -z option for archives
-            # this will be removed as soon as gfal has fixed this
-            temp_file_path = item['temp_file_path']
-            dest_file_path = item['dest_file_paths'][0]
-            unzip_arg_name = '?xrdcl.unzip='
-            if scheme == 'root' and unzip_arg_name in pfn:
-                logger.info('%sFound xrdcl.unzip in PFN. Using xrdcp overwrite.' % log_prefix)
-                filename_in_archive = ''
-                pfn_filename_start = pfn.find(unzip_arg_name) + len(unzip_arg_name)
-                for c in pfn[pfn_filename_start:]:
-                    if c == '&' or c == '?':
-                        break
-                    filename_in_archive += c
-
-                dest_file_path = os.path.join(os.path.dirname(dest_file_path), filename_in_archive)
-                temp_file_path = '%s.part' % dest_file_path
-                cmd = 'xrdcp -vf %s -z %s file://%s' % (pfn, filename_in_archive, temp_file_path)
-                start_time = time.time()
-                try:
-                    logger.debug('Executing: %s' % cmd)
-                    status, out, err = execute(cmd)
-                except Exception as error:
-                    logger.debug('xrdcp execution failed')
-                    logger.debug(error)
-                    continue
-                end_time = time.time()
-                success = (status == 0)
-                if not success:
-                    logger.debug('xrdcp status: %s' % status)
-                    logger.debug('xrdcp stdout: %s' % out)
-                    logger.debug('xrdcp stderr: %s' % err)
-                    trace['clientState'] = ('%s' % err)
-                    self._send_trace(trace)
-                    continue
-                else:
-                    break
 
             try:
                 rse = rsemgr.get_rse_info(rse_name)
@@ -653,7 +619,7 @@ class DownloadClient:
                 start_time = time.time()
 
                 try:
-                    protocol.get(pfn, temp_file_path, transfer_timeout=item.get('transfer_timeout'))
+                    protocol.get(pfn, temp_file_path, transfer_timeout=item.get('merged_options', {}).get('transfer_timeout'))
                     success = True
                 except Exception as error:
                     logger.debug(error)
@@ -661,12 +627,15 @@ class DownloadClient:
 
                 end_time = time.time()
 
-                if success and not item.get('ignore_checksum', False):
+                if success and not item.get('merged_options', {}).get('ignore_checksum', False):
                     rucio_checksum = item.get('adler32')
                     local_checksum = None
-                    if not rucio_checksum:
+                    if rucio_checksum is None:
                         rucio_checksum = item.get('md5')
-                        local_checksum = md5(temp_file_path)
+                        if rucio_checksum is None:
+                            logger.warning('%sNo remote checksum available. Skipping validation.' % log_prefix)
+                        else:
+                            local_checksum = md5(temp_file_path)
                     else:
                         local_checksum = adler32(temp_file_path)
 
@@ -675,10 +644,6 @@ class DownloadClient:
                         os.unlink(temp_file_path)
                         logger.warning('%sChecksum validation failed for file: %s' % (log_prefix, did_str))
                         logger.debug('Local checksum: %s, Rucio checksum: %s' % (local_checksum, rucio_checksum))
-                        try:
-                            self.client.declare_suspicious_file_replicas([pfn], reason='Corrupted')
-                        except Exception:
-                            pass
                         trace['clientState'] = 'FAIL_VALIDATE'
                 if not success:
                     logger.warning('%sDownload attempt failed. Try %s/%s' % (log_prefix, attempt, retries))
@@ -1141,11 +1106,9 @@ class DownloadClient:
         merged_items_with_sources = []
         for item in merged_items:
             # since we're using metalink we need to explicitly give all schemes
-            force_scheme = item.get('force_scheme')
-            if force_scheme:
-                schemes = force_scheme if isinstance(force_scheme, list) else [force_scheme]
-            else:
-                schemes = ['davs', 'gsiftp', 'https', 'root', 'srm', 'file']
+            schemes = item.get('force_scheme')
+            if schemes:
+                schemes = schemes if isinstance(schemes, list) else [schemes]
             logger.debug('schemes: %s' % schemes)
 
             # extend RSE expression to exclude tape RSEs for non-admin accounts
@@ -1312,9 +1275,12 @@ class DownloadClient:
 
                     file_item['sources'] = sources
 
+                    # if there are no cea sources we are done for this item
+                    if min_cea_priority is None:
+                        continue
                     # decide if file item belongs to the pure or mixed map
                     # if no non-archive src exists or the highest prio src is an archive src we put it in the pure map
-                    if num_non_cea_sources == 0 or min_cea_priority == 1:
+                    elif num_non_cea_sources == 0 or min_cea_priority == 1:
                         logger.debug('Adding fiid to cea pure map: '
                                      'num_non_cea_sources=%d; min_cea_priority=%d; num_cea_sources=%d'
                                      % (num_non_cea_sources, min_cea_priority, len(cea_ids)))
@@ -1348,20 +1314,22 @@ class DownloadClient:
                 # dont move from mixed list to pure list
                 continue
 
-            # remove mixed cea id from mixed map and add it to pure map
-            cea_id_mixed_to_fiids.pop(cea_id_mixed)
+            # first add cea_id to pure map so it can be removed from mixed map later
             cea_id_pure_to_fiids.setdefault(cea_id_mixed, set()).update(fiids_mixed)
 
-            # move file items from mixed list to pure list
-            for fiid_mixed in fiids_mixed:
+            # now update all file_item mixed/pure maps
+            for fiid_mixed in list(fiids_mixed):
                 file_item = fiid_to_file_item[fiid_mixed]
+                # add cea id to file_item pure map
                 file_item.setdefault('cea_ids_pure', set()).add(cea_id_mixed)
 
-                # remove references from file to mixed archive and from mixed archive to file
-                for cea_id_mixed in file_item.pop('cea_ids_mixed'):
-                    cea_id_mixed_to_fiids[cea_id_mixed].discard(fiid_mixed)
-                    if not len(cea_id_mixed_to_fiids[cea_id_mixed]):
-                        cea_id_mixed_to_fiids.pop(cea_id_mixed)
+                # remove file item mixed map and
+                # remove references from all other mixed archives to file_item
+                for cea_id_mixed2 in file_item.pop('cea_ids_mixed'):
+                    cea_id_mixed_to_fiids[cea_id_mixed2].remove(fiid_mixed)
+
+            # finally remove cea_id from mixed map
+            cea_id_mixed_to_fiids.pop(cea_id_mixed)
 
         for file_item in all_file_items:
             cea_ids_pure = file_item.get('cea_ids_pure', set())
@@ -1410,7 +1378,7 @@ class DownloadClient:
                             'dest_file_paths': [dest_path],
                             'temp_file_path': '%s.part' % dest_path,
                             'sources': file_item['sources'],
-                            'ignore_checksum': True,  # we currently dont have checksums for the archive
+                            'merged_options': {'ignore_checksum': True},  # we currently dont have checksums for the archive
                             'archive_items': []
                             }
                     cea_id_to_pack[cea_id] = pack

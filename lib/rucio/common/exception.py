@@ -19,7 +19,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2013
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2019
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -926,7 +926,7 @@ class MetalinkJsonParsingError(RucioException):
 
 class ReplicaIsLocked(RucioException):
     """
-    Replia has one or more locks.
+    Replica has one or more locks.
     """
     def __init__(self, *args, **kwargs):
         super(ReplicaIsLocked, self).__init__(*args, **kwargs)
@@ -942,3 +942,13 @@ class UnsupportedRequestedContentType(RucioException):
         super(UnsupportedRequestedContentType, self).__init__(*args, **kwargs)
         self._message = 'The requested content type is not supported.'
         self.error_code = 89
+
+
+class DuplicateFileTransferSubmission(RucioException):
+    """
+    A transfer for the same file is already  submitted to the Transfer Tool.
+    """
+    def __init__(self, *args, **kwargs):
+        super(DuplicateFileTransferSubmission, self).__init__(*args, **kwargs)
+        self._message = 'One or more files are already submitted to the transfer tool'
+        self.error_code = 90
