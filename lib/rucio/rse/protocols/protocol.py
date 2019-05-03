@@ -169,7 +169,7 @@ class RSEDeterministicTranslation(object):
         del rse
         del rse_attrs
         del protocol_attrs
-        from ligo_rucio import lfn2pfn as ligo_lfn2pfn
+        from ligo_rucio import lfn2pfn as ligo_lfn2pfn  # pylint: disable=import-error
         return ligo_lfn2pfn.ligo_lab(scope, name, None, None, None)
 
     @classmethod
