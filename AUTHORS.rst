@@ -37,6 +37,7 @@ Individual contributors to the source code
 - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 - Vivek Nigam <viveknigam.nigam3@gmail.com>, 2019
 - Kaustubh Hiware <hiwarekaustubh@gmail.com>, 2019
+- Florido Paganelli <florido.paganelli@hep.lu.se>, 2019
 
 Organisations employing contributors
 ------------------------------------
