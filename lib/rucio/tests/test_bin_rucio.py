@@ -1186,7 +1186,6 @@ class TestBinRucio():
         file_path = 'data_export.json'
         cmd = 'rucio-admin data export {0}'.format(file_path)
         exitcode, out, err = execute(cmd)
-        print(re.search('Data successfully exported', out))
         nose.tools.assert_not_equal(re.search('Data successfully exported', out), None)
         remove(file_path)
 

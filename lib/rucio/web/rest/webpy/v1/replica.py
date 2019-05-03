@@ -112,15 +112,23 @@ class Replicas(RucioController):
             schemes = supported_protocols
 
         try:
-            # first, set the appropriate content type, and stream the header
-            if not metalink:
-                header('Content-Type', 'application/x-json-stream')
-            else:
-                header('Content-Type', 'application/metalink4+xml')
-                yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
+
+            # we need to call list_replicas before starting to reply
+            # otherwise the exceptions won't be propagated correctly
+            __first = True
 
             # then, stream the replica information
             for rfile in list_replicas(dids=dids, schemes=schemes):
+
+                # in first round, set the appropriate content type, and stream the header
+                if __first:
+                    if not metalink:
+                        header('Content-Type', 'application/x-json-stream')
+                    else:
+                        header('Content-Type', 'application/metalink4+xml')
+                        yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
+                    __first = False
+
                 client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
                 if client_ip is None:
                     client_ip = ctx.ip
@@ -162,7 +170,9 @@ class Replicas(RucioController):
                             break
                     yield ' </file>\n'
 
-            # don't forget to send the metalink footer
+            # ensure complete metalink
+            if __first and metalink:
+                yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
             if metalink:
                 yield '</metalink>\n'
 
@@ -359,12 +369,10 @@ class ListReplicas(RucioController):
             schemes = supported_protocols
 
         try:
-            # first, set the appropriate content type, and stream the header
-            if not metalink:
-                header('Content-Type', 'application/x-json-stream')
-            else:
-                header('Content-Type', 'application/metalink4+xml')
-                yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
+
+            # we need to call list_replicas before starting to reply
+            # otherwise the exceptions won't be propagated correctly
+            __first = True
 
             # then, stream the replica information
             for rfile in list_replicas(dids=dids, schemes=schemes,
@@ -378,6 +386,16 @@ class ListReplicas(RucioController):
                                        resolve_archives=resolve_archives,
                                        resolve_parents=resolve_parents,
                                        issuer=ctx.env.get('issuer')):
+
+                # in first round, set the appropriate content type, and stream the header
+                if __first:
+                    if not metalink:
+                        header('Content-Type', 'application/x-json-stream')
+                    else:
+                        header('Content-Type', 'application/metalink4+xml')
+                        yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
+                    __first = False
+
                 if not metalink:
                     yield dumps(rfile, cls=APIEncoder) + '\n'
                 else:
@@ -438,7 +456,9 @@ class ListReplicas(RucioController):
                             break
                     yield ' </file>\n'
 
-            # don't forget to send the metalink footer
+            # ensure complete metalink
+            if __first and metalink:
+                yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
             if metalink:
                 yield '</metalink>\n'
 

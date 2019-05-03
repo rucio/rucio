@@ -12,7 +12,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 # - Joaquin Bogado, <jbogadog@cern.ch>, 2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017-2018
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017-2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
@@ -46,12 +46,13 @@ Requests accessed by external_id (So called transfers), are covered in the core 
 """
 
 
-def should_retry_request(req):
+def should_retry_request(req, retry_protocol_mismatches):
     """
     Whether should retry this request.
 
-    :param request:  Request as a dictionary.
-    :returns:        True if should retry it; False if no more retry.
+    :param request:                      Request as a dictionary.
+    :param retry_protocol_mismatches:    Boolean to retry the transfer in case of protocol mismatch.
+    :returns:                            True if should retry it; False if no more retry.
     """
     if req['state'] == RequestState.SUBMITTING:
         return True
@@ -59,28 +60,32 @@ def should_retry_request(req):
         return False
     # hardcoded for now - only requeue a couple of times
     if req['retry_count'] is None or req['retry_count'] < 3:
+        if req['state'] == RequestState.MISMATCH_SCHEME:
+            return retry_protocol_mismatches
         return True
     return False
 
 
 @transactional_session
-def requeue_and_archive(request_id, session=None):
+def requeue_and_archive(request, retry_protocol_mismatches=False, session=None):
     """
     Requeue and archive a failed request.
     TODO: Multiple requeue.
 
-    :param request_id:  Original request ID as a string.
+    :param request:     Original request.
     :param session:     Database session to use.
     """
 
     record_counter('core.request.requeue_request')
+    # Probably not needed anymore
+    request_id = request['request_id']
     new_req = get_request(request_id, session=session)
 
     if new_req:
         new_req['sources'] = get_sources(request_id, session=session)
         archive_request(request_id, session=session)
 
-        if should_retry_request(new_req):
+        if should_retry_request(new_req, retry_protocol_mismatches):
             new_req['request_id'] = generate_uuid()
             new_req['previous_attempt_id'] = request_id
             if new_req['retry_count'] is None:
@@ -98,6 +103,9 @@ def requeue_and_archive(request_id, session=None):
                         new_req['sources'][i]['is_using'] = False
             queue_requests([new_req], session=session)
             return new_req
+    else:
+        raise RequestNotFound
+    return None
 
 
 @transactional_session

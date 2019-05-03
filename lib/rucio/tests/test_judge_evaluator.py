@@ -1,13 +1,20 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2019
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2019
 
 from rucio.common.utils import generate_uuid as uuid
@@ -257,4 +264,38 @@ class TestJudgeEvaluator():
 
         # Check if the Locks are created properly
         for file in files:
+            assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2)
+
+    def test_judge_add_files_to_dataset_rule_on_container(self):
+        """ JUDGE EVALUATOR: Test the judge when attaching file to dataset with rule on two levels of containers"""
+        scope = 'mock'
+        files = create_files(3, scope, self.rse1)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        attach_dids(scope, dataset, files, 'jdoe')
+
+        parent_container = 'dataset_' + str(uuid())
+        add_did(scope, parent_container, DIDType.from_sym('CONTAINER'), 'jdoe')
+        attach_dids(scope, parent_container, [{'scope': scope, 'name': dataset}], 'jdoe')
+
+        parent_parent_container = 'dataset_' + str(uuid())
+        add_did(scope, parent_parent_container, DIDType.from_sym('CONTAINER'), 'jdoe')
+        attach_dids(scope, parent_parent_container, [{'scope': scope, 'name': parent_container}], 'jdoe')
+
+        # Add a first rule to the DS
+        add_rule(dids=[{'scope': scope, 'name': parent_parent_container}], account='jdoe', copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+        # Fake judge
+        re_evaluator(once=True)
+
+        # Check if the Locks are created properly
+        for file in files:
+            assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2)
+
+        # create more files and attach them
+        more_files = create_files(3, scope, self.rse1)
+        attach_dids(scope, dataset, more_files, 'jdoe')
+        re_evaluator(once=True)
+        # Check if the Locks are created properly
+        for file in more_files:
             assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2)

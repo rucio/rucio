@@ -12,7 +12,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
 # - Eric Vaandering, <ewv@fnal.gov>, 2018
 # - Diego Ciangottini <diego.ciangottini@pg.infn.it>, 2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
@@ -43,7 +43,7 @@ from dogpile.cache.api import NoValue
 
 try:
     from fts3.rest.client.easy import Context, delegate  # pylint: disable=no-name-in-module,import-error
-    from fts3.rest.client.exceptions import BadEndpoint, ClientError, ServerError  # pylint: disable=no-name-in-module,import-error
+    from fts3.rest.client.exceptions import BadEndpoint, ClientError, ServerError, DuplicateFileTransferSubmission  # pylint: disable=no-name-in-module,import-error
 except ImportError:
     pass
 from rucio.common.config import config_get, config_get_bool
@@ -204,6 +204,9 @@ class FTS3Transfertool(Transfertool):
         if post_result and post_result.status_code == 200:
             record_counter('transfertool.fts3.%s.submission.success' % self.__extract_host(self.external_host), len(files))
             transfer_id = str(post_result.json()['job_id'])
+        elif post_result and post_result.status_code == 409:
+            record_counter('transfertool.fts3.%s.submission.failure' % self.__extract_host(self.external_host), len(files))
+            raise DuplicateFileTransferSubmission
         else:
             if expected_transfer_id:
                 transfer_id = expected_transfer_id
@@ -212,6 +215,8 @@ class FTS3Transfertool(Transfertool):
                 logging.warn("Failed to submit transfer to %s, error: %s", self.external_host, post_result.text if post_result is not None else post_result)
             record_counter('transfertool.fts3.%s.submission.failure' % self.__extract_host(self.external_host), len(files))
 
+        if not transfer_id:
+            raise('No transfer id returned by %s' % self.external_host)
         return transfer_id
 
     def cancel(self, transfer_ids, timeout=None):

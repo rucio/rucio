@@ -200,7 +200,7 @@ def set(section, option, value, session=None):
     :param session: The database session in use.
     """
 
-    if not has_option(section=section, option=option, session=session):
+    if not has_option(section=section, option=option, use_cache=False, session=session):
         new_option = models.Config(section=section, opt=option, value=value)
         new_option.save(session=session)
     else:

@@ -1,0 +1,13 @@
+======
+1.19.7
+======
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Release management: New M2Crypto 0.33 release (Dependency of fts3 REST) fails to install on CC7 `#2505 <https://github.com/rucio/rucio/issues/2505>`_
