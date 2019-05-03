@@ -13,7 +13,7 @@ FROM rucio/rucio-systemd-cc7
 ADD ca.repo /etc/yum.repos.d/ca.repo
 RUN pip install --upgrade pip
 RUN pip install --upgrade setuptools
-RUN sudo pip install --ignore-installed + ipaddress
+RUN pip install --ignore-installed ipaddress
 RUN pip install rucio rucio-webui
 
 WORKDIR /opt
