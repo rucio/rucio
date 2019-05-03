@@ -1,0 +1,13 @@
+============
+1.19.7.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Core & Internals: list_replicas returns wrong parent DID `#2521 <https://github.com/rucio/rucio/issues/2521>`_
