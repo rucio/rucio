@@ -774,17 +774,10 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
 
     for replicas in filter(None, files):
         for scope, name, bytes, md5, adler32, path, state, rse, rse_type, volatile in replicas:
-
             pfns = []
 
             # reset the domain selection to original user's choice (as this could get overwritten each iteration)
             domain = deepcopy(original_domain)
-
-            # resolve the parents only once per file, not per replica
-            # full name used due to circular import dependency between modules
-            if resolve_parents and 'parents' not in file:
-                file['parents'] = ['%s:%s' % (parent['scope'], parent['name'])
-                                   for parent in rucio.core.did.list_all_parent_dids(scope, name, session=session)]
 
             # if the file is a constituent, find the available archives and add them to the list of possible PFNs
             # taking into account the original rse_expression
@@ -1000,6 +993,11 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                     # extract properly the pfn from the tuple
                     file['rses'][rse] += list(set([tmp_pfn[0] for tmp_pfn in pfns]))
                     file['states'][rse] = str(state)
+
+                    if resolve_parents:
+                        file['parents'] = ['%s:%s' % (parent['scope'], parent['name'])
+                                           for parent in rucio.core.did.list_all_parent_dids(scope, name, session=session)]
+
                     for tmp_pfn in pfns:
                         file['pfns'][tmp_pfn[0]] = {'rse': tmp_pfn[4]['rse'] if tmp_pfn[1] == 'zip' else rse,
                                                     'type': tmp_pfn[4]['type'] if tmp_pfn[1] == 'zip' else str(rse_type),
@@ -1008,6 +1006,10 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                                     'priority': tmp_pfn[2],
                                                     'client_extract': tmp_pfn[3]}
                 else:
+                    if resolve_parents:
+                        file['parents'] = ['%s:%s' % (parent['scope'], parent['name'])
+                                           for parent in rucio.core.did.list_all_parent_dids(file['scope'], file['name'], session=session)]
+
                     # quick exit, but don't forget to set the total order for the priority
                     # --> exploit that L(AN) comes before W(AN) before Z(IP) alphabetically
                     # and use 1-indexing to be compatible with metalink
@@ -1036,6 +1038,10 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                 file['bytes'], file['md5'], file['adler32'] = bytes, md5, adler32
                 file['pfns'], file['rses'] = {}, defaultdict(list)
                 file['states'] = {rse: str(state)}
+
+                if resolve_parents:
+                    file['parents'] = ['%s:%s' % (parent['scope'], parent['name'])
+                                       for parent in rucio.core.did.list_all_parent_dids(scope, name, session=session)]
 
                 if rse:
                     # extract properly the pfn from the tuple
@@ -1068,8 +1074,8 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
     if 'scope' in file and 'name' in file:
         file['rses'] = {}
 
-        # also do it for the last replica if necessary
-        if resolve_parents and 'parents' not in file:
+        # don't forget to resolve parents for the last replica
+        if resolve_parents:
             file['parents'] = ['%s:%s' % (parent['scope'], parent['name'])
                                for parent in rucio.core.did.list_all_parent_dids(file['scope'], file['name'], session=session)]
 
