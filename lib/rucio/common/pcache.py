@@ -11,11 +11,10 @@ import signal
 
 try:
    # Python 2
-   from urlparse import urlparse
    from urllib import urlencode
 except ImportError:
    # Python 3
-   from urllib.parse import urlparse, urlencode
+   from urllib.parse import urlencode
 from socket import gethostname
 
 # The pCache Version
