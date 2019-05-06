@@ -9,7 +9,13 @@ import re
 import subprocess
 import signal
 
-from urllib import urlopen, urlencode  # not py3
+try:
+   # Python 2
+   from urlparse import urlparse
+   from urllib import urlencode
+except ImportError:
+   # Python 3
+   from urllib.parse import urlparse, urlencode
 from socket import gethostname
 
 # The pCache Version
