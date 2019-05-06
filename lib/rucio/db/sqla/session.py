@@ -17,6 +17,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Eric Vaandering <ewv@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -235,7 +236,7 @@ def get_session():
 def retry_if_db_connection_error(exception):
     """Return True if error in connecting to db."""
     print(exception)
-    if isinstance(exception, OperationalError):
+    if isinstance(exception, (OperationalError, DatabaseException)):
         conn_err_codes = ('2002', '2003', '2006',  # MySQL
                           'ORA-00028',  # Oracle session has been killed
                           'ORA-01012',  # not logged on
@@ -259,12 +260,11 @@ def read_session(function):
     INSERTs, UPDATEs etc should use transactional_session.
     '''
     @retry(retry_on_exception=retry_if_db_connection_error,
-           wait_fixed=0.5,
+           wait_fixed=500,
            stop_max_attempt_number=2,
            wrap_exception=False)
     @wraps(function)
     def new_funct(*args, **kwargs):
-
         if isgeneratorfunction(function):
             raise RucioException('read_session decorator should not be used with generator. Use stream_session instead.')
 
@@ -302,7 +302,7 @@ def stream_session(function):
     INSERTs, UPDATEs etc should use transactional_session.
     '''
     @retry(retry_on_exception=retry_if_db_connection_error,
-           wait_fixed=0.5,
+           wait_fixed=500,
            stop_max_attempt_number=2,
            wrap_exception=False)
     @wraps(function)
