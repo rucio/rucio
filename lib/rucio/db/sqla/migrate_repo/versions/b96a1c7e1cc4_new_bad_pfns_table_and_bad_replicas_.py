@@ -120,7 +120,7 @@ def downgrade():
         drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
 
         schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
-        op.execute('ALTER TABLE ' + schema + 'bad_replicas ALTER COLUMN state TYPE CHAR')  # pylint: disable=no-member
+        op.execute('ALTER TABLE ' + schema + 'bad_replicas DROP CONSTRAINT IF EXISTS "BAD_REPLICAS_STATE_CHK", ALTER COLUMN state TYPE CHAR')  # pylint: disable=no-member
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
                                 condition="state in ('B', 'D', 'L', 'R', 'S')")
 
