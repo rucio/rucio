@@ -10,11 +10,12 @@ import subprocess
 import signal
 
 try:
-   # Python 2
-   from urllib import urlencode
+    # Python 2
+    from urllib import urlencode, urlopen
 except ImportError:
-   # Python 3
-   from urllib.parse import urlencode
+    # Python 3
+    from urllib.parse import urlencode
+    from urllib.request import urlopen
 from socket import gethostname
 
 # The pCache Version
