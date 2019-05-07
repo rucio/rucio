@@ -55,7 +55,7 @@ def downgrade():
 
     elif context.get_context().dialect.name == 'postgresql':
         schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
-        op.execute('ALTER TABLE ' + schema + 'requests ALTER COLUMN state TYPE CHAR')  # pylint: disable=no-member
+        op.execute('ALTER TABLE ' + schema + 'requests DROP CONSTRAINT IF EXISTS "REQUESTS_STATE_CHK", ALTER COLUMN state TYPE CHAR')  # pylint: disable=no-member
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U', 'W')")
 
