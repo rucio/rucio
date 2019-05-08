@@ -179,7 +179,8 @@ def clean_headers(msg):
         msg = str(msg).replace(c, ' ')
     return msg
 
-GLOBALLY_SUPPORTED_CHECKSUMS = ["md5", "adler32"]
+GLOBALLY_SUPPORTED_CHECKSUMS = ['adler32', 'md5']
+PREFERRED_CHECKSUM = GLOBALLY_SUPPORTED_CHECKSUMS[0]
 CHECKSUM_PATTERN_PREFIX = "is_"
 CHECKSUM_PATTERN_SUFFIX = "_supported"
 
