@@ -40,6 +40,7 @@ from threading import Timer
 
 from rucio.common import exception, config
 from rucio.common.constraints import STRING_TYPES
+from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, PREFERRED_CHECKSUM
 from rucio.rse.protocols import protocol
 
 try:
@@ -350,11 +351,20 @@ class Default(protocol.RSEProtocol):
 
         ret['filesize'] = stat_str.split()[7]
 
-        try:
-            ret['adler32'] = ctx.checksum(str(path), str('ADLER32'))
-        except Exception as error:
-            msg = 'Error while processing gfal checksum call. Error: %s'
-            raise exception.RSEChecksumUnavailable(msg % str(error))
+        verified = False
+        message = "\n"
+
+        for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
+            try:
+                ret[checksum_name] = ctx.checksum(str(path), str(checksum_name.capitalize()))
+                verified = True
+                if checksum_name == PREFERRED_CHECKSUM:
+                    break
+            except Exception as error:
+                message += 'Error while processing gfal checksum call (%s). Error: %s \n' % checksum_name, str(error)
+
+        if not verified:
+            raise exception.RSEChecksumUnavailable(message)
 
         return ret
 
