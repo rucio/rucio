@@ -45,7 +45,7 @@ RUN yum -y update && yum clean all && yum install -y epel-release &&\
       mysql-devel \
       memcached
 
-ENV RUCIOHOME=/etc/rucio
+ENV RUCIOHOME=/opt/rucio
 RUN mkdir -p $RUCIOHOME
 WORKDIR $RUCIOHOME
 RUN mkdir -p \
@@ -60,9 +60,15 @@ COPY pylintrc /etc/pylintrc
 COPY etc etc
 COPY tools tools
 
-#RUN virtualenv env
 RUN pip install --upgrade pip && pip install --upgrade setuptools
-RUN python setup.py develop
+RUN rm -rf /usr/lib/python2.7/site-packages/ipaddress*
+RUN pip install \
+      -r tools/pip-requires-client \
+      -r tools/pip-requires \
+      -r tools/pip-requires-test \
+      mysql
+RUN ln -s $RUCIOHOME/lib/rucio /usr/lib/python2.7/site-packages/rucio
+RUN ln -s $RUCIOHOME/lib/rucio /usr/lib/python3.4/site-packages/rucio
 
 RUN mkdir /var/log/rucio /var/log/rucio/trace && chmod 777 /var/log/rucio
 
@@ -93,5 +99,7 @@ RUN chmod 400 /etc/grid-security/hostkey.pem &&\
     echo "" > /etc/httpd/conf.d/welcome.conf
 
 EXPOSE 443
+
+ENV PATH $PATH:$RUCIOHOME/bin
 
 CMD ["httpd","-D","FOREGROUND"]

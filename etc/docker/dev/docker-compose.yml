@@ -8,7 +8,9 @@ services:
       - mysql:mysql
       - graphite:graphite
     volumes:
-      - ../../../../rucio/:/opt/rucio/
+      - ../../../tools:/opt/rucio/tools
+      - ../../../bin:/opt/rucio/bin
+      - ../../../lib:/opt/rucio/lib
   mysql:
     image: mysql/mysql-server:5.7
     environment:
