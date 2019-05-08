@@ -24,6 +24,7 @@
 # - Eric Vaandering <ericvaandering@gmail.com>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Gabriele Fronze' <gfronze@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -41,12 +42,13 @@ import traceback
 
 from rucio.common.config import config_get
 from rucio.common.exception import InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound, ConfigNotFound, DuplicateFileTransferSubmission
-from rucio.common.utils import chunks
+from rucio.common.utils import chunks, PREFERRED_CHECKSUM
 from rucio.core import request, transfer as transfer_core
 from rucio.core.config import get
 from rucio.core.monitor import record_counter, record_timer
-from rucio.core.rse import list_rses
+from rucio.core.rse import list_rses, get_rse_supported_checksums, get_rse_id
 from rucio.core.rse_expression_parser import parse_expression
+from rucio.db.sqla.session import get_session
 from rucio.db.sqla.constants import RequestState
 from rucio.rse import rsemanager as rsemgr
 
@@ -251,6 +253,8 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
         logging.warning('activity_source_strategy not properly defined')
         activity_source_strategy = {}
 
+    sql_session = get_session()
+
     for request_id in transfers:
         transfer = transfers[request_id]
 
@@ -264,11 +268,15 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                   'selection_strategy': source_strategy if source_strategy else activity_source_strategy.get(str(transfer['file_metadata']['activity']), default_source_strategy),
                   'request_type': transfer['file_metadata'].get('request_type', None),
                   'activity': str(transfer['file_metadata']['activity'])}
+        
         if verify_checksum != 'none':
-            if 'md5' in list(t_file['metadata'].keys()) and t_file['metadata']['md5']:
-                t_file['checksum'] = 'MD5:%s' % str(t_file['metadata']['md5'])
-            if 'adler32' in list(t_file['metadata'].keys()) and t_file['metadata']['adler32']:
-                t_file['checksum'] = 'ADLER32:%s' % str(t_file['metadata']['adler32'])
+            rse_id = get_rse_id(transfer['rse'], session=session)
+            supported_checksums = get_rse_supported_checksums(rse_id=rse_id, session=sql_session)
+            for checksum_name in supported_checksums:
+                if checksum_name in list(t_file['metadata'].keys()) and t_file['metadata'][checksum_name]:
+                    t_file['checksum'] = '%s:%s' % (checksum_name.capitalize(), str(t_file['metadata'][checksum_name]))
+                    if checksum_name == PREFERRED_CHECKSUM:
+                        break
 
         multihop = transfer.get('multihop', False)
 
