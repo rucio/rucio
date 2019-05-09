@@ -121,7 +121,7 @@ def get_account_usage(account, rse, issuer):
     """
 
     rse_id = None
-    print('get_acc_usage')
+
     if rse:
         rse_id = get_rse_id(rse=rse)
     kwargs = {'account': account, 'rse': rse, 'rse_id': rse_id}
