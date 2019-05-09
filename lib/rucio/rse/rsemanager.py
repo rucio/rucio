@@ -363,7 +363,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                     try:
                         stats = _retry_protocol_stat(protocol, '%s.rucio.upload' % pfn)
                         # Verify all supported checksums and keep rack of the verified ones
-                        verified_checksums  = map(lambda x: stats[x] == lfn[x], GLOBALLY_SUPPORTED_CHECKSUMS)
+                        verified_checksums = map(lambda x: stats[x] == lfn[x], GLOBALLY_SUPPORTED_CHECKSUMS)
                         # Upload is successful if at least one checksum was found
                         valid = any(verified_checksums)
                         if not valid and ('filesize' in stats) and ('filesize' in lfn):

@@ -223,6 +223,7 @@ def submit_transfer(external_host, job, submitter='submitter', logging_prepend_s
     except Exception as error:
         logging.error('%s Failed to submit a job with error %s: %s', prepend_str, str(error), traceback.format_exc())
 
+
 @read_session
 def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strategy=None, max_time_in_queue=None, session=None):
     """
@@ -266,7 +267,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                   'selection_strategy': source_strategy if source_strategy else activity_source_strategy.get(str(transfer['file_metadata']['activity']), default_source_strategy),
                   'request_type': transfer['file_metadata'].get('request_type', None),
                   'activity': str(transfer['file_metadata']['activity'])}
-        
+
         if verify_checksum != 'none':
             rse_id = get_rse_id(transfer['rse'], session=session)
             supported_checksums = get_rse_supported_checksums(rse_id=rse_id, session=session)
