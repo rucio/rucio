@@ -166,7 +166,8 @@ def set_rse_checksum_support(rse, checksum_names, issuer):
     returns: True if successful, False otherwise.
     """
 
-    if type(checksum_names) is not list: checksum_names = [checksum_names]
+    if type(checksum_names) is not list:
+        checksum_names = [checksum_names]
     supported_checksums = filter(lambda x: is_checksum_valid(x), checksum_names)
     supported_checksums = map(lambda x: ''.join(x.split()), supported_checksums)
     if any(supported_checksums):
