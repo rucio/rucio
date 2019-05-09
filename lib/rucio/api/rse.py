@@ -125,6 +125,7 @@ def del_rse_attribute(rse, key, issuer):
 
     return rse_module.del_rse_attribute(rse_id=rse_id, key=key)
 
+
 def del_rse_checksum(rse, checksum_name, issuer):
     """
     Delete a RSE attribute.
@@ -155,6 +156,7 @@ def add_rse_attribute(rse, key, value, issuer):
         raise exception.AccessDenied('Account %s can not add RSE attributes' % (issuer))
 
     return rse_module.add_rse_attribute(rse_id=rse_id, key=key, value=value)
+
 
 def add_rse_checksum(rse, checksum_name, issuer):
     """ Adds a RSE attribute.
