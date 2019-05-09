@@ -87,7 +87,6 @@ class RSEClient(BaseClient):
         :param longitude: Longitude coordinate of RSE.
         :param ASN: Access service network.
         :param availability: Availability.
-        :param supported_checksums: The checksums supported by the RSE.
 
         :return: True if location was created successfully else False.
         :raises Duplicate: if rse already exists.
