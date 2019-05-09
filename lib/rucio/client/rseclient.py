@@ -33,7 +33,7 @@ except ImportError:
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
-from rucio.common.utils import build_url, is_checksum_valid, get_checksum_attr_key
+from rucio.common.utils import build_url, is_checksum_valid, CHECKSUM_KEY
 
 
 class RSEClient(BaseClient):
@@ -183,7 +183,7 @@ class RSEClient(BaseClient):
         """
 
         if is_checksum_valid(checksum_name):
-            return self.add_rse_attribute(rse=rse, key=get_checksum_attr_key(checksum_name), value=True)
+            return self.add_rse_attribute(rse=rse, key=CHECKSUM_KEY, value=True)
         else:
             return False
 
@@ -215,7 +215,7 @@ class RSEClient(BaseClient):
 
         :return: True if RSE attribute was deleted successfully else False.
         """
-        return self.delete_rse_attribute(rse=rse, key=get_checksum_attr_key(checksum_name))
+        return self.delete_rse_attribute(rse=rse, key=CHECKSUM_KEY)
 
     def list_rse_attributes(self, rse):
         """

@@ -56,8 +56,8 @@ import rucio.core.account_counter
 
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.common import exception, utils
-from rucio.common.config import get_lfn2pfn_algorithm_default, config_get
-from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, is_checksum_valid, get_checksum_attr_key
+from rucio.common.config import get_lfn2pfn_algorithm_default
+from rucio.common.utils import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS, is_checksum_valid
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RSEType
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
@@ -380,17 +380,21 @@ def add_rse_attribute(rse_id, key, value, session=None):
 
 
 @transactional_session
-def add_rse_checksum(rse, checksum_name, session=None):
+def set_rse_checksum_support(rse, checksum_names, session=None):
     """ Adds a RSE attribute.
 
     :param rse: the rse name.
-    :param checksum_name: the checksum name.
+    :param checksum_names: the checksum name[s] as a single item or a list.
     :param session: The database session in use.
 
     :returns: True is successful
     """
-    if is_checksum_valid(checksum_name):
-        return add_rse_attribute(rse=rse, key=get_checksum_attr_key(checksum_name), value=True, session=session)
+    if type(checksum_names) is not list: checksum_names = [checksum_names]
+    supported_checksums = filter(lambda x: is_checksum_valid(x), checksum_names)
+    supported_checksums = map(lambda x: ''.join(x.split()), supported_checksums)
+    if any(supported_checksums):
+        supported_checksums_csv = ','.join(map(str, supported_checksums))
+        return add_rse_attribute(rse=rse, key=CHECKSUM_KEY, value=supported_checksums_csv, session=session)
     else:
         return False
 
@@ -417,17 +421,17 @@ def del_rse_attribute(rse_id, key, session=None):
 
 
 @transactional_session
-def del_rse_checksum(rse, checksum_name, session=None):
+def reset_rse_checksum_support(rse, session=None):
     """
     Delete a RSE attribute.
 
     :param rse: the name of the rse.
-    :param checksum_name: the checksum name.
     :param session: The database session in use.
 
     :return: True if RSE attribute was deleted.
     """
-    return del_rse_attribute(rse=rse, key=get_checksum_attr_key(checksum_name), session=session)
+
+    return del_rse_attribute(rse=rse, key=CHECKSUM_KEY, session=session)
 
 
 @read_session
@@ -578,15 +582,7 @@ def get_rse_supported_checksums(rse_id=None, session=None):
     :returns: The list of checksums supported by the selected RSE.
     """
 
-    # Collect enabled and disabled checksums
-    checksum_attr_list = list(filter(lambda x: (get_rse_attribute(get_checksum_attr_key(x), rse_id=rse_id, session=session) is not None), GLOBALLY_SUPPORTED_CHECKSUMS))
-
-    # If none either enabled or disabled, then all checksums are supported
-    if (checksum_attr_list is None):
-        return GLOBALLY_SUPPORTED_CHECKSUMS
-    # Otherwise return the list of enabled checksums (key=True)
-    else:
-        return list(filter(lambda x: (get_rse_attribute(get_checksum_attr_key(x), rse_id=rse_id, value=True, session=session) is not None), GLOBALLY_SUPPORTED_CHECKSUMS))
+    return str(get_rse_attribute(CHECKSUM_KEY, rse_id=rse_id, session=session)).split(',')
 
 
 @read_session
