@@ -57,7 +57,7 @@ import rucio.core.account_counter
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.common import exception, utils
 from rucio.common.config import get_lfn2pfn_algorithm_default
-from rucio.common.utils import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS, is_checksum_valid
+from rucio.common.utils import CHECKSUM_KEY, is_checksum_valid
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RSEType
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
@@ -389,7 +389,8 @@ def set_rse_checksum_support(rse, checksum_names, session=None):
 
     :returns: True is successful
     """
-    if type(checksum_names) is not list: checksum_names = [checksum_names]
+    if type(checksum_names) is not list:
+        checksum_names = [checksum_names]
     supported_checksums = filter(lambda x: is_checksum_valid(x), checksum_names)
     supported_checksums = map(lambda x: ''.join(x.split()), supported_checksums)
     if any(supported_checksums):
