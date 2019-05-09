@@ -48,7 +48,7 @@ from rucio.core.config import get
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import list_rses, get_rse_supported_checksums, get_rse_id
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.db.sqla.session import get_session
+from rucio.db.sqla.session import read_session
 from rucio.db.sqla.constants import RequestState
 from rucio.rse import rsemanager as rsemgr
 
@@ -223,8 +223,8 @@ def submit_transfer(external_host, job, submitter='submitter', logging_prepend_s
     except Exception as error:
         logging.error('%s Failed to submit a job with error %s: %s', prepend_str, str(error), traceback.format_exc())
 
-
-def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strategy=None, max_time_in_queue=None):
+@read_session
+def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strategy=None, max_time_in_queue=None, session=None):
     """
     Group transfers in bulk based on certain criterias
 
@@ -253,8 +253,6 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
         logging.warning('activity_source_strategy not properly defined')
         activity_source_strategy = {}
 
-    sql_session = get_session()
-
     for request_id in transfers:
         transfer = transfers[request_id]
 
@@ -271,7 +269,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
         
         if verify_checksum != 'none':
             rse_id = get_rse_id(transfer['rse'], session=session)
-            supported_checksums = get_rse_supported_checksums(rse_id=rse_id, session=sql_session)
+            supported_checksums = get_rse_supported_checksums(rse_id=rse_id, session=session)
             for checksum_name in supported_checksums:
                 if checksum_name in list(t_file['metadata'].keys()) and t_file['metadata'][checksum_name]:
                     t_file['checksum'] = '%s:%s' % (checksum_name.capitalize(), str(t_file['metadata'][checksum_name]))
