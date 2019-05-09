@@ -137,7 +137,7 @@ def attach_dids(scope, name, attachment, issuer):
     else:
         dids = did.attach_dids(scope=scope, name=name, dids=attachment['dids'],
                                account=attachment.get('account', issuer))
-    
+
     return dids
 
 
