@@ -109,15 +109,6 @@ def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None
     # Add rse name as a RSE-Tag
     add_rse_attribute(rse_id=new_rse.id, key=rse, value=True, session=session)
 
-    # # Add supported checksums in rse_attr_map if specified
-    # if supported_checksums:
-    #     for checksum in GLOBALLY_SUPPORTED_CHECKSUMS:
-    #         if checksum in supported_checksums:
-    #             add_rse_checksum(rse=rse, checksum_name=checksum, session=session)
-    # else:
-    #     for checksum in GLOBALLY_SUPPORTED_CHECKSUMS:
-    #         add_rse_checksum(rse=rse, checksum_name=checksum, session=session)
-
     # Add counter to monitor the space usage
     add_counter(rse_id=new_rse.id, session=session)
 
