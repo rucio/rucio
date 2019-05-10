@@ -2286,8 +2286,11 @@ def list_dataset_replicas_vp(scope, name, deep=False, session=None):
                                   timeout=1)
         if vp_replies.status_code == 200:
             vp_replies = vp_replies.json()
+        else:
+            vp_replies = ['other']
     except Exception as e:
         print(e)
+        vp_replies = ['other']
 
     if vp_replies != ['other']:
         for vp_reply in vp_replies:
