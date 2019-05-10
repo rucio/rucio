@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2016
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2019
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
@@ -266,7 +266,8 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                       'file-size': replica['bytes'],
                                                                       'bytes': replica['bytes'],
                                                                       'url': replica['pfn'],
-                                                                      'duration': duration})
+                                                                      'duration': duration,
+                                                                      'protocol': prot.attributes['scheme']})
                                         logging.info('Reaper %s-%s: Deletion SUCCESS of %s:%s as %s on %s in %s seconds', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], duration)
                                     except SourceNotFound:
                                         err_msg = 'Reaper %s-%s: Deletion NOTFOUND of %s:%s as %s on %s' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'])
@@ -279,7 +280,8 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                             'file-size': replica['bytes'],
                                                                             'bytes': replica['bytes'],
                                                                             'url': replica['pfn'],
-                                                                            'reason': str(err_msg)})
+                                                                            'reason': str(err_msg),
+                                                                            'protocol': prot.attributes['scheme']})
                                     except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
                                         logging.warning('Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(error))
                                         add_message('deletion-failed', {'scope': replica['scope'],
@@ -288,7 +290,8 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                         'file-size': replica['bytes'],
                                                                         'bytes': replica['bytes'],
                                                                         'url': replica['pfn'],
-                                                                        'reason': str(error)})
+                                                                        'reason': str(error),
+                                                                        'protocol': prot.attributes['scheme']})
                                     except Exception as error:
                                         logging.critical('Reaper %s-%s: Deletion CRITICAL of %s:%s as %s on %s: %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(traceback.format_exc()))
                                         add_message('deletion-failed', {'scope': replica['scope'],
@@ -297,7 +300,8 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                         'file-size': replica['bytes'],
                                                                         'bytes': replica['bytes'],
                                                                         'url': replica['pfn'],
-                                                                        'reason': str(error)})
+                                                                        'reason': str(error),
+                                                                        'protocol': prot.attributes['scheme']})
                                     except:
                                         logging.critical('Reaper %s-%s: Deletion CRITICAL of %s:%s as %s on %s: %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(traceback.format_exc()))
                             except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
@@ -309,7 +313,8 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                     'file-size': replica['bytes'],
                                                                     'bytes': replica['bytes'],
                                                                     'url': replica['pfn'],
-                                                                    'reason': str(error)})
+                                                                    'reason': str(error),
+                                                                    'protocol': prot.attributes['scheme']})
                                     break
                             finally:
                                 prot.close()
