@@ -15,6 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -111,7 +112,8 @@ def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False
                                                           'file-size': replica.get('bytes') or 0,
                                                           'bytes': replica.get('bytes') or 0,
                                                           'url': pfn,
-                                                          'duration': duration})
+                                                          'duration': duration,
+                                                          'protocol': prot.attributes['scheme']})
                             deleted_replicas.append(replica)
                         except SourceNotFound:
                             err_msg = 'Light Reaper %s-%s: Deletion NOTFOUND of %s:%s as %s on %s' % (worker_number, total_workers, replica['scope'], replica['name'], pfn, rse)
@@ -126,7 +128,8 @@ def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False
                                                             'file-size': replica['bytes'] or 0,
                                                             'bytes': replica['bytes'] or 0,
                                                             'url': pfn,
-                                                            'reason': str(error)})
+                                                            'reason': str(error),
+                                                            'protocol': prot.attributes['scheme']})
 
                         except:
                             logging.critical(traceback.format_exc())
