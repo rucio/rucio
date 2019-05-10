@@ -295,8 +295,8 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                         'file-size': replica['bytes'],
                                                                         'bytes': replica['bytes'],
                                                                         'url': replica['pfn'],
-                                                                        'reason': str(error},
-                                                                        'protocol': prot.attributes['scheme']))
+                                                                        'reason': str(error),
+                                                                        'protocol': prot.attributes['scheme']})
                                     except:
                                         logging.critical('Reaper %s-%s: Deletion CRITICAL of %s:%s as %s on %s: %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(traceback.format_exc()))
                             except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
