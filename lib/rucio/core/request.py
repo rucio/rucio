@@ -659,7 +659,7 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
                                                                      dest_rse_id=dest_rse_id,
                                                                      request_type=request_type).all()
         if not reqs:
-            logging.warn('Tried to cancel non-existant request for DID %s:%s at RSE ID %s' % (scope, name, dest_rse_id))
+            logging.warn('Tried to cancel non-existant request for DID %s:%s at RSE %s' % (scope, name, get_rse_name(rse_id=dest_rse_id, session=session)))
     except IntegrityError as error:
         raise RucioException(error.args)
 
