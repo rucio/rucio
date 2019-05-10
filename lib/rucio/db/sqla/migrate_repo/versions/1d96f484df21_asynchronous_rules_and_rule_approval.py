@@ -65,7 +65,7 @@ def downgrade():
     elif context.get_context().dialect.name == 'postgresql':
         schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
         drop_column('rules', 'ignore_account_limit', schema=schema[:-1])
-        op.execute('ALTER TABLE ' + schema + 'rules ALTER COLUMN state TYPE CHAR')  # pylint: disable=no-member
+        op.execute('ALTER TABLE ' + schema + 'rules DROP CONSTRAINT IF EXISTS "RULES_STATE_CHK", ALTER COLUMN state TYPE CHAR')  # pylint: disable=no-member
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O')")
 
     elif context.get_context().dialect.name == 'mysql':
