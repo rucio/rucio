@@ -1811,7 +1811,7 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
         dataset = '%s:%s' % (ds_scope, ds_name)
         if dataset not in datasets:
             datasets.append(dataset)
-            logging.info('Recovering file %s:%s from dataset %s:%s at site %s', scope, name, ds_scope, ds_name, rse_id)
+            logging.info('Recovering file %s:%s from dataset %s:%s at site %s', scope, name, ds_scope, ds_name, get_rse_name(rse_id=rse_id, session=session))
         # Insert a new row in the UpdateCollectionReplica table
         models.UpdatedCollectionReplica(scope=ds_scope,
                                         name=ds_name,
@@ -1850,7 +1850,7 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
     if nlock:
         session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).update({'state': ReplicaState.COPYING})
     else:
-        logging.info('File %s:%s at site %s has no locks. Will be deleted now.', scope, name, rse_id)
+        logging.info('File %s:%s at site %s has no locks. Will be deleted now.', scope, name, get_rse_name(rse_id=rse_id, session=session))
         tombstone = OBSOLETE
         session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).update({'state': ReplicaState.UNAVAILABLE, 'tombstone': tombstone})
 
@@ -2907,7 +2907,7 @@ def __delete_lock_and_update_replica(lock, purge_replicas=False, nowait=False, s
                 replica.state = ReplicaState.UNAVAILABLE
                 return True
     except NoResultFound:
-        logging.error("Replica for lock %s:%s for rule %s on rse %s could not be found", lock.scope, lock.name, str(lock.rule_id), lock.rse_id)
+        logging.error("Replica for lock %s:%s for rule %s on rse %s could not be found", lock.scope, lock.name, str(lock.rule_id), get_rse_name(rse_id=lock.rse_id, session=session))
     return False
 
 
