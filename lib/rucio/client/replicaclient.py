@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
@@ -262,6 +262,32 @@ class ReplicaClient(BaseClient):
 
         url = build_url(self.host,
                         path='/'.join([self.REPLICAS_BASEURL, quote_plus(scope), quote_plus(name), 'datasets']),
+                        params=payload)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
+
+    def list_dataset_replicas_vp(self, scope, name, deep=False):
+        """
+        List dataset replicas for a DID (scope:name) using the
+        Virtual Placement service.
+
+        NOTICE: This is an RnD function and might change or go away at any time.
+
+        :param scope: The scope of the dataset.
+        :param name: The name of the dataset.
+        :param deep: Lookup at the file level.
+
+        :returns: If VP exists a list of dicts of sites, otherwise a list of dicts of dataset replicas
+        """
+        payload = {}
+        if deep:
+            payload = {'deep': True}
+
+        url = build_url(self.host,
+                        path='/'.join([self.REPLICAS_BASEURL, quote_plus(scope), quote_plus(name), 'datasets_vp']),
                         params=payload)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:

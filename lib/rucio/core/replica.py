@@ -2262,6 +2262,43 @@ def list_dataset_replicas(scope, name, deep=False, session=None):
 
 
 @stream_session
+def list_dataset_replicas_vp(scope, name, deep=False, session=None):
+    """
+    List dataset replicas for a DID (scope:name) using the
+    Virtual Placement service.
+
+    NOTICE: This is an RnD function and might change or go away at any time.
+
+    :param scope: The scope of the dataset.
+    :param name: The name of the dataset.
+    :param deep: Lookup at the file level.
+    :param session: Database session to use.
+
+    :returns: If VP exists a list of dicts ofsites, otherwise a list of dicts of dataset replicas
+    """
+
+    vp_replies = ['other']
+    nr_replies = 5  # force limit reply size
+
+    try:
+        import requests
+        vp_replies = requests.get('http://vpservice.cern.ch/ds/%s/%s:%s' % (nr_replies, scope, name),
+                                  timeout=1)
+        if vp_replies.status_code == 200:
+            vp_replies = vp_replies.json()
+    except Exception as e:
+        print(e)
+
+    if vp_replies != ['other']:
+        for vp_reply in vp_replies:
+            yield {'vp': True, 'site': vp_reply}
+    else:
+        for reply in list_dataset_replicas(scope=scope, name=name, deep=deep, session=session):
+            reply['vp'] = False
+            yield reply
+
+
+@stream_session
 def list_datasets_per_rse(rse, filters=None, limit=None, session=None):
     """
     List datasets at a RSE.

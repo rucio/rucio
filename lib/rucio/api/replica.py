@@ -16,7 +16,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2016
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
@@ -200,6 +200,19 @@ def list_dataset_replicas(scope, name, deep=False):
     :returns: A list of dict dataset replicas
     """
     return replica.list_dataset_replicas(scope=scope, name=name, deep=deep)
+
+
+def list_dataset_replicas_vp(scope, name, deep=False):
+    """
+    :param scope: The scope of the dataset.
+    :param name: The name of the dataset.
+    :param deep: Lookup at the file level.
+
+    :returns: If VP exists a list of dicts of sites, otherwise a list of dicts of dataset replicas
+
+    NOTICE: This is an RnD function and might change or go away at any time.
+    """
+    return replica.list_dataset_replicas_vp(scope=scope, name=name, deep=deep)
 
 
 def list_datasets_per_rse(rse, filters=None, limit=None):
