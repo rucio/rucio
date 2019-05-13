@@ -2903,6 +2903,7 @@ def __delete_lock_and_update_replica(lock, purge_replicas=False, nowait=False, s
                 replica.tombstone = replica.created_at
             if lock.state == LockState.REPLICATING:
                 replica.state = ReplicaState.UNAVAILABLE
+                replica.tombstone = OBSOLETE
                 return True
     except NoResultFound:
         logging.error("Replica for lock %s:%s for rule %s on rse %s could not be found", lock.scope, lock.name, str(lock.rule_id), get_rse_name(lock.rse_id, session=session))
