@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2019
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 #
@@ -30,6 +30,7 @@ from nose.tools import assert_equal, assert_in, assert_not_in
 from paste.fixture import TestApp
 
 from rucio.client import ReplicaClient
+from rucio.core.config import set as config_set
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.rse import add_rse, add_rse_attribute, del_rse, add_protocol
 from rucio.tests.common import rse_name_generator
@@ -57,11 +58,11 @@ class TestROOTProxy(object):
         self.rse_with_proxy = rse_name_generator()
         add_rse(self.rse_with_proxy)
         add_rse_attribute(rse=self.rse_with_proxy,
-                          key='root-proxy-internal',
-                          value='root://proxy.aperture.com:1094')
-        add_rse_attribute(rse=self.rse_with_proxy,
                           key='site',
                           value='APERTURE1')
+
+        # APERTURE1 site has an internal proxy
+        config_set('root-proxy-internal', 'APERTURE1', 'proxy.aperture.com:1094')
 
         self.files = [{'scope': 'mock',
                        'name': 'half-life_%s' % i,
