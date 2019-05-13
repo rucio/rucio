@@ -48,8 +48,9 @@ import rucio.core.lock
 
 from rucio.common import exception
 from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
+from rucio.core.config import get as config_get
 from rucio.core.credential import get_signed_url
-from rucio.core.rse import get_rse, get_rse_id, get_rse_name, get_rse_attribute, get_rses_with_attribute_value
+from rucio.core.rse import get_rse, get_rse_id, get_rse_name, get_rse_attribute
 from rucio.core.rse_counter import decrease, increase
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
@@ -958,14 +959,15 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                 if isinstance(rse_site_attr, list) and rse_site_attr:
                                     replica_site = rse_site_attr[0]
 
-                                # does it match with the client?
+                                # does it match with the client? if not, it's an outgoing connection
+                                # therefore the internal proxy must be prepended
                                 if client_location['site'] != replica_site:
-                                    root_proxy_internal = get_rses_with_attribute_value('site', client_location['site'],
-                                                                                        'root-proxy-internal',
-                                                                                        session=session)
-                                    # assume all RSEs at site have same proxy, just prepend the first one
-                                    if root_proxy_internal and 'value' in root_proxy_internal[0]:
-                                        pfn = root_proxy_internal[0]['value'] + '//' + pfn
+                                    root_proxy_internal = config_get('root-proxy-internal',    # section
+                                                                     client_location['site'],  # option
+                                                                     default='',               # empty string to circumvent exception
+                                                                     session=session)
+                                    if root_proxy_internal:
+                                        pfn = 'root://' + root_proxy_internal + '//' + pfn
 
                         # do we need to sign the URLs?
                         if sign_urls and protocol.attributes['scheme'] == 'https':
