@@ -538,8 +538,7 @@ class DownloadClient:
         :returns: dictionary with all attributes from the input item and a clientState attribute
         """
         logger = self.logger
-        pcache = Pcache()
-
+        pcache = Pcache() if self.check_pcache and len(item.get('archive_items', [])) == 0 else None
         did_scope = item['scope']
         did_name = item['name']
         did_str = '%s:%s' % (did_scope, did_name)
@@ -580,7 +579,7 @@ class DownloadClient:
 
         # checking Pcache
         storage_prefix = None
-        if self.check_pcache:
+        if pcache:
 
             # to check only first replica is enough
             pfn = sources[0]['pfn']
@@ -703,7 +702,7 @@ class DownloadClient:
         os.rename(temp_file_path, first_dest_file_path)
 
         # if the file was downloaded with success, it can be linked to pcache
-        if self.check_pcache:
+        if pcache:
             logger.info('File %s is going to be registerred into pcache.' % dest_file_path)
             try:
                 pcache_state, hardlink_state = pcache.check_and_link(src=pfn, storage_root=storage_prefix, local_src=first_dest_file_path)
