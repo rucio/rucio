@@ -73,7 +73,7 @@ RUN ln -s $RUCIOHOME/lib/rucio /usr/lib/python3.4/site-packages/rucio
 RUN mkdir /var/log/rucio /var/log/rucio/trace && chmod 777 /var/log/rucio
 
 COPY etc/docker/dev/rucio.cfg  $RUCIOHOME/etc/rucio.cfg
-COPY etc/alembic.ini.template  $RUCIOHOME/etc/alembic.ini
+COPY etc/docker/dev/alembic_mysql.ini  $RUCIOHOME/etc/alembic.ini
 COPY etc/docker/dev/aliases-py27.conf $RUCIOHOME/etc/web/aliases-py27.conf
 COPY etc/docker/dev/ui-aliases-py27.conf $RUCIOHOME/etc/web/ui-aliases-py27.conf
 COPY etc/docker/travis/google-cloud-storage-test.json $RUCIOHOME/etc/google-cloud-storage-test.json
