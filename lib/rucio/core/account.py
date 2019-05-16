@@ -294,6 +294,23 @@ def get_usage(rse_id, account, session=None):
 
 
 @read_session
+def get_all_rse_usages_per_account(account, session=None):
+    """
+    Returns current values of the specified counter, or raises CounterNotFound if the counter does not exist.
+
+    :param rse_id:           The id of the RSE.
+    :param account:          The account name.
+    :param session:          The database session in use.
+    :returns:                A dictionary with total and bytes.
+    """
+
+    try:
+        return [result.to_dict() for result in session.query(models.AccountUsage).filter_by(account=account).all()]
+    except exc.NoResultFound:
+        return []
+
+
+@read_session
 def get_usage_history(rse_id, account, session=None):
     """
     Returns historical values of the specified counter, or raises CounterNotFound if the counter does not exist.

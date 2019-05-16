@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
@@ -31,7 +31,7 @@ from rucio.common.utils import generate_uuid
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.account import get_usage_history
 from rucio.core.account_counter import update_account_counter_history
-from rucio.core.account_limit import get_account_usage, set_account_limit
+from rucio.core.account_limit import get_local_account_usage, set_local_account_limit
 from rucio.core.rse import get_rse_id
 from rucio.daemons.undertaker import undertaker
 from rucio.daemons.abacus import account
@@ -68,7 +68,7 @@ class TestAbacusAccount():
         self.upload_client.upload(self.files)
         [os.remove(file['path']) for file in self.files]
         account.run(once=True)
-        account_usage = get_account_usage(account=self.account, rse_id=self.rse_id)[0]
+        account_usage = get_local_account_usage(account=self.account, rse_id=self.rse_id)[0]
         assert_equal(account_usage['bytes'], len(self.files) * self.file_sizes)
         assert_equal(account_usage['files'], len(self.files))
 
@@ -86,8 +86,8 @@ class TestAbacusAccount():
         # Delete rules -> account usage should decrease
         cleaner.run(once=True)
         account.run(once=True)
-        # set account limit because return value of get_account_usage differs if a limit is set or not
-        set_account_limit(account=self.account, rse_id=self.rse_id, bytes=10)
-        account_usages = get_account_usage(account=self.account, rse_id=self.rse_id)[0]
+        # set account limit because return value of get_local_account_usage differs if a limit is set or not
+        set_local_account_limit(account=self.account, rse_id=self.rse_id, bytes=10)
+        account_usages = get_local_account_usage(account=self.account, rse_id=self.rse_id)[0]
         assert_equal(account_usages['bytes'], 0)
         assert_equal(account_usages['files'], 0)

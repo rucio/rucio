@@ -41,8 +41,11 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
 from rucio.common.config import config_get
-from rucio.common.types import InternalScope
+from rucio.common.types import InternalScope, InternalAccount
 from rucio.common.utils import generate_uuid, md5, render_json
+from rucio.core.account_counter import increase
+from rucio.core.rse import add_rse_attribute, get_rse_id
+from rucio.daemons.abacus import account as abacus_account
 from rucio.tests.common import execute, account_name_generator, rse_name_generator, file_generator, scope_name_generator
 from rucio.rse import rsemanager as rsemgr
 
@@ -66,7 +69,7 @@ class TestBinRucio():
         self.replica_client = ReplicaClient()
         self.rule_client = RuleClient()
         self.account_client = AccountLimitClient()
-        self.account_client.set_account_limit('root', self.def_rse, -1)
+        self.account_client.set_local_account_limit('root', self.def_rse, -1)
 
         self.rse_client.add_rse_attribute(self.def_rse, 'istape', 'False')
 
@@ -780,7 +783,7 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print(out)
         # add quota
-        self.account_client.set_account_limit('root', tmp_rse, -1)
+        self.account_client.set_local_account_limit('root', tmp_rse, -1)
         # add rse atributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
         print(self.marker + cmd)
@@ -793,7 +796,7 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print(out, err)
         # add quota
-        self.account_client.set_account_limit('root', tmp_rse, -1)
+        self.account_client.set_local_account_limit('root', tmp_rse, -1)
         # add rse atributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
         print(self.marker + cmd)
@@ -806,7 +809,7 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print(out, err)
         # add quota
-        self.account_client.set_account_limit('root', tmp_rse, -1)
+        self.account_client.set_local_account_limit('root', tmp_rse, -1)
         # add rse atributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
         print(self.marker + cmd)
@@ -827,7 +830,7 @@ class TestBinRucio():
 
     def test_delete_rule(self):
         """CLIENT(USER): rule deletion"""
-        self.account_client.set_account_limit('root', self.def_rse, -1)
+        self.account_client.set_local_account_limit('root', self.def_rse, -1)
         tmp_file1 = file_generator()
         # add files
         cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
@@ -840,7 +843,7 @@ class TestBinRucio():
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
-        self.account_client.set_account_limit('root', tmp_rse, -1)
+        self.account_client.set_local_account_limit('root', tmp_rse, -1)
 
         # add rse atributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
@@ -1223,3 +1226,56 @@ class TestBinRucio():
         cmd = 'rucio-admin replicas set-tombstone {0}:{1} --rse {2}'.format(scope, name, rse)
         exitcode, out, err = execute(cmd)
         nose.tools.assert_not_equal(re.search('Replica not found', err), None)
+
+    def test_list_account_limits(self):
+        """ CLIENT (USER): list account limits. """
+        rse = 'MOCK4'
+        rse_exp = 'MOCK3|MOCK4'
+        account = 'root'
+        local_limit = 10
+        global_limit = 20
+        self.account_client.set_local_account_limit(account, rse, local_limit)
+        self.account_client.set_global_account_limit(account, rse_exp, global_limit)
+        cmd = 'rucio list-account-limits {0}'.format(account)
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_not_equal(re.search('.*{0}.*{1}.*'.format(rse, local_limit), out), None)
+        nose.tools.assert_not_equal(re.search('.*{0}.*{1}.*'.format(rse_exp, global_limit), out), None)
+        cmd = 'rucio list-account-limits --rse {0} {1}'.format(rse, account)
+        exitcode, out, err = execute(cmd)
+        nose.tools.assert_not_equal(re.search('.*{0}.*{1}.*'.format(rse, local_limit), out), None)
+        nose.tools.assert_not_equal(re.search('.*{0}.*{1}.*'.format(rse_exp, global_limit), out), None)
+        self.account_client.set_local_account_limit(account, rse, -1)
+        self.account_client.set_global_account_limit(account, rse_exp, -1)
+
+    def test_list_account_usage(self):
+        """ CLIENT (USER): list account usage. """
+        db_session = session.get_session()
+        db_session.query(models.AccountUsage).delete()
+        db_session.query(models.AccountLimit).delete()
+        db_session.query(models.AccountGlobalLimit).delete()
+        db_session.query(models.UpdatedAccountCounter).delete()
+        db_session.commit()
+        rse = 'MOCK4'
+        rse_id = get_rse_id(rse)
+        rse_exp = 'MOCK|MOCK4'
+        account = 'root'
+        usage = 4
+        local_limit = 10
+        local_left = local_limit - usage
+        global_limit = 20
+        global_left = global_limit - usage
+        self.account_client.set_local_account_limit(account, rse, local_limit)
+        self.account_client.set_global_account_limit(account, rse_exp, global_limit)
+        increase(rse_id, InternalAccount(account), 1, usage)
+        abacus_account.run(once=True)
+        cmd = 'rucio list-account-usage {0}'.format(account)
+        exitcode, out, err = execute(cmd)
+        print(out)
+
+        nose.tools.assert_not_equal(re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse, usage, local_limit, local_left), out), None)
+        nose.tools.assert_not_equal(re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse_exp, usage, global_limit, global_left), out), None)
+        cmd = 'rucio list-account-usage --rse {0} {1}'.format(rse, account)
+        nose.tools.assert_not_equal(re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse, usage, local_limit, local_left), out), None)
+        nose.tools.assert_not_equal(re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse_exp, usage, global_limit, global_left), out), None)
+        self.account_client.set_local_account_limit(account, rse, -1)
+        self.account_client.set_global_account_limit(account, rse_exp, -1)

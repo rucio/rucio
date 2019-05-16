@@ -37,7 +37,7 @@ except ImportError:
 from web import application, ctx, data, header, BadRequest, Created, InternalError, OK, loadhook, redirect, seeother
 
 from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities, list_account_attributes, add_account_attribute, del_account_attribute, update_account, get_usage_history
-from rucio.api.account_limit import get_account_limits, get_account_limit, get_account_usage
+from rucio.api.account_limit import get_local_account_limits, get_local_account_limit, get_local_account_usage, get_global_account_limit, get_global_account_limits, get_global_account_usage
 from rucio.api.identity import add_account_identity, del_account_identity
 from rucio.api.rule import list_replication_rules
 from rucio.api.scope import add_scope, get_scopes
@@ -57,12 +57,16 @@ URLS = (
     '/(.+)/scopes/', 'Scopes',
     '/(.+)/scopes/(.+)', 'Scopes',
     '/(.+)/identities', 'Identities',
-    '/(.+)/limits', 'AccountLimits',
-    '/(.+)/limits/(.+)', 'AccountLimits',
+    '/(.+)/limits/local', 'LocalAccountLimits',
+    '/(.+)/limits/local/(.+)', 'LocalAccountLimits',
+    '/(.+)/limits/global', 'GlobalAccountLimits',
+    '/(.+)/limits/global/(.+)', 'GlobalAccountLimits',
     '/(.+)/rules', 'Rules',
     '/(.+)/usage/history/(.+)', 'UsageHistory',
-    '/(.+)/usage/', 'Usage1',
-    '/(.+)/usage/(.+)', 'Usage2',
+    '/(.+)/usage/local', 'LocalUsage',
+    '/(.+)/usage/local/(.+)', 'LocalUsage',
+    '/(.+)/usage/global', 'GlobalUsage',
+    '/(.+)/usage/global/(.+)', 'GlobalUsage',
     '/(.+)', 'AccountParameter',
     '/?$', 'Account',
 )
@@ -425,7 +429,7 @@ class Account(RucioController):
             yield render_json(**account) + "\n"
 
 
-class AccountLimits(RucioController):
+class LocalAccountLimits(RucioController):
 
     @check_accept_header_wrapper(['application/json'])
     def GET(self, account, rse=None):
@@ -450,9 +454,54 @@ class AccountLimits(RucioController):
         header('Content-Type', 'application/json')
         try:
             if rse:
-                limits = get_account_limit(account=account, rse=rse)
+                limits = get_local_account_limit(account=account, rse=rse)
             else:
-                limits = get_account_limits(account=account)
+                limits = get_local_account_limits(account=account)
+        except RSENotFound as error:
+            raise generate_http_error(404, 'RSENotFound', error.args[0])
+
+        return render_json(**limits)
+
+    def PUT(self):
+        """ update the limits for an account """
+        raise BadRequest()
+
+    def POST(self):
+        """ set the limits for an account """
+        raise BadRequest()
+
+    def DELETE(self):
+        raise BadRequest()
+
+
+class GlobalAccountLimits(RucioController):
+
+    @check_accept_header_wrapper(['application/json'])
+    def GET(self, account, rse_exp=None):
+        """ get the current limits for an account on a specific RSE
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            404 Not Found
+            406 Not Acceptable
+            500 InternalError
+
+        :param X-Rucio-Account: Account identifier.
+        :param X-Rucio-Auth-Token: as an 32 character hex string.
+
+        :param account:   The account name.
+        :param rse:       The rse name.
+
+        :returns: JSON dict containing informations about the requested user.
+        """
+        header('Content-Type', 'application/json')
+        try:
+            if rse_exp:
+                limits = get_global_account_limit(account=account, rse_exp=rse_exp)
+            else:
+                limits = get_global_account_limits(account=account)
         except RSENotFound as error:
             raise generate_http_error(404, 'RSENotFound', error.args[0])
 
@@ -657,10 +706,10 @@ class UsageHistory(RucioController):
         return dumps(usage)
 
 
-class Usage1(RucioController):
+class LocalUsage(RucioController):
 
     @check_accept_header_wrapper(['application/x-json-stream'])
-    def GET(self, account):
+    def GET(self, account, rse=None):
         """
         Return the account usage of the account.
 
@@ -676,10 +725,12 @@ class Usage1(RucioController):
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            for usage in get_account_usage(account=account, rse=None, issuer=ctx.env.get('issuer')):
+            for usage in get_local_account_usage(account=account, rse=rse, issuer=ctx.env.get('issuer')):
                 yield dumps(usage, cls=APIEncoder) + '\n'
         except AccountNotFound as error:
             raise generate_http_error(404, 'AccountNotFound', error.args[0])
+        except RSENotFound as error:
+            raise generate_http_error(404, 'RSENotFound', error.args[0])
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except Exception as error:
@@ -696,10 +747,10 @@ class Usage1(RucioController):
         raise BadRequest()
 
 
-class Usage2(RucioController):
+class GlobalUsage(RucioController):
 
     @check_accept_header_wrapper(['application/x-json-stream'])
-    def GET(self, account, rse):
+    def GET(self, account, rse_exp=None):
         """
         Return the account usage of the account.
 
@@ -712,11 +763,10 @@ class Usage2(RucioController):
             404 Not Found
 
         :param account: The account name.
-        :param rse:     The rse.
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            for usage in get_account_usage(account=account, rse=rse, issuer=ctx.env.get('issuer')):
+            for usage in get_global_account_usage(account=account, rse_exp=rse_exp, issuer=ctx.env.get('issuer')):
                 yield dumps(usage, cls=APIEncoder) + '\n'
         except AccountNotFound as error:
             raise generate_http_error(404, 'AccountNotFound', error.args[0])
