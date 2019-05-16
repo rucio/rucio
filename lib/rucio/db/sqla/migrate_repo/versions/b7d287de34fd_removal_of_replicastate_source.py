@@ -17,7 +17,7 @@
 
 ''' Removal of ReplicaState.SOURCE '''
 
-from alembic import context, op
+from alembic import context
 from alembic.op import (create_check_constraint, drop_constraint)
 
 
@@ -31,20 +31,11 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name == 'oracle':
+    if context.get_context().dialect.name in ['oracle', 'postgresql']:
         drop_constraint('REPLICAS_STATE_CHK', 'replicas', type_='check')
         create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'T')")
         drop_constraint('COLLECTION_REPLICAS_STATE_CHK', 'collection_replicas', type_='check')
-        create_check_constraint(constraint_name='COLLECTION_REPLICAS_STATE_CHK', table_name='collection_replicas',
-                                condition="state in ('A', 'U', 'C', 'B', 'D', 'T')")
-
-    elif context.get_context().dialect.name == 'postgresql':
-        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
-        op.execute('ALTER TABLE ' + schema + 'replicas ALTER COLUMN state TYPE CHAR')  # pylint: disable=no-member
-        create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
-                                condition="state in ('A', 'U', 'C', 'B', 'D', 'T')")
-        op.execute('ALTER TABLE ' + schema + 'collection_replicas ALTER COLUMN state TYPE CHAR')  # pylint: disable=no-member
         create_check_constraint(constraint_name='COLLECTION_REPLICAS_STATE_CHK', table_name='collection_replicas',
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'T')")
 
@@ -60,20 +51,11 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name == 'oracle':
+    if context.get_context().dialect.name in ['oracle', 'postgresql']:
         drop_constraint('REPLICAS_STATE_CHK', 'replicas', type_='check')
         create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'S', 'T')")
         drop_constraint('COLLECTION_REPLICAS_STATE_CHK', 'collection_replicas', type_='check')
-        create_check_constraint(constraint_name='COLLECTION_REPLICAS_STATE_CHK', table_name='collection_replicas',
-                                condition="state in ('A', 'U', 'C', 'B', 'D', 'S', 'T')")
-
-    elif context.get_context().dialect.name == 'postgresql':
-        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
-        op.execute('ALTER TABLE ' + schema + 'replicas ALTER COLUMN state TYPE CHAR')  # pylint: disable=no-member
-        create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
-                                condition="state in ('A', 'U', 'C', 'B', 'D', 'S', 'T')")
-        op.execute('ALTER TABLE ' + schema + 'collection_replicas ALTER COLUMN state TYPE CHAR')  # pylint: disable=no-member
         create_check_constraint(constraint_name='COLLECTION_REPLICAS_STATE_CHK', table_name='collection_replicas',
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'S', 'T')")
 
