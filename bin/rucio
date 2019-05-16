@@ -934,7 +934,7 @@ def download(args):
     item_defaults['no_resolve_archives'] = args.no_resolve_archives
     archive_did = args.archive_did
     if archive_did:
-        logger.warning("Archives are treated transparently. --archive-did option is beign obsoleted.")
+        logger.warning("Archives are treated transparently. --archive-did option is being obsoleted.") # TODO
 
     # Get filters
     filters = {}
