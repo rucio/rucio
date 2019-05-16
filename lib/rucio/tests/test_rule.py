@@ -38,7 +38,7 @@ from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.core.did import add_did, attach_dids, set_status
 from rucio.core.lock import get_replica_locks, get_dataset_locks, successful_transfer
 from rucio.core.account import add_account_attribute, get_usage
-from rucio.core.account_limit import set_account_limit
+from rucio.core.account_limit import set_local_account_limit, set_global_account_limit
 from rucio.core.request import get_request_by_did
 from rucio.core.replica import add_replica, get_replica
 from rucio.core.rse import add_rse_attribute, add_rse, update_rse, get_rse_id, del_rse_attribute, set_rse_limits
@@ -46,7 +46,7 @@ from rucio.core.rse_counter import get_counter as get_rse_counter
 from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_rule, reduce_rule, move_rule, list_rules
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.abacus.rse import rse_update
-from rucio.db.sqla import models
+from rucio.db.sqla import models, session
 from rucio.db.sqla.constants import DIDType, OBSOLETE, RuleState, LockState
 from rucio.db.sqla.session import transactional_session
 from rucio.tests.common import rse_name_generator, account_name_generator
@@ -106,6 +106,7 @@ class TestReplicationRuleCore():
 
     @classmethod
     def setUpClass(cls):
+        cls.db_session = session.get_session()
         # Add test RSE
         cls.rse1 = 'MOCK'
         cls.rse3 = 'MOCK3'
@@ -134,15 +135,19 @@ class TestReplicationRuleCore():
         # Add quota
         cls.jdoe = InternalAccount('jdoe')
         cls.root = InternalAccount('root')
-        set_account_limit(cls.jdoe, cls.rse1_id, -1)
-        set_account_limit(cls.jdoe, cls.rse3_id, -1)
-        set_account_limit(cls.jdoe, cls.rse4_id, -1)
-        set_account_limit(cls.jdoe, cls.rse5_id, -1)
+        cls.db_session.query(models.AccountGlobalLimit).delete()
+        cls.db_session.query(models.AccountLimit).delete()
+        cls.db_session.commit()
 
-        set_account_limit(cls.root, cls.rse1_id, -1)
-        set_account_limit(cls.root, cls.rse3_id, -1)
-        set_account_limit(cls.root, cls.rse4_id, -1)
-        set_account_limit(cls.root, cls.rse5_id, -1)
+        set_local_account_limit(cls.jdoe, cls.rse1_id, -1)
+        set_local_account_limit(cls.jdoe, cls.rse3_id, -1)
+        set_local_account_limit(cls.jdoe, cls.rse4_id, -1)
+        set_local_account_limit(cls.jdoe, cls.rse5_id, -1)
+
+        set_local_account_limit(cls.root, cls.rse1_id, -1)
+        set_local_account_limit(cls.root, cls.rse3_id, -1)
+        set_local_account_limit(cls.root, cls.rse4_id, -1)
+        set_local_account_limit(cls.root, cls.rse5_id, -1)
 
     def test_add_rule_file_none(self):
         """ REPLICATION RULE (CORE): Add a replication rule on a group of files, NONE Grouping"""
@@ -562,19 +567,38 @@ class TestReplicationRuleCore():
         assert(rse_counter_before['bytes'] + 3 * 100 == rse_counter_after['bytes'])
         assert(rse_counter_before['files'] + 3 == rse_counter_after['files'])
 
-    def test_rule_add_fails_account_limit(self):
-        """ REPLICATION RULE (CORE): Test if a rule fails correctly when account limit conflict"""
+    def test_rule_add_fails_account_local_limit(self):
+        """ REPLICATION RULE (CORE): Test if a rule fails correctly when local account limit conflict"""
 
+        scope = InternalScope('mock')
+        files = create_files(3, scope, self.rse3_id, bytes=100)
+        # local quota
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
+
+        set_local_account_limit(account=self.jdoe, rse_id=self.rse3_id, bytes=5)
+
+        assert_raises(InsufficientAccountLimit, add_rule, dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+        set_local_account_limit(account=self.jdoe, rse_id=self.rse3_id, bytes=-1)
+
+    def test_rule_add_fails_account_global_limit(self):
+        """ REPLICATION RULE (CORE): Test if a rule fails correctly when global account limit conflict"""
         scope = InternalScope('mock')
         files = create_files(3, scope, self.rse3_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
-        set_account_limit(account=self.jdoe, rse_id=self.rse3_id, bytes=5)
-
+        set_local_account_limit(account=self.jdoe, rse_id=self.rse3_id, bytes=400)
+        # check with two global limits - one breaking limit is enough to let the rule fail
+        set_global_account_limit(rse_exp='%s|MOCK2' % self.rse3, account=self.jdoe, bytes=400)
+        set_global_account_limit(rse_exp='%s|MOCK' % self.rse3, account=self.jdoe, bytes=10)
         assert_raises(InsufficientAccountLimit, add_rule, dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
-        set_account_limit(account=self.jdoe, rse_id=self.rse3_id, bytes=-1)
+
+        set_local_account_limit(account=self.jdoe, rse_id=self.rse3_id, bytes=-1)
+        set_global_account_limit(rse_exp='%s|MOCK' % self.rse3, account=self.jdoe, bytes=-1)
+        set_global_account_limit(rse_exp='%s|MOCK2' % self.rse3, account=self.jdoe, bytes=-1)
 
     def test_rule_add_fails_rse_limit(self):
         """ REPLICATION RULE (CORE): Test if a rule fails correctly when rse limit set"""
@@ -755,7 +779,7 @@ class TestReplicationRuleCore():
         rse = rse_name_generator()
         rse_id = add_rse(rse)
         update_rse(rse_id, {'availability_write': False})
-        set_account_limit(self.jdoe, rse_id, -1)
+        set_local_account_limit(self.jdoe, rse_id, -1)
 
         scope = InternalScope('mock')
         files = create_files(3, scope, self.rse1_id)
@@ -776,7 +800,7 @@ class TestReplicationRuleCore():
         rse = rse_name_generator()
         rse_id = add_rse(rse)
         add_rse_attribute(rse_id, 'country', 'test')
-        set_account_limit(self.jdoe, rse_id, -1)
+        set_local_account_limit(self.jdoe, rse_id, -1)
 
         scope = InternalScope('mock')
         files = create_files(3, scope, self.rse1_id)
@@ -846,7 +870,7 @@ class TestReplicationRuleCore():
         rse = rse_name_generator()
         rse_id = add_rse(rse)
         add_rse_attribute(rse_id, 'type', 'SCRATCHDISK')
-        set_account_limit(self.jdoe, rse_id, -1)
+        set_local_account_limit(self.jdoe, rse_id, -1)
 
         scope = InternalScope('mock')
         files = create_files(3, scope, self.rse1_id)
@@ -894,7 +918,7 @@ class TestReplicationRuleCore():
         rse = rse_name_generator()
         rse_id = add_rse(rse)
         add_rse_attribute(rse_id, 'block_manual_approval', '1')
-        set_account_limit(self.jdoe, rse_id, -1)
+        set_local_account_limit(self.jdoe, rse_id, -1)
 
         scope = InternalScope('mock')
         files = create_files(3, scope, self.rse1_id)
@@ -1023,10 +1047,10 @@ class TestReplicationRuleClient():
         add_rse_attribute(cls.rse5_id, "fakeweight", 0)
 
         cls.jdoe = InternalAccount('jdoe')
-        set_account_limit(cls.jdoe, cls.rse1_id, -1)
-        set_account_limit(cls.jdoe, cls.rse3_id, -1)
-        set_account_limit(cls.jdoe, cls.rse4_id, -1)
-        set_account_limit(cls.jdoe, cls.rse5_id, -1)
+        set_local_account_limit(cls.jdoe, cls.rse1_id, -1)
+        set_local_account_limit(cls.jdoe, cls.rse3_id, -1)
+        set_local_account_limit(cls.jdoe, cls.rse4_id, -1)
+        set_local_account_limit(cls.jdoe, cls.rse5_id, -1)
 
     def setup(self):
         self.rule_client = RuleClient()

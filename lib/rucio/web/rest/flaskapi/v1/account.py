@@ -35,7 +35,7 @@ from flask.views import MethodView
 
 from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities, list_account_attributes, add_account_attribute, del_account_attribute, update_account, get_usage_history
 from rucio.api.identity import add_account_identity, del_account_identity
-from rucio.api.account_limit import get_account_limits, get_account_limit, get_account_usage
+from rucio.api.account_limit import get_local_account_limits, get_local_account_limit, get_local_account_usage, get_global_account_limit, get_global_account_limits, get_global_account_usage
 from rucio.api.rule import list_replication_rules
 from rucio.api.scope import add_scope, get_scopes
 from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound, RSENotFound, IdentityError, CounterNotFound
@@ -383,12 +383,12 @@ class Account(MethodView):
         return Response(data, content_type="application/x-json-stream")
 
 
-class AccountLimits(MethodView):
+class LocalAccountLimits(MethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account, rse=None):
-        """ get the current limits for an account on a specific RSE
+        """ get the current local limits for an account on a specific RSE
 
-        .. :quickref: AccountLimits; Get account limits.
+        .. :quickref: LocalAccountLimits; Get local account limits.
 
         :param account: The account name.
         :param rse: The rse name.
@@ -403,9 +403,38 @@ class AccountLimits(MethodView):
 
         try:
             if rse:
-                limits = get_account_limit(account=account, rse=rse)
+                limits = get_local_account_limit(account=account, rse=rse)
             else:
-                limits = get_account_limits(account=account)
+                limits = get_local_account_limits(account=account)
+        except RSENotFound as error:
+            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
+
+        return Response(render_json(**limits), content_type="application/json")
+
+
+class GlobalAccountLimits(MethodView):
+    @check_accept_header_wrapper_flask(['application/json'])
+    def get(self, account, rse_exp=None):
+        """ get the current global limits for an account on a specific RSE expression
+
+        .. :quickref: GlobalAccountLimits; Get global account limits.
+
+        :param account: The account name.
+        :param rse: The rse name.
+        :resheader Content-Type: application/json
+        :status 200: OK.
+        :status 401: Invalid auth token.
+        :status 404: RSE not found.
+        :status 406: Not Acceptable.
+        :status 500: Database exception
+        :returns: JSON dict containing informations about the requested user.
+        """
+
+        try:
+            if rse_exp:
+                limits = get_global_account_limit(account=account, rse_exp=rse_exp)
+            else:
+                limits = get_global_account_limits(account=account)
         except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
 
@@ -599,50 +628,16 @@ class UsageHistory(MethodView):
             return error, 500
 
 
-class Usage1(MethodView):
+class LocalUsage(MethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
-    def get(self, account):
+    def get(self, account, rse=None):
         """
-        Return the account usage of the account.
+        Return the local account usage of the account.
 
-        .. :quickref: Usage1; Get account usage.
+        .. :quickref: LocalUsage; Get local account usage.
 
         :param account: The account name.
-        :resheader Content-Type: application/x-json-stream
-        :status 200: OK.
-        :status 401: Invalid auth token.
-        :status 404: Account not found.
-        :status 406: Not Acceptable.
-        :status 500: Database exception.
-        :returns: Line separated list of account usages.
-        """
-
-        try:
-            data = ""
-            for usage in get_account_usage(account=account, rse=None, issuer=request.environ.get('issuer')):
-                data += dumps(usage, cls=APIEncoder) + '\n'
-            return Response(data, content_type="application/x-json-stream")
-        except AccountNotFound as error:
-            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
-        except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except Exception as error:
-            print(format_exc())
-            return error, 500
-
-
-class Usage2(MethodView):
-
-    @check_accept_header_wrapper_flask(['application/json'])
-    def get(self, account, rse):
-        """
-        Return the account usage of the account.
-
-        .. :quickref: Usage2; Get account usage for RSE.
-
-        :param account: The account name.
-        :param rse: The rse.
         :resheader Content-Type: application/x-json-stream
         :status 200: OK.
         :status 401: Invalid auth token.
@@ -652,17 +647,54 @@ class Usage2(MethodView):
         :status 500: Database exception.
         :returns: Line separated list of account usages.
         """
+
         try:
             data = ""
-            for usage in get_account_usage(account=account, rse=rse, issuer=request.environ.get('issuer')):
+            for usage in get_local_account_usage(account=account, rse=rse, issuer=request.environ.get('issuer')):
                 data += dumps(usage, cls=APIEncoder) + '\n'
             return Response(data, content_type="application/x-json-stream")
         except AccountNotFound as error:
             return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
-        except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except RSENotFound as error:
+            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return error, 500
+
+
+class GlobalUsage(MethodView):
+
+    @check_accept_header_wrapper_flask(['application/json'])
+    def get(self, account, rse_exp=None):
+        """
+        Return the global account usage of the account.
+
+        .. :quickref: GlobalUsage; Get global account usage.
+
+        :param account: The account name.
+        :resheader Content-Type: application/x-json-stream
+        :status 200: OK.
+        :status 401: Invalid auth token.
+        :status 404: Account not found.
+        :status 404: RSE not found.
+        :status 406: Not Acceptable.
+        :status 500: Database exception.
+        :returns: Line separated list of account usages.
+        """
+
+        try:
+            data = ""
+            for usage in get_global_account_usage(account=account, rse_exp=rse_exp, issuer=request.environ.get('issuer')):
+                data += dumps(usage, cls=APIEncoder) + '\n'
+            return Response(data, content_type="application/x-json-stream")
+        except AccountNotFound as error:
+            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except RSENotFound as error:
+            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
         except Exception as error:
             print(format_exc())
             return error, 500
@@ -684,19 +716,24 @@ account_parameter_view = AccountParameter.as_view('account_parameter')
 bp.add_url_rule('/<account>', view_func=account_parameter_view, methods=['get', 'put', 'post', 'delete'])
 account_view = Account.as_view('account')
 bp.add_url_rule('/', view_func=account_view, methods=['get', ])
-account_limits_view = AccountLimits.as_view('account_limit')
-bp.add_url_rule('/<account>/limits', view_func=account_limits_view, methods=['get', ])
-bp.add_url_rule('/<account>/limits/<rse>', view_func=account_limits_view, methods=['get', ])
+local_account_limits_view = LocalAccountLimits.as_view('local_account_limit')
+bp.add_url_rule('/<account>/limits/local', view_func=local_account_limits_view, methods=['get', ])
+bp.add_url_rule('/<account>/limits/local/<rse>', view_func=local_account_limits_view, methods=['get', ])
+global_account_limits_view = GlobalAccountLimits.as_view('global_account_limit')
+bp.add_url_rule('/<account>/limits/global', view_func=global_account_limits_view, methods=['get', ])
+bp.add_url_rule('/<account>/limits/global/<rse_exp>', view_func=global_account_limits_view, methods=['get', ])
 identities_view = Identities.as_view('identities')
 bp.add_url_rule('/<account>/identities', view_func=identities_view, methods=['get', 'post', 'delete'])
 rules_view = Rules.as_view('rules')
 bp.add_url_rule('/<account>/rules', view_func=rules_view, methods=['get', ])
 usagehistory_view = UsageHistory.as_view('usagehistory')
 bp.add_url_rule('/<account>/usage/history/<rse>', view_func=usagehistory_view, methods=['get', ])
-usage1_view = Usage1.as_view('usage1')
-bp.add_url_rule('/<account>/usage', view_func=usage1_view, methods=['get', ])
-usage2_view = Usage2.as_view('usage2')
-bp.add_url_rule('/<account>/usage/<rse>', view_func=usage2_view, methods=['get', ])
+usage_view = LocalUsage.as_view('usage')
+bp.add_url_rule('/<account>/usage', view_func=usage_view, methods=['get', ])
+bp.add_url_rule('/<account>/usage/<rse>', view_func=usage_view, methods=['get', ])
+global_usage_view = GlobalUsage.as_view('global_usage')
+bp.add_url_rule('/<account>/usage', view_func=global_usage_view, methods=['get', ])
+bp.add_url_rule('/<account>/usage/<rse_exp>', view_func=global_usage_view, methods=['get', ])
 
 application = Flask(__name__)
 application.register_blueprint(bp)

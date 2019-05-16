@@ -1524,13 +1524,22 @@ def list_account_limits(args):
     client = get_client(args)
     table = []
     if args.rse:
-        limits = client.get_account_limit(account=args.limit_account, rse=args.rse)
+        limits = client.get_local_account_limit(account=args.limit_account, rse=args.rse)
     else:
-        limits = client.get_account_limits(account=args.limit_account)
+        limits = client.get_local_account_limits(account=args.limit_account)
     for limit in list(limits.items()):
         table.append([limit[0], sizefmt(limit[1], args.human)])
     table.sort()
     print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'LIMIT']))
+
+    table = []
+    limits = client.get_global_account_limits(account=args.limit_account)
+    for limit in list(limits.items()):
+        if (args.rse and args.rse in limit[1]['resolved_rses']) or not args.rse:
+            table.append([limit[0], sizefmt(limit[1]['limit'], args.human)])
+    table.sort()
+    print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE EXPRESSION', 'LIMIT']))
+
     return SUCCESS
 
 
@@ -1545,14 +1554,24 @@ def list_account_usage(args):
     client = get_client(args)
     table = []
     if args.rse:
-        usage = client.get_account_usage(account=args.usage_account, rse=args.rse)
+        usage = client.get_local_account_usage(account=args.usage_account, rse=args.rse)
     else:
-        usage = client.get_account_usage(account=args.usage_account)
+        usage = client.get_local_account_usage(account=args.usage_account)
     for item in usage:
         remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
         table.append([item['rse'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
     table.sort()
     print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
+
+    table = []
+    usage = client.get_global_account_usage(account=args.usage_account)
+    for item in usage:
+        if (args.rse and args.rse in item['resolved_rses']) or not args.rse:
+            remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
+            table.append([item['rse_expression'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
+    table.sort()
+    print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE EXPRESSION', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
+
     return SUCCESS
 
 

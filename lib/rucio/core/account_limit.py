@@ -22,11 +22,14 @@
 # PY3K COMPATIBLE
 
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import and_, or_
 
+from rucio.core.account import get_all_rse_usages_per_account
+from rucio.core.rse import get_rse_name
+from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session, transactional_session
-from rucio.core.rse import get_rse_name
 
 
 @read_session
@@ -36,7 +39,7 @@ def get_rse_account_usage(rse_id, session=None):
 
     :param rse_id:   The id of the RSE.
     :param session:  Database session in use.
-    :return:         List of dictionnaries.
+    :return:         List of dictionaries.
     """
     result = []
     query = session.query(models.AccountUsage.account, models.AccountUsage.files, models.AccountUsage.bytes, models.AccountLimit.bytes, models.RSE.rse)
@@ -49,7 +52,55 @@ def get_rse_account_usage(rse_id, session=None):
 
 
 @read_session
-def get_account_limit(account, rse_id, session=None):
+def get_global_account_limits(account=None, session=None):
+    """
+    Returns the global account limits for the account.
+
+    :param account:  Account to check the limit for.
+    :param session:  Database session in use.
+    :return:         Dict {'MOCK': {'resolved_rses': ['MOCK'], 'limit': 10, 'resolved_rse_ids': [123]}}.
+    """
+    if account:
+        global_account_limits = session.query(models.AccountGlobalLimit).filter_by(account=account).all()
+    else:
+        global_account_limits = session.query(models.AccountGlobalLimit).all()
+
+    resolved_global_account_limits = {}
+    for limit in global_account_limits:
+        resolved_rses = parse_expression(limit['rse_expression'])
+        limit_in_bytes = limit['bytes']
+        if limit_in_bytes == -1:
+            limit_in_bytes = float('inf')
+        resolved_global_account_limits[limit['rse_expression']] = {
+            'resolved_rses': [resolved_rse['rse'] for resolved_rse in resolved_rses],
+            'resolved_rse_ids': [resolved_rse['id'] for resolved_rse in resolved_rses],
+            'limit': limit_in_bytes
+        }
+    return resolved_global_account_limits
+
+
+@read_session
+def get_global_account_limit(account, rse_exp, session=None):
+    """
+    Returns the global account limit for the account on the rse expression.
+
+    :param account:  Account to check the limit for.
+    :param rse_exp:  RSE expression to check the limit for.
+    :param session:  Database session in use.
+    :return:         Limit in Bytes.
+    """
+    try:
+        global_account_limit = session.query(models.AccountGlobalLimit).filter_by(account=account, rse_expression=rse_exp).one()
+        if global_account_limit.bytes == -1:
+            return float("inf")
+        else:
+            return global_account_limit.bytes
+    except NoResultFound:
+        return None
+
+
+@read_session
+def get_local_account_limit(account, rse_id, session=None):
     """
     Returns the account limit for the account on the rse.
 
@@ -70,7 +121,7 @@ def get_account_limit(account, rse_id, session=None):
 
 
 @read_session
-def get_account_limits(account, rse_ids=None, session=None):
+def get_local_account_limits(account, rse_ids=None, session=None):
     """
     Returns the account limits for the account on the list of rses.
 
@@ -104,7 +155,7 @@ def get_account_limits(account, rse_ids=None, session=None):
 
 
 @transactional_session
-def set_account_limit(account, rse_id, bytes, session=None):
+def set_local_account_limit(account, rse_id, bytes, session=None):
     """
     Returns the limits for the account on the rse.
 
@@ -122,9 +173,27 @@ def set_account_limit(account, rse_id, bytes, session=None):
 
 
 @transactional_session
-def delete_account_limit(account, rse_id, session=None):
+def set_global_account_limit(account, rse_exp, bytes, session=None):
     """
-    Deletes an account limit.
+    Sets the global limit for the account on a RSE expression.
+
+    :param account:  Account to check the limit for.
+    :param rse_exp:  RSE expression to check the limit for.
+    :param bytes:    The limit value, in bytes, to set.
+    :param session:  Database session in use.
+    """
+    try:
+        account_limit = session.query(models.AccountGlobalLimit).filter(models.AccountGlobalLimit.account == account,
+                                                                        models.AccountGlobalLimit.rse_expression == rse_exp).one()
+        account_limit.bytes = bytes
+    except NoResultFound:
+        models.AccountGlobalLimit(account=account, rse_expression=rse_exp, bytes=bytes).save(session=session)
+
+
+@transactional_session
+def delete_local_account_limit(account, rse_id, session=None):
+    """
+    Deletes a local account limit.
 
     :param account:  Account to delete the limit for.
     :param rse_id:   RSE id to delete the limit for.
@@ -140,7 +209,25 @@ def delete_account_limit(account, rse_id, session=None):
 
 
 @transactional_session
-def get_account_usage(account, rse_id=None, session=None):
+def delete_global_account_limit(account, rse_exp, session=None):
+    """
+    Deletes a global account limit.
+
+    :param account:  Account to delete the limit for.
+    :param rse_exp:  RSE expression to delete the limit for.
+    :param session:  Database session in use.
+    :returns:        True if something was deleted; False otherwise.
+    """
+    try:
+        session.query(models.AccountGlobalLimit).filter(models.AccountGlobalLimit.account == account,
+                                                        models.AccountGlobalLimit.rse_expression == rse_exp).one().delete(session=session)
+        return True
+    except NoResultFound:
+        return False
+
+
+@transactional_session
+def get_local_account_usage(account, rse_id=None, session=None):
     """
     Read the account usage and connect it with (if available) the account limits of the account.
 
@@ -153,11 +240,11 @@ def get_account_usage(account, rse_id=None, session=None):
 
     if not rse_id:
         # All RSESs
-        limits = get_account_limits(account=account, session=session)
+        limits = get_local_account_limits(account=account, session=session)
         counters = session.query(models.AccountUsage).filter_by(account=account).all()
     else:
         # One RSE
-        limits = get_account_limits(account=account, rse_ids=[rse_id], session=session)
+        limits = get_local_account_limits(account=account, rse_ids=[rse_id], session=session)
         counters = session.query(models.AccountUsage).filter_by(account=account, rse_id=rse_id).all()
     result_list = []
 
@@ -167,4 +254,44 @@ def get_account_usage(account, rse_id=None, session=None):
                                 'bytes': counter.bytes, 'files': counter.files,
                                 'bytes_limit': limits.get(counter.rse_id, 0),
                                 'bytes_remaining': limits.get(counter.rse_id, 0) - counter.bytes})
+    return result_list
+
+
+@transactional_session
+def get_global_account_usage(account, rse_exp=None, session=None):
+    """
+    Read the account usage and connect it with the global account limits of the account.
+
+    :param account:  The account to read.
+    :param rse_id:   The rse_id to read (If none, get all).
+    :param session:  Database session in use.
+
+    :returns:        List of dicts {'rse_id', 'bytes_used', 'files_used', 'bytes_limit'}
+    """
+    result_list = []
+    if not rse_exp:
+        # All RSE Expressions
+        limits = get_global_account_limits(account=account, session=session)
+        all_rse_usages = {usage['rse_id']: (usage['bytes'], usage['files']) for usage in get_all_rse_usages_per_account(account=account, session=session)}
+        for rse_exp, limit in limits.items():
+            usage = 0
+            files = 0
+            for rse in limit['resolved_rse_ids']:
+                usage += all_rse_usages.get(rse, [0])[0]
+                files += all_rse_usages.get(rse, [0, 0])[1]
+            result_list.append({'rse_expression': rse_exp,
+                                'bytes': usage, 'files': files,
+                                'bytes_limit': limit['limit'],
+                                'bytes_remaining': limit['limit'] - usage})
+    else:
+        # One RSE Expression
+        limit = get_global_account_limit(account=account, rse_exp=rse_exp, session=session)
+        resolved_rses = [resolved_rse['id'] for resolved_rse in parse_expression(rse_exp)]
+        usage = session.query(func.sum(models.AccountUsage.bytes), func.sum(models.AccountUsage.files))\
+                       .filter(models.AccountUsage.account == account, models.AccountUsage.rse_id.in_(resolved_rses))\
+                       .group_by(models.AccountUsage.account).first()
+        result_list.append({'rse_expression': rse_exp,
+                            'bytes': usage[0], 'files': usage[1],
+                            'bytes_limit': limit,
+                            'bytes_remaining': limit - usage[0]})
     return result_list

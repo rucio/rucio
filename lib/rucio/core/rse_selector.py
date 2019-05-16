@@ -10,14 +10,15 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2019
 # - Robert Illingworth, <illingwo@fnal.gov>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
 from random import uniform, shuffle
 
 from rucio.common.exception import InsufficientAccountLimit, InsufficientTargetRSEs, InvalidRuleWeight, RSEOverQuota
-from rucio.core.account import has_account_attribute, get_usage
-from rucio.core.account_limit import get_account_limit
+from rucio.core.account import has_account_attribute, get_usage, get_all_rse_usages_per_account
+from rucio.core.account_limit import get_local_account_limit, get_global_account_limits
 from rucio.core.rse import list_rse_attributes, has_rse_attribute, get_rse_limits
 from rucio.core.rse_counter import get_counter as get_rse_counter
 from rucio.db.sqla.session import read_session
@@ -71,30 +72,54 @@ class RSESelector():
         if len(self.rses) < self.copies:
             raise InsufficientTargetRSEs('Target RSE set not sufficient for number of copies. (%s copies requested, RSE set size %s)' % (self.copies, len(self.rses)))
 
+        rses_with_enough_quota = []
         if has_account_attribute(account=account, key='admin', session=session) or ignore_account_limit:
             for rse in self.rses:
                 rse['quota_left'] = float('inf')
                 rse['space_left'] = float('inf')
+                rses_with_enough_quota.append(rse)
         else:
+            global_quota_limit = get_global_account_limits(account=account, session=session)
+            all_rse_usages = {usage['rse_id']: usage['bytes'] for usage in get_all_rse_usages_per_account(account=account, session=session)}
             for rse in self.rses:
                 if rse['mock_rse']:
                     rse['quota_left'] = float('inf')
                     rse['space_left'] = float('inf')
+                    rses_with_enough_quota.append(rse)
                 else:
-                    quota_limit = get_account_limit(account=account, rse_id=rse['rse_id'], session=session)
+                    # check local quota
+                    local_quota_left = None
+                    quota_limit = get_local_account_limit(account=account, rse_id=rse['rse_id'], session=session)
                     if quota_limit is None:
-                        rse['quota_left'] = 0
+                        local_quota_left = 0
                     else:
-                        rse['quota_left'] = quota_limit - get_usage(rse_id=rse['rse_id'], account=account, session=session)['bytes']
+                        local_quota_left = quota_limit - get_usage(rse_id=rse['rse_id'], account=account, session=session)['bytes']
+                    # check global quota
+                    all_global_quota_enough = True
+                    for rse_expression, limit in global_quota_limit.items():
+                        if rse['rse_id'] in limit['resolved_rse_ids']:
+                            quota_limit = limit['limit']
+                            global_quota_left = None
+                            if quota_limit is None:
+                                global_quota_left = 0
+                            else:
+                                rse_expression_usage = 0
+                                for rse_id in limit['resolved_rse_ids']:
+                                    rse_expression_usage += all_rse_usages.get(rse_id, 0)
+                                global_quota_left = quota_limit - rse_expression_usage
+                            if global_quota_left <= 0:
+                                all_global_quota_enough = False
+                                break
+                    if local_quota_left > 0 and all_global_quota_enough:
+                        rse['quota_left'] = local_quota_left
+                        space_limit = get_rse_limits(name='MaxSpaceAvailable', rse_id=rse['rse_id'], session=session).get('MaxSpaceAvailable')
+                        if space_limit is None or space_limit < 0:
+                            rse['space_left'] = float('inf')
+                        else:
+                            rse['space_left'] = space_limit - get_rse_counter(rse_id=rse['rse_id'], session=session)['bytes']
+                        rses_with_enough_quota.append(rse)
 
-                    space_limit = get_rse_limits(name='MaxSpaceAvailable', rse_id=rse['rse_id'], session=session).get('MaxSpaceAvailable')
-                    if space_limit is None or space_limit < 0:
-                        rse['space_left'] = float('inf')
-                    else:
-                        rse['space_left'] = space_limit - get_rse_counter(rse_id=rse['rse_id'], session=session)['bytes']
-
-        self.rses = [rse for rse in self.rses if rse['quota_left'] > 0]
-
+        self.rses = rses_with_enough_quota
         if len(self.rses) < self.copies:
             raise InsufficientAccountLimit('There is insufficient quota on any of the target RSE\'s to fullfill the operation.')
 
