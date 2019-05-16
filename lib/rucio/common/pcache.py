@@ -805,6 +805,10 @@ class Pcache:
             self.cleanup_failed_transfer()
             return (5, None)
 
+        # Display any output from the copy
+        if (copy_output):
+            print('%s' % copy_output)
+
         # Did the copy succeed (good status and an existing file)
         if ((copy_status > 0) or (not os.path.exists(xfer_file))):
             self.log(ERROR, "copy command failed, elapsed time = %.2f sec", time.time() - t0)
@@ -1035,6 +1039,7 @@ class Pcache:
                 maxfd = os.sysconf("SC_OPEN_MAX")
             except:
                 maxfd = MAXFD  # use default value
+
         for fd in range(0, maxfd + 1):
             try:
                 os.close(fd)
