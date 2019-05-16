@@ -125,7 +125,7 @@ class RSEDeterministicTranslation(object):
         del rse
         del rse_attrs
         del protocol_attrs
-        hstr = hashlib.md5('%s:%s' % (scope, name)).hexdigest()
+        hstr = hashlib.md5(('%s:%s' % (scope, name)).encode('utf-8')).hexdigest()
         if scope.startswith('user') or scope.startswith('group'):
             scope = scope.replace('.', '/')
         return '%s/%s/%s/%s' % (scope, hstr[0:2], hstr[2:4], name)

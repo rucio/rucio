@@ -104,7 +104,7 @@ class Default(protocol.RSEProtocol):
         cmd = 'davix-http --capath /cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase/etc/grid-security-emi/certificates --cert $X509_USER_PROXY -X PROPFIND %s' % pfn
         try:
             rcode, output = run_cmd_process(cmd, timeout=10)
-        except Exception, e:
+        except Exception as e:
             raise exception.ServiceUnavailable('Could not retrieve STORM WebDAV ETag: %s' % str(e))
         p_output = minidom.parseString(output)
 
@@ -118,7 +118,7 @@ class Default(protocol.RSEProtocol):
         # make the symlink
         try:
             os.symlink(target, dest)
-        except Exception, e:
+        except Exception as e:
             exception.ServiceUnavailable('Could not create symlink: %s for target %s' % (str(e), str(target)))
 
     def put(self, source, target, source_dir=None, transfer_timeout=None):
