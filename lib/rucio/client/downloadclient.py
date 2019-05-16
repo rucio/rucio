@@ -40,8 +40,7 @@ except ImportError:
 from threading import Thread
 
 from rucio.client.client import Client
-from rucio.common.exception import (InputValidationError, NoFilesDownloaded, ServiceUnavailable,
-                                    NotAllFilesDownloaded, RSENotFound, RucioException, SourceNotFound)
+from rucio.common.exception import (InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RSENotFound, RucioException)
 from rucio.common.pcache import Pcache
 from rucio.common.utils import adler32, md5, detect_client_location, generate_uuid, parse_replicas_from_string, send_trace, sizefmt, execute, parse_replicas_from_file
 from rucio.rse import rsemanager as rsemgr
@@ -165,118 +164,6 @@ class DownloadClient:
         # tar -C <dest_dir_path> -xf <archive_file_path>  <did_name>
         extract_args = '-C %(dest_dir_path)s -xf %(archive_file_path)s %(file_to_extract)s'
         self.extraction_tools.append(BaseExtractionTool('tar', '--version', extract_args, logger))
-
-    def download_file_from_archive(self, items, trace_custom_fields={}):
-        """
-        Download items with a given PFN. This function can only download files, no datasets.
-
-        :param items: List of dictionaries. Each dictionary describing a file to download. Keys:
-            did                 - DID string of the archive file (e.g. 'scope:file.name'). Wildcards are not allowed
-            archive             - DID string of the archive from which the file should be extracted
-            rse                 - Optional: rse name (e.g. 'CERN-PROD_DATADISK'). RSE Expressions are allowed
-            base_dir            - Optional: Base directory where the downloaded files will be stored. (Default: '.')
-            no_subdir           - Optional: If true, files are written directly into base_dir and existing files are overwritten. (Default: False)
-        :param trace_custom_fields: Custom key value pairs to send with the traces
-
-        :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
-                  clientState can be one of the following: ALREADY_DONE, DONE, FILE_NOT_FOUND, FAIL_VALIDATE, FAILED
-
-        :raises InputValidationError: if one of the input items is in the wrong format
-        :raises NoFilesDownloaded: if no files could be downloaded
-        :raises NotAllFilesDownloaded: if not all files could be downloaded
-        :raises SourceNotFound: if xrdcp was unable to find the PFN
-        :raises ServiceUnavailable: if xrdcp failed
-        :raises RucioException: if something unexpected went wrong during the download
-        """
-        logger = self.logger
-        trace = copy.deepcopy(self.trace_tpl)
-        trace['uuid'] = generate_uuid()
-        log_prefix = 'Extracting files: '
-
-        logger.info('Processing %d item(s) for input' % len(items))
-        for item in items:
-            archive = item.get('archive')
-            file_extract = item.get('did')
-            rse_name = item.get('rse')
-            if not archive or not file_extract:
-                raise InputValidationError('File DID and archive DID are mandatory')
-            if '*' in archive:
-                logger.debug(archive)
-                raise InputValidationError('Cannot use PFN download with wildcard in DID')
-
-            file_extract_scope, file_extract_name = self._split_did_str(file_extract)
-            archive_scope, archive_name = self._split_did_str(archive)
-
-            # listing all available replicas of given archhive file
-            rse_expression = 'istape=False' if not rse_name else '(%s)&istape=False' % rse_name
-            archive_replicas = self.client.list_replicas([{'scope': archive_scope, 'name': archive_name}],
-                                                         schemes=['root'],
-                                                         rse_expression=rse_expression,
-                                                         unavailable=False,
-                                                         client_location=self.client_location)
-
-            # preparing trace
-            trace['scope'] = archive_scope
-            trace['dataset'] = archive_name
-            trace['filename'] = file_extract
-
-            # preparing output directories
-            dest_dir_path = self._prepare_dest_dir(item.get('base_dir', '.'),
-                                                   os.path.join(archive_scope, archive_name + '.extracted'), file_extract,
-                                                   item.get('no_subdir'))
-            logger.debug('%sPreparing output destination %s' % (log_prefix, dest_dir_path))
-
-            # validation and customisation of list of replicas
-            archive_replicas = list(archive_replicas)
-            if len(archive_replicas) != 1:
-                raise RucioException('No replicas for DID found or dataset was given.')
-            archive_pfns = archive_replicas[0]['pfns'].keys()
-            if len(archive_pfns) == 0:
-                raise InputValidationError('No PFNs for replicas of archive %s' % archive)
-
-            # checking whether file already exists
-            success = False
-            dest_file_path = os.path.join(dest_dir_path, file_extract)
-            if os.path.isfile(dest_file_path):
-                logger.info('%s%s File exists already locally: %s' % (log_prefix, file_extract_name, dest_dir_path))
-                trace['clientState'] = 'ALREADY_DONE'
-                trace['transferStart'] = time.time()
-                trace['transferEnd'] = time.time()
-                self._send_trace(trace)
-                success = True
-
-            # DOWNLOAD, iteration over different rses unitl success
-            retry_counter = 0
-            while not success and len(archive_pfns):
-                retry_counter += 1
-                pfn = archive_pfns.pop()
-                trace['rse'] = archive_replicas[0]['pfns'][pfn]['rse']
-                try:
-                    start_time = time.time()
-                    cmd = 'xrdcp -vf %s -z %s %s' % (pfn, file_extract_name, dest_dir_path)
-                    logger.debug('%sExecuting: %s' % (log_prefix, cmd))
-                    status, out, err = execute(cmd)
-                    end_time = time.time()
-                    trace['transferStart'] = start_time
-                    trace['transferEnd'] = end_time
-                    if status == 54:
-                        trace['clientState'] = 'FAILED'
-                        raise SourceNotFound(err)
-                    elif status != 0:
-                        trace['clientState'] = 'FAILED'
-                        raise RucioException(err)
-                    else:
-                        success = True
-                        item['clientState'] = 'DONE'
-                        trace['clientState'] = 'DONE'
-                except Exception as e:
-                    trace['clientState'] = 'FAILED'
-                    trace['stateReason'] = str(ServiceUnavailable(e))
-                    raise ServiceUnavailable(e)
-                self._send_trace(trace)
-            if not success:
-                raise RucioException('Failed to download file %s after %d retries' % (file_extract_name, retry_counter))
-        return self._check_output(items)
 
     def download_pfns(self, items, num_threads=2, trace_custom_fields={}):
         """
