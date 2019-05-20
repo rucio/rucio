@@ -931,6 +931,8 @@ def download(args):
     item_defaults['transfer_timeout'] = args.transfer_timeout
     item_defaults['no_resolve_archives'] = args.no_resolve_archives
     archive_did = args.archive_did
+    if archive_did:
+        logger.warning("Archives are treated transparently. --archive-did option is being obsoleted.")  # TODO
 
     # Get filters
     filters = {}
@@ -952,7 +954,7 @@ def download(args):
             return FAILURE
         item_defaults['filters'] = filters
 
-    if not args.pfn and not archive_did:
+    if not args.pfn:
         item_defaults['force_scheme'] = args.protocol
         item_defaults['nrandom'] = args.nrandom
 
@@ -971,19 +973,6 @@ def download(args):
             result = download_client.download_from_metalink_file(items[0], args.metalink_file)
         else:
             result = download_client.download_dids(items, args.ndownloader, trace_pattern)
-    elif archive_did:
-        if args.aria:
-            logger.warning('Ignoring --aria option because --archive_did option given')
-        if args.protocol:
-            logger.warning('Ignoring --protocol option because --archive_did option given')
-
-        item_defaults['archive'] = archive_did
-        items = []
-        for did in args.dids:
-            item = {'did': did}
-            item.update(item_defaults)
-            items.append(item)
-        result = download_client.download_file_from_archive(items, trace_pattern)
     else:
         if args.aria:
             logger.warning('Ignoring --aria option because --pfn option given')
@@ -2016,7 +2005,7 @@ You can filter by key/value, e.g.::
         selected_parser.add_argument('--ndownloader', type=int, default=3, action='store', help='Choose the number of parallel processes for download.')
         selected_parser.add_argument('--no-subdir', action='store_true', default=False, help="Don't create a subdirectory for the scope of the files. Existing files in the directory will be overwritten.")
         selected_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
-        selected_parser.add_argument('--archive-did', action='store', dest='archive_did', help="DID of an archive from where to extract the files.")
+        selected_parser.add_argument('--archive-did', action='store', dest='archive_did', help="Download from archive is transparent. This option is obsolete.")
         selected_parser.add_argument('--no-resolve-archives', action='store_true', default=False, help="If set archives will not be considered for download.")
         selected_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('download', 'transfer_timeout', False, 3600), help='Transfer timeout (in seconds).')
         selected_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
