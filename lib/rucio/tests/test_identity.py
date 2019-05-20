@@ -9,6 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
 """
 Test the Identity abstraction layer
@@ -17,6 +18,7 @@ Test the Identity abstraction layer
 from nose.tools import assert_equal
 from paste.fixture import TestApp
 
+from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account, del_account
 from rucio.core.identity import add_identity, del_identity, add_account_identity, del_account_identity, list_identities
@@ -33,7 +35,7 @@ class TestIdentity(object):
 
     def setup(self):
         """ Setup the Test Case """
-        self.account = account_name_generator()
+        self.account = InternalAccount(account_name_generator())
         add_account(self.account, AccountType.USER, 'rucio@email.com')
 
     def tearDown(self):
@@ -43,7 +45,7 @@ class TestIdentity(object):
     def test_userpass(self):
         """ IDENTITY (CORE): Test adding and removing username/password authentication """
 
-        add_identity(self.account, IdentityType.USERPASS, email='ph-adp-ddm-lab@cern.ch', password='secret')
+        add_identity(self.account.external, IdentityType.USERPASS, email='ph-adp-ddm-lab@cern.ch', password='secret')
         add_account_identity('ddmlab_%s' % self.account, IdentityType.USERPASS, self.account, email='ph-adp-ddm-lab@cern.ch', password='secret')
 
         add_identity('/ch/cern/rucio/ddmlab_%s' % self.account, IdentityType.X509, email='ph-adp-ddm-lab@cern.ch')
@@ -63,13 +65,13 @@ class TestIdentity(object):
     def test_ssh(self):
         """ IDENTITY (CORE): Test adding and removing SSH public key authentication """
 
-        add_identity(self.account, IdentityType.SSH, email='ph-adp-ddm-lab@cern.ch')
+        add_identity(self.account.external, IdentityType.SSH, email='ph-adp-ddm-lab@cern.ch')
         add_account_identity('my_public_key', IdentityType.SSH, self.account, email='ph-adp-ddm-lab@cern.ch')
 
         list_identities()
 
         del_account_identity('my_public_key', IdentityType.SSH, self.account)
-        del_identity(self.account, IdentityType.SSH)
+        del_identity(self.account.external, IdentityType.SSH)
 
 
 class TestIdentityRest(object):

@@ -228,7 +228,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                             for replica in files:
                                 try:
                                     replica['pfn'] = str(rsemgr.lfns2pfns(rse_settings=rse_info,
-                                                                          lfns=[{'scope': replica['scope'], 'name': replica['name'], 'path': replica['path']}],
+                                                                          lfns=[{'scope': replica['scope'].external, 'name': replica['name'], 'path': replica['path']}],
                                                                           operation='delete', scheme=scheme).values()[0])
                                 except (ReplicaUnAvailable, ReplicaNotFound) as error:
                                     err_msg = 'Failed to get pfn UNAVAILABLE replica %s:%s on %s with error %s' % (replica['scope'], replica['name'], rse['rse'], str(error))
@@ -261,7 +261,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
 
                                         deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
 
-                                        add_message('deletion-done', {'scope': replica['scope'],
+                                        add_message('deletion-done', {'scope': replica['scope'].external,
                                                                       'name': replica['name'],
                                                                       'rse': rse_info['rse'],
                                                                       'rse_id': rse_info['id'],
@@ -276,7 +276,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                         logging.warning(err_msg)
                                         deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
                                         if replica['state'] == ReplicaState.AVAILABLE:
-                                            add_message('deletion-failed', {'scope': replica['scope'],
+                                            add_message('deletion-failed', {'scope': replica['scope'].external,
                                                                             'name': replica['name'],
                                                                             'rse': rse_info['rse'],
                                                                             'rse_id': rse_info['id'],
@@ -287,7 +287,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                             'protocol': prot.attributes['scheme']})
                                     except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
                                         logging.warning('Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(error))
-                                        add_message('deletion-failed', {'scope': replica['scope'],
+                                        add_message('deletion-failed', {'scope': replica['scope'].external,
                                                                         'name': replica['name'],
                                                                         'rse': rse_info['rse'],
                                                                         'rse_id': rse_info['id'],
@@ -298,7 +298,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                         'protocol': prot.attributes['scheme']})
                                     except Exception as error:
                                         logging.critical('Reaper %s-%s: Deletion CRITICAL of %s:%s as %s on %s: %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(traceback.format_exc()))
-                                        add_message('deletion-failed', {'scope': replica['scope'],
+                                        add_message('deletion-failed', {'scope': replica['scope'].external,
                                                                         'name': replica['name'],
                                                                         'rse': rse_info['rse'],
                                                                         'rse_id': rse_info['id'],
@@ -312,7 +312,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                             except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
                                 for replica in files:
                                     logging.warning('Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(error))
-                                    add_message('deletion-failed', {'scope': replica['scope'],
+                                    add_message('deletion-failed', {'scope': replica['scope'].external,
                                                                     'name': replica['name'],
                                                                     'rse': rse_info['rse'],
                                                                     'rse_id': rse_info['id'],

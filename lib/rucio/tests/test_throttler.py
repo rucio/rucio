@@ -20,6 +20,7 @@
 from datetime import datetime
 from nose.tools import assert_equal
 
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.config import set, remove_option
 from rucio.core.did import attach_dids, add_did
@@ -39,8 +40,8 @@ class TestThrottlerGroupedFIFO(object):
         cls.source_rse = 'MOCK4'
         cls.dest_rse_id = get_rse_id(cls.dest_rse)
         cls.source_rse_id = get_rse_id(cls.source_rse)
-        cls.scope = 'mock'
-        cls.account = 'root'
+        cls.scope = InternalScope('mock')
+        cls.account = InternalAccount('root')
         cls.user_activity = 'User Subscription'
         cls.all_activities = 'all_activities'
         set('throttler_release_strategy', 'dest_%s' % cls.dest_rse_id, 'grouped_fifo')
@@ -374,8 +375,8 @@ class TestThrottlerFIFO(object):
         cls.source_rse = 'MOCK4'
         cls.dest_rse_id = get_rse_id(cls.dest_rse)
         cls.source_rse_id = get_rse_id(cls.source_rse)
-        cls.scope = 'mock'
-        cls.account = 'root'
+        cls.scope = InternalScope('mock')
+        cls.account = InternalAccount('root')
         cls.user_activity = 'User Subscription'
         cls.all_activities = 'all_activities'
         set_rse_transfer_limits(cls.dest_rse_id, cls.user_activity, max_transfers=1, session=cls.db_session)

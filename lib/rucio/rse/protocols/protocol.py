@@ -25,7 +25,7 @@
 # - Nicolo Magini <Nicolo.Magini@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - James Clark <james.clark@physics.gatech.edu>, 2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -53,6 +53,7 @@ if getattr(rsemanager, 'CLIENT_MODE', None):
     from rucio.client.rseclient import RSEClient
 
 if getattr(rsemanager, 'SERVER_MODE', None):
+    from rucio.common.types import InternalScope
     from rucio.core import replica
 
 
@@ -255,7 +256,7 @@ class RSEProtocol(object):
 
         lfns = [lfns] if isinstance(lfns, dict) else lfns
         for lfn in lfns:
-            scope, name = lfn['scope'], lfn['name']
+            scope, name = str(lfn['scope']), lfn['name']
             if 'path' in lfn and lfn['path'] is not None:
                 pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'],
                                                          '://',
@@ -303,6 +304,7 @@ class RSEProtocol(object):
 
     def _get_path_nondeterministic_server(self, scope, name):  # pylint: disable=invalid-name
         """ Provides the path of a replica for non-deterministic sites. Will be assigned to get path by the __init__ method if neccessary. """
+        scope = InternalScope(scope)
         rep = replica.get_replica(scope=scope, name=name, rse_id=self.rse['id'])
         if 'path' in rep and rep['path'] is not None:
             path = rep['path']

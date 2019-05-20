@@ -38,6 +38,7 @@ import json
 import stomp
 
 from rucio.common.config import config_get, config_get_int
+from rucio.common.types import InternalScope
 from rucio.core.monitor import record_counter
 from rucio.core.volatile_replica import add_volatile_replicas, delete_volatile_replicas
 from rucio.core.rse import get_rse_id
@@ -83,6 +84,8 @@ class Consumer(object):
         try:
             msg = json.loads(message)
             if isinstance(msg, dict) and 'operation' in msg.keys():
+                for f in msg['files']:
+                    f['scope'] = InternalScope(f['scope'])
                 if 'rse_id' in msg:
                     rse_id = msg['rse_id']
                 else:

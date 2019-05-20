@@ -7,6 +7,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2018
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -18,7 +19,10 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.dialects.oracle import RAW, CLOB
 from sqlalchemy.dialects.mysql import BINARY
 from sqlalchemy.types import TypeDecorator, CHAR, String
+from sqlalchemy.sql import operators
 import sqlalchemy.types as types
+from rucio.common.exception import InvalidType
+from rucio.common.types import InternalAccount, InternalScope
 
 
 class GUID(TypeDecorator):
@@ -136,3 +140,65 @@ class JSON(TypeDecorator):
             return dialect.type_descriptor(CLOB())
         else:
             return dialect.type_descriptor(String())
+
+
+class InternalAccountString(TypeDecorator):
+    """
+    Encode InternalAccount in a VARCHAR type for all databases.
+    """
+
+    impl = String
+
+    def load_dialect_imp(self, dialect):
+        return dialect.type_descriptor(String(255))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+
+        if isinstance(value, string_types):
+            raise InvalidType('Cannot insert to db. Expected InternalAccount, got string type.')
+        else:
+            return value.internal
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        return InternalAccount(value, fromExternal=False)
+
+    def coerce_compared_value(self, op, value):
+        if op in (operators.like_op, operators.notlike_op):
+            return String()
+        else:
+            return self
+
+
+class InternalScopeString(TypeDecorator):
+    """
+    Encode InternalScope in a VARCHAR type for all databases.
+    """
+
+    impl = String
+
+    def load_dialect_imp(self, dialect):
+        return dialect.type_descriptor(String(255))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+
+        if isinstance(value, string_types):
+            raise InvalidType('Cannot insert to db. Expected InternalScope, got string type.')
+        else:
+            return value.internal
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        return InternalScope(value, fromExternal=False)
+
+    def coerce_compared_value(self, op, value):
+        if op in (operators.like_op, operators.notlike_op):
+            return String()
+        else:
+            return self

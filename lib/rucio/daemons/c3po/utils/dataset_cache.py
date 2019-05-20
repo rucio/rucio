@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -27,11 +28,11 @@ class DatasetCache(object):
             self._tms.delete_keys()
 
     def add_did(self, did):
-        self._tms.add_point('_'.join(did), 1)
+        self._tms.add_point('{}_{}'.format(did[0].internal, did[1]), 1)
 
     def get_did(self, did):
         self._tms.trim()
 
-        series = self._tms.get_series('_'.join(did))
+        series = self._tms.get_series('{}_{}'.format(did[0].internal, did[1]))
 
         return len(series)

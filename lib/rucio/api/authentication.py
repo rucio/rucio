@@ -16,11 +16,14 @@
 # - Mario Lassnig <mario@lassnig.net>, 2012-2018
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
 from rucio.api import permission
 from rucio.common import exception
+from rucio.common.types import InternalAccount
+from rucio.common.utils import api_update_return_dict
 from rucio.core import authentication, identity
 from rucio.db.sqla.constants import IdentityType
 
@@ -43,6 +46,8 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None):
     if not permission.has_permission(issuer=account, action='get_auth_token_user_pass', kwargs=kwargs):
         raise exception.AccessDenied('User with identity %s can not log to account %s' % (username, account))
 
+    account = InternalAccount(account)
+
     return authentication.get_auth_token_user_pass(account, username, password, appid, ip)
 
 
@@ -63,6 +68,8 @@ def get_auth_token_gss(account, gsscred, appid, ip=None):
     if not permission.has_permission(issuer=account, action='get_auth_token_gss', kwargs=kwargs):
         raise exception.AccessDenied('User with identity %s can not log to account %s' % (gsscred, account))
 
+    account = InternalAccount(account)
+
     return authentication.get_auth_token_gss(account, gsscred, appid, ip)
 
 
@@ -80,11 +87,13 @@ def get_auth_token_x509(account, dn, appid, ip=None):
     """
 
     if account is None:
-        account = identity.get_default_account(dn, IdentityType.X509)
+        account = identity.get_default_account(dn, IdentityType.X509).external
 
     kwargs = {'account': account, 'dn': dn}
     if not permission.has_permission(issuer=account, action='get_auth_token_x509', kwargs=kwargs):
         raise exception.AccessDenied('User with identity %s can not log to account %s' % (dn, account))
+
+    account = InternalAccount(account)
 
     return authentication.get_auth_token_x509(account, dn, appid, ip)
 
@@ -106,6 +115,8 @@ def get_auth_token_ssh(account, signature, appid, ip=None):
     if not permission.has_permission(issuer=account, action='get_auth_token_ssh', kwargs=kwargs):
         raise exception.AccessDenied('User with provided signature can not log to account %s' % account)
 
+    account = InternalAccount(account)
+
     return authentication.get_auth_token_ssh(account, signature, appid, ip)
 
 
@@ -125,6 +136,8 @@ def get_ssh_challenge_token(account, appid, ip=None):
     if not permission.has_permission(issuer=account, action='get_ssh_challenge_token', kwargs=kwargs):
         raise exception.AccessDenied('User can not get challenge token for account %s' % account)
 
+    account = InternalAccount(account)
+
     return authentication.get_ssh_challenge_token(account, appid, ip)
 
 
@@ -136,4 +149,4 @@ def validate_auth_token(token):
     :returns: Tuple(account identifier, token lifetime) if successful, None otherwise.
     """
 
-    return authentication.validate_auth_token(token)
+    return api_update_return_dict(authentication.validate_auth_token(token))
