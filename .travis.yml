@@ -100,8 +100,6 @@ matrix:
   - python: 3.6
     env:  SUITE=all RDBMS=mysql
   - python: 3.6
-    env:  SUITE=all RDBMS=postgres
-  - python: 3.6
     env:  SUITE=all RDBMS=sqlite
   allow_failures:
   - python: 3.6
@@ -109,6 +107,8 @@ matrix:
   - python: 3.6
     env: SUITE=client RDBMS=sqlite RUCIO_HOME=`pwd`
   - python: 3.5
+    env:  SUITE=all RDBMS=postgres
+  - python: 3.6
     env:  SUITE=all RDBMS=postgres
 
 notifications:
