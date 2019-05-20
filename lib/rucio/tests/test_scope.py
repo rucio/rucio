@@ -11,6 +11,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
 from json import dumps, loads
 
@@ -20,6 +21,7 @@ from nose.tools import assert_equal, assert_true, assert_in, raises, assert_rais
 from rucio.client.accountclient import AccountClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.common.exception import AccountNotFound, Duplicate, ScopeNotFound, InvalidObject
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.scope import get_scopes, add_scope, is_scope_owner
 from rucio.tests.common import account_name_generator, scope_name_generator
@@ -30,21 +32,22 @@ from rucio.web.rest.authentication import APP as auth_app
 class TestScopeCoreApi():
 
     def __init__(self):
-        self.scopes = [scope_name_generator() for _ in range(5)]
+        self.scopes = [InternalScope(scope_name_generator()) for _ in range(5)]
+        self.jdoe = InternalAccount('jdoe')
 
     def test_list_scopes(self):
         """ SCOPE (CORE): List scopes """
         for scope in self.scopes:
-            add_scope(scope=scope, account='jdoe')
-        scopes = get_scopes(account='jdoe')
+            add_scope(scope=scope, account=self.jdoe)
+        scopes = get_scopes(account=self.jdoe)
         for scope in scopes:
             assert_in(scope, scopes)
 
     def test_is_scope_owner(self):
         """ SCOPE (CORE): Is scope owner """
-        scope = scope_name_generator()
-        add_scope(scope=scope, account='jdoe')
-        anwser = is_scope_owner(scope=scope, account='jdoe')
+        scope = InternalScope(scope_name_generator())
+        add_scope(scope=scope, account=self.jdoe)
+        anwser = is_scope_owner(scope=scope, account=self.jdoe)
         assert_equal(anwser, True)
 
 

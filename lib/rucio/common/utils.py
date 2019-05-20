@@ -53,8 +53,6 @@ from uuid import uuid4 as uuid
 from six import string_types
 from xml.etree import ElementTree
 
-from rucio.common.exception import InputValidationError, MetalinkJsonParsingError
-
 try:
     # Python 2
     from itertools import izip_longest
@@ -81,7 +79,10 @@ except ImportError:
     import urllib.parse as urlparse
 
 from rucio.common.config import config_get
-from rucio.common.exception import MissingModuleException, InvalidType
+from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError
+from rucio.common.types import InternalAccount, InternalScope
+# delay import until function to avoid circular dependancy (note here for reference)
+# from rucio.core.rse import get_rse_name
 
 # Extra modules: Only imported if available
 EXTRA_MODULES = {'web': False,
@@ -251,6 +252,8 @@ class APIEncoder(json.JSONEncoder):
             return obj.days * 24 * 60 * 60 + obj.seconds
         elif isinstance(obj, EnumSymbol):
             return obj.description
+        elif isinstance(obj, (InternalAccount, InternalScope)):
+            return obj.external
         return json.JSONEncoder.default(self, obj)
 
 
@@ -1020,7 +1023,6 @@ def api_update_return_dict(dictionary):
     if not isinstance(dictionary, dict):
         return dictionary
 
-    from rucio.core.rse import get_rse_name  # Here to avoid circular dependancy
     copied = False  # Avoid side effects from pass by object
 
     if 'rse_id' in dictionary.keys():
@@ -1028,6 +1030,18 @@ def api_update_return_dict(dictionary):
             if not copied:
                 dictionary = dictionary.copy()
                 copied = True
-            dictionary['rse'] = get_rse_name(rse_id=dictionary['rse_id'])
+
+            import rucio.core.rse
+            dictionary['rse'] = rucio.core.rse.get_rse_name(rse_id=dictionary['rse_id'])
+    if 'account' in dictionary.keys():
+        if not copied:
+            dictionary = dictionary.copy()
+            copied = True
+        dictionary['account'] = dictionary['account'].external
+    if 'scope' in dictionary.keys():
+        if not copied:
+            dictionary = dictionary.copy()
+            copied = True
+        dictionary['scope'] = dictionary['scope'].external
 
     return dictionary

@@ -191,8 +191,8 @@ def add_dids(dids, account, session=None):
                 if did['type'] == DIDType.DATASET:
                     event_type = 'CREATE_DTS'
                 if event_type:
-                    add_message(event_type, {'account': account,
-                                             'scope': did['scope'],
+                    add_message(event_type, {'account': account.external,
+                                             'scope': did['scope'].external,
                                              'name': did['name'],
                                              'expired_at': str(expired_at) if expired_at is not None else None},
                                 session=session)
@@ -269,21 +269,21 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
             existing_content.append(row)
 
     for row in files_query.filter(or_(*file_condition)):
-        existing_files[row.scope + ':' + row.name] = {'child_scope': row.scope,
-                                                      'child_name': row.name,
-                                                      'scope': scope,
-                                                      'name': name,
-                                                      'bytes': row.bytes,
-                                                      'adler32': row.adler32,
-                                                      'md5': row.md5,
-                                                      'guid': row.guid,
-                                                      'length': row.events}
+        existing_files['%s:%s' % (row.scope.internal, row.name)] = {'child_scope': row.scope,
+                                                                    'child_name': row.name,
+                                                                    'scope': scope,
+                                                                    'name': name,
+                                                                    'bytes': row.bytes,
+                                                                    'adler32': row.adler32,
+                                                                    'md5': row.md5,
+                                                                    'guid': row.guid,
+                                                                    'length': row.events}
 
     contents = []
     new_files, existing_files_condition = [], []
     for file in files:
-
-        if file['scope'] + ':' + file['name'] not in existing_files:
+        did_tag = '%s:%s' % (file['scope'].internal, file['name'])
+        if did_tag not in existing_files:
             # For non existing files
             # Add them to the content
             contents.append({'child_scope': file['scope'],
@@ -310,7 +310,7 @@ def __add_files_to_archive(scope, name, files, account, ignore_duplicate=False, 
                                                  models.DataIdentifier.name == file['name']))
             # Check if they are not already in the content
             if not existing_content or (scope, name, file['scope'], file['name']) not in existing_content:
-                contents.append(existing_files[file['scope'] + ':' + file['name']])
+                contents.append(existing_files[did_tag])
 
     # insert into archive_contents
     try:
@@ -431,14 +431,14 @@ def __add_collections_to_container(scope, name, collections, account, session):
         if not child_type:
             child_type = row.did_type
 
-        available_dids[row.scope + row.name] = row.did_type
+        available_dids['%s:%s' % (row.scope.internal, row.name)] = row.did_type
 
         if child_type != row.did_type:
             raise exception.UnsupportedOperation("Mixed collection is not allowed: '%s:%s' is a %s(expected type: %s)" % (row.scope, row.name, row.did_type, child_type))
 
     for c in collections:
         did_asso = models.DataIdentifierAssociation(scope=scope, name=name, child_scope=c['scope'], child_name=c['name'],
-                                                    did_type=DIDType.CONTAINER, child_type=available_dids.get(c['scope'] + c['name']), rule_evaluation=True)
+                                                    did_type=DIDType.CONTAINER, child_type=available_dids.get('%s:%s' % (c['scope'].internal, c['name'])), rule_evaluation=True)
         did_asso.save(session=session, flush=False)
         # Send AMI messages
         if child_type == DIDType.CONTAINER:
@@ -447,10 +447,10 @@ def __add_collections_to_container(scope, name, collections, account, session):
             chld_type = 'DATASET'
         else:
             chld_type = 'UNKNOWN'
-        add_message('REGISTER_CNT', {'account': account,
-                                     'scope': scope,
+        add_message('REGISTER_CNT', {'account': account.external,
+                                     'scope': scope.external,
                                      'name': name,
-                                     'childscope': c['scope'],
+                                     'childscope': c['scope'].external,
                                      'childname': c['name'],
                                      'childtype': chld_type},
                     session=session)
@@ -619,8 +619,8 @@ def delete_dids(dids, account, expire_rules=False, session=None):
         rule_id_clause.append(and_(models.ReplicationRule.scope == did['scope'], models.ReplicationRule.name == did['name']))
 
         # Send message
-        add_message('ERASE', {'account': account,
-                              'scope': did['scope'],
+        add_message('ERASE', {'account': account.external,
+                              'scope': did['scope'].external,
                               'name': did['name']},
                     session=session)
     # Delete rules on did
@@ -765,17 +765,17 @@ def detach_dids(scope, name, dids, session=None):
             else:
                 chld_type = 'UNKNOWN'
 
-            add_message('ERASE_CNT', {'scope': scope,
+            add_message('ERASE_CNT', {'scope': scope.external,
                                       'name': name,
-                                      'childscope': source['scope'],
+                                      'childscope': source['scope'].external,
                                       'childname': source['name'],
                                       'childtype': chld_type},
                         session=session)
 
-        add_message('DETACH', {'scope': scope,
+        add_message('DETACH', {'scope': scope.external,
                                'name': name,
                                'did_type': str(did.did_type),
-                               'child_scope': str(source['scope']),
+                               'child_scope': source['scope'].external,
                                'child_name': str(source['name']),
                                'child_type': str(child_type)},
                     session=session)
@@ -1478,7 +1478,7 @@ def set_status(scope, name, session=None, **kwargs):
                 session.query(models.DatasetLock).filter_by(scope=scope, name=name).update({'length': values['length'], 'bytes': values['bytes']})
 
                 # Generate a message
-                add_message('CLOSE', {'scope': scope, 'name': name,
+                add_message('CLOSE', {'scope': scope.external, 'name': name,
                                       'bytes': values['bytes'],
                                       'length': values['length'],
                                       'events': values['events']},
@@ -1488,7 +1488,7 @@ def set_status(scope, name, session=None, **kwargs):
                 # Set status to open only for privileged accounts
                 query = query.filter_by(is_open=False).filter(models.DataIdentifier.did_type != DIDType.FILE)
                 values['is_open'] = True
-                add_message('OPEN', {'scope': scope, 'name': name}, session=session)
+                add_message('OPEN', {'scope': scope.external, 'name': name}, session=session)
 
     rowcount = query.update(values, synchronize_session='fetch')
 

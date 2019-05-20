@@ -20,6 +20,7 @@
 from datetime import datetime
 from nose.tools import assert_equal
 
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.did import attach_dids, add_did
 from rucio.core.replica import add_replica
@@ -38,8 +39,8 @@ class TestRequestCore(object):
         cls.source_rse = 'MOCK4'
         cls.dest_rse_id = get_rse_id(cls.dest_rse)
         cls.source_rse_id = get_rse_id(cls.source_rse)
-        cls.scope = 'mock'
-        cls.account = 'root'
+        cls.scope = InternalScope('mock')
+        cls.account = InternalAccount('root')
         cls.user_activity = 'User Subscription'
         cls.all_activities = 'all_activities'
 
@@ -736,7 +737,7 @@ class TestRequestCore(object):
             'scope': self.scope,
             'rule_id': generate_uuid(),
             'retry_count': 1,
-            'account': 'jdoe',
+            'account': InternalAccount('jdoe'),
             'attributes': {
                 'activity': self.user_activity,
                 'bytes': 1,

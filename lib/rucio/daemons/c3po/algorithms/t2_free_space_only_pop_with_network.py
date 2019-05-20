@@ -88,12 +88,12 @@ class PlacementAlgorithm:
                 self._src_penalties[rse_id] += 10.0
 
     def check_did(self, did):
-        decision = {'did': ':'.join(did)}
-        if (self._added_cache.check_dataset(':'.join(did))):
+        decision = {'did': '{}:{}'.format(did[0].internal, did[1])}
+        if (self._added_cache.check_dataset(decision['did'])):
             decision['error_reason'] = 'already added replica for this did in the last 24h'
             return decision
 
-        if (not did[0].startswith('data')) and (not did[0].startswith('mc')):
+        if (not did[0].external.startswith('data')) and (not did[0].external.startswith('mc')):
             decision['error_reason'] = 'not a data or mc dataset'
             return decision
 
@@ -165,8 +165,8 @@ class PlacementAlgorithm:
         space_info = self._fsc.get_rse_space()
         max_mbps = 0.0
         for rep in reps:
-            rse_attr = list_rse_attributes(rep['id'])
-            src_rse_id = rep['id']
+            rse_attr = list_rse_attributes(rep['rse_id'])
+            src_rse_id = rep['rse_id']
             if 'site' not in rse_attr:
                 continue
 
@@ -269,7 +269,7 @@ class PlacementAlgorithm:
         self._dst_penalties[destination_rse] = 10.0
         self._src_penalties[source_rse] = 10.0
 
-        self._added_cache.add_dataset(':'.join(did))
+        self._added_cache.add_dataset(decision['did'])
 
         self._added_bytes.add_point(destination_rse, meta['bytes'])
         self._added_files.add_point(destination_rse, meta['length'])

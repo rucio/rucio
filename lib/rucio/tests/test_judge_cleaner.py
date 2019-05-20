@@ -9,6 +9,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014-2018
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account_limit import set_account_limit
 from rucio.core.did import add_did, attach_dids
@@ -50,27 +51,29 @@ class TestJudgeCleaner():
         add_rse_attribute(cls.rse5_id, "fakeweight", 0)
 
         # Add quota
-        set_account_limit('jdoe', cls.rse1_id, -1)
-        set_account_limit('jdoe', cls.rse3_id, -1)
-        set_account_limit('jdoe', cls.rse4_id, -1)
-        set_account_limit('jdoe', cls.rse5_id, -1)
+        cls.jdoe = InternalAccount('jdoe')
+        cls.root = InternalAccount('root')
+        set_account_limit(cls.jdoe, cls.rse1_id, -1)
+        set_account_limit(cls.jdoe, cls.rse3_id, -1)
+        set_account_limit(cls.jdoe, cls.rse4_id, -1)
+        set_account_limit(cls.jdoe, cls.rse5_id, -1)
 
-        set_account_limit('root', cls.rse1_id, -1)
-        set_account_limit('root', cls.rse3_id, -1)
-        set_account_limit('root', cls.rse4_id, -1)
-        set_account_limit('root', cls.rse5_id, -1)
+        set_account_limit(cls.root, cls.rse1_id, -1)
+        set_account_limit(cls.root, cls.rse3_id, -1)
+        set_account_limit(cls.root, cls.rse4_id, -1)
+        set_account_limit(cls.root, cls.rse5_id, -1)
 
     def test_judge_expire_rule(self):
         """ JUDGE CLEANER: Test the judge when deleting expired rules"""
-        scope = 'mock'
+        scope = InternalScope('mock')
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
-        attach_dids(scope, dataset, files, 'jdoe')
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
 
-        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=-3, locked=False, subscription_id=None)[0]
-        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
-        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=3, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=-3, locked=False, subscription_id=None)[0]
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=3, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
 
         rule_cleaner(once=True)
 
@@ -80,14 +83,14 @@ class TestJudgeCleaner():
 
     def test_judge_expire_rule_with_child_rule(self):
         """ JUDGE CLEANER: Test the judge when deleting expired rules with child rules"""
-        scope = 'mock'
+        scope = InternalScope('mock')
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
-        attach_dids(scope, dataset, files, 'jdoe')
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
 
-        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
-        child_rule = add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse3, grouping='NONE', weight='fakeweight', lifetime=-3, locked=False, subscription_id=None)[0]
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+        child_rule = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='NONE', weight='fakeweight', lifetime=-3, locked=False, subscription_id=None)[0]
         update_rule(rule_id, {'child_rule_id': child_rule})
 
         rule_cleaner(once=True)

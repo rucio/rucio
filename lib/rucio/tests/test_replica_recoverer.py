@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 
 from nose.tools import assert_true
 
+from rucio.common.types import InternalScope
 from rucio.core.replica import (update_replica_state, list_replicas, list_bad_replicas_status)
 from rucio.core.rse import get_rse_id
 from rucio.client.replicaclient import ReplicaClient
@@ -36,15 +37,15 @@ class TestReplicaRecoverer():
         self.rse4recovery = 'MOCK_RECOVERY'
         self.rse4recovery_id = get_rse_id(self.rse4recovery)
         self.scope = 'mock'
+        self.internal_scope = InternalScope(self.scope)
 
         # For testing, we create 3 files and upload them to Rucio to two test RSEs.
         self.tmp_file1 = file_generator()
         self.tmp_file2 = file_generator()
         self.tmp_file3 = file_generator()
 
-        self.listdids = [{'scope': self.scope, 'name': path.basename(self.tmp_file1), 'type': DIDType.FILE},
-                         {'scope': self.scope, 'name': path.basename(self.tmp_file2), 'type': DIDType.FILE},
-                         {'scope': self.scope, 'name': path.basename(self.tmp_file3), 'type': DIDType.FILE}]
+        self.listdids = [{'scope': self.internal_scope, 'name': path.basename(f), 'type': DIDType.FILE}
+                         for f in [self.tmp_file1, self.tmp_file2, self.tmp_file3]]
 
         for rse in [self.rse4suspicious, self.rse4recovery]:
             cmd = 'rucio -v upload --rse {0} --scope {1} {2} {3} {4}'.format(rse, self.scope, self.tmp_file1, self.tmp_file2, self.tmp_file3)
@@ -81,7 +82,7 @@ class TestReplicaRecoverer():
                 self.replica_client.declare_bad_file_replicas([suspicious_pfns[0], ], 'This is a good reason')
             if replica['name'] == path.basename(self.tmp_file3):
                 print("Updating replica state as unavailable: " + replica['rses'][self.rse4recovery_id][0])
-                update_replica_state(self.rse4recovery_id, self.scope, path.basename(self.tmp_file3), ReplicaState.UNAVAILABLE)
+                update_replica_state(self.rse4recovery_id, self.internal_scope, path.basename(self.tmp_file3), ReplicaState.UNAVAILABLE)
 
         # Gather replica info after setting initial replica statuses
         replicalist = list_replicas(dids=self.listdids)

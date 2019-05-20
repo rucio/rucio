@@ -31,6 +31,7 @@ try:
     from Queue import Queue
 except ImportError:
     from queue import Queue
+from six import string_types
 from sys import stdout
 from time import sleep
 from threading import Event, Thread
@@ -43,6 +44,7 @@ from requests.exceptions import RequestException
 from rucio.client import Client
 from rucio.common.config import config_get, config_get_options
 from rucio.common.exception import RucioException
+from rucio.common.types import InternalScope
 from rucio.daemons.c3po.collectors.free_space import FreeSpaceCollector
 from rucio.daemons.c3po.collectors.jedi_did import JediDIDCollector
 from rucio.daemons.c3po.collectors.workload import WorkloadCollector
@@ -212,6 +214,8 @@ def place_replica(once=False,
 
             for _ in range(0, len_dids):
                 did = did_queue.get()
+                if isinstance(did[0], string_types):
+                    did[0] = InternalScope(did[0])
                 for algorithm, instance in instances.items():
                     logging.info('(%s:%s) Retrieved %s:%s from queue. Run placement algorithm' % (algorithm, instance_id, did[0], did[1]))
                     decision = instance.place(did)
@@ -249,7 +253,7 @@ def place_replica(once=False,
                     if (not dry_run) and create_rule:
                         # DO IT!
                         try:
-                            add_rule(client, {'scope': did[0], 'name': did[1]}, decision.get('source_rse'), decision.get('destination_rse'))
+                            add_rule(client, {'scope': did[0].external, 'name': did[1]}, decision.get('source_rse'), decision.get('destination_rse'))
                         except RucioException as e:
                             logging.debug(e)
 
