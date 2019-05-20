@@ -190,7 +190,7 @@ if __name__ == '__main__':
                             port = 443
                         elif o.scheme == 'gsiftp':
                             port = 2811
-                        elif o.scheme in ('root', 'storm'):
+                        elif o.scheme in ('root', 'storm'):  # TODO, stadalone port for storm
                             port = 1094
 
                     # For disk end-points not for tape
