@@ -33,7 +33,7 @@ except ImportError:
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
-from rucio.common.utils import build_url, is_checksum_valid, CHECKSUM_KEY
+from rucio.common.utils import build_url
 
 
 class RSEClient(BaseClient):
@@ -171,7 +171,6 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-
     def delete_rse_attribute(self, rse, key):
         """
         Sends the request to delete a RSE attribute.
@@ -190,7 +189,6 @@ class RSEClient(BaseClient):
         else:
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
-
 
     def list_rse_attributes(self, rse):
         """
