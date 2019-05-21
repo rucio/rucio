@@ -210,13 +210,16 @@ def _list_rebalance_rule_candidates_dump(rse, mode=None):
         if mode == 'decommission':  # other modes can be added later
             if rules[r_id]['state'] == 'DELETED':
                 continue
+            if int(rules[r_id]['length']) == 0:
+                continue
             candidates.append((rules[r_id]['scope'],
                                rules[r_id]['name'],
                                r_id,
                                rules[r_id]['rse_expression'],
                                rules[r_id]['subscription_id'],
                                rules[r_id]['bytes'],
-                               rules[r_id]['length']))
+                               rules[r_id]['length'],
+                               int(rules[r_id]['bytes'] / rules[r_id]['length'])))
     return candidates
 
 
