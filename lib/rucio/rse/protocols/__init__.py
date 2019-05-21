@@ -7,4 +7,4 @@
 # These are all protocols which are considered in good health
 # based on generally available support libraries, native dependencies,
 # and implementations in Rucio
-supported_protocols = ['gsiftp', 'srm', 'root', 'davs', 'http', 'https', 'file', 's3', 's3+rucio', 's3+https']
+supported_protocols = ['gsiftp', 'srm', 'root', 'davs', 'http', 'https', 'file', 's3', 's3+rucio', 's3+https', 'storm']

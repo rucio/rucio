@@ -134,7 +134,7 @@ if __name__ == '__main__':
                     for protocol, agis_prio, agis_prefix in rse['aprotocols'][activity]:
                         index += 1
                         o = urlparse.urlparse(protocol)
-                        if o.scheme not in ('https', 'http', 'srm', 'gsiftp', 'root', 'davs', 'dav'):
+                        if o.scheme not in ('https', 'http', 'srm', 'gsiftp', 'root', 'davs', 'dav', 'storm'):
                             continue
                         if (o.scheme, o.netloc) not in priority:
                             priority[(o.scheme, o.netloc)] = {'read_lan': 0, 'read_wan': 0, 'write_lan': 0, 'write_wan': 0, 'delete_lan': 0, 'delete_wan': 0, 'third_party_copy': 0}
@@ -152,7 +152,7 @@ if __name__ == '__main__':
             for protocol in rse['protocols']:
                 try:
                     o = urlparse.urlparse(protocol)
-                    if o.scheme not in ('https', 'http', 'srm', 'gsiftp', 'root', 'davs', 'dav'):
+                    if o.scheme not in ('https', 'http', 'srm', 'gsiftp', 'root', 'davs', 'dav', 'storm'):
                         continue
 
                     protocols = rse['protocols'][protocol]
@@ -190,7 +190,7 @@ if __name__ == '__main__':
                             port = 443
                         elif o.scheme == 'gsiftp':
                             port = 2811
-                        elif o.scheme == 'root':
+                        elif o.scheme in ('root', 'storm'):  # TODO, stadalone port for storm
                             port = 1094
 
                     # For disk end-points not for tape
