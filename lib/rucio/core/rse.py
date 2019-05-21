@@ -380,28 +380,7 @@ def add_rse_attribute(rse_id, key, value, session=None):
 
 
 @transactional_session
-def set_rse_checksum_support(rse, checksum_names, session=None):
-    """ Adds a RSE attribute.
-
-    :param rse: the rse name.
-    :param checksum_names: the checksum name[s] as a single item or a list.
-    :param session: The database session in use.
-
-    :returns: True is successful
-    """
-    if type(checksum_names) is not list:
-        checksum_names = [checksum_names]
-    supported_checksums = filter(lambda x: is_checksum_valid(x), checksum_names)
-    supported_checksums = map(lambda x: ''.join(x.split()), supported_checksums)
-    if any(supported_checksums):
-        supported_checksums_csv = ','.join(map(str, supported_checksums))
-        return add_rse_attribute(rse=rse, key=CHECKSUM_KEY, value=supported_checksums_csv, session=session)
-    else:
-        return False
-
-
-@transactional_session
-def del_rse_attribute(rse_id, key, session=None):
+def del_rse_attribute(rse, key, session=None):
     """
     Delete a RSE attribute.
 
@@ -419,20 +398,6 @@ def del_rse_attribute(rse_id, key, session=None):
         raise exception.RSEAttributeNotFound('RSE attribute \'%s\' cannot be found' % key)
     rse_attr.delete(session=session)
     return True
-
-
-@transactional_session
-def reset_rse_checksum_support(rse, session=None):
-    """
-    Delete a RSE attribute.
-
-    :param rse: the name of the rse.
-    :param session: The database session in use.
-
-    :return: True if RSE attribute was deleted.
-    """
-
-    return del_rse_attribute(rse=rse, key=CHECKSUM_KEY, session=session)
 
 
 @read_session

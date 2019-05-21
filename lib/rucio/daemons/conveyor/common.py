@@ -269,7 +269,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                   'activity': str(transfer['file_metadata']['activity'])}
 
         if verify_checksum != 'none':
-            rse_id = get_rse_id(transfer['rse'], session=session)
+            rse_id = get_rse_id(transfer['dest_rse'], session=session)
             supported_checksums = get_rse_supported_checksums(rse_id=rse_id, session=session)
             for checksum_name in supported_checksums:
                 if checksum_name in list(t_file['metadata'].keys()) and t_file['metadata'][checksum_name]:
