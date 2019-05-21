@@ -22,7 +22,6 @@
 from rucio.api import permission
 from rucio.common import exception
 from rucio.common.schema import validate_schema
-from rucio.common.utils import api_update_return_dict, CHECKSUM_KEY
 from rucio.core import distance as distance_module
 from rucio.core import rse as rse_module
 from rucio.core.rse_expression_parser import parse_expression
@@ -125,17 +124,6 @@ def del_rse_attribute(rse, key, issuer):
 
     return rse_module.del_rse_attribute(rse_id=rse_id, key=key)
 
-def reset_rse_checksum_support(rse, issuer):
-    """
-    Delete a RSE attribute.
-
-    :param rse: the name of the rse_module.
-
-    :return: True if RSE attribute was deleted successfully, False otherwise.
-    """
-
-    return del_rse_attribute(rse=rse, key=CHECKSUM_KEY, issuer=issuer)
-
 
 def add_rse_attribute(rse, key, value, issuer):
     """ Adds a RSE attribute.
@@ -154,27 +142,6 @@ def add_rse_attribute(rse, key, value, issuer):
         raise exception.AccessDenied('Account %s can not add RSE attributes' % (issuer))
 
     return rse_module.add_rse_attribute(rse_id=rse_id, key=key, value=value)
-
-
-def set_rse_checksum_support(rse, checksum_names, issuer):
-    """ Adds a RSE attribute.
-
-    :param rse: the rse name.
-    :param checksum_names: the checksum name[s] as a single item or a list.
-    :param issuer: The issuer account.
-
-    returns: True if successful, False otherwise.
-    """
-
-    if type(checksum_names) is not list:
-        checksum_names = [checksum_names]
-    supported_checksums = filter(lambda x: is_checksum_valid(x), checksum_names)
-    supported_checksums = map(lambda x: ''.join(x.split()), supported_checksums)
-    if any(supported_checksums):
-        supported_checksums_csv = ','.join(map(str, supported_checksums))
-        return add_rse_attribute(rse=rse, key=CHECKSUM_KEY, value=supported_checksums_csv, issuer=issuer)
-    else:
-        return False
 
 
 def list_rse_attributes(rse):

@@ -171,21 +171,6 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def add_rse_checksum(self, rse, checksum_name):
-        """
-        Sends the request to add a RSE checksum.
-
-        :param rse: the name of the rse.
-        :param checksum_name: the checksum name.
-
-        :return: True if RSE attribute was created successfully else False.
-        :raises Duplicate: if RSE attribute already exists.
-        """
-
-        if is_checksum_valid(checksum_name):
-            return self.add_rse_attribute(rse=rse, key=CHECKSUM_KEY, value=True)
-        else:
-            return False
 
     def delete_rse_attribute(self, rse, key):
         """
@@ -206,16 +191,6 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def delete_rse_checksum(self, rse, checksum_name):
-        """
-        Sends the request to delete a RSE attribute.
-
-        :param rse: the RSE name.
-        :param checksum_name: the checksum name.
-
-        :return: True if RSE attribute was deleted successfully else False.
-        """
-        return self.delete_rse_attribute(rse=rse, key=CHECKSUM_KEY)
 
     def list_rse_attributes(self, rse):
         """
