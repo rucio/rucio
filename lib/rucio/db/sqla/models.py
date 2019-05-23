@@ -18,7 +18,7 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2019
 # - Wen Guan, <wen.guan@cern.ch>, 2015
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 #
@@ -1195,8 +1195,9 @@ class Heartbeats(BASE, ModelBase):
     pid = Column(Integer, autoincrement=False)
     thread_id = Column(BigInteger, autoincrement=False)
     thread_name = Column(String(64))
+    payload = Column(String(3000))
     _table_args = (PrimaryKeyConstraint('executable', 'hostname', 'pid', 'thread_id', name='HEARTBEATS_PK'),
-                   Index('HEARTBEATS_UPDATED_AT', 'updated_at'))
+                   Index('HEARTBEATS_EXEC_PAYLOAD_IDX', 'executable', 'payload'))
 
 
 class NamingConvention(BASE, ModelBase):
