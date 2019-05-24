@@ -21,6 +21,8 @@
 #
 # PY3K COMPATIBLE
 
+from __future__ import division
+
 import logging
 import os
 import socket
