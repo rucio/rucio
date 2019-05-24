@@ -114,17 +114,19 @@ class BaseExtractionTool:
 
 class DownloadClient:
 
-    def __init__(self, client=None, logger=None, tracing=True, check_admin=False, check_pcache=False):
+    def __init__(self, client=None, external_traces=None, logger=None, tracing=True, check_admin=False, check_pcache=False):
         """
         Initialises the basic settings for an DownloadClient object
 
         :param client: Optional: rucio.client.client.Client object. If None, a new object will be created.
+        :param external_traces: Optional: reference to a list where traces can be added
         :param logger: Optional: logging.Logger object to use for downloads. If None nothing will be logged.
         """
         if not logger:
             logger = logging.getLogger('%s.null' % __name__)
             logger.disabled = True
 
+        self.external_traces = external_traces
         self.check_pcache = check_pcache
         self.logger = logger
         self.tracing = tracing
@@ -1417,8 +1419,11 @@ class DownloadClient:
     def _send_trace(self, trace):
         """
         Checks if sending trace is allowed and send the trace.
+        If reference to external list of traces given, traces are appended there.
 
         :param trace: the trace
         """
         if self.tracing:
             send_trace(trace, self.client.host, self.client.user_agent)
+        if self.external_traces is not None:
+            self.external_traces.append(trace)
