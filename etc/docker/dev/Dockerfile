@@ -62,11 +62,10 @@ COPY tools tools
 
 RUN pip install --upgrade pip && pip install --upgrade setuptools
 RUN rm -rf /usr/lib/python2.7/site-packages/ipaddress*
-RUN pip install \
-      -r tools/pip-requires-client \
-      -r tools/pip-requires \
-      -r tools/pip-requires-test \
-      mysql
+RUN pip install -r tools/pip-requires-client
+RUN pip install -r tools/pip-requires
+RUN pip install -r tools/pip-requires-test
+RUN pip install mysql
 RUN ln -s $RUCIOHOME/lib/rucio /usr/lib/python2.7/site-packages/rucio
 RUN ln -s $RUCIOHOME/lib/rucio /usr/lib/python3.4/site-packages/rucio
 
