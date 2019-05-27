@@ -33,6 +33,18 @@ RUN yum -y install https://centos7.iuscommunity.org/ius-release.rpm
 RUN yum -y install python36u python36u-devel python36u-pip python35u python35u-devel python35u-pip
 RUN rm -rf /usr/lib/python2.7/site-packages/ipaddress*
 
+# Install sqlite3 version 3.28
+RUN curl https://www.sqlite.org/2019/sqlite-autoconf-3280000.tar.gz > sqlite.tar.gz
+RUN tar xvfz sqlite.tar.gz
+WORKDIR ./sqlite-autoconf-3280000
+RUN ./configure --prefix=/usr/local
+RUN make
+RUN make install
+WORKDIR /usr/local
+RUN mv lib/libsqlite3.so /lib64
+RUN mv lib/libsqlite3.so.0 /lib64
+RUN mv lib/libsqlite3.so.0.8.6 /lib64
+
 WORKDIR /opt
 
 RUN mkdir /opt/rucio
