@@ -217,7 +217,7 @@ $$ list_bad_replicas_status(rse='MOCK_SUSPICIOUS', younger_than=from_date)
 
 $$ exit()
 
-''')
+''')  # NOQA: E501
     parser.add_argument("--nattempts", action="store", default=10, help='Minimum count of suspicious file replica appearance in bad_replicas table.Default value is 10.')
     parser.add_argument("--younger-than", action="store", default=3, help='Consider all file replicas logged in bad_replicas table since speicified number of younger-than. Default value is 3.')
     parser.add_argument("--rse-expression", action="store", default='MOCK', help='The RSE on which the recovery should be happening.')
