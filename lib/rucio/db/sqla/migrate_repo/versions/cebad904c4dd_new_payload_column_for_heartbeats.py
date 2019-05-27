@@ -38,7 +38,6 @@ def upgrade():
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         drop_index('HEARTBEATS_UPDATED_AT', 'heartbeats')
         add_column('heartbeats', sa.Column('payload', String(3000)), schema=schema)
-        create_index('HEARTBEATS_EXEC_PAYLOAD_IDX', 'heartbeats', ['executable', 'payload'])
 
 
 def downgrade():
@@ -49,5 +48,4 @@ def downgrade():
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         create_index('HEARTBEATS_UPDATED_AT', 'heartbeats', ['updated_at'])
-        drop_index('HEARTBEATS_EXEC_PAYLOAD_IDX', 'heartbeats')
         drop_column('heartbeats', 'payload', schema=schema)

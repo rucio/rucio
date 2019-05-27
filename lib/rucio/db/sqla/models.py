@@ -1197,8 +1197,7 @@ class Heartbeats(BASE, ModelBase):
     thread_id = Column(BigInteger, autoincrement=False)
     thread_name = Column(String(64))
     payload = Column(String(3000))
-    _table_args = (PrimaryKeyConstraint('executable', 'hostname', 'pid', 'thread_id', name='HEARTBEATS_PK'),
-                   Index('HEARTBEATS_EXEC_PAYLOAD_IDX', 'executable', 'payload'))
+    _table_args = (PrimaryKeyConstraint('executable', 'hostname', 'pid', 'thread_id', name='HEARTBEATS_PK'), )
 
 
 class NamingConvention(BASE, ModelBase):
