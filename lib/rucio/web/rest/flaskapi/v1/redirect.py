@@ -82,7 +82,7 @@ class MetaLinkRedirector(MethodView):
                            'fqdn': None,
                            'site': None}
 
-        schemes = request.args.get('schemes', ['http', 'https', 's3+rucio', 's3+https', 'root', 'gsiftp', 'srm', 'davs'])
+        schemes = request.args.get('schemes', ['http', 'https', 'root', 'gsiftp', 'srm', 'davs'])
         select = request.args.get('select', None)
         if 'sort' in request.args:
             select = request.args['sort']
@@ -258,15 +258,6 @@ class HeaderRedirector(MethodView):
                                     selected_rse = rep
 
             if selected_url:
-                if selected_url.startswith('s3+rucio://'):
-                    connect(selected_rse, selected_url)
-                    signed_URLS = get_signed_urls([selected_url],
-                                                  rse=selected_rse,
-                                                  operation='read')
-                    res = redirect(signed_URLS[selected_url], code=303)
-                    res.header = headers
-                    return res
-
                 res = redirect(signed_URLS[selected_url], code=303)
                 res.header = headers
                 return res
