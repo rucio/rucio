@@ -25,6 +25,7 @@
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018-2019
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -332,7 +333,10 @@ def exists(rse_settings, files):
             pfn = list(protocol.lfns2pfns(f).values())[0]
             if isinstance(pfn, exception.RucioException):
                 raise pfn
-            exists = protocol.exists(list(protocol.lfns2pfns(f).values())[0])
+            # deal with URL signing if required
+            if rse_settings['sign_url'] is not None and pfn[:5] == 'https':
+                pfn = __get_signed_url(rse_settings['sign_url'], 'read', pfn)    # NOQA pylint: disable=undefined-variable
+            exists = protocol.exists(pfn)
             ret[f['scope'] + ':' + f['name']] = exists
         else:
             exists = protocol.exists(f['name'])
@@ -347,7 +351,7 @@ def exists(rse_settings, files):
     return [gs, ret]
 
 
-def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False):
+def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False, sign_service=None):
     """
         Uploads a file to the connected storage.
         Providing a list indicates the bulk mode.
@@ -363,6 +367,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
         :param force_pfn: use the given PFN -- can lead to dark data, use sparingly
         :param force_scheme: use the given protocol scheme, overriding the protocol priority in the RSE description
         :param transfer_timeout: set this timeout (in seconds) for the transfers, for protocols that support it
+        :param sign_service: use the given service (e.g. gcs, s3, swift) to sign the URL
 
         :returns: True/False for a single file or a dict object with 'scope:name' as keys and True or the exception as value for each file in bulk mode
 
@@ -395,10 +400,16 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
 
         if force_pfn:
             pfn = force_pfn
+            readpfn = force_pfn
         else:
             pfn = list(protocol.lfns2pfns(make_valid_did(lfn)).values())[0]
             if isinstance(pfn, exception.RucioException):
                 raise pfn
+            readpfn = pfn
+            if sign_service is not None:
+                # need a separate signed URL for read operations (exists and stat)
+                readpfn = __get_signed_url(sign_service, 'read', pfn)    # NOQA pylint: disable=undefined-variable
+                pfn = __get_signed_url(sign_service, 'write', pfn)       # NOQA pylint: disable=undefined-variable
 
         # First check if renaming operation is supported
         if protocol.renaming:
@@ -463,7 +474,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
         else:
 
             # Check if file replica is already on the storage system
-            if protocol.overwrite is False and delete_existing is False and protocol.exists(pfn):
+            if protocol.overwrite is False and delete_existing is False and protocol.exists(readpfn):
                 ret['%s:%s' % (scope, name)] = exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage as PFN %s' % (name, scope, pfn))
                 gs = False
             else:
@@ -477,7 +488,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                 valid = None
                 try:  # Get metadata of file to verify if upload was successful
                     try:
-                        stats = _retry_protocol_stat(protocol, pfn)
+                        stats = _retry_protocol_stat(protocol, readpfn)
                         if ('adler32' in stats) and ('adler32' in lfn):
                             valid = stats['adler32'] == lfn['adler32']
                         if (valid is None) and ('filesize' in stats) and ('filesize' in lfn):

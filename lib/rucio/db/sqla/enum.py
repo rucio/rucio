@@ -98,9 +98,9 @@ class DeclEnumType(SchemaType, TypeDecorator):
     def __init__(self, enum, name=None, default=None):
         self.enum = enum
         if name is None:
-            self.impl = Enum(*enum.values(), name='RUCIO_ENUM_' + str(uuid.uuid4())[:6])
+            self.impl = Enum(*enum.values(), native_enum=False, name='RUCIO_ENUM_' + str(uuid.uuid4())[:6])
         else:
-            self.impl = Enum(*enum.values(), name=name)
+            self.impl = Enum(*enum.values(), native_enum=False, name=name)
 
     def _set_parent_with_dispatch(self, parent):
         TypeDecorator._set_parent_with_dispatch(self, parent)
