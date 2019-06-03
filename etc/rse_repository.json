@@ -474,6 +474,60 @@
     },
     "storage_usage_tool": "rucio.rse.protocols.posix.Default.getSpace"
   },
+  "MOCK_SUSPICIOUS":{
+    "backend_type": "POSIX",
+    "deterministic": true,
+    "protocols": {
+      "default": "file",
+      "supported": {
+        "file": {
+          "prefix": "/tmp/rucio_rse1/",
+          "impl": "rucio.rse.protocols.posix.Default",
+          "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "ATLASDATADISK1"},
+          "domains": {
+            "lan": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "wan": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.posix.Default.getSpace"
+  },
+  "MOCK_RECOVERY":{
+    "backend_type": "POSIX",
+    "deterministic": true,
+    "protocols": {
+      "default": "file",
+      "supported": {
+        "file": {
+          "prefix": "/tmp/rucio_rse2/",
+          "impl": "rucio.rse.protocols.posix.Default",
+          "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "ATLASDATADISK2"},
+          "domains": {
+            "lan": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            },
+            "wan": {
+              "read": 1,
+              "write": 1,
+              "delete": 1
+            }
+          }
+        }
+      }
+    },
+    "storage_usage_tool": "rucio.rse.protocols.posix.Default.getSpace"
+  },
   "FZK-LCG2_SCRATCHDISK":{
     "backend_type": "dCache",
     "protocols": {

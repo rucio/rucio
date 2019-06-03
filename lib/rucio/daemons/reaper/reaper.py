@@ -49,6 +49,7 @@ from rucio.common.exception import (SourceNotFound, ServiceUnavailable, RSEAcces
 from rucio.common.utils import chunks
 from rucio.core import monitor
 from rucio.core import rse as rse_core
+from rucio.core.credential import get_signed_url
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import add_message
 from rucio.core.replica import (list_unlocked_replicas, update_replicas_states,
@@ -247,7 +248,11 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                             worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'])
                                         else:
                                             if replica['pfn']:
-                                                prot.delete(replica['pfn'])
+                                                pfn = replica['pfn']
+                                                # sign the URL if necessary
+                                                if prot.attributes['scheme'] == 'https' and rse_info['sign_url'] is not None:
+                                                    pfn = get_signed_url(rse_info['sign_url'], 'delete', pfn)
+                                                prot.delete(pfn)
                                             else:
                                                 logging.warning('Reaper %s-%s: Deletion UNAVAILABLE of %s:%s as %s on %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'])
                                         monitor.record_timer('daemons.reaper.delete.%s.%s' % (prot.attributes['scheme'], rse['rse']), (time.time() - start) * 1000)

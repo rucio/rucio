@@ -125,7 +125,6 @@ class ReplicaState(DeclEnum):
     COPYING = 'C', 'COPYING'
     BEING_DELETED = 'B', 'BEING_DELETED'
     BAD = 'D', 'BAD'
-    SOURCE = 'S', 'SOURCE'
     TEMPORARY_UNAVAILABLE = 'T', 'TEMPORARY_UNAVAILABLE'
 
 
