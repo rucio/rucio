@@ -23,7 +23,7 @@ import time
 
 from subprocess32 import TimeoutExpired
 
-requests.packages.urllib3.disable_warnings()
+requests.packages.urllib3.disable_warnings()  # pylint: disable=no-member
 
 
 def needs_testing(mr_id):
@@ -174,7 +174,7 @@ def start_test(mr):
     nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient --exclude=.*test_rse_protocol_.* --exclude=test_alembic --exclude=test_rucio_cache --exclude=test_rucio_server --exclude=test_dq2* --exclude=test_objectstore > /tmp/rucio_nose.txt 2> /tmp/rucio_nose.txt;
     tools/reset_database.py;
     nosetests -v lib/rucio/tests/test_alembic.py > /tmp/rucio_alembic.txt 2> /tmp/rucio_alembic.txt;
-    flake8 --exclude=*.cfg bin/* lib/ tools/*.py tools/probes/common/* > /tmp/rucio_flake8.txt;
+    flake8 --exclude=*.cfg bin/* lib/ tools/*.py > /tmp/rucio_flake8.txt;
     pylint %s > /tmp/rucio_pylint.txt;
     python ../purge_bin.py;
     """ % (root_git_dir, root_git_dir, root_git_dir, ' '.join(changed_files))  # NOQA

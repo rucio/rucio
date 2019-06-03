@@ -39,7 +39,7 @@ def upgrade():
 
     elif context.get_context().dialect.name == 'postgresql':
         schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
-        op.execute('ALTER TABLE ' + schema + 'rules ALTER COLUMN notification TYPE CHAR')  # pylint: disable=no-member
+        op.execute('ALTER TABLE ' + schema + 'rules DROP CONSTRAINT IF EXISTS "RULES_NOTIFICATION_CHK", ALTER COLUMN notification TYPE CHAR')  # pylint: disable=no-member
         create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
                                 condition="notification in ('Y', 'N', 'C', 'P')")
 
@@ -62,7 +62,7 @@ def downgrade():
         # PostgreSQL does not support reducing check types, so we must work around
         # by changing it to the internal string type
         schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
-        op.execute('ALTER TABLE ' + schema + 'rules ALTER COLUMN notification TYPE CHAR')  # pylint: disable=no-member
+        op.execute('ALTER TABLE ' + schema + 'rules DROP CONSTRAINT IF EXISTS "RULES_NOTIFICATION_CHK", ALTER COLUMN notification TYPE CHAR')  # pylint: disable=no-member
         create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
                                 condition="notification in ('Y', 'N', 'C')")
 
