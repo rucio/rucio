@@ -9,6 +9,7 @@
  - Ralph Vigne, <ralph.vigne@cern.ch>, 2013 - 2014
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+ - James Perry, <j.perry@epcc.ed.ac.uk>, 2019
 '''
 
 from dogpile.cache import make_region
@@ -36,6 +37,14 @@ def get_rse_client(rse, **kwarg):
     return RSEClient().get_rse(rse)
 
 
+def get_signed_url_client(service, op, url):
+    '''
+    get_signed_url_client
+    '''
+    from rucio.client.credentialclient import CredentialClient
+    return CredentialClient().get_signed_url(service, op, url)
+
+
 def rse_key_generator(namespace, fn, **kwargs):
     '''
     Key generator for RSE
@@ -51,6 +60,7 @@ def rse_key_generator(namespace, fn, **kwargs):
 if rsemanager.CLIENT_MODE:   # pylint:disable=no-member
     setattr(rsemanager, '__request_rse_info', get_rse_client)
     setattr(rsemanager, '__request_rse_info', get_rse_client)
+    setattr(rsemanager, '__get_signed_url', get_signed_url_client)
 
     # Preparing region for dogpile.cache
     RSE_REGION = make_region(function_key_generator=rse_key_generator).configure(
@@ -61,7 +71,9 @@ if rsemanager.CLIENT_MODE:   # pylint:disable=no-member
 
 if rsemanager.SERVER_MODE:   # pylint:disable=no-member
     from rucio.core.rse import get_rse_protocols
+    from rucio.core.credential import get_signed_url
     setattr(rsemanager, '__request_rse_info', get_rse_protocols)
+    setattr(rsemanager, '__get_signed_url', get_signed_url)
     RSE_REGION = make_region(function_key_generator=rse_key_generator).configure(
         'dogpile.cache.memcached',
         expiration_time=3600,

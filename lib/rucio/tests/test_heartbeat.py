@@ -7,13 +7,14 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2019
 
 import random
 import threading
 
 from nose.tools import assert_equal
 
-from rucio.core.heartbeat import live, die, cardiac_arrest
+from rucio.core.heartbeat import live, die, cardiac_arrest, list_payload_counts
 
 
 class TestHeartbeat:
@@ -69,6 +70,30 @@ class TestHeartbeat:
         assert_equal(live('test0', 'host2', pids[2], threads[2]), {'assign_thread': 1, 'nr_threads': 3})
         die('test0', 'host2', pids[2], threads[2])
         assert_equal(live('test0', 'host3', pids[3], threads[3]), {'assign_thread': 1, 'nr_threads': 2})
+
+    def test_heartbeat_payload(self):
+        """ HEARTBEAT (CORE): Test heartbeat with payload"""
+
+        pids = [self.__pid() for _ in range(6)]
+        threads = [self.__thread() for _ in range(6)]
+
+        live('test5', 'host0', pids[0], threads[0], payload='payload1')
+        live('test5', 'host0', pids[1], threads[1], payload='payload1')
+        live('test5', 'host0', pids[2], threads[2], payload='payload1')
+        live('test5', 'host1', pids[3], threads[3], payload='payload2')
+        live('test5', 'host2', pids[4], threads[4], payload='payload3')
+        live('test5', 'host3', pids[5], threads[5], payload='payload4')
+
+        assert_equal(list_payload_counts('test5'), {'payload4': 1, 'payload2': 1, 'payload3': 1, 'payload1': 3})
+
+        die('test5', 'host0', pids[0], threads[0])
+        die('test5', 'host0', pids[1], threads[1])
+        die('test5', 'host0', pids[2], threads[2])
+        die('test5', 'host1', pids[3], threads[3])
+        die('test5', 'host2', pids[4], threads[4])
+        die('test5', 'host3', pids[5], threads[5])
+
+        assert_equal(list_payload_counts('test5'), {})
 
     def tearDown(self):
         cardiac_arrest()

@@ -13,21 +13,20 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2017
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
-''' add comment column for subscriptions '''
+''' increase size of extended_attributes column '''
 
 import sqlalchemy as sa
 
 from alembic import context
-from alembic.op import add_column, drop_column
+from alembic.op import alter_column
 
 
 # Alembic revision identifiers
-revision = '70587619328'
-down_revision = '4207be2fd914'
+revision = '8523998e2e76'
+down_revision = '7ec22226cdbf'
 
 
 def upgrade():
@@ -36,8 +35,7 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        add_column('subscriptions', sa.Column('comments', sa.String(4000)), schema=schema)
+        alter_column('rse_protocols', 'extended_attributes', existing_type=sa.String(1024), type_=sa.String(4000))
 
 
 def downgrade():
@@ -46,5 +44,4 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        drop_column('subscriptions', 'comments', schema=schema)
+        alter_column('rse_protocols', 'extended_attributes', existing_type=sa.String(4000), type_=sa.String(1024))

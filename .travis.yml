@@ -17,6 +17,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
 
 sudo:
   - required
@@ -28,7 +29,6 @@ language:
   - python
 
 python:
-  - 2.6
   - 2.7
   - 3.5
   - 3.6
@@ -65,18 +65,6 @@ env:
 matrix:
   fast_finish: true
   exclude:
-  - python: 2.6
-    env: SUITE=python3
-  - python: 2.6
-    env: SUITE=all RDBMS=oracle
-  - python: 2.6
-    env: SUITE=all RDBMS=mysql
-  - python: 2.6
-    env: SUITE=all RDBMS=postgres
-  - python: 2.6
-    env: SUITE=all RDBMS=sqlite
-  - python: 2.6
-    env: SUITE=syntax
   - python: 2.7
     env: SUITE=python3
   - python: 3.4
@@ -112,8 +100,6 @@ matrix:
   - python: 3.6
     env:  SUITE=all RDBMS=mysql
   - python: 3.6
-    env:  SUITE=all RDBMS=postgres
-  - python: 3.6
     env:  SUITE=all RDBMS=sqlite
   allow_failures:
   - python: 3.6
@@ -121,6 +107,8 @@ matrix:
   - python: 3.6
     env: SUITE=client RDBMS=sqlite RUCIO_HOME=`pwd`
   - python: 3.5
+    env:  SUITE=all RDBMS=postgres
+  - python: 3.6
     env:  SUITE=all RDBMS=postgres
 
 notifications:

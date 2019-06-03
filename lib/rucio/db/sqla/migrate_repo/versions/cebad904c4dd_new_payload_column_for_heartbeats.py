@@ -13,21 +13,20 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2017
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
 
-''' add comment column for subscriptions '''
+''' New payload column for heartbeats '''
 
 import sqlalchemy as sa
 
 from alembic import context
-from alembic.op import add_column, drop_column
+from alembic.op import add_column, drop_column, create_index, drop_index
 
+from rucio.db.sqla.models import String
 
 # Alembic revision identifiers
-revision = '70587619328'
-down_revision = '4207be2fd914'
+revision = 'cebad904c4dd'
+down_revision = 'b7d287de34fd'
 
 
 def upgrade():
@@ -37,7 +36,8 @@ def upgrade():
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        add_column('subscriptions', sa.Column('comments', sa.String(4000)), schema=schema)
+        drop_index('HEARTBEATS_UPDATED_AT', 'heartbeats')
+        add_column('heartbeats', sa.Column('payload', String(3000)), schema=schema)
 
 
 def downgrade():
@@ -47,4 +47,5 @@ def downgrade():
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        drop_column('subscriptions', 'comments', schema=schema)
+        create_index('HEARTBEATS_UPDATED_AT', 'heartbeats', ['updated_at'])
+        drop_column('heartbeats', 'payload', schema=schema)

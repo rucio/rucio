@@ -36,6 +36,7 @@ except ImportError:
     from urllib.parse import unquote
     from urllib.parse import parse_qs
 from web import application, ctx, Created, data, header, InternalError, loadhook, OK, unloadhook
+from xml.sax.saxutils import escape
 
 from geoip2.errors import AddressNotFoundError
 
@@ -165,7 +166,7 @@ class Replicas(RucioController):
 
                     idx = 0
                     for replica in replicas:
-                        yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx + 1) + '">' + replica + '</url>\n'
+                        yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx + 1) + '">' + escape(replica) + '</url>\n'
                         idx += 1
                         if limit and limit == idx:
                             break
@@ -451,7 +452,7 @@ class ListReplicas(RucioController):
                             + '" domain="' + str(dictreplica[replica][0]) \
                             + '" priority="' + str(dictreplica[replica][1]) \
                             + '" client_extract="' + str(dictreplica[replica][3]).lower() \
-                            + '">' + replica + '</url>\n'
+                            + '">' + escape(replica) + '</url>\n'
                         idx += 1
                         if limit and limit == idx:
                             break

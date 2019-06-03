@@ -13,21 +13,19 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2017
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 
-''' add comment column for subscriptions '''
+''' added column volume to rse_transfer_limits '''
 
 import sqlalchemy as sa
 
 from alembic import context
-from alembic.op import add_column, drop_column
+from alembic.op import (drop_column, add_column)
 
 
 # Alembic revision identifiers
-revision = '70587619328'
-down_revision = '4207be2fd914'
+revision = '2cbee484dcf9'
+down_revision = 'cebad904c4dd'
 
 
 def upgrade():
@@ -37,14 +35,13 @@ def upgrade():
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        add_column('subscriptions', sa.Column('comments', sa.String(4000)), schema=schema)
+        add_column('rse_transfer_limits', sa.Column('volume', sa.BigInteger), schema=schema)
 
 
 def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
-
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        drop_column('subscriptions', 'comments', schema=schema)
+        drop_column('rse_transfer_limits', 'volume', schema=schema)
