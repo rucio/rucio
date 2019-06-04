@@ -337,11 +337,13 @@ def successful_transfer(scope, name, rse_id, nowait, session=None):
                 for ds_lock in ds_locks:
                     ds_lock.state = LockState.OK
                 session.flush()
-            rucio.core.rule.generate_rule_notifications(rule=rule, replicating_locks_before=rule.locks_replicating_cnt - 1, session=session)
+            rucio.core.rule.generate_rule_notifications(rule=rule, replicating_locks_before=rule.locks_replicating_cnt + 1, session=session)
             if rule.notification == RuleNotification.YES:
                 rucio.core.rule.generate_email_for_rule_ok_notification(rule=rule, session=session)
             # Try to release potential parent rules
             rucio.core.rule.release_parent_rule(child_rule_id=rule.id, session=session)
+        elif rule.locks_replicating_cnt > 0 and rule.state == RuleState.REPLICATING and rule.notification == RuleNotification.PROGRESS:
+            rucio.core.rule.generate_rule_notifications(rule=rule, replicating_locks_before=rule.locks_replicating_cnt + 1, session=session)
 
         # Insert rule history
         rucio.core.rule.insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
