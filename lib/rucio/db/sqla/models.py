@@ -676,6 +676,9 @@ class RSETransferLimit(BASE, ModelBase):
     rse_expression = Column(String(3000))
     max_transfers = Column(BigInteger)
     volume = Column(BigInteger)
+    deadline = Column(BigInteger)
+    strategy = Column(String(25))
+    direction = Column(String(25))
     transfers = Column(BigInteger)
     waitings = Column(BigInteger)
     _table_args = (PrimaryKeyConstraint('rse_id', 'activity', name='RSE_TRANSFER_LIMITS_PK'),

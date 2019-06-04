@@ -28,12 +28,13 @@ from six import string_types
 
 from sqlalchemy import and_, or_, func, update
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.sql import tuple_
 from sqlalchemy.sql.expression import asc, bindparam, text, false, true
 
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import generate_uuid, chunks
-from rucio.core import transfer_limits as transfer_limits_core
+from rucio.common.utils import generate_uuid, chunks, get_parsed_throttler_mode
+from rucio.core.config import get
 from rucio.core.message import add_message
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_name, get_rse_transfer_limits
@@ -124,7 +125,7 @@ def queue_requests(requests, session=None):
     logging.debug("queue requests")
 
     request_clause = []
-    transfer_limits = {}
+    transfer_limits, rses = get_rse_transfer_limits(session=session), {}
     for req in requests:
 
         if isinstance(req['attributes'], string_types):
@@ -138,16 +139,8 @@ def queue_requests(requests, session=None):
                                        models.Request.dest_rse_id == req['dest_rse_id'],
                                        models.Request.request_type == RequestType.TRANSFER))
 
-        if req['attributes']['activity'] not in transfer_limits:
-            transfer_limits[req['attributes']['activity']] = {req['dest_rse_id']: transfer_limits_core.get_transfer_limits(req['attributes']['activity'], req['dest_rse_id'])}
-        elif req['dest_rse_id'] not in transfer_limits[req['attributes']['activity']]:
-            transfer_limits[req['attributes']['activity']] = {req['dest_rse_id']: transfer_limits_core.get_transfer_limits(req['attributes']['activity'], req['dest_rse_id'])}
-
-        all_activities = 'all_activities'
-        if all_activities not in transfer_limits:
-            transfer_limits[all_activities] = {}
-        if req['dest_rse_id'] not in transfer_limits[all_activities]:
-            transfer_limits[all_activities][req['dest_rse_id']] = transfer_limits_core.get_transfer_limits(all_activities, req['dest_rse_id'])
+        if req['dest_rse_id'] not in rses:
+            rses[req['dest_rse_id']] = get_rse_name(req['dest_rse_id'], session=session)
 
     # Check existing requests
     if request_clause:
@@ -163,6 +156,30 @@ def queue_requests(requests, session=None):
             for request in query_existing_requests:
                 existing_requests.append(request)
 
+    request_scopes_names = [(request['scope'], request['name']) for request in requests]
+    results = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id, models.Distance.dest_rse_id, models.Distance.ranking)\
+                     .filter(tuple_(models.RSEFileAssociation.scope, models.RSEFileAssociation.name).in_(request_scopes_names))\
+                     .join(models.Distance, models.Distance.src_rse_id == models.RSEFileAssociation.rse_id)\
+                     .all()
+    source_rses = {}
+    for result in results:
+        scope = result[0]
+        name = result[1]
+        src_rse_id = result[2]
+        dest_rse_id = result[3]
+        distance = result[4]
+        if scope not in source_rses:
+            source_rses[scope] = {}
+        if name not in source_rses[scope]:
+            source_rses[scope][name] = {}
+        if dest_rse_id not in source_rses[scope][name]:
+            source_rses[scope][name][dest_rse_id] = {}
+        if src_rse_id not in source_rses[scope][name][dest_rse_id]:
+            source_rses[scope][name][dest_rse_id][src_rse_id] = distance
+
+    throttler_mode = get('throttler', 'mode', default='DEST_PER_ACT', use_cache=False)
+    direction, all_activities = get_parsed_throttler_mode(throttler_mode)
+
     new_requests, sources, messages = [], [], []
     for request in requests:
         dest_rse_name = get_rse_name(rse_id=request['dest_rse_id'], session=session)
@@ -173,55 +190,63 @@ def queue_requests(requests, session=None):
                                                                                         dest_rse_name))
             continue
 
-        transfer_limit_activity = transfer_limits[request['attributes']['activity']].get(request['dest_rse_id'])
-        transfer_limit_all_activities = transfer_limits['all_activities'].get(request['dest_rse_id'])
-        request['state'] = RequestState.WAITING if transfer_limit_activity or transfer_limit_all_activities else RequestState.QUEUED
-
         def temp_serializer(obj):
             if isinstance(obj, (InternalAccount, InternalScope)):
                 return obj.internal
             raise TypeError('Could not serialise object %r' % obj)
 
+        source_rse_id = request.get('source_rse_id')
+        if not source_rse_id:
+            try:
+                source_rses_of_request = source_rses[request['scope']][request['name']][request['dest_rse_id']]
+                source_rse_id = min(source_rses_of_request, key=source_rses_of_request.get)
+            except KeyError:
+                pass
+        activity_limit = transfer_limits.get(request['attributes']['activity'], {})
+        all_activities_limit = transfer_limits.get('all_activities', {})
+        limit_found = False
+        if direction == 'source':
+            if all_activities:
+                if all_activities_limit.get(source_rse_id):
+                    limit_found = True
+            else:
+                if activity_limit.get(source_rse_id):
+                    limit_found = True
+        elif direction == 'destination':
+            if all_activities:
+                if all_activities_limit.get(request['dest_rse_id']):
+                    limit_found = True
+            else:
+                if activity_limit.get(request['dest_rse_id']):
+                    limit_found = True
+        request['state'] = RequestState.WAITING if limit_found else RequestState.QUEUED
+
+        new_request = {'request_type': request['request_type'],
+                       'scope': request['scope'],
+                       'name': request['name'],
+                       'dest_rse_id': request['dest_rse_id'],
+                       'source_rse_id': source_rse_id,
+                       'attributes': json.dumps(request['attributes'], default=temp_serializer),
+                       'state': request['state'],
+                       'rule_id': request['rule_id'],
+                       'activity': request['attributes']['activity'],
+                       'bytes': request['attributes']['bytes'],
+                       'md5': request['attributes']['md5'],
+                       'adler32': request['attributes']['adler32'],
+                       'account': request.get('account', None),
+                       'priority': request['attributes'].get('priority', None),
+                       'requested_at': request.get('requested_at', None),
+                       'retry_count': request['retry_count']}
         if 'previous_attempt_id' in request and 'retry_count' in request:
-            new_requests.append({'id': request['request_id'],
-                                 'request_type': request['request_type'],
-                                 'scope': request['scope'],
-                                 'name': request['name'],
-                                 'dest_rse_id': request['dest_rse_id'],
-                                 'attributes': json.dumps(request['attributes'], default=temp_serializer),
-                                 'state': request['state'],
-                                 'rule_id': request['rule_id'],
-                                 'activity': request['attributes']['activity'],
-                                 'bytes': request['attributes']['bytes'],
-                                 'md5': request['attributes']['md5'],
-                                 'adler32': request['attributes']['adler32'],
-                                 'account': request.get('account', None),
-                                 'priority': request['attributes'].get('priority', None),
-                                 'requested_at': request.get('requested_at', None),
-                                 'retry_count': request['retry_count'],
-                                 'previous_attempt_id': request['previous_attempt_id']})
+            new_request['previous_attempt_id'] = request['previous_attempt_id']
+            new_request['id'] = request['request_id']
         else:
-            request['request_id'] = generate_uuid()
-            new_requests.append({'id': request['request_id'],
-                                 'request_type': request['request_type'],
-                                 'scope': request['scope'],
-                                 'name': request['name'],
-                                 'dest_rse_id': request['dest_rse_id'],
-                                 'attributes': json.dumps(request['attributes'], default=temp_serializer),
-                                 'state': request['state'],
-                                 'rule_id': request['rule_id'],
-                                 'activity': request['attributes']['activity'],
-                                 'bytes': request['attributes']['bytes'],
-                                 'md5': request['attributes']['md5'],
-                                 'adler32': request['attributes']['adler32'],
-                                 'account': request.get('account', None),
-                                 'priority': request['attributes'].get('priority', None),
-                                 'requested_at': request.get('requested_at', None),
-                                 'retry_count': request['retry_count']})
+            new_request['id'] = generate_uuid()
+        new_requests.append(new_request)
 
         if 'sources' in request and request['sources']:
             for source in request['sources']:
-                sources.append({'request_id': request['request_id'],
+                sources.append({'request_id': new_request['id'],
                                 'scope': request['scope'],
                                 'name': request['name'],
                                 'rse_id': source['rse_id'],
@@ -236,7 +261,7 @@ def queue_requests(requests, session=None):
         else:
             transfer_status = 'transfer-%s' % request['state']
 
-        payload = {'request-id': request['request_id'],
+        payload = {'request-id': new_request['id'],
                    'request-type': str(request['request_type']).lower(),
                    'scope': request['scope'].external,
                    'name': request['name'],
@@ -868,39 +893,92 @@ def get_heavy_load_rses(threshold, session=None):
 
 
 @read_session
-def get_stats_by_activity_dest_state(state, session=None):
+def get_stats_by_activity_direction_state(state, all_activities=False, direction='destination', session=None):
     """
-    Retrieve statistics about per destination by activity and state.
+    Retrieve statistics about requests by destination, activity and state.
 
-    :param session:  Database session to use.
-    :returns:        List of (activity, dest_rse_id, state, counter).
+    :param state:           Request state.
+    :param all_activities:  Boolean whether requests are grouped by activity or if activities are ignored.
+    :param direction:       Direction if requests are grouped by source RSE or destination RSE.
+    :param session:         Database session to use.
+    :returns:               List of (activity, dest_rse_id, state, counter).
     """
 
     if type(state) is not list:
         state = [state, state]
 
     try:
-        subquery = session.query(models.Request.activity, models.Request.dest_rse_id,
-                                 models.Request.account, models.Request.state,
-                                 func.count(1).label('counter'))\
-            .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
-            .filter(models.Request.state.in_(state))\
-            .group_by(models.Request.activity,
-                      models.Request.dest_rse_id,
-                      models.Request.account,
-                      models.Request.state).subquery()
+        subquery = None
+        inner_select = [models.Request.account, models.Request.state,
+                        func.count(1).label('counter')]
+        if direction == 'destination' and all_activities:
+            inner_select.append(models.Request.dest_rse_id)
+            group_by = (models.Request.dest_rse_id, )
+        elif direction == 'source' and all_activities:
+            inner_select.append(models.Request.source_rse_id)
+            group_by = (models.Request.source_rse_id, )
+        elif direction == 'destination' and not all_activities:
+            inner_select.append(models.Request.activity)
+            inner_select.append(models.Request.dest_rse_id)
+            group_by = (models.Request.dest_rse_id, models.Request.activity)
+        elif direction == 'source' and not all_activities:
+            inner_select.append(models.Request.activity)
+            inner_select.append(models.Request.source_rse_id)
+            group_by = (models.Request.source_rse_id, models.Request.activity)
 
-        return session.query(subquery.c.activity,
-                             subquery.c.dest_rse_id,
-                             subquery.c.account,
-                             subquery.c.state,
-                             models.RSE.rse,
-                             subquery.c.counter)\
-            .with_hint(models.RSE, "INDEX(RSES RSES_PK)", 'oracle')\
-            .filter(models.RSE.id == subquery.c.dest_rse_id).all()
+        subquery = session.query(*inner_select)\
+                          .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
+                          .filter(models.Request.state.in_(state))\
+                          .group_by(models.Request.account,
+                                    models.Request.state)\
+                          .group_by(*group_by)\
+                          .subquery()
+
+        outer_select = [subquery.c.account,
+                        subquery.c.state,
+                        models.RSE.rse,
+                        subquery.c.counter]
+        if direction == 'destination':
+            outer_select.append(subquery.c.dest_rse_id)
+            filter_condition = (models.RSE.id == subquery.c.dest_rse_id)
+        elif direction == 'source':
+            outer_select.append(subquery.c.source_rse_id)
+            filter_condition = (models.RSE.id == subquery.c.source_rse_id)
+
+        if not all_activities:
+            outer_select.append(subquery.c.activity)
+
+        return session.query(*outer_select)\
+                      .with_hint(models.RSE, "INDEX(RSES RSES_PK)", 'oracle')\
+                      .filter(filter_condition).all()
 
     except IntegrityError as error:
         raise RucioException(error.args)
+
+
+@transactional_session
+def release_waiting_requests_per_deadline(rse_id=None, deadline=1, session=None):
+    """
+    Release waiting requests that were waiting too long and exceeded the maximum waiting time to be released.
+    If the DID of a request is attached to a dataset, the oldest requested_at date of all requests related to the dataset will be used for checking and all requests of this dataset will be released.
+    :param rse_id:           The source RSE id.
+    :param deadline:         Maximal waiting time until a dataset gets released.
+    :param session:          The database session.
+    """
+    amount_released_requests = 0
+    if deadline:
+        grouped_requests_subquery, filtered_requests_subquery = create_base_query_grouped_fifo(rse_id, filter_by_rse='source', session=session)
+        old_requests_subquery = session.query(grouped_requests_subquery.c.name,
+                                              grouped_requests_subquery.c.scope,
+                                              grouped_requests_subquery.c.oldest_requested_at)\
+                                       .filter(grouped_requests_subquery.c.oldest_requested_at < datetime.datetime.now() - datetime.timedelta(hours=deadline))\
+                                       .subquery()
+        old_requests_subquery = session.query(filtered_requests_subquery.c.id)\
+                                       .join(old_requests_subquery, and_(filtered_requests_subquery.c.dataset_name == old_requests_subquery.c.name, filtered_requests_subquery.c.dataset_scope == old_requests_subquery.c.scope))
+        old_requests_subquery = old_requests_subquery.subquery()
+        statement = update(models.Request).where(models.Request.id.in_(old_requests_subquery)).values(state=RequestState.QUEUED)
+        amount_released_requests = session.execute(statement).rowcount
+    return amount_released_requests
 
 
 @transactional_session
@@ -1027,7 +1105,7 @@ def create_base_query_grouped_fifo(rse_id, filter_by_rse='destination', session=
 
 
 @transactional_session
-def release_waiting_requests_fifo(rse_id, activity=None, count=None, account=None, session=None):
+def release_waiting_requests_fifo(rse_id, activity=None, count=None, account=None, direction='destination', session=None):
     """
     Release waiting requests. Transfer requests that were requested first, get released first (FIFO).
 
@@ -1042,9 +1120,13 @@ def release_waiting_requests_fifo(rse_id, activity=None, count=None, account=Non
     rowcount = 0
     if dialect == 'mysql':
         subquery = session.query(models.Request.id)\
-                          .filter(models.Request.dest_rse_id == rse_id)\
                           .filter(models.Request.state == RequestState.WAITING)\
                           .order_by(asc(models.Request.requested_at))
+        if direction == 'destination':
+            subquery = subquery.filter(models.Request.dest_rse_id == rse_id)
+        elif direction == 'source':
+            subquery = subquery.filter(models.Request.source_rse_id == rse_id)
+
         if activity:
             subquery = subquery.filter(models.Request.activity == activity)
         if account:
@@ -1062,8 +1144,12 @@ def release_waiting_requests_fifo(rse_id, activity=None, count=None, account=Non
                                   synchronize_session=False)
     else:
         subquery = session.query(models.Request.id)\
-                          .filter(models.Request.dest_rse_id == rse_id)\
                           .filter(models.Request.state == RequestState.WAITING)
+        if direction == 'destination':
+            subquery = subquery.filter(models.Request.dest_rse_id == rse_id)
+        elif direction == 'source':
+            subquery = subquery.filter(models.Request.source_rse_id == rse_id)
+
         if activity:
             subquery = subquery.filter(models.Request.activity == activity)
         if account:
@@ -1079,7 +1165,7 @@ def release_waiting_requests_fifo(rse_id, activity=None, count=None, account=Non
 
 
 @transactional_session
-def release_waiting_requests_grouped_fifo(rse_id, count=None, session=None):
+def release_waiting_requests_grouped_fifo(rse_id, count=None, direction='destination', deadline=1, volume=0, session=None):
     """
     Release waiting requests. Transfer requests that were requested first, get released first (FIFO).
     Also all requests to DIDs that are attached to the same dataset get released, if one children of the dataset is choosed to be released (Grouped FIFO).
@@ -1089,9 +1175,14 @@ def release_waiting_requests_grouped_fifo(rse_id, count=None, session=None):
     :param session:          The database session.
     """
 
-    transfer_limits = None
     amount_updated_requests = 0
-    grouped_requests_subquery, filtered_requests_subquery = create_base_query_grouped_fifo(rse_id, filter_by_rse='destination', session=session)
+
+    # Release requests that exceeded waiting time
+    if deadline:
+        amount_updated_requests = release_waiting_requests_per_deadline(rse_id=rse_id, deadline=deadline, session=session)
+        count = count - amount_updated_requests
+
+    grouped_requests_subquery, filtered_requests_subquery = create_base_query_grouped_fifo(rse_id=rse_id, filter_by_rse=direction, session=session)
 
     # cumulate amount of children per dataset and combine with each request and only keep requests that dont exceed the limit
     cumulated_children_subquery = session.query(grouped_requests_subquery.c.name,
@@ -1113,16 +1204,14 @@ def release_waiting_requests_grouped_fifo(rse_id, count=None, session=None):
     amount_updated_requests += session.execute(statement).rowcount
 
     # release requests where the whole datasets volume fits in the available volume space
-    all_activities = 'all_activities'
-    transfer_limits = get_rse_transfer_limits(rse_id, all_activities, session=session)[all_activities][rse_id]
-    volume = transfer_limits.get('volume', 0)
-    amount_updated_requests += release_waiting_requests_per_free_volume(rse_id, volume=volume, session=session)
+    if volume:
+        amount_updated_requests += release_waiting_requests_per_free_volume(rse_id=rse_id, volume=volume, session=session)
 
     return amount_updated_requests
 
 
 @transactional_session
-def release_all_waiting_requests(rse_id, activity=None, account=None, session=None):
+def release_all_waiting_requests(rse_id, activity=None, account=None, direction='destination', session=None):
     """
     Release all waiting requests per destination RSE.
 
@@ -1133,8 +1222,13 @@ def release_all_waiting_requests(rse_id, activity=None, account=None, session=No
     """
     try:
         rowcount = 0
-        query = session.query(models.Request)\
-                       .filter_by(dest_rse_id=rse_id, state=RequestState.WAITING)
+
+        query = session.query(models.Request)
+        if direction == 'destination':
+            query = query.filter_by(dest_rse_id=rse_id, state=RequestState.WAITING)
+        elif direction == 'source':
+            query = query.filter_by(src_rse_id=rse_id, state=RequestState.WAITING)
+
         if activity:
             query = query.filter_by(activity=activity)
         if account:
@@ -1160,7 +1254,6 @@ def update_requests_priority(priority, filter, session=None):
                                            models.ReplicaLock.rse_id == models.Request.dest_rse_id))\
             .filter(models.Request.state == RequestState.SUBMITTED,
                     models.ReplicaLock.state == LockState.REPLICATING)
-
         if 'rule_id' in filter:
             query = query.filter(models.ReplicaLock.rule_id == filter['rule_id'])
         if 'request_id' in filter:

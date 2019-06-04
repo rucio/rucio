@@ -1045,3 +1045,22 @@ def api_update_return_dict(dictionary):
         dictionary['scope'] = dictionary['scope'].external
 
     return dictionary
+
+
+def get_parsed_throttler_mode(throttler_mode):
+    """ Parse the conveyor-throttler mode string. """
+    direction = None
+    all_activities = None
+    if throttler_mode == 'DEST_PER_ACT':
+        direction = 'destination'
+        all_activities = False
+    elif throttler_mode == 'DEST_PER_ALL_ACT':
+        direction = 'destination'
+        all_activities = True
+    elif throttler_mode == 'SRC_PER_ACT':
+        direction = 'source'
+        all_activities = False
+    elif throttler_mode == 'SRC_PER_ALL_ACT':
+        direction = 'source'
+        all_activities = True
+    return (direction, all_activities)
