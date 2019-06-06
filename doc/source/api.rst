@@ -23,7 +23,6 @@ The methods are separated per resource type.
     api/did
     api/meta-data
     api/rse
-    api/objectstore
     api/replica
     api/rule
     api/lock
