@@ -32,7 +32,6 @@ from web import application, ctx, header, seeother, InternalError
 from logging import getLogger, StreamHandler, DEBUG
 
 from rucio.api.replica import list_replicas
-from rucio.common.objectstore import connect, get_signed_urls
 from rucio.common.exception import RucioException, DataIdentifierNotFound, ReplicaNotFound
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_ranking, sort_dynamic, site_selector
 from rucio.common.schema import SCOPE_NAME_REGEXP
@@ -236,7 +235,7 @@ class HeaderRedirector(RucioController):
 
             replicas = [r for r in list_replicas(dids=[{'scope': scope, 'name': name, 'type': 'FILE'}], schemes=schemes, client_location=client_location)]
 
-            selected_url, selected_rse = None, None
+            selected_url = None
             for r in replicas:
                 if r['rses']:
                     dictreplica = {}
@@ -244,7 +243,6 @@ class HeaderRedirector(RucioController):
                     if rse:
                         if rse in r['rses'] and r['rses'][rse]:
                             selected_url = r['rses'][rse][0]
-                            selected_rse = rse
                         else:
                             raise ReplicaNotFound('no redirection possible - no valid RSE for HTTP redirection found')
                     else:
@@ -278,11 +276,6 @@ class HeaderRedirector(RucioController):
                                 rep = sort_random(dictreplica)
 
                             selected_url = rep[0]
-
-                        for rep in r['rses']:
-                            for replica in r['rses'][rep]:
-                                if selected_url == replica:
-                                    selected_rse = rep
 
             if selected_url:
                 raise seeother(selected_url)
