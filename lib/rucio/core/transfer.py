@@ -791,11 +791,6 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
     :param session:          Database session to use.
     :returns:                List.
     """
-    nonavailable_rses = session.query(models.RSE.id).filter(models.RSE.deleted == false()).filter(models.RSE.availability.in_((0, 1, 4, 5))).all()
-    rse_clause = []
-    for rse in nonavailable_rses:
-        rse_clause.append(models.Request.dest_rse_id != rse[0])
-
     sub_requests = session.query(models.Request.id,
                                  models.Request.rule_id,
                                  models.Request.scope,
@@ -811,7 +806,9 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
         .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
         .filter(models.Request.state == RequestState.QUEUED)\
         .filter(models.Request.request_type == RequestType.TRANSFER)\
-        .filter(and_(*rse_clause))
+        .join(models.RSE, models.RSE.id == models.Request.dest_rse_id)\
+        .filter(models.RSE.deleted == false())\
+        .filter(models.RSE.availability.in_((0, 1, 4, 5)))
 
     if isinstance(older_than, datetime.datetime):
         sub_requests = sub_requests.filter(models.Request.requested_at < older_than)
