@@ -13,7 +13,9 @@
 -->
 
 $var title: Data Identifier
-$var script: <script src="/static/did.js"></script><link rel="stylesheet" href="//cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css"><script src="//cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
+$var script: <script src="/static/did.js"></script><link rel="stylesheet" href="//cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css"><script src="//cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script><script src="/static/timeline.js"></script>
+
+
 
 <div id="result" class="row" data-equalizer>
   <div id="metadata" class="columns panel">
@@ -50,9 +52,18 @@ $var script: <script src="/static/did.js"></script><link rel="stylesheet" href="
 <div id="result_file_replicas" class="row">
 </div>
 
-<div id="problem_details" style="margin: 2em;"></div>
+<div class="row">
+  <div class="columns panel">
+    <h4>DID Tracking</h4>
+    <div id="chart"></div>
+    <table id="tracking_table" style="word-wrap: break-word;"> </table>
+  </div>
+
+</div>
 
 <div id="infomodal" class="reveal-modal" data-reveal aria-labelledby="modalTitle" aria-hidden="true" role="dialog">
 	<h2>No Data</h2>
 	<a class="close-reveal-modal" aria-label="Close">&#215;</a>
 </div>
+
+<div id="problem_details" style="margin: 2em;"></div>
