@@ -49,7 +49,7 @@ def upgrade():
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
 
         create_primary_key('heartbeats_pk', 'heartbeats', ['executable', 'hostname', 'pid', 'thread_id'])
-        create_index('heartbeats_updated_at', 'heartbeats', ['updated_at'])
+        create_index('HEARTBEATS_UPDATED_AT', 'heartbeats', ['updated_at'])
         create_check_constraint('heartbeats_created_nn', 'heartbeats', 'created_at is not null')
         create_check_constraint('heartbeats_updated_nn', 'heartbeats', 'updated_at is not null')
 

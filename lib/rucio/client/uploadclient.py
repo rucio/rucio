@@ -70,7 +70,6 @@ class UploadClient:
 
     def upload(self, items, summary_file_path=None):
         """
-
         :param items: List of dictionaries. Each dictionary describing a file to upload. Keys:
             path                  - path of the file that will be uploaded
             rse                   - rse name (e.g. 'CERN-PROD_DATADISK') where to upload the file
@@ -105,6 +104,7 @@ class UploadClient:
         # and cache rse settings
         registered_dataset_dids = set()
         registered_file_dids = set()
+
         for file in files:
             rse = file['rse']
             if not self.rses.get(rse):
@@ -129,6 +129,7 @@ class UploadClient:
         registered_dataset_dids = set()
         num_succeeded = 0
         summary = []
+
         for file in files:
             basename = file['basename']
             logger.info('Preparing upload for file %s' % basename)
@@ -150,6 +151,7 @@ class UploadClient:
 
             rse = file['rse']
             rse_settings = self.rses[rse]
+            rse_sign_service = rse_settings.get('sign_url', None)
             is_deterministic = rse_settings.get('deterministic', True)
             if not is_deterministic and not pfn:
                 logger.error('PFN has to be defined for NON-DETERMINISTIC RSE.')
@@ -198,6 +200,10 @@ class UploadClient:
                 lfn['adler32'] = file['adler32']
                 lfn['filesize'] = file['bytes']
 
+                sign_service = None
+                if cur_scheme == 'https':
+                    sign_service = rse_sign_service
+
                 self.trace['protocol'] = cur_scheme
                 self.trace['transferStart'] = time.time()
                 try:
@@ -207,7 +213,8 @@ class UploadClient:
                                           force_scheme=cur_scheme,
                                           force_pfn=pfn,
                                           transfer_timeout=file.get('transfer_timeout'),
-                                          delete_existing=delete_existing)
+                                          delete_existing=delete_existing,
+                                          sign_service=sign_service)
                     success = state['success']
                     file['upload_result'] = state
                 except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:
@@ -312,8 +319,10 @@ class UploadClient:
             meta = self.client.get_metadata(file_scope, file_name)
             logger.info('File DID already exists')
             logger.debug('local checksum: %s, remote checksum: %s' % (file['adler32'], meta['adler32']))
+
             if meta['adler32'] != file['adler32']:
                 logger.error('Local checksum %s does not match remote checksum %s' % (file['adler32'], meta['adler32']))
+
                 raise DataIdentifierAlreadyExists
 
             # add file to rse if it is not registered yet
