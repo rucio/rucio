@@ -79,7 +79,7 @@ echo 'Cleaning storage for local test RSEs'
 rm -rf /tmp/rucio_rse/*
 
 echo 'Running flake8 code style checker'
-flake8 --exclude=*.cfg bin/* lib/ tools/*.py tools/probes/common/*
+flake8 --exclude=*.cfg bin/* lib/ tools/*.py
 if [ $? != 0 ]; then
     echo 'Checker failed, aborting.'
     exit
@@ -87,7 +87,7 @@ fi
 
 if test ${pylint}; then
     echo 'Running pylint code style checker'
-    pylint bin/* lib/ tools/*.py tools/probes/common/*
+    pylint bin/* lib/ tools/*.py
     if [ $? != 0 ]; then
 	echo 'Checker failed, aborting.'
 	exit

@@ -18,7 +18,7 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2019
 # - Wen Guan, <wen.guan@cern.ch>, 2015
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 #
@@ -663,6 +663,7 @@ class RSETransferLimit(BASE, ModelBase):
     activity = Column(String(50))
     rse_expression = Column(String(3000))
     max_transfers = Column(BigInteger)
+    volume = Column(BigInteger)
     transfers = Column(BigInteger)
     waitings = Column(BigInteger)
     _table_args = (PrimaryKeyConstraint('rse_id', 'activity', name='RSE_TRANSFER_LIMITS_PK'),
@@ -722,7 +723,7 @@ class RSEProtocols(BASE, ModelBase):
     write_wan = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
     delete_wan = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
     third_party_copy = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
-    extended_attributes = Column(String(1024), nullable=True)
+    extended_attributes = Column(String(4000), nullable=True)
     rses = relationship("RSE", backref="rse_protocols")
     _table_args = (PrimaryKeyConstraint('rse_id', 'scheme', 'hostname', 'port', name='RSE_PROTOCOL_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_PROTOCOL_RSE_ID_FK'),
@@ -1195,8 +1196,8 @@ class Heartbeats(BASE, ModelBase):
     pid = Column(Integer, autoincrement=False)
     thread_id = Column(BigInteger, autoincrement=False)
     thread_name = Column(String(64))
-    _table_args = (PrimaryKeyConstraint('executable', 'hostname', 'pid', 'thread_id', name='HEARTBEATS_PK'),
-                   Index('HEARTBEATS_UPDATED_AT', 'updated_at'))
+    payload = Column(String(3000))
+    _table_args = (PrimaryKeyConstraint('executable', 'hostname', 'pid', 'thread_id', name='HEARTBEATS_PK'), )
 
 
 class NamingConvention(BASE, ModelBase):

@@ -9,7 +9,13 @@ import re
 import subprocess
 import signal
 
-from urllib import urlopen, urlencode
+try:
+    # Python 2
+    from urllib import urlencode, urlopen
+except ImportError:
+    # Python 3
+    from urllib.parse import urlencode
+    from urllib.request import urlopen
 from socket import gethostname
 
 # The pCache Version
@@ -109,8 +115,8 @@ def unitize(x):
 class Pcache:
 
     def Usage(self):
-        print>>sys.stderr, """Usage:
-        %s [flags] copy_prog [copy_flags] input output""" % self.progname
+        msg = """Usage: %s [flags] copy_prog [copy_flags] input output""" % self.progname
+        sys.stderr.write("%s\n" % msg)  # py3, py2
     #  print>>sys.stderr, "  flags are: "
     #  "s:r:m:Cy:A:R:t:r:g:fFl:VvqpH:S:",
     #  "scratch-dir=",
@@ -141,6 +147,8 @@ class Pcache:
         self.pcache_dir = self.scratch_dir + "pcache/"
         self.log_file = self.pcache_dir + "pcache.log"
         self.max_space = "80%"
+        self.percent_max = None
+        self.bytes_max = None
         # self.max_space = "10T"
         self.hysterisis = 0.75
         # self.hysterisis = 0.9
@@ -159,6 +167,8 @@ class Pcache:
         self.sitename = None  # XXX can we get this from somewhere?
         self.update_panda = False
         self.panda_url = "https://pandaserver.cern.ch:25443/server/panda/"
+        self.local_src = None
+        self.skip_download = False
 
         # internal variables
         self.sleep_interval = 15
@@ -172,7 +182,7 @@ class Pcache:
 
         try:
             opts, args = getopt.getopt(args,
-                                       "s:x:m:Cy:A:R:t:r:g:fFl:VvdqpPH:S:",
+                                       "s:x:m:Cy:A:R:t:r:g:fFl:VvdqpPH:S:L:X:",
                                        ["scratch-dir=",
                                         "storage-root=",
                                         "max-space=",
@@ -193,12 +203,13 @@ class Pcache:
                                         "print-stats",
                                         "panda",
                                         "hostname",
-                                        "sitename"])
+                                        "sitename",
+                                        "local-src"])
 
             # XXXX cache, stats, reset, clean, delete, inventory
             # TODO: move checksum/size validation from lsm to pcache
-        except getopt.GetoptError, err:
-            sys.stderr.write("%s\n" % err)
+        except getopt.GetoptError as err:
+            sys.stderr.write("%s\n" % str(err))
             self.Usage()
             self.fail(100)
 
@@ -239,7 +250,7 @@ class Pcache:
             elif opt in ("-r", "--retry"):
                 self.max_retries = int(arg)
             elif opt in ("-V", "--version"):
-                print self.version
+                print((str(self.version)))
                 sys.exit(0)
             elif opt in ("-l", "--log"):
                 self.log_file = arg
@@ -258,19 +269,14 @@ class Pcache:
                 self.hostname = arg
             elif opt in ("-S", "--sitename"):
                 self.sitename = arg
+            elif opt in ("-L", "--local-src"):
+                self.local_src = str(arg)
+            elif opt in ("-X", "--skip-download"):
+                if str(arg) in ('True', 'true') or arg:
+                    self.skip_download = True
 
-        # Convert max_space arg to percent_max or bytes_max
-        if self.max_space.endswith('%'):
-            self.percent_max = float(self.max_space[:-1])
-            self.bytes_max = None
-        else:  # handle suffix
-            self.percent_max = None
-            m = self.max_space.upper()
-            index = "BKMGTPEZY".find(m[-1])
-            if index >= 0:
-                self.bytes_max = float(m[:-1]) * (1024**index)
-            else:  # Numeric value w/o units (exception if invalid)
-                self.bytes_max = float(self.max_space)
+        # Treatment of limits on pcache size
+        self._convert_max_space()
 
         # Convert timeout to seconds
         t = self.transfer_timeout
@@ -288,8 +294,8 @@ class Pcache:
         self.transfer_timeout = mult * int(t)
 
         # Pre-compile regexes
-        self.accept_patterns = map(re.compile, self.accept_patterns)
-        self.reject_patterns = map(re.compile, self.reject_patterns)
+        self.accept_patterns = list(map(re.compile, self.accept_patterns))
+        self.reject_patterns = list(map(re.compile, self.reject_patterns))
 
         # Set host and name
         if self.hostname is None:
@@ -300,8 +306,159 @@ class Pcache:
         # All done
         self.args = args
 
+    def _convert_max_space(self):
+        '''
+        Added by Rucio team. Converts max allowed space usage of pcache into units used by this tool.
+        :input self.max_space: limit set by user
+        :output self.percent_max: max percentage of pcache space used
+        :output self.bytes_max: max size in bytes of pcache space used
+        '''
+
+        # Convert max_space arg to percent_max or bytes_max
+        if self.max_space.endswith('%'):
+            self.percent_max = float(self.max_space[:-1])
+            self.bytes_max = None
+        else:  # handle suffix
+            self.percent_max = None
+            m = self.max_space.upper()
+            index = "BKMGTPEZY".find(m[-1])
+            if index >= 0:
+                self.bytes_max = float(m[:-1]) * (1024**index)
+            else:  # Numeric value w/o units (exception if invalid)
+                self.bytes_max = float(self.max_space)
+
+    def clean_pcache(self, max_space=None):
+        '''
+        Added by Rucio team. Cleans pcache in case it is over limit.
+        Used for tests of the pcache functionality. Can be called without other init.
+        '''
+
+        self.t0 = time.time()
+        self.progname = "pcache"
+
+        # set max. occupancy of pcache:
+        if max_space:
+            self.max_space = max_space
+        self._convert_max_space()
+
+        # Fail on extra args
+        if not self.scratch_dir:
+            self.Usage()
+            self.fail(100)
+
+        # hardcoded pcache dir
+        self.pcache_dir = self.scratch_dir + '/pcache/'
+
+        # clean pcache
+        self.maybe_start_cleaner_thread()
+
+    def check_and_link(self, src='', dst='', dst_prefix='', scratch_dir='/scratch/', storage_root=None, force=False,
+                       guid=None, log_file=None, version='', hostname=None, sitename=None, local_src=None):
+        '''
+        Added by Rucio team. Replacement for the main method.
+        Checks whether a file is in pcache:
+         - if yes: creates a hardlink to the file in pcahce
+         - if not:
+              - returns 500 and leaves it to Rucio
+              - Rucio downloads a file
+        Makes hardlink in pcache to downloaded file:
+         - needs :param local_src: path to downloaded file
+        '''
+        self.t0 = time.time()
+        self.progname = "pcache"
+        self.pcache_dir = scratch_dir + '/pcache/'
+        self.src = src
+        self.dst = dst
+        self.dst_prefix = dst_prefix
+        self.sitename = sitename
+        self.hostname = hostname
+        self.guid = guid
+        if log_file:
+            self.log_file = log_file
+        self.local_src = local_src
+        self.version = version
+        self.storage_root = storage_root
+
+        # Cache dir may have been wiped
+        if ((not os.path.exists(self.pcache_dir)) and self.update_panda):
+            self.panda_flush_cache()
+
+        # Create the pCache directory
+        if (self.mkdir_p(self.pcache_dir)):
+            self.fail(101)
+
+        self.log(INFO, "%s %s invoked as: API", self.progname, self.version)
+
+        # Fail on extra args
+        if not scratch_dir:
+            self.Usage()
+            self.fail(100)
+
+        # If the source is lfn:, execute original command, no further action
+        if (self.src.startswith('lfn:')):
+            # status = os.execvp(self.copy_util, self.args)
+            os._exit(1)
+
+        # If the destination is a local file, do some rewrites
+        if (self.dst.startswith('file:')):
+            self.dst_prefix = 'file:'
+            self.dst = self.dst[5:]
+            # Leave one '/' on dst
+            while ((len(self.dst) > 1) and (self.dst[1] == '/')):
+                self.dst_prefix += '/'
+                self.dst = self.dst[1:]
+
+        # load file into pcache
+        self.create_pcache_dst_dir()
+        # XXXX TODO _ dst_dir can get deleted before lock!
+        waited = False
+
+        # If another transfer is active, lock_dir will block
+        if (self.lock_dir(self.pcache_dst_dir, blocking=False)):
+            waited = True
+            self.log(INFO, "%s locked, waiting", self.pcache_dst_dir)
+            self.lock_dir(self.pcache_dst_dir, blocking=True)
+
+        if (waited):
+            self.log(INFO, "waited %.2f secs", time.time() - self.t0)
+
+        if force:
+            self.empty_dir(self.pcache_dst_dir)
+
+        # The name of the cached version of this file
+        cache_file = self.pcache_dst_dir + "data"
+
+        # Check if the file is in cache or we need to transfer it down
+        if (os.path.exists(cache_file)):
+            exit_status = 0
+            copy_status = None
+            self.log(INFO, "check_and_link: file found in cache")
+            self.log(INFO, "cache hit %s", self.src)
+            self.update_stats("cache_hits")
+            self.finish()
+            if (os.path.exists(self.dst)):
+                copy_status = 1
+        elif self.local_src:
+            exit_status = 1
+            copy_status = None
+            self.log(INFO, "check_and_link: local replica found, linking to pcache")
+            self.finish()
+        else:
+            self.log(INFO, "check_and_link: %s file not found in pcache and was not downloaded yet", self.src)
+            return (500, None)
+
+        self.unlock_dir(self.pcache_dst_dir)
+        self.log(INFO, "total time %.2f secs", time.time() - self.t0)
+
+        # in case that the pcache is over limit
+        self.maybe_start_cleaner_thread()
+
+        # Return if the file was cached, copied or an error (and its code)
+        return (exit_status, copy_status)
+
     def main(self, args):
 
+        # args
         self.cmdline = ' '.join(args)
         self.t0 = time.time()
         self.progname = args[0] or "pcache"
@@ -324,7 +481,7 @@ class Pcache:
         # Are we flushing the cache
         if (self.flush):
             if (self.args):
-                print >> sys.stderr, "--flush not compatible with other options"
+                sys.stderr.write("--flush not compatible with other options")
                 self.fail(100)
             else:
                 self.flush_cache()
@@ -364,7 +521,7 @@ class Pcache:
 
         # Execute original command, no further action
         if (not (self.dst.startswith(self.scratch_dir) and self.accept(self.src) and (not self.reject(self.src)))):
-            # status = os.execvp(self.copy_util, self.args)
+            os.execvp(self.copy_util, self.args)
             os._exit(1)
 
         # XXXX todo:  fast-path - try to acquire lock
@@ -399,6 +556,8 @@ class Pcache:
             self.update_stats("cache_hits")
             self.finish()
         else:
+            if self.skip_download:
+                return (500, None)
             self.update_stats("cache_misses")
             exit_status, copy_status = self.pcache_copy_in()
             if ((exit_status == 0) or (exit_status == 2)):
@@ -412,11 +571,15 @@ class Pcache:
         # Return if the file was cached, copied or an error (and its code)
         return (exit_status, copy_status)
 
-    def finish(self):
-        self.update_mru()
+    def finish(self, local_src=None):
         cache_file = self.pcache_dst_dir + "data"
-        if (self.make_hard_link(cache_file, self.dst)):
-            self.fail(102)
+        self.update_mru()
+        if self.local_src:
+            if (self.make_hard_link(self.local_src, cache_file)):
+                self.fail(102)
+        else:
+            if (self.make_hard_link(cache_file, self.dst)):
+                self.fail(102)
 
     def pcache_copy_in(self):
 
@@ -428,7 +591,7 @@ class Pcache:
             f = open(fname, 'w')
             f.write(self.src + '\n')
             f.close()
-            self.chmod(fname, 0666)
+            self.chmod(fname, 0o666)
         except:
             pass
 
@@ -439,7 +602,7 @@ class Pcache:
                 f = open(fname, 'w')
                 f.write(self.guid + '\n')
                 f.close()
-                self.chmod(fname, 0666)
+                self.chmod(fname, 0o666)
             except:
                 pass
 
@@ -474,7 +637,10 @@ class Pcache:
                 copy_status = retry
 
             # Update the cache information
-            self.update_cache_size(os.stat(cache_file).st_size)
+            if self.local_src:
+                self.update_cache_size(os.stat(self.local_src).st_size)
+            else:
+                self.update_cache_size(os.stat(cache_file).st_size)
 
             # Update the panda cache
             if (self.guid and self.update_panda):
@@ -496,16 +662,13 @@ class Pcache:
 
         # self.log(INFO, '%s', self.storage_root)
         # self.log(INFO, '%s', d)
-
         # XXXX any more patterns to look for?
         d = os.path.normpath(self.pcache_dir + "CACHE/" + d)
-
         if (not d.endswith('/')):
             d += '/'
 
         self.pcache_dst_dir = d
         status = self.mkdir_p(d)
-
         if (status):
             self.log(ERROR, "mkdir %s %s", d, status)
             self.fail(103)
@@ -543,7 +706,7 @@ class Pcache:
             try:
                 d = os.readlink(l)
 
-            except OSError, e:
+            except OSError as e:
                 self.log(ERROR, "readlink: %s", e)
                 continue
 
@@ -563,7 +726,7 @@ class Pcache:
             try:
                 os.unlink(l)
 
-            except OSError, e:
+            except OSError as e:
                 if e.errno != errno.ENOENT:
                     self.log(ERROR, "unlink: %s", e)
 
@@ -602,7 +765,7 @@ class Pcache:
             try:
                 os.rename(d, d + ts)
                 os.system("rm -rf %s &" % (d + ts))
-            except OSError, e:
+            except OSError as e:
                 if e.errno != errno.ENOENT:
                     self.log(ERROR, "%s: %s", d, e)
 
@@ -615,7 +778,7 @@ class Pcache:
         # Remove any transfer file with the same name
         try:
             os.unlink(xfer_file)
-        except OSError, e:
+        except OSError as e:
             if e.errno != errno.ENOENT:
                 self.log(ERROR, "unlink: %s", e)
 
@@ -627,7 +790,10 @@ class Pcache:
         t0 = time.time()
 
         # Do the copy with a timeout
-        copy_status, copy_output = run_cmd(args, self.transfer_timeout)
+        if self.local_src:
+            return(0, None)
+        else:
+            copy_status, copy_output = run_cmd(args, self.transfer_timeout)
 
         # Did the command timeout
         if (copy_status == -1):
@@ -641,7 +807,7 @@ class Pcache:
 
         # Display any output from the copy
         if (copy_output):
-            print '%s' % copy_output
+            print('%s' % copy_output)
 
         # Did the copy succeed (good status and an existing file)
         if ((copy_status > 0) or (not os.path.exists(xfer_file))):
@@ -654,7 +820,7 @@ class Pcache:
         try:
             os.rename(xfer_file, cache_file)
             # self.log(INFO, "rename %s %s", xfer_file, cache_file)
-        except OSError, e:  # Fatal error if we can't do this
+        except OSError as e:  # Fatal error if we can't do this
             self.log(ERROR, "rename %s %s", xfer_file, cache_file)
             try:
                 os.unlink(xfer_file)
@@ -663,7 +829,7 @@ class Pcache:
             self.fail(104)
 
         # Make the file readable to all
-        self.chmod(cache_file, 0666)
+        self.chmod(cache_file, 0o666)
 
         # Transfer completed, return the transfer command status
         return (0, None)
@@ -698,7 +864,7 @@ class Pcache:
             if os.path.exists(dst):
                 os.unlink(dst)
             os.link(src, dst)
-        except OSError, e:
+        except OSError as e:
             self.log(ERROR, "make_hard_link: %s", e)
             ret = e.errno
             if ret == errno.ENOENT:
@@ -739,9 +905,9 @@ class Pcache:
         return data
 
     def print_stats(self):
-        print "Cache size:", unitize(self.get_stat("CACHE", "size"))
-        print "Cache hits:", self.get_stat("stats", "cache_hits")
-        print "Cache misses:", self.get_stat("stats", "cache_misses")
+        print(("Cache size: %s", unitize(self.get_stat("CACHE", "size"))))
+        print(("Cache hits: %s", self.get_stat("stats", "cache_hits")))
+        print(("Cache misses: %s", self.get_stat("stats", "cache_misses")))
 
     def reset_stats(self):
         stats_dir = os.path.join(self.pcache_dir, "stats")
@@ -774,7 +940,7 @@ class Pcache:
             f = open(stats_file, 'w')
             f.write("%s\n" % value)
             f.close()
-            self.chmod(stats_file, 0666)
+            self.chmod(stats_file, 0o666)
         except:
             pass
             # XXX
@@ -825,7 +991,7 @@ class Pcache:
                     fullname = os.path.join(root, f)
                     try:
                         size += os.stat(fullname).st_size
-                    except OSError, e:
+                    except OSError as e:
                         self.log(ERROR, "stat(%s): %s", fullname, e)
 
         filename = os.path.join(self.pcache_dir, "CACHE", "size")
@@ -834,7 +1000,7 @@ class Pcache:
             f = open(filename, 'w')
             f.write("%s\n" % size)
             f.close()
-            self.chmod(filename, 0666)
+            self.chmod(filename, 0o666)
         except:
             pass  # XXXX
 
@@ -873,7 +1039,8 @@ class Pcache:
                 maxfd = os.sysconf("SC_OPEN_MAX")
             except:
                 maxfd = MAXFD  # use default value
-        for fd in xrange(0, maxfd + 1):
+
+        for fd in range(0, maxfd + 1):
             try:
                 os.close(fd)
             except:
@@ -952,7 +1119,7 @@ class Pcache:
             return
         try:
             f = open(name, 'w')
-        except IOError, e:
+        except IOError as e:
             self.log(ERROR, "open: %s", e)
             return e.errno
 
@@ -964,7 +1131,7 @@ class Pcache:
             try:
                 status = fcntl.lockf(f, flag)
                 break
-            except IOError, e:
+            except IOError as e:
                 if e.errno in (errno.EAGAIN, errno.EACCES) and not blocking:
                     f.close()
                     del self.locks[name]
@@ -993,7 +1160,7 @@ class Pcache:
         return status
 
     def unlock_all(self):
-        for filename, f in self.locks.items():
+        for filename, f in list(self.locks.items()):
             try:
                 f.close()
                 os.unlink(filename)
@@ -1004,7 +1171,7 @@ class Pcache:
     def delete_file_and_parents(self, name):
         try:
             os.unlink(name)
-        except OSError, e:
+        except OSError as e:
             if e.errno != errno.ENOENT:
                 self.log(ERROR, "unlink: %s", e)
                 self.fail(107)
@@ -1016,7 +1183,7 @@ class Pcache:
             if not os.listdir(dirname):
                 os.rmdir(dirname)
                 self.delete_parents_recursive(dirname)
-        except OSError, e:
+        except OSError as e:
             self.log(DEBUG, "delete_parents_recursive: %s", e)
 
     def update_mru(self):
@@ -1028,7 +1195,7 @@ class Pcache:
 
         try:
             os.unlink(link_to_mru)
-        except OSError, e:
+        except OSError as e:
             if e.errno != errno.ENOENT:
                 self.log(ERROR, "unlink: %s", e)
                 self.fail(108)
@@ -1050,7 +1217,7 @@ class Pcache:
             try:
                 os.symlink(self.pcache_dst_dir, link_from_mru)
                 break
-            except OSError, e:
+            except OSError as e:
                 if e.errno == errno.EEXIST:
                     ext += 1  # add an extension & retry if file exists
                     continue
@@ -1062,11 +1229,11 @@ class Pcache:
             try:
                 os.symlink(link_from_mru, link_to_mru)
                 break
-            except OSError, e:
+            except OSError as e:
                 if e.errno == errno.EEXIST:
                     try:
                         os.unlink(link_to_mru)
-                    except OSError, e:
+                    except OSError as e:
                         if e.errno != errno.ENOENT:
                             self.log(ERROR, "unlink: %s %s", e, link_to_mru)
                             self.fail(109)
@@ -1089,7 +1256,7 @@ class Pcache:
             if name == "data":
                 try:
                     size = os.stat(fullname).st_size
-                except OSError, e:
+                except OSError as e:
                     if e.errno != errno.ENOENT:
                         self.log(WARN, "stat: %s", e)
             elif name == "guid":
@@ -1103,15 +1270,15 @@ class Pcache:
                     mru_file = os.readlink(fullname)
                     os.unlink(fullname)
                     self.delete_file_and_parents(mru_file)
-                except OSError, e:
+                except OSError as e:
                     if e.errno != errno.ENOENT:
                         self.log(WARN, "empty_dir: %s", e)
             try:
                 if self.debug:
-                    print "UNLINK", fullname
+                    print(("UNLINK %s", fullname))
                 os.unlink(fullname)
                 bytes_deleted += size
-            except OSError, e:
+            except OSError as e:
                 if e.errno != errno.ENOENT:
                     self.log(WARN, "empty_dir2: %s", e)
                 # self.fail()
@@ -1122,21 +1289,21 @@ class Pcache:
     def chmod(self, path, mode):
         try:
             os.chmod(path, mode)
-        except OSError, e:
+        except OSError as e:
             if e.errno != errno.EPERM:  # Cannot chmod files we don't own!
                 self.log(ERROR, "chmod %s %s", path, e)
 
-    def mkdir_p(self, d, mode=0777):
+    def mkdir_p(self, d, mode=0o777):
         # Thread-safe
         try:
             os.makedirs(d, mode)
             return 0
-        except OSError, e:
+        except OSError as e:
             if e.errno == errno.EEXIST:
                 pass
             else:
                 # Don't use log here, log dir may not exist
-                print >> sys.stderr, e
+                sys.stderr.write("%s\n" % str(e))
                 return e.errno
 
     def log(self, level, msg, *args):
@@ -1155,12 +1322,12 @@ class Pcache:
                                     str(msg) % args)
 
         try:
-            f = open(self.log_file, "a+", 0666)
+            f = open(self.log_file, "a+", 0o666)
             f.write(msg)
             f.close()
 
-        except Exception, e:
-            sys.stderr.write("%s\n" % e)
+        except Exception as e:
+            sys.stderr.write("%s\n" % str(e))
             sys.stderr.write(msg)
             sys.stderr.flush()
 
@@ -1192,6 +1359,7 @@ class Pcache:
 #  107 - Cache cleanup error
 #  108 - Cache MRU update error
 #  109 - Cache MRU link error
+#  500 - Is file in pcache? No other action
 
 
 if (__name__ == "__main__"):

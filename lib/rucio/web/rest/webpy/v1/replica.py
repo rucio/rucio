@@ -36,11 +36,12 @@ except ImportError:
     from urllib.parse import unquote
     from urllib.parse import parse_qs
 from web import application, ctx, Created, data, header, InternalError, loadhook, OK, unloadhook
+from xml.sax.saxutils import escape
 
 from geoip2.errors import AddressNotFoundError
 
 from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replicas,
-                               delete_replicas,
+                               delete_replicas, list_dataset_replicas_vp,
                                get_did_from_pfns, update_replicas_states,
                                declare_bad_file_replicas, add_bad_pfns, get_suspicious_files,
                                declare_suspicious_file_replicas, list_bad_replicas_status,
@@ -68,6 +69,7 @@ URLS = ('/list/?$', 'ListReplicas',
         '/bad/?$', 'BadReplicas',
         '/dids/?$', 'ReplicasDIDs',
         '%s/datasets$' % SCOPE_NAME_REGEXP, 'DatasetReplicas',
+        '%s/datasets_vp$' % SCOPE_NAME_REGEXP, 'DatasetReplicasVP',
         '%s/?$' % SCOPE_NAME_REGEXP, 'Replicas',
         '/tombstone/?$', 'Tombstone')
 
@@ -164,7 +166,7 @@ class Replicas(RucioController):
 
                     idx = 0
                     for replica in replicas:
-                        yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx + 1) + '">' + replica + '</url>\n'
+                        yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx + 1) + '">' + escape(replica) + '</url>\n'
                         idx += 1
                         if limit and limit == idx:
                             break
@@ -450,7 +452,7 @@ class ListReplicas(RucioController):
                             + '" domain="' + str(dictreplica[replica][0]) \
                             + '" priority="' + str(dictreplica[replica][1]) \
                             + '" client_extract="' + str(dictreplica[replica][3]).lower() \
-                            + '">' + replica + '</url>\n'
+                            + '">' + escape(replica) + '</url>\n'
                         idx += 1
                         if limit and limit == idx:
                             break
@@ -754,6 +756,46 @@ class DatasetReplicas(RucioController):
                 deep = params['deep'][0]
         try:
             for row in list_dataset_replicas(scope=scope, name=name, deep=deep):
+                yield dumps(row, cls=APIEncoder) + '\n'
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+
+
+class DatasetReplicasVP(RucioController):
+
+    @check_accept_header_wrapper(['application/x-json-stream'])
+    def GET(self, scope, name):
+        """
+        List dataset replicas for a DID (scope:name) using the
+        Virtual Placement service.
+
+        NOTICE: This is an RnD function and might change or go away at any time.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            406 Not Acceptable
+            500 InternalError
+
+        :returns: If VP exists a list of dicts of sites, otherwise a list of dicts of dataset replicas
+        """
+
+        header('Content-Type', 'application/x-json-stream')
+        deep = False
+        if ctx.query:
+            try:
+                params = loads(unquote(ctx.query[1:]))
+            except ValueError:
+                params = parse_qs(ctx.query[1:])
+            if 'deep' in params:
+                deep = params['deep'][0]
+        try:
+            for row in list_dataset_replicas_vp(scope=scope, name=name, deep=deep):
                 yield dumps(row, cls=APIEncoder) + '\n'
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])

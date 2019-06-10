@@ -17,10 +17,11 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann, <thomas.beermann@cern.ch> 2019>
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 
 if [[ $SUITE == "client" ]]; then
 
-    if [[ "$TRAVIS_PYTHON_VERSION" !=  "2.6" ]]; then pip install -r tools/pip-requires; fi
+ if [[ "$TRAVIS_PYTHON_VERSION" !=  "2.6" ]]; then pip install -r tools/pip-requires; fi
     pip install setuptools_scm
     pip install -r tools/pip-requires-test
     python setup_rucio_client.py install
@@ -36,16 +37,15 @@ elif [[ $SUITE == "syntax" ]]; then
     cp etc/docker/travis/google-cloud-storage-test.json etc/google-cloud-storage-test.json
 
 elif [[ $SUITE == "all" ]]; then
-
+    echo $TRAVIS_PYTHON_VERSION
     cp etc/docker/travis/Dockerfile Dockerfile
-    docker build -t rucio/rucio .
+    docker build -t rucio/rucio --build-arg python=$TRAVIS_PYTHON_VERSION .
     if [[ $RDBMS == "oracle" ]]; then
         git clone https://github.com/wnameless/docker-oracle-xe-11g.git
         cd docker-oracle-xe-11g/
         docker build -t rucio/oraclexe .
         cd ..
     fi
-
 
 elif [[ $SUITE == 'python3' ]]; then 
     pip install -r tools/pip-requires-test

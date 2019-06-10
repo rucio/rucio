@@ -1,26 +1,22 @@
 # All dependencies needed to develop/test rucio should be defined here
 
-pinocchio==0.4.2            # Extensions for the 'nose' unit testing framework
-Paste==3.0.6                # Utilities for web development in pyton
-unittest2==1.1.0            # backport of unittest lib in python 2.7
-coverage==4.5.2             # Nose module for test coverage
-Sphinx==1.8.3               # required to build documentation
-sphinx-rtd-theme==0.4.2     # Read the Docs theme for Sphinx
-Jinja2==2.10                # template engine
-sphinxcontrib-httpdomain==1.7.0 # Provides a Sphinx domain for describing RESTful HTTP APIs
-stub==0.2.1; python_version == '2.7' # Temporarily modify callable behaviour and object attributes
-Pygments==2.2.0             # Python Syntax highlighter
-docutils==0.14              # Needed for sphinx
-pyflakes==2.0.0             # Passive checker of Python programs
-flake8==3.5.0               # Wrapper around PyFlakes&pep8
-pylint==1.9.4; python_version >= '2.7' # static code analysis. 1.9.4 last 2.7 compatible release
-virtualenv==16.2.0          # Virtual Python Environment builder
-tox==3.7.0                  # Automate and standardize testing in Python
-pytest==4.1.1
-pytest-xdist==1.26.0        # py.test xdist plugin for distributed testing and loop-on-failing modes
-xmltodict==0.11.0           # Makes working with XML feel like you are working with JSON
-pytz==2018.9                # World timezone definitions, modern and historical
-Babel==2.6.0                # Internationalization utilities - Dependency of sphinx
-subprocess32==3.5.3; python_version <= '3.0' # A backport of the subprocess module from Python 3.2/3.3 for use on 2.x.
-pycodestyle==2.3.1          # New package replacing pep8
-mock==2.0.0                 # Mock package needed for readthedocs build for mocking pycurls
+Paste==3.0.8                                  # Utilities for web development in pyton
+coverage==4.5.3                               # Nose module for test coverage
+Sphinx==1.8.5                                 # required to build documentation
+sphinx-rtd-theme==0.4.3                       # Read the Docs theme for Sphinx
+sphinxcontrib-httpdomain==1.7.0               # Provides a Sphinx domain for describing RESTful HTTP APIs
+stub==0.2.1; python_version == '2.7'          # Temporarily modify callable behaviour and object attributes
+Pygments==2.2.0                               # Python Syntax highlighter
+docutils==0.14                                # Needed for sphinx
+pyflakes==2.0.0                               # Passive checker of Python programs
+flake8==3.5.0                                 # Wrapper around PyFlakes&pep8
+pylint==1.9.4; python_version >= '2.7'        # static code analysis. 1.9.4 last 2.7 compatible release
+virtualenv==16.2.0                            # Virtual Python Environment builder
+tox==3.9.0                                    # Automate and standardize testing in Python
+xmltodict==0.12.0                             # Makes working with XML feel like you are working with JSON
+pytz==2019.1                                  # World timezone definitions, modern and historical
+Babel==2.6.0                                  # Internationalization utilities - Dependency of sphinx
+subprocess32==3.5.3; python_version <= '3.0'  # A backport of the subprocess module from Python 3.2/3.3 for use on 2.x.
+pycodestyle==2.3.1                            # New package replacing pep8
+mock==2.0.0                                   # Mock package needed for readthedocs build for mocking pycurls
+s3cmd==2.0.2                                  # Used for testing of S3
