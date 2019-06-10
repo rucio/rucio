@@ -35,7 +35,7 @@ from rucio.common.utils import generate_uuid, chunks
 from rucio.core import transfer_limits as transfer_limits_core
 from rucio.core.message import add_message
 from rucio.core.monitor import record_counter, record_timer
-from rucio.core.rse import get_rse_id, get_rse_name, get_rse_transfer_limits
+from rucio.core.rse import get_rse_name, get_rse_transfer_limits
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RequestState, RequestType, FTSState, ReplicaState, LockState, RequestErrMsg
 from rucio.db.sqla.session import read_session, transactional_session

@@ -74,7 +74,7 @@ class TestReplicaRecoverer():
             suspicious_pfns = replica['rses'][self.rse4suspicious_id]
             for i in range(3):
                 print("Declaring suspicious file replica: " + suspicious_pfns[0])
-                self.replica_client.declare_suspicious_file_replicas(suspicious_pfns[0], ], 'This is a good reason.')
+                self.replica_client.declare_suspicious_file_replicas([suspicious_pfns[0], ], 'This is a good reason.')
                 sleep(1)
             if replica['name'] == path.basename(self.tmp_file2):
                 print("Declaring bad file replica: " + suspicious_pfns[0])
@@ -173,14 +173,14 @@ class TestReplicaRecoverer():
                 assert_true((self.rse4recovery_id in replica['states']) is False)
 
         # Checking if replicas declared as 'BAD'
-        bad_replicas_list = list_bad_replicas_status(rse=self.rse4suspicious_id, younger_than=self.from_date)
+        bad_replicas_list = list_bad_replicas_status(rse_id=self.rse4suspicious_id, younger_than=self.from_date)
         bad_checklist = [(badf['name'], badf['rse_id'], badf['state']) for badf in bad_replicas_list]
 
         assert_true((path.basename(self.tmp_file1), self.rse4suspicious_id, BadFilesStatus.BAD) in bad_checklist)
         assert_true((path.basename(self.tmp_file2), self.rse4suspicious_id, BadFilesStatus.BAD) in bad_checklist)
         assert_true((path.basename(self.tmp_file3), self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist)
 
-        bad_replicas_list = list_bad_replicas_status(rse=self.rse4recovery_id, younger_than=self.from_date)
+        bad_replicas_list = list_bad_replicas_status(rse_id=self.rse4recovery_id, younger_than=self.from_date)
         bad_checklist = [(badf['name'], badf['rse_id'], badf['state']) for badf in bad_replicas_list]
 
         assert_true((path.basename(self.tmp_file1), self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist)
