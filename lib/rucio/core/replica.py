@@ -1637,6 +1637,98 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
     return rows
 
 
+@transactional_session
+def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, worker_number=None, total_workers=None, delay_seconds=0, session=None):
+    """
+    List RSE File replicas with no locks.
+
+    :param limit:              Number of replicas returned.
+    :param bytes:              The amount of needed bytes.
+    :param rse_id:             The rse_id.
+    :param total_workers:      Number of total workers.
+    :param worker_number:      id of the executing worker.
+    :delay_seconds:            The delay to query replicas in BEING_DELETED state
+    :param session:            The database session in use.
+
+    :returns: a list of dictionary replica.
+    """
+    replicas_alias = aliased(models.RSEFileAssociation, name='replicas_alias')
+
+    # filter(models.RSEFileAssociation.state != ReplicaState.BEING_DELETED).\
+    none_value = None  # Hack to get pep8 happy...
+    query = session.query(replicas_alias.scope, replicas_alias.name, replicas_alias.path, replicas_alias.bytes, replicas_alias.tombstone, replicas_alias.state, func.count(models.RSEFileAssociation.scope)).\
+        with_hint(models.RSEFileAssociation, "INDEX_RS_ASC(replicas REPLICAS_TOMBSTONE_IDX)  NO_INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle').\
+        filter(replicas_alias.tombstone < datetime.utcnow()).\
+        filter(replicas_alias.lock_cnt == 0).\
+        filter(case([(replicas_alias.tombstone != none_value, replicas_alias.rse_id), ]) == rse_id).\
+        filter(or_(replicas_alias.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)),
+                   and_(replicas_alias.state == ReplicaState.BEING_DELETED, replicas_alias.updated_at < datetime.utcnow() - timedelta(seconds=delay_seconds)))).\
+        join(models.RSEFileAssociation, and_(models.RSEFileAssociation.scope == replicas_alias.scope,
+                                             models.RSEFileAssociation.name == replicas_alias.name,
+                                             models.RSEFileAssociation.rse_id != replicas_alias.rse_id,
+                                             models.RSEFileAssociation.state == ReplicaState.AVAILABLE)).\
+        group_by(replicas_alias.scope, replicas_alias.name, replicas_alias.path, replicas_alias.bytes, replicas_alias.tombstone, replicas_alias.state).\
+        order_by(replicas_alias.tombstone)
+
+    if worker_number and total_workers and total_workers - 1 > 0:
+        if session.bind.dialect.name == 'oracle':
+            bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
+            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
+        elif session.bind.dialect.name == 'mysql':
+            query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1)))
+        elif session.bind.dialect.name == 'postgresql':
+            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1)))
+
+    needed_space = bytes
+    total_bytes, total_files = 0, 0
+    rows = []
+    for (scope, name, path, bytes, tombstone, state, cnt) in query.yield_per(1000):
+        # Check if more than one replica is available
+        if cnt > 1:
+            if state != ReplicaState.UNAVAILABLE:
+
+                total_bytes += bytes
+                if tombstone != OBSOLETE and needed_space is not None and total_bytes > needed_space:
+                    break
+
+                total_files += 1
+                if total_files > limit:
+                    break
+
+            rows.append({'scope': scope, 'name': name, 'path': path,
+                         'bytes': bytes, 'tombstone': tombstone,
+                         'state': state})
+            session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation == scope,
+                                                            models.RSEFileAssociation.name == name,
+                                                            models.RSEFileAssociation.rse_id == rse_id).\
+                update({'update_at': datetime.utcnow(), 'state': ReplicaState.BEING_DELETED}, synchronize_session=False)
+
+        else:
+            # If this is the last replica, check if there are some requests
+            request_cnt = session.query(func.count()).\
+                with_hint(models.Request, "INDEX(requests REQUESTS_SCOPE_NAME_RSE_IDX)", 'oracle').\
+                filter(and_(models.Request.scope == scope,
+                            models.Request.name == name)).one()
+
+            if request_cnt[0] == 0:
+                total_bytes += bytes
+                if tombstone != OBSOLETE and needed_space is not None and total_bytes > needed_space:
+                    break
+
+                total_files += 1
+                if total_files > limit:
+                    break
+
+                rows.append({'scope': scope, 'name': name, 'path': path,
+                             'bytes': bytes, 'tombstone': tombstone,
+                             'state': state})
+                session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation == scope,
+                                                                models.RSEFileAssociation.name == name,
+                                                                models.RSEFileAssociation.rse_id == rse_id).\
+                    update({'update_at': datetime.utcnow(), 'state': ReplicaState.BEING_DELETED}, synchronize_session=False)
+    return rows
+
+
 @read_session
 def get_sum_count_being_deleted(rse_id, session=None):
     """

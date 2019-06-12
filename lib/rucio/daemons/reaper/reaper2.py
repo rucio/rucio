@@ -139,12 +139,12 @@ def reaper(rses, chunk_size=100,
     sanity_check(executable=executable, hostname=hostname)
     heart_beat = live(executable, hostname, pid, hb_thread)
     prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
-    logging.info(prepend_str + 'Reaper starting')
+    logging.info('%s Reaper starting', prepend_str)
 
     time.sleep(10)  # To prevent running on the same partition if all the reapers restart at the same time
     heart_beat = live(executable, hostname, pid, hb_thread)
     prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
-    logging.info(prepend_str + 'Reaper started')
+    logging.info('%s Reaper started', prepend_str)
 
     while not GRACEFUL_STOP.is_set():
 
@@ -167,8 +167,8 @@ def reaper(rses, chunk_size=100,
                     else:
                         logging.debug('%s Nothing to delete on %s', prepend_str, rse['rse'])
 
-            logging.debug(prepend_str + str(dict_rses))
-            # Call list_unlocked_replicas here
+            logging.debug('%s %s', prepend_str, str(dict_rses))
+            # Call list_and_mark_unlocked_replicas here
             # Actual deletion will take place there
 
             if once:
@@ -179,7 +179,7 @@ def reaper(rses, chunk_size=100,
         except DatabaseException as error:
             logging.warning('%s Reaper:  %s', prepend_str, str(error))
         except Exception:
-            logging.critical(traceback.format_exc())
+            logging.critical('%s %s', prepend_str, str(traceback.format_exc()))
 
     die(executable=executable, hostname=hostname, pid=pid, thread=hb_thread)
     logging.info('%s Graceful stop requested', prepend_str)
