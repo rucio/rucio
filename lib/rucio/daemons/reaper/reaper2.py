@@ -80,9 +80,14 @@ def __check_rse_usage(rse, rse_id, prepend_str):
     attributes = list_rse_attributes(rse)
     source_for_total_space = attributes.get('sourceForTotalSpace', 'storage')
     source_for_used_space = attributes.get('sourceForUsedSpace', 'storage')
+    greedy = attributes.get('greedyDeletion', False)
 
     logging.debug('%s RSE: %s, source_for_total_space: %s, source_for_used_space: %s',
                   prepend_str, rse, source_for_total_space, source_for_used_space)
+
+    # First of all check if greedy mode is enabled for this RSE
+    if greedy:
+        return max_being_deleted_files, 100000000000000, used, free
 
     # Get total, used and obsolete space
     rse_usage = get_rse_usage(rse=rse, rse_id=rse_id)
@@ -92,11 +97,13 @@ def __check_rse_usage(rse, rse_id, prepend_str):
         break
     usage = [entry for entry in rse_usage if entry['source'] == source_for_total_space]
 
+    # If no information is available about disk space, do nothing except if there are replicas with Epoch tombstone
     if not usage:
         if not obsolete:
             return max_being_deleted_files, needed_free_space, used, free
         return max_being_deleted_files, obsolete, used, free
 
+    # Extract the total and used space
     for var in usage:
         total, used = var['total'], var['used']
         break
