@@ -1418,16 +1418,17 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
 
     # Get all collection_replicas at RSE, insert them into UpdatedCollectionReplica
     if dst_replica_condition:
-        query = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).\
-            filter(or_(*dst_replica_condition)).\
-            distinct()
+        for chunk in chunks(dst_replica_condition, 10):
+            query = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).\
+                filter(or_(*chunk)).\
+                distinct()
 
-        for parent_scope, parent_name in query:
-            models.UpdatedCollectionReplica(scope=parent_scope,
-                                            name=parent_name,
-                                            did_type=DIDType.DATASET,
-                                            rse_id=replica_rse.id).\
-                save(session=session, flush=False)
+            for parent_scope, parent_name in query:
+                models.UpdatedCollectionReplica(scope=parent_scope,
+                                                name=parent_name,
+                                                did_type=DIDType.DATASET,
+                                                rse_id=replica_rse.id).\
+                    save(session=session, flush=False)
 
     # Delete did from the content for the last did
     while parent_condition:
