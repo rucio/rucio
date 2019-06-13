@@ -32,7 +32,7 @@ def export_data(issuer):
     distances = {}
     for src_id, tmp in data['distances']:
         src = get_rse_name(rse_id=src_id)
-        distances[src_id] = {}
+        distances[src] = {}
         for dst_id, dists in tmp:
             dst = get_rse_name(rse_id=dst_id)
             distances[src][dst] = dists

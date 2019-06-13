@@ -107,12 +107,12 @@ class TestSubscriptionCoreApi():
         site_a = 'RSE%s' % uuid().upper()
         site_b = 'RSE%s' % uuid().upper()
 
-        add_rse(site_a)
-        add_rse(site_b)
+        site_a_id = add_rse(site_a)
+        site_b_id = add_rse(site_b)
 
         # Add quota
-        set_account_limit('root', get_rse_id(site_a), -1)
-        set_account_limit('root', get_rse_id(site_b), -1)
+        set_account_limit('root', site_a_id, -1)
+        set_account_limit('root', site_b_id, -1)
 
         # add a new dataset
         dsn = 'dataset-%s' % uuid()
@@ -240,12 +240,12 @@ class TestSubscriptionRestApi():
         site_a = 'RSE%s' % uuid().upper()
         site_b = 'RSE%s' % uuid().upper()
 
-        add_rse(site_a)
-        add_rse(site_b)
+        site_a_id = add_rse(site_a)
+        site_b_id = add_rse(site_b)
 
         # Add quota
-        set_account_limit('root', get_rse_id(site_a), -1)
-        set_account_limit('root', get_rse_id(site_b), -1)
+        set_account_limit('root', site_a_id, -1)
+        set_account_limit('root', site_b_id, -1)
 
         # add a new dataset
         dsn = 'dataset-%s' % uuid()

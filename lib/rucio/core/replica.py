@@ -53,7 +53,7 @@ from rucio.common import exception
 from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
 from rucio.core.config import get as config_get
 from rucio.core.credential import get_signed_url
-from rucio.core.rse import get_rse, get_rse_id, get_rse_name, get_rse_attribute
+from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute
 from rucio.core.rse_counter import decrease, increase
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
@@ -294,7 +294,7 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
     """
     unknown_replicas = []
     declared_replicas = []
-    rse_info = rsemgr.get_rse_info(rse=get_rse_name(rse_id=rse_id), session=session)
+    rse_info = rsemgr.get_rse_info(rse=get_rse_name(rse_id=rse_id, session=session), session=session)
     replicas = []
     proto = rsemgr.create_protocol(rse_info, 'read', scheme=scheme)
     if rse_info['deterministic']:
@@ -451,7 +451,7 @@ def get_pfn_to_rse(pfns, session=None):
                     mult_rse_match += 1
                     if mult_rse_match > 1:
                         print('ERROR, multiple matches : %s at %s' % (surl, rse_id))
-                        raise exception.RucioException('ERROR, multiple matches : %s at %s' % (surl, rse_id))
+                        raise exception.RucioException('ERROR, multiple matches : %s at %s' % (surl, get_rse_name(rse_id=rse_id, session=session)))
                     hint = rse_id
                     if hint not in dict_rse:
                         dict_rse[hint] = []
@@ -535,7 +535,7 @@ def get_did_from_pfns(pfns, rse_id=None, session=None):
         dict_rse[rse_id] = pfns
     for rse_id in dict_rse:
         pfns = dict_rse[rse_id]
-        rse_info = rsemgr.get_rse_info(rse=get_rse_name(rse_id=rse_id), session=session)
+        rse_info = rsemgr.get_rse_info(rse=get_rse_name(rse_id=rse_id, session=session), session=session)
         pfndict = {}
         proto = rsemgr.create_protocol(rse_info, 'read', scheme=scheme)
         if rse_info['deterministic']:
@@ -868,7 +868,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
 
             if show_pfns and rse_id:
                 if rse_id not in rse_info:
-                    rse_info[rse_id] = rsemgr.get_rse_info(rse=get_rse_name(rse_id=rse_id), session=session)
+                    rse_info[rse_id] = rsemgr.get_rse_info(rse=get_rse_name(rse_id=rse_id, session=session), session=session)
 
                 # assign scheme priorities, and don't forget to exclude disabled protocols
                 # 0 in RSE protocol definition = disabled, 1 = highest priority
@@ -999,7 +999,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                         file['parents'] = ['%s:%s' % (parent['scope'], parent['name'])
                                            for parent in rucio.core.did.list_all_parent_dids(scope, name, session=session)]
 
-                    rse_name = get_rse_name(rse_id=rse_id) if rse_id is not None else None
+                    rse_name = get_rse_name(rse_id=rse_id, session=session) if rse_id is not None else None
                     for tmp_pfn in pfns:
                         file['pfns'][tmp_pfn[0]] = {'rse_id': tmp_pfn[4]['rse_id'] if tmp_pfn[1] == 'zip' else rse_id,
                                                     'rse': tmp_pfn[4]['rse'] if tmp_pfn[1] == 'zip' else rse_name,
@@ -1049,7 +1049,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                 if rse_id:
                     # extract properly the pfn from the tuple
                     file['rses'][rse_id] = list(set([tmp_pfn[0] for tmp_pfn in pfns]))
-                    rse_name = get_rse_name(rse_id=rse_id) if rse_id is not None else None
+                    rse_name = get_rse_name(rse_id=rse_id, session=session) if rse_id is not None else None
                     for tmp_pfn in pfns:
                         file['pfns'][tmp_pfn[0]] = {'rse_id': tmp_pfn[4]['rse_id'] if tmp_pfn[1] == 'zip' else rse_id,
                                                     'rse': tmp_pfn[4]['rse'] if tmp_pfn[1] == 'zip' else rse_name,
@@ -1289,10 +1289,10 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
     replica_rse = get_rse(rse_id=rse_id, session=session)
 
     if replica_rse.volatile is True:
-        raise exception.UnsupportedOperation('Cannot add replicas on volatile RSE %(rse_id)s ' % locals())
+        raise exception.UnsupportedOperation('Cannot add replicas on volatile RSE %s ' % (replica_rse.rse))
 
     if not (replica_rse.availability & 2) and not ignore_availability:
-        raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable for writing' % rse_id)
+        raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable for writing' % replica_rse.rse)
 
     replicas = __bulk_add_file_dids(files=files, account=account,
                                     dataset_meta=dataset_meta,
@@ -1302,7 +1302,7 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
     for file in files:
         if 'pfn' not in file:
             if not replica_rse.deterministic:
-                raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %(rse_id)s ' % locals())
+                raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %s ' % (replica_rse.rse))
         else:
             scheme = file['pfn'].split(':')[0]
             pfns.append(file['pfn'])
@@ -1369,7 +1369,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
 
     if not (replica_rse.availability & 1) and not ignore_availability:
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable'
-                                                     'for deleting' % rse_id)
+                                                     'for deleting' % replica_rse.rse)
 
     replica_condition, parent_condition, did_condition = [], [], []
     clt_replica_condition, dst_replica_condition = [], []
@@ -1655,20 +1655,15 @@ def update_replicas_states(replicas, nowait=False, session=None):
     :param nowait:   Nowait parameter for the for_update queries.
     :param session:  The database session in use.
     """
-    rse_ids = {}
-    for replica in replicas:
-        if 'rse_id' not in replica:
-            if replica['rse'] not in rse_ids:
-                rse_ids[replica['rse']] = get_rse_id(rse=replica['rse'], session=session)
-            replica['rse_id'] = rse_ids[replica['rse']]
 
+    for replica in replicas:
         query = session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'])
         try:
             if nowait:
                 query.with_for_update(nowait=True).one()
         except NoResultFound:
-            # remember scope, name and rse_id
-            raise exception.ReplicaNotFound("No row found for scope: %s name: %s rse_id: %s" % (replica['scope'], replica['name'], replica['rse_id']))
+            # remember scope, name and rse
+            raise exception.ReplicaNotFound("No row found for scope: %s name: %s rse: %s" % (replica['scope'], replica['name'], get_rse_name(replica['rse_id'], session=session)))
 
         if isinstance(replica['state'], string_types):
             replica['state'] = ReplicaState.from_string(replica['state'])
@@ -1699,6 +1694,7 @@ def update_replicas_states(replicas, nowait=False, session=None):
         if not query.update(values, synchronize_session=False):
             if 'rse' not in replica:
                 replica['rse'] = get_rse_name(rse_id=replica['rse_id'], session=session)
+            rse = replica['rse']
             raise exception.UnsupportedOperation('State %(state)s for replica %(scope)s:%(name)s on %(rse)s cannot be updated' % replica)
     return True
 
@@ -2821,7 +2817,7 @@ def get_suspicious_files(rse_expression, **kwargs):
     rses = {}
     for cnt, scope, name, rse_id, created_at in query_result:
         if rse_id not in rses:
-            rse = get_rse_name(rse_id)
+            rse = get_rse_name(rse_id=rse_id, session=session)
             rses[rse_id] = rse
         result.append({'scope': scope, 'name': name, 'rse': rses[rse_id], 'rse_id': rse_id, 'cnt': cnt, 'created_at': created_at})
 
@@ -2846,6 +2842,6 @@ def set_tombstone(rse_id, scope, name, session=None):
     if not result.rowcount:
         try:
             session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, rse_id=rse_id).one()
-            raise exception.ReplicaIsLocked('Replica %s:%s on RSE %s is locked.' % (scope, name, rse_id))
+            raise exception.ReplicaIsLocked('Replica %s:%s on RSE %s is locked.' % (scope, name, get_rse_name(rse_id=rse_id, session=session)))
         except NoResultFound:
-            raise exception.ReplicaNotFound('Replica %s:%s on RSE %s could not be found.' % (scope, name, rse_id))
+            raise exception.ReplicaNotFound('Replica %s:%s on RSE %s could not be found.' % (scope, name, get_rse_name(rse_id=rse_id, session=session)))

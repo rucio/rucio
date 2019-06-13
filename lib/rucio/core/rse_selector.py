@@ -57,7 +57,7 @@ class RSESelector():
                                       'availability_write': availability_write,
                                       'staging_area': rse['staging_area']})
                 except ValueError:
-                    raise InvalidRuleWeight('The RSE with id \'%s\' has a non-number specified for the weight \'%s\'' % (rse['id'], weight))
+                    raise InvalidRuleWeight('The RSE \'%s\' has a non-number specified for the weight \'%s\'' % (rse['rse'], weight))
         else:
             for rse in rses:
                 mock_rse = has_rse_attribute(rse['id'], 'mock', session=session)

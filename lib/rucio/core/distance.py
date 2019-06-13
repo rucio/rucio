@@ -18,6 +18,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 
 from rucio.common import exception
+from rucio.core.rse import get_rse_name
 from rucio.db.sqla.models import Distance, RSE
 from rucio.db.sqla.session import transactional_session, read_session
 
@@ -46,7 +47,7 @@ def add_distance(src_rse_id, dest_rse_id, ranking=None, agis_distance=None, geoi
                                 active=active, submitted=submitted, finished=finished, failed=failed, transfer_speed=transfer_speed)
         new_distance.save(session=session)
     except IntegrityError:
-        raise exception.Duplicate('Distance from %s to %s already exists!' % (src_rse_id, dest_rse_id))
+        raise exception.Duplicate('Distance from %s to %s already exists!' % (get_rse_name(rse_id=src_rse_id, session=session), get_rse_name(rse_id=dest_rse_id, session=session)))
     except DatabaseError as error:
         raise exception.RucioException(error.args)
 

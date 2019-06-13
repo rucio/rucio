@@ -1024,9 +1024,11 @@ def api_update_return_dict(dictionary):
     copied = False  # Avoid side effects from pass by object
 
     if 'rse_id' in dictionary.keys():
+        if 'rse' not in dictionary.keys():
+            raise InputValidationError('Expected rse name in dictionary')
         if not copied:
             dictionary = dictionary.copy()
             copied = True
-        dictionary['rse'] = get_rse_name(rse_id=dictionary['rse_id'])
+        del dictionary['rse_id']
 
     return dictionary

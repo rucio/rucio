@@ -171,9 +171,9 @@ def del_rse(rse_id, session=None):
     try:
         old_rse = session.query(models.RSE).filter_by(id=rse_id).one()
         if not rse_is_empty(rse_id=rse_id, session=session):
-            raise exception.RSEOperationNotSupported('RSE \'%s\' is not empty' % rse_id)
+            raise exception.RSEOperationNotSupported('RSE \'%s\' is not empty' % get_rse_name(rse_id=rse_id, session=session))
     except sqlalchemy.orm.exc.NoResultFound:
-        raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse_id)
+        raise exception.RSENotFound('RSE with id \'%s\' cannot be found' % rse_id)
     rse = old_rse.rse
     old_rse.delete(session=session)
     try:
@@ -214,7 +214,7 @@ def get_rse(rse_id, session=None):
         tmp['type'] = tmp.rse_type
         return tmp
     except sqlalchemy.orm.exc.NoResultFound:
-        raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse_id)
+        raise exception.RSENotFound('RSE with id \'%s\' cannot be found' % rse_id)
 
 
 @read_session
@@ -354,7 +354,8 @@ def add_rse_attribute(rse_id, key, value, session=None):
         new_rse_attr = session.merge(new_rse_attr)
         new_rse_attr.save(session=session)
     except IntegrityError:
-        raise exception.Duplicate("RSE attribute '%(key)s-%(value)s\' for RSE '%(rse_id)s' already exists!" % locals())
+        rse = get_rse_name(rse_id=rse_id, session=session)
+        raise exception.Duplicate("RSE attribute '%(key)s-%(value)s\' for RSE '%(rse)s' already exists!" % locals())
     return True
 
 
@@ -785,7 +786,7 @@ def add_protocol(rse_id, parameter, session=None):
            or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
            or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0])\
            or match('.*IntegrityError.*columns.*are not unique.*', error.args[0]):
-            raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (parameter['scheme'], parameter['port'], rse_id, parameter['hostname']))
+            raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (parameter['scheme'], parameter['port'], get_rse_name(rse_id=rse_id, session=session), parameter['hostname']))
         elif 'may not be NULL' in error.args[0] \
              or match('.*IntegrityError.*ORA-01400: cannot insert NULL into.*RSE_PROTOCOLS.*IMPL.*', error.args[0]) \
              or match('.*OperationalError.*cannot be null.*', error.args[0]):
@@ -810,7 +811,7 @@ def get_rse_protocols(rse_id, schemes=None, session=None):
 
     _rse = get_rse(rse_id=rse_id, session=session)
     if not _rse:
-        raise exception.RSENotFound('RSE \'%s\' not found')
+        raise exception.RSENotFound('RSE with id \'%s\' not found' % rse_id)
 
     lfn2pfn_algorithms = get_rse_attribute('lfn2pfn_algorithm', rse_id=_rse.id, session=session)
     # Resolve LFN2PFN default algorithm as soon as possible.  This way, we can send back the actual
@@ -949,7 +950,7 @@ def update_protocols(rse_id, scheme, data, hostname, port, session=None):
     try:
         get_rse(rse_id=rse_id, session=session)
     except exception.RSENotFound:
-        raise exception.RSENotFound('RSE \'%s\' not found' % rse_id)
+        raise exception.RSENotFound('RSE with id \'%s\' not found' % rse_id)
 
     terms = [models.RSEProtocols.rse_id == rse_id,
              models.RSEProtocols.scheme == scheme,
@@ -1004,7 +1005,7 @@ def update_protocols(rse_id, scheme, data, hostname, port, session=None):
         up.update(data, flush=True, session=session)
     except (IntegrityError, OperationalError) as error:
         if 'UNIQUE'.lower() in error.args[0].lower() or 'Duplicate' in error.args[0]:  # Covers SQLite, Oracle and MySQL error
-            raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (scheme, port, rse_id, hostname))
+            raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (scheme, port, get_rse_name(rse_id=rse_id, session=session), hostname))
         elif 'may not be NULL' in error.args[0] or "cannot be null" in error.args[0]:
             raise exception.InvalidObject('Missing values: %s' % error.args[0])
         raise error
@@ -1042,7 +1043,7 @@ def del_protocols(rse_id, scheme, hostname=None, port=None, session=None):
     p = session.query(models.RSEProtocols).filter(*terms)
 
     if not p.all():
-        msg = 'RSE \'%s\' does not support protocol \'%s\'' % (rse_id, scheme)
+        msg = 'RSE \'%s\' does not support protocol \'%s\'' % (get_rse_name(rse_id=rse_id, session=session), scheme)
         msg += ' for hostname \'%s\'' % hostname if hostname else ''
         msg += ' on port \'%s\'' % port if port else ''
         raise exception.RSEProtocolNotSupported(msg)
