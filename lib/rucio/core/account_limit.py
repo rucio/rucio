@@ -38,11 +38,12 @@ def get_rse_account_usage(rse_id, session=None):
     :return:         List of dictionnaries.
     """
     result = []
-    query = session.query(models.AccountUsage.account, models.AccountUsage.files, models.AccountUsage.bytes, models.AccountLimit.bytes)
+    query = session.query(models.AccountUsage.account, models.AccountUsage.files, models.AccountUsage.bytes, models.AccountLimit.bytes, models.RSE.rse)
+    query = query.filter(models.RSE.id == models.AccountUsage.rse_id)
     query = query.outerjoin(models.AccountLimit, and_(models.AccountUsage.account == models.AccountLimit.account, models.AccountUsage.rse_id == models.AccountLimit.rse_id)).filter(models.AccountUsage.rse_id == rse_id)
     account_limits_tmp = query.all()
     for row in account_limits_tmp:
-        result.append({'rse_id': rse_id, 'account': row[0], 'used_files': row[1], 'used_bytes': row[2], 'quota_bytes': row[3]})
+        result.append({'rse_id': rse_id, 'rse': row[4], 'account': row[0], 'used_files': row[1], 'used_bytes': row[2], 'quota_bytes': row[3]})
     return result
 
 
