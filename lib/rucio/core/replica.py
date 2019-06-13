@@ -1702,7 +1702,7 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, worker_numbe
             session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation == scope,
                                                             models.RSEFileAssociation.name == name,
                                                             models.RSEFileAssociation.rse_id == rse_id).\
-                update({'update_at': datetime.utcnow(), 'state': ReplicaState.BEING_DELETED}, synchronize_session=False)
+                update({'updated_at': datetime.utcnow(), 'state': ReplicaState.BEING_DELETED}, synchronize_session=False)
 
         else:
             # If this is the last replica, check if there are some requests
@@ -1726,7 +1726,7 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, worker_numbe
                 session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation == scope,
                                                                 models.RSEFileAssociation.name == name,
                                                                 models.RSEFileAssociation.rse_id == rse_id).\
-                    update({'update_at': datetime.utcnow(), 'state': ReplicaState.BEING_DELETED}, synchronize_session=False)
+                    update({'updated_at': datetime.utcnow(), 'state': ReplicaState.BEING_DELETED}, synchronize_session=False)
     return rows
 
 
