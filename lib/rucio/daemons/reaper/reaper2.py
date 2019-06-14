@@ -32,11 +32,13 @@ from __future__ import print_function, division
 import logging
 import os
 import socket
+import random
 import sys
 import threading
 import time
 import traceback
 
+from math import ceil
 from operator import itemgetter
 from collections import OrderedDict
 
@@ -45,7 +47,7 @@ from dogpile.cache.api import NO_VALUE
 
 from rucio.common.config import config_get
 from rucio.common.exception import (DatabaseException, RSENotFound)
-from rucio.core.heartbeat import live, die, sanity_check, list_payload_counts
+from rucio.core.heartbeat import live, die, sanity_check, list_payload_counts, get_payload_partition
 from rucio.core.rse import list_rses, get_rse_limits, get_rse_usage, list_rse_attributes, get_rse_protocols
 from rucio.core.rse_expression_parser import parse_expression
 
@@ -123,7 +125,7 @@ def __check_rse_usage(rse, rse_id, prepend_str):
 
     # First of all check if greedy mode is enabled for this RSE
     if greedy:
-        return max_being_deleted_files, 100000000000000, used, free
+        return max_being_deleted_files, 1000000000000, used, free
 
     # Get total, used and obsolete space
     rse_usage = get_rse_usage(rse=rse, rse_id=rse_id)
@@ -177,7 +179,7 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
     :param sleep_time:     Time between two cycles.
     """
 
-    max_deletion_thread = 20  # TODO make it parametrizable by SE
+    max_deletion_thread = 5  # TODO make it parametrizable by SE
     hostname = socket.getfqdn()
     executable = sys.argv[0]
     pid = os.getpid()
@@ -199,6 +201,7 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
             dict_rses = {}
             heart_beat = live(executable, hostname, pid, hb_thread, older_than=3600)
             prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+            tot_needed_free_space = 0
             for rse in rses:
                 # Check if RSE is blacklisted
                 if rse['availability'] % 2 == 0:
@@ -207,10 +210,12 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
                 max_being_deleted_files, needed_free_space, used, free = __check_rse_usage(rse['rse'], rse['id'], prepend_str)
                 # Check if greedy mode
                 if greedy:
-                    dict_rses[(rse['rse'], rse['id'])] = [100000000000000, max_being_deleted_files]
+                    dict_rses[(rse['rse'], rse['id'])] = [1000000000000, max_being_deleted_files]
+                    tot_needed_free_space += 1000000000000
                 else:
                     if needed_free_space:
                         dict_rses[(rse['rse'], rse['id'])] = [needed_free_space, max_being_deleted_files]
+                        tot_needed_free_space += needed_free_space
                     else:
                         logging.debug('%s Nothing to delete on %s', prepend_str, rse['rse'])
 
@@ -220,35 +225,52 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
 
             # Get the mapping between the RSE and the hostname used for deletion. The dictionary has RSE as key and (hostanme, rse_info) as value
             rses_hostname_mapping = get_rses_to_hostname_mapping()
-            logging.debug('%s Mapping RSEs to hostnames used for deletion : %s', prepend_str, str(rses_hostname_mapping))
+            # logging.debug('%s Mapping RSEs to hostnames used for deletion : %s', prepend_str, str(rses_hostname_mapping))
 
             # Loop over the RSEs. rse_key = (rse, rse_id)
             for rse_key in sorted_dict_rses:
-                logging.debug('%s Working on %s', prepend_str, rse_key[0])
-                # live(executable, hostname, pid, hb_thread, older_than=600, hash_executable=None, payload=rses_hostname_mapping[rse_key[0]], session=None)
+                rse_name, rse_id = rse_key
+                max_workers = ceil(sorted_dict_rses[rse_key][0] / tot_needed_free_space * heart_beat['nr_threads'] * 10)
+                logging.debug('%s Working on %s. Percentage of the total space needed %.2f. Will use at most %i workers', prepend_str, rse_name, sorted_dict_rses[rse_key][0] / tot_needed_free_space * 100, max_workers)
                 payload_cnt = list_payload_counts(executable, older_than=600, hash_executable=None, session=None)
                 logging.debug('%s Payload count : %s', prepend_str, str(payload_cnt))
-                rse_hostname = rses_hostname_mapping[rse_key[0]][0]
+                rse_hostname = rses_hostname_mapping[rse_name][0]
                 # rse_info = rses_hostname_mapping[rse_key[0]][1]
+                rse_hostname_key = '%s,%s' % (rse_name, rse_hostname)
 
-                if rse_hostname in payload_cnt:
-                    if payload_cnt[rse_hostname] < max_deletion_thread:
-                        pass
-                        logging.info('%s Starting new deletion thread on RSE %s', prepend_str, rse_key[0])
-                        # live(executable, hostname, pid, hb_thread, older_than=600, hash_executable=None, payload=rses_hostname_mapping[rse_key[0]], session=None)
+                tot_threads_for_hostname = 0
+                for key in payload_cnt:
+                    if key and key.find(',') > -1 and key.split(',')[1] == rse_hostname:
+                        tot_threads_for_hostname += payload_cnt[key]
+
+                payload_threads = get_payload_partition(executable, hostname, pid, hb_thread, payload=rse_hostname_key, older_than=600, hash_executable=None, session=None)
+
+                if rse_hostname_key in payload_cnt:
+                    if tot_threads_for_hostname < max_deletion_thread and payload_threads['nr_threads'] < max_workers:
+                        del_start_time = time.time()
+                        logging.info('%s Starting new worker on RSE %s', prepend_str, rse_name)
+                        live(executable, hostname, pid, hb_thread, older_than=600, hash_executable=None, payload=rse_hostname_key, session=None)
+                        payload_threads = get_payload_partition(executable, hostname, pid, hb_thread, payload=rse_hostname_key, older_than=600, hash_executable=None, session=None)
+                        payload_prepend_str = 'worker-%s [%i/%i] ' % (rse_name, payload_threads['assign_thread'] + 1, payload_threads['nr_threads'])
+                        logging.debug('%s %s Total deletion workers for %s : %i', prepend_str, payload_prepend_str, rse_hostname, tot_threads_for_hostname + 1)
+                        time.sleep(random.uniform(0, 5))
                         # Call list_and_mark_unlocked_replicas here
                         # Actual deletion will take place there
-                        # die(executable=executable, hostname=hostname, pid=pid, thread=hb_threadi, payload=rses_hostname_mapping[rse_key[0]],)
+                        logging.info('%s %s %i files processed in %s seconds', prepend_str, payload_prepend_str, chunk_size, time.time() - del_start_time)
                     else:
-                        logging.debug('%s Too many deletion threads for %s on RSE %s. Back off', prepend_str, rse_hostname, rse_key[0])
+                        logging.debug('%s Too many deletion threads for %s on RSE %s. Back off', prepend_str, rse_hostname, rse_name)
                         # Might need to reschedule a try on this RSE later in the same cycle
                 else:
-                    logging.info('%s Starting new deletion thread on RSE %s', prepend_str, rse_key[0])
-                    # live(executable, hostname, pid, hb_thread, older_than=600, hash_executable=None, payload=rses_hostname_mapping[rse_key[0]], session=None)
+                    del_start_time = time.time()
+                    logging.info('%s Starting new worker on RSE %s', prepend_str, rse_name)
+                    live(executable, hostname, pid, hb_thread, older_than=600, hash_executable=None, payload=rse_hostname_key, session=None)
+                    payload_threads = get_payload_partition(executable, hostname, pid, hb_thread, payload=rse_hostname_key, older_than=600, hash_executable=None, session=None)
+                    payload_prepend_str = 'worker-%s [%i/%i] ' % (rse_name, payload_threads['assign_thread'] + 1, payload_threads['nr_threads'])
+                    logging.debug('%s %s Total deletion workers for %s : %i', prepend_str, payload_prepend_str, rse_hostname, tot_threads_for_hostname + 1)
+                    time.sleep(random.uniform(0, 5))
                     # Call list_and_mark_unlocked_replicas here
                     # Actual deletion will take place there
-                    # die(executable=executable, hostname=hostname, pid=pid, thread=hb_threadi, payload=rses_hostname_mapping[rse_key[0]],)
-                    pass
+                    logging.info('%s %s %i files processed in %s seconds', prepend_str, payload_prepend_str, chunk_size, time.time() - del_start_time)
 
             if once:
                 break
@@ -298,6 +320,7 @@ def run(total_threads=1, chunk_size=100, once=False, greedy=False, rses=None, sc
     logging.info('main: starting processes')
 
     all_rses = list_rses()
+
     if rses:
         invalid = set(rses) - set([rse['rse'] for rse in all_rses])
         if invalid:
@@ -335,6 +358,9 @@ def run(total_threads=1, chunk_size=100, once=False, greedy=False, rses=None, sc
         thread.start()
 
     logging.info('waiting for interrupts')
+
+    # To populate the cache
+    get_rses_to_hostname_mapping()
 
     # Interruptible joins require a timeout.
     while threads:
