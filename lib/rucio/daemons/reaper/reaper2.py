@@ -234,8 +234,7 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
                 logging.debug('%s Working on %s. Percentage of the total space needed %.2f. Will use at most %i workers', prepend_str, rse_name, sorted_dict_rses[rse_key][0] / tot_needed_free_space * 100, max_workers)
                 payload_cnt = list_payload_counts(executable, older_than=600, hash_executable=None, session=None)
                 logging.debug('%s Payload count : %s', prepend_str, str(payload_cnt))
-                rse_hostname = rses_hostname_mapping[rse_name][0]
-                # rse_info = rses_hostname_mapping[rse_key[0]][1]
+                rse_hostname, rse_info = rses_hostname_mapping[rse_name]
                 rse_hostname_key = '%s,%s' % (rse_name, rse_hostname)
 
                 tot_threads_for_hostname = 0
@@ -245,32 +244,21 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
 
                 payload_threads = get_payload_partition(executable, hostname, pid, hb_thread, payload=rse_hostname_key, older_than=600, hash_executable=None, session=None)
 
-                if rse_hostname_key in payload_cnt:
-                    if tot_threads_for_hostname < max_deletion_thread and payload_threads['nr_threads'] < max_workers:
-                        del_start_time = time.time()
-                        logging.info('%s Starting new worker on RSE %s', prepend_str, rse_name)
-                        live(executable, hostname, pid, hb_thread, older_than=600, hash_executable=None, payload=rse_hostname_key, session=None)
-                        payload_threads = get_payload_partition(executable, hostname, pid, hb_thread, payload=rse_hostname_key, older_than=600, hash_executable=None, session=None)
-                        payload_prepend_str = 'worker-%s [%i/%i] ' % (rse_name, payload_threads['assign_thread'] + 1, payload_threads['nr_threads'])
-                        logging.debug('%s %s Total deletion workers for %s : %i', prepend_str, payload_prepend_str, rse_hostname, tot_threads_for_hostname + 1)
-                        time.sleep(random.uniform(0, 5))
-                        # Call list_and_mark_unlocked_replicas here
-                        # Actual deletion will take place there
-                        logging.info('%s %s %i files processed in %s seconds', prepend_str, payload_prepend_str, chunk_size, time.time() - del_start_time)
-                    else:
-                        logging.debug('%s Too many deletion threads for %s on RSE %s. Back off', prepend_str, rse_hostname, rse_name)
-                        # Might need to reschedule a try on this RSE later in the same cycle
-                else:
-                    del_start_time = time.time()
-                    logging.info('%s Starting new worker on RSE %s', prepend_str, rse_name)
-                    live(executable, hostname, pid, hb_thread, older_than=600, hash_executable=None, payload=rse_hostname_key, session=None)
-                    payload_threads = get_payload_partition(executable, hostname, pid, hb_thread, payload=rse_hostname_key, older_than=600, hash_executable=None, session=None)
-                    payload_prepend_str = 'worker-%s [%i/%i] ' % (rse_name, payload_threads['assign_thread'] + 1, payload_threads['nr_threads'])
-                    logging.debug('%s %s Total deletion workers for %s : %i', prepend_str, payload_prepend_str, rse_hostname, tot_threads_for_hostname + 1)
-                    time.sleep(random.uniform(0, 5))
-                    # Call list_and_mark_unlocked_replicas here
-                    # Actual deletion will take place there
-                    logging.info('%s %s %i files processed in %s seconds', prepend_str, payload_prepend_str, chunk_size, time.time() - del_start_time)
+                if rse_hostname_key in payload_cnt and (tot_threads_for_hostname >= max_deletion_thread or payload_threads['nr_threads'] >= max_workers):
+                    logging.debug('%s Too many deletion threads for %s on RSE %s. Back off', prepend_str, rse_hostname, rse_name)
+                    # Might need to reschedule a try on this RSE later in the same cycle
+                    continue
+                del_start_time = time.time()
+                logging.info('%s Starting new worker on RSE %s', prepend_str, rse_name)
+                live(executable, hostname, pid, hb_thread, older_than=600, hash_executable=None, payload=rse_hostname_key, session=None)
+                payload_threads = get_payload_partition(executable, hostname, pid, hb_thread, payload=rse_hostname_key, older_than=600, hash_executable=None, session=None)
+                payload_prepend_str = 'worker-%s [%i/%i] ' % (rse_name, payload_threads['assign_thread'] + 1, payload_threads['nr_threads'])
+                logging.debug('%s %s Total deletion workers for %s : %i', prepend_str, payload_prepend_str, rse_hostname, tot_threads_for_hostname + 1)
+                time.sleep(random.uniform(0, 5))
+                # space_needed_per_worker = sorted_dict_rses[rse_key][0] / payload_threads['nr_threads']
+                # Call list_and_mark_unlocked_replicas(limit=1000, bytes=space_needed_per_worker, rse_id=rse_id, worker_number=payload_threads['assign_thread'], total_workers=payload_threads['nr_threads'], delay_seconds=delay_seconds, session=None)
+                # Actual deletion will take place there
+                logging.info('%s %s %i files processed in %s seconds', prepend_str, payload_prepend_str, chunk_size, time.time() - del_start_time)
 
             if once:
                 break
@@ -301,11 +289,11 @@ def stop(signum=None, frame=None):
     GRACEFUL_STOP.set()
 
 
-def run(total_threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=None, exclude_rses=None, include_rses=None, delay_seconds=0, sleep_time=60):
+def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=None, exclude_rses=None, include_rses=None, delay_seconds=0, sleep_time=60):
     """
     Starts up the reaper threads.
 
-    :param total_threads:      The total number of workers.
+    :param threads:            The total number of workers.
     :param chunk_size:         The size of chunk for deletion.
     :param threads_per_worker: Total number of threads created by each worker.
     :param once:               If True, only runs one iteration of the main loop.
@@ -331,13 +319,13 @@ def run(total_threads=1, chunk_size=100, once=False, greedy=False, rses=None, sc
     else:
         rses = all_rses
 
-    if exclude_rses:
-        excluded_rses = parse_expression(exclude_rses)
-        rses = [rse for rse in rses if rse not in excluded_rses]
-
     if include_rses:
         included_rses = parse_expression(include_rses)
         rses = [rse for rse in rses if rse in included_rses]
+
+    if exclude_rses:
+        excluded_rses = parse_expression(exclude_rses)
+        rses = [rse for rse in rses if rse not in excluded_rses]
 
     if not rses:
         logging.error('Reaper: No RSEs found. Exiting.')
@@ -346,15 +334,15 @@ def run(total_threads=1, chunk_size=100, once=False, greedy=False, rses=None, sc
     logging.info('Reaper: This instance will work on RSEs: ' + ', '.join([rse['rse'] for rse in rses]))
 
     logging.info('starting reaper threads')
-    threads = [threading.Thread(target=reaper, kwargs={'once': once,
-                                                       'rses': rses,
-                                                       'chunk_size': chunk_size,
-                                                       'greedy': greedy,
-                                                       'sleep_time': sleep_time,
-                                                       'delay_seconds': delay_seconds,
-                                                       'scheme': scheme}) for _ in range(0, total_threads)]
+    threads_list = [threading.Thread(target=reaper, kwargs={'once': once,
+                                                            'rses': rses,
+                                                            'chunk_size': chunk_size,
+                                                            'greedy': greedy,
+                                                            'sleep_time': sleep_time,
+                                                            'delay_seconds': delay_seconds,
+                                                            'scheme': scheme}) for _ in range(0, threads)]
 
-    for thread in threads:
+    for thread in threads_list:
         thread.start()
 
     logging.info('waiting for interrupts')
@@ -363,5 +351,5 @@ def run(total_threads=1, chunk_size=100, once=False, greedy=False, rses=None, sc
     get_rses_to_hostname_mapping()
 
     # Interruptible joins require a timeout.
-    while threads:
-        threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.isAlive()]
+    while threads_list:
+        threads_list = [thread.join(timeout=3.14) for thread in threads_list if thread and thread.isAlive()]
