@@ -46,7 +46,8 @@ from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 
 from rucio.common.config import config_get
-from rucio.common.exception import (DatabaseException, RSENotFound)
+from rucio.common.exception import (DatabaseException, RSENotFound, ConfigNotFound)
+from rucio.core.config import get
 from rucio.core.heartbeat import live, die, sanity_check, list_payload_counts, get_payload_partition
 from rucio.core.rse import list_rses, get_rse_limits, get_rse_usage, list_rse_attributes, get_rse_protocols
 from rucio.core.rse_expression_parser import parse_expression
@@ -179,7 +180,10 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
     :param sleep_time:     Time between two cycles.
     """
 
-    max_deletion_thread = 5  # TODO make it parametrizable by SE
+    try:
+        max_deletion_thread = get('reaper', 'nb_workers_by_hostname')
+    except ConfigNotFound as error:
+        max_deletion_thread = 5
     hostname = socket.getfqdn()
     executable = sys.argv[0]
     pid = os.getpid()
