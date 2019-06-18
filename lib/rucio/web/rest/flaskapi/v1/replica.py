@@ -31,6 +31,7 @@ from traceback import format_exc
 from flask import Flask, Blueprint, Response, request
 from flask.views import MethodView
 from geoip2.errors import AddressNotFoundError
+from xml.sax.saxutils import escape
 
 from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replicas,
                                delete_replicas,
@@ -137,7 +138,7 @@ class Replicas(MethodView):
 
                     idx = 0
                     for replica in replicas:
-                        data += '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx + 1) + '">' + replica + '</url>\n'
+                        data += '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx + 1) + '">' + escape(replica) + '</url>\n'
                         idx += 1
                         if limit and limit == idx:
                             break
@@ -397,7 +398,7 @@ class ListReplicas(MethodView):
 
                     idx = 0
                     for replica in replicas:
-                        data += '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx + 1) + '">' + replica + '</url>\n'
+                        data += '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx + 1) + '">' + escape(replica) + '</url>\n'
                         idx += 1
                         if limit and limit == idx:
                             break

@@ -151,6 +151,7 @@ class UploadClient:
 
             rse = file['rse']
             rse_settings = self.rses[rse]
+            rse_sign_service = rse_settings.get('sign_url', None)
             is_deterministic = rse_settings.get('deterministic', True)
             if not is_deterministic and not pfn:
                 logger.error('PFN has to be defined for NON-DETERMINISTIC RSE.')
@@ -199,6 +200,10 @@ class UploadClient:
                 lfn['adler32'] = file['adler32']
                 lfn['filesize'] = file['bytes']
 
+                sign_service = None
+                if cur_scheme == 'https':
+                    sign_service = rse_sign_service
+
                 self.trace['protocol'] = cur_scheme
                 self.trace['transferStart'] = time.time()
                 try:
@@ -208,7 +213,8 @@ class UploadClient:
                                           force_scheme=cur_scheme,
                                           force_pfn=pfn,
                                           transfer_timeout=file.get('transfer_timeout'),
-                                          delete_existing=delete_existing)
+                                          delete_existing=delete_existing,
+                                          sign_service=sign_service)
                     success = state['success']
                     file['upload_result'] = state
                 except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:

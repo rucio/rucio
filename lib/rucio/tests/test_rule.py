@@ -91,8 +91,8 @@ def check_dataset_ok_callback(scope, name, rse, rule_id, session=None):
 def check_rule_progress_callback(scope, name, progress, rule_id, session=None):
     callbacks = session.query(models.Message.id).filter(models.Message.payload == json.dumps({'scope': scope,
                                                                                               'name': name,
-                                                                                              'progress': progress,
-                                                                                              'rule_id': rule_id})).all()
+                                                                                              'rule_id': rule_id,
+                                                                                              'progress': progress})).all()
     if callbacks:
         return True
     return False
@@ -674,7 +674,7 @@ class TestReplicationRuleCore():
         """ REPLICATION RULE (CORE): Test rule progress callback with judge evaluator"""
 
         scope = 'mock'
-        files = create_files(3, scope, self.rse1, bytes=100)
+        files = create_files(30, scope, self.rse1, bytes=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
 
@@ -683,18 +683,49 @@ class TestReplicationRuleCore():
         assert(False is check_rule_progress_callback(scope, dataset, 0, rule_id))
 
         attach_dids(scope, dataset, files, 'jdoe')
+        re_evaluator(once=True)
+
         set_status(scope=scope, name=dataset, open=False)
         assert(False is check_rule_progress_callback(scope, dataset, 0, rule_id))
 
-        re_evaluator(once=True)
-
         successful_transfer(scope=scope, name=files[0]['name'], rse_id=self.rse3_id, nowait=False)
-        assert(False is check_rule_progress_callback(scope, dataset, 30, rule_id))
+        assert(False is check_rule_progress_callback(scope, dataset, 10, rule_id))
         successful_transfer(scope=scope, name=files[1]['name'], rse_id=self.rse3_id, nowait=False)
-        assert(False is check_rule_progress_callback(scope, dataset, 60, rule_id))
+        assert(False is check_rule_progress_callback(scope, dataset, 10, rule_id))
         successful_transfer(scope=scope, name=files[2]['name'], rse_id=self.rse3_id, nowait=False)
-
-        assert(False is check_rule_progress_callback(scope, dataset, 100, rule_id))
+        assert(True is check_rule_progress_callback(scope, dataset, 10, rule_id))
+        successful_transfer(scope=scope, name=files[3]['name'], rse_id=self.rse3_id, nowait=False)
+        assert(False is check_rule_progress_callback(scope, dataset, 20, rule_id))
+        successful_transfer(scope=scope, name=files[4]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[5]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[6]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[7]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[8]['name'], rse_id=self.rse3_id, nowait=False)
+        assert(True is check_rule_progress_callback(scope, dataset, 30, rule_id))
+        successful_transfer(scope=scope, name=files[9]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[10]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[11]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[12]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[13]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[14]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[15]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[16]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[17]['name'], rse_id=self.rse3_id, nowait=False)
+        assert(True is check_rule_progress_callback(scope, dataset, 60, rule_id))
+        successful_transfer(scope=scope, name=files[18]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[19]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[20]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[21]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[22]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[23]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[24]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[25]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[26]['name'], rse_id=self.rse3_id, nowait=False)
+        assert(True is check_rule_progress_callback(scope, dataset, 90, rule_id))
+        successful_transfer(scope=scope, name=files[27]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[28]['name'], rse_id=self.rse3_id, nowait=False)
+        successful_transfer(scope=scope, name=files[29]['name'], rse_id=self.rse3_id, nowait=False)
+        assert(True is check_rule_progress_callback(scope, dataset, 100, rule_id))
 
     def test_add_rule_with_purge(self):
         """ REPLICATION RULE (CORE): Add a replication rule with purge setting"""
