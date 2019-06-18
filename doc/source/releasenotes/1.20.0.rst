@@ -1,0 +1,102 @@
+======================
+1.20.0 "Wonder Donkey"
+======================
+
+-----------------------
+Long Term Support (LTS)
+-----------------------
+
+This release marks the start of the 1.20 **Long Term Support (LTS)** release line. This release line will be supported with security and critical patches until at least **June 2021**.
+
+--------------------
+Upgrade Instructions
+--------------------
+
+This feature release requires a database schema upgrade. Please consult the `documentation <https://rucio.readthedocs.io/en/latest/database.html>`_ about upgrading your database schema.
+
+The following changes are necessary and are covered by the ``alembic upgrade head`` command:
+
+1. Changing size of ``extended_attributes`` column in ``rse_protocols`` table (Alembic revision ``8523998e2e76``)
+
+2. Adding ``comments`` column to ``subscriptions_history`` table (Alembic revision ``b8caac94d7f0``)
+
+3. Removal of replica state ``SOURCE (S)`` since it is not used (Alembic revision ``b7d287de34fd``)
+   
+   - Adapting ``REPLICAS_STATE_CHK`` constraint in ``replicas`` table
+   - Adapting ``COLLECTION_REPLICAS_STATE_CHK`` constraint in ``collection_replicas`` table
+
+4. Adding new column to ``heartbeats`` table (Alembic revision ``cebad904c4dd``)
+
+   - Adding ``payload`` column
+   - Dropping ``HEARTBEATS_UPDATED_AT`` index
+
+5. Adding ``volume`` column to ``rse_transfer_limits`` table (Alembic revision ``2cbee484dcf9``)
+
+The following change is only executed on PostgreSQL databases:
+
+1. Changing all ENUM column types to varchar and adding the respective constraint checks (Alembic revision ``f1b14a8c2ac1``)
+ 
+-------
+General
+-------
+
+********
+Features
+********
+
+- Core & Internals: Size of the "extended_attributes" field of the "rse_protocols" table `#1543 <https://github.com/rucio/rucio/issues/1543>`_
+- Core & Internals: Bring S3 and Swift signature support in line with rest of code `#1787 <https://github.com/rucio/rucio/issues/1787>`_
+- Core & Internals: Changing sql-alchemy enginge to create PostgreSQL check_constraints instead of ENUMS `#2436 <https://github.com/rucio/rucio/issues/2436>`_
+- Core & Internals: Include payload functionality in heartbeats `#2443 <https://github.com/rucio/rucio/issues/2443>`_
+- Deletion: Use signed URLs when deleting from object stores `#2411 <https://github.com/rucio/rucio/issues/2411>`_
+- Recovery: Automatic recovery of suspicious files that have more than one replica `#403 <https://github.com/rucio/rucio/issues/403>`_
+- Release management: Alembic script for comments column in subscription_history table needed `#2238 <https://github.com/rucio/rucio/issues/2238>`_
+- Release management: Security vulnerability with Jinja2 CVE-2019-10906 `#2493 <https://github.com/rucio/rucio/issues/2493>`_
+- Release management: Security vulnerability with SQLAlchemy CVE-2019-7164 `#2494 <https://github.com/rucio/rucio/issues/2494>`_
+- Transfers: Throttler mechanic to release transfers based on a strategy (FIFO) `#2220 <https://github.com/rucio/rucio/issues/2220>`_
+
+************
+Enhancements
+************
+
+- Core & Internals: ReplicaState.SOURCE is not used and should be removed `#1874 <https://github.com/rucio/rucio/issues/1874>`_
+- Core & Internals: Upgrade of CHECK_CONSTRAINT of replicas table missing in alembic revision b96a1c7e1cc4 `#2166 <https://github.com/rucio/rucio/issues/2166>`_
+- Dataset deletion: Pause dids in the undertaker which raise nowait errors `#2355 <https://github.com/rucio/rucio/issues/2355>`_
+- Probes & Alarms: Migrate Nagios probes to a separate repository `#1638 <https://github.com/rucio/rucio/issues/1638>`_
+- Recovery: Optimize the update of the final states in the necromancer `#2601 <https://github.com/rucio/rucio/issues/2601>`_
+- Release management: Adress security in pycrpyto `#1475 <https://github.com/rucio/rucio/issues/1475>`_
+- Release management: Dependency upgrade for 1.20.0 `#2460 <https://github.com/rucio/rucio/issues/2460>`_
+- Release management: Security vulnerability with urllib3 CVE-2019-11324 `#2501 <https://github.com/rucio/rucio/issues/2501>`_
+
+****
+Bugs
+****
+
+- Infrastructure: wrong configuration docker dev `#2576 <https://github.com/rucio/rucio/issues/2576>`_
+- Infrastructure: double requirement definition `#2579 <https://github.com/rucio/rucio/issues/2579>`_
+- Rebalancing: File size not returned in decomission mode `#2591 <https://github.com/rucio/rucio/issues/2591>`_
+- Testing: Test error with python3.6.3 `#2154 <https://github.com/rucio/rucio/issues/2154>`_
+- Testing: Fix Python 3.6 syntax test `#2496 <https://github.com/rucio/rucio/issues/2496>`_
+- Testing: wrong python version in python3 travis test `#2541 <https://github.com/rucio/rucio/issues/2541>`_
+
+-------
+Clients
+-------
+
+********
+Features
+********
+
+- Clients: Implement pcaches into clients. `#2039 <https://github.com/rucio/rucio/issues/2039>`_
+
+************
+Enhancements
+************
+
+- Clients: Client: expose replicalocks to client `#2112 <https://github.com/rucio/rucio/issues/2112>`_
+
+****
+Bugs
+****
+
+- Clients: Compiling issues with Python 3 (3.6.8) and hash sum calculation `#2480 <https://github.com/rucio/rucio/issues/2480>`_

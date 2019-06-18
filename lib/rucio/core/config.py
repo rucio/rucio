@@ -245,7 +245,7 @@ def remove_option(section, option, session=None):
     :returns: True/False
     """
 
-    if not has_option(section=section, option=option, session=session):
+    if not has_option(section=section, option=option, session=session, use_cache=False):
         return False
     else:
         old_option = models.Config.__history_mapper__.class_(section=section,

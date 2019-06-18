@@ -1,44 +1,23 @@
 # All dependencies needed to run rucio should be defined here
 
-SQLAlchemy==1.2.16                                # db backend
-alembic==1.0.6                                    # Lightweight database migration tool for SQLAlchemy
-Mako==1.0.7                                       # Templating language - Dependency of alembic
-python-editor==1.0.3                              # Programmatically open an editor, capture the result
-flup==1.0.3                                       # Needed to deploy web.py in lighthttpd
-web.py==0.39                                      # Python web framework
-python-memcached==1.59                            # Quick and small memcached client for Python
-jsonschema==2.6.0                                 # JSON Schema
-python-dateutil==2.7.5                            # Extensions to the standard datetime module
-pysftp==0.2.9                                     # forces installation of paramikoi and pycrypto
-pycrypto==2.6.1                                   # Cryptographic modules
-s3cmd==2.0.2                                      # Package built from http://s3tools.org/download
-stomp.py==4.1.21                                  # ActiveMQ Messaging Protocol
+SQLAlchemy==1.3.3                                 # db backend
+alembic==1.0.9                                    # Lightweight database migration tool for SQLAlchemy
+web.py==0.39; python_version <= '2.7'             # Python web framework for Python2
+web.py==0.40.dev1; python_version > '2.7'         # Python web framework for Python3
+python-memcached==1.59; python_version <= '2.7'   # Quick and small memcached client for Python2
+python3-memcached==1.51; python_version > '2.7'   # Quick and small memcached client for Python3
+jsonschema==3.0.1                                 # JSON Schema
+python-dateutil==2.8.0                            # Extensions to the standard datetime module
+stomp.py==4.1.22                                  # ActiveMQ Messaging Protocol
 pystatsd==0.1.10; python_version == '2.7'         # Needed to log into graphite with more than 1 Hz
-pygeoip==0.3.2                                    # GeoIP API
 geoip2==2.9.0                                     # GeoIP2 API (for IPv6 support)
-ipaddress==1.0.22                                 # IPv4/IPv6 manipulation library - Dependency of geoip2
-maxminddb==1.4.1                                  # extension for reading the MaxMind DB format - Dependency of geoip2
-cffi==1.11.5                                      # Foreign Function Interface for Python calling C code
-pycparser==2.19                                   # C parser in Python - Dependency of cffi
-gcloud==0.18.3                                    # API Client library for Google Cloud
-googleapis-common-protos==1.5.6                   # Common protobufs used in Google APIs - Dependency of gcloud
-httplib2==0.12.0                                  # A comprehensive HTTP client library
-pyOpenSSL==19.0.0                                 # Python wrapper module around the OpenSSL library - Dependency of MyProxyClient
-cryptography==2.4.2                               # Cryptographic recipes and primitives - Dependency of pyOpenSSL
 oauth2client==4.1.3                               # OAuth 2.0 client library
-protobuf==3.6.1                                   # Protocol Buffers - Dependency of gcloud
-grpcio==1.18.0                                    # Package for gRPC Python.
-enum34==1.1.6                                     # Python 3.4 Enum backported - Dependency of grpcio
-pyasn1==0.4.5                                     # Dependency of oauth2client
-pyasn1-modules==0.2.3                             # A collection of ASN.1-based protocols modules - Dependency of oauth2client
-rsa==4.0                                          # Pure-Python RSA implementation
 retrying==1.3.3                                   # general-purpose retrying library to simplify the task of adding retry behavior to just about anything
-functools32==3.2.3.post2; python_version == '2.7'    # explicitly needed on CC7
-redis==3.0.1                                      # Python client for Redis key-value store
+functools32==3.2.3.post2; python_version == '2.7' # explicitly needed on CC7
+redis==3.2.1                                      # Python client for Redis key-value store
 numpy==1.14.2                                     # Numpy for forecasting T3C
 paramiko==2.4.2                                   # SSH2 protocol library
 Flask==1.0.2                                      # Python web framework
-idna==2.7                                         # Internationalized Domain Names in Applications (IDNA) - Dependency of requests
-fts3-rest-API==3.7.1                              # FTS rest API
-M2Crypto<0.33                                     # Dependency of FTS rest API; Temporary fix since 0.33 does not install on CC7
+fts3-rest-API==3.7.1; python_version == '2.7'     # FTS rest API
+M2Crypto<=0.35.2                                  # Dependency of FTS rest API; Temporary fix since 0.33 does not install on CC7
 MyProxyClient==2.1.0                              # myproxy client bindings
