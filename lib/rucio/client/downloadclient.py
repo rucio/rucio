@@ -114,7 +114,7 @@ class BaseExtractionTool:
 
 class DownloadClient:
 
-    def __init__(self, client=None, external_traces=None, logger=None, tracing=True, check_admin=False, check_pcache=False):
+    def __init__(self, client=None, logger=None, tracing=True, check_admin=False, check_pcache=False):
         """
         Initialises the basic settings for an DownloadClient object
 
@@ -126,7 +126,6 @@ class DownloadClient:
             logger = logging.getLogger('%s.null' % __name__)
             logger.disabled = True
 
-        self.external_traces = external_traces
         self.check_pcache = check_pcache
         self.logger = logger
         self.tracing = tracing
@@ -167,7 +166,7 @@ class DownloadClient:
         extract_args = '-C %(dest_dir_path)s -xf %(archive_file_path)s %(file_to_extract)s'
         self.extraction_tools.append(BaseExtractionTool('tar', '--version', extract_args, logger))
 
-    def download_pfns(self, items, num_threads=2, trace_custom_fields={}):
+    def download_pfns(self, items, num_threads=2, trace_custom_fields={}, traces_copy_out=None):
         """
         Download items with a given PFN. This function can only download files, no datasets.
 
@@ -181,6 +180,7 @@ class DownloadClient:
             transfer_timeout    - Optional: Timeout time for the download protocols. (Default: None)
         :param num_threads: Suggestion of number of threads to use for the download. It will be lowered if it's too high.
         :param trace_custom_fields: Custom key value pairs to send with the traces
+        :param traces_copy_out: reference to an external list, where the traces should be uploaded
 
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
                   clientState can be one of the following: ALREADY_DONE, DONE, FILE_NOT_FOUND, FAIL_VALIDATE, FAILED
@@ -228,7 +228,7 @@ class DownloadClient:
             input_items.append(item)
 
         num_files_in = len(input_items)
-        output_items = self._download_multithreaded(input_items, num_threads, trace_custom_fields)
+        output_items = self._download_multithreaded(input_items, num_threads, trace_custom_fields, traces_copy_out)
         num_files_out = len(output_items)
 
         if num_files_in != num_files_out:
@@ -236,7 +236,7 @@ class DownloadClient:
 
         return self._check_output(output_items)
 
-    def download_dids(self, items, num_threads=2, trace_custom_fields={}):
+    def download_dids(self, items, num_threads=2, trace_custom_fields={}, traces_copy_out=None):
         """
         Download items with given DIDs. This function can also download datasets and wildcarded DIDs.
 
@@ -254,6 +254,7 @@ class DownloadClient:
             transfer_timeout    - Optional: Timeout time for the download protocols. (Default: None)
         :param num_threads: Suggestion of number of threads to use for the download. It will be lowered if it's too high.
         :param trace_custom_fields: Custom key value pairs to send with the traces.
+        :param traces_copy_out: reference to an external list, where the traces should be uploaded
 
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
 
@@ -279,7 +280,7 @@ class DownloadClient:
         input_items = self._prepare_items_for_download(did_to_options, merged_items_with_sources, resolve_archives=resolve_archives)
 
         num_files_in = len(input_items)
-        output_items = self._download_multithreaded(input_items, num_threads, trace_custom_fields)
+        output_items = self._download_multithreaded(input_items, num_threads, trace_custom_fields, traces_copy_out)
         num_files_out = len(output_items)
 
         if num_files_in != num_files_out:
@@ -287,7 +288,7 @@ class DownloadClient:
 
         return self._check_output(output_items)
 
-    def download_from_metalink_file(self, item, metalink_file_path, num_threads=2, trace_custom_fields={}):
+    def download_from_metalink_file(self, item, metalink_file_path, num_threads=2, trace_custom_fields={}, traces_copy_out=None):
         """
         Download items using a given metalink file.
 
@@ -298,6 +299,7 @@ class DownloadClient:
             transfer_timeout    - Optional: Timeout time for the download protocols. (Default: None)
         :param num_threads: Suggestion of number of threads to use for the download. It will be lowered if it's too high.
         :param trace_custom_fields: Custom key value pairs to send with the traces.
+        :param traces_copy_out: reference to an external list, where the traces should be uploaded
 
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
 
@@ -322,7 +324,7 @@ class DownloadClient:
         input_items = self._prepare_items_for_download(did_to_options, metalinks)
 
         num_files_in = len(input_items)
-        output_items = self._download_multithreaded(input_items, num_threads, trace_custom_fields)
+        output_items = self._download_multithreaded(input_items, num_threads, trace_custom_fields, traces_copy_out)
         num_files_out = len(output_items)
 
         if num_files_in != num_files_out:
@@ -330,7 +332,7 @@ class DownloadClient:
 
         return self._check_output(output_items)
 
-    def _download_multithreaded(self, input_items, num_threads, trace_custom_fields={}):
+    def _download_multithreaded(self, input_items, num_threads, trace_custom_fields={}, traces_copy_out=None):
         """
         Starts an appropriate number of threads to download items from the input list.
         (This function is meant to be used as class internal only)
@@ -338,6 +340,7 @@ class DownloadClient:
         :param input_items: list containing the input items to download
         :param num_threads: suggestion of how many threads should be started
         :param trace_custom_fields: Custom key value pairs to send with the traces
+        :param traces_copy_out: reference to an external list, where the traces should be uploaded
 
         :returns: list with output items as dictionaries
         """
@@ -354,7 +357,7 @@ class DownloadClient:
 
         if num_threads < 2:
             logger.info('Using main thread to download %d file(s)' % num_files)
-            self._download_worker(input_queue, output_queue, trace_custom_fields, '')
+            self._download_worker(input_queue, output_queue, trace_custom_fields, traces_copy_out, '')
             return list(output_queue.queue)
 
         logger.info('Using %d threads to download %d files' % (num_threads, num_files))
@@ -364,6 +367,7 @@ class DownloadClient:
             kwargs = {'input_queue': input_queue,
                       'output_queue': output_queue,
                       'trace_custom_fields': trace_custom_fields,
+                      'traces_copy_out': traces_copy_out,
                       'log_prefix': log_prefix}
             try:
                 thread = Thread(target=self._download_worker, kwargs=kwargs)
@@ -383,7 +387,7 @@ class DownloadClient:
                 thread.kill_received = True
         return list(output_queue.queue)
 
-    def _download_worker(self, input_queue, output_queue, trace_custom_fields, log_prefix):
+    def _download_worker(self, input_queue, output_queue, trace_custom_fields, traces_copy_out, log_prefix):
         """
         This function runs as long as there are items in the input queue,
         downloads them and stores the output in the output queue.
@@ -392,6 +396,7 @@ class DownloadClient:
         :param input_queue: queue containing the input items to download
         :param output_queue: queue where the output items will be stored
         :param trace_custom_fields: Custom key value pairs to send with the traces
+        :param traces_copy_out: reference to an external list, where the traces should be uploaded
         :param log_prefix: string that will be put at the beginning of every log message
         """
         logger = self.logger
@@ -405,7 +410,7 @@ class DownloadClient:
             try:
                 trace = copy.deepcopy(self.trace_tpl)
                 trace.update(trace_custom_fields)
-                download_result = self._download_item(item, trace, log_prefix)
+                download_result = self._download_item(item, trace, traces_copy_out, log_prefix)
                 output_queue.put(download_result)
             except KeyboardInterrupt:
                 logger.warning('You pressed Ctrl+C! Exiting gracefully')
@@ -415,13 +420,14 @@ class DownloadClient:
                 logger.error('%sFailed to download item' % log_prefix)
                 logger.debug(error)
 
-    def _download_item(self, item, trace, log_prefix=''):
+    def _download_item(self, item, trace, traces_copy_out, log_prefix=''):
         """
         Downloads the given item and sends traces for success/failure.
         (This function is meant to be used as class internal only)
 
         :param item: dictionary that describes the item to download
         :param trace: dictionary representing a pattern of trace that will be send
+        :param traces_copy_out: reference to an external list, where the traces should be uploaded
         :param log_prefix: string that will be put at the beginning of every log message
 
         :returns: dictionary with all attributes from the input item and a clientState attribute
@@ -464,6 +470,7 @@ class DownloadClient:
 
             trace['clientState'] = 'FILE_NOT_FOUND'
             self._send_trace(trace)
+            self._update_trace(traces_copy_out, trace)
             return item
 
         # checking Pcache
@@ -499,6 +506,7 @@ class DownloadClient:
                 trace['transferEnd'] = time.time()
                 trace['clientState'] = 'FOUND_IN_PCACHE'
                 self._send_trace(trace)
+                self._update_trace(traces_copy_out, trace)
                 return item
             else:
                 logger.info('File not found in pcache.')
@@ -577,6 +585,7 @@ class DownloadClient:
                 if not success:
                     logger.warning('%sDownload attempt failed. Try %s/%s' % (log_prefix, attempt, retries))
                     self._send_trace(trace)
+                    self._update_trace(traces_copy_out, trace)
 
             protocol.close()
 
@@ -608,6 +617,7 @@ class DownloadClient:
         trace['clientState'] = 'DONE'
         item['clientState'] = 'DONE'
         self._send_trace(trace)
+        self._update_trace(traces_copy_out, trace)
 
         duration = round(end_time - start_time, 2)
         size = item.get('bytes')
@@ -1418,12 +1428,19 @@ class DownloadClient:
 
     def _send_trace(self, trace):
         """
-        Checks if sending trace is allowed and send the trace.
         If reference to external list of traces given, traces are appended there.
 
         :param trace: the trace
         """
         if self.tracing:
             send_trace(trace, self.client.host, self.client.user_agent)
-        if self.external_traces is not None:
-            self.external_traces.append(trace)
+
+    def _update_trace(self, traces_copy_out, trace):
+        """
+        If reference to external list of traces given, traces are appended there.
+
+        :param trace: the trace
+        """
+
+        if self.traces_copy_out is not None:
+            self.traces_copy_out.append(trace)
