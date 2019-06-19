@@ -89,6 +89,8 @@ A tranfer request got created by executing the transfer. Depending on the transf
                         help='Explicit list of RSEs to include')
     parser.add_argument('--activities', nargs='+', type=str,
                         help='Explicit list of activities to include')
+    parser.add_argument('--exclude-activities', nargs='+', type=str,
+                        help='Explicit list of activities to exclude')
     parser.add_argument('--sleep-time', action="store", default=600, type=int,
                         help='Seconds to sleep if few requests')
     parser.add_argument('--max-sources', action="store", default=4, type=int,
@@ -114,6 +116,7 @@ if __name__ == "__main__":
             rses=args.rses,
             source_strategy=args.source_strategy,
             activities=args.activities,
+            exclude_activities=args.exclude_activities,
             sleep_time=args.sleep_time,
             max_sources=args.max_sources,
             retry_other_fts=args.retry_other_fts,

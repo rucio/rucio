@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2015
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2019
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2017
@@ -48,6 +48,7 @@ except Exception:
 from six import iteritems
 
 from rucio.common.config import config_get
+from rucio.common.schema import ACTIVITY
 from rucio.core import heartbeat, request as request_core, transfer as transfer_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfer, get_conveyor_rses, USER_ACTIVITY
@@ -103,7 +104,7 @@ def submitter(once=False, rses=None, mock=False,
 
     if 'default' not in max_time_in_queue:
         max_time_in_queue['default'] = 168
-    logging.debug("Maximum time in queue for different activities: %s" % max_time_in_queue)
+    logging.debug("Maximum time in queue for different activities: %s", max_time_in_queue)
 
     activity_next_exe_time = defaultdict(time.time)
     executable = sys.argv[0]
@@ -117,12 +118,12 @@ def submitter(once=False, rses=None, mock=False,
     heartbeat.sanity_check(executable=executable, hostname=hostname)
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
     prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
-    logging.info(prepend_str + 'Submitter starting with timeout %s' % (timeout))
+    logging.info('%s Submitter starting with timeout %s', prepend_str, timeout)
 
     time.sleep(10)  # To prevent running on the same partition if all the poller restart at the same time
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
     prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
-    logging.info(prepend_str + 'Transfer submitter started')
+    logging.info('%s Transfer submitter started', prepend_str)
 
     while not graceful_stop.is_set():
 
@@ -144,10 +145,10 @@ def submitter(once=False, rses=None, mock=False,
                 user_transfer = False
 
                 if activity in USER_ACTIVITY and USER_TRANSFERS in ['cms']:
-                    logging.info(prepend_str + "CMS user transfer activity")
+                    logging.info('%s CMS user transfer activity', prepend_str)
                     user_transfer = True
 
-                logging.info(prepend_str + 'Starting to get transfer transfers for %s' % (activity))
+                logging.info('%s Starting to get transfer transfers for %s', prepend_str, activity)
                 start_time = time.time()
                 transfers = __get_transfers(total_workers=heart_beat['nr_threads'] - 1,
                                             worker_number=heart_beat['assign_thread'],
@@ -163,16 +164,16 @@ def submitter(once=False, rses=None, mock=False,
                 record_timer('daemons.conveyor.transfer_submitter.get_transfers.per_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
                 record_counter('daemons.conveyor.transfer_submitter.get_transfers', len(transfers))
                 record_timer('daemons.conveyor.transfer_submitter.get_transfers.transfers', len(transfers))
-                logging.info(prepend_str + 'Got %s transfers for %s in %s seconds' % (len(transfers), activity, time.time() - start_time))
+                logging.info('%s Got %s transfers for %s in %s seconds', prepend_str, len(transfers), activity, time.time() - start_time)
 
                 # group transfers
-                logging.info(prepend_str + 'Starting to group transfers for %s' % (activity))
+                logging.info('%s Starting to group transfers for %s', prepend_str, activity)
                 start_time = time.time()
 
                 grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, source_strategy, max_time_in_queue)
                 record_timer('daemons.conveyor.transfer_submitter.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
 
-                logging.info(prepend_str + 'Starting to submit transfers for %s' % (activity))
+                logging.info('%s Starting to submit transfers for %s', prepend_str, activity)
 
                 for external_host in grouped_jobs:
                     if not user_transfer:
@@ -188,20 +189,20 @@ def submitter(once=False, rses=None, mock=False,
                                                 logging_prepend_str=prepend_str, timeout=timeout, user_transfer_job=user_transfer)
 
                 if len(transfers) < group_bulk:
-                    logging.info(prepend_str + 'Only %s transfers for %s which is less than group bulk %s, sleep %s seconds' % (len(transfers), activity, group_bulk, sleep_time))
+                    logging.info('%s Only %s transfers for %s which is less than group bulk %s, sleep %s seconds', prepend_str, len(transfers), activity, group_bulk, sleep_time)
                     if activity_next_exe_time[activity] < time.time():
                         activity_next_exe_time[activity] = time.time() + sleep_time
         except Exception:
-            logging.critical(prepend_str + '%s' % (traceback.format_exc()))
+            logging.critical('%s %s', prepend_str, str(traceback.format_exc()))
 
         if once:
             break
 
-    logging.info(prepend_str + 'Graceful stop requested')
+    logging.info('%s Graceful stop requested', prepend_str)
 
     heartbeat.die(executable, hostname, pid, hb_thread)
 
-    logging.info(prepend_str + 'Graceful stop done')
+    logging.info('%s Graceful stop done', prepend_str)
     return
 
 
@@ -214,7 +215,7 @@ def stop(signum=None, frame=None):
 
 def run(once=False, group_bulk=1, group_policy='rule',
         mock=False, rses=None, include_rses=None, exclude_rses=None, bulk=100, source_strategy=None,
-        activities=None, sleep_time=600, max_sources=4, retry_other_fts=False, total_threads=1):
+        activities=None, exclude_activities=None, sleep_time=600, max_sources=4, retry_other_fts=False, total_threads=1):
     """
     Starts up the conveyer threads.
     """
@@ -225,13 +226,19 @@ def run(once=False, group_bulk=1, group_policy='rule',
     working_rses = None
     if rses or include_rses or exclude_rses:
         working_rses = get_conveyor_rses(rses, include_rses, exclude_rses)
-        logging.info("RSE selection: RSEs: %s, Include: %s, Exclude: %s" % (rses,
-                                                                            include_rses,
-                                                                            exclude_rses))
+        logging.info("RSE selection: RSEs: %s, Include: %s, Exclude: %s", rses, include_rses, exclude_rses)
     else:
         logging.info("RSE selection: automatic")
 
     logging.info('starting submitter threads')
+
+    if exclude_activities:
+        if not activities:
+            activities = ACTIVITY
+        for activity in exclude_activities:
+            if activity in activities:
+                activities.remove(activity)
+
     threads = [threading.Thread(target=submitter, kwargs={'once': once,
                                                           'rses': working_rses,
                                                           'bulk': bulk,
@@ -306,7 +313,7 @@ def __get_transfers(total_workers=0, worker_number=0, failover_schemes=None, lim
 
         transfers[request_id]['file_metadata']['src_rse'] = sources[0][0]
         transfers[request_id]['file_metadata']['src_rse_id'] = sources[0][2]
-        logging.debug("Transfer for request(%s): %s" % (request_id, transfers[request_id]))
+        logging.debug("Transfer for request(%s): %s", request_id, transfers[request_id])
     return transfers
 
 
@@ -342,7 +349,7 @@ def __sort_ranking(sources):
     :return:         Sorted list
     """
 
-    logging.debug("Sources before sorting: %s" % sources)
+    logging.debug("Sources before sorting: %s", str(sources))
     rank_sources = {}
     ret_sources = []
     for source in sources:
@@ -360,7 +367,7 @@ def __sort_ranking(sources):
     for rank_key in rank_keys:
         sources_list = __sort_link_ranking(rank_sources[rank_key])
         ret_sources = ret_sources + sources_list
-    logging.debug("Sources after sorting: %s" % ret_sources)
+    logging.debug("Sources after sorting: %s", str(ret_sources))
     return ret_sources
 
 
@@ -373,7 +380,7 @@ def __mock_sources(sources):
     """
 
     tmp_sources = []
-    for s in sources:
-        tmp_sources.append((s[0], ':'.join(['mock'] + s[1].split(':')[1:]), s[2], s[3]))
+    for source in sources:
+        tmp_sources.append((source[0], ':'.join(['mock'] + source[1].split(':')[1:]), source[2], source[3]))
     sources = tmp_sources
     return tmp_sources
