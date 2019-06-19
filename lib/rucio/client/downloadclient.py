@@ -447,6 +447,10 @@ class DownloadClient:
 
         dest_file_paths = item['dest_file_paths']
 
+        # appending trace to list reference, if the reference exists
+        if traces_copy_out is not None:
+            traces_copy_out.append(trace)
+
         # if file already exists make sure it exists at all destination paths, set state, send trace, and return
         for dest_file_path in dest_file_paths:
             if os.path.isfile(dest_file_path):
@@ -470,7 +474,6 @@ class DownloadClient:
 
             trace['clientState'] = 'FILE_NOT_FOUND'
             self._send_trace(trace)
-            self._update_trace(traces_copy_out, trace)
             return item
 
         # checking Pcache
@@ -506,7 +509,6 @@ class DownloadClient:
                 trace['transferEnd'] = time.time()
                 trace['clientState'] = 'FOUND_IN_PCACHE'
                 self._send_trace(trace)
-                self._update_trace(traces_copy_out, trace)
                 return item
             else:
                 logger.info('File not found in pcache.')
@@ -585,7 +587,6 @@ class DownloadClient:
                 if not success:
                     logger.warning('%sDownload attempt failed. Try %s/%s' % (log_prefix, attempt, retries))
                     self._send_trace(trace)
-                    self._update_trace(traces_copy_out, trace)
 
             protocol.close()
 
@@ -617,7 +618,6 @@ class DownloadClient:
         trace['clientState'] = 'DONE'
         item['clientState'] = 'DONE'
         self._send_trace(trace)
-        self._update_trace(traces_copy_out, trace)
 
         duration = round(end_time - start_time, 2)
         size = item.get('bytes')
@@ -1434,13 +1434,3 @@ class DownloadClient:
         """
         if self.tracing:
             send_trace(trace, self.client.host, self.client.user_agent)
-
-    def _update_trace(self, traces_copy_out, trace):
-        """
-        If reference to external list of traces given, traces are appended there.
-
-        :param trace: the trace
-        """
-
-        if traces_copy_out is not None:
-            traces_copy_out.append(trace)
