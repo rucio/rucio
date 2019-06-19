@@ -1442,5 +1442,5 @@ class DownloadClient:
         :param trace: the trace
         """
 
-        if self.traces_copy_out is not None:
-            self.traces_copy_out.append(trace)
+        if traces_copy_out is not None:
+            traces_copy_out.append(trace)
