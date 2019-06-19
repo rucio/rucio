@@ -7,11 +7,12 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2018
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 
 from json import dumps
 from os.path import dirname, join
 from time import time
-from web import cookies, ctx, input, setcookie, template
+from web import cookies, ctx, input, setcookie, template, seeother
 
 from rucio import version
 from rucio.api import authentication, identity
@@ -152,3 +153,118 @@ def check_token(rendered_tpl):
     if ui_account:
         setcookie('rucio-selected-account', value=ui_account, path='/')
     return render.base(js_token, js_account, rucio_ui_version, policy, rendered_tpl)
+
+
+def log_in(data, rendered_tpl):
+    attribs = None
+    token = None
+    js_token = ""
+    js_account = ""
+    def_account = None
+    accounts = None
+    cookie_accounts = None
+    rucio_ui_version = version.version_string()
+    policy = config_get('policy', 'permission')
+
+    render = template.render(join(dirname(__file__), '../templates'))
+
+    # # try to get and check the rucio session token from cookie
+    session_token = cookies().get('x-rucio-auth-token')
+    validate_token = authentication.validate_auth_token(session_token)
+
+    # if token is valid, render the requested page.
+    if validate_token and not data:
+        token = session_token
+        js_token = __to_js('token', token)
+        js_account = __to_js('account', def_account)
+
+        return render.base(js_token, js_account, rucio_ui_version, policy, rendered_tpl)
+
+    else:
+        # if there is no session token or if invalid: get a new one.
+        # if user tries to access a page through URL without logging in, then redirect to login page.
+        if rendered_tpl:
+            return render.login()
+
+        # get all accounts for an identity. Needed for account switcher in UI.
+        accounts = identity.list_accounts_for_identity(data.username, 'userpass')
+        if len(accounts) == 0:
+            return render.problem('No accounts for the given identity.')
+
+        cookie_accounts = accounts
+        # try to set the default account to the user account, if not available take the first account.
+        def_account = accounts[0]
+        for account in accounts:
+            account_info = get_account_info(account)
+            if account_info.account_type == AccountType.USER:
+                def_account = account
+                break
+
+        selected_account = cookies().get('rucio-selected-account')
+        if (selected_account):
+            def_account = selected_account
+
+        try:
+            token = authentication.get_auth_token_user_pass(def_account,
+                                                            data.username,
+                                                            data.password.encode("ascii"),
+                                                            'webui',
+                                                            ctx.env.get('REMOTE_ADDR')).token
+
+        except:
+            return render.problem('Cannot get auth token')
+
+        attribs = list_account_attributes(def_account)
+        # write the token and account to javascript variables, that will be used in the HTML templates.
+        js_token = __to_js('token', token)
+        js_account = __to_js('account', def_account)
+
+    # # if there was no valid session token write the new token to a cookie.
+    if token:
+        setcookie('x-rucio-auth-token', value=token, path='/')
+        setcookie('rucio-auth-token-created-at', value=int(time()), path='/')
+
+    if cookie_accounts:
+        values = ""
+        for acc in cookie_accounts:
+            values += acc + " "
+        setcookie('rucio-available-accounts', value=values[:-1], path='/')
+
+    if attribs:
+        setcookie('rucio-account-attr', value=dumps(attribs), path='/')
+
+    return seeother('/')
+
+
+def authenticate(rendered_tpl):
+
+    try:
+        auth_type = config_get('webui', 'auth_type')
+
+    except:
+        auth_type = 'x509'
+
+    session_token = cookies().get('x-rucio-auth-token')
+    validate_token = authentication.validate_auth_token(session_token)
+
+    render = template.render(join(dirname(__file__), '../templates'))
+
+    if auth_type == 'x509':
+        return check_token(rendered_tpl)
+
+    elif auth_type == 'userpass':
+        if validate_token:
+            return log_in(None, rendered_tpl)
+
+        return seeother('/login')
+
+    elif auth_type == 'x509_userpass':
+        if ctx.env.get('SSL_CLIENT_VERIFY') == 'SUCCESS':
+            return check_token(rendered_tpl)
+
+        elif validate_token:
+            return log_in(None, rendered_tpl)
+
+        return render.no_certificate()
+
+    return render.problem('Invalid auth type')
