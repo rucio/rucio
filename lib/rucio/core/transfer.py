@@ -820,11 +820,11 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
         if session.bind.dialect.name == 'oracle':
             bindparams = [bindparam('worker_number', worker_number),
                           bindparam('total_workers', total_workers)]
-            sub_requests = sub_requests.filter(text('ORA_HASH(id, :total_workers) = :worker_number', bindparams=bindparams))
+            sub_requests = sub_requests.filter(text('ORA_HASH(requests.id, :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            sub_requests = sub_requests.filter(text('mod(md5(id), %s) = %s' % (total_workers + 1, worker_number)))
+            sub_requests = sub_requests.filter(text('mod(md5(requests.id), %s) = %s' % (total_workers + 1, worker_number)))
         elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(id::text))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(requests.id::text))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
 
     if limit:
         sub_requests = sub_requests.limit(limit)
