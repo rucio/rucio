@@ -359,8 +359,6 @@ class Default(protocol.RSEProtocol):
             try:
                 ret[checksum_name] = ctx.checksum(str(path), str(checksum_name.capitalize()))
                 verified = True
-                if checksum_name == PREFERRED_CHECKSUM:
-                    break
             except Exception as error:
                 message += 'Error while processing gfal checksum call (%s). Error: %s \n' % checksum_name, str(error)
 
