@@ -208,6 +208,7 @@ class UploadClient:
                 lfn['scope'] = file['did_scope']
                 lfn['name'] = file['did_name']
                 lfn['adler32'] = file['adler32']
+                lfn['md5'] = file['md5']
                 lfn['filesize'] = file['bytes']
 
                 sign_service = None
