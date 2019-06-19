@@ -1428,7 +1428,7 @@ class DownloadClient:
 
     def _send_trace(self, trace):
         """
-        If reference to external list of traces given, traces are appended there.
+        Checks if sending trace is allowed and send the trace.
 
         :param trace: the trace
         """
