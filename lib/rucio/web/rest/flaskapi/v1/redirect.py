@@ -30,7 +30,6 @@ from flask.views import MethodView
 from logging import getLogger, StreamHandler, DEBUG
 
 from rucio.api.replica import list_replicas
-from rucio.common.objectstore import connect, get_signed_urls
 from rucio.common.exception import RucioException, DataIdentifierNotFound, ReplicaNotFound
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_ranking, sort_dynamic, site_selector
 from rucio.common.utils import generate_http_error_flask
@@ -82,7 +81,7 @@ class MetaLinkRedirector(MethodView):
                            'fqdn': None,
                            'site': None}
 
-        schemes = request.args.get('schemes', ['http', 'https', 's3+rucio', 's3+https', 'root', 'gsiftp', 'srm', 'davs'])
+        schemes = request.args.get('schemes', ['http', 'https', 'root', 'gsiftp', 'srm', 'davs'])
         select = request.args.get('select', None)
         if 'sort' in request.args:
             select = request.args['sort']
@@ -209,7 +208,7 @@ class HeaderRedirector(MethodView):
 
             replicas = [r for r in list_replicas(dids=[{'scope': scope, 'name': name, 'type': 'FILE'}], schemes=schemes, client_location=client_location)]
 
-            selected_url, selected_rse = None, None
+            selected_url = None
             for r in replicas:
                 if r['rses']:
                     dictreplica = {}
@@ -217,7 +216,6 @@ class HeaderRedirector(MethodView):
                     if rse:
                         if rse in r['rses'] and r['rses'][rse]:
                             selected_url = r['rses'][rse][0]
-                            selected_rse = rse
                         else:
                             return 'no redirection possible - no valid RSE for HTTP redirection found', 404
                     else:
@@ -252,22 +250,8 @@ class HeaderRedirector(MethodView):
 
                             selected_url = rep[0]
 
-                        for rep in r['rses']:
-                            for replica in r['rses'][rep]:
-                                if selected_url == replica:
-                                    selected_rse = rep
-
             if selected_url:
-                if selected_url.startswith('s3+rucio://'):
-                    connect(selected_rse, selected_url)
-                    signed_URLS = get_signed_urls([selected_url],
-                                                  rse=selected_rse,
-                                                  operation='read')
-                    res = redirect(signed_URLS[selected_url], code=303)
-                    res.header = headers
-                    return res
-
-                res = redirect(signed_URLS[selected_url], code=303)
+                res = redirect(selected_url, code=303)
                 res.header = headers
                 return res
 
