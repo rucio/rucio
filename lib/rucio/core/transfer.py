@@ -808,7 +808,7 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
         .filter(models.Request.request_type == RequestType.TRANSFER)\
         .join(models.RSE, models.RSE.id == models.Request.dest_rse_id)\
         .filter(models.RSE.deleted == false())\
-        .filter(models.RSE.availability.in_((0, 1, 4, 5)))
+        .filter(models.RSE.availability.in_((2, 3, 6, 7)))
 
     if isinstance(older_than, datetime.datetime):
         sub_requests = sub_requests.filter(models.Request.requested_at < older_than)
