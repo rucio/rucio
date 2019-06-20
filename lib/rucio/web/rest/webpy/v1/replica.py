@@ -56,7 +56,7 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
 from rucio.common.schema import SCOPE_NAME_REGEXP
 from rucio.common.utils import generate_http_error, parse_response, APIEncoder, render_json_list
-from rucio.rse.protocols import supported_protocols
+from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController, check_accept_header_wrapper
 
 URLS = ('/list/?$', 'ListReplicas',
@@ -111,7 +111,7 @@ class Replicas(RucioController):
 
         # Resolve all reasonable protocols when doing metalink for maximum access possibilities
         if metalink and schemes is None:
-            schemes = supported_protocols
+            schemes = SUPPORTED_PROTOCOLS
 
         try:
 
@@ -368,7 +368,7 @@ class ListReplicas(RucioController):
 
         # Resolve all reasonable protocols when doing metalink for maximum access possibilities
         if metalink and schemes is None:
-            schemes = supported_protocols
+            schemes = SUPPORTED_PROTOCOLS
 
         try:
 
