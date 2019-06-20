@@ -32,6 +32,7 @@ from rucio.common import constants
 from rucio.common.exception import RucioException, UnsupportedOperation, InvalidRSEExpression, RSEProtocolNotSupported, RequestNotFound
 from rucio.common.rse_attributes import get_rse_attributes
 from rucio.common.utils import construct_surl
+from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_name, list_rses
@@ -433,7 +434,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             if rses and dest_rse_id not in rses:
                 continue
 
-            current_schemes = schemes
+            current_schemes = SUPPORTED_PROTOCOLS
+            if schemes:
+                current_schemes = schemes
             if previous_attempt_id and failover_schemes:
                 current_schemes = failover_schemes
 
