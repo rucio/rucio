@@ -90,7 +90,7 @@ class Subscription:
         """
         json_data = data()
         try:
-            params = loads(json_data)
+            params = loads(json_data.decode())
             params = params['options']
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')

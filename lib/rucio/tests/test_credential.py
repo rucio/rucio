@@ -121,7 +121,7 @@ class TestCredential(object):
                                                             'name': f['name'],
                                                             'type': 'FILE'} for f in self.files],
                                                      rse_expression=self.rse1)]
-        found_pfns = [replica['pfns'].keys()[0] for replica in replicas]
+        found_pfns = [list(replica['pfns'].keys())[0] for replica in replicas]
         for pfn in found_pfns:
             assert_in('&Signature=', pfn)
             assert_greater(len(pfn), 120)
@@ -130,7 +130,7 @@ class TestCredential(object):
                                                             'name': f['name'],
                                                             'type': 'FILE'} for f in self.files],
                                                      rse_expression=self.rse2)]
-        found_pfns = [replica['pfns'].keys()[0] for replica in replicas]
+        found_pfns = [list(replica['pfns'].keys())[0] for replica in replicas]
         expected_pfns = ['https://storage.googleapis.com:443/atlas-europe-east1/mock/04/92/file-on-gcs_0',
                          'https://storage.googleapis.com:443/atlas-europe-east1/mock/c6/5f/file-on-gcs_1',
                          'https://storage.googleapis.com:443/atlas-europe-east1/mock/03/eb/file-on-gcs_2']

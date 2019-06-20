@@ -251,7 +251,8 @@ def add_account_attribute(account, key, value, session=None):
         new_attr.save(session=session)
     except IntegrityError as error:
         if match('.*IntegrityError.*ORA-00001: unique constraint.*ACCOUNT_ATTR_MAP_PK.*violated.*', error.args[0]) \
-           or match('.*IntegrityError.*1062, "Duplicate entry.*for key.*', error.args[0]) \
+           or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
+           or match('.*IntegrityError.*UNIQUE constraint failed: account_attr_map.account, account_attr_map.key.*', error.args[0]) \
            or error.args[0] == "(IntegrityError) column account/key is not unique" \
            or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]):
             raise exception.Duplicate('Key {0} already exist for account {1}!'.format(key, account))

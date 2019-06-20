@@ -175,7 +175,7 @@ class DataModel(object):
             cls.__name__.lower(),
             rse,
             date,
-            hashlib.sha1(url).hexdigest()
+            hashlib.sha1(url.encode()).hexdigest()
         )
         filename = re.sub(r'\W', '-', filename)
         path = os.path.join(cache_dir, filename)

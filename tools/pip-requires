@@ -9,7 +9,7 @@ python3-memcached==1.51; python_version > '2.7'   # Quick and small memcached cl
 jsonschema==3.0.1                                 # JSON Schema
 python-dateutil==2.8.0                            # Extensions to the standard datetime module
 stomp.py==4.1.22                                  # ActiveMQ Messaging Protocol
-pystatsd==0.1.10; python_version == '2.7'         # Needed to log into graphite with more than 1 Hz
+statsd==3.3.0                                     # Needed to log into graphite with more than 1 Hz
 geoip2==2.9.0                                     # GeoIP2 API (for IPv6 support)
 oauth2client==4.1.3                               # OAuth 2.0 client library
 retrying==1.3.3                                   # general-purpose retrying library to simplify the task of adding retry behavior to just about anything
