@@ -16,6 +16,9 @@
 import hashlib
 import os
 
+import six
+
+from base64 import b64encode
 from re import match
 
 from sqlalchemy.exc import IntegrityError
@@ -47,7 +50,12 @@ def add_identity(identity, type, email, password=None, session=None):
 
     if type == IdentityType.USERPASS and password is not None:
         salt = os.urandom(255)  # make sure the salt has the length of the hash
-        password = hashlib.sha256('%s%s' % (salt, password.encode('utf-8'))).hexdigest()  # hash it
+        if six.PY3:
+            decoded_salt = b64encode(salt).decode()
+            salted_password = ('%s%s' % (decoded_salt, password)).encode()
+        else:
+            salted_password = '%s%s' % (salt, str(password))
+        password = hashlib.sha256(salted_password).hexdigest()  # hash it
         new_id.update({'salt': salt, 'password': password, 'email': email})
     try:
         new_id.save(session=session)

@@ -299,7 +299,7 @@ class TestJudgeRepairer():
         region = make_region().configure('dogpile.cache.memcached',
                                          expiration_time=3600,
                                          arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
-        region.delete(sha256(rse).hexdigest())
+        region.delete(sha256(rse.encode()).hexdigest())
 
         update_rse(rse_id, {'availability_write': True})
         rule_repairer(once=True)

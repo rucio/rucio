@@ -21,15 +21,18 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
 FROM centos:7
+ARG python
 
 RUN yum install -y epel-release.noarch
 RUN yum -y update
-RUN yum install -y gcc httpd python-pip gmp-devel krb5-devel httpd mod_ssl mod_auth_kerb mod_wsgi git python-devel.x86_64 openssl-devel.x86_64 gridsite which MySQL-python libaio memcached
+RUN yum install -y gcc httpd python-pip gmp-devel krb5-devel httpd mod_ssl mod_auth_kerb git python-devel.x86_64 openssl-devel.x86_64 gridsite which libaio memcached
 RUN yum -y install https://centos7.iuscommunity.org/ius-release.rpm
 RUN yum -y install python36u python36u-devel python36u-pip python35u python35u-devel python35u-pip
 RUN yum clean all
 
 RUN rm -rf /usr/lib/python2.7/site-packages/ipaddress*
+RUN if [ "$python" == "3.6" ] ; then yum -y install python36u-mod_wsgi ; elif [ "$python" == "3.5" ] ; then yum -y install python35u-mod_wsgi ; else yum -y install mod_wsgi ; fi
+
 
 # Install sqlite3 version 3.28
 RUN curl https://www.sqlite.org/2019/sqlite-autoconf-3280000.tar.gz > sqlite.tar.gz
@@ -56,9 +59,7 @@ RUN rpm -i /opt/rucio/etc/docker/travis/oic.rpm; \
     echo "/usr/lib/oracle/12.2/client64/lib" >/etc/ld.so.conf.d/oracle.conf; \
     ldconfig
 
-ARG python
-
-RUN if [ "$python" == "3.6" ] ; then rm -r /usr/bin/python -f & ln -s /usr/bin/python3.6 /usr/bin/python ; elif [ "$python" == "3.5" ] ; then rm -r /usr/bin/python -f & ln -s /usr/bin/python3.5 /usr/bin/python ; fi
+RUN if [ "$python" == "3.6" ] ; then rm -r -f /usr/bin/python & ln -s /usr/bin/python3.6 /usr/bin/python ; elif [ "$python" == "3.5" ] ; then rm -r -f /usr/bin/python -f & ln -s /usr/bin/python3.5 /usr/bin/python ; fi
 RUN if [ "$python" == "3.6" ] ; then echo "alias python=python3.6" >> ~/.bashrc ; elif [ "$python" == "3.5" ] ; then echo "alias python=python3.5" >> ~/.bashrc ; fi
 
 RUN if [ "$python" == "3.6" ] ; then pip3.6 install --upgrade pip ; elif [ "$python" == "3.5" ] ; then pip3.5 install --upgrade pip ; else pip install --upgrade pip ; fi

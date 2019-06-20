@@ -22,14 +22,14 @@ from __future__ import division
 
 import time
 
-from pystatsd import Client
+from statsd import StatsClient
 
 from rucio.common.config import config_get
 
 SERVER = config_get('monitor', 'carbon_server', raise_exception=False, default='localhost')
 PORT = config_get('monitor', 'carbon_port', raise_exception=False, default=8125)
 SCOPE = config_get('monitor', 'user_scope', raise_exception=False, default='rucio')
-CLIENT = Client(host=SERVER, port=PORT, prefix=SCOPE)
+CLIENT = StatsClient(host=SERVER, port=PORT, prefix=SCOPE)
 
 
 def record_counter(counters, delta=1):
@@ -39,7 +39,17 @@ def record_counter(counters, delta=1):
     :param counters: The counter or a list of counters to be updated.
     :param delta: The increment for the counter, by default increment by 1.
     """
-    CLIENT.update_stats(counters, delta)
+    if isinstance(counters, list):
+        for counter in counters:
+            if delta > 0:
+                CLIENT.incr(counter, delta)
+            else:
+                CLIENT.decr(counter, delta)
+    else:
+        if delta > 0:
+            CLIENT.incr(counters, delta)
+        else:
+            CLIENT.decr(counters, delta)
 
 
 def record_gauge(stat, value):

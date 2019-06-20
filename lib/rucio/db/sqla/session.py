@@ -95,26 +95,33 @@ def mysql_ping_listener(dbapi_conn, connection_rec, connection_proxy):
             raise
 
 
-def mysql_convert_decimal_to_float(dbapi_conn, connection_rec):
+def mysql_convert_decimal_to_float():
     """
     The default datatype returned by mysql-python for numerics is decimal.Decimal.
     This type cannot be serialised to JSON, therefore we need to autoconvert to floats.
     Even worse, there's two types of decimals created by the MySQLdb driver, so we must
     override both.
 
-    :param dbapi_conn: DBAPI connection
-    :param connection_rec: connection record
+    :return converter: Converter object
     """
 
+    converter = None
     try:
         import MySQLdb.converters  # pylint: disable=import-error
         from MySQLdb.constants import FIELD_TYPE  # pylint: disable=import-error
-    except:
-        raise RucioException('Trying to use MySQL without mysql-python installed!')
-    conv = MySQLdb.converters.conversions.copy()
-    conv[FIELD_TYPE.DECIMAL] = float
-    conv[FIELD_TYPE.NEWDECIMAL] = float
-    dbapi_conn.converter = conv
+        converter = MySQLdb.converters.conversions.copy()
+        converter[FIELD_TYPE.DECIMAL] = float
+        converter[FIELD_TYPE.NEWDECIMAL] = float
+    except ImportError:
+        try:
+            from pymysql.constants import FIELD_TYPE
+            from pymysql.converters import conversions as conv
+            converter = conv.copy()
+            converter[FIELD_TYPE.DECIMAL] = float
+            converter[FIELD_TYPE.NEWDECIMAL] = float
+        except ImportError:
+            raise RucioException('Trying to use MySQL without mysql-python or pymysql installed!')
+    return converter
 
 
 def psql_convert_decimal_to_float(dbapi_conn, connection_rec):
@@ -159,6 +166,9 @@ def get_engine(echo=True):
                          ('pool_recycle', int), ('echo', int), ('echo_pool', str),
                          ('pool_reset_on_return', str), ('use_threadlocal', int)]
         params = {}
+        if 'mysql' in sql_connection:
+            conv = mysql_convert_decimal_to_float()
+            params['connect_args'] = {'conv': conv}
         for param, param_type in config_params:
             try:
                 params[param] = param_type(config_get(DATABASE_SECTION, param))
@@ -167,7 +177,6 @@ def get_engine(echo=True):
         _ENGINE = create_engine(sql_connection, **params)
         if 'mysql' in sql_connection:
             event.listen(_ENGINE, 'checkout', mysql_ping_listener)
-            event.listen(_ENGINE, 'connect', mysql_convert_decimal_to_float)
         elif 'postgresql' in sql_connection:
             event.listen(_ENGINE, 'connect', psql_convert_decimal_to_float)
         elif 'sqlite' in sql_connection:
