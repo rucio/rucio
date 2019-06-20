@@ -16,7 +16,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - David Cameron <d.g.cameron@gmail.com>, 2014
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2015
@@ -213,7 +213,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 if meta is not None:
                     try:
                         meta = json.dumps(meta)
-                    except:
+                    except Exception:
                         meta = None
 
                 new_rule = models.ReplicationRule(account=account,
@@ -482,7 +482,7 @@ def add_rules(dids, rules, session=None):
                         if rule.get('meta') is not None:
                             try:
                                 meta = json.dumps(rule.get('meta'))
-                            except:
+                            except Exception:
                                 meta = None
                         else:
                             meta = None
@@ -1730,9 +1730,9 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
 
     datasets = []
     parent_dids = rucio.core.did.list_parent_dids(scope=scope, name=name, session=session)
-    for p in parent_dids:
-        if {'name': p['name'], 'scope': p['scope']} not in datasets:
-            datasets.append({'name': p['name'], 'scope': p['scope']})
+    for parent in parent_dids:
+        if {'name': parent['name'], 'scope': parent['scope']} not in datasets:
+            datasets.append({'name': parent['name'], 'scope': parent['scope']})
 
     for lock in locks:
         rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == lock.rule_id).with_for_update(nowait=nowait).one()
@@ -1764,21 +1764,21 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
 
         session.delete(lock)
 
-    if replica.lock_cnt == 0:
-        replica.tombstone = OBSOLETE
-        replica.state = ReplicaState.UNAVAILABLE
-        session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'availability': DIDAvailability.LOST})
-        for dts in datasets:
-            logging.info('File %s:%s bad at site %s is completely lost from dataset %s:%s. Will be marked as LOST and detached', scope, name, rse, dts['scope'], dts['name'])
-            rucio.core.did.detach_dids(scope=dts['scope'], name=dts['name'], dids=[{'scope': scope, 'name': name}], session=session)
-            add_message('LOST', {'scope': scope,
-                                 'name': name,
-                                 'dataset_name': dts['name'],
-                                 'dataset_scope': dts['scope']},
-                        session=session)
-    else:
-        # This should never happen
-        raise RucioException('Problem with the locks')
+    if replica.lock_cnt != 0:
+        logging.error('Replica for did %s:%s with lock_cnt = %s. This should never happen. Update lock_cnt', scope, name, replica.lock_cnt)
+        replica.lock_cnt = 0
+
+    replica.tombstone = OBSOLETE
+    replica.state = ReplicaState.UNAVAILABLE
+    session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'availability': DIDAvailability.LOST})
+    for dts in datasets:
+        logging.info('File %s:%s bad at site %s is completely lost from dataset %s:%s. Will be marked as LOST and detached', scope, name, rse, dts['scope'], dts['name'])
+        rucio.core.did.detach_dids(scope=dts['scope'], name=dts['name'], dids=[{'scope': scope, 'name': name}], session=session)
+        add_message('LOST', {'scope': scope,
+                             'name': name,
+                             'dataset_name': dts['name'],
+                             'dataset_scope': dts['scope']},
+                    session=session)
 
 
 @transactional_session
@@ -2903,6 +2903,7 @@ def __delete_lock_and_update_replica(lock, purge_replicas=False, nowait=False, s
                 replica.tombstone = replica.created_at
             if lock.state == LockState.REPLICATING:
                 replica.state = ReplicaState.UNAVAILABLE
+                replica.tombstone = OBSOLETE
                 return True
     except NoResultFound:
         logging.error("Replica for lock %s:%s for rule %s on rse %s could not be found", lock.scope, lock.name, str(lock.rule_id), get_rse_name(lock.rse_id, session=session))
@@ -2943,7 +2944,7 @@ def __create_rule_approval_email(rule, session=None):
                         free_space_after = 'undefined'
                     else:
                         free_space_after = sizefmt(usage['free'] - did['bytes'])
-        except:
+        except Exception:
             pass
 
     # Resolve recipents:
@@ -2998,7 +2999,7 @@ def __create_recipents_list(rse_expression, session=None):
                     email = get_account(account=account, session=session).email
                     if email:
                         recipents.append((email, account))
-                except:
+                except Exception:
                     pass
 
     # LOCALGROUPDISK/LOCALGROUPTAPE
@@ -3013,7 +3014,7 @@ def __create_recipents_list(rse_expression, session=None):
                         email = get_account(account=account[0], session=session).email
                         if email:
                             recipents.append((email, account[0]))
-                    except:
+                    except Exception:
                         pass
 
     # GROUPDISK
@@ -3028,7 +3029,7 @@ def __create_recipents_list(rse_expression, session=None):
                         email = get_account(account=account[0], session=session).email
                         if email:
                             recipents.append((email, account[0]))
-                    except:
+                    except Exception:
                         pass
 
     # DDMADMIN as default

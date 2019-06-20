@@ -24,6 +24,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 # - Robert Illingworth, <illingwo@fnal.gov>, 2019
+# - Jaroslav Guenther, <jaroslav.guenther@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -40,6 +41,7 @@ from traceback import format_exc
 from sqlalchemy import func, and_, or_, exists, not_, update
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql import label
+from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError, NoResultFound
 from sqlalchemy.sql.expression import case, bindparam, select, text, false, true
 
@@ -48,8 +50,9 @@ import rucio.core.lock
 
 from rucio.common import exception
 from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
+from rucio.core.config import get as config_get
 from rucio.core.credential import get_signed_url
-from rucio.core.rse import get_rse, get_rse_id, get_rse_name, get_rse_attribute, get_rses_with_attribute_value
+from rucio.core.rse import get_rse, get_rse_id, get_rse_name, get_rse_attribute
 from rucio.core.rse_counter import decrease, increase
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
@@ -958,23 +961,23 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                 if isinstance(rse_site_attr, list) and rse_site_attr:
                                     replica_site = rse_site_attr[0]
 
-                                # does it match with the client?
+                                # does it match with the client? if not, it's an outgoing connection
+                                # therefore the internal proxy must be prepended
                                 if client_location['site'] != replica_site:
-                                    root_proxy_internal = get_rses_with_attribute_value('site', client_location['site'],
-                                                                                        'root-proxy-internal',
-                                                                                        session=session)
-                                    # assume all RSEs at site have same proxy, just prepend the first one
-                                    if root_proxy_internal and 'value' in root_proxy_internal[0]:
-                                        pfn = root_proxy_internal[0]['value'] + '//' + pfn
+                                    root_proxy_internal = config_get('root-proxy-internal',    # section
+                                                                     client_location['site'],  # option
+                                                                     default='',               # empty string to circumvent exception
+                                                                     session=session)
+                                    if root_proxy_internal:
+                                        pfn = 'root://' + root_proxy_internal + '//' + pfn
 
                         # do we need to sign the URLs?
                         if sign_urls and protocol.attributes['scheme'] == 'https':
-                            sign = get_rse_attribute('sign_url',
-                                                     rse_id=rse_info[rse]['id'],
-                                                     value='gcs',
-                                                     session=session)
-                            if sign and isinstance(sign, list) and sign[0]:
-                                pfn = get_signed_url(service='gcs', operation='read', url=pfn, lifetime=signature_lifetime)
+                            service = get_rse_attribute('sign_url',
+                                                        rse_id=rse_info[rse]['id'],
+                                                        session=session)
+                            if service and isinstance(service, list):
+                                pfn = get_signed_url(service=service[0], operation='read', url=pfn, lifetime=signature_lifetime)
 
                         # PFNs don't have concepts, therefore quickly encapsulate in a tuple
                         # ('pfn', 'domain', 'priority', 'client_extract')
@@ -2262,6 +2265,46 @@ def list_dataset_replicas(scope, name, deep=False, session=None):
 
 
 @stream_session
+def list_dataset_replicas_vp(scope, name, deep=False, session=None):
+    """
+    List dataset replicas for a DID (scope:name) using the
+    Virtual Placement service.
+
+    NOTICE: This is an RnD function and might change or go away at any time.
+
+    :param scope: The scope of the dataset.
+    :param name: The name of the dataset.
+    :param deep: Lookup at the file level.
+    :param session: Database session to use.
+
+    :returns: If VP exists a list of dicts ofsites, otherwise a list of dicts of dataset replicas
+    """
+
+    vp_replies = ['other']
+    nr_replies = 5  # force limit reply size
+
+    try:
+        import requests
+        vp_replies = requests.get('http://vpservice.cern.ch/ds/%s/%s:%s' % (nr_replies, scope, name),
+                                  timeout=1)
+        if vp_replies.status_code == 200:
+            vp_replies = vp_replies.json()
+        else:
+            vp_replies = ['other']
+    except Exception as e:
+        print(e)
+        vp_replies = ['other']
+
+    if vp_replies != ['other']:
+        for vp_reply in vp_replies:
+            yield {'vp': True, 'site': vp_reply}
+    else:
+        for reply in list_dataset_replicas(scope=scope, name=name, deep=deep, session=session):
+            reply['vp'] = False
+            yield reply
+
+
+@stream_session
 def list_datasets_per_rse(rse, filters=None, limit=None, session=None):
     """
     List datasets at a RSE.
@@ -2718,61 +2761,97 @@ def get_replicas_state(scope=None, name=None, session=None):
 
 
 @read_session
-def get_suspicious_files(rse_expression, younger_than=None, nattempts=None, session=None):
+def get_suspicious_files(rse_expression, **kwargs):
     """
-    List the list of suspicious files on a list of RSEs
-    :param rse_expression: The RSE expression where the suspicious files are located
-    :param younger_than: datetime object to select the suspicious replicas younger than this date.
-    :param nattempts: The number of time the replicas have been declared suspicious
-    :param session: The database session in use.
+    Gets a list of replicas from bad_replicas table which are: declared more than <nattempts> times since <younger_than> date,
+    present on the RSE specified by the <rse_expression> and do not have a state in <exclude_states> list.
+    Selected replicas can also be required to be <available_elsewhere> on another RSE than the one declared in bad_replicas table and/or
+    be declared as <is_suspicious> in the bad_replicas table.
+    Keyword Arguments:
+    :param younger_than: Datetime object to select the replicas which were declared since younger_than date. Default value = 10 days ago.
+    :param nattempts: The minimum number of replica appearances in the bad_replica DB table from younger_than date. Default value = 0.
+    :param rse_expression: The RSE expression where the replicas are located.
+    :param: exclude_states: List of states which eliminates replicas from search result if any of the states in the list
+                            was declared for a replica since younger_than date. Allowed values
+                            = ['B', 'R', 'D', 'L', 'T', 'S'] (meaning 'BAD', 'RECOVERED', 'DELETED', 'LOST', 'TEMPORARY_UNAVAILABLE', 'SUSPICIOUS').
+    :param: available_elsewhere: If True, only replicas declared in addition as AVAILABLE on another RSE
+                                 than the one in the bad_replicas table will be taken into account. Default value = False.
+    :param: is_suspicious: If True, only replicas declared as SUSPICIOUS in bad replicas table will be taken into account. Default value = False.
+    :param session: The database session in use. Default value = None.
+
+    :returns: a list of replicas:
+    [{'scope': scope, 'name': name, 'rse': rse, 'cnt': cnt, 'created_at': created_at}, ...]
     """
+
+    younger_than = kwargs.get("younger_than", datetime.now() - timedelta(days=10))
+    nattempts = kwargs.get("nattempts", 0)
+    session = kwargs.get("session", None)
+    exclude_states = kwargs.get("exclude_states", ['B', 'R', 'D'])
+    available_elsewhere = kwargs.get("available_elsewhere", False)
+    is_suspicious = kwargs.get("is_suspicious", False)
+
+    # only for the 2 web api used parameters, checking value types and assigning the default values
+    if not isinstance(nattempts, int):
+        nattempts = 0
+    if not isinstance(younger_than, datetime):
+        younger_than = datetime.now() - timedelta(days=10)
+
+    # assembling exclude_states_clause
+    exclude_states_clause = []
+    for state in exclude_states:
+        exclude_states_clause.append(BadFilesStatus.from_string(state))
+
+    # making aliases for bad_replicas and replicas tables
+    bad_replicas_alias = aliased(models.BadReplicas, name='bad_replicas_alias')
+    replicas_alias = aliased(models.RSEFileAssociation, name='replicas_alias')
+
+    # assembling the selection rse_clause
     rse_clause = []
     if rse_expression:
-        query = parse_expression(expression=rse_expression, session=session)
-        for rse in query:
+        parsedexp = parse_expression(expression=rse_expression, session=session)
+        for rse in parsedexp:
             rse_clause.append(models.RSEFileAssociation.rse_id == rse['id'])
 
-    query = session.query(func.count(models.RSEFileAssociation.scope),
-                          models.RSEFileAssociation.scope,
-                          models.RSEFileAssociation.name,
-                          models.RSEFileAssociation.rse_id,
-                          func.min(models.RSEFileAssociation.created_at)).\
-        join(models.BadReplicas, and_(models.RSEFileAssociation.scope == models.BadReplicas.scope,
-                                      models.RSEFileAssociation.name == models.BadReplicas.name,
-                                      models.RSEFileAssociation.rse_id == models.BadReplicas.rse_id))
+    # query base
+    query = session.query(func.count(), bad_replicas_alias.scope, bad_replicas_alias.name, models.RSEFileAssociation.rse_id, func.min(models.RSEFileAssociation.created_at))\
+                   .filter(models.RSEFileAssociation.rse_id == bad_replicas_alias.rse_id,
+                           models.RSEFileAssociation.scope == bad_replicas_alias.scope,
+                           models.RSEFileAssociation.name == bad_replicas_alias.name,
+                           bad_replicas_alias.created_at >= younger_than)
+    if is_suspicious:
+        query.filter(bad_replicas_alias.state == BadFilesStatus.SUSPICIOUS)
     if rse_clause:
         query = query.filter(or_(*rse_clause))
-    if younger_than:
-        query = query.filter(models.BadReplicas.created_at > younger_than)
-    query = query.group_by(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id)
-    if nattempts:
-        query = query.having(func.count(models.RSEFileAssociation.scope) > int(nattempts))
+    if available_elsewhere:
+        available_replica = exists(select([1]).where(and_(replicas_alias.state == ReplicaState.AVAILABLE,
+                                                          replicas_alias.scope == bad_replicas_alias.scope,
+                                                          replicas_alias.name == bad_replicas_alias.name,
+                                                          replicas_alias.rse_id != bad_replicas_alias.rse_id)))
+        query = query.filter(available_replica)
 
-    replicas_clause = []
-    suspicious = {}
-    for entry in query.all():
-        cnt, scope, name, rse_id, created_at = entry
-        suspicious[(scope, name, rse_id)] = (cnt, created_at)
-        replicas_clause.append(and_(models.BadReplicas.rse_id == rse_id, models.BadReplicas.scope == scope, models.BadReplicas.name == name))
+    # it is required that the selected replicas
+    # do not occur as BAD/DELETED/LOST/RECOVERED/...
+    # in the bad_replicas table during the same time window.
+    other_states_present = exists(select([1]).where(and_(models.BadReplicas.scope == bad_replicas_alias.scope,
+                                                         models.BadReplicas.name == bad_replicas_alias.name,
+                                                         models.BadReplicas.created_at >= younger_than,
+                                                         models.BadReplicas.rse_id == bad_replicas_alias.rse_id,
+                                                         models.BadReplicas.state.in_(exclude_states_clause))))
+    query = query.filter(not_(other_states_present))
 
-    query = session.query(models.BadReplicas.scope, models.BadReplicas.name, models.BadReplicas.rse_id)\
-                   .filter(or_(*replicas_clause)).filter(models.BadReplicas.state.in_((BadFilesStatus.BAD, BadFilesStatus.DELETED, BadFilesStatus.RECOVERED)))
-    if younger_than:
-        query = query.filter(models.BadReplicas.created_at > younger_than)
-    for entry in query.all():
-        scope, name, rse_id = entry
-        did = (scope, name, rse_id)
-        suspicious.pop(did, None)
-
+    # finally, the results are grouped by RSE, scope, name and required to have
+    # at least 'nattempts' occurrences in the result of the query per replica
+    query_result = query.group_by(models.RSEFileAssociation.rse_id, bad_replicas_alias.scope, bad_replicas_alias.name).having(func.count() > nattempts).all()
+    # print(query)
+    # translating the rse_id to RSE name and assembling the return list of dictionaries
     result = []
     rses = {}
-    for key in suspicious:
-        scope, name, rse_id = key
-        cnt, created_at = suspicious[key]
+    for cnt, scope, name, rse_id, created_at in query_result:
         if rse_id not in rses:
             rse = get_rse_name(rse_id)
             rses[rse_id] = rse
         result.append({'scope': scope, 'name': name, 'rse': rses[rse_id], 'cnt': cnt, 'created_at': created_at})
+
     return result
 
 

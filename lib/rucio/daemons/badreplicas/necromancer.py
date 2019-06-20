@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
@@ -21,17 +21,21 @@
 #
 # PY3K COMPATIBLE
 
+from __future__ import division
+
 import logging
 import os
 import socket
 import threading
 import time
 
+from math import ceil
 from sys import exc_info, stdout, argv
 from traceback import format_exception
 
 from rucio.db.sqla.constants import ReplicaState
 from rucio.common.config import config_get
+from rucio.common.utils import chunks
 from rucio.common.exception import DatabaseException
 from rucio.core import monitor, heartbeat
 from rucio.core.replica import list_bad_replicas, get_replicas_state, list_bad_replicas_history, update_bad_replicas_history
@@ -112,11 +116,18 @@ def necromancer(thread=0, bulk=5, once=False):
             now = time.time()
             if (now - update_history_time) > update_history_threshold:
                 logging.info(prepend_str + 'Last update of history table %s seconds ago. Running update.' % (now - update_history_time))
-                bad_replicas = list_bad_replicas_history(limit=10000000,
+                bad_replicas = list_bad_replicas_history(limit=1000000,
                                                          thread=heart_beat['assign_thread'],
                                                          total_threads=heart_beat['nr_threads'])
                 for rse_id in bad_replicas:
-                    update_bad_replicas_history(bad_replicas[rse_id], rse_id)
+                    chunk_size = 1000
+                    nchunk = int(ceil(len(bad_replicas[rse_id]) / chunk_size))
+                    logging.debug(prepend_str + 'Update history for rse_id %s' % (rse_id))
+                    cnt = 0
+                    for chunk in chunks(bad_replicas[rse_id], chunk_size):
+                        logging.debug(prepend_str + ' History for rse_id %s : chunk %i/%i' % (rse_id, cnt, nchunk))
+                        cnt += 1
+                        update_bad_replicas_history(chunk, rse_id)
                 logging.info(prepend_str + 'History table updated in %s seconds' % (time.time() - now))
                 update_history_time = time.time()
 

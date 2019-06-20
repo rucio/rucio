@@ -54,7 +54,7 @@ logging.basicConfig(stream=sys.stdout,
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
-def rebalance_rule(parent_rule, activity, rse_expression, priority, source_replica_expression=None, comment=None):
+def rebalance_rule(parent_rule, activity, rse_expression, priority, source_replica_expression='*\\bb8-enabled=false', comment=None):
     """
     Rebalance a replication rule to a new RSE
 
@@ -210,13 +210,16 @@ def _list_rebalance_rule_candidates_dump(rse, mode=None):
         if mode == 'decommission':  # other modes can be added later
             if rules[r_id]['state'] == 'DELETED':
                 continue
+            if int(rules[r_id]['length']) == 0:
+                continue
             candidates.append((rules[r_id]['scope'],
                                rules[r_id]['name'],
                                r_id,
                                rules[r_id]['rse_expression'],
                                rules[r_id]['subscription_id'],
                                rules[r_id]['bytes'],
-                               rules[r_id]['length']))
+                               rules[r_id]['length'],
+                               int(rules[r_id]['bytes'] / rules[r_id]['length'])))
     return candidates
 
 
@@ -332,7 +335,7 @@ def select_target_rse(parent_rule, current_rse, rse_expression, subscription_id,
 
 
 @transactional_session
-def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_expression=None, comment=None, force_expression=None, mode=None, priority=3, source_replica_expression=None, session=None):
+def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_expression=None, comment=None, force_expression=None, mode=None, priority=3, source_replica_expression='*\\bb8-enabled=false', session=None):
     """
     Rebalance data from an RSE
 
