@@ -1,24 +1,34 @@
+# Copyright 2012-2019 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2014
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2016
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2016
+# - Wen Guan <wguan.icedew@gmail.com>, 2014-2017
+# - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
+# - Tobias Wegner <twegner@cern.ch>, 2017
+# - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2018
+# - Nicolo Magini <Nicolo.Magini@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - James Clark <james.clark@physics.gatech.edu>, 2019
+#
+# PY3K COMPATIBLE
+
 """
-Copyright European Organization for Nuclear Research (CERN)
-
-Licensed under the Apache License, Version 2.0 (the "License");
-You may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-http://www.apache.org/licenses/LICENSE-2.0
-
-Authors:
-- Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2014
-- Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2016
-- Wen Guan, <wen.guan@cern.ch>, 2014
-- Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
-- Mario Lassnig, <mario.lassnig@cern.ch>, 2017
-- Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
-- Martin Barisits, <martin.barisits@cern.ch>, 2018
-- Nicolo Magini, <nicolo.magini@cern.ch>, 2018
-- Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
-
-PY3K COMPATIBLE
-
 This module defines the base class for implementing a transfer protocol,
 along with some of the default methods for LFN2PFN translations.
 """
@@ -115,7 +125,7 @@ class RSEDeterministicTranslation(object):
         del rse
         del rse_attrs
         del protocol_attrs
-        hstr = hashlib.md5('%s:%s' % (scope, name)).hexdigest()
+        hstr = hashlib.md5(('%s:%s' % (scope, name)).encode('utf-8')).hexdigest()
         if scope.startswith('user') or scope.startswith('group'):
             scope = scope.replace('.', '/')
         return '%s/%s/%s/%s' % (scope, hstr[0:2], hstr[2:4], name)
@@ -141,6 +151,27 @@ class RSEDeterministicTranslation(object):
             scope = scope.replace('.', '/')
         return '%s/%s' % (scope, name)
 
+    @staticmethod
+    def __ligo(scope, name, rse, rse_attrs, protocol_attrs):
+        """
+        Given a LFN, convert it directly to a path using the Caltech schema
+
+        e.g.,: ER8:H-H1_HOFT_C02-1126256640-4096 ->
+               ER8/hoft_C02/H1/H-H1_HOFT_C02-11262/H-H1_HOFT_C02-1126256640-4096
+
+        :param scope: Scope of the LFN (observing run: ER8, O2, postO1, ...)
+        :param name: File name of the LFN (E.g., H-H1_HOFT_C02-1126256640-4096.gwf)
+        :param rse: RSE for PFN (ignored)
+        :param rse_attrs: RSE attributes for PFN (ignored)
+        :param protocol_attrs: RSE protocol attributes for PFN (ignored)
+        :returns: Path for use in the PFN generation.
+        """
+        del rse
+        del rse_attrs
+        del protocol_attrs
+        from ligo_rucio import lfn2pfn as ligo_lfn2pfn  # pylint: disable=import-error
+        return ligo_lfn2pfn.ligo_lab(scope, name, None, None, None)
+
     @classmethod
     def _module_init_(cls):
         """
@@ -148,6 +179,7 @@ class RSEDeterministicTranslation(object):
         """
         cls.register(cls.__hash, "hash")
         cls.register(cls.__identity, "identity")
+        cls.register(cls.__ligo, "ligo")
         policy_module = None
         try:
             policy_module = config.config_get('policy', 'lfn2pfn_module')

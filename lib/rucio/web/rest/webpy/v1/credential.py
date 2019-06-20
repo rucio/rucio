@@ -102,8 +102,8 @@ class SignURL(RucioController):
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
-        if service not in ['gcs']:
-            raise generate_http_error(400, 'ValueError', 'Parameter "svc" must be either empty(=gcs), or gcs')
+        if service not in ['gcs', 's3', 'swift']:
+            raise generate_http_error(400, 'ValueError', 'Parameter "svc" must be either empty(=gcs), gcs, s3 or swift')
 
         if url is None:
             raise generate_http_error(400, 'ValueError', 'Parameter "url" not found')
@@ -112,7 +112,7 @@ class SignURL(RucioController):
             raise generate_http_error(400, 'ValueError', 'Parameter "op" must be either empty(=read), read, write, or delete.')
 
         try:
-            result = get_signed_url(account, appid, ip, service=service, operation='read', url=url, lifetime=lifetime)
+            result = get_signed_url(account, appid, ip, service=service, operation=operation, url=url, lifetime=lifetime)
         except RucioException as e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0])
         except Exception as e:

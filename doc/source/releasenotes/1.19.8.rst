@@ -1,0 +1,42 @@
+======
+1.19.8
+======
+
+-------
+General
+-------
+
+********
+Features
+********
+
+- Core & Internals: Virtual placement R&D prototype `#2528 <https://github.com/rucio/rucio/issues/2528>`_
+- Transfers: Conveyor-fts_throttler daemon `#2482 <https://github.com/rucio/rucio/issues/2482>`_
+
+************
+Enhancements
+************
+
+- Core & Internals: Support site attributes for root proxies `#2511 <https://github.com/rucio/rucio/issues/2511>`_
+- Core & Internals: Add an LFN2PFN algorithm for LIGO `#2519 <https://github.com/rucio/rucio/issues/2519>`_
+- Deletion: add protocol to deletion events `#2560 <https://github.com/rucio/rucio/issues/2560>`_
+- Rebalancing: bb8 should not use tape replicas `#2535 <https://github.com/rucio/rucio/issues/2535>`_
+- Rules: When rules with COPYING replicas are cancelled, they should be tombstoned `#2488 <https://github.com/rucio/rucio/issues/2488>`_
+
+****
+Bugs
+****
+
+- Infrastructure: dev docker image is broken `#2548 <https://github.com/rucio/rucio/issues/2548>`_
+- Recovery: Necromancer doesn't handle properly exception `#1807 <https://github.com/rucio/rucio/issues/1807>`_
+- Testing: docker demo fails to build image due to errors(?) in Dockerfile `#2502 <https://github.com/rucio/rucio/issues/2502>`_
+
+-----
+WebUI
+-----
+
+****
+Bugs
+****
+
+- WebUI: Dataset Replicas panel is using obsolete RSE expression syntax `#2556 <https://github.com/rucio/rucio/issues/2556>`_
