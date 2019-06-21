@@ -497,7 +497,7 @@ class FTS3Transfertool(Transfertool):
         params_dict = {storage_element: {'operations': {}, 'se_info': {}}}
         if staging is not None:
             try:
-                policy = config_get('permission', 'policy')
+                policy = config_get('policy', 'permission')
             except Exception:
                 logging.warn('Could not get policy from config')
             params_dict[storage_element]['operations'] = {policy: {'staging': staging}}
