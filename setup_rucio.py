@@ -52,7 +52,6 @@ IsRelease = False
 requirements_files = ['tools/pip-requires', 'tools/pip-requires-client']
 data_files = [('rucio/etc/', glob.glob('etc/*.template')),
               ('rucio/etc/web', glob.glob('etc/web/*.template')),
-              ('rucio/etc/schemas', glob.glob('etc/schemas/*.json')),
               ('rucio/tools/', ['tools/pip-requires', 'tools/pip-requires-client', 'tools/pip-requires-test',
                                 'tools/bootstrap.py', 'tools/reset_database.py']),
               ('rucio/etc/mail_templates/', glob.glob('etc/mail_templates/*.tmpl'))]
