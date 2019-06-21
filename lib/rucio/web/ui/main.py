@@ -22,6 +22,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015-2019
 # - Stefan Prenner <stefan.prenner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -36,7 +37,7 @@ from web import application, header, input as param_input, seeother, template
 
 from rucio.common.config import config_get
 from rucio.common.utils import generate_http_error
-from rucio.web.ui.common.utils import check_token, get_token
+from rucio.web.ui.common.utils import get_token, log_in, authenticate
 
 
 COMMON_URLS = (
@@ -71,7 +72,8 @@ COMMON_URLS = (
     '/subscriptions', 'Subscriptions',
     '/subscriptions_editor', 'SubscriptionsEditor',
     '/logfiles/load', 'LoadLogfile',
-    '/logfiles/extract', 'ExtractLogfile'
+    '/logfiles/extract', 'ExtractLogfile',
+    '/login', 'Login',
 )
 
 POLICY = config_get('policy', 'permission')
@@ -102,7 +104,7 @@ class Account(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.account())
+        return authenticate(render.account())
 
 
 class AccountUsage(object):
@@ -110,7 +112,7 @@ class AccountUsage(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.account_usage())
+        return authenticate(render.account_usage())
 
 
 class AccountUsageHistory(object):
@@ -118,7 +120,7 @@ class AccountUsageHistory(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.account_usage_history())
+        return authenticate(render.account_usage_history())
 
 
 class AccountRSEUsage(object):
@@ -126,7 +128,7 @@ class AccountRSEUsage(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.account_rse_usage())
+        return authenticate(render.account_rse_usage())
 
 
 class AddRSE(object):
@@ -134,7 +136,7 @@ class AddRSE(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.add_rse())
+        return authenticate(render.add_rse())
 
 
 class AddRSEProtocol(object):
@@ -142,7 +144,7 @@ class AddRSEProtocol(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.rse_add_protocol())
+        return authenticate(render.rse_add_protocol())
 
 
 class ApproveRules(object):
@@ -150,7 +152,7 @@ class ApproveRules(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.approve_rules())
+        return authenticate(render.approve_rules())
 
 
 class AtlasIndex(object):
@@ -158,7 +160,7 @@ class AtlasIndex(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.atlas_index())
+        return authenticate(render.atlas_index())
 
 
 class Auth(object):
@@ -178,7 +180,7 @@ class Accounting(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.accounting())
+        return authenticate(render.accounting())
 
 
 class BadReplicas(object):
@@ -186,7 +188,7 @@ class BadReplicas(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.bad_replicas())
+        return authenticate(render.bad_replicas())
 
 
 class SuspiciousReplicas(object):
@@ -194,7 +196,7 @@ class SuspiciousReplicas(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.suspicious_replicas())
+        return authenticate(render.suspicious_replicas())
 
 
 class BadReplicasSummary(object):
@@ -202,7 +204,7 @@ class BadReplicasSummary(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.bad_replicas_summary())
+        return authenticate(render.bad_replicas_summary())
 
 
 class BacklogMon(object):
@@ -210,7 +212,7 @@ class BacklogMon(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.backlog_mon())
+        return authenticate(render.backlog_mon())
 
 
 class Cond(object):
@@ -218,7 +220,7 @@ class Cond(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.cond())
+        return authenticate(render.cond())
 
 
 class DID(object):
@@ -226,7 +228,7 @@ class DID(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.did())
+        return authenticate(render.did())
 
 
 class DBRelease(object):
@@ -234,7 +236,7 @@ class DBRelease(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.dbrelease())
+        return authenticate(render.dbrelease())
 
 
 class Dumps(object):
@@ -242,7 +244,7 @@ class Dumps(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.dumps())
+        return authenticate(render.dumps())
 
 
 class Heartbeats(object):
@@ -250,7 +252,7 @@ class Heartbeats(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.heartbeats())
+        return authenticate(render.heartbeats())
 
 
 class LifetimeException():
@@ -258,7 +260,7 @@ class LifetimeException():
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.lifetime_exception())
+        return authenticate(render.lifetime_exception())
 
 
 class ListLifetimeExceptions():
@@ -266,7 +268,7 @@ class ListLifetimeExceptions():
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.list_lifetime_exceptions())
+        return authenticate(render.list_lifetime_exceptions())
 
 
 class ListAccounts(object):
@@ -274,7 +276,7 @@ class ListAccounts(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.accounts())
+        return authenticate(render.accounts())
 
 
 class ListRules(object):
@@ -282,7 +284,7 @@ class ListRules(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.list_rules())
+        return authenticate(render.list_rules())
 
 
 class ListRulesRedirect(object):
@@ -296,12 +298,23 @@ class ListRulesRedirect(object):
         seeother(url[:-1])
 
 
+class Login(object):
+    """ Login page """
+    def GET(self):
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return render.login()
+
+    def POST(self):
+        data = param_input()
+        return log_in(data, None)
+
+
 class Rule(object):
     """ Rule details page """
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.rule())
+        return authenticate(render.rule())
 
 
 class RequestRule(object):
@@ -309,7 +322,7 @@ class RequestRule(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.request_rule())
+        return authenticate(render.request_rule())
 
 
 class RequestRuleRedirect(object):
@@ -324,7 +337,7 @@ class Subscription(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.subscription())
+        return authenticate(render.subscription())
 
 
 class SubscriptionRules(object):
@@ -332,7 +345,7 @@ class SubscriptionRules(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.subscriptionrules())
+        return authenticate(render.subscriptionrules())
 
 
 class Index(object):
@@ -340,7 +353,7 @@ class Index(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.index())
+        return authenticate(render.index())
 
 
 class Infrastructure(object):
@@ -348,7 +361,7 @@ class Infrastructure(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.infrastructure())
+        return authenticate(render.infrastructure())
 
 
 class RSE(object):
@@ -356,7 +369,7 @@ class RSE(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.rse())
+        return authenticate(render.rse())
 
 
 class RSES(object):
@@ -364,7 +377,7 @@ class RSES(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.rses())
+        return authenticate(render.rses())
 
 
 class Rules(object):
@@ -372,7 +385,7 @@ class Rules(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.rules())
+        return authenticate(render.rules())
 
 
 class RSEUsage(object):
@@ -380,7 +393,7 @@ class RSEUsage(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.rse_usage())
+        return authenticate(render.rse_usage())
 
 
 class RSEAccountUsage(object):
@@ -388,7 +401,7 @@ class RSEAccountUsage(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.rse_account_usage())
+        return authenticate(render.rse_account_usage())
 
 
 class RSELocks(object):
@@ -396,7 +409,7 @@ class RSELocks(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.rse_locks())
+        return authenticate(render.rse_locks())
 
 
 class Search(object):
@@ -404,7 +417,7 @@ class Search(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.search())
+        return authenticate(render.search())
 
 
 class Subscriptions(object):
@@ -412,7 +425,7 @@ class Subscriptions(object):
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.subscriptions())
+        return authenticate(render.subscriptions())
 
 
 class SubscriptionsEditor():
@@ -420,7 +433,7 @@ class SubscriptionsEditor():
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return check_token(render.subscriptions_editor())
+        return authenticate(render.subscriptions_editor())
 
 
 class LoadLogfile():
