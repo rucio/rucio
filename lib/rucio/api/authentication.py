@@ -141,6 +141,25 @@ def get_ssh_challenge_token(account, appid, ip=None):
     return authentication.get_ssh_challenge_token(account, appid, ip)
 
 
+def get_auth_token_saml(account, saml_nameid, appid, ip=None):
+    """
+    Authenticate a Rucio account temporarily via SSO.
+
+    The token lifetime is 1 hour.
+
+    :param account: Account identifier as a string.
+    :param saml_nameid: NameId returned in SAML response as a string.
+    :param appid: The application identifier as a string.
+    :param ip: IP address of the client as a string.
+    :returns: Authentication token as a variable-length string.
+    """
+
+    kwargs = {'account': account, 'saml_nameid': saml_nameid}
+    if not permission.has_permission(issuer=account, action='get_auth_token_saml', kwargs=kwargs):
+        raise exception.AccessDenied('User with identity %s can not log to account %s' % (saml_nameid, account))
+
+    return authentication.get_auth_token_saml(account, saml_nameid, appid, ip)
+
 def validate_auth_token(token):
     """
     Validate an authentication token.

@@ -67,7 +67,7 @@ def exist_identity_account(identity, type, account, session=None):
     Check if an identity is mapped to an account.
 
     :param identity: The user identity as string.
-    :param type: The type of identity as a string, e.g. userpass, x509, gss...
+    :param type: The type of identity as a string, e.g. userpass, x509, gss, saml...
     :param account: The account identifier as a string.
     :param session: The database session in use.
 
@@ -311,6 +311,26 @@ def get_ssh_challenge_token(account, appid, ip=None, session=None):
     session.expunge(new_challenge_token)
 
     return new_challenge_token
+
+
+@transactional_session
+def get_auth_token_saml(account, saml_nameid, appid, ip=None, session=None):
+
+    # Make sure the account exists
+    if not account_exists(account, session=session):
+        return None
+    
+    # remove expired tokens
+    session.query(models.Token).filter(models.Token.expired_at < datetime.datetime.utcnow(),
+                                       models.Token.account == account).delete()
+
+    tuid = generate_uuid()  # NOQA
+    token = '%(account)s-%(saml_nameid)s-%(appid)s-%(tuid)s' % locals()
+    new_token = models.Token(account=account, token=token, ip=ip)
+    new_token.save(session=session)
+    session.expunge(new_token)
+
+    return new_token
 
 
 def validate_auth_token(token):
