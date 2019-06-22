@@ -301,10 +301,12 @@ class ListRulesRedirect(object):
 class Login(object):
     """ Login page """
     def GET(self):
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return render.login()
 
     def POST(self):
+        """ POST """
         data = param_input()
         return log_in(data, None)
 

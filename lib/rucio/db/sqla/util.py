@@ -141,6 +141,8 @@ def create_root_account():
              'iLj14wz/YqI7NFMUuJFR4e6xmNsOP7fCZ4bGMsmnhR0GmY0dWYTupNiP5WdYXAfKExlnvFLTlDI5'\
              'Mgh4Z11NraQ8pv4YE1woolYpqOc/IMMBBXFniTT4tC7cgikxWb9ZmFe+r4t6yCDpX4IL8L5GOQ== ddmlab'
     ssh_email = 'ph-adp-ddm-lab@cern.ch'
+    saml_id = 'ddmlab'
+    saml_email = 'ph-adp-ddm-lab@cern.ch'
 
     try:
         up_id = config_get('bootstrap', 'userpass_identity')
@@ -152,6 +154,8 @@ def create_root_account():
         gss_email = config_get('bootstrap', 'gss_email')
         ssh_id = config_get('bootstrap', 'ssh_identity')
         ssh_email = config_get('bootstrap', 'ssh_email')
+        saml_id = config_get('bootstrap', 'saml_id')
+        ssh_email = config_get('bootstrap', 'saml_email')
     except:
         pass
         # print 'Config values are missing (check rucio.cfg{.template}). Using hardcoded defaults.'
@@ -182,13 +186,17 @@ def create_root_account():
     identity4 = models.Identity(identity=ssh_id, identity_type=IdentityType.SSH, email=ssh_email)
     iaa4 = models.IdentityAccountAssociation(identity=identity4.identity, identity_type=identity4.identity_type, account=account.account, is_default=True)
 
+    # SAML authentication
+    identity5 = models.Identity(identity=saml_id, identity_type=IdentityType.SAML, email=saml_email)
+    iaa5 = models.IdentityAccountAssociation(identity=identity5.identity, identity_type=identity5.identity_type, account=account.account, is_default=True)
+
     # Account counters
     create_counters_for_new_account(account=account.account, session=s)
 
     # Apply
-    s.add_all([account, identity1, identity2, identity3, identity4])
+    s.add_all([account, identity1, identity2, identity3, identity4, identity5])
     s.commit()
-    s.add_all([iaa1, iaa2, iaa3, iaa4])
+    s.add_all([iaa1, iaa2, iaa3, iaa4, iaa5])
     s.commit()
 
 

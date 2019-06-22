@@ -93,9 +93,9 @@ def check_token(rendered_tpl):
         if (validate_token is None) or (validate_token['account'] != ui_account):
             try:
                 token = authentication.get_auth_token_x509(ui_account,
-                                                           dn,
-                                                           'webui',
-                                                           ctx.env.get('REMOTE_ADDR')).token
+                                                        dn,
+                                                        'webui',
+                                                        ctx.env.get('REMOTE_ADDR')).token
             except:
                 return render.problem(msg)
 
@@ -125,9 +125,9 @@ def check_token(rendered_tpl):
                 def_account = selected_account
             try:
                 token = authentication.get_auth_token_x509(def_account,
-                                                           dn,
-                                                           'webui',
-                                                           ctx.env.get('REMOTE_ADDR')).token
+                                                        dn,
+                                                        'webui',
+                                                        ctx.env.get('REMOTE_ADDR')).token
             except:
                 return render.problem(msg)
 
@@ -152,6 +152,7 @@ def check_token(rendered_tpl):
 
     if ui_account:
         setcookie('rucio-selected-account', value=ui_account, path='/')
+
     return render.base(js_token, js_account, rucio_ui_version, policy, rendered_tpl)
 
 
