@@ -48,7 +48,7 @@ from dogpile.cache.api import NO_VALUE
 from rucio.common.config import config_get
 from rucio.common.exception import (DatabaseException, RSENotFound, ConfigNotFound)
 from rucio.core.config import get
-from rucio.core.heartbeat import live, die, sanity_check, list_payload_counts, get_payload_partition
+from rucio.core.heartbeat import live, die, sanity_check, list_payload_counts
 from rucio.core.rse import list_rses, get_rse_limits, get_rse_usage, list_rse_attributes, get_rse_protocols
 from rucio.core.rse_expression_parser import parse_expression
 
@@ -231,38 +231,46 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
             rses_hostname_mapping = get_rses_to_hostname_mapping()
             # logging.debug('%s Mapping RSEs to hostnames used for deletion : %s', prepend_str, str(rses_hostname_mapping))
 
-            # Loop over the RSEs. rse_key = (rse, rse_id)
-            for rse_key in sorted_dict_rses:
+            list_rses_mult = []
+
+            # Loop over the RSEs. rse_key = (rse, rse_id) and fill list_rses_mult that contains all RSEs to process with different multiplicity
+            for rse_key in dict_rses:
                 rse_name, rse_id = rse_key
-                max_workers = ceil(sorted_dict_rses[rse_key][0] / tot_needed_free_space * heart_beat['nr_threads'] * 10)
-                logging.debug('%s Working on %s. Percentage of the total space needed %.2f. Will use at most %i workers', prepend_str, rse_name, sorted_dict_rses[rse_key][0] / tot_needed_free_space * 100, max_workers)
-                payload_cnt = list_payload_counts(executable, older_than=600, hash_executable=None, session=None)
-                logging.debug('%s Payload count : %s', prepend_str, str(payload_cnt))
+                # The length of the deletion queue scales inversily with the number of workers
+                # The ceil increase the weight of the RSE with small amount of files to delete
+                max_workers = ceil(dict_rses[rse_key][0] / tot_needed_free_space * 1000 / heart_beat['nr_threads'])
+                list_rses_mult.extend([(rse_name, rse_id, dict_rses[rse_key][0], dict_rses[rse_key][1]) for _ in range(int(max_workers))])
+            random.shuffle(list_rses_mult)
+
+            for rse_name, rse_id, needed_free_space, max_being_deleted_files in list_rses_mult:
+                logging.debug('%s Working on %s. Percentage of the total space needed %.2f', prepend_str, rse_name, sorted_dict_rses[rse_key][0] / tot_needed_free_space * 100)
                 rse_hostname, rse_info = rses_hostname_mapping[rse_name]
                 rse_hostname_key = '%s,%s' % (rse_name, rse_hostname)
-
+                payload_cnt = list_payload_counts(executable, older_than=600, hash_executable=None, session=None)
+                logging.debug('%s Payload count : %s', prepend_str, str(payload_cnt))
                 tot_threads_for_hostname = 0
+                tot_threads_for_rse = 0
                 for key in payload_cnt:
-                    if key and key.find(',') > -1 and key.split(',')[1] == rse_hostname:
-                        tot_threads_for_hostname += payload_cnt[key]
+                    if key and key.find(',') > -1:
+                        if key.split(',')[1] == rse_hostname:
+                            tot_threads_for_hostname += payload_cnt[key]
+                        if key.split(',')[0] == rse_name:
+                            tot_threads_for_rse += payload_cnt[key]
 
-                payload_threads = get_payload_partition(executable, hostname, pid, hb_thread, payload=rse_hostname_key, older_than=600, hash_executable=None, session=None)
-
-                if rse_hostname_key in payload_cnt and (tot_threads_for_hostname >= max_deletion_thread or payload_threads['nr_threads'] >= max_workers):
+                if rse_hostname_key in payload_cnt and tot_threads_for_hostname >= max_deletion_thread:
                     logging.debug('%s Too many deletion threads for %s on RSE %s. Back off', prepend_str, rse_hostname, rse_name)
                     # Might need to reschedule a try on this RSE later in the same cycle
                     continue
+
+                logging.debug('%s Payload count : %s', prepend_str, str(payload_cnt))
                 del_start_time = time.time()
-                logging.info('%s Starting new worker on RSE %s', prepend_str, rse_name)
+                logging.info('%s Nb workers on %s smaller than the limit (current %i vs max %i). Starting new worker on RSE %s', prepend_str, rse_hostname, tot_threads_for_hostname, max_deletion_thread, rse_name)
                 live(executable, hostname, pid, hb_thread, older_than=600, hash_executable=None, payload=rse_hostname_key, session=None)
-                payload_threads = get_payload_partition(executable, hostname, pid, hb_thread, payload=rse_hostname_key, older_than=600, hash_executable=None, session=None)
-                payload_prepend_str = 'worker-%s [%i/%i] ' % (rse_name, payload_threads['assign_thread'] + 1, payload_threads['nr_threads'])
-                logging.debug('%s %s Total deletion workers for %s : %i', prepend_str, payload_prepend_str, rse_hostname, tot_threads_for_hostname + 1)
-                time.sleep(random.uniform(0, 5))
-                # space_needed_per_worker = sorted_dict_rses[rse_key][0] / payload_threads['nr_threads']
+                logging.debug('%s Total deletion workers for %s : %i', prepend_str, rse_hostname, tot_threads_for_hostname + 1)
+                time.sleep(random.uniform(0, 2))
                 # Call list_and_mark_unlocked_replicas(limit=1000, bytes=space_needed_per_worker, rse_id=rse_id, worker_number=payload_threads['assign_thread'], total_workers=payload_threads['nr_threads'], delay_seconds=delay_seconds, session=None)
                 # Actual deletion will take place there
-                logging.info('%s %s %i files processed in %s seconds', prepend_str, payload_prepend_str, chunk_size, time.time() - del_start_time)
+                logging.info('%s %i files processed in %s seconds', prepend_str, chunk_size, time.time() - del_start_time)
 
             if once:
                 break
