@@ -230,57 +230,6 @@ def list_payload_counts(executable, older_than=600, hash_executable=None, sessio
     return dict(query.all())
 
 
-@read_session
-def get_payload_partition(executable, hostname, pid, thread, payload, older_than=600, hash_executable=None, session=None):
-    """
-    Get the partition associated a a defined payload
-
-    :param executable: Executable name as a string, e.g., conveyor-submitter.
-    :param hostname: Hostname as a string, e.g., rucio-daemon-prod-01.cern.ch.
-    :param pid: UNIX Process ID as a number, e.g., 1234.
-    :param thread: Python Thread Object.
-    :param payload: Payload identifier which can be further used to identify the work a certain thread is executing.
-    :param older_than: Ignore specified heartbeats older than specified nr of seconds.
-    :param hash_executable: Hash of the executable.
-    :param session: The database session in use.
-
-    :returns heartbeats: Dictionary {assign_thread, nr_threads}
-    """
-
-    if not hash_executable:
-        hash_executable = calc_hash(executable)
-
-    # assign payload thread identifier
-    query = session.query(Heartbeats.hostname,
-                          Heartbeats.pid,
-                          Heartbeats.thread_id,
-                          Heartbeats.payload)\
-                   .with_hint(Heartbeats, "index(HEARTBEATS HEARTBEATS_PK)", 'oracle')\
-                   .filter(Heartbeats.executable == hash_executable)\
-                   .filter(Heartbeats.payload == payload)\
-                   .filter(Heartbeats.updated_at >= datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than))\
-                   .group_by(Heartbeats.hostname,
-                             Heartbeats.pid,
-                             Heartbeats.thread_id,
-                             Heartbeats.payload)\
-                   .order_by(Heartbeats.hostname,
-                             Heartbeats.pid,
-                             Heartbeats.thread_id,
-                             Heartbeats.payload)
-    result = query.all()
-
-    # there is no universally applicable rownumber in SQLAlchemy
-    # so we have to do it in Python
-    assign_thread = 0
-    for res in range(len(result)):
-        if result[res][0] == hostname and result[res][1] == pid and result[res][2] == thread.ident and result[res][3] == payload:
-            assign_thread = res
-            break
-
-    return {'assign_thread': assign_thread,
-            'nr_threads': len(result)}
-
-
 def calc_hash(executable):
     """
     Calculates a SHA256 hash.
