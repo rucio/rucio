@@ -44,13 +44,18 @@ from collections import OrderedDict
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
+from sqlalchemy.exc import DatabaseError, IntegrityError
 
 from rucio.common.config import config_get
-from rucio.common.exception import (DatabaseException, RSENotFound, ConfigNotFound)
+from rucio.common.exception import (DatabaseException, RSENotFound, ConfigNotFound, ReplicaUnAvailable, ReplicaNotFound, ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable)
+from rucio.common.utils import chunks
+from rucio.core import monitor
 from rucio.core.config import get
 from rucio.core.heartbeat import live, die, sanity_check, list_payload_counts
+from rucio.core.replica import list_and_mark_unlocked_replicas
 from rucio.core.rse import list_rses, get_rse_limits, get_rse_usage, list_rse_attributes, get_rse_protocols
 from rucio.core.rse_expression_parser import parse_expression
+from rucio.rse import rsemanager as rsemgr
 
 
 logging.getLogger("reaper").setLevel(logging.CRITICAL)
@@ -104,66 +109,83 @@ def __check_rse_usage(rse, rse_id, prepend_str):
 
     :returns : max_being_deleted_files, needed_free_space, used, free.
     """
-    max_being_deleted_files, needed_free_space, used, free, obsolete = None, None, None, None, None
 
-    # Get RSE limits
-    limits = get_rse_limits(rse=rse, rse_id=rse_id)
-    if not limits and 'MinFreeSpace' not in limits and 'MaxBeingDeletedFiles' not in limits:
-        return max_being_deleted_files, needed_free_space, used, free
+    result = REGION.get('rse_usage_%s' % rse_id)
+    if result is NO_VALUE:
+        max_being_deleted_files, needed_free_space, used, free, obsolete = None, None, None, None, None
 
-    min_free_space = limits.get('MinFreeSpace')
-    max_being_deleted_files = limits.get('MaxBeingDeletedFiles')
+        # Get RSE limits
+        limits = get_rse_limits(rse=rse, rse_id=rse_id)
+        if not limits and 'MinFreeSpace' not in limits and 'MaxBeingDeletedFiles' not in limits:
+            result = (max_being_deleted_files, needed_free_space, used, free)
+            REGION.set('rse_usage_%s' % rse_id, result)
+            return result
 
-    # Check from which sources to get used and total spaces
-    # Default is storage
-    attributes = list_rse_attributes(rse)
-    source_for_total_space = attributes.get('sourceForTotalSpace', 'storage')
-    source_for_used_space = attributes.get('sourceForUsedSpace', 'storage')
-    greedy = attributes.get('greedyDeletion', False)
+        min_free_space = limits.get('MinFreeSpace')
+        max_being_deleted_files = limits.get('MaxBeingDeletedFiles')
 
-    logging.debug('%s RSE: %s, source_for_total_space: %s, source_for_used_space: %s',
-                  prepend_str, rse, source_for_total_space, source_for_used_space)
+        # Check from which sources to get used and total spaces
+        # Default is storage
+        attributes = list_rse_attributes(rse)
+        source_for_total_space = attributes.get('sourceForTotalSpace', 'storage')
+        source_for_used_space = attributes.get('sourceForUsedSpace', 'storage')
+        greedy = attributes.get('greedyDeletion', False)
 
-    # First of all check if greedy mode is enabled for this RSE
-    if greedy:
-        return max_being_deleted_files, 1000000000000, used, free
+        logging.debug('%s RSE: %s, source_for_total_space: %s, source_for_used_space: %s',
+                      prepend_str, rse, source_for_total_space, source_for_used_space)
 
-    # Get total, used and obsolete space
-    rse_usage = get_rse_usage(rse=rse, rse_id=rse_id)
-    usage = [entry for entry in rse_usage if entry['source'] == 'obsolete']
-    for var in usage:
-        obsolete = var['used']
-        break
-    usage = [entry for entry in rse_usage if entry['source'] == source_for_total_space]
+        # First of all check if greedy mode is enabled for this RSE
+        if greedy:
+            result = (max_being_deleted_files, 1000000000000, used, free)
+            REGION.set('rse_usage_%s' % rse_id, result)
+            return result
 
-    # If no information is available about disk space, do nothing except if there are replicas with Epoch tombstone
-    if not usage:
-        if not obsolete:
-            return max_being_deleted_files, needed_free_space, used, free
-        return max_being_deleted_files, obsolete, used, free
-
-    # Extract the total and used space
-    for var in usage:
-        total, used = var['total'], var['used']
-        break
-
-    if source_for_total_space != source_for_used_space:
-        usage = [entry for entry in rse_usage if entry['source'] == source_for_used_space]
-        if not usage:
-            return max_being_deleted_files, needed_free_space, None, free
+        # Get total, used and obsolete space
+        rse_usage = get_rse_usage(rse=rse, rse_id=rse_id)
+        usage = [entry for entry in rse_usage if entry['source'] == 'obsolete']
         for var in usage:
-            used = var['used']
+            obsolete = var['used']
+            break
+        usage = [entry for entry in rse_usage if entry['source'] == source_for_total_space]
+
+        # If no information is available about disk space, do nothing except if there are replicas with Epoch tombstone
+        if not usage:
+            if not obsolete:
+                result = (max_being_deleted_files, needed_free_space, used, free)
+                REGION.set('rse_usage_%s' % rse_id, result)
+                return result
+            result = (max_being_deleted_files, obsolete, used, free)
+            REGION.set('rse_usage_%s' % rse_id, result)
+            return result
+
+        # Extract the total and used space
+        for var in usage:
+            total, used = var['total'], var['used']
             break
 
-    free = total - used
-    if min_free_space:
-        needed_free_space = min_free_space - free
+        if source_for_total_space != source_for_used_space:
+            usage = [entry for entry in rse_usage if entry['source'] == source_for_used_space]
+            if not usage:
+                result = (max_being_deleted_files, needed_free_space, None, free)
+                REGION.set('rse_usage_%s' % rse_id, result)
+                return result
+            for var in usage:
+                used = var['used']
+                break
 
-    # If needed_free_space negative, nothing to delete except if some Epoch tombstoned replicas
-    if needed_free_space <= 0:
-        needed_free_space = 0 or obsolete
+        free = total - used
+        if min_free_space:
+            needed_free_space = min_free_space - free
 
-    return max_being_deleted_files, needed_free_space, used, free
+        # If needed_free_space negative, nothing to delete except if some Epoch tombstoned replicas
+        if needed_free_space <= 0:
+            needed_free_space = 0 or obsolete
+
+        result = (max_being_deleted_files, needed_free_space, used, free)
+        REGION.set('rse_usage_%s' % rse_id, result)
+        return result
+    logging.debug('%s Using cached value for RSE usage on RSE %s', prepend_str, rse)
+    return result
 
 
 def reaper(rses, chunk_size=100, once=False, greedy=False,
@@ -242,12 +264,15 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
                 list_rses_mult.extend([(rse_name, rse_id, dict_rses[rse_key][0], dict_rses[rse_key][1]) for _ in range(int(max_workers))])
             random.shuffle(list_rses_mult)
 
+            skip_until_next_run = []
             for rse_name, rse_id, needed_free_space, max_being_deleted_files in list_rses_mult:
+                if rse_name in skip_until_next_run:
+                    continue
                 logging.debug('%s Working on %s. Percentage of the total space needed %.2f', prepend_str, rse_name, sorted_dict_rses[rse_key][0] / tot_needed_free_space * 100)
                 rse_hostname, rse_info = rses_hostname_mapping[rse_name]
                 rse_hostname_key = '%s,%s' % (rse_name, rse_hostname)
                 payload_cnt = list_payload_counts(executable, older_than=600, hash_executable=None, session=None)
-                logging.debug('%s Payload count : %s', prepend_str, str(payload_cnt))
+                # logging.debug('%s Payload count : %s', prepend_str, str(payload_cnt))
                 tot_threads_for_hostname = 0
                 tot_threads_for_rse = 0
                 for key in payload_cnt:
@@ -262,15 +287,62 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
                     # Might need to reschedule a try on this RSE later in the same cycle
                     continue
 
-                logging.debug('%s Payload count : %s', prepend_str, str(payload_cnt))
-                del_start_time = time.time()
                 logging.info('%s Nb workers on %s smaller than the limit (current %i vs max %i). Starting new worker on RSE %s', prepend_str, rse_hostname, tot_threads_for_hostname, max_deletion_thread, rse_name)
                 live(executable, hostname, pid, hb_thread, older_than=600, hash_executable=None, payload=rse_hostname_key, session=None)
                 logging.debug('%s Total deletion workers for %s : %i', prepend_str, rse_hostname, tot_threads_for_hostname + 1)
-                time.sleep(random.uniform(0, 2))
-                # Call list_and_mark_unlocked_replicas(limit=1000, bytes=space_needed_per_worker, rse_id=rse_id, worker_number=payload_threads['assign_thread'], total_workers=payload_threads['nr_threads'], delay_seconds=delay_seconds, session=None)
-                # Actual deletion will take place there
-                logging.info('%s %i files processed in %s seconds', prepend_str, chunk_size, time.time() - del_start_time)
+                # List and mark BEING_DELETED the files to delete
+                del_start_time = time.time()
+                try:
+                    with monitor.record_timer_block('reaper.list_unlocked_replicas'):
+                        replicas = list_and_mark_unlocked_replicas(limit=chunk_size,
+                                                                   bytes=needed_free_space,
+                                                                   rse_id=rse_id,
+                                                                   delay_seconds=delay_seconds,
+                                                                   session=None)
+                    logging.debug('%s list_and_mark_unlocked_replicas  on %s for %s bytes in %s seconds: %s replicas', prepend_str, rse_name, needed_free_space, time.time() - del_start_time, len(replicas))
+                    if len(replicas) < chunk_size:
+                        logging.info('%s Not enough replicas to delete on %s (%s requested vs %s returned). Will skip any new attempts on this RSE until next cycle', prepend_str, rse_name, chunk_size, len(replicas))
+                        skip_until_next_run.append(rse_name)
+
+                except (DatabaseException, IntegrityError, DatabaseError) as error:
+                    logging.error('%s %s', prepend_str, str(error))
+                    continue
+
+                # Physical  deletion will take place there
+                try:
+                    prot = rsemgr.create_protocol(rse_info, 'delete', scheme=scheme)
+                    for file_replicas in chunks(replicas, 100):
+                        # Refresh heartbeat
+                        live(executable, hostname, pid, hb_thread, older_than=600, hash_executable=None, payload=rse_hostname_key, session=None)
+                        del_start_time = time.time()
+                        for replica in file_replicas:
+                            try:
+                                replica['pfn'] = str(rsemgr.lfns2pfns(rse_settings=rse_info,
+                                                                      lfns=[{'scope': replica['scope'], 'name': replica['name'], 'path': replica['path']}],
+                                                                      operation='delete', scheme=scheme).values()[0])
+                                time.sleep(random.uniform(0, 0.01))
+                            except (ReplicaUnAvailable, ReplicaNotFound) as error:
+                                logging.warning('%s Failed get pfn UNAVAILABLE replica %s:%s on %s with error %s', prepend_str, replica['scope'], replica['name'], rse_name, str(error))
+                                replica['pfn'] = None
+
+                            except Exception as error:
+                                logging.error('%s %s', prepend_str, str(error))
+
+                        try:
+                            # deleted_files = []
+                            prot.connect()
+                            for replica in file_replicas:
+                                logging.debug(replica)
+                                # Physical  deletion will take place there
+                        except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
+                            pass
+
+                        finally:
+                            prot.close()
+                        logging.info('%s %i files processed in %s seconds', prepend_str, len(file_replicas), time.time() - del_start_time)
+                        # Then finally delete the replicas
+                except Exception as error:
+                    logging.error('%s %s', prepend_str, str(error))
 
             if once:
                 break
