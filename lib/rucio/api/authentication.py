@@ -16,6 +16,7 @@
 # - Mario Lassnig <mario@lassnig.net>, 2012-2018
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -44,6 +45,37 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None):
         raise exception.AccessDenied('User with identity %s can not log to account %s' % (username, account))
 
     return authentication.get_auth_token_user_pass(account, username, password, appid, ip)
+
+
+def get_auth_OIDC(account, server_name):
+    """
+    Authenticates Rucio user with the user's Identity Provider (XDC IAM) - issuer -
+    and returns an authorization URL (as a string) with which the user can grant
+    permissions to Rucio to extract his/her ID & tokens from the Identity Provider.
+    (for more Identity Providers if necessary in the future,
+    the 'issuer' should become another input parameter here)
+
+    :param account: Rucio Account identifier as a string.
+
+    :returns: User & Rucio OIDC Client specific Authorization URL as a string.
+    """
+    # no permission layer for the moment !
+    return authentication.get_auth_OIDC(account, server_name)
+
+
+def get_token_OIDC(auth_response_url, server_name):
+    """
+    After Rucio User grants access to the Rucio OIDC client to his information,
+    the Identity Provider redirects her/him to /auth/OIDC_Token with authz code
+    and session state encoded within the URL. This URL becomes the input parameter
+    for the Rucio OIDC Client to get user's info and tokens from the Identity Provider.
+
+    :param auth_response_url: Identity Provider redirection URL with authz code and user session state parameters encoded within.
+
+    :returns: Access token as a variable-length string.
+    """
+    # no permission layer for the moment !
+    return authentication.get_token_OIDC(auth_response_url, server_name)
 
 
 def get_auth_token_gss(account, gsscred, appid, ip=None):

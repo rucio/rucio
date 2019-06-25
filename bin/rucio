@@ -32,6 +32,7 @@
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -241,13 +242,13 @@ def get_client(args):
     """
     Returns a new client object.
     """
-    if args.auth_strategy == 'userpass':
+    auth_type = args.auth_strategy.lower() if args.auth_strategy else args.auth_strategy
+
+    if auth_type == 'userpass' or auth_type == 'oidc':
         creds = {'username': args.username, 'password': args.password}
     else:
         creds = None
-
     try:
-        auth_type = args.auth_strategy.lower() if args.auth_strategy else args.auth_strategy
         client = Client(rucio_host=args.host, auth_host=args.auth_host,
                         account=args.account,
                         auth_type=auth_type, creds=creds,

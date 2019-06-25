@@ -96,6 +96,7 @@ class IdentityType(DeclEnum):
     GSS = 'GSS', 'GSS'
     USERPASS = 'USERPASS', 'USERPASS'
     SSH = 'SSH', 'SSH'
+    OIDC = 'OIDC', 'OIDC'
 
 
 class KeyType(DeclEnum):
