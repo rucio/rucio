@@ -15,22 +15,22 @@ PostgreSQL: ``postgresql://rucio:rucio@localhost:6601/rucio``
 
 SQLite: ``sqlite:////tmp/rucio.db``
 
-Please ensure correct UNIX permissions on the SQLite file, such that the web server process can read and write to it. 
+Please ensure correct UNIX permissions on the SQLite file, such that the web server process can read and write to it.
 
 Upgrading and downgrading the database schema
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Rucio uses `Alembic <http://alembic.zzzcomputing.com/en/latest/>`_ as a database migration tool, which works hand-in-hand with `SQLAlchemy <https://www.sqlalchemy.org/>`_. Ensure that the ``alembic.ini`` is set to the same database string as the ``etc/rucio.cfg`` and issue the following command to upgrade the schema:
+Rucio uses `Alembic <http://alembic.zzzcomputing.com/en/latest/>`_ as a database migration tool, which works hand-in-hand with `SQLAlchemy <https://www.sqlalchemy.org/>`_. Ensure that int ``etc/alembic.ini`` the database connection string is is set to the same database connection string as the ``etc/rucio.cfg`` and issue the following command to verify the changes to the upgrade of the schema:
+
+``alembic upgrade head --sql``
+
+Once satisfied, you can either apply the SQL directly on your database, or have them applied automatically:
 
 ``alembic upgrade head``
 
-In case of problems, you can always downgrade back with
+In case of problems with the release, you can always downgrade back to the previous release:
 
 ``alembic downgrade head``
-
-If you just want to output the SQL statements of the upgrade operation, without actually applying them automatically, issue the following command:
-
-``alembic upgrade head --sql``
 
 Notabene, schema upgrades are reserved for feature releases and will not happen with patch releases.
 
