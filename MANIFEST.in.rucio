@@ -28,7 +28,6 @@ prune covhtml
 prune doc/build/
 prune lib/rucio*egg-info/
 prune tools/patches
-prune .tox
 prune .venv
 prune .DS_Store
 global-exclude *.pyc *.log *.db *.swp *.proxy *~ rse-accounts.cfg rucio*.cfg emulation.cfg
