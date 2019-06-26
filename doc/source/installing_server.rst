@@ -11,7 +11,9 @@ Install via pip
 
 Heads up: We recommend to use the docker-based install (see next section) as it will configure many things for you automatically. Only use the pip-based install if you have a good reason and know how to configure your webservices manually:
 
-``pip install rucio``
+.. code-block:: php
+
+   pip install rucio
 
 This will pull the latest release from `PyPi <https://pypi.python.org/pypi/rucio/>`_. The Rucio server also needs several Python dependencies. These are all listed in the file ``tools/pip-requires`` and will be pulled in as necessary.
 
@@ -21,7 +23,9 @@ Install via Docker
 
 A simple server without SSL can be started like this:
 
-``docker run --name=rucio-server -p 80:80 -d rucio/rucio-server``
+.. code-block:: php
+
+   docker run --name=rucio-server -p 80:80 -d rucio/rucio-server
 
 This will start up a simple server using sqlite based on an automatically generated configuration. You can check if the server is running with `curl http://localhost/ping`
 
@@ -29,23 +33,33 @@ This should return the Rucio version used in the container. Any other curl reque
 
 If you want to set the connection string for the database it can be done using the `RUCIO_CFG_DATABASE_DEFAULT` environment variable, e.g., to start a container connecting to a MySQL DB running at `mysql.db` you could use something like this:
 
-``docker run --name=rucio-server -e RUCIO_CFG_DATABASE_DEFAULT="mysql://rucio:rucio@mysql.db/rucio" -p 80:80 -d rucio/rucio-server``
+.. code-block:: php
+
+   docker run --name=rucio-server -e RUCIO_CFG_DATABASE_DEFAULT="mysql://rucio:rucio@mysql.db/rucio" -p 80:80 -d rucio/rucio-server
+
+
 
 The are much more configuration parameters available that will be listed at the end of this readme.
 
 Another way to configure Rucio is to directly mount a complete rucio.cfg into the container. This will then be used instead of the auto-generated one, e.g., if you have a rucio.cfg ready on your host system under `/tmp/rucio.cfg` you could start a container like this:
 
-``docker run --name=rucio-server -v /tmp/rucio.cfg:/opt/rucio/etc/rucio.cfg -p 80:80 -d rucio/rucio-server``
+.. code-block:: php
+
+   docker run --name=rucio-server -v /tmp/rucio.cfg:/opt/rucio/etc/rucio.cfg -p 80:80 -d rucio/rucio-server
 
 The rucio.cfg is used to configure the database backend.
 
 If you want to enable SSL you would need to set the `RUCIO_ENABLE_SSL` variable and also need to include the host certificate, key and the the CA certificate as volumes. E.g.,:
 
-``docker run --name=rucio-server -v /tmp/ca.pem:/etc/grid-security/ca.pem -v /tmp/hostcert.pem:/etc/grid-security/hostcert.pem -v /tmp/hostkey.pem:/etc/grid-security/hostkey.pem -v /tmp/rucio.cfg:/opt/rucio/etc/rucio.cfg -p 443:443 -e RUCIO_ENABLE_SSL=True -d rucio/rucio-server``
+.. code-block:: php
+
+   docker run --name=rucio-server -v /tmp/ca.pem:/etc/grid-security/ca.pem -v /tmp/hostcert.pem:/etc/grid-security/hostcert.pem -v /tmp/hostkey.pem:/etc/grid-security/hostkey.pem -v /tmp/rucio.cfg:/opt/rucio/etc/rucio.cfg -p 443:443 -e RUCIO_ENABLE_SSL=True -d rucio/rucio-server``
 
 By default the output of the Apache web server is written directly to stdout and stderr. If you would rather direct them into separate files it can be done using the `RUCIO_ENABLE_LOGS` variable. The storage folder of the logs can be used as a volume:
 
-``docker run --name=rucio-server -v /tmp/rucio.cfg:/opt/rucio/etc/rucio.cfg -v /tmp/logs:/var/log/httpd -p 80:80 -e RUCIO_ENABLE_LOGFILE=True -d rucio/rucio-server``
+.. code-block:: php
+
+   docker run --name=rucio-server -v /tmp/rucio.cfg:/opt/rucio/etc/rucio.cfg -v /tmp/logs:/var/log/httpd -p 80:80 -e RUCIO_ENABLE_LOGFILE=True -d rucio/rucio-server
 
 Environment Variables
 ~~~~~~~~~~~~~~~~~~~~~
