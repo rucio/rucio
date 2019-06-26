@@ -12,6 +12,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 # - Eric Vaandering, <ewv@fnal.gov>, 2018
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -288,6 +289,20 @@ def perm_get_auth_token_x509(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     if rucio.core.authentication.exist_identity_account(identity=kwargs['dn'], type=IdentityType.X509,
+                                                        account=kwargs['account']):
+        return True
+    return False
+
+
+def perm_get_auth_token_saml(issuer, kwargs):
+    """
+    Checks if a user can request a token with user_pass for an account.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    if rucio.core.authentication.exist_identity_account(identity=kwargs['saml_nameid'], type=IdentityType.SAML,
                                                         account=kwargs['account']):
         return True
     return False

@@ -21,6 +21,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -319,7 +320,7 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None, session=None):
     # Make sure the account exists
     if not account_exists(account, session=session):
         return None
-    
+
     # remove expired tokens
     session.query(models.Token).filter(models.Token.expired_at < datetime.datetime.utcnow(),
                                        models.Token.account == account).delete()

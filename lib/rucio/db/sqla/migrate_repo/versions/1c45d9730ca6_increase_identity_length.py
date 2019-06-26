@@ -14,7 +14,11 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2019
+<<<<<<< HEAD
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+=======
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+>>>>>>> 07e36544... WebUI: Add SSO login option to WebUI
 
 ''' increase identity length '''
 
@@ -42,11 +46,11 @@ def upgrade():
         drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
         drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check')
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
 
     elif context.get_context().dialect.name == 'mysql':
         alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048))
@@ -62,10 +66,10 @@ def upgrade():
         drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
 
 
 def downgrade():
@@ -83,13 +87,13 @@ def downgrade():
         drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS')")
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SAML')")
 
         drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check')
 
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS')")
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SAML')")
 
         alter_column('tokens', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
         alter_column('account_map', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
@@ -105,12 +109,12 @@ def downgrade():
         op.execute('ALTER TABLE ' + schema + 'identities DROP CONSTRAINT IF EXISTS "IDENTITIES_TYPE_CHK", ALTER COLUMN identity_type TYPE VARCHAR')  # pylint: disable=no-member
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS')")
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SAML')")
 
         op.execute('ALTER TABLE ' + schema + 'account_map DROP CONSTRAINT IF EXISTS "ACCOUNT_MAP_ID_TYPE_CHK", ALTER COLUMN identity_type TYPE VARCHAR')  # pylint: disable=no-member
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS')")
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SAML')")
         create_foreign_key('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', 'identities', ['identity', 'identity_type'], ['identity', 'identity_type'])
 
         alter_column('tokens', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema[:-1])
@@ -126,10 +130,15 @@ def downgrade():
 
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
+<<<<<<< HEAD
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS')")
+=======
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SAML')")
+
+>>>>>>> 07e36544... WebUI: Add SSO login option to WebUI
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS')")
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SAML')")
 
         alter_column('tokens', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
 

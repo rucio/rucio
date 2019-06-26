@@ -1,0 +1,20 @@
+{
+    "strict": false,
+    "debug": true,
+    "sp": {
+        "entityId": "https://localhost/ui/",
+        "assertionConsumerService": {
+            "url": "https://localhost/ui/sso",
+            "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+        },
+        "NameIDFormat": "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified"
+    },
+    "idp": {
+        "entityId": "<Enter IdP entityId here>",
+        "singleSignOnService": {
+            "url": "<Enter IdP SSO url here>",
+            "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+        },
+        "x509cert": "<Enter IdP certificate here>"
+    }
+}

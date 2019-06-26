@@ -17,6 +17,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -159,6 +160,7 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None):
         raise exception.AccessDenied('User with identity %s can not log to account %s' % (saml_nameid, account))
 
     return authentication.get_auth_token_saml(account, saml_nameid, appid, ip)
+
 
 def validate_auth_token(token):
     """
