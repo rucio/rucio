@@ -11,6 +11,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -117,7 +118,7 @@ def list_accounts_for_identity(identity_key, id_type):
     Returns a list of all accounts for an identity.
 
     :param identity: The identity key name. For example x509 DN, or a username.
-    :param id_type: The type of the authentication (x509, gss, userpass, ssh).
+    :param id_type: The type of the authentication (x509, gss, userpass, ssh, saml).
 
     returns: A list of all accounts for the identity.
     """
