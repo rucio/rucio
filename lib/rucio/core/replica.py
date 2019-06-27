@@ -1651,28 +1651,41 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
 
     :returns: a list of dictionary replica.
     """
-    replicas_alias = aliased(models.RSEFileAssociation, name='replicas_alias')
 
-    # filter(models.RSEFileAssociation.state != ReplicaState.BEING_DELETED).\
     none_value = None  # Hack to get pep8 happy...
-    query = session.query(replicas_alias.scope, replicas_alias.name, replicas_alias.path, replicas_alias.bytes, replicas_alias.tombstone, replicas_alias.state, func.count(models.RSEFileAssociation.scope)).\
+    subquery = session.query(models.RSEFileAssociation.scope,
+                             models.RSEFileAssociation.name,
+                             models.RSEFileAssociation.path,
+                             models.RSEFileAssociation.bytes,
+                             models.RSEFileAssociation.tombstone,
+                             models.RSEFileAssociation.state,
+                             models.RSEFileAssociation.rse_id).\
         with_hint(models.RSEFileAssociation, "INDEX_RS_ASC(replicas REPLICAS_TOMBSTONE_IDX)  NO_INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle').\
-        filter(replicas_alias.tombstone < datetime.utcnow()).\
-        filter(replicas_alias.lock_cnt == 0).\
-        filter(case([(replicas_alias.tombstone != none_value, replicas_alias.rse_id), ]) == rse_id).\
-        filter(or_(replicas_alias.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)),
-                   and_(replicas_alias.state == ReplicaState.BEING_DELETED, replicas_alias.updated_at < datetime.utcnow() - timedelta(seconds=delay_seconds)))).\
-        join(models.RSEFileAssociation, and_(models.RSEFileAssociation.scope == replicas_alias.scope,
-                                             models.RSEFileAssociation.name == replicas_alias.name,
-                                             models.RSEFileAssociation.rse_id != replicas_alias.rse_id,
+        with_for_update(skip_locked=True).\
+        filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
+        filter(models.RSEFileAssociation.lock_cnt == 0).\
+        filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
+        filter(or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)),
+                   and_(models.RSEFileAssociation.state == ReplicaState.BEING_DELETED, models.RSEFileAssociation.updated_at < datetime.utcnow() - timedelta(seconds=delay_seconds)))).\
+        order_by(models.RSEFileAssociation.tombstone).subquery()
+    query = session.query(subquery.c.scope,
+                          subquery.c.name,
+                          subquery.c.path,
+                          subquery.c.bytes,
+                          subquery.c.tombstone,
+                          subquery.c.state,
+                          func.count(models.RSEFileAssociation.scope)).\
+        join(models.RSEFileAssociation, and_(models.RSEFileAssociation.scope == subquery.c.scope,
+                                             models.RSEFileAssociation.name == subquery.c.name,
+                                             models.RSEFileAssociation.rse_id != subquery.c.rse_id,
                                              models.RSEFileAssociation.state == ReplicaState.AVAILABLE)).\
-        group_by(replicas_alias.scope, replicas_alias.name, replicas_alias.path, replicas_alias.bytes, replicas_alias.tombstone, replicas_alias.state).\
-        order_by(replicas_alias.tombstone)
+        group_by(subquery.c.scope, subquery.c.name, subquery.c.path, subquery.c.bytes, subquery.c.tombstone, subquery.c.state).\
+        order_by(subquery.c.tombstone)
 
     needed_space = bytes
     total_bytes, total_files = 0, 0
     rows = []
-    for (scope, name, path, bytes, tombstone, state, cnt) in query.with_for_update(skip_locked=True).yield_per(1000):
+    for (scope, name, path, bytes, tombstone, state, cnt) in query.yield_per(1000):
         # Check if more than one replica is available
         if cnt > 1:
             if state != ReplicaState.UNAVAILABLE:
