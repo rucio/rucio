@@ -46,13 +46,16 @@ from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
+from rucio.db.sqla.constants import ReplicaState
 from rucio.common.config import config_get
-from rucio.common.exception import (DatabaseException, RSENotFound, ConfigNotFound, ReplicaUnAvailable, ReplicaNotFound, ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable)
+from rucio.common.exception import (DatabaseException, RSENotFound, ConfigNotFound, ReplicaUnAvailable, ReplicaNotFound, ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable, SourceNotFound)
 from rucio.common.utils import chunks
 from rucio.core import monitor
 from rucio.core.config import get
+from rucio.core.credential import get_signed_url
 from rucio.core.heartbeat import live, die, sanity_check, list_payload_counts
-from rucio.core.replica import list_and_mark_unlocked_replicas
+from rucio.core.message import add_message
+from rucio.core.replica import list_and_mark_unlocked_replicas, delete_replicas
 from rucio.core.rse import list_rses, get_rse_limits, get_rse_usage, list_rse_attributes, get_rse_protocols
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.rse import rsemanager as rsemgr
@@ -73,6 +76,82 @@ REGION = make_region().configure('dogpile.cache.memcached',
                                  expiration_time=600,
                                  arguments={'url': "127.0.0.1:11211",
                                             'distributed_lock': True})
+
+
+def delete_from_storage(replicas, prot, rse_info, staging_areas, prepend_str):
+    deleted_files = []
+    rse_name = rse_info['rse']
+    try:
+        prot.connect()
+        for replica in replicas:
+            # Physical deletion
+            try:
+                deletion_dict = {'scope': replica['scope'],
+                                 'name': replica['name'],
+                                 'rse': rse_name,
+                                 'file-size': replica['bytes'],
+                                 'bytes': replica['bytes'],
+                                 'url': replica['pfn'],
+                                 'protocol': prot.attributes['scheme']}
+                logging.info('%s Deletion ATTEMPT of %s:%s as %s on %s', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name)
+                start = time.time()
+                # For STAGING RSEs, no physical deletion
+                if rse_name in staging_areas:
+                    logging.warning('%s Deletion STAGING of %s:%s as %s on %s, will only delete the catalog and not do physical deletion', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name)
+                    deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
+                    continue
+
+                if replica['pfn']:
+                    pfn = replica['pfn']
+                    # sign the URL if necessary
+                    if prot.attributes['scheme'] == 'https' and rse_info['sign_url'] is not None:
+                        pfn = get_signed_url(rse_info['sign_url'], 'delete', pfn)
+                    prot.delete(pfn)
+                else:
+                    logging.warning('%s Deletion UNAVAILABLE of %s:%s as %s on %s', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name)
+
+                monitor.record_timer('daemons.reaper.delete.%s.%s' % (prot.attributes['scheme'], rse_name), (time.time() - start) * 1000)
+                duration = time.time() - start
+
+                deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
+
+                deletion_dict['duration'] = duration
+                add_message('deletion-done', deletion_dict)
+                logging.info('%s Deletion SUCCESS of %s:%s as %s on %s in %s seconds', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name, duration)
+
+            except SourceNotFound:
+                err_msg = '%s Deletion NOTFOUND of %s:%s as %s on %s' % (prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name)
+                logging.warning(err_msg)
+                deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
+                if replica['state'] == ReplicaState.AVAILABLE:
+                    deletion_dict['reason'] = str(err_msg)
+                    add_message('deletion-failed', deletion_dict)
+
+            except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
+                logging.warning('%s Deletion NOACCESS of %s:%s as %s on %s: %s', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name, str(error))
+                deletion_dict['reason'] = str(error)
+                add_message('deletion-failed', deletion_dict)
+
+            except Exception as error:
+                logging.critical('%s Deletion CRITICAL of %s:%s as %s on %s: %s', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name, str(traceback.format_exc()))
+                deletion_dict['reason'] = str(error)
+                add_message('deletion-failed', deletion_dict)
+
+    except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
+        for replica in replicas:
+            logging.warning('%s Deletion NOACCESS of %s:%s as %s on %s: %s', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name, str(error))
+            add_message('deletion-failed', {'scope': replica['scope'],
+                                            'name': replica['name'],
+                                            'rse': rse_name,
+                                            'file-size': replica['bytes'],
+                                            'bytes': replica['bytes'],
+                                            'url': replica['pfn'],
+                                            'reason': str(error),
+                                            'protocol': prot.attributes['scheme']})
+
+    finally:
+        prot.close()
+    return deleted_files
 
 
 def get_rses_to_hostname_mapping():
@@ -224,11 +303,15 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
 
         start_time = time.time()
         try:
+            staging_areas = []
             dict_rses = {}
             heart_beat = live(executable, hostname, pid, hb_thread, older_than=3600)
             prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
             tot_needed_free_space = 0
             for rse in rses:
+                # Check if the RSE is a staging area
+                if rse['staging_area']:
+                    staging_areas.append(rse['rse'])
                 # Check if RSE is blacklisted
                 if rse['availability'] % 2 == 0:
                     logging.debug('%s RSE %s is blacklisted for delete', prepend_str, rse['rse'])
@@ -268,7 +351,7 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
             for rse_name, rse_id, needed_free_space, max_being_deleted_files in list_rses_mult:
                 if rse_name in skip_until_next_run:
                     continue
-                logging.debug('%s Working on %s. Percentage of the total space needed %.2f', prepend_str, rse_name, sorted_dict_rses[rse_key][0] / tot_needed_free_space * 100)
+                logging.debug('%s Working on %s. Percentage of the total space needed %.2f', prepend_str, rse_name, needed_free_space / tot_needed_free_space * 100)
                 rse_hostname, rse_info = rses_hostname_mapping[rse_name]
                 rse_hostname_key = '%s,%s' % (rse_name, rse_hostname)
                 payload_cnt = list_payload_counts(executable, older_than=600, hash_executable=None, session=None)
@@ -307,6 +390,8 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
                 except (DatabaseException, IntegrityError, DatabaseError) as error:
                     logging.error('%s %s', prepend_str, str(error))
                     continue
+                except Exception:
+                    logging.critical('%s %s', prepend_str, str(traceback.format_exc()))
 
                 # Physical  deletion will take place there
                 try:
@@ -325,24 +410,21 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
                                 logging.warning('%s Failed get pfn UNAVAILABLE replica %s:%s on %s with error %s', prepend_str, replica['scope'], replica['name'], rse_name, str(error))
                                 replica['pfn'] = None
 
-                            except Exception as error:
-                                logging.error('%s %s', prepend_str, str(error))
+                            except Exception:
+                                logging.critical('%s %s', prepend_str, str(traceback.format_exc()))
 
-                        try:
-                            # deleted_files = []
-                            prot.connect()
-                            for replica in file_replicas:
-                                logging.debug(replica)
-                                # Physical  deletion will take place there
-                        except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
-                            pass
-
-                        finally:
-                            prot.close()
+                        deleted_files = delete_from_storage(file_replicas, prot, rse_info, staging_areas, prepend_str)
                         logging.info('%s %i files processed in %s seconds', prepend_str, len(file_replicas), time.time() - del_start_time)
+
                         # Then finally delete the replicas
+                        del_start = time.time()
+                        with monitor.record_timer_block('reaper.delete_replicas'):
+                            delete_replicas(rse=rse_name, files=deleted_files)
+                        logging.debug('%s delete_replicas successed on %s : %s replicas in %s seconds', prepend_str, rse_name, len(deleted_files), time.time() - del_start)
+                        monitor.record_counter(counters='reaper.deletion.done', delta=len(deleted_files))
+
                 except Exception as error:
-                    logging.error('%s %s', prepend_str, str(error))
+                    logging.critical('%s %s', prepend_str, str(traceback.format_exc()))
 
             if once:
                 break
@@ -415,7 +497,7 @@ def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=N
         logging.error('Reaper: No RSEs found. Exiting.')
         return
 
-    logging.info('Reaper: This instance will work on RSEs: ' + ', '.join([rse['rse'] for rse in rses]))
+    logging.info('Reaper: This instance will work on RSEs: %s', ', '.join([rse['rse'] for rse in rses]))
 
     logging.info('starting reaper threads')
     threads_list = [threading.Thread(target=reaper, kwargs={'once': once,
