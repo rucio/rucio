@@ -1689,7 +1689,6 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
         # Check if more than one replica is available
         if cnt > 1:
             if state != ReplicaState.UNAVAILABLE:
-
                 total_bytes += bytes
                 if tombstone != OBSOLETE and needed_space is not None and total_bytes > needed_space:
                     break
