@@ -1,4 +1,0 @@
-{
-    "enum": [ "CONTAINER", "DATASET", "FILE"],
-    "description": "DID type."
-}
