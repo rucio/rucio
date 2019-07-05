@@ -68,6 +68,10 @@ gss_email = ph-adp-ddm-lab@cern.ch
 ssh_identity = ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq5LySllrQFpPL614sulXQ7wnIr1aGhGtl8b+HCB/0FhMSMTHwSjX78UbfqEorZV16rXrWPgUpvcbp2hqctw6eCbxwqcgu3uGWaeS5A0iWRw7oXUh6ydnVy89zGzX1FJFFDZ+AgiZ3ytp55tg1bjqqhK1OSC0pJxdNe878TRVVo5MLI0S/rZY2UovCSGFaQG2iLj14wz/YqI7NFMUuJFR4e6xmNsOP7fCZ4bGMsmnhR0GmY0dWYTupNiP5WdYXAfKExlnvFLTlDI5Mgh4Z11NraQ8pv4YE1woolYpqOc/IMMBBXFniTT4tC7cgikxWb9ZmFe+r4t6yCDpX4IL8L5GOQ== ddmlab
 ssh_email = ph-adp-ddm-lab@cern.ch
 
+# Default DDMLAB SAML Name ID
+saml_id = ddmlab
+saml_email = ph-adp-ddm-lab@cern.ch
+
 [monitor]
 carbon_server = rucio-graphite-int.cern.ch
 carbon_port = 8125

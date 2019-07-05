@@ -155,7 +155,7 @@ def create_root_account():
         ssh_id = config_get('bootstrap', 'ssh_identity')
         ssh_email = config_get('bootstrap', 'ssh_email')
         saml_id = config_get('bootstrap', 'saml_id')
-        ssh_email = config_get('bootstrap', 'saml_email')
+        saml_email = config_get('bootstrap', 'saml_email')
     except:
         pass
         # print 'Config values are missing (check rucio.cfg{.template}). Using hardcoded defaults.'

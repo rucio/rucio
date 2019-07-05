@@ -242,7 +242,7 @@ def get_client(args):
     """
     Returns a new client object.
     """
-    if args.auth_strategy == 'userpass' or args.auth_strategy == 'saml':
+    if args.auth_strategy in ['userpass', 'saml']:
         creds = {'username': args.username, 'password': args.password}
     else:
         creds = None

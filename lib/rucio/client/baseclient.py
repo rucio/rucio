@@ -153,7 +153,7 @@ class BaseClient(object):
         if auth_type is None:
             LOG.debug('no auth_type passed. Trying to get it from the environment variable RUCIO_AUTH_TYPE and config file.')
             if 'RUCIO_AUTH_TYPE' in environ:
-                if environ['RUCIO_AUTH_TYPE'] not in ('userpass', 'x509', 'x509_proxy', 'gss', 'ssh', 'saml'):
+                if environ['RUCIO_AUTH_TYPE'] not in ['userpass', 'x509', 'x509_proxy', 'gss', 'ssh', 'saml']:
                     raise MissingClientParameter('Possible RUCIO_AUTH_TYPE values: userpass, x509, x509_proxy, gss, ssh, saml, vs. ' + environ['RUCIO_AUTH_TYPE'])
                 self.auth_type = environ['RUCIO_AUTH_TYPE']
             else:
@@ -166,7 +166,7 @@ class BaseClient(object):
             LOG.debug('no creds passed. Trying to get it from the config file.')
             self.creds = {}
             try:
-                if self.auth_type == 'userpass' or self.auth_type == 'saml':
+                if self.auth_type in ['userpass', 'saml']:
                     self.creds['username'] = config_get('client', 'username')
                     self.creds['password'] = config_get('client', 'password')
                 elif self.auth_type == 'x509':
@@ -548,7 +548,7 @@ class BaseClient(object):
 
         headers = {'X-Rucio-Account': self.account}
         userpass = {'username': self.creds['username'], 'password': self.creds['password']}
-        url = build_url(self.auth_host, path='auth/sso')
+        url = build_url(self.auth_host, path='auth/saml')
 
         result = None
         for retry in range(self.AUTH_RETRIES + 1):

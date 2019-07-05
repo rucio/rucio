@@ -74,7 +74,7 @@ COMMON_URLS = (
     '/logfiles/load', 'LoadLogfile',
     '/logfiles/extract', 'ExtractLogfile',
     '/login', 'Login',
-    '/sso', 'SSO'
+    '/saml', 'SAML'
 )
 
 POLICY = config_get('policy', 'permission')
@@ -415,8 +415,8 @@ class RSELocks(object):
         return authenticate(render.rse_locks())
 
 
-class SSO(object):
-    """ Login with SSO """
+class SAML(object):
+    """ Login with SAML """
     def GET(self):
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))

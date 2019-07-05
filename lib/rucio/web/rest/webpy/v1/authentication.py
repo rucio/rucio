@@ -59,7 +59,7 @@ URLS = (
     '/x509_proxy', 'x509',
     '/ssh', 'SSH',
     '/ssh_challenge_token', 'SSHChallengeToken',
-    '/sso', 'SSO',
+    '/saml', 'SAML',
     '/validate', 'Validate',
 )
 
@@ -450,7 +450,7 @@ class SSHChallengeToken(RucioController):
         return str()
 
 
-class SSO(RucioController):
+class SAML(RucioController):
     """
     Authenticate a Rucio account temporarily via CERN SSO.
     """
@@ -483,7 +483,7 @@ class SSO(RucioController):
         :param Rucio-Username: Username as a string.
         :param Rucio-Password: Password as a string.
         :param Rucio-AppID: Application identifier as a string.
-        :returns: "Rucio-Auth-Token" as a variable-length string header.
+        :returns: "X-Rucio-SAML-Auth-URL" as a variable-length string header.
         """
 
         header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
@@ -524,7 +524,9 @@ class SSO(RucioController):
             header('X-Rucio-Auth-Token-Expires', date_to_str(result.expired_at))
             return str()
 
+        # Path to the SAML config folder
         SAML_PATH = '/opt/rucio/lib/rucio/web/ui/common/saml/'
+
         request = ctx.env
         data = dict(input())
         req = prepare_webpy_request(request, data)

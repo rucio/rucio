@@ -322,7 +322,7 @@ def perm_get_auth_token_x509(issuer, kwargs):
 
 def perm_get_auth_token_saml(issuer, kwargs):
     """
-    Checks if a user can request a token with user_pass for an account.
+    Checks if a user can request a token with saml_nameid for an account.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
