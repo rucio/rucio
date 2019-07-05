@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2014
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2019
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
@@ -355,6 +355,12 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
             logging.debug('[broker] %i:%i - sleeping %s seconds',
                           heartbeat['assign_thread'], heartbeat['nr_threads'], t_delay)
         time.sleep(t_delay)
+
+    for conn in conns:
+        try:
+            conn.disconnect()
+        except Exception:
+            pass
 
     logging.debug('[broker] %i:%i - graceful stop requested',
                   heartbeat['assign_thread'], heartbeat['nr_threads'])
