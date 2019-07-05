@@ -323,7 +323,7 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None, session=None):
 
     # remove expired tokens
     session.query(models.Token).filter(models.Token.expired_at < datetime.datetime.utcnow(),
-                                       models.Token.account == account).delete()
+                                       models.Token.account == account).with_for_update(skip_locked=True).delete()
 
     tuid = generate_uuid()  # NOQA
     token = '%(account)s-%(saml_nameid)s-%(appid)s-%(tuid)s' % locals()

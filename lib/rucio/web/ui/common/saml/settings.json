@@ -4,7 +4,7 @@
     "sp": {
         "entityId": "https://localhost/ui/",
         "assertionConsumerService": {
-            "url": "https://localhost/ui/sso",
+            "url": "https://localhost/ui/saml",
             "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
         },
         "NameIDFormat": "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified"

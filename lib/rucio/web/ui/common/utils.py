@@ -35,23 +35,26 @@ def prepare_webpy_request(request, data):
     :param request: webpy request object
     :param data: GET or POST data
     """
-    return {
-        'https': 'on' if request['wsgi.url_scheme'] == 'https' else 'off',
-        'http_host': request['HTTP_HOST'],
-        'server_port': request['SERVER_PORT'],
-        'script_name': request['SCRIPT_NAME'],
-        'get_data': data,
-        # Uncomment if using ADFS as IdP
-        # 'lowercase_urlencoding': True,
-        'post_data': data
-    }
+    if request['wsgi.url_scheme'] == 'https':
+        return {
+            'https': 'on' if request['wsgi.url_scheme'] == 'https' else 'off',
+            'http_host': request['HTTP_HOST'],
+            'server_port': request['SERVER_PORT'],
+            'script_name': request['SCRIPT_NAME'],
+            'get_data': data,
+            # Uncomment if using ADFS as IdP
+            # 'lowercase_urlencoding': True,
+            'post_data': data
+        }
+
+    return None
 
 
 def set_cookies(token, cookie_accounts, attribs, ui_account=None):
     # if there was no valid session token write the new token to a cookie.
     if token:
-        setcookie('x-rucio-auth-token', value=token, path='/')
-        setcookie('rucio-auth-token-created-at', value=int(time()), path='/')
+        setcookie('X-Rucio-Auth-Token', value=token, path='/')
+        setcookie('rucio-auth-token-created-at', value=long(time()), path='/')
 
     if cookie_accounts:
         values = ""
@@ -121,7 +124,7 @@ def check_token(rendered_tpl):
     msg += "<br><br>Then, if it is still not working please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>."
 
     # try to get and check the rucio session token from cookie
-    session_token = cookies().get('x-rucio-auth-token')
+    session_token = cookies().get('X-Rucio-Auth-Token')
     validate_token = authentication.validate_auth_token(session_token)
 
     # check if ui_account param is set and if yes, force new token
@@ -257,7 +260,7 @@ def log_in(data, rendered_tpl):
 
 def saml_authentication(method, rendered_tpl):
     """
-    Login with SSO
+    Login with SAML
 
     :param method: method type, GET or POST
     :param rendered_tpl: page to be rendered
@@ -284,7 +287,7 @@ def saml_authentication(method, rendered_tpl):
 
     render = template.render(join(dirname(__file__), '../templates'))
 
-    session_token = cookies().get('x-rucio-auth-token')
+    session_token = cookies().get('X-Rucio-Auth-Token')
     validate_token = authentication.validate_auth_token(session_token)
 
     if method == "GET":
@@ -372,7 +375,7 @@ def saml_authentication(method, rendered_tpl):
 def authenticate(rendered_tpl):
     """ Select the auth type defined in config """
 
-    session_token = cookies().get('x-rucio-auth-token')
+    session_token = cookies().get('X-Rucio-Auth-Token')
     validate_token = authentication.validate_auth_token(session_token)
 
     render = template.render(join(dirname(__file__), '../templates'))

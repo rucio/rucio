@@ -16,13 +16,15 @@ import base64
 from nose.tools import assert_equal, assert_is_none, assert_is_not_none, assert_greater, assert_in
 from paste.fixture import TestApp
 
-from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_ssh, get_ssh_challenge_token
+from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_ssh, get_ssh_challenge_token, get_auth_token_saml
 from rucio.common.exception import Duplicate
 from rucio.common.types import InternalAccount
 from rucio.common.utils import ssh_sign
 from rucio.core.identity import add_account_identity, del_account_identity
 from rucio.db.sqla.constants import IdentityType
 from rucio.web.rest.authentication import APP
+
+from requests import session
 
 
 PUBLIC_KEY = "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq5LySllrQFpPL"\
@@ -113,6 +115,16 @@ class TestAuthCoreApi(object):
 
         del_account_identity(PUBLIC_KEY, IdentityType.SSH, root)
 
+    def test_get_auth_token_saml_success(self):
+        """AUTHENTICATION (CORE): SAML NameID (correct credentials)."""
+        result = get_auth_token_saml(account='root', saml_nameid='ddmlab', appid='test', ip='127.0.0.1')
+        assert_is_not_none(result)
+
+    def test_get_auth_token_saml_fail(self):
+        """AUTHENTICATION (CORE): SAML NameID (wrong credentials)."""
+        result = get_auth_token_saml(account='root', saml_nameid='not_ddmlab', appid='test', ip='127.0.0.1')
+        assert_is_none(result)
+
 
 class TestAuthRestApi(object):
     '''
@@ -173,4 +185,35 @@ class TestAuthRestApi(object):
         result = TestApp(APP.wsgifunc(*options)).get('/ssh', headers=headers, expect_errors=True)
         assert_equal(result.status, 401)
 
-        del_account_identity(PUBLIC_KEY, IdentityType.SSH, root)
+        del_account_identity(PUBLIC_KEY, IdentityType.SSH, 'root')
+
+    def test_saml_success(self):
+        """AUTHENTICATION (REST): SAML Username and password (correct credentials)."""
+        options = []
+
+        headers = {'X-Rucio-Account': self.account}
+        userpass = {'username': 'ddmlab', 'password': 'secret'}
+
+        result = TestApp(APP.wsgifunc(*options)).get('/saml', headers=headers, expect_errors=True)
+        if not result.header('X-Rucio-Auth-Token'):
+            SAML_auth_url = result.header('X-Rucio-SAML-Auth-URL')
+            result = session.post(SAML_auth_url, data=userpass, verify=False, allow_redirects=True)
+            result = TestApp(APP.wsgifunc(*options)).get('/saml', headers=headers, expect_errors=True)
+
+        assert_equal(result.status, 200)
+        assert_greater(len(result.header('X-Rucio-Auth-Token')), 32)
+
+    def test_saml_fail(self):
+        """AUTHENTICATION (REST): SAML Username and password (wrong credentials)."""
+        options = []
+
+        headers = {'X-Rucio-Account': self.account}
+        userpass = {'username': 'ddmlab', 'password': 'not_secret'}
+
+        result = TestApp(APP.wsgifunc(*options)).get('/saml', headers=headers, expect_errors=True)
+        if not result.header('X-Rucio-Auth-Token'):
+            SAML_auth_url = result.header('X-Rucio-SAML-Auth-URL')
+            result = session.post(SAML_auth_url, data=userpass, verify=False, allow_redirects=True)
+            result = TestApp(APP.wsgifunc(*options)).get('/saml', headers=headers, expect_errors=True)
+
+        assert_equal(result.status, 401)
