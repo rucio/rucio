@@ -24,6 +24,7 @@
 import datetime
 import logging
 import os
+import random
 import socket
 import threading
 import time
@@ -52,7 +53,7 @@ GRACEFUL_STOP = threading.Event()
 
 
 def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
-            once=True, unlock=False):
+            once=True, unlock=False, spread_period=0, purge_replicas=False):
     """
     Creates an Atropos Worker that gets a list of rules which have an eol_at expired and delete them.
 
@@ -77,6 +78,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
     logging.debug(prepend_str + 'Starting worker')
     summary = {}
     lifetime_exceptions = {}
+    rand = random.Random(hb['assign_thread'])
     for excep in rucio.core.lifetime_exception.list_exceptions(exception_id=None, states=[LifetimeExceptionsState.APPROVED, ], session=None):
         if '%s:%s' % (excep['scope'], excep['name']) not in lifetime_exceptions:
             lifetime_exceptions['%s:%s' % (excep['scope'], excep['name'])] = excep['expires_at']
@@ -147,8 +149,11 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
                         if no_locks:
                             logging.warning(prepend_str + 'Cannot find a lock for rule %s on DID %s' % (rule.id, did))
                         if not dry_run:
-                            logging.info(prepend_str + 'Setting %s seconds lifetime for rule %s' % (grace_period, rule.id))
-                            options = {'lifetime': grace_period}
+                            lifetime = grace_period + rand.randrange(spread_period + 1)
+                            logging.info(prepend_str + 'Setting %s seconds lifetime for rule %s' % (lifetime, rule.id))
+                            options = {'lifetime': lifetime}
+                            if purge_replicas:
+                                options = {'purge_replicas': True}
                             if rule.locked and unlock:
                                 logging.info(prepend_str + 'Unlocking rule %s', rule.id)
                                 options['locked'] = False
@@ -184,7 +189,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
 
 
 def run(threads=1, bulk=100, date_check=None, dry_run=True, grace_period=86400,
-        once=True, unlock=False):
+        once=True, unlock=False, spread_period=0, purge_replicas=False):
     """
     Starts up the atropos threads.
     """
@@ -201,7 +206,9 @@ def run(threads=1, bulk=100, date_check=None, dry_run=True, grace_period=86400,
                                                             'dry_run': dry_run,
                                                             'grace_period': grace_period,
                                                             'bulk': bulk,
-                                                            'unlock': unlock}) for i in range(0, threads)]
+                                                            'unlock': unlock,
+                                                            'spread_period': spread_period,
+                                                            'purge_replicas': purge_replicas}) for i in range(0, threads)]
     [t.start() for t in thread_list]
 
     logging.info('waiting for interrupts')

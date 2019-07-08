@@ -1,0 +1,23 @@
+======
+1.20.1
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Transfers: Filter out requests on blacklisted RSE `#2607 <https://github.com/rucio/rucio/issues/2607>`_
+
+****
+Bugs
+****
+
+- Messaging: delete_messages crashes when a message longer than 4000 is provided `#2652 <https://github.com/rucio/rucio/issues/2652>`_
+- Release management: Double requirement (pip-requires/pip-requires-client) for pysftp `#2625 <https://github.com/rucio/rucio/issues/2625>`_
+- Release management: M2Crpyto installation blocks all tests `#2653 <https://github.com/rucio/rucio/issues/2653>`_
+- Rules: Intermediate notifications for notification mode PROGRESS are not sent `#2622 <https://github.com/rucio/rucio/issues/2622>`_
+- Transfers: Wrong states on RSE avaiability state in __list_transfer_requests_and_source_replicas `#2656 <https://github.com/rucio/rucio/issues/2656>`_

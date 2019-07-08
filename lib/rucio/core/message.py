@@ -143,6 +143,8 @@ def delete_messages(messages, session=None):
     message_condition = []
     for message in messages:
         message_condition.append(Message.id == message['id'])
+        if len(message['payload']) > 4000:
+            message['payload_nolimit'] = message.pop('payload')
 
     try:
         if message_condition:

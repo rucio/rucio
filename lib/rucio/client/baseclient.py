@@ -215,12 +215,12 @@ class BaseClient(object):
         if account is None:
             LOG.debug('no account passed. Trying to get it from the config file.')
             try:
-                self.account = config_get('client', 'account')
-            except (NoOptionError, NoSectionError):
+                self.account = environ['RUCIO_ACCOUNT']
+            except KeyError:
                 try:
-                    self.account = environ['RUCIO_ACCOUNT']
-                except KeyError:
-                    raise MissingClientParameter('Option \'account\' cannot be found in config file and RUCIO_ACCOUNT is not set.')
+                    self.account = config_get('client', 'account')
+                except (NoOptionError, NoSectionError):
+                        raise MissingClientParameter('Option \'account\' cannot be found in config file and RUCIO_ACCOUNT is not set.')
 
         token_path = self.TOKEN_PATH_PREFIX + self.account
         self.token_file = token_path + '/' + self.TOKEN_PREFIX + self.account

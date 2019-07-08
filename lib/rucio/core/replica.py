@@ -1402,7 +1402,9 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
                                      ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))))
 
         did_condition.append(and_(models.DataIdentifier.scope == file['scope'], models.DataIdentifier.name == file['name'], models.DataIdentifier.availability != DIDAvailability.LOST,
-                                  ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))))
+                                  ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name'])),
+                                  ~exists(select([1]).prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle')).where(and_(models.ConstituentAssociation.child_scope == file['scope'],
+                                                                                                                                                   models.ConstituentAssociation.child_name == file['name']))))
 
         archive_contents_condition.append(and_(models.ConstituentAssociation.scope == file['scope'],
                                                models.ConstituentAssociation.name == file['name'],

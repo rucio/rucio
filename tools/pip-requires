@@ -8,7 +8,6 @@ python-memcached==1.59; python_version <= '2.7'   # Quick and small memcached cl
 python3-memcached==1.51; python_version > '2.7'   # Quick and small memcached client for Python3
 jsonschema==3.0.1                                 # JSON Schema
 python-dateutil==2.8.0                            # Extensions to the standard datetime module
-pysftp==0.2.9                                     # forces installation of paramikoi and pycrypto
 stomp.py==4.1.22                                  # ActiveMQ Messaging Protocol
 pystatsd==0.1.10; python_version == '2.7'         # Needed to log into graphite with more than 1 Hz
 geoip2==2.9.0                                     # GeoIP2 API (for IPv6 support)
@@ -20,5 +19,5 @@ numpy==1.14.2                                     # Numpy for forecasting T3C
 paramiko==2.4.2                                   # SSH2 protocol library
 Flask==1.0.2                                      # Python web framework
 fts3-rest-API==3.7.1; python_version == '2.7'     # FTS rest API
-M2Crypto<0.33                                     # Dependency of FTS rest API; Temporary fix since 0.33 does not install on CC7
+M2Crypto<=0.35.2                                  # Dependency of FTS rest API; Temporary fix since 0.33 does not install on CC7
 MyProxyClient==2.1.0                              # myproxy client bindings

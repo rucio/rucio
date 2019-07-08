@@ -22,6 +22,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -1197,7 +1198,7 @@ def update_rule(rule_id, options, session=None):
     :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used, ScratchDiskLifetimeConflict if wrong ScratchDiskLifetime is used.
     """
 
-    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority', 'child_rule_id', 'eol_at', 'meta']
+    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority', 'child_rule_id', 'eol_at', 'meta', 'purge_replicas']
 
     for key in options:
         if key not in valid_options:
