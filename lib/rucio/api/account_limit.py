@@ -45,8 +45,11 @@ def get_account_limits(account):
     """
 
     rse_instead_id = {}
+    rse_dict = {}
     for elem in account_limit_core.get_account_limits(account=account).items():
-        rse_instead_id[get_rse_name(elem[0])] = elem[1]
+        if elem[0] not in rse_dict:
+            rse_dict[elem[0]] = get_rse_name(rse_id=elem[0])
+        rse_instead_id[rse_dict[elem[0]]] = elem[1]
     return rse_instead_id
 
 
