@@ -78,7 +78,7 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
     rse_clause = []
     if rse_expression:
         for rse in parse_expression(expression=rse_expression, session=session):
-            rse_clause.append(models.RSE.id == rse['id'])
+            rse_clause.append(models.BadReplicas.rse_id == rse['id'])
 
     if session.bind.dialect.name == 'oracle':
         to_days = func.trunc(models.BadReplicas.created_at, str('DD'))
@@ -88,7 +88,7 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
         to_days = func.date_trunc('day', models.BadReplicas.created_at)
     else:
         to_days = func.strftime(models.BadReplicas.created_at, '%Y-%m-%d')
-    query = session.query(func.count(), to_days, models.RSE.id, models.BadReplicas.state, models.BadReplicas.reason).filter(models.RSE.id == models.BadReplicas.rse_id)
+    query = session.query(func.count(), to_days, models.BadReplicas.rse_id, models.BadReplicas.state, models.BadReplicas.reason)
     # To be added : HINTS
     if rse_clause != []:
         query = query.filter(or_(*rse_clause))
@@ -96,14 +96,20 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
         query = query.filter(models.BadReplicas.created_at > from_date)
     if to_date:
         query = query.filter(models.BadReplicas.created_at < to_date)
-    summary = query.group_by(to_days, models.RSE.id, models.BadReplicas.reason, models.BadReplicas.state).all()
+    summary = query.group_by(to_days, models.BadReplicas.rse_id, models.BadReplicas.reason, models.BadReplicas.state).all()
     for row in summary:
         if (row[2], row[1], row[4]) not in incidents:
             incidents[(row[2], row[1], row[4])] = {}
         incidents[(row[2], row[1], row[4])][str(row[3])] = row[0]
+
+    rse_dict = {}
     for incident in incidents:
+        if incident[0] not in rse_dict:
+            rse_dict[incident[0]] = get_rse_name(rse_id=incident[0], session=session)
+
         res = incidents[incident]
         res['rse_id'] = incident[0]
+        res['rse'] = rse_dict[incident[0]]
         res['created_at'] = incident[1]
         res['reason'] = incident[2]
         result.append(res)
@@ -159,7 +165,7 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than
     :param session: The database session in use.
     """
     result = []
-    query = session.query(models.BadReplicas.scope, models.BadReplicas.name, models.RSE.id, models.BadReplicas.state, models.BadReplicas.created_at, models.BadReplicas.updated_at)
+    query = session.query(models.BadReplicas.scope, models.BadReplicas.name, models.BadReplicas.rse_id, models.BadReplicas.state, models.BadReplicas.created_at, models.BadReplicas.updated_at)
     if state:
         query = query.filter(models.BadReplicas.state == state)
     if rse_id:
@@ -168,14 +174,17 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than
         query = query.filter(models.BadReplicas.created_at >= younger_than)
     if older_than:
         query = query.filter(models.BadReplicas.created_at <= older_than)
-    query = query.filter(models.RSE.id == models.BadReplicas.rse_id)
     if limit:
         query = query.limit(limit)
+
+    rse_dict = {}
     for badfile in query.yield_per(1000):
         if list_pfns:
             result.append({'scope': badfile.scope, 'name': badfile.name, 'type': DIDType.FILE})
         else:
-            result.append({'scope': badfile.scope, 'name': badfile.name, 'rse_id': badfile.id, 'state': badfile.state, 'created_at': badfile.created_at, 'updated_at': badfile.updated_at})
+            if badfile.rse_id not in rse_dict:
+                rse_dict[badfile.rse_id] = get_rse_name(rse_id=badfile.rse_id, session=session)
+            result.append({'scope': badfile.scope, 'name': badfile.name, 'rse': rse_dict[badfile.rse_id], 'rse_id': badfile.rse_id, 'state': badfile.state, 'created_at': badfile.created_at, 'updated_at': badfile.updated_at})
     if list_pfns:
         reps = []
         for rep in list_replicas(result, schemes=None, unavailable=False, request_id=None, ignore_availability=True, all_states=True, session=session):
@@ -655,6 +664,7 @@ def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, sessio
                                   models.RSEFileAssociation.path,
                                   models.RSEFileAssociation.state,
                                   models.RSE.id,
+                                  models.RSE.rse,
                                   models.RSE.rse_type,
                                   models.RSE.volatile).\
         with_hint(models.RSEFileAssociation,
@@ -718,6 +728,7 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, sessi
                                         models.RSEFileAssociation.path,
                                         models.RSEFileAssociation.state,
                                         models.RSE.id,
+                                        models.RSE.rse,
                                         models.RSE.rse_type,
                                         models.RSE.volatile),
                                whereclause=whereclause,
@@ -772,7 +783,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
     file, tmp_protocols, rse_info, pfns_cache = {}, {}, {}, {}
 
     for replicas in filter(None, files):
-        for scope, name, bytes, md5, adler32, path, state, rse_id, rse_type, volatile in replicas:
+        for scope, name, bytes, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replicas:
 
             pfns = []
 
@@ -999,10 +1010,9 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                         file['parents'] = ['%s:%s' % (parent['scope'], parent['name'])
                                            for parent in rucio.core.did.list_all_parent_dids(scope, name, session=session)]
 
-                    rse_name = get_rse_name(rse_id=rse_id, session=session) if rse_id is not None else None
                     for tmp_pfn in pfns:
                         file['pfns'][tmp_pfn[0]] = {'rse_id': tmp_pfn[4]['rse_id'] if tmp_pfn[1] == 'zip' else rse_id,
-                                                    'rse': tmp_pfn[4]['rse'] if tmp_pfn[1] == 'zip' else rse_name,
+                                                    'rse': tmp_pfn[4]['rse'] if tmp_pfn[1] == 'zip' else rse,
                                                     'type': tmp_pfn[4]['type'] if tmp_pfn[1] == 'zip' else str(rse_type),
                                                     'volatile': tmp_pfn[4]['volatile'] if tmp_pfn[1] == 'zip' else volatile,
                                                     'domain': tmp_pfn[1],
@@ -1049,10 +1059,9 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                 if rse_id:
                     # extract properly the pfn from the tuple
                     file['rses'][rse_id] = list(set([tmp_pfn[0] for tmp_pfn in pfns]))
-                    rse_name = get_rse_name(rse_id=rse_id, session=session) if rse_id is not None else None
                     for tmp_pfn in pfns:
                         file['pfns'][tmp_pfn[0]] = {'rse_id': tmp_pfn[4]['rse_id'] if tmp_pfn[1] == 'zip' else rse_id,
-                                                    'rse': tmp_pfn[4]['rse'] if tmp_pfn[1] == 'zip' else rse_name,
+                                                    'rse': tmp_pfn[4]['rse'] if tmp_pfn[1] == 'zip' else rse,
                                                     'type': tmp_pfn[4]['type'] if tmp_pfn[1] == 'zip' else str(rse_type),
                                                     'volatile': tmp_pfn[4]['volatile'] if tmp_pfn[1] == 'zip' else volatile,
                                                     'domain': tmp_pfn[1],
@@ -2290,6 +2299,7 @@ def list_datasets_per_rse(rse_id, filters=None, limit=None, session=None):
     query = session.query(models.CollectionReplica.scope,
                           models.CollectionReplica.name,
                           models.RSE.id.label('rse_id'),
+                          models.RSE.rse,
                           models.CollectionReplica.bytes,
                           models.CollectionReplica.length,
                           models.CollectionReplica.available_bytes,

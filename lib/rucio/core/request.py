@@ -263,7 +263,7 @@ def queue_requests(requests, session=None):
 
 
 @read_session
-def get_next(request_type, state, limit=100, older_than=None, rse=None, activity=None,
+def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activity=None,
              total_workers=0, worker_number=0, mode_all=False, hash_variable='id',
              activity_shares=None, session=None):
     """
@@ -274,7 +274,7 @@ def get_next(request_type, state, limit=100, older_than=None, rse=None, activity
     :param state:             State of the request as a string or list of strings.
     :param limit:             Integer of requests to retrieve.
     :param older_than:        Only select requests older than this DateTime.
-    :param rse:               The RSE to filter on.
+    :param rse_id:            The RSE to filter on.
     :param activity:          The activity to filter on.
     :param total_workers:     Number of total workers.
     :param worker_number:     Id of the executing worker.
@@ -311,8 +311,8 @@ def get_next(request_type, state, limit=100, older_than=None, rse=None, activity
         if isinstance(older_than, datetime.datetime):
             query = query.filter(models.Request.updated_at < older_than)
 
-        if rse:
-            query = query.filter(models.Request.dest_rse_id == rse)
+        if rse_id:
+            query = query.filter(models.Request.dest_rse_id == rse_id)
 
         if share:
             query = query.filter(models.Request.activity == share)
@@ -337,11 +337,20 @@ def get_next(request_type, state, limit=100, older_than=None, rse=None, activity
         query_result = query.all()
         if query_result:
             if mode_all:
+                rse_dict = {}
                 for res in query_result:
                     res_dict = dict(res)
                     res_dict.pop('_sa_instance_state')
                     res_dict['request_id'] = res_dict['id']
                     res_dict['attributes'] = json.loads(str(res_dict['attributes']))
+
+                    if res_dict['dest_rse_id'] not in rse_dict:
+                        rse_dict[res_dict['dest_rse_id']] = get_rse_name(rse_id=res_dict['dest_rse_id'], session=session)
+                    if res_dict['source_rse_id'] not in rse_dict:
+                        rse_dict[res_dict['source_rse_id']] = get_rse_name(rse_id=res_dict['source_rse_id'], session=session)
+                    res_dict['dest_rse'] = rse_dict[res_dict['dest_rse_id']]
+                    res_dict['source_rse'] = rse_dict[res_dict['source_rse_id']]
+
                     result.append(res_dict)
             else:
                 for res in query_result:
@@ -586,6 +595,10 @@ def get_request_by_did(scope, name, rse_id, request_type=None, session=None):
         else:
             tmp = dict(tmp)
             tmp.pop('_sa_instance_state')
+
+            tmp['source_rse'] = get_rse_name(rse_id=tmp['source_rse_id'], session=session)
+            tmp['dest_rse'] = get_rse_name(rse_id=tmp['dest_rse_id'], session=session)
+
             return tmp
     except IntegrityError as error:
         raise RucioException(error.args)
