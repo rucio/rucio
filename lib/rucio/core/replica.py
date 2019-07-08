@@ -1639,7 +1639,7 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
 
 
 @transactional_session
-def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_seconds=0, session=None):
+def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_seconds=600, session=None):
     """
     List RSE File replicas with no locks.
 
@@ -1685,6 +1685,7 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
     needed_space = bytes
     total_bytes, total_files = 0, 0
     rows = []
+    replica_clause = []
     for (scope, name, path, bytes, tombstone, state, cnt) in query.yield_per(1000):
         # Check if more than one replica is available
         if cnt > 1:
@@ -1700,11 +1701,9 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
             rows.append({'scope': scope, 'name': name, 'path': path,
                          'bytes': bytes, 'tombstone': tombstone,
                          'state': state})
-            session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation == scope,
-                                                            models.RSEFileAssociation.name == name,
-                                                            models.RSEFileAssociation.rse_id == rse_id).\
-                update({'updated_at': datetime.utcnow(), 'state': ReplicaState.BEING_DELETED}, synchronize_session=False)
-
+            replica_clause.append(and_(models.RSEFileAssociation.scope == scope,
+                                       models.RSEFileAssociation.name == name,
+                                       models.RSEFileAssociation.rse_id == rse_id))
         else:
             # If this is the last replica, check if there are some requests
             request_cnt = session.query(func.count()).\
@@ -1724,10 +1723,14 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
                 rows.append({'scope': scope, 'name': name, 'path': path,
                              'bytes': bytes, 'tombstone': tombstone,
                              'state': state})
-                session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation == scope,
-                                                                models.RSEFileAssociation.name == name,
-                                                                models.RSEFileAssociation.rse_id == rse_id).\
-                    update({'updated_at': datetime.utcnow(), 'state': ReplicaState.BEING_DELETED}, synchronize_session=False)
+
+                replica_clause.append(and_(models.RSEFileAssociation.scope == scope,
+                                           models.RSEFileAssociation.name == name,
+                                           models.RSEFileAssociation.rse_id == rse_id))
+    for chunk in chunks(replica_clause, 100):
+        session.query(models.RSEFileAssociation).filter(or_(*chunk)).\
+            update({'updated_at': datetime.utcnow(), 'state': ReplicaState.BEING_DELETED}, synchronize_session=False)
+
     return rows
 
 
