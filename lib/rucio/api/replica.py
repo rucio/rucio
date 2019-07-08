@@ -155,6 +155,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                                      sign_urls=sign_urls, signature_lifetime=signature_lifetime,
                                      resolve_archives=resolve_archives, resolve_parents=resolve_parents)
 
+    rse_dict = {None: None}
     for rep in replicas:
         # 'rses' and 'states' use rse_id as the key. This needs updating to be rse.
         keys = ['rses', 'states']
@@ -163,10 +164,9 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
             if old_dict is not None:
                 new_dict = {}
                 for rse_id in old_dict:
-                    key = None
-                    if rse_id is not None:
-                        key = get_rse_name(rse_id=rse_id)
-                    new_dict[key] = old_dict[rse_id]
+                    if rse_id is not None and rse_id not in rse_dict:
+                        rse_dict[rse_id] = get_rse_name(rse_id=rse_id)
+                    new_dict[rse_dict[rse_id]] = old_dict[rse_id]
                 rep[k] = new_dict
         yield rep
 

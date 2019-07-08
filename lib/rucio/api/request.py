@@ -106,13 +106,7 @@ def get_next(request_type, state, issuer, account):
     if not permission.has_permission(issuer=issuer, action='get_next', kwargs=kwargs):
         raise exception.AccessDenied('%(account)s cannot get the next request of type %(request_type)s in state %(state)s' % locals())
 
-    reqs = request.get_next(request_type, state)
-    for req in reqs:
-        if 'dest_rse_id' in req and 'dest_rse' not in req:
-            req['dest_rse'] = get_rse_name(rse_id=req['dest_rse_id']) if req['dest_rse_id'] is not None else None
-        if 'source_rse_id' in req and 'source_rse' not in req:
-            req['source_rse'] = get_rse_name(rse_id=req['source_rse_id']) if req['source_rse_id'] is not None else None
-    return reqs
+    return request.get_next(request_type, state)
 
 
 def get_request_by_did(scope, name, rse, issuer):
@@ -131,10 +125,4 @@ def get_request_by_did(scope, name, rse, issuer):
     if not permission.has_permission(issuer=issuer, action='get_request_by_did', kwargs=kwargs):
         raise exception.AccessDenied('%(issuer)s cannot retrieve the request DID %(scope)s:%(name)s to RSE %(rse)s' % locals())
 
-    req = request.get_request_by_did(scope, name, rse_id)
-
-    if 'dest_rse_id' in req and 'dest_rse' not in req:
-        req['dest_rse'] = get_rse_name(rse_id=req['dest_rse_id']) if req['dest_rse_id'] is not None else None
-    if 'source_rse_id' in req and 'source_rse' not in req:
-        req['source_rse'] = get_rse_name(rse_id=req['source_rse_id']) if req['source_rse_id'] is not None else None
-    return req
+    return request.get_request_by_did(scope, name, rse_id)
