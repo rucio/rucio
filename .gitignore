@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2018
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2019
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
 
 # do not accidentally commit config files
@@ -51,7 +51,6 @@ cache/
 *.swp
 *~
 .venv
-.tox
 lib/rucio/vcsversion.py
 rucio.egg-info
 pylint.out
@@ -61,4 +60,3 @@ pylint.out
 
 # Conveyor test files
 tools/test.file.1G
-

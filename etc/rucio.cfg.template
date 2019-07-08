@@ -146,7 +146,7 @@ adler32 = 52590737
 #adler32 = 5ff2d417
 
 [alembic]
-cfg = alembic.ini
+cfg = /opt/rucio/etc/alembic.ini
 
 [messaging-cache]
 port = 61023
