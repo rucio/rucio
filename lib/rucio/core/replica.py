@@ -755,7 +755,7 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, sessi
             with_hint(models.DataIdentifier, text="INDEX(DIDS DIDS_PK)", dialect_name='oracle')
 
         for scope, name, bytes, md5, adler32 in files_wo_replicas_query:
-            yield scope, name, bytes, md5, adler32, None, None, None, None, None
+            yield scope, name, bytes, md5, adler32, None, None, None, None, None, None
             {'scope': scope, 'name': name} in files and files.remove({'scope': scope, 'name': name})
 
 
