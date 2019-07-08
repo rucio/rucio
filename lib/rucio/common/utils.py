@@ -1025,10 +1025,9 @@ def api_update_return_dict(dictionary):
 
     if 'rse_id' in dictionary.keys():
         if 'rse' not in dictionary.keys():
-            raise InputValidationError('Expected rse name in dictionary')
-        if not copied:
-            dictionary = dictionary.copy()
-            copied = True
-        del dictionary['rse_id']
+            if not copied:
+                dictionary = dictionary.copy()
+                copied = True
+            dictionary['rse'] = get_rse_name(rse_id=dictionary['rse_id'])
 
     return dictionary

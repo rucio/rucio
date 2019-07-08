@@ -224,6 +224,7 @@ def get_rse_id(rse, session=None, ignore_deleted=True):
 
     :param rse: the rse name.
     :param session: The database session in use.
+    :param ignore_deleted: Flag to toggle finding rse's marked as deleted.
 
     :returns: The rse id.
 
@@ -245,6 +246,7 @@ def get_rse_name(rse_id, session=None, ignore_deleted=True):
 
     :param rse_id: the rse uuid from the database.
     :param session: The database session in use.
+    :param ignore_deleted: Flag to toggle finding rse's marked as deleted.
 
     :returns: The rse name.
 
@@ -558,9 +560,11 @@ def get_rse_usage(rse_id, source=None, session=None, per_account=False):
     if source:
         query_rse_usage = query_rse_usage.filter_by(source=source)
 
+    rse = get_rse_name(rse_id=rse_id, session=session)
     for row in query_rse_usage:
         total = (row.free or 0) + (row.used or 0)
         rse_usage = {'rse_id': rse_id,
+                     'rse': rse,
                      'source': row.source,
                      'used': row.used, 'free': row.free,
                      'total': total,
@@ -719,8 +723,9 @@ def list_rse_usage_history(rse_id, source=None, session=None):
     if source:
         query = query.filter_by(source=source)
 
+    rse = get_rse_name(rse_id=rse_id, session=session)
     for usage in query.yield_per(5):
-        yield ({'rse_id': rse_id, 'source': usage.source, 'used': usage.used if usage.used else 0, 'total': usage.used if usage.used else 0 + usage.free if usage.free else 0, 'free': usage.free if usage.free else 0, 'updated_at': usage.updated_at})
+        yield ({'rse_id': rse_id, 'rse': rse, 'source': usage.source, 'used': usage.used if usage.used else 0, 'total': usage.used if usage.used else 0 + usage.free if usage.free else 0, 'free': usage.free if usage.free else 0, 'updated_at': usage.updated_at})
 
 
 @transactional_session

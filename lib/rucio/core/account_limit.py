@@ -26,6 +26,7 @@ from sqlalchemy.sql.expression import and_, or_
 
 from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session, transactional_session
+from rucio.core.rse import get_rse_name
 
 
 @read_session
@@ -159,9 +160,14 @@ def get_account_usage(account, rse_id=None, session=None):
         limits = get_account_limits(account=account, rse_ids=[rse_id], session=session)
         counters = session.query(models.AccountUsage).filter_by(account=account, rse_id=rse_id).all()
     result_list = []
+
+    rse_dict = {}
     for counter in counters:
         if counter.bytes > 0 or counter.files > 0 or rse_id in limits.keys():
-            result_list.append({'rse_id': counter.rse_id,
+            if counter.rse_id not in rse_dict:
+                rse_dict[counter.rse_id] = get_rse_name(rse_id=counter.rse_id, session=session)
+
+            result_list.append({'rse_id': counter.rse_id, 'rse': rse_dict[counter.rse_id],
                                 'bytes': counter.bytes, 'files': counter.files,
                                 'bytes_limit': limits.get(counter.rse_id, 0),
                                 'bytes_remaining': limits.get(counter.rse_id, 0) - counter.bytes})
