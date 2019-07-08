@@ -725,7 +725,12 @@ def list_rse_usage_history(rse_id, source=None, session=None):
 
     rse = get_rse_name(rse_id=rse_id, session=session)
     for usage in query.yield_per(5):
-        yield ({'rse_id': rse_id, 'rse': rse, 'source': usage.source, 'used': usage.used if usage.used else 0, 'total': usage.used if usage.used else 0 + usage.free if usage.free else 0, 'free': usage.free if usage.free else 0, 'updated_at': usage.updated_at})
+        yield ({'rse_id': rse_id, 'rse': rse,
+                'source': usage.source,
+                'used': usage.used if usage.used else 0,
+                'total': usage.used if usage.used else 0 + usage.free if usage.free else 0,
+                'free': usage.free if usage.free else 0,
+                'updated_at': usage.updated_at})
 
 
 @transactional_session

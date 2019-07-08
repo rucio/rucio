@@ -2168,7 +2168,7 @@ def examine_rule(rule_id, session=None):
                     for replica in available_replicas:
                         sources.append((replica.rse_id,
                                         True if get_rse(rse_id=replica.rse_id, session=session).availability >= 4 else False))
-                
+
                 if lock.rse_id not in rse_dict:
                     rse_dict[lock.rse_id] = get_rse_name(rse_id=lock.rse_id, session=session)
                 result['transfers'].append({'scope': lock.scope,
