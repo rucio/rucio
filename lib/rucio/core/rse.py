@@ -751,8 +751,9 @@ def add_protocol(rse_id, parameter, session=None):
                        for the given RSE.
     """
 
+    rse = ""
     try:
-        get_rse(rse_id=rse_id, session=session)
+        rse = get_rse_name(rse_id=rse_id, session=session)
     except exception.RSENotFound:
         raise exception.RSENotFound('RSE id \'%s\' not found' % rse_id)
     # Insert new protocol entry
@@ -796,7 +797,7 @@ def add_protocol(rse_id, parameter, session=None):
            or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
            or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0])\
            or match('.*IntegrityError.*columns.*are not unique.*', error.args[0]):
-            raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (parameter['scheme'], parameter['port'], get_rse_name(rse_id=rse_id, session=session), parameter['hostname']))
+            raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (parameter['scheme'], parameter['port'], rse, parameter['hostname']))
         elif 'may not be NULL' in error.args[0] \
              or match('.*IntegrityError.*ORA-01400: cannot insert NULL into.*RSE_PROTOCOLS.*IMPL.*', error.args[0]) \
              or match('.*OperationalError.*cannot be null.*', error.args[0]):
@@ -957,8 +958,9 @@ def update_protocols(rse_id, scheme, data, hostname, port, session=None):
         except ValueError:
             pass  # String is not JSON
 
+    rse = ""
     try:
-        get_rse(rse_id=rse_id, session=session)
+        rse = get_rse_name(rse_id=rse_id, session=session)
     except exception.RSENotFound:
         raise exception.RSENotFound('RSE with id \'%s\' not found' % rse_id)
 
@@ -970,7 +972,7 @@ def update_protocols(rse_id, scheme, data, hostname, port, session=None):
     try:
         up = session.query(models.RSEProtocols).filter(*terms).first()
         if up is None:
-            msg = 'RSE \'%s\' does not support protocol \'%s\' for hostname \'%s\' on port \'%s\'' % (rse_id, scheme, hostname, port)
+            msg = 'RSE \'%s\' does not support protocol \'%s\' for hostname \'%s\' on port \'%s\'' % (rse, scheme, hostname, port)
             raise exception.RSEProtocolNotSupported(msg)
 
         # Preparing gaps if priority is updated
@@ -1015,7 +1017,7 @@ def update_protocols(rse_id, scheme, data, hostname, port, session=None):
         up.update(data, flush=True, session=session)
     except (IntegrityError, OperationalError) as error:
         if 'UNIQUE'.lower() in error.args[0].lower() or 'Duplicate' in error.args[0]:  # Covers SQLite, Oracle and MySQL error
-            raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (scheme, port, get_rse_name(rse_id=rse_id, session=session), hostname))
+            raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (scheme, port, rse, hostname))
         elif 'may not be NULL' in error.args[0] or "cannot be null" in error.args[0]:
             raise exception.InvalidObject('Missing values: %s' % error.args[0])
         raise error

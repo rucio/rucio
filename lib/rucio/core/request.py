@@ -337,7 +337,7 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
         query_result = query.all()
         if query_result:
             if mode_all:
-                rse_dict = {}
+                rse_dict = {None: None}
                 for res in query_result:
                     res_dict = dict(res)
                     res_dict.pop('_sa_instance_state')
@@ -596,8 +596,8 @@ def get_request_by_did(scope, name, rse_id, request_type=None, session=None):
             tmp = dict(tmp)
             tmp.pop('_sa_instance_state')
 
-            tmp['source_rse'] = get_rse_name(rse_id=tmp['source_rse_id'], session=session)
-            tmp['dest_rse'] = get_rse_name(rse_id=tmp['dest_rse_id'], session=session)
+            tmp['source_rse'] = get_rse_name(rse_id=tmp['source_rse_id'], session=session) if tmp['source_rse_id'] is not None else None
+            tmp['dest_rse'] = get_rse_name(rse_id=tmp['dest_rse_id'], session=session) if tmp['dest_rse_id'] is not None else None
 
             return tmp
     except IntegrityError as error:
