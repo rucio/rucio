@@ -1420,16 +1420,17 @@ def delete_replicas(rse, files, ignore_availability=True, session=None):
 
     # Get all collection_replicas at RSE, insert them into UpdatedCollectionReplica
     if dst_replica_condition:
-        query = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).\
-            filter(or_(*dst_replica_condition)).\
-            distinct()
+        for chunk in chunks(dst_replica_condition, 10):
+            query = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).\
+                filter(or_(*chunk)).\
+                distinct()
 
-        for parent_scope, parent_name in query:
-            models.UpdatedCollectionReplica(scope=parent_scope,
-                                            name=parent_name,
-                                            did_type=DIDType.DATASET,
-                                            rse_id=replica_rse.id).\
-                save(session=session, flush=False)
+            for parent_scope, parent_name in query:
+                models.UpdatedCollectionReplica(scope=parent_scope,
+                                                name=parent_name,
+                                                did_type=DIDType.DATASET,
+                                                rse_id=replica_rse.id).\
+                    save(session=session, flush=False)
 
     # Delete did from the content for the last did
     while parent_condition:
@@ -1636,6 +1637,102 @@ def list_unlocked_replicas(rse, limit, bytes=None, rse_id=None, worker_number=No
         rows.append({'scope': scope, 'name': name, 'path': path,
                      'bytes': bytes, 'tombstone': tombstone,
                      'state': state})
+    return rows
+
+
+@transactional_session
+def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_seconds=600, session=None):
+    """
+    List RSE File replicas with no locks.
+
+    :param limit:              Number of replicas returned.
+    :param bytes:              The amount of needed bytes.
+    :param rse_id:             The rse_id.
+    :delay_seconds:            The delay to query replicas in BEING_DELETED state
+    :param session:            The database session in use.
+
+    :returns: a list of dictionary replica.
+    """
+
+    none_value = None  # Hack to get pep8 happy...
+    subquery = session.query(models.RSEFileAssociation.scope,
+                             models.RSEFileAssociation.name,
+                             models.RSEFileAssociation.path,
+                             models.RSEFileAssociation.bytes,
+                             models.RSEFileAssociation.tombstone,
+                             models.RSEFileAssociation.state,
+                             models.RSEFileAssociation.rse_id).\
+        with_hint(models.RSEFileAssociation, "INDEX_RS_ASC(replicas REPLICAS_TOMBSTONE_IDX)  NO_INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle').\
+        with_for_update(skip_locked=True).\
+        filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
+        filter(models.RSEFileAssociation.lock_cnt == 0).\
+        filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
+        filter(or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)),
+                   and_(models.RSEFileAssociation.state == ReplicaState.BEING_DELETED, models.RSEFileAssociation.updated_at < datetime.utcnow() - timedelta(seconds=delay_seconds)))).\
+        order_by(models.RSEFileAssociation.tombstone).subquery()
+    query = session.query(subquery.c.scope,
+                          subquery.c.name,
+                          subquery.c.path,
+                          subquery.c.bytes,
+                          subquery.c.tombstone,
+                          subquery.c.state,
+                          func.count(models.RSEFileAssociation.scope)).\
+        join(models.RSEFileAssociation, and_(models.RSEFileAssociation.scope == subquery.c.scope,
+                                             models.RSEFileAssociation.name == subquery.c.name,
+                                             models.RSEFileAssociation.rse_id != subquery.c.rse_id,
+                                             models.RSEFileAssociation.state == ReplicaState.AVAILABLE)).\
+        group_by(subquery.c.scope, subquery.c.name, subquery.c.path, subquery.c.bytes, subquery.c.tombstone, subquery.c.state).\
+        order_by(subquery.c.tombstone)
+
+    needed_space = bytes
+    total_bytes, total_files = 0, 0
+    rows = []
+    replica_clause = []
+    for (scope, name, path, bytes, tombstone, state, cnt) in query.yield_per(1000):
+        # Check if more than one replica is available
+        if cnt > 1:
+            if state != ReplicaState.UNAVAILABLE:
+                total_bytes += bytes
+                if tombstone != OBSOLETE and needed_space is not None and total_bytes > needed_space:
+                    break
+
+                total_files += 1
+                if total_files > limit:
+                    break
+
+            rows.append({'scope': scope, 'name': name, 'path': path,
+                         'bytes': bytes, 'tombstone': tombstone,
+                         'state': state})
+            replica_clause.append(and_(models.RSEFileAssociation.scope == scope,
+                                       models.RSEFileAssociation.name == name,
+                                       models.RSEFileAssociation.rse_id == rse_id))
+        else:
+            # If this is the last replica, check if there are some requests
+            request_cnt = session.query(func.count()).\
+                with_hint(models.Request, "INDEX(requests REQUESTS_SCOPE_NAME_RSE_IDX)", 'oracle').\
+                filter(and_(models.Request.scope == scope,
+                            models.Request.name == name)).one()
+
+            if request_cnt[0] == 0:
+                total_bytes += bytes
+                if tombstone != OBSOLETE and needed_space is not None and total_bytes > needed_space:
+                    break
+
+                total_files += 1
+                if total_files > limit:
+                    break
+
+                rows.append({'scope': scope, 'name': name, 'path': path,
+                             'bytes': bytes, 'tombstone': tombstone,
+                             'state': state})
+
+                replica_clause.append(and_(models.RSEFileAssociation.scope == scope,
+                                           models.RSEFileAssociation.name == name,
+                                           models.RSEFileAssociation.rse_id == rse_id))
+    for chunk in chunks(replica_clause, 100):
+        session.query(models.RSEFileAssociation).filter(or_(*chunk)).\
+            update({'updated_at': datetime.utcnow(), 'state': ReplicaState.BEING_DELETED}, synchronize_session=False)
+
     return rows
 
 
