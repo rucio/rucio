@@ -1,0 +1,46 @@
+======
+1.20.2
+======
+
+-------
+General
+-------
+
+## Features
+
+- Deletion: Reaper 2.0 inner loop: Storage interaction #2445
+
+## Enhancements
+
+- Core & Internals: update rse export format #2237
+- Life time model: Supporting deleting the replicas instead of secondarising them #2701
+- Life time model: Allow spreading the effect of the Lifetime Model over a period #2702
+- Rules: Allow updating the purge_replicas rule option #2691
+- Transfers: Possibility to exclude acitivites in conveyor-submitter #2640
+- Transfers: fts3 transfer tool reads wrong config #2681
+
+## Bugs
+
+- Authentication & Authorisation: Deadlock in token expiration #2720
+- Core & Internals: Add chunking for delete_replicas dst_replica_condition #2266
+- Deletion: Reaper crashes when it tries to delete a DIDs that is a constituent of an archive #2707
+- Testing: travis oracle container times out quite often #2588
+- Transfers: Conveyor breaks if no scheme is specified #2402
+
+-------
+Clients
+-------
+
+## Features
+
+- Clients: Downloadclient: adding possibility to manipulate external trace objects #2600
+
+## Enhancements
+
+- Clients: RUCIO_ACCOUNT should override the Rucio configuration file #2649
+- Clients: Help for cli list-dids is misleading #2664
+
+## Bugs
+
+- Clients: Upload fails to register file if pfn provided and non-deterministic RSE #2620
+
