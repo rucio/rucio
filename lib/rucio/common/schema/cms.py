@@ -350,17 +350,6 @@ ACCOUNT_ATTRIBUTE = {"description": "Account attribute",
 
 SCOPE_NAME_REGEXP = '/([^/]*)(?=/)(.*)'
 
-RSES = {"description": "list of RSEs",
-        "type": "array",
-        "items": {
-            "type": "object",
-            "properties": {
-                "rse": RSE
-            },
-            "required": ["rse"],
-            "additionalProperties": True
-        }}
-
 DISTANCE = {"description": "RSE distance",
             "type": "object",
             "properties": {
@@ -374,7 +363,9 @@ DISTANCE = {"description": "RSE distance",
 IMPORT = {"description": "import data into rucio.",
           "type": "object",
           "properties": {
-              "rses": RSES,
+              "rses": {
+                  "type": "object"
+              },
               "distances": {
                   "type": "object"
               }
