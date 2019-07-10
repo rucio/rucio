@@ -13,16 +13,15 @@
 # limitations under the License.
 #
 # Authors:
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
-from json import dumps
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
-from rucio.common.utils import build_url
+from rucio.common.utils import build_url, render_json
 
 
 class ImportClient(BaseClient):
@@ -44,7 +43,7 @@ class ImportClient(BaseClient):
         path = '/'.join([self.IMPORT_BASEURL])
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type='POST', data=dumps(data))
+        r = self._send_request(url, type='POST', data=render_json(**data))
         if r.status_code == codes.created:
             return r.text
         else:
