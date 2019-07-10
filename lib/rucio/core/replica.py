@@ -1705,7 +1705,6 @@ def update_replicas_states(replicas, nowait=False, session=None):
         if not query.update(values, synchronize_session=False):
             if 'rse' not in replica:
                 replica['rse'] = get_rse_name(rse_id=replica['rse_id'], session=session)
-            rse = replica['rse']
             raise exception.UnsupportedOperation('State %(state)s for replica %(scope)s:%(name)s on %(rse)s cannot be updated' % replica)
     return True
 
