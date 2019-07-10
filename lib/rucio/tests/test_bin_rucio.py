@@ -1173,13 +1173,21 @@ class TestBinRucio():
     def test_import_data(self):
         """ CLIENT(ADMIN): Import data into rucio"""
         file_path = 'data_import.json'
-        data = {'rses': [{'rse': rse_name_generator()}]}
+        data = {'rses': {rse_name_generator(): {'country_name': 'test'}}}
         with open(file_path, 'w+') as file:
             file.write(json.dumps(data))
         cmd = 'rucio-admin data import {0}'.format(file_path)
         exitcode, out, err = execute(cmd)
         nose.tools.assert_not_equal(re.search('Data successfully imported', out), None)
         remove(file_path)
+        # reset RSEs that got deleted
+        db_session = session.get_session()
+        for rse in db_session.query(models.RSE).all():
+            rse.deleted = False
+            rse.deleted_at = None
+            rse.save(session=db_session)
+            add_rse_attribute(rse=rse['rse'], key=rse['rse'], value=True, session=db_session)
+        db_session.commit()
 
     def test_export_data(self):
         """ CLIENT(ADMIN): Export data from rucio"""
