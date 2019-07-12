@@ -636,6 +636,7 @@ class RSE(BASE, SoftModelBase):
     __tablename__ = 'rses'
     id = Column(GUID(), default=utils.generate_uuid)
     rse = Column(String(255))
+    vo = Column(String(3), nullable=False, server_default='def')
     rse_type = Column(RSEType.db_type(name='RSES_TYPE_CHK'), default=RSEType.DISK)
     deterministic = Column(Boolean(name='RSE_DETERMINISTIC_CHK'), default=True)
     volatile = Column(Boolean(name='RSE_VOLATILE_CHK'), default=False)
@@ -653,9 +654,10 @@ class RSE(BASE, SoftModelBase):
     usage = relationship("RSEUsage", order_by="RSEUsage.rse_id", backref="rses")
 #    replicas = relationship("RSEFileAssociation", order_by="RSEFileAssociation.rse_id", backref="rses")
     _table_args = (PrimaryKeyConstraint('id', name='RSES_PK'),
-                   UniqueConstraint('rse', name='RSES_RSE_UQ'),
+                   UniqueConstraint('rse', 'vo', name='RSES_RSE_UQ'),
                    CheckConstraint('RSE IS NOT NULL', name='RSES_RSE__NN'),
-                   CheckConstraint('RSE_TYPE IS NOT NULL', name='RSES_TYPE_NN'),)
+                   CheckConstraint('RSE_TYPE IS NOT NULL', name='RSES_TYPE_NN'),
+                   ForeignKeyConstraint(['vo'], ['vos.vo'], name='RSES_VOS_FK'), )
 
 
 class RSELimit(BASE, ModelBase):
@@ -1263,6 +1265,15 @@ class LifetimeExceptions(BASE, ModelBase):
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='LIFETIME_EXCEPT_ACCOUNT_FK'))
 
 
+class VO(BASE, ModelBase):
+    """Represents the VOS in a MultiVO setup"""
+    __tablename__ = 'vos'
+    vo = Column(String(3))
+    description = Column(String(255))
+    email = Column(String(255))
+    _table_args = (PrimaryKeyConstraint('vo', name='VO_PK'), )
+
+
 def register_models(engine):
     """
     Creates database tables for all models with the given engine
@@ -1314,7 +1325,8 @@ def register_models(engine):
               UpdatedAccountCounter,
               UpdatedDID,
               UpdatedRSECounter,
-              UpdatedCollectionReplica)
+              UpdatedCollectionReplica,
+              VO)
 
     for model in models:
         model.metadata.create_all(engine)   # pylint: disable=maybe-no-member
@@ -1370,7 +1382,8 @@ def unregister_models(engine):
               UpdatedAccountCounter,
               UpdatedDID,
               UpdatedRSECounter,
-              UpdatedCollectionReplica)
+              UpdatedCollectionReplica,
+              VO)
 
     for model in models:
         model.metadata.drop_all(engine)   # pylint: disable=maybe-no-member
