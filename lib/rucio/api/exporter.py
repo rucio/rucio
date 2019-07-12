@@ -29,9 +29,17 @@ def export_data(issuer):
         raise exception.AccessDenied('Account %s can not export data' % issuer)
 
     data = exporter.export_data()
+    rses = {}
     distances = {}
 
     rse_dict = {}
+    for rse_id in data['rses']:
+        rse = data['rses'][rse_id]
+        if rse_id not in rse_dict:
+            rse_dict[rse_id] = get_rse_name(rse_id=rse_id)
+        rses[rse_dict[rse_id]] = rse
+    data['rses'] = rses
+
     for src_id, tmp in data['distances']:
         if src_id not in rse_dict:
             rse_dict[src_id] = get_rse_name(rse_id=src_id)
