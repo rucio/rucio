@@ -13,13 +13,28 @@
 # limitations under the License.
 #
 # Authors:
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
 from rucio.core import rse as rse_module, distance as distance_module
 from rucio.db.sqla.session import transactional_session
+
+
+@transactional_session
+def export_rses(session=None):
+    """
+    Export RSE data.
+
+    :param session: database session in use.
+    """
+    data = {}
+    for rse in rse_module.list_rses(session=session):
+        rse_id = rse['id']
+        data[rse_id] = rse_module.export_rse(rse_id, session=session)
+
+    return data
 
 
 @transactional_session
@@ -30,7 +45,7 @@ def export_data(session=None):
     :param session: database session in use.
     """
     data = {
-        'rses': [rse_module.export_rse(rse_id=rse['id'], session=session) for rse in rse_module.list_rses(session=session)],
+        'rses': export_rses(session=session),
         'distances': distance_module.export_distances(session=session)
     }
     return data

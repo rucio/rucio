@@ -191,7 +191,12 @@ def rse_is_empty(rse_id, session=None):
     :param session: the database session in use.
     """
 
-    return get_counter(rse_id, session=session)['bytes'] == 0
+    is_empty = False
+    try:
+        is_empty = get_counter(rse_id, session=session)['bytes'] == 0
+    except exception.CounterNotFound:
+        is_empty = True
+    return is_empty
 
 
 @read_session
@@ -484,19 +489,22 @@ def get_rses_with_attribute_value(key, value, lookup_key, session=None):
 
 
 @read_session
-def get_rse_attribute(key, rse_id=None, value=None, session=None):
+def get_rse_attribute(key, rse_id=None, value=None, use_cache=True, session=None):
     """
     Retrieve RSE attribute value.
 
     :param rse_id: The RSE id.
     :param key: The key for the attribute.
     :param value: Optionally, the desired value for the attribute.
+    :param use_cache: Boolean to use memcached.
     :param session: The database session in use.
 
     :returns: A list with RSE attribute values for a Key.
     """
 
-    result = REGION.get('%s-%s-%s' % (key, rse_id, value))
+    result = NO_VALUE
+    if use_cache:
+        result = REGION.get('%s-%s-%s' % (key, rse_id, value))
     if result is NO_VALUE:
 
         rse_attrs = []
@@ -510,7 +518,6 @@ def get_rse_attribute(key, rse_id=None, value=None, session=None):
                 query = session.query(models.RSEAttrAssociation.value).filter_by(key=key, value=value).distinct()
         for attr_value in query:
             rse_attrs.append(attr_value[0])
-
         REGION.set('%s-%s-%s' % (key, rse_id, value), rse_attrs)
         return rse_attrs
 
@@ -904,6 +911,7 @@ def get_rse_protocols(rse_id, schemes=None, session=None):
             pass  # If value is not a JSON string
 
         info['protocols'].append(p)
+    info['protocols'] = sorted(info['protocols'], key=lambda p: (p['hostname'], p['scheme'], p['port']))
     return info
 
 
@@ -1103,11 +1111,13 @@ def update_rse(rse_id, parameters, session=None):
     for key in parameters:
         if key == 'name':
             param['rse'] = parameters['name']
-        if key in ['availability_read', 'availability_write', 'availability_delete']:
+        elif key in ['availability_read', 'availability_write', 'availability_delete']:
             if parameters[key] is True:
                 availability = availability | availability_mapping[key]
             else:
                 availability = availability & ~availability_mapping[key]
+        elif key in ['latitude', 'longitude', 'time_zone', 'rse_type', 'volatile', 'deterministic', 'region_code', 'country_name', 'city', 'staging_area']:
+            param[key] = parameters[key]
     param['availability'] = availability
     query.update(param)
     if 'name' in parameters:
@@ -1134,24 +1144,27 @@ def export_rse(rse_id, session=None):
         for k, v in _rse:
             rse_data[k] = v
 
+    rse_data.pop('continent')
+    rse_data.pop('ASN')
+    rse_data.pop('ISP')
+    rse_data.pop('deleted')
+    rse_data.pop('deleted_at')
+
     # get RSE attributes
     rse_data['attributes'] = list_rse_attributes(rse_id=rse_id)
 
-    # get RSE protocols
-    rse_data['protocols'] = get_rse_protocols(rse_id=rse_id)
-
-    # remove duplicated keys returned by get_rse_protocols()
-    rse_data['protocols'].pop('id')
-    rse_data['protocols'].pop('rse')
-    rse_data['protocols'].pop('rse_type')
-    rse_data['protocols'].pop('staging_area')
-    rse_data['protocols'].pop('deterministic')
-    rse_data['protocols'].pop('volatile')
+    protocols = get_rse_protocols(rse_id=rse_id)
+    rse_data['lfn2pfn_algorithm'] = protocols.get('lfn2pfn_algorithm')
+    rse_data['verify_checksum'] = protocols.get('verify_checksum')
+    rse_data['credentials'] = protocols.get('credentials')
+    rse_data['availability_delete'] = protocols.get('availability_delete')
+    rse_data['availability_write'] = protocols.get('availability_write')
+    rse_data['availability_read'] = protocols.get('availability_read')
+    rse_data['protocols'] = protocols.get('protocols')
 
     # get RSE limits
-    rse_data['limits'] = get_rse_limits(rse_id=rse_id)
-
-    # get RSE xfer limits
-    rse_data['transfer_limits'] = get_rse_transfer_limits(rse_id=rse_id)
+    limits = get_rse_limits(rse_id=rse_id)
+    rse_data['MinFreeSpace'] = limits.get('MinFreeSpace')
+    rse_data['MaxBeingDeletedFiles'] = limits.get('MaxBeingDeletedFiles')
 
     return rse_data
