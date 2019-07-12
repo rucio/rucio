@@ -11,7 +11,7 @@
 
 from argparse import ArgumentParser
 
-from rucio.db.sqla.util import build_database, destroy_database, drop_everything, create_root_account
+from rucio.db.sqla.util import build_database, destroy_database, drop_everything, create_root_account, create_base_vo
 
 if __name__ == '__main__':
 
@@ -25,4 +25,5 @@ if __name__ == '__main__':
         destroy_database()
 
     build_database()
+    create_base_vo()
     create_root_account()

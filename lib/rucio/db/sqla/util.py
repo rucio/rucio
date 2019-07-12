@@ -120,6 +120,17 @@ def drop_everything(echo=True):
     trans.commit()
 
 
+def create_base_vo():
+    """ Creates the base VO """
+
+    s = session.get_session()
+
+    vo = models.VO(vo='def', description='Default base VO', email='N/A')
+
+    s.add_all([vo])
+    s.commit()
+
+
 def create_root_account():
     """ Inserts the default root account to an existing database. Make sure to change the default password later. """
 
