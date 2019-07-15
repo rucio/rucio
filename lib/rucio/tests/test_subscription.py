@@ -19,6 +19,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2016
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 
 from __future__ import print_function
 
@@ -34,7 +35,7 @@ from rucio.common.exception import InvalidObject, SubscriptionNotFound, Subscrip
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account_limit import set_account_limit
 from rucio.core.did import add_did, set_new_dids
-from rucio.core.rse import add_rse, get_rse_id
+from rucio.core.rse import add_rse
 from rucio.core.rule import add_rule
 from rucio.core.scope import add_scope
 from rucio.daemons.transmogrifier.transmogrifier import run

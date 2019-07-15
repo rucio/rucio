@@ -103,6 +103,7 @@ def import_rses(rses, session=None):
             except RSEOperationNotSupported:
                 pass
 
+
 @transactional_session
 def import_distances(distances, session=None):
     for src_rse_name in distances:

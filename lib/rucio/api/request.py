@@ -18,7 +18,7 @@ Interface for the requests abstraction layer
 from rucio.api import permission
 from rucio.common import exception
 from rucio.core import request
-from rucio.core.rse import get_rse_id, get_rse_name
+from rucio.core.rse import get_rse_id
 
 
 def queue_requests(requests, issuer):
