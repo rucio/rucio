@@ -926,6 +926,7 @@ def get_rse_protocols(rse, schemes=None, session=None):
             pass  # If value is not a JSON string
 
         info['protocols'].append(p)
+    info['protocols'] = sorted(info['protocols'], key=lambda p: (p['hostname'], p['scheme'], p['port']))
     return info
 
 
