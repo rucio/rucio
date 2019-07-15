@@ -106,6 +106,10 @@ class TestImporter(object):
         self.old_rse_3 = rse_name_generator()
         self.old_rse_id_3 = add_rse(self.old_rse_3)
 
+        # RSE 4 that already exists
+        self.old_rse_4 = rse_name_generator()
+        self.old_rse_id_4 = add_rse(self.old_rse_4)
+
         # Distance that already exists
         add_distance(self.old_rse_id_1, self.old_rse_id_2)
 
@@ -174,12 +178,14 @@ class TestImporter(object):
                     'availability_delete': False,
                     'availability_read': False,
                     'availability_write': True
-                }
+                },
+                self.old_rse_2: {},
+                self.old_rse_3: {}
             },
             'distances': {
                 self.old_rse_1: {
-                    # self.old_rse_2: {'src_rse': self.old_rse_1, 'dest_rse': self.old_rse_2, 'ranking': 10},
-                    self.new_rse: {'src_rse': self.old_rse_1, 'dest_rse': self.new_rse, 'ranking': 4}
+                    self.old_rse_2: {'src_rse': self.old_rse_1, 'dest_rse': self.old_rse_2, 'ranking': 10},
+                    self.old_rse_3: {'src_rse': self.old_rse_1, 'dest_rse': self.old_rse_3, 'ranking': 4}
                 }
             }
         }
@@ -224,15 +230,15 @@ class TestImporter(object):
         assert_equal(limits['MaxBeingDeletedFiles'], 1000)
         assert_equal(limits['MinFreeSpace'], 10000)
 
-        # distance = get_distances(self.old_rse_id_1, self.old_rse_id_2)[0]
-        # assert_equal(distance['ranking'], 10)
+        distance = get_distances(self.old_rse_id_1, self.old_rse_id_2)[0]
+        assert_equal(distance['ranking'], 10)
 
-        distance = get_distances(self.old_rse_id_1, new_rse_id)[0]
+        distance = get_distances(self.old_rse_id_1, self.old_rse_id_3)[0]
         assert_equal(distance['ranking'], 4)
 
         # RSE 3 should be flagged as deleted as it is missing in the import data
         with assert_raises(RSENotFound):
-            get_rse(rse_id=self.old_rse_id_3)
+            get_rse(rse_id=self.old_rse_id_4)
 
         import_data(data=self.data2)
         import_data(data=self.data3)
@@ -270,14 +276,14 @@ class TestImporter(object):
         assert_equal(limits['MaxBeingDeletedFiles'], 1000)
         assert_equal(limits['MinFreeSpace'], 10000)
 
-        # distance = get_distances(self.old_rse_id_1, self.old_rse_id_2)[0]
-        # assert_equal(distance['ranking'], 10)
+        distance = get_distances(self.old_rse_id_1, self.old_rse_id_2)[0]
+        assert_equal(distance['ranking'], 10)
 
-        distance = get_distances(self.old_rse_id_1, new_rse_id)[0]
+        distance = get_distances(self.old_rse_id_1, self.old_rse_id_3)[0]
         assert_equal(distance['ranking'], 4)
 
         with assert_raises(RSENotFound):
-            get_rse(rse_id=self.old_rse_id_3)
+            get_rse(rse_id=self.old_rse_id_4)
 
         import_client.import_data(data=self.data2)
         import_client.import_data(data=self.data3)
@@ -321,14 +327,14 @@ class TestImporter(object):
         assert_equal(limits['MaxBeingDeletedFiles'], 1000)
         assert_equal(limits['MinFreeSpace'], 10000)
 
-        # distance = get_distances(self.old_rse_id_1, self.old_rse_id_2)[0]
-        # assert_equal(distance['ranking'], 10)
+        distance = get_distances(self.old_rse_id_1, self.old_rse_id_2)[0]
+        assert_equal(distance['ranking'], 10)
 
-        distance = get_distances(self.old_rse_id_1, new_rse_id)[0]
+        distance = get_distances(self.old_rse_id_1, self.old_rse_id_3)[0]
         assert_equal(distance['ranking'], 4)
 
         with assert_raises(RSENotFound):
-            get_rse(rse_id=self.old_rse_id_3)
+            get_rse(rse_id=self.old_rse_id_4)
 
         r2 = TestApp(import_app.wsgifunc(*mw)).post('/', headers=headers2, expect_errors=True, params=render_json(**self.data2))
         assert_equal(r2.status, 201)
