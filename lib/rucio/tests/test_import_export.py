@@ -110,6 +110,11 @@ class TestImporter(object):
         self.old_rse_4 = rse_name_generator()
         self.old_rse_id_4 = add_rse(self.old_rse_4)
 
+        # RSE 4 that already exists
+        self.old_rse_4 = rse_name_generator()
+        add_rse(self.old_rse_4)
+        self.old_rse_id_4 = get_rse_id(self.old_rse_4)
+
         # Distance that already exists
         add_distance(self.old_rse_id_1, self.old_rse_id_2)
 
@@ -236,7 +241,7 @@ class TestImporter(object):
         distance = get_distances(self.old_rse_id_1, self.old_rse_id_3)[0]
         assert_equal(distance['ranking'], 4)
 
-        # RSE 3 should be flagged as deleted as it is missing in the import data
+        # RSE 4 should be flagged as deleted as it is missing in the import data
         with assert_raises(RSENotFound):
             get_rse(rse_id=self.old_rse_id_4)
 
