@@ -105,6 +105,11 @@ class TestImporter(object):
         add_rse(self.old_rse_3)
         self.old_rse_id_3 = get_rse_id(self.old_rse_3)
 
+        # RSE 4 that already exists
+        self.old_rse_4 = rse_name_generator()
+        add_rse(self.old_rse_4)
+        self.old_rse_id_4 = get_rse_id(self.old_rse_4)
+
         # Distance that already exists
         add_distance(self.old_rse_id_1, self.old_rse_id_2)
 
@@ -173,7 +178,9 @@ class TestImporter(object):
                     'availability_delete': False,
                     'availability_read': False,
                     'availability_write': True
-                }
+                },
+                self.old_rse_2: {},
+                self.old_rse_3: {}
             },
             'distances': {
                 self.old_rse_1: {
@@ -227,9 +234,9 @@ class TestImporter(object):
         distance = get_distances(self.old_rse_id_1, self.old_rse_id_3)[0]
         assert_equal(distance['ranking'], 4)
 
-        # RSE 3 should be flagged as deleted as it is missing in the import data
+        # RSE 4 should be flagged as deleted as it is missing in the import data
         with assert_raises(RSENotFound):
-            get_rse(self.old_rse_3)
+            get_rse(self.old_rse_4)
 
         import_data(data=self.data2)
         import_data(data=self.data3)
@@ -271,7 +278,7 @@ class TestImporter(object):
         assert_equal(distance['ranking'], 4)
 
         with assert_raises(RSENotFound):
-            get_rse(self.old_rse_3)
+            get_rse(self.old_rse_4)
 
         import_client.import_data(data=self.data2)
         import_client.import_data(data=self.data3)
@@ -319,7 +326,7 @@ class TestImporter(object):
         assert_equal(distance['ranking'], 4)
 
         with assert_raises(RSENotFound):
-            get_rse(self.old_rse_3)
+            get_rse(self.old_rse_4)
 
         r2 = TestApp(import_app.wsgifunc(*mw)).post('/', headers=headers2, expect_errors=True, params=render_json(**self.data2))
         assert_equal(r2.status, 201)
