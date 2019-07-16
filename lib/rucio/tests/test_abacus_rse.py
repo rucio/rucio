@@ -25,6 +25,7 @@ import os
 from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
 from rucio.client.uploadclient import UploadClient
+from rucio.common.config import config_get_bool
 from rucio.common.utils import generate_uuid
 from rucio.core.rse import get_rse_id, get_rse_usage
 from rucio.daemons.undertaker import undertaker
@@ -36,12 +37,17 @@ from rucio.tests.common import file_generator
 
 class TestAbacusRSE():
     def setUp(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': 'tst'}
+        else:
+            self.vo = {}
+
         self.account = 'root'
         self.scope = 'mock'
         self.upload_client = UploadClient()
         self.file_sizes = 2
         self.rse = 'MOCK4'
-        self.rse_id = get_rse_id(self.rse)
+        self.rse_id = get_rse_id(self.rse, **self.vo)
         self.session = get_session()
 
     def tearDown(self):

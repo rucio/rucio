@@ -24,7 +24,7 @@ from __future__ import print_function
 from json import dumps
 from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
-from web import application, loadhook, header, InternalError
+from web import application, ctx, loadhook, header, InternalError
 
 from rucio.api.did import list_archive_content
 from rucio.common.schema import SCOPE_NAME_REGEXP
@@ -52,7 +52,7 @@ class Archive(RucioController):
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            for file in list_archive_content(scope=scope, name=name):
+            for file in list_archive_content(scope=scope, name=name, vo=ctx.env.get('vo')):
                 yield dumps(file) + '\n'
         except Exception as error:
             print(format_exc())

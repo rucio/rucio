@@ -30,7 +30,7 @@ from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import RSEType, AccountType, IdentityType, AccountStatus
 from rucio.client.importclient import ImportClient
 from rucio.client.exportclient import ExportClient
-from rucio.common.config import config_set, config_add_section, config_has_section
+from rucio.common.config import config_set, config_add_section, config_has_section, config_get_bool
 from rucio.common.exception import RSENotFound
 from rucio.common.types import InternalAccount
 from rucio.common.utils import render_json, parse_response
@@ -47,7 +47,11 @@ from rucio.web.rest.authentication import APP as auth_app
 
 
 def check_rse(rse_name, test_data):
-    rse_id = get_rse_id(rse=rse_name)
+    if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+        vo = {'vo': 'tst'}
+    else:
+        vo = {}
+    rse_id = get_rse_id(rse=rse_name, **vo)
     rse = get_rse(rse_id=rse_id)
     assert_equal(rse['rse'], rse_name)
     assert_equal(rse['rse_type'], test_data[rse_name]['rse_type'])
@@ -64,7 +68,11 @@ def check_rse(rse_name, test_data):
 
 
 def check_protocols(rse, test_data):
-    rse_id = get_rse_id(rse=rse)
+    if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+        vo = {'vo': 'tst'}
+    else:
+        vo = {}
+    rse_id = get_rse_id(rse=rse, **vo)
     protocols = get_rse_protocols(rse_id)
     assert_equal(test_data[rse]['lfn2pfn_algorithm'], get_rse_attribute('lfn2pfn_algorithm', rse_id=rse_id, use_cache=False)[0])
     assert_equal(test_data[rse]['verify_checksum'], get_rse_attribute('verify_checksum', rse_id=rse_id, use_cache=False)[0])
@@ -96,19 +104,26 @@ def test_active():
 class TestImporter(object):
     """ Tests the initial import method (hard-sync everything) """
 
-    def setup(self):
+    def setup(self):        
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo_header = {'X-Rucio-VO': 'tst'}
+            self.vo = {'vo': 'tst'}
+        else:
+            self.vo_header = {}
+            self.vo = {}
+
         if not config_has_section('importer'):
             config_add_section('importer')
         config_set('importer', 'rse_sync_method', 'hard')
         config_set('importer', 'attr_method', 'edit')
         config_set('importer', 'protocol_method', 'edit')
-
+        
         # New RSE
         self.new_rse = rse_name_generator()
 
         # RSE 1 that already exists
         self.old_rse_1 = rse_name_generator()
-        self.old_rse_id_1 = add_rse(self.old_rse_1, availability=1, region_code='DE', country_name='DE', deterministic=True, volatile=True, staging_area=True, time_zone='Europe', latitude='1', longitude='2')
+        self.old_rse_id_1 = add_rse(self.old_rse_1, availability=1, region_code='DE', country_name='DE', deterministic=True, volatile=True, staging_area=True, time_zone='Europe', latitude='1', longitude='2', **self.vo)
         add_protocol(self.old_rse_id_1, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
         add_protocol(self.old_rse_id_1, {'scheme': 'scheme3', 'hostname': 'hostname3', 'port': 1000, 'impl': 'TODO'})
 
@@ -120,20 +135,15 @@ class TestImporter(object):
 
         # RSE 2 that already exists
         self.old_rse_2 = rse_name_generator()
-        self.old_rse_id_2 = add_rse(self.old_rse_2)
+        self.old_rse_id_2 = add_rse(self.old_rse_2, **self.vo)
 
         # RSE 3 that already exists
         self.old_rse_3 = rse_name_generator()
-        self.old_rse_id_3 = add_rse(self.old_rse_3)
+        self.old_rse_id_3 = add_rse(self.old_rse_3, **self.vo)
 
         # RSE 4 that already exists
         self.old_rse_4 = rse_name_generator()
-        self.old_rse_id_4 = add_rse(self.old_rse_4)
-
-        # RSE 4 that already exists
-        self.old_rse_4 = rse_name_generator()
-        add_rse(self.old_rse_4)
-        self.old_rse_id_4 = get_rse_id(self.old_rse_4)
+        self.old_rse_id_4 = add_rse(self.old_rse_4, **self.vo)
 
         # Distance that already exists
         add_distance(self.old_rse_id_1, self.old_rse_id_2)
@@ -300,13 +310,13 @@ class TestImporter(object):
 
     def test_importer_core(self):
         """ IMPORTER (CORE): test import. """
-        import_data(data=deepcopy(self.data1))
+        import_data(data=deepcopy(self.data1), **self.vo)
 
         # RSE that had not existed before
         check_rse(self.new_rse, self.data1['rses'])
         check_protocols(self.new_rse, self.data1['rses'])
 
-        new_rse_id = get_rse_id(rse=self.new_rse)
+        new_rse_id = get_rse_id(rse=self.new_rse, **self.vo)
 
         attributes = list_rse_attributes(rse_id=new_rse_id)
         assert_equal(attributes['attr1'], 'test')
@@ -344,8 +354,8 @@ class TestImporter(object):
         with assert_raises(RSENotFound):
             get_rse(rse_id=self.old_rse_id_4)
 
-        import_data(data=self.data2)
-        import_data(data=self.data3)
+        import_data(data=self.data2, **self.vo)
+        import_data(data=self.data3, **self.vo)
 
     def test_importer_client(self):
         """ IMPORTER (CLIENT): test import. """
@@ -356,7 +366,7 @@ class TestImporter(object):
         check_rse(self.new_rse, self.data1['rses'])
         check_protocols(self.new_rse, self.data1['rses'])
 
-        new_rse_id = get_rse_id(rse=self.new_rse)
+        new_rse_id = get_rse_id(rse=self.new_rse, **self.vo)
 
         protocols = get_rse_protocols(self.old_rse_id_1)
         protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port']} for protocol in protocols['protocols']]
@@ -399,6 +409,7 @@ class TestImporter(object):
         """ IMPORTER (REST): test import. """
         mw = []
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.vo_header)
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
         token = str(r1.header('X-Rucio-Auth-Token'))
         headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
@@ -410,7 +421,7 @@ class TestImporter(object):
         check_rse(self.new_rse, self.data1['rses'])
         check_protocols(self.new_rse, self.data1['rses'])
 
-        new_rse_id = get_rse_id(rse=self.new_rse)
+        new_rse_id = get_rse_id(rse=self.new_rse, **self.vo)
 
         protocols = get_rse_protocols(self.old_rse_id_1)
         protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port']} for protocol in protocols['protocols']]
@@ -1186,6 +1197,11 @@ class TestImporterSyncModes(object):
 
 
 class TestExporter(object):
+    def setup(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo_header = {'X-Rucio-VO': 'tst'}
+        else:
+            self.vo_header = {}
 
     def setup(self):
         self.db_session = session.get_session()
@@ -1230,6 +1246,7 @@ class TestExporter(object):
         """ EXPORT (REST): Test the export of data."""
         mw = []
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.vo_header)
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
         token = str(r1.header('X-Rucio-Auth-Token'))
         headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
@@ -1246,6 +1263,14 @@ class TestExporter(object):
 
 
 class TestExportImport(object):
+    def setup(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo_header = {'X-Rucio-VO': 'tst'}
+            self.vo = {'vo': 'tst'}
+        else:
+            self.vo_header = {}
+            self.vo = {}
+
     def tearDown(self):
         reset_rses()
 
@@ -1259,11 +1284,12 @@ class TestExportImport(object):
 
         # Setup new RSE, distance, attribute, limits
         new_rse = rse_name_generator()
-        add_rse(new_rse)
+        add_rse(new_rse, **self.vo)
 
         # Get token
         mw = []
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.vo_header)
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
         token = str(r1.header('X-Rucio-Auth-Token'))
         headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}

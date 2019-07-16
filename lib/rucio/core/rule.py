@@ -755,7 +755,13 @@ def list_rules(filters={}, session=None):
     query = session.query(models.ReplicationRule)
     if filters:
         for (key, value) in filters.items():
-            if key == 'created_before':
+            if key in ['account', 'scope']:
+                if '*' in value.internal:
+                    value = value.internal.replace('*', '%')
+                    query = query.filter(getattr(models.ReplicationRule, key).like(value))
+                    continue
+                # else fall through
+            elif key == 'created_before':
                 query = query.filter(models.ReplicationRule.created_at <= str_to_date(value))
                 continue
             elif key == 'created_after':
@@ -1762,11 +1768,15 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
     for dts in datasets:
         logging.info('File %s:%s bad at site %s is completely lost from dataset %s:%s. Will be marked as LOST and detached', scope, name, rse, dts['scope'], dts['name'])
         rucio.core.did.detach_dids(scope=dts['scope'], name=dts['name'], dids=[{'scope': scope, 'name': name}], session=session)
-        add_message('LOST', {'scope': scope.external,
-                             'name': name,
-                             'dataset_name': dts['name'],
-                             'dataset_scope': dts['scope'].external},
-                    session=session)
+
+        message = {'scope': scope.external,
+                   'name': name,
+                   'dataset_name': dts['name'],
+                   'dataset_scope': dts['scope'].external}
+        if scope.vo != 'def':
+            message['vo'] = scope.vo
+
+        add_message('LOST', message, session=session)
 
 
 @transactional_session
@@ -1860,27 +1870,35 @@ def generate_rule_notifications(rule, replicating_locks_before=None, session=Non
 
         # RULE_OK RULE_PROGRESS NOTIFICATIONS:
         if rule.notification == RuleNotification.YES:
-            add_message(event_type='RULE_OK',
-                        payload={'scope': rule.scope.external,
-                                 'name': rule.name,
-                                 'rule_id': rule.id},
-                        session=session)
+            payload = {'scope': rule.scope.external,
+                       'name': rule.name,
+                       'rule_id': rule.id}
+            if rule.scope.vo != 'def':
+                payload['vo'] = rule.scope.vo
+
+            add_message(event_type='RULE_OK', payload=payload, session=session)
+
         elif rule.notification in [RuleNotification.CLOSE, RuleNotification.PROGRESS]:
             try:
                 did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, session=session)
                 if not did['open']:
-                    add_message(event_type='RULE_OK',
-                                payload={'scope': rule.scope.external,
-                                         'name': rule.name,
-                                         'rule_id': rule.id},
-                                session=session)
+                    payload = {'scope': rule.scope.external,
+                               'name': rule.name,
+                               'rule_id': rule.id}
+                    if rule.scope.vo != 'def':
+                        payload['vo'] = rule.scope.vo
+
+                    add_message(event_type='RULE_OK', payload=payload, session=session)
+
                     if rule.notification == RuleNotification.PROGRESS:
-                        add_message(event_type='RULE_PROGRESS',
-                                    payload={'scope': rule.scope.external,
-                                             'name': rule.name,
-                                             'rule_id': rule.id,
-                                             'progress': __progress_class(rule.locks_replicating_cnt, total_locks)},
-                                    session=session)
+                        payload = {'scope': rule.scope.external,
+                                   'name': rule.name,
+                                   'rule_id': rule.id,
+                                   'progress': __progress_class(rule.locks_replicating_cnt, total_locks)}
+                        if rule.scope.vo != 'def':
+                            payload['vo'] = rule.scop.vo
+
+                        add_message(event_type='RULE_PROGRESS', payload=payload, session=session)
 
             except DataIdentifierNotFound:
                 pass
@@ -1891,13 +1909,16 @@ def generate_rule_notifications(rule, replicating_locks_before=None, session=Non
             if rule.notification == RuleNotification.YES:
                 dataset_locks = session.query(models.DatasetLock).filter_by(rule_id=rule.id).all()
                 for dataset_lock in dataset_locks:
-                    add_message(event_type='DATASETLOCK_OK',
-                                payload={'scope': dataset_lock.scope.external,
-                                         'name': dataset_lock.name,
-                                         'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
-                                         'rse_id': dataset_lock.rse_id,
-                                         'rule_id': rule.id},
-                                session=session)
+                    payload = {'scope': dataset_lock.scope.external,
+                               'name': dataset_lock.name,
+                               'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
+                               'rse_id': dataset_lock.rse_id,
+                               'rule_id': rule.id}
+                    if dataset_lock.scope.vo != 'def':
+                        payload['vo'] = dataset_lock.scope.vo
+
+                    add_message(event_type='DATASETLOCK_OK', payload=payload, session=session)
+
             elif rule.notification == RuleNotification.CLOSE:
                 dataset_locks = session.query(models.DatasetLock).filter_by(rule_id=rule.id).all()
                 for dataset_lock in dataset_locks:
@@ -1907,13 +1928,16 @@ def generate_rule_notifications(rule, replicating_locks_before=None, session=Non
                             if did['length'] is None:
                                 return
                             if did['length'] * rule.copies == rule.locks_ok_cnt:
-                                add_message(event_type='DATASETLOCK_OK',
-                                            payload={'scope': dataset_lock.scope.external,
-                                                     'name': dataset_lock.name,
-                                                     'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
-                                                     'rse_id': dataset_lock.rse_id,
-                                                     'rule_id': rule.id},
-                                            session=session)
+                                payload = {'scope': dataset_lock.scope.external,
+                                           'name': dataset_lock.name,
+                                           'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
+                                           'rse_id': dataset_lock.rse_id,
+                                           'rule_id': rule.id}
+                                if dataset_lock.scope.vo != 'def':
+                                    payload['vo'] = dataset_lock.scope.vo
+
+                                add_message(event_type='DATASETLOCK_OK', payload=payload, session=session)
+
                     except DataIdentifierNotFound:
                         pass
 
@@ -1923,12 +1947,15 @@ def generate_rule_notifications(rule, replicating_locks_before=None, session=Non
             try:
                 did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, session=session)
                 if not did['open']:
-                    add_message(event_type='RULE_PROGRESS',
-                                payload={'scope': rule.scope.external,
-                                         'name': rule.name,
-                                         'rule_id': rule.id,
-                                         'progress': __progress_class(rule.locks_replicating_cnt, total_locks)},
-                                session=session)
+                    payload = {'scope': rule.scope.external,
+                               'name': rule.name,
+                               'rule_id': rule.id,
+                               'progress': __progress_class(rule.locks_replicating_cnt, total_locks)}
+                    if rule.scope.vo != 'def':
+                        payload['vo'] = rule.scope.vo
+
+                    add_message(event_type='RULE_PROGRESS', payload=payload, session=session)
+
             except DataIdentifierNotFound:
                 pass
 
@@ -3076,7 +3103,7 @@ def archive_localgroupdisk_datasets(scope, name, session=None):
 
     rses_to_rebalance = []
 
-    archive = InternalScope('archive')
+    archive = InternalScope('archive', vo=scope.vo)
     # Check if the archival dataset already exists
     try:
         rucio.core.did.get_did(scope=archive, name=name, session=session)

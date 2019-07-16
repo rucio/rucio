@@ -42,7 +42,7 @@ from rucio.core.did import get_metadata
 from rucio.core.replica import (get_bad_pfns, get_pfn_to_rse, declare_bad_file_replicas,
                                 get_did_from_pfns, update_replicas_states, bulk_add_bad_replicas,
                                 bulk_delete_bad_pfns, get_replicas_state)
-from rucio.core.rse import get_rse_name
+from rucio.core.rse import get_rse_name, get_rse_vo
 
 from rucio.core import heartbeat
 
@@ -145,7 +145,9 @@ def minos(bulk=1000, once=False, sleep_time=60):
                         bulk_delete_bad_pfns(pfns=unknown_replicas, session=None)
 
                     for rse_id in dict_rse:
-                        logging.debug(prepend_str + 'Running on RSE %s with %s replicas' % (get_rse_name(rse_id=rse_id), len(dict_rse[rse_id])))
+                        vo = get_rse_vo(rse_id=rse_id)
+                        vo_str = '' if vo == 'def' else ' on VO ' + vo
+                        logging.debug(prepend_str + 'Running on RSE %s%s with %s replicas' % (get_rse_name(rse_id=rse_id), vo_str, len(dict_rse[rse_id])))
                         nchunk = 0
                         tot_chunk = int(math.ceil(len(dict_rse[rse_id]) / chunk_size))
                         for chunk in chunks(dict_rse[rse_id], chunk_size):
@@ -191,7 +193,9 @@ def minos(bulk=1000, once=False, sleep_time=60):
                 for rse_id in dict_rse:
                     replicas = []
                     rse = get_rse_name(rse_id=rse_id, session=None)
-                    logging.debug(prepend_str + 'Running on RSE %s' % rse)
+                    vo = get_rse_vo(rse_id=rse_id)
+                    rse_vo_str = rse if vo == 'def' else '{} on {}'.format(rse, vo)
+                    logging.debug(prepend_str + 'Running on RSE %s' % rse_vo_str)
                     for rep in get_did_from_pfns(pfns=dict_rse[rse_id], rse_id=None, session=None):
                         for pfn in rep:
                             scope = rep[pfn]['scope']
@@ -201,7 +205,7 @@ def minos(bulk=1000, once=False, sleep_time=60):
                     # We update the replicas states to TEMPORARY_UNAVAILABLE
                     # then insert a row in the bad_replicas table. TODO Update the row if it already exists
                     # then delete the corresponding rows into the bad_pfns table
-                    logging.debug(prepend_str + 'Running on %s replicas on RSE %s' % (len(replicas), rse))
+                    logging.debug(prepend_str + 'Running on %s replicas on RSE %s' % (len(replicas), rse_vo_str))
                     nchunk = 0
                     tot_chunk = int(math.ceil(len(replicas) / float(chunk_size)))
                     session = get_session()

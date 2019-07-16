@@ -160,9 +160,10 @@ def list_distances(filter={}, session=None):
 
 
 @read_session
-def export_distances(session=None):
+def export_distances(vo='def', session=None):
     """
     Export distances between all the RSEs using RSE ids.
+    :param vo: The VO to export.
     :param session: The database session to use.
     :returns distance: dictionary of dictionaries with all the distances.
     """
@@ -173,7 +174,9 @@ def export_distances(session=None):
         rse_dest = aliased(RSE)
         query = session.query(Distance, rse_src.id, rse_dest.id)\
                        .join(rse_src, rse_src.id == Distance.src_rse_id)\
-                       .join(rse_dest, rse_dest.id == Distance.dest_rse_id)
+                       .join(rse_dest, rse_dest.id == Distance.dest_rse_id)\
+                       .filter(rse_src.vo == vo)\
+                       .filter(rse_dest == vo)
         for result in query.all():
             distance = result[0]
             src_id = result[1]

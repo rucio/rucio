@@ -29,36 +29,38 @@ def list_scopes():
     return [scope.external for scope in core_scope.list_scopes()]
 
 
-def add_scope(scope, account, issuer):
+def add_scope(scope, account, issuer, vo='def'):
     """
     Creates a scope for an account.
 
     :param account: The account name.
     :param scope: The scope identifier.
     :param issuer: The issuer account.
+    :param vo: The VO to act on.
     """
 
     validate_schema(name='scope', obj=scope)
 
     kwargs = {'scope': scope, 'account': account}
-    if not rucio.api.permission.has_permission(issuer=issuer, action='add_scope', kwargs=kwargs):
+    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='add_scope', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add scope' % (issuer))
 
-    scope = InternalScope(scope)
-    account = InternalAccount(account)
+    scope = InternalScope(scope, vo=vo)
+    account = InternalAccount(account, vo=vo)
 
     core_scope.add_scope(scope, account)
 
 
-def get_scopes(account):
+def get_scopes(account, vo='def'):
     """
     Gets a list of all scopes for an account.
 
     :param account: The account name.
+    :param vo: The VO to act on.
 
     :returns: A list containing the names of all scopes for this account.
     """
 
-    account = InternalAccount(account)
+    account = InternalAccount(account, vo=vo)
 
     return [scope.external for scope in core_scope.get_scopes(account)]

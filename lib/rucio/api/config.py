@@ -8,6 +8,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -23,81 +24,86 @@ ConfigParser compatible interface.
 """
 
 
-def sections(issuer=None):
+def sections(issuer=None, vo='def'):
     """
     Return a list of the sections available.
 
     :param issuer: The issuer account.
+    :param vo: The VO to act on.
     :returns: ['section_name', ...]
     """
 
     kwargs = {'issuer': issuer}
-    if not permission.has_permission(issuer=issuer, action='config_sections', kwargs=kwargs):
+    if not permission.has_permission(issuer=issuer, vo=vo, action='config_sections', kwargs=kwargs):
         raise exception.AccessDenied('%s cannot retrieve sections' % issuer)
     return config.sections()
 
 
-def add_section(section, issuer=None):
+def add_section(section, issuer=None, vo='def'):
     """
     Add a section to the configuration.
 
     :param section: The name of the section.
     :param issuer: The issuer account.
+    :param vo: The VO to act on.
     """
 
     kwargs = {'issuer': issuer, 'section': section}
-    if not permission.has_permission(issuer=issuer, action='config_add_section', kwargs=kwargs):
+    if not permission.has_permission(issuer=issuer, vo=vo, action='config_add_section', kwargs=kwargs):
         raise exception.AccessDenied('%s cannot add section %s' % (issuer, section))
     return config.add_section(section)
 
 
-def has_section(section, issuer=None):
+def has_section(section, issuer=None, vo='def'):
     """
     Indicates whether the named section is present in the configuration.
 
     :param section: The name of the section.
     :param issuer: The issuer account.
+    :param vo: The VO to act on.
     :returns: True/False
     """
 
     kwargs = {'issuer': issuer, 'section': section}
-    if not permission.has_permission(issuer=issuer, action='config_has_section', kwargs=kwargs):
+    if not permission.has_permission(issuer=issuer, vo=vo, action='config_has_section', kwargs=kwargs):
         raise exception.AccessDenied('%s cannot check existence of section %s' % (issuer, section))
     return config.has_section(section)
 
 
-def options(section, issuer=None):
+def options(section, issuer=None, vo='def'):
     """
     Returns a list of options available in the specified section.
 
     :param section: The name of the section.
     :param issuer: The issuer account.
+    :param vo: The VO to act on.
     :returns: ['option', ...]
     """
 
     kwargs = {'issuer': issuer, 'section': section}
-    if not permission.has_permission(issuer=issuer, action='config_options', kwargs=kwargs):
+    if not permission.has_permission(issuer=issuer, vo=vo, action='config_options', kwargs=kwargs):
         raise exception.AccessDenied('%s cannot retrieve options from section %s' % (issuer, section))
     return config.options(section)
 
 
-def has_option(section, option, issuer=None):
+def has_option(section, option, issuer=None, vo='def'):
     """
     Check if the given section exists and contains the given option.
 
     :param section: The name of the section.
     :param option: The name of the option.
     :param issuer: The issuer account.
+    :param vo: The VO to act on.
     :returns: True/False
     """
 
     kwargs = {'issuer': issuer, 'section': section, 'option': option}
-    if not permission.has_permission(issuer=issuer, action='config_has_option', kwargs=kwargs):
+    if not permission.has_permission(issuer=issuer, vo=vo, action='config_has_option', kwargs=kwargs):
         raise exception.AccessDenied('%s cannot check existence of option %s from section %s' % (issuer, option, section))
     return config.has_option(section, option)
 
 
-def get(section, option, issuer=None):
+def get(section, option, issuer=None, vo='def'):
     """
     Get an option value for the named section. Value can be auto-coerced to int, float, and bool; string otherwise.
 
@@ -107,32 +113,34 @@ def get(section, option, issuer=None):
     :param section: The name of the section.
     :param option: The name of the option.
     :param issuer: The issuer account.
+    :param vo: The VO to act on.
     :returns: The auto-coerced value.
     """
 
     kwargs = {'issuer': issuer, 'section': section, 'option': option}
-    if not permission.has_permission(issuer=issuer, action='config_get', kwargs=kwargs):
+    if not permission.has_permission(issuer=issuer, vo=vo, action='config_get', kwargs=kwargs):
         raise exception.AccessDenied('%s cannot retrieve option %s from section %s' % (issuer, option, section))
     return config.get(section, option)
 
 
-def items(section, issuer=None):
+def items(section, issuer=None, vo='def'):
     """
     Return a list of (option, value) pairs for each option in the given section. Values are auto-coerced as in get().
 
     :param section: The name of the section.
     :param value: The content of the value.
     :param issuer: The issuer account.
+    :param vo: The VO to act on.
     :returns: [('option', auto-coerced value), ...]
     """
 
     kwargs = {'issuer': issuer, 'section': section}
-    if not permission.has_permission(issuer=issuer, action='config_items', kwargs=kwargs):
+    if not permission.has_permission(issuer=issuer, vo=vo, action='config_items', kwargs=kwargs):
         raise exception.AccessDenied('%s cannot retrieve options and values from section %s' % (issuer, section))
     return config.items(section)
 
 
-def set(section, option, value, issuer=None):
+def set(section, option, value, issuer=None, vo='def'):
     """
     Set the given option to the specified value.
 
@@ -140,40 +148,43 @@ def set(section, option, value, issuer=None):
     :param option: The name of the option.
     :param value: The content of the value.
     :param issuer: The issuer account.
+    :param vo: The VO to act on.
     """
 
     kwargs = {'issuer': issuer, 'section': section, 'option': option, 'value': value}
-    if not permission.has_permission(issuer=issuer, action='config_set', kwargs=kwargs):
+    if not permission.has_permission(issuer=issuer, vo=vo, action='config_set', kwargs=kwargs):
         raise exception.AccessDenied('%s cannot set option %s to %s in section %s' % (issuer, option, value, section))
     return config.set(section, option, value)
 
 
-def remove_section(section, issuer=None):
+def remove_section(section, issuer=None, vo='def'):
     """
     Remove the specified option from the specified section.
 
     :param section: The name of the section.
     :param issuer: The issuer account.
+    :param vo: The VO to act on.
     :returns: True/False.
     """
 
     kwargs = {'issuer': issuer, 'section': section}
-    if not permission.has_permission(issuer=issuer, action='config_remove_section', kwargs=kwargs):
+    if not permission.has_permission(issuer=issuer, vo=vo, action='config_remove_section', kwargs=kwargs):
         raise exception.AccessDenied('%s cannot remove section %s' % (issuer, section))
     return config.remove_section(section)
 
 
-def remove_option(section, option, issuer=None):
+def remove_option(section, option, issuer=None, vo='def'):
     """
     Remove the specified section from the configuration.
 
     :param section: The name of the section.
     :param option: The name of the option.
     :param issuer: The issuer account.
+    :param vo: The VO to act on.
     :returns: True/False
     """
 
     kwargs = {'issuer': issuer, 'section': section, 'option': option}
-    if not permission.has_permission(issuer=issuer, action='config_remove_option', kwargs=kwargs):
+    if not permission.has_permission(issuer=issuer, vo=vo, action='config_remove_option', kwargs=kwargs):
         raise exception.AccessDenied('%s cannot remove option %s from section %s' % (issuer, option, section))
     return config.remove_option(section, option)

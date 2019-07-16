@@ -91,12 +91,11 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
             random.shuffle(rses)
             for rse_id in rses:
                 rse = rse_core.get_rse_name(rse_id=rse_id)
-                rse_info = rsemgr.get_rse_info(rse)
                 replicas = list_quarantined_replicas(rse_id=rse_id,
                                                      limit=chunk_size, worker_number=worker_number,
                                                      total_workers=total_workers)
 
-                rse_protocol = rse_core.get_rse_protocols(rse_id=rse_id)
+                rse_info = rsemgr.get_rse_info(rse_id=rse_id)
                 prot = rsemgr.create_protocol(rse_info, 'delete', scheme=scheme)
                 deleted_replicas = []
                 try:

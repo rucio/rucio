@@ -70,12 +70,14 @@ class SignURL(RucioController):
             406 Not Acceptable
             500 Internal Server Error
 
+        :param Rucio-VO: VO name as a string (Multi-VO only).
         :param Rucio-Account: Account identifier as a string.
         :param Rucio-AppID: Application identifier as a string.
 
         :returns: Signed URL.
         """
 
+        vo = ctx.env.get('HTTP_X_RUCIO_VO')
         account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
         appid = ctx.env.get('HTTP_X_RUCIO_APPID')
         if appid is None:
@@ -116,7 +118,7 @@ class SignURL(RucioController):
             raise generate_http_error(400, 'ValueError', 'Parameter "op" must be either empty(=read), read, write, or delete.')
 
         try:
-            result = get_signed_url(account, appid, ip, rse=rse, service=service, operation=operation, url=url, lifetime=lifetime)
+            result = get_signed_url(account, appid, ip, rse=rse, service=service, operation=operation, url=url, lifetime=lifetime, vo=vo)
         except RucioException as e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0])
         except Exception as e:

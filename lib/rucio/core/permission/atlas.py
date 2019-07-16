@@ -116,6 +116,7 @@ def has_permission(issuer, action, kwargs):
             'del_identity': perm_del_identity,
             'remove_did_from_followed': perm_remove_did_from_followed,
             'remove_dids_from_followed': perm_remove_dids_from_followed}
+            'add_vo': perm_add_vo}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -1140,3 +1141,14 @@ def perm_remove_dids_from_followed(issuer, kwargs):
     if not kwargs['account'] == issuer:
         return False
     return True
+
+
+def perm_add_vo(issuer, kwargs):
+    """
+    Checks if an account can add a VO.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return (issuer.internal == 'super_root')

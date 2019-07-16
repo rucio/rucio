@@ -380,6 +380,10 @@ IMPORT = {"description": "import data into rucio.",
               }
           }}
 
+VO = {"description": "VO tag",
+      "type": "string",
+      "pattern": "^([a-zA-Z_\\-.0-9]{3})?$"}
+
 SCHEMAS = {'account': ACCOUNT,
            'account_type': ACCOUNT_TYPE,
            'activity': ACTIVITY,
@@ -403,7 +407,8 @@ SCHEMAS = {'account': ACCOUNT,
            'cache_add_replicas': CACHE_ADD_REPLICAS,
            'cache_delete_replicas': CACHE_DELETE_REPLICAS,
            'account_attribute': ACCOUNT_ATTRIBUTE,
-           'import': IMPORT}
+           'import': IMPORT,
+           'vo': VO}
 
 
 def validate_schema(name, obj):

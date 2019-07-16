@@ -475,5 +475,5 @@ def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None):
         else:
             working_rses = [rse for rse in working_rses if rse not in parsed_rses]
 
-    working_rses = [rsemgr.get_rse_info(rse['rse']) for rse in working_rses]
+    working_rses = [rsemgr.get_rse_info(rse['id']) for rse in working_rses]
     return working_rses

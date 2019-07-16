@@ -77,7 +77,7 @@ class Scope(RucioController):
         :params Rucio-Account: account belonging to the new scope.
         """
         try:
-            add_scope(scope, account, issuer=ctx.env.get('issuer'))
+            add_scope(scope, account, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except Duplicate as error:
             raise generate_http_error(409, 'Duplicate', error.args[0])
         except AccountNotFound as error:
@@ -113,7 +113,7 @@ class ScopeList(RucioController):
         """
         header('Content-Type', 'application/json')
         try:
-            scopes = get_scopes(account)
+            scopes = get_scopes(account, vo=ctx.env.get('vo'))
         except AccountNotFound as error:
             raise generate_http_error(404, 'AccountNotFound', error.args[0])
         except Exception as error:

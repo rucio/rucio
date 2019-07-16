@@ -44,8 +44,8 @@ class MgrTestCases():
                     '1_rse_remote_change_scope.raw',
                     '2_rse_remote_change_scope.raw']
 
-    def __init__(self, tmpdir, rse_tag, user, static_file):
-        self.rse_settings = mgr.get_rse_info(rse_tag)
+    def __init__(self, tmpdir, rse_tag, user, static_file, vo='def'):
+        self.rse_settings = mgr.get_rse_info(rse=rse_tag, vo=vo)
         try:
             with open('etc/rse-accounts.cfg') as f:
                 data = json.load(f)

@@ -97,7 +97,7 @@ class Attributes(RucioController):
         """
         header('Content-Type', 'application/json')
         try:
-            attribs = list_account_attributes(account)
+            attribs = list_account_attributes(account, vo=ctx.env.get('vo'))
         except AccountNotFound as error:
             raise generate_http_error(404, 'AccountNotFound', error.args[0])
         except RucioException as error:
@@ -137,7 +137,7 @@ class Attributes(RucioController):
             raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            add_account_attribute(key=key, value=value, account=account, issuer=ctx.env.get('issuer'))
+            add_account_attribute(key=key, value=value, account=account, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except Duplicate as error:
@@ -165,7 +165,7 @@ class Attributes(RucioController):
         :param Rucio-Auth-Token: as an 32 character hex string.
         """
         try:
-            del_account_attribute(account=account, key=key, issuer=ctx.env.get('issuer'))
+            del_account_attribute(account=account, key=key, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except AccountNotFound as error:
@@ -197,7 +197,7 @@ class Scopes(RucioController):
         """
         header('Content-Type', 'application/json')
         try:
-            scopes = get_scopes(account)
+            scopes = get_scopes(account, vo=ctx.env.get('vo'))
         except AccountNotFound as error:
             raise generate_http_error(404, 'AccountNotFound', error.args[0])
         except RucioException as error:
@@ -229,7 +229,7 @@ class Scopes(RucioController):
         :params Rucio-Account: account belonging to the new scope.
         """
         try:
-            add_scope(scope, account, issuer=ctx.env.get('issuer'))
+            add_scope(scope, account, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except Duplicate as error:
@@ -276,7 +276,7 @@ class AccountParameter(RucioController):
 
         acc = None
         try:
-            acc = get_account_info(account)
+            acc = get_account_info(account, vo=ctx.env.get('vo'))
         except AccountNotFound as error:
             raise generate_http_error(404, 'AccountNotFound', error.args[0])
         except AccessDenied as error:
@@ -315,7 +315,7 @@ class AccountParameter(RucioController):
             raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
         for key, value in parameter.items():
             try:
-                update_account(account, key=key, value=value, issuer=ctx.env.get('issuer'))
+                update_account(account, key=key, value=value, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
             except ValueError:
                 raise generate_http_error(400, 'ValueError', 'Unknown value %s' % value)
             except AccessDenied as error:
@@ -366,7 +366,7 @@ class AccountParameter(RucioController):
             raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            add_account(account, type, email, issuer=ctx.env.get('issuer'))
+            add_account(account, type, email, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except Duplicate as error:
             raise generate_http_error(409, 'Duplicate', error.args[0])
         except AccessDenied as error:
@@ -395,7 +395,7 @@ class AccountParameter(RucioController):
         """
 
         try:
-            del_account(account, issuer=ctx.env.get('issuer'))
+            del_account(account, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except AccountNotFound as error:
@@ -429,7 +429,7 @@ class Account(RucioController):
         if ctx.query:
             filter = dict(parse_qsl(ctx.query[1:]))
 
-        for account in list_accounts(filter=filter):
+        for account in list_accounts(filter=filter, vo=ctx.env.get('vo')):
             yield render_json(**account) + "\n"
 
 
@@ -458,9 +458,9 @@ class LocalAccountLimits(RucioController):
         header('Content-Type', 'application/json')
         try:
             if rse:
-                limits = get_local_account_limit(account=account, rse=rse)
+                limits = get_local_account_limit(account=account, rse=rse, vo=ctx.env.get('vo'))
             else:
-                limits = get_local_account_limits(account=account)
+                limits = get_local_account_limits(account=account, vo=ctx.env.get('vo'))
         except RSENotFound as error:
             raise generate_http_error(404, 'RSENotFound', error.args[0])
 
@@ -503,9 +503,9 @@ class GlobalAccountLimits(RucioController):
         header('Content-Type', 'application/json')
         try:
             if rse_expression:
-                limits = get_global_account_limit(account=account, rse_expression=rse_expression)
+                limits = get_global_account_limit(account=account, rse_expression=rse_expression, vo=ctx.env.get('vo'))
             else:
-                limits = get_global_account_limits(account=account)
+                limits = get_global_account_limits(account=account, vo=ctx.env.get('vo'))
         except RSENotFound as error:
             raise generate_http_error(404, 'RSENotFound', error.args[0])
 
@@ -555,7 +555,7 @@ class Identities(RucioController):
             raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            add_account_identity(identity_key=identity, id_type=authtype, account=account, email=email, password=password, issuer=ctx.env.get('issuer'))
+            add_account_identity(identity_key=identity, id_type=authtype, account=account, email=email, password=password, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except Duplicate as error:
@@ -574,7 +574,7 @@ class Identities(RucioController):
     def GET(self, account):
         header('Content-Type', 'application/x-json-stream')
         try:
-            for identity in list_identities(account):
+            for identity in list_identities(account, vo=ctx.env.get('vo')):
                 yield render_json(**identity) + "\n"
         except AccountNotFound as error:
             raise generate_http_error(404, 'AccountNotFound', error.args[0])
@@ -614,7 +614,7 @@ class Identities(RucioController):
         except TypeError:
             raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
         try:
-            del_account_identity(identity, authtype, account, ctx.env.get('issuer'))
+            del_account_identity(identity, authtype, account, ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except AccountNotFound as error:
@@ -652,7 +652,7 @@ class Rules(RucioController):
             filters.update(params)
 
         try:
-            for rule in list_replication_rules(filters=filters):
+            for rule in list_replication_rules(filters=filters, vo=ctx.env.get('vo')):
                 yield dumps(rule, cls=APIEncoder) + '\n'
         except RuleNotFound as error:
             raise generate_http_error(404, 'RuleNotFound', error.args[0])
@@ -691,7 +691,7 @@ class UsageHistory(RucioController):
         """
         header('Content-Type', 'application/json')
         try:
-            usage = get_usage_history(account=account, rse=rse, issuer=ctx.env.get('issuer'))
+            usage = get_usage_history(account=account, rse=rse, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except AccountNotFound as error:
             raise generate_http_error(404, 'AccountNotFound', error.args[0])
         except CounterNotFound as error:
@@ -729,7 +729,7 @@ class LocalUsage(RucioController):
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            for usage in get_local_account_usage(account=account, rse=rse, issuer=ctx.env.get('issuer')):
+            for usage in get_local_account_usage(account=account, rse=rse, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo')):
                 yield dumps(usage, cls=APIEncoder) + '\n'
         except AccountNotFound as error:
             raise generate_http_error(404, 'AccountNotFound', error.args[0])
@@ -771,7 +771,7 @@ class GlobalUsage(RucioController):
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            for usage in get_global_account_usage(account=account, rse_expression=rse_expression, issuer=ctx.env.get('issuer')):
+            for usage in get_global_account_usage(account=account, rse_expression=rse_expression, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo')):
                 yield dumps(usage, cls=APIEncoder) + '\n'
         except AccountNotFound as error:
             raise generate_http_error(404, 'AccountNotFound', error.args[0])

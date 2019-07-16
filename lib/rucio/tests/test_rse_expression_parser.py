@@ -15,6 +15,7 @@ from string import ascii_uppercase, digits, ascii_lowercase
 
 from nose.tools import assert_equal, raises, assert_raises
 
+from rucio.common.config import config_get_bool
 from rucio.core import rse
 from rucio.core import rse_expression_parser
 from rucio.client.rseclient import RSEClient
@@ -36,17 +37,22 @@ def attribute_name_generator(size=10):
 class TestRSEExpressionParserCore(object):
 
     def __init__(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': 'tst'}
+        else:
+            self.vo = {}
+
         self.rse1 = rse_name_generator()
         self.rse2 = rse_name_generator()
         self.rse3 = rse_name_generator()
         self.rse4 = rse_name_generator()
         self.rse5 = rse_name_generator()
 
-        self.rse1_id = rse.add_rse(self.rse1)
-        self.rse2_id = rse.add_rse(self.rse2)
-        self.rse3_id = rse.add_rse(self.rse3)
-        self.rse4_id = rse.add_rse(self.rse4)
-        self.rse5_id = rse.add_rse(self.rse5)
+        self.rse1_id = rse.add_rse(self.rse1, **self.vo)
+        self.rse2_id = rse.add_rse(self.rse2, **self.vo)
+        self.rse3_id = rse.add_rse(self.rse3, **self.vo)
+        self.rse4_id = rse.add_rse(self.rse4, **self.vo)
+        self.rse5_id = rse.add_rse(self.rse5, **self.vo)
 
         # Add Attributes
         self.attribute = attribute_name_generator()
@@ -141,14 +147,13 @@ class TestRSEExpressionParserCore(object):
         """ RSE_EXPRESSION_PARSER (CORE) Test some complicated expression 3"""
         assert_equal(sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("(*)&%s=at" % self.attribute)]), sorted([self.rse1_id]))
 
-    @staticmethod
-    def test_list_on_availability():
+    def test_list_on_availability(self):
         """ RSE_EXPRESSION_PARSER (CORE) List rses based on availability filter"""
         rsewrite_name = rse_name_generator()
         rsenowrite_name = rse_name_generator()
 
-        rsewrite_id = rse.add_rse(rsewrite_name)
-        rsenowrite_id = rse.add_rse(rsenowrite_name)
+        rsewrite_id = rse.add_rse(rsewrite_name, **self.vo)
+        rsenowrite_id = rse.add_rse(rsenowrite_name, **self.vo)
 
         attribute = attribute_name_generator()
 
@@ -179,17 +184,22 @@ class TestRSEExpressionParserCore(object):
 class TestRSEExpressionParserClient(object):
 
     def __init__(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': 'tst'}
+        else:
+            self.vo = {}
+
         self.rse1 = rse_name_generator()
         self.rse2 = rse_name_generator()
         self.rse3 = rse_name_generator()
         self.rse4 = rse_name_generator()
         self.rse5 = rse_name_generator()
 
-        self.rse1_id = rse.add_rse(self.rse1)
-        self.rse2_id = rse.add_rse(self.rse2)
-        self.rse3_id = rse.add_rse(self.rse3)
-        self.rse4_id = rse.add_rse(self.rse4)
-        self.rse5_id = rse.add_rse(self.rse5)
+        self.rse1_id = rse.add_rse(self.rse1, **self.vo)
+        self.rse2_id = rse.add_rse(self.rse2, **self.vo)
+        self.rse3_id = rse.add_rse(self.rse3, **self.vo)
+        self.rse4_id = rse.add_rse(self.rse4, **self.vo)
+        self.rse5_id = rse.add_rse(self.rse5, **self.vo)
 
         # Add Attributes
         self.attribute = attribute_name_generator()

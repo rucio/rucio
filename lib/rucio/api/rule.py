@@ -24,7 +24,7 @@ from rucio.core import rule
 
 def add_replication_rule(dids, copies, rse_expression, weight, lifetime, grouping, account, locked, subscription_id, source_replica_expression,
                          activity, notify, purge_replicas, ignore_availability, comment, ask_approval, asynchronous, priority, split_container,
-                         meta, issuer):
+                         meta, issuer, vo='def'):
     """
     Adds a replication rule.
 
@@ -51,6 +51,7 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
     :param split_container:            Should a container rule be split into individual dataset rules.
     :param meta:                       WFMS metadata as a dictionary.
     :param issuer:                     The issuing account of this operation.
+    :param vo:                         The VO to act on.
     :returns:                          List of created replication rules.
     """
     if account is None:
@@ -68,12 +69,23 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
 
     validate_schema(name='rule', obj=kwargs)
 
-    if not has_permission(issuer=issuer, action='add_rule', kwargs=kwargs):
+    if not has_permission(issuer=issuer, vo=vo, action='add_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not add replication rule' % (issuer))
 
-    account = InternalAccount(account)
+    account = InternalAccount(account, vo=vo)
     for d in dids:
-        d['scope'] = InternalScope(d['scope'])
+        d['scope'] = InternalScope(d['scope'], vo=vo)
+
+    if vo != 'def':
+        if rse_expression is not None:
+            rse_expression = 'vo={}&({})'.format(vo, rse_expression)
+        else:
+            rse_expression = 'vo={}'.format(vo)
+
+        if source_replica_expression is not None:
+            source_replica_expression = 'vo={}&({})'.format(vo, source_replica_expression)
+        else:
+            source_replica_expression = 'vo={}'.format(vo)
 
     return rule.add_rule(account=account,
                          dids=dids,
@@ -107,16 +119,24 @@ def get_replication_rule(rule_id, estimate_ttc=None):
     return api_update_return_dict(result)
 
 
-def list_replication_rules(filters={}):
+def list_replication_rules(filters={}, vo='def'):
     """
     Lists replication rules based on a filter.
 
     :param filters: dictionary of attributes by which the results should be filtered.
+    :param vo: The VO to act on.
     """
     if 'scope' in filters:
-        filters['scope'] = InternalScope(filters['scope'])
+        scope = filters['scope']
+    else:
+        scope = '*'
+    filters['scope'] = InternalScope(scope=scope, vo=vo)
+
     if 'account' in filters:
-        filters['account'] = InternalAccount(filters['account'])
+        account = filters['account']
+    else:
+        account = '*'
+    filters['account'] = InternalAccount(account=account, vo=vo)
 
     rules = rule.list_rules(filters)
     for r in rules:
@@ -132,72 +152,77 @@ def list_replication_rule_history(rule_id):
     return rule.list_rule_history(rule_id)
 
 
-def list_replication_rule_full_history(scope, name):
+def list_replication_rule_full_history(scope, name, vo='def'):
     """
     List the rule history of a DID.
 
     :param scope: The scope of the DID.
     :param name: The name of the DID.
+    :param vo: The VO to act on.
     """
-    scope = InternalScope(scope)
+    scope = InternalScope(scope, vo=vo)
     rules = rule.list_rule_full_history(scope, name)
     for r in rules:
         yield api_update_return_dict(r)
 
 
-def list_associated_replication_rules_for_file(scope, name):
+def list_associated_replication_rules_for_file(scope, name, vo='def'):
     """
     Lists associated replication rules by file.
 
     :param scope: Scope of the file..
     :param name:  Name of the file.
+    :param vo: The VO to act on.
     """
-    scope = InternalScope(scope)
+    scope = InternalScope(scope, vo=vo)
     rules = rule.list_associated_rules_for_file(scope=scope, name=name)
     for r in rules:
         yield api_update_return_dict(r)
 
 
-def delete_replication_rule(rule_id, purge_replicas, issuer):
+def delete_replication_rule(rule_id, purge_replicas, issuer, vo='def'):
     """
     Deletes a replication rule and all associated locks.
 
-    :param rule_id:  The id of the rule to be deleted
-    :param issuer:   The issuing account of this operation
-    :raises:         RuleNotFound, AccessDenied
+    :param rule_id:        The id of the rule to be deleted
+    :param purge_replicas: Purge the replicas immediately
+    :param issuer:         The issuing account of this operation
+    :param vo:             The VO to act on.
+    :raises:               RuleNotFound, AccessDenied
     """
     kwargs = {'rule_id': rule_id, 'purge_replicas': purge_replicas}
-    if not has_permission(issuer=issuer, action='del_rule', kwargs=kwargs):
+    if not has_permission(issuer=issuer, vo=vo, action='del_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not remove this replication rule.' % (issuer))
     rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, soft=True)
 
 
-def update_replication_rule(rule_id, options, issuer):
+def update_replication_rule(rule_id, options, issuer, vo='def'):
     """
     Update lock state of a replication rule.
 
     :param rule_id:     The rule_id to lock.
     :param options:     Options dictionary.
     :param issuer:      The issuing account of this operation
+    :param vo:          The VO to act on.
     :raises:            RuleNotFound if no Rule can be found.
     """
     kwargs = {'rule_id': rule_id, 'options': options}
     if 'approve' in options:
-        if not has_permission(issuer=issuer, action='approve_rule', kwargs=kwargs):
+        if not has_permission(issuer=issuer, vo=vo, action='approve_rule', kwargs=kwargs):
             raise AccessDenied('Account %s can not approve/deny this replication rule.' % (issuer))
 
-        issuer = InternalAccount(issuer)
+        issuer = InternalAccount(issuer, vo=vo)
         if options['approve']:
             rule.approve_rule(rule_id=rule_id, approver=issuer)
         else:
             rule.deny_rule(rule_id=rule_id, approver=issuer, reason=options.get('comment', None))
     else:
-        if not has_permission(issuer=issuer, action='update_rule', kwargs=kwargs):
+        if not has_permission(issuer=issuer, vo=vo, action='update_rule', kwargs=kwargs):
             raise AccessDenied('Account %s can not update this replication rule.' % (issuer))
         rule.update_rule(rule_id=rule_id, options=options)
 
 
-def reduce_replication_rule(rule_id, copies, exclude_expression, issuer):
+def reduce_replication_rule(rule_id, copies, exclude_expression, issuer, vo='def'):
     """
     Reduce the number of copies for a rule by atomically replacing the rule.
 
@@ -205,11 +230,19 @@ def reduce_replication_rule(rule_id, copies, exclude_expression, issuer):
     :param copies:              Number of copies of the new rule.
     :param exclude_expression:  RSE Expression of RSEs to exclude.
     :param issuer:              The issuing account of this operation
+    :param vo:                  The VO to act on.
     :raises:                    RuleReplaceFailed, RuleNotFound
     """
     kwargs = {'rule_id': rule_id, 'copies': copies, 'exclude_expression': exclude_expression}
-    if not has_permission(issuer=issuer, action='reduce_rule', kwargs=kwargs):
+    if not has_permission(issuer=issuer, vo=vo, action='reduce_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not reduce this replication rule.' % (issuer))
+
+    if vo != 'def':
+        if exclude_expression is not None:
+            exclude_expression = 'vo={}&({})'.format(vo, exclude_expression)
+        else:
+            exclude_expression = 'vo={}'.format(vo)
+
     return rule.reduce_rule(rule_id=rule_id, copies=copies, exclude_expression=exclude_expression)
 
 
@@ -226,16 +259,24 @@ def examine_replication_rule(rule_id):
     return result
 
 
-def move_replication_rule(rule_id, rse_expression, issuer):
+def move_replication_rule(rule_id, rse_expression, issuer, vo='def'):
     """
     Move a replication rule to another RSE and, once done, delete the original one.
 
     :param rule_id:             Rule to be moved.
     :param rse_expression:      RSE expression of the new rule.
     :param session:             The DB Session.
+    :param vo:                  The VO to act on.
     :raises:                    RuleNotFound, RuleReplaceFailed
     """
     kwargs = {'rule_id': rule_id, 'rse_expression': rse_expression}
-    if not has_permission(issuer=issuer, action='move_rule', kwargs=kwargs):
+    if not has_permission(issuer=issuer, vo=vo, action='move_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not move this replication rule.' % (issuer))
+
+    if vo != 'def':
+        if rse_expression is not None:
+            rse_expression = 'vo={}&({})'.format(vo, rse_expression)
+        else:
+            rse_expression = 'vo={}'.format(vo)
+
     return rule.move_rule(rule_id=rule_id, rse_expression=rse_expression)

@@ -18,6 +18,7 @@ Test the Identity abstraction layer
 from nose.tools import assert_equal
 from paste.fixture import TestApp
 
+from rucio.common.config import config_get_bool
 from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account, del_account
@@ -35,7 +36,12 @@ class TestIdentity(object):
 
     def setup(self):
         """ Setup the Test Case """
-        self.account = InternalAccount(account_name_generator())
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': 'tst'}
+        else:
+            self.vo = {}
+
+        self.account = InternalAccount(account_name_generator(), **self.vo)
         add_account(self.account, AccountType.USER, 'rucio@email.com')
 
     def tearDown(self):
@@ -77,9 +83,15 @@ class TestIdentity(object):
 class TestIdentityRest(object):
     def test_userpass(self):
         """ ACCOUNT (REST): send a POST to add an identity to an account."""
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            vo_header = {'X-Rucio-VO': 'tst'}
+        else:
+            vo_header = {}
+
         mw = []
         account = 'root'
         headers1 = {'X-Rucio-Account': account, 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(vo_header)
         res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
         assert_equal(res1.status, 200)
         token = str(res1.header('X-Rucio-Auth-Token'))

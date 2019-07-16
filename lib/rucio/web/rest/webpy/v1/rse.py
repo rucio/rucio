@@ -93,7 +93,7 @@ class RSEs(RucioController):
         params = input()
         if 'expression' in params:
             try:
-                for rse in parse_rse_expression(params['expression']):
+                for rse in parse_rse_expression(params['expression'], vo=ctx.env.get('vo')):
                     item = {'rse': rse}
                     yield render_json(**item) + '\n'
             except InvalidRSEExpression as error:
@@ -103,7 +103,7 @@ class RSEs(RucioController):
             except RucioException as error:
                 raise generate_http_error(500, error.__class__.__name__, error.args[0])
         else:
-            for rse in list_rses():
+            for rse in list_rses(vo=ctx.env.get('vo')):
                 yield render_json(**rse) + '\n'
 
 
@@ -140,6 +140,7 @@ class RSE(RucioController):
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
         kwargs['issuer'] = ctx.env.get('issuer')
+        kwargs['vo'] = ctx.env.get('vo')
         try:
             add_rse(rse, **kwargs)
         except InvalidObject as error:
@@ -182,6 +183,7 @@ class RSE(RucioController):
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
         kwargs['issuer'] = ctx.env.get('issuer')
+        kwargs['vo'] = ctx.env.get('vo')
         try:
             update_rse(rse, **kwargs)
         except InvalidObject as error:
@@ -218,7 +220,7 @@ class RSE(RucioController):
         """
         header('Content-Type', 'application/json')
         try:
-            rse_prop = get_rse(rse=rse)
+            rse_prop = get_rse(rse=rse, vo=ctx.env.get('vo'))
             return render_json(**rse_prop)
         except RSENotFound as error:
             raise generate_http_error(404, 'RSENotFound', error.args[0])
@@ -239,7 +241,7 @@ class RSE(RucioController):
         :param rse: RSE name.
         """
         try:
-            del_rse(rse=rse, issuer=ctx.env.get('issuer'))
+            del_rse(rse=rse, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except RSENotFound as error:
             raise generate_http_error(404, 'RSENotFound', error.args[0])
         except RSEOperationNotSupported as error:
@@ -282,7 +284,7 @@ class Attributes(RucioController):
             raise generate_http_error(400, 'KeyError', '%s not defined' % str(error))
 
         try:
-            add_rse_attribute(rse=rse, key=key, value=value, issuer=ctx.env.get('issuer'))
+            add_rse_attribute(rse=rse, key=key, value=value, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except Duplicate as error:
@@ -311,7 +313,7 @@ class Attributes(RucioController):
         """
         header('Content-Type', 'application/json')
         try:
-            rse_attr = list_rse_attributes(rse)
+            rse_attr = list_rse_attributes(rse, vo=ctx.env.get('vo'))
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except RSENotFound as error:
@@ -332,7 +334,7 @@ class Attributes(RucioController):
             500 InternalError
         """
         try:
-            del_rse_attribute(rse=rse, key=key, issuer=ctx.env.get('issuer'))
+            del_rse_attribute(rse=rse, key=key, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except RSENotFound as error:
@@ -365,7 +367,7 @@ class Protocols(RucioController):
         header('Content-Type', 'application/json')
         p_list = None
         try:
-            p_list = get_rse_protocols(rse, issuer=ctx.env.get('issuer'))
+            p_list = get_rse_protocols(rse, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except RSEOperationNotSupported as error:
             raise generate_http_error(404, 'RSEOperationNotSupported', error.args[0])
         except RSENotFound as error:
@@ -437,7 +439,7 @@ class LFNS2PFNS(RucioController):
 
         rse_settings = None
         try:
-            rse_settings = get_rse_protocols(rse, issuer=ctx.env.get('issuer'))
+            rse_settings = get_rse_protocols(rse, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except RSENotFound as error:
             raise generate_http_error(404, 'RSENotFound', error.args[0])
         except RSEProtocolNotSupported as error:
@@ -481,7 +483,7 @@ class Protocol(RucioController):
         parameters['scheme'] = scheme
 
         try:
-            add_protocol(rse, issuer=ctx.env.get('issuer'), data=parameters)
+            add_protocol(rse, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'), data=parameters)
         except RSENotFound as error:
             raise generate_http_error(404, 'RSENotFound', error.args[0])
         except AccessDenied as error:
@@ -519,7 +521,7 @@ class Protocol(RucioController):
         header('Content-Type', 'application/json')
         p_list = None
         try:
-            p_list = get_rse_protocols(rse, issuer=ctx.env.get('issuer'))
+            p_list = get_rse_protocols(rse, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except RSENotFound as error:
             raise generate_http_error(404, 'RSENotFound', error.args[0])
         except RSEProtocolNotSupported as error:
@@ -554,7 +556,7 @@ class Protocol(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
 
         try:
-            update_protocols(rse, issuer=ctx.env.get('issuer'), scheme=scheme, hostname=hostname, port=port, data=parameter)
+            update_protocols(rse, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'), scheme=scheme, hostname=hostname, port=port, data=parameter)
         except InvalidObject as error:
             raise generate_http_error(400, 'InvalidObject', error.args[0])
         except RSEProtocolNotSupported as error:
@@ -587,7 +589,7 @@ class Protocol(RucioController):
             500 InternalError
         """
         try:
-            del_protocols(rse, issuer=ctx.env.get('issuer'), scheme=scheme, hostname=hostname, port=port)
+            del_protocols(rse, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'), scheme=scheme, hostname=hostname, port=port)
         except RSEProtocolNotSupported as error:
             raise generate_http_error(404, 'RSEProtocolNotSupported', error.args[0])
         except RSENotFound as error:
@@ -624,7 +626,7 @@ class Usage(RucioController):
                 per_account = params['per_account'][0] == 'True'
 
         try:
-            usage = get_rse_usage(rse, issuer=ctx.env.get('issuer'), source=source, per_account=per_account)
+            usage = get_rse_usage(rse, issuer=ctx.env.get('issuer'), source=source, per_account=per_account, vo=ctx.env.get('vo'))
         except RSENotFound as error:
             raise generate_http_error(404, 'RSENotFound', error.args[0])
         except RucioException as error:
@@ -658,7 +660,7 @@ class Usage(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
 
         try:
-            set_rse_usage(rse=rse, issuer=ctx.env.get('issuer'), **parameter)
+            set_rse_usage(rse=rse, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'), **parameter)
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except RSENotFound as error:
@@ -690,7 +692,7 @@ class UsageHistory(RucioController):
                 source = params['source'][0]
 
         try:
-            for usage in list_rse_usage_history(rse=rse, issuer=ctx.env.get('issuer'), source=source):
+            for usage in list_rse_usage_history(rse=rse, issuer=ctx.env.get('issuer'), source=source, vo=ctx.env.get('vo')):
                 yield render_json(**usage) + '\n'
         except RSENotFound as error:
             raise generate_http_error(404, 'RSENotFound', error.args[0])
@@ -713,7 +715,7 @@ class Limits(RucioController):
         """
         header('Content-Type', 'application/json')
         try:
-            limits = get_rse_limits(rse=rse, issuer=ctx.env.get('issuer'))
+            limits = get_rse_limits(rse=rse, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
             return render_json(**limits)
         except RSENotFound as error:
             raise generate_http_error(404, 'RSENotFound', error.args[0])
@@ -745,7 +747,7 @@ class Limits(RucioController):
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
         try:
-            set_rse_limits(rse=rse, issuer=ctx.env.get('issuer'), **parameter)
+            set_rse_limits(rse=rse, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'), **parameter)
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except RSENotFound as error:
@@ -771,7 +773,7 @@ class RSEAccountUsageLimit(RucioController):
         """
         header('Content-Type', 'application/json')
         try:
-            usage = get_rse_account_usage(rse=rse)
+            usage = get_rse_account_usage(rse=rse, vo=ctx.env.get('vo'))
             for row in usage:
                 yield dumps(row, cls=APIEncoder) + '\n'
         except RSENotFound as error:
@@ -797,7 +799,8 @@ class Distance(RucioController):
         try:
             distance = get_distance(source=source,
                                     destination=destination,
-                                    issuer=ctx.env.get('issuer'))
+                                    issuer=ctx.env.get('issuer'),
+                                    vo=ctx.env.get('vo'))
             return dumps(distance, cls=APIEncoder)
         except RSENotFound as error:
             raise generate_http_error(404, 'RSENotFound', error.args[0])
@@ -832,6 +835,7 @@ class Distance(RucioController):
             add_distance(source=source,
                          destination=destination,
                          issuer=ctx.env.get('issuer'),
+                         vo=ctx.env.get('vo'),
                          **parameter)
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
@@ -868,6 +872,7 @@ class Distance(RucioController):
         try:
             update_distance(source=source, destination=destination,
                             issuer=ctx.env.get('issuer'),
+                            vo=ctx.env.get('vo'),
                             parameters=parameters)
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])

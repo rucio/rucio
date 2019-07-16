@@ -27,7 +27,7 @@ from rucio.common.types import InternalAccount
 from rucio.core import subscription
 
 
-def add_subscription(name, account, filter, replication_rules, comments, lifetime, retroactive, dry_run, priority=None, issuer=None):
+def add_subscription(name, account, filter, replication_rules, comments, lifetime, retroactive, dry_run, priority=None, issuer=None, vo='def'):
     """
     Adds a new subscription which will be verified against every new added file and dataset
 
@@ -51,11 +51,13 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
     :param priority: The priority of the subscription
     :type priority: Integer
     :param issuer:  The account issuing this operation.
-    :type comments:  String
+    :type issuer:  String
+    :param vo: The VO to act on.
+    :type vo: String
     :returns: subscription_id
     :rtype:   String
     """
-    if not has_permission(issuer=issuer, action='add_subscription', kwargs={'account': account}):
+    if not has_permission(issuer=issuer, vo=vo, action='add_subscription', kwargs={'account': account}):
         raise AccessDenied('Account %s can not add subscription' % (issuer))
     try:
         if filter:
@@ -73,11 +75,11 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
     except ValueError as error:
         raise TypeError(error)
 
-    account = InternalAccount(account)
+    account = InternalAccount(account, vo=vo)
     return subscription.add_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, priority=priority)
 
 
-def update_subscription(name, account, metadata=None, issuer=None):
+def update_subscription(name, account, metadata=None, issuer=None, vo='def'):
     """
     Updates a subscription
 
@@ -87,9 +89,13 @@ def update_subscription(name, account, metadata=None, issuer=None):
     :type account:  String
     :param metadata: Dictionary of metadata to update. Supported keys : filter, replication_rules, comments, lifetime, retroactive, dry_run, priority, last_processed
     :type metadata:  Dict
+    :param issuer: The account issuing this operation.
+    :type issuer: String
+    :param vo: The VO to act on.
+    :type v: String
     :raises: SubscriptionNotFound if subscription is not found
     """
-    if not has_permission(issuer=issuer, action='update_subscription', kwargs={'account': account}):
+    if not has_permission(issuer=issuer, vo=vo, action='update_subscription', kwargs={'account': account}):
         raise AccessDenied('Account %s can not update subscription' % (issuer))
     try:
         if not isinstance(metadata, dict):
@@ -107,11 +113,11 @@ def update_subscription(name, account, metadata=None, issuer=None):
     except ValueError as error:
         raise TypeError(error)
 
-    account = InternalAccount(account)
+    account = InternalAccount(account, vo=vo)
     return subscription.update_subscription(name=name, account=account, metadata=metadata)
 
 
-def list_subscriptions(name=None, account=None, state=None):
+def list_subscriptions(name=None, account=None, state=None, vo='def'):
     """
     Returns a dictionary with the subscription information :
     Examples: ``{'status': 'INACTIVE/ACTIVE/BROKEN', 'last_modified_date': ...}``
@@ -120,29 +126,33 @@ def list_subscriptions(name=None, account=None, state=None):
     :type:  String
     :param account: Account identifier
     :type account:  String
+    :param state: Filter for subscription state
+    :type state: String
+    :param vo: The VO to act on.
+    :type vo: String
     :returns: Dictionary containing subscription parameter
     :rtype:   Dict
     :raises: exception.NotFound if subscription is not found
     """
 
     if account is not None:
-        account = InternalAccount(account)
+        account = InternalAccount(account, vo=vo)
     subs = subscription.list_subscriptions(name, account, state)
     for sub in subs:
         sub['account'] = sub['account'].external
         yield sub
 
 
-def list_subscription_rule_states(name=None, account=None):
+def list_subscription_rule_states(name=None, account=None, vo='def'):
     """Returns a list of with the number of rules per state for a subscription.
 
     :param name: Name of the subscription
     :param account: Account identifier
-    :param session: The database session in use.
+    :param vo: The VO to act on.
     :returns: List with tuple (account, name, state, count)
     """
     if account is not None:
-        account = InternalAccount(account)
+        account = InternalAccount(account, vo=vo)
     subs = subscription.list_subscription_rule_states(name, account)
     for sub in subs:
         # sub is an immutable KeyedTuple so return new KeyedTuple with edited entries
@@ -152,25 +162,29 @@ def list_subscription_rule_states(name=None, account=None):
         yield KeyedTuple([d[l] for l in labels], labels=labels)
 
 
-def delete_subscription(subscription_id):
+def delete_subscription(subscription_id, vo='def'):
     """
     Deletes a subscription
 
     :param subscription_id: Subscription identifier
+    :param vo: The VO of the user issuing command
     :type subscription_id:  String
     """
 
     raise NotImplementedError
 
 
-def get_subscription_by_id(subscription_id):
+def get_subscription_by_id(subscription_id, vo='def'):
     """
     Get a specific subscription by id.
 
     :param subscription_id: The subscription_id to select.
-    :param session: The database session in use.
+    :param vo: The VO of the user issuing command.
+
     :raises: SubscriptionNotFound if no Subscription can be found.
     """
     sub = subscription.get_subscription_by_id(subscription_id)
+    if sub['account'].vo != vo:
+        raise AccessDenied('Unable to get subscription')
     sub['account'] = sub['account'].external
     return sub

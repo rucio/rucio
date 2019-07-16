@@ -20,6 +20,7 @@ from sqlalchemy.exc import IntegrityError
 from traceback import format_exc
 
 from rucio.common.exception import AccountNotFound, Duplicate, RucioException
+from rucio.core.vo import vo_exists
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, ScopeStatus
 from rucio.db.sqla.session import read_session, transactional_session
@@ -33,6 +34,9 @@ def add_scope(scope, account, session=None):
     :param account: the account to add the scope to.
     :param session: The database session in use.
     """
+
+    if not vo_exists(vo=scope.vo, session=session):
+        raise exception.RucioException('VO {} not found'.format(scope.vo))
 
     result = session.query(models.Account).filter_by(account=account, status=AccountStatus.ACTIVE).first()
     if result is None:

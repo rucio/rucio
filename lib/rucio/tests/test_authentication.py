@@ -18,6 +18,7 @@ from nose.tools import assert_equal, assert_is_none, assert_is_not_none, assert_
 from paste.fixture import TestApp
 
 from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_ssh, get_ssh_challenge_token, get_auth_token_saml
+from rucio.common.config import config_get_bool
 from rucio.common.exception import Duplicate, AccessDenied
 from rucio.common.types import InternalAccount
 from rucio.common.utils import ssh_sign
@@ -69,30 +70,36 @@ class TestAuthCoreApi(object):
     '''
     TestAuthCoreApi
     '''
+    def setup(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': 'tst'}
+        else:
+            self.vo = {}
+
     def test_get_auth_token_user_pass_success(self):
         """AUTHENTICATION (CORE): Username and password (correct credentials)."""
-        result = get_auth_token_user_pass(account='root', username='ddmlab', password='secret', appid='test', ip='127.0.0.1')
+        result = get_auth_token_user_pass(account='root', username='ddmlab', password='secret', appid='test', ip='127.0.0.1', **self.vo)
         assert_is_not_none(result)
 
     def test_get_auth_token_user_pass_fail(self):
         """AUTHENTICATION (CORE): Username and password (correct credentials)."""
-        result = get_auth_token_user_pass(account='root', username='ddmlab', password='not_secret', appid='test', ip='127.0.0.1')
+        result = get_auth_token_user_pass(account='root', username='ddmlab', password='not_secret', appid='test', ip='127.0.0.1', **self.vo)
         assert_is_none(result)
 
     def test_get_auth_token_ssh_success(self):
         """AUTHENTICATION (CORE): SSH RSA public key exchange (good signature)."""
 
-        root = InternalAccount('root')
+        root = InternalAccount('root', **self.vo)
         try:
             add_account_identity(PUBLIC_KEY, IdentityType.SSH, root, email='ph-adp-ddm-lab@cern.ch')
         except Duplicate:
             pass  # might already exist, can skip
 
-        challenge_token = get_ssh_challenge_token(account='root', appid='test', ip='127.0.0.1').token
+        challenge_token = get_ssh_challenge_token(account='root', appid='test', ip='127.0.0.1', **self.vo).token
 
         signature = base64.b64decode(ssh_sign(PRIVATE_KEY, challenge_token))
 
-        result = get_auth_token_ssh(account='root', signature=signature, appid='test', ip='127.0.0.1')
+        result = get_auth_token_ssh(account='root', signature=signature, appid='test', ip='127.0.0.1', **self.vo)
 
         assert_is_not_none(result)
 
@@ -101,7 +108,7 @@ class TestAuthCoreApi(object):
     def test_get_auth_token_ssh_fail(self):
         """AUTHENTICATION (CORE): SSH RSA public key exchange (wrong signature)."""
 
-        root = InternalAccount('root')
+        root = InternalAccount('root', **self.vo)
         try:
             add_account_identity(PUBLIC_KEY, IdentityType.SSH, root, email='ph-adp-ddm-lab@cern.ch')
         except Duplicate:
@@ -109,7 +116,7 @@ class TestAuthCoreApi(object):
 
         signature = ssh_sign(PRIVATE_KEY, 'sign_something_else')
 
-        result = get_auth_token_ssh(account='root', signature=signature, appid='test', ip='127.0.0.1')
+        result = get_auth_token_ssh(account='root', signature=signature, appid='test', ip='127.0.0.1', **self.vo)
 
         assert_is_none(result)
 
@@ -150,10 +157,19 @@ class TestAuthRestApi(object):
     '''
     TestAuthRestApi
     '''
+    def setup(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo_header = {'X-Rucio-VO': 'tst'}
+            self.vo = {'vo': 'tst'}
+        else:
+            self.vo_header = {}
+            self.vo = {}
+
     def test_userpass_fail(self):
         """AUTHENTICATION (REST): Username and password (wrong credentials)."""
         options = []
         headers = {'X-Rucio-Account': 'wrong', 'X-Rucio-Username': 'wrong', 'X-Rucio-Password': 'wrong'}
+        headers.update(self.vo_header)
         result = TestApp(APP.wsgifunc(*options)).get('/userpass', headers=headers, expect_errors=True)
         assert_equal(result.status, 401)
 
@@ -161,6 +177,7 @@ class TestAuthRestApi(object):
         """AUTHENTICATION (REST): Username and password (correct credentials)."""
         options = []
         headers = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers.update(self.vo_header)
         result = TestApp(APP.wsgifunc(*options)).get('/userpass', headers=headers, expect_errors=True)
         assert_equal(result.status, 200)
         assert_greater(len(result.header('X-Rucio-Auth-Token')), 32)
@@ -168,7 +185,7 @@ class TestAuthRestApi(object):
     def test_ssh_success(self):
         """AUTHENTICATION (REST): SSH RSA public key exchange (correct credentials)."""
 
-        root = InternalAccount('root')
+        root = InternalAccount('root', **self.vo)
         try:
             add_account_identity(PUBLIC_KEY, IdentityType.SSH, root, email='ph-adp-ddm-lab@cern.ch')
         except Duplicate:
@@ -176,6 +193,7 @@ class TestAuthRestApi(object):
 
         options = []
         headers = {'X-Rucio-Account': 'root'}
+        headers.update(self.vo_header)
         result = TestApp(APP.wsgifunc(*options)).get('/ssh_challenge_token', headers=headers, expect_errors=True)
         assert_equal(result.status, 200)
         assert_in('challenge-', result.header('X-Rucio-SSH-Challenge-Token'))
@@ -183,6 +201,7 @@ class TestAuthRestApi(object):
         signature = ssh_sign(PRIVATE_KEY, result.header('X-Rucio-SSH-Challenge-Token'))
 
         headers = {'X-Rucio-Account': 'root', 'X-Rucio-SSH-Signature': signature}
+        headers.update(self.vo_header)
         result = TestApp(APP.wsgifunc(*options)).get('/ssh', headers=headers, expect_errors=True)
         assert_equal(result.status, 200)
         assert_greater(len(result.header('X-Rucio-Auth-Token')), 32)
@@ -192,7 +211,7 @@ class TestAuthRestApi(object):
     def test_ssh_fail(self):
         """AUTHENTICATION (REST): SSH RSA public key exchange (wrong credentials)."""
 
-        root = InternalAccount('root')
+        root = InternalAccount('root', **self.vo)
         try:
             add_account_identity(PUBLIC_KEY, IdentityType.SSH, root, email='ph-adp-ddm-lab@cern.ch')
         except Duplicate:
@@ -202,6 +221,7 @@ class TestAuthRestApi(object):
 
         options = []
         headers = {'X-Rucio-Account': 'root', 'X-Rucio-SSH-Signature': signature}
+        headers.update(self.vo_header)
         result = TestApp(APP.wsgifunc(*options)).get('/ssh', headers=headers, expect_errors=True)
         assert_equal(result.status, 401)
 

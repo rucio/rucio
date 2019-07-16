@@ -36,7 +36,7 @@ def list_values(key):
     return meta.list_values(key=key)
 
 
-def add_key(key, key_type, issuer, value_type=None, value_regexp=None):
+def add_key(key, key_type, issuer, value_type=None, value_regexp=None, vo='def'):
     """
     Add a new allowed key.
 
@@ -45,21 +45,23 @@ def add_key(key, key_type, issuer, value_type=None, value_regexp=None):
     :param issuer: The issuer account.
     :param value_type: the type of the value, if defined.
     :param value_regexp: the regular expression that values should match, if defined.
+    :param vo: The vo to act on
     """
     kwargs = {'key': key, 'key_type': key_type, 'value_type': value_type, 'value_regexp': value_regexp}
-    if not has_permission(issuer=issuer, action='add_key', kwargs=kwargs):
+    if not has_permission(issuer=issuer, vo=vo, action='add_key', kwargs=kwargs):
         raise AccessDenied('Account %s can not add key' % (issuer))
     return meta.add_key(key=key, key_type=key_type, value_type=value_type, value_regexp=value_regexp)
 
 
-def add_value(key, value, issuer):
+def add_value(key, value, issuer, vo='def'):
     """
     Add a new value to a key.
 
     :param key: the name for the key.
     :param value: the value.
+    :param vo: the vo to act on.
     """
     kwargs = {'key': key, 'value': value}
-    if not has_permission(issuer=issuer, action='add_value', kwargs=kwargs):
+    if not has_permission(issuer=issuer, vo=vo, action='add_value', kwargs=kwargs):
         raise AccessDenied('Account %s can not add value %s to key %s' % (issuer, value, key))
     return meta.add_value(key=key, value=value)

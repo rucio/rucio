@@ -112,7 +112,7 @@ class UploadClient:
         for file in files:
             rse = file['rse']
             if not self.rses.get(rse):
-                rse_settings = self.rses.setdefault(rse, rsemgr.get_rse_info(rse))
+                rse_settings = self.rses.setdefault(rse, rsemgr.get_rse_info(rse, vo=self.client.vo))
                 if rse_settings['availability_write'] != 1:
                     raise RSEBlacklisted('%s is blacklisted for writing. No actions have been taken' % rse)
 

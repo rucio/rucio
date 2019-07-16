@@ -29,6 +29,7 @@ from rucio.core.rse import add_rse, del_rse, add_protocol, get_rse_id
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
+from rucio.common.config import config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.db.sqla import session, models, constants
@@ -36,6 +37,11 @@ from rucio.tests.common import rse_name_generator
 
 
 class TestDatasetReplicaClient:
+    def setup(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': 'tst'}
+        else:
+            self.vo = {}
 
     def test_list_dataset_replicas(self):
         """ REPLICA (CLIENT): List dataset replicas."""
@@ -63,7 +69,7 @@ class TestDatasetReplicaClient:
         rule_client.add_replication_rule(dids=[{'scope': scope, 'name': dataset}],
                                          account='root', copies=1, rse_expression='MOCK',
                                          grouping='DATASET')
-        replicas = [r for r in list_datasets_per_rse(rse_id=get_rse_id(rse='MOCK'), filters={'scope': InternalScope('mock'), 'name': 'data*'})]
+        replicas = [r for r in list_datasets_per_rse(rse_id=get_rse_id(rse='MOCK', **self.vo), filters={'scope': InternalScope(scope, **self.vo), 'name': 'data*'})]
         assert(replicas != [])
 
     def test_list_dataset_replicas_archive(self):
@@ -76,7 +82,7 @@ class TestDatasetReplicaClient:
         scope = 'mock'
 
         rse = 'APERTURE_%s' % rse_name_generator()
-        rse_id = add_rse(rse)
+        rse_id = add_rse(rse, **self.vo)
         add_protocol(rse_id=rse_id, parameter={'scheme': 'root',
                                                'hostname': 'root.aperture.com',
                                                'port': 1409,
@@ -87,7 +93,7 @@ class TestDatasetReplicaClient:
                                                    'wan': {'read': 1, 'write': 1, 'delete': 1}}})
 
         rse2 = 'BLACKMESA_%s' % rse_name_generator()
-        rse2_id = add_rse(rse2)
+        rse2_id = add_rse(rse2, **self.vo)
         add_protocol(rse_id=rse2_id, parameter={'scheme': 'root',
                                                 'hostname': 'root.blackmesa.com',
                                                 'port': 1409,
@@ -134,12 +140,17 @@ class TestDatasetReplicaClient:
 
 class TestDatasetReplicaUpdate:
     def setUp(self):
-        self.scope = InternalScope('mock')
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': 'tst'}
+        else:
+            self.vo = {}
+
+        self.scope = InternalScope('mock', **self.vo)
         self.rse = 'MOCK4'
         self.rse2 = 'MOCK3'
-        self.account = InternalAccount('root')
-        self.rse_id = get_rse_id(self.rse)
-        self.rse2_id = get_rse_id(self.rse2)
+        self.account = InternalAccount('root', **self.vo)
+        self.rse_id = get_rse_id(self.rse, **self.vo)
+        self.rse2_id = get_rse_id(self.rse2, **self.vo)
         self.db_session = session.get_session()
 
     def tearDown(self):

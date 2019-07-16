@@ -144,6 +144,8 @@ def create_base_vo():
 def create_root_account():
     """ Inserts the default root account to an existing database. Make sure to change the default password later. """
 
+    multi_vo = bool(config_get('common', 'multi_vo', False, False))
+
     up_id = 'ddmlab'
     up_pwd = 'secret'
     up_email = 'ph-adp-ddm-lab@cern.ch'
@@ -174,7 +176,12 @@ def create_root_account():
 
     s = session.get_session()
 
-    account = models.Account(account=InternalAccount('root'), account_type=AccountType.SERVICE, status=AccountStatus.ACTIVE)
+    if multi_vo:
+        access = 'super_root'
+    else:
+        access = 'root'
+
+    account = models.Account(account=InternalAccount(access, 'def'), account_type=AccountType.SERVICE, status=AccountStatus.ACTIVE)
 
     salt = urandom(255)
     if PY3:

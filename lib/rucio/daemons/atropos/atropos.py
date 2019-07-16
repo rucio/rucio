@@ -39,7 +39,7 @@ from rucio.common.exception import InvalidRSEExpression, RuleNotFound
 from rucio.core import heartbeat
 import rucio.core.lifetime_exception
 from rucio.core.lock import get_dataset_locks
-from rucio.core.rse import get_rse_name
+from rucio.core.rse import get_rse_name, get_rse_vo
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_rules_beyond_eol, update_rule
 
@@ -173,7 +173,12 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
                     tot_datasets += 1
                     tot_files += summary[rse_id][did].get('length', 0)
                     tot_size += summary[rse_id][did].get('bytes', 0)
-                logging.info(prepend_str + 'For RSE %s %s datasets will be deleted representing %s files and %s bytes' % (get_rse_name(rse_id=rse_id), tot_datasets, tot_files, tot_size))
+                vo = get_rse_vo(rse_id=rse_id)
+                logging.info(prepend_str + 'For RSE %s %s %s datasets will be deleted representing %s files and %s bytes' % (get_rse_name(rse_id=rse_id),
+                                                                                                                             '' if vo == 'def' else 'on VO ' + vo,
+                                                                                                                             tot_datasets,
+                                                                                                                             tot_files,
+                                                                                                                             tot_size))
 
             if once:
                 break
