@@ -531,7 +531,7 @@ class DownloadClient:
             scheme = pfn.split(':')[0]
 
             try:
-                rse = rsemgr.get_rse_info(rse_name)
+                rse = rsemgr.get_rse_info(rse_name, vo=self.client.vo)
             except RucioException as error:
                 logger.warning('%sCould not get info of RSE %s: %s' % (log_prefix, rse_name, error))
                 trace['stateReason'] = str(error)

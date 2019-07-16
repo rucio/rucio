@@ -63,9 +63,9 @@ class Config(RucioController):
         header('Content-Type', 'application/json')
 
         res = {}
-        for section in config.sections(issuer=ctx.env.get('issuer')):
+        for section in config.sections(issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo')):
             res[section] = {}
-            for item in config.items(section, issuer=ctx.env.get('issuer')):
+            for item in config.items(section, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo')):
                 res[section][item[0]] = item[1]
 
         return json.dumps(res)
@@ -92,7 +92,7 @@ class Section(RucioController):
         header('Content-Type', 'application/json')
 
         res = {}
-        for item in config.items(section, issuer=ctx.env.get('issuer')):
+        for item in config.items(section, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo')):
             res[item[0]] = item[1]
 
         if res == {}:
@@ -123,7 +123,7 @@ class OptionGetDel(RucioController):
         """
 
         try:
-            return json.dumps(config.get(section=section, option=option, issuer=ctx.env.get('issuer')))
+            return json.dumps(config.get(section=section, option=option, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo')))
         except:
             raise generate_http_error(404, 'ConfigNotFound', 'No configuration found for section \'%s\' option \'%s\'' % (section, option))
 
@@ -142,7 +142,7 @@ class OptionGetDel(RucioController):
         :param Rucio-Auth-Token: 32 character hex string.
         """
 
-        config.remove_option(section=section, option=option, issuer=ctx.env.get('issuer'))
+        config.remove_option(section=section, option=option, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
 
 
 class OptionSet(RucioController):
@@ -166,7 +166,7 @@ class OptionSet(RucioController):
         """
 
         try:
-            config.set(section=section, option=option, value=value, issuer=ctx.env.get('issuer'))
+            config.set(section=section, option=option, value=value, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except ConfigurationError:
             raise generate_http_error(500, 'ConfigurationError', 'Could not set value \'%s\' for section \'%s\' option \'%s\'' % (value, section, option))
         except Exception as error:

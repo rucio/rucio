@@ -31,6 +31,7 @@ from nose.tools import assert_equal, assert_in, assert_not_in
 from paste.fixture import TestApp
 
 from rucio.client import ReplicaClient
+from rucio.common.config import config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.config import set as config_set
 from rucio.core.replica import add_replicas, delete_replicas
@@ -42,6 +43,10 @@ from rucio.web.rest.redirect import APP as redirect_app
 class TestROOTProxy(object):
 
     def setup(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': 'tst'}
+        else:
+            self.vo = {}
 
         self.rc = ReplicaClient()
 
@@ -49,7 +54,7 @@ class TestROOTProxy(object):
                                               'fqdn': 'anomalous-materials.blackmesa.com',
                                               'site': 'BLACKMESA1'}
         self.rse_without_proxy = rse_name_generator()
-        self.rse_without_proxy_id = add_rse(self.rse_without_proxy)
+        self.rse_without_proxy_id = add_rse(self.rse_without_proxy, **self.vo)
         add_rse_attribute(rse_id=self.rse_without_proxy_id,
                           key='site',
                           value='BLACKMESA1')
@@ -58,7 +63,7 @@ class TestROOTProxy(object):
                                            'fqdn': 'test-chamber.aperture.com',
                                            'site': 'APERTURE1'}
         self.rse_with_proxy = rse_name_generator()
-        self.rse_with_proxy_id = add_rse(self.rse_with_proxy)
+        self.rse_with_proxy_id = add_rse(self.rse_with_proxy, **self.vo)
         add_rse_attribute(rse_id=self.rse_with_proxy_id,
                           key='site',
                           value='APERTURE1')
@@ -66,7 +71,7 @@ class TestROOTProxy(object):
         # APERTURE1 site has an internal proxy
         config_set('root-proxy-internal', 'APERTURE1', 'proxy.aperture.com:1094')
 
-        self.files = [{'scope': InternalScope('mock'),
+        self.files = [{'scope': InternalScope('mock', **self.vo),
                        'name': 'half-life_%s' % i,
                        'bytes': 1234,
                        'adler32': 'deadbeef',
@@ -74,7 +79,7 @@ class TestROOTProxy(object):
         for rse_id in [self.rse_with_proxy_id, self.rse_without_proxy_id]:
             add_replicas(rse_id=rse_id,
                          files=self.files,
-                         account=InternalAccount('root'),
+                         account=InternalAccount('root', **self.vo),
                          ignore_availability=True)
 
         add_protocol(self.rse_without_proxy_id, {'scheme': 'root',

@@ -69,7 +69,8 @@ class RequestGet(RucioController):
             return render_json(**request.get_request_by_did(scope=scope,
                                                             name=name,
                                                             rse=rse,
-                                                            issuer=ctx.env.get('issuer')))
+                                                            issuer=ctx.env.get('issuer'),
+                                                            vo=ctx.env.get('vo')))
         except:
             raise generate_http_error(404, 'RequestNotFound', 'No request found for DID %s:%s at RSE %s' % (scope,
                                                                                                             name,

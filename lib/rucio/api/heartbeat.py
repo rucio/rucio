@@ -15,15 +15,16 @@ from rucio.common import exception
 from rucio.core import heartbeat
 
 
-def list_heartbeats(issuer=None):
+def list_heartbeats(issuer=None, vo='def'):
     """
     Return a list of tuples of all heartbeats.
 
     :param issuer: The issuer account.
+    :param vo: the VO for the issuer.
     :returns: List of tuples [('Executable', 'Hostname', ...), ...]
     """
 
     kwargs = {'issuer': issuer}
-    if not permission.has_permission(issuer=issuer, action='list_heartbeats', kwargs=kwargs):
+    if not permission.has_permission(issuer=issuer, vo=vo, action='list_heartbeats', kwargs=kwargs):
         raise exception.AccessDenied('%s cannot list heartbeats' % issuer)
     return heartbeat.list_heartbeats()

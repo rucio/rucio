@@ -21,7 +21,7 @@ from nose.tools import assert_in
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.replicaclient import ReplicaClient
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.utils import generate_uuid
 from rucio.tests.common import execute
 
@@ -29,6 +29,11 @@ from rucio.tests.common import execute
 class TestReplicaHeaderRedirection:
 
     def __init__(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo_header = '-H "X-Rucio-VO: tst"'
+        else:
+            self.vo_header = ''
+
         self.cacert = config_get('test', 'cacert')
         self.host = config_get('client', 'rucio_host')
         self.auth_host = config_get('client', 'auth_host')
@@ -41,11 +46,12 @@ class TestReplicaHeaderRedirection:
         """ REDIRECT: header to replica"""
         tmp_scope = 'mock'
         tmp_name = 'file_%s' % generate_uuid()
-        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Auth-Token: %s" -X GET %s/redirect/%s/%s''' % (self.cacert,
-                                                                                                 self.token,
-                                                                                                 self.host,
-                                                                                                 tmp_scope,
-                                                                                                 tmp_name)
+        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Auth-Token: %s" %s -X GET %s/redirect/%s/%s''' % (self.cacert,
+                                                                                                    self.token,
+                                                                                                    self.vo_header,
+                                                                                                    self.host,
+                                                                                                    tmp_scope,
+                                                                                                    tmp_name)
         _, out, _ = execute(cmd)
         assert_in('404 Not Found', out)
 
@@ -65,6 +71,11 @@ class TestReplicaHeaderRedirection:
 class TestReplicaMetalinkRedirection:
 
     def __init__(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo_header = '-H "X-Rucio-VO: tst"'
+        else:
+            self.vo_header = ''
+
         self.cacert = config_get('test', 'cacert')
         self.host = config_get('client', 'rucio_host')
         self.auth_host = config_get('client', 'auth_host')
@@ -77,11 +88,12 @@ class TestReplicaMetalinkRedirection:
         """ REDIRECT: metalink to replica"""
         tmp_scope = 'mock'
         tmp_name = 'file_%s' % generate_uuid()
-        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Auth-Token: %s" -X GET %s/redirect/%s/%s''' % (self.cacert,
-                                                                                                 self.token,
-                                                                                                 self.host,
-                                                                                                 tmp_scope,
-                                                                                                 tmp_name)
+        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Auth-Token: %s" %s -X GET %s/redirect/%s/%s''' % (self.cacert,
+                                                                                                    self.token,
+                                                                                                    self.vo_header,
+                                                                                                    self.host,
+                                                                                                    tmp_scope,
+                                                                                                    tmp_name)
         _, out, _ = execute(cmd)
         assert_in('404 Not Found', out)
 
@@ -98,11 +110,12 @@ class TestReplicaMetalinkRedirection:
         assert_in('Link: </redirect/%s/%s/metalink' % (tmp_scope,
                                                        tmp_name), out)
 
-        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Auth-Token: %s" -X GET %s/redirect/%s/%s/metalink''' % (self.cacert,
-                                                                                                          self.token,
-                                                                                                          self.host,
-                                                                                                          tmp_scope,
-                                                                                                          tmp_name)
+        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Auth-Token: %s" %s -X GET %s/redirect/%s/%s/metalink''' % (self.cacert,
+                                                                                                             self.token,
+                                                                                                             self.vo_header,
+                                                                                                             self.host,
+                                                                                                             tmp_scope,
+                                                                                                             tmp_name)
         _, out, _ = execute(cmd)
         assert_in('200 OK', out)
         assert_in('<?xml', out)

@@ -18,17 +18,18 @@ from rucio.core import exporter
 from rucio.core.rse import get_rse_name
 
 
-def export_data(issuer):
+def export_data(issuer, vo='def'):
     """
     Export data from Rucio.
 
     :param issuer: the issuer.
+    :param vo: the VO of the issuer.
     """
     kwargs = {'issuer': issuer}
-    if not permission.has_permission(issuer=issuer, action='export', kwargs=kwargs):
+    if not permission.has_permission(issuer=issuer, vo=vo, action='export', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not export data' % issuer)
 
-    data = exporter.export_data()
+    data = exporter.export_data(vo=vo)
     rses = {}
     distances = {}
 

@@ -10,6 +10,7 @@
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 
+from rucio.common.config import config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account_limit import set_local_account_limit
@@ -26,16 +27,21 @@ class TestJudgeCleaner():
 
     @classmethod
     def setUpClass(cls):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            cls.vo = {'vo': 'tst'}
+        else:
+            cls.vo = {}
+
         # Add test RSE
         cls.rse1 = 'MOCK'
         cls.rse3 = 'MOCK3'
         cls.rse4 = 'MOCK4'
         cls.rse5 = 'MOCK5'
 
-        cls.rse1_id = get_rse_id(rse=cls.rse1)
-        cls.rse3_id = get_rse_id(rse=cls.rse3)
-        cls.rse4_id = get_rse_id(rse=cls.rse4)
-        cls.rse5_id = get_rse_id(rse=cls.rse5)
+        cls.rse1_id = get_rse_id(rse=cls.rse1, **cls.vo)
+        cls.rse3_id = get_rse_id(rse=cls.rse3, **cls.vo)
+        cls.rse4_id = get_rse_id(rse=cls.rse4, **cls.vo)
+        cls.rse5_id = get_rse_id(rse=cls.rse5, **cls.vo)
 
         # Add Tags
         cls.T1 = tag_generator()
@@ -52,8 +58,8 @@ class TestJudgeCleaner():
         add_rse_attribute(cls.rse5_id, "fakeweight", 0)
 
         # Add quota
-        cls.jdoe = InternalAccount('jdoe')
-        cls.root = InternalAccount('root')
+        cls.jdoe = InternalAccount('jdoe', **cls.vo)
+        cls.root = InternalAccount('root', **cls.vo)
         set_local_account_limit(cls.jdoe, cls.rse1_id, -1)
         set_local_account_limit(cls.jdoe, cls.rse3_id, -1)
         set_local_account_limit(cls.jdoe, cls.rse4_id, -1)
@@ -66,7 +72,7 @@ class TestJudgeCleaner():
 
     def test_judge_expire_rule(self):
         """ JUDGE CLEANER: Test the judge when deleting expired rules"""
-        scope = InternalScope('mock')
+        scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
@@ -84,7 +90,7 @@ class TestJudgeCleaner():
 
     def test_judge_expire_rule_with_child_rule(self):
         """ JUDGE CLEANER: Test the judge when deleting expired rules with child rules"""
-        scope = InternalScope('mock')
+        scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)

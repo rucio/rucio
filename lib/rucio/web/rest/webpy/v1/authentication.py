@@ -111,6 +111,7 @@ class UserPass(RucioController):
         HTTP Error:
             401 Unauthorized
 
+        :param Rucio-VO: VO name as a string (Multi-VO Only). 
         :param Rucio-Account: Account identifier as a string.
         :param Rucio-Username: Username as a string.
         :param Rucio-Password: SHA1 hash of the password as a string.
@@ -129,6 +130,7 @@ class UserPass(RucioController):
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
 
+        vo = ctx.env.get('HTTP_X_RUCIO_VO', '')
         account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
         username = ctx.env.get('HTTP_X_RUCIO_USERNAME')
         password = ctx.env.get('HTTP_X_RUCIO_PASSWORD')
@@ -140,7 +142,7 @@ class UserPass(RucioController):
             ip = ctx.ip
 
         try:
-            result = get_auth_token_user_pass(account, username, password, appid, ip)
+            result = get_auth_token_user_pass(account, username, password, appid, ip, vo=vo)
         except AccessDenied:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
         except RucioException as error:
@@ -516,6 +518,7 @@ class GSS(RucioController):
         HTTP Error:
             401 Unauthorized
 
+        :param Rucio-VO: VO name as a string (Multi-VO only).
         :param Rucio-Account: Account identifier as a string.
         :param Rucio-AppID: Application identifier as a string.
         :param SavedCredentials: Apache mod_auth_kerb SavedCredentials.
@@ -533,6 +536,7 @@ class GSS(RucioController):
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
 
+        vo = ctx.env.get('HTTP_X_RUCIO_VO', '')
         account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
         gsscred = ctx.env.get('REMOTE_USER')
         appid = ctx.env.get('HTTP_X_RUCIO_APPID')
@@ -543,7 +547,7 @@ class GSS(RucioController):
             ip = ctx.ip
 
         try:
-            result = get_auth_token_gss(account, gsscred, appid, ip)
+            result = get_auth_token_gss(account, gsscred, appid, ip, vo=vo)
         except AccessDenied:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
 
@@ -586,6 +590,7 @@ class x509(RucioController):
         HTTP Error:
             401 Unauthorized
 
+        :param Rucio-VO: VO name as a string (Multi-VO only).
         :param Rucio-Account: Account identifier as a string.
         :param Rucio-AppID: Application identifier as a string.
         :param SSLStdEnv: Apache mod_ssl SSL Standard Env Variables.
@@ -603,6 +608,7 @@ class x509(RucioController):
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
 
+        vo = ctx.env.get('HTTP_X_RUCIO_VO', '')
         account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
         dn = ctx.env.get('SSL_CLIENT_S_DN')
         if not dn:
@@ -633,16 +639,16 @@ class x509(RucioController):
                 break
 
         try:
-            result = get_auth_token_x509(account, dn, appid, ip)
+            result = get_auth_token_x509(account, dn, appid, ip, vo=vo)
         except AccessDenied:
-            print('Cannot Authenticate', account, dn, appid, ip)
+            print('Cannot Authenticate', account, dn, appid, ip, vo)
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
         except IdentityError:
-            print('Cannot Authenticate', account, dn, appid, ip)
+            print('Cannot Authenticate', account, dn, appid, ip, vo)
             raise generate_http_error(401, 'CannotAuthenticate', 'No default account set for %(dn)s' % locals())
 
         if not result:
-            print('Cannot Authenticate', account, dn, appid, ip)
+            print('Cannot Authenticate', account, dn, appid, ip, vo)
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
 
         header('X-Rucio-Auth-Token', result.token)
@@ -679,6 +685,7 @@ class SSH(RucioController):
         HTTP Error:
             401 Unauthorized
 
+        :param Rucio-VO: VO name as a string (Multi-VO only).
         :param Rucio-Account: Account identifier as a string.
         :param Rucio-SSH-Signature: Response to server challenge signed with SSH private key as a base64 encoded string.
         :param Rucio-AppID: Application identifier as a string.
@@ -696,6 +703,7 @@ class SSH(RucioController):
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
 
+        vo = ctx.env.get('HTTP_X_RUCIO_VO', '')
         account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
         signature = ctx.env.get('HTTP_X_RUCIO_SSH_SIGNATURE')
         appid = ctx.env.get('HTTP_X_RUCIO_APPID')
@@ -712,7 +720,7 @@ class SSH(RucioController):
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with malformed signature' % locals())
 
         try:
-            result = get_auth_token_ssh(account, signature, appid, ip)
+            result = get_auth_token_ssh(account, signature, appid, ip, vo=vo)
         except AccessDenied:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
         except RucioException as error:
@@ -758,6 +766,7 @@ class SSHChallengeToken(RucioController):
         HTTP Error:
             401 Unauthorized
 
+        :param Rucio-VO: VO name as a string (Multi-VO only).
         :param Rucio-Account: Account identifier as a string.
         :param Rucio-AppID: Application identifier as a string.
         :returns: "Rucio-Auth-Token" as a variable-length string header.
@@ -774,6 +783,7 @@ class SSHChallengeToken(RucioController):
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
 
+        vo = ctx.env.get('HTTP_X_RUCIO_VO', '')
         account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
         appid = ctx.env.get('HTTP_X_RUCIO_APPID')
         if appid is None:
@@ -783,7 +793,7 @@ class SSHChallengeToken(RucioController):
             ip = ctx.ip
 
         try:
-            result = get_ssh_challenge_token(account, appid, ip)
+            result = get_ssh_challenge_token(account, appid, ip, vo=vo)
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:

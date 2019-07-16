@@ -15,13 +15,21 @@
 #
 # PY3K COMPATIBLE
 
+from rucio.api.vo import add_vo
 from rucio.client import Client
+from rucio.common.config import config_get_bool
 from rucio.common.exception import Duplicate
 from rucio.core.account import add_account_attribute
 from rucio.common.types import InternalAccount
 
 
 if __name__ == '__main__':
+    if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+        vo = {'vo': 'tst'}
+        add_vo(new_vo='tst', issuer='super_root', description='A VO to test multi-vo features', email='N/A', vo='def')
+    else:
+        vo = {}
+
     c = Client()
     try:
         c.add_account('jdoe', 'SERVICE', 'jdoe@email.com')
@@ -29,13 +37,13 @@ if __name__ == '__main__':
         print('Account jdoe already added' % locals())
 
     try:
-        add_account_attribute(account=InternalAccount('root'), key='admin', value=True)  # bypass client as schema validation fails at API level
+        add_account_attribute(account=InternalAccount('root', **vo), key='admin', value=True)  # bypass client as schema validation fails at API level
     except Exception as error:
         print(error)
 
     try:
         c.add_account('panda', 'SERVICE', 'panda@email.com')
-        add_account_attribute(account=InternalAccount('panda'), key='admin', value=True)
+        add_account_attribute(account=InternalAccount('panda', **vo), key='admin', value=True)
     except Duplicate:
         print('Account panda already added' % locals())
 

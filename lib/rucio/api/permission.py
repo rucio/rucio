@@ -22,12 +22,13 @@ from rucio.core.rse import get_rse_id
 from rucio.common.exception import RSENotFound
 
 
-def has_permission(issuer, action, kwargs):
+def has_permission(issuer, action, kwargs, vo='def'):
     """
     Checks if an account has the specified permission to
     execute an action with parameters.
 
     :param issuer: The Account issuer.
+    :param vo:     The VO to check against.
     :param action: The action (API call) called by the account.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
@@ -36,30 +37,30 @@ def has_permission(issuer, action, kwargs):
     kwargs = deepcopy(kwargs)
     if 'rse' in kwargs and 'rse_id' not in kwargs:
         try:
-            rse_id = get_rse_id(rse=kwargs.get('rse'))
+            rse_id = get_rse_id(rse=kwargs.get('rse'), vo=vo)
         except RSENotFound:
             rse_id = None
         kwargs.update({'rse_id': rse_id})
 
     if 'scope' in kwargs:
-        kwargs['scope'] = InternalScope(kwargs['scope'])
+        kwargs['scope'] = InternalScope(kwargs['scope'], vo=vo)
     if 'attachments' in kwargs:
         for a in kwargs['attachments']:
-            a['scope'] = InternalScope(a['scope'])
+            a['scope'] = InternalScope(a['scope'], vo=vo)
 
     if 'account' in kwargs:
-        kwargs['account'] = InternalAccount(kwargs['account'])
+        kwargs['account'] = InternalAccount(kwargs['account'], vo=vo)
     if 'accounts' in kwargs:
-        kwargs['accounts'] = [InternalAccount(a) for a in kwargs['accounts']]
+        kwargs['accounts'] = [InternalAccount(a, vo=vo) for a in kwargs['accounts']]
     if 'rules' in kwargs:
         for r in kwargs['rules']:
-            r['account'] = InternalAccount(r['account'])
+            r['account'] = InternalAccount(r['account'], vo=vo)
     if 'dids' in kwargs:
         for d in kwargs['dids']:
             if 'rules' in d:
                 for r in d['rules']:
-                    r['account'] = InternalAccount(r['account'])
+                    r['account'] = InternalAccount(r['account'], vo=vo)
 
-    issuer = InternalAccount(issuer)
+    issuer = InternalAccount(issuer, vo=vo)
 
     return permission.has_permission(issuer=issuer, action=action, kwargs=kwargs)

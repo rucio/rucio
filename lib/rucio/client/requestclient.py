@@ -32,9 +32,9 @@ class RequestClient(BaseClient):
     REQUEST_BASEURL = 'requests'
 
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None,
-                 auth_type=None, creds=None, timeout=600, user_agent='rucio-clients'):
+                 auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None):
         super(RequestClient, self).__init__(rucio_host, auth_host, account, ca_cert,
-                                            auth_type, creds, timeout, user_agent)
+                                            auth_type, creds, timeout, user_agent, vo=vo)
 
     def list_request_by_did(self, name, rse, scope=None):
         """Return latest request details for a DID

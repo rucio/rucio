@@ -68,7 +68,7 @@ class LockByRSE(object):
                 did_type = params['did_type'][0]
         try:
             if did_type == 'dataset':
-                for lock in get_dataset_locks_by_rse(rse):
+                for lock in get_dataset_locks_by_rse(rse, vo=ctx.env.get('vo')):
                     yield render_json(**lock) + '\n'
             else:
                 raise InternalError('Wrong did_type specified')
@@ -105,7 +105,7 @@ class LockByScopeName(object):
                 did_type = params['did_type'][0]
         try:
             if did_type == 'dataset':
-                for lock in get_dataset_locks(scope, name):
+                for lock in get_dataset_locks(scope, name, vo=ctx.env.get('vo')):
                     yield render_json(**lock) + '\n'
             else:
                 raise InternalError('Wrong did_type specified')

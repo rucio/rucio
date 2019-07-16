@@ -253,6 +253,8 @@ def set_transfers_state(transfers, submitted_at, session=None):
                    'external-id': transfers[request_id]['external_id'],
                    'external-host': transfers[request_id]['external_host'],
                    'queued_at': str(submitted_at)}
+            if transfers[request_id]['scope'].vo != 'def':
+                msg['vo'] = transfers[request_id]['scope'].vo
 
             if msg['request-type']:
                 transfer_status = '%s-%s' % (msg['request-type'], msg['state'])

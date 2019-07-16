@@ -91,7 +91,8 @@ class LifetimeException:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            exception_id = add_exception(dids=dids, account=ctx.env.get('issuer'), pattern=pattern, comments=comments, expires_at=expires_at)
+            exception_id = add_exception(dids=dids, account=ctx.env.get('issuer'), vo=ctx.env.get('vo'),
+                                         pattern=pattern, comments=comments, expires_at=expires_at)
         except InvalidObject as error:
             raise generate_http_error(400, 'InvalidObject', error.args[0])
         except AccessDenied as error:
@@ -157,7 +158,7 @@ class LifetimeExceptionId:
         except KeyError:
             state = None
         try:
-            update_exception(exception_id=exception_id, state=state, issuer=ctx.env.get('issuer'))
+            update_exception(exception_id=exception_id, state=state, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except UnsupportedOperation as error:
             raise generate_http_error(400, 'UnsupportedOperation', error.args[0])
         except AccessDenied as error:

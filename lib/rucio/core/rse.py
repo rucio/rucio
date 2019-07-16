@@ -56,6 +56,7 @@ from sqlalchemy.sql.expression import or_, false
 import rucio.core.account_counter
 
 from rucio.core.rse_counter import add_counter, get_counter
+from rucio.core.vo import vo_exists
 from rucio.common import exception, utils
 from rucio.common.config import get_lfn2pfn_algorithm_default, config_get
 from rucio.common.utils import CHECKSUM_KEY, is_checksum_valid, GLOBALLY_SUPPORTED_CHECKSUMS
@@ -71,12 +72,13 @@ REGION = make_region().configure('dogpile.cache.memcached',
 
 
 @transactional_session
-def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None,
+def add_rse(rse, vo='def', deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None,
             ISP=None, staging_area=False, rse_type=RSEType.DISK, longitude=None, latitude=None, ASN=None, availability=7, session=None):
     """
     Add a rse with the given location name.
 
     :param rse: the name of the new rse.
+    :param vo: the vo to add the RSE to.
     :param deterministic: Boolean to know if the pfn is generated deterministically.
     :param volatile: Boolean for RSE cache.
     :param city: City for the RSE.
@@ -96,7 +98,10 @@ def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None
     if isinstance(rse_type, string_types):
         rse_type = RSEType.from_string(str(rse_type))
 
-    new_rse = models.RSE(rse=rse, deterministic=deterministic, volatile=volatile, city=city,
+    if not vo_exists(vo=vo, session=session):
+        raise exception.RucioException('VO {} not found'.format(vo))
+
+    new_rse = models.RSE(rse=rse, vo=vo, deterministic=deterministic, volatile=volatile, city=city,
                          region_code=region_code, country_name=country_name,
                          continent=continent, time_zone=time_zone, staging_area=staging_area, ISP=ISP, availability=availability,
                          rse_type=rse_type, longitude=longitude, latitude=latitude, ASN=ASN)
@@ -120,16 +125,17 @@ def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None
 
 
 @read_session
-def rse_exists(rse, include_deleted=False, session=None):
+def rse_exists(rse, vo='def', include_deleted=False, session=None):
     """
     Checks to see if RSE exists.
 
     :param rse: Name of the rse.
+    :param vo: The VO for the RSE.
     :param session: The database session in use.
 
     :returns: True if found, otherwise false.
     """
-    return True if session.query(models.RSE).filter_by(rse=rse, deleted=include_deleted).first() else False
+    return True if session.query(models.RSE).filter_by(rse=rse, vo=vo, deleted=include_deleted).first() else False
 
 
 @read_session
@@ -247,7 +253,7 @@ def get_rse(rse_id, session=None):
 
 
 @read_session
-def get_rse_id(rse, session=None, include_deleted=True):
+def get_rse_id(rse, vo='def', session=None, include_deleted=True):
     """
     Get a RSE ID or raise if it does not exist.
 
@@ -267,12 +273,12 @@ def get_rse_id(rse, session=None, include_deleted=True):
             return result
 
     try:
-        query = session.query(models.RSE.id).filter_by(rse=rse)
+        query = session.query(models.RSE.id).filter_by(rse=rse, vo=vo)
         if not include_deleted:
             query = query.filter_by(deleted=False)
         result = query.one()[0]
     except sqlalchemy.orm.exc.NoResultFound:
-        raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse)
+        raise exception.RSENotFound("RSE '%s' cannot be found in vo '%s'" % (rse, vo))
 
     if include_deleted:
         REGION.set(cache_key, result)
@@ -301,6 +307,39 @@ def get_rse_name(rse_id, session=None, include_deleted=True):
 
     try:
         query = session.query(models.RSE.rse).filter_by(id=rse_id)
+        if not include_deleted:
+            query = query.filter_by(deleted=False)
+        result = query.one()[0]
+    except sqlalchemy.orm.exc.NoResultFound:
+        raise exception.RSENotFound('RSE with ID \'%s\' cannot be found' % rse_id)
+
+    if include_deleted:
+        REGION.set(cache_key, result)
+    return result
+
+
+@read_session
+def get_rse_vo(rse_id, session=None, include_deleted=True):
+    """
+    Get the VO for a given RSE id.
+
+    :param rse_id: the rse uuid from the database.
+    :param session: the database session in use.
+    :param include_deleted: Flag to toggle finding rse's marked as deleted.
+
+    :returns The vo name.
+
+    :raises RSENotFound: If referred RSE was not found in database.
+    """
+
+    if include_deleted:
+        cache_key = 'rse-vo_{}'.format(rse_id)
+        result = REGION.get(cache_key)
+        if result != NO_VALUE:
+            return result
+
+    try:
+        query = session.query(models.RSE.vo).filter_by(id=rse_id)
         if not include_deleted:
             query = query.filter_by(deleted=False)
         result = query.one()[0]
@@ -1182,7 +1221,7 @@ def update_rse(rse_id, parameters, session=None):
     try:
         query = session.query(models.RSE).filter_by(id=rse_id).one()
     except sqlalchemy.orm.exc.NoResultFound:
-        raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse_id)
+        raise exception.RSENotFound('RSE with ID \'%s\' cannot be found' % rse_id)
     availability = 0
     rse = query.rse
     for column in query:

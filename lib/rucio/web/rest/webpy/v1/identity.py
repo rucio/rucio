@@ -77,7 +77,8 @@ class UserPass(RucioController):
         try:
             add_account_identity(username, 'userpass', account,
                                  email=email, password=password,
-                                 issuer=ctx.env.get('issuer'))
+                                 issuer=ctx.env.get('issuer'),
+                                 vo=ctx.env.get('vo'))
         except Exception as error:
             raise InternalError(error)
 
@@ -114,7 +115,9 @@ class X509(RucioController):
 
         try:
             add_account_identity(dn, 'x509', account,
-                                 email=email, issuer=ctx.env.get('issuer'))
+                                 email=email,
+                                 issuer=ctx.env.get('issuer'),
+                                 vo=ctx.env.get('vo'))
         except Exception as error:
             raise InternalError(error)
 
@@ -151,7 +154,9 @@ class GSS(RucioController):
 
         try:
             add_account_identity(gsscred, 'gss', account,
-                                 email=email, issuer=ctx.env.get('issuer'))
+                                 email=email,
+                                 issuer=ctx.env.get('issuer'),
+                                 vo=ctx.env.get('vo'))
         except Exception as error:
             raise InternalError(error)
 

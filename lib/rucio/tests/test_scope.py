@@ -20,6 +20,7 @@ from nose.tools import assert_equal, assert_true, assert_in, raises, assert_rais
 
 from rucio.client.accountclient import AccountClient
 from rucio.client.scopeclient import ScopeClient
+from rucio.common.config import config_get_bool
 from rucio.common.exception import AccountNotFound, Duplicate, ScopeNotFound, InvalidObject
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
@@ -32,8 +33,13 @@ from rucio.web.rest.authentication import APP as auth_app
 class TestScopeCoreApi():
 
     def __init__(self):
-        self.scopes = [InternalScope(scope_name_generator()) for _ in range(5)]
-        self.jdoe = InternalAccount('jdoe')
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': 'tst'}
+        else:
+            self.vo = {}
+        
+        self.scopes = [InternalScope(scope_name_generator(), **self.vo) for _ in range(5)]
+        self.jdoe = InternalAccount('jdoe', **self.vo)
 
     def test_list_scopes(self):
         """ SCOPE (CORE): List scopes """
@@ -45,7 +51,7 @@ class TestScopeCoreApi():
 
     def test_is_scope_owner(self):
         """ SCOPE (CORE): Is scope owner """
-        scope = InternalScope(scope_name_generator())
+        scope = InternalScope(scope_name_generator(), **self.vo)
         add_scope(scope=scope, account=self.jdoe)
         anwser = is_scope_owner(scope=scope, account=self.jdoe)
         assert_equal(anwser, True)
@@ -54,6 +60,10 @@ class TestScopeCoreApi():
 class TestScope():
 
     def __init__(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo_header = {'X-Rucio-VO': 'tst'}
+        else:
+            self.vo_header = {}
         self.scopes = [scope_name_generator() for _ in range(5)]
 
     def test_scope_success(self):
@@ -61,6 +71,7 @@ class TestScope():
         mw = []
 
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.vo_header)
         res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
         assert_equal(res1.status, 200)
 
@@ -82,6 +93,7 @@ class TestScope():
         mw = []
 
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.vo_header)
         res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
         assert_equal(res1.status, 200)
 
@@ -97,6 +109,7 @@ class TestScope():
         mw = []
 
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.vo_header)
         res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
         assert_equal(res1.status, 200)
 
@@ -120,6 +133,7 @@ class TestScope():
         mw = []
 
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.vo_header)
         res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
         assert_equal(res1.status, 200)
 
@@ -151,6 +165,7 @@ class TestScope():
         mw = []
 
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.vo_header)
         res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
         assert_equal(res1.status, 200)
 
@@ -167,6 +182,7 @@ class TestScope():
         mw = []
 
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.vo_header)
         res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
         assert_equal(res1.status, 200)
 

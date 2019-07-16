@@ -15,6 +15,7 @@
 from nose.tools import assert_equal, assert_in
 
 from rucio.db.sqla import session, models
+from rucio.common.config import config_get_bool
 from rucio.common.types import InternalAccount
 from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_usage
@@ -24,10 +25,15 @@ from rucio.daemons.abacus.account import account_update
 
 
 class TestCoreRSECounter():
+    def setup(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': 'tst'}
+        else:
+            self.vo = {}
 
     def test_inc_dec_get_counter(self):
         """ RSE COUNTER (CORE): Increase, decrease and get counter """
-        rse_id = get_rse_id(rse='MOCK')
+        rse_id = get_rse_id(rse='MOCK', **self.vo)
         rse_update(once=True)
         rse_counter.del_counter(rse_id=rse_id)
         rse_counter.add_counter(rse_id=rse_id)
@@ -85,12 +91,17 @@ class TestCoreRSECounter():
 
 
 class TestCoreAccountCounter():
+    def setup(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': 'tst'}
+        else:
+            self.vo = {}
 
     def test_inc_dec_get_counter(self):
         """ACCOUNT COUNTER (CORE): Increase, decrease and get counter """
         account_update(once=True)
-        rse_id = get_rse_id(rse='MOCK')
-        account = InternalAccount('jdoe')
+        rse_id = get_rse_id(rse='MOCK', **self.vo)
+        account = InternalAccount('jdoe', **self.vo)
         account_counter.del_counter(rse_id=rse_id, account=account)
         account_counter.add_counter(rse_id=rse_id, account=account)
         cnt = get_usage(rse_id=rse_id, account=account)

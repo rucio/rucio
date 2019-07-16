@@ -190,11 +190,14 @@ def add_dids(dids, account, session=None):
                 if did['type'] == DIDType.DATASET:
                     event_type = 'CREATE_DTS'
                 if event_type:
-                    add_message(event_type, {'account': account.external,
-                                             'scope': did['scope'].external,
-                                             'name': did['name'],
-                                             'expired_at': str(expired_at) if expired_at is not None else None},
-                                session=session)
+                    message = {'account': account.external,
+                               'scope': did['scope'].external,
+                               'name': did['name'],
+                               'expired_at': str(expired_at) if expired_at is not None else None}
+                    if account.vo != 'def':
+                        message['vo'] = account.vo
+
+                    add_message(event_type, message, session=session)
 
             except KeyError:
                 # ToDo
@@ -449,13 +452,17 @@ def __add_collections_to_container(scope, name, collections, account, session):
             chld_type = 'DATASET'
         else:
             chld_type = 'UNKNOWN'
-        add_message('REGISTER_CNT', {'account': account.external,
-                                     'scope': scope.external,
-                                     'name': name,
-                                     'childscope': c['scope'].external,
-                                     'childname': c['name'],
-                                     'childtype': chld_type},
-                    session=session)
+        
+        message = {'account': account.external,
+                   'scope': scope.external,
+                   'name': name,
+                   'childscope': c['scope'].external,
+                   'childname': c['name'],
+                   'childtype': chld_type}
+        if account.vo != 'def':
+            message['vo'] = account.vo
+
+        add_message('REGISTER_CNT', message, session=session)
     try:
         session.flush()
     except IntegrityError as error:
@@ -612,10 +619,13 @@ def delete_dids(dids, account, expire_rules=False, session=None):
             metadata_to_delete.append(and_(models.DidMeta.scope == did['scope'], models.DidMeta.name == did['name']))
 
         # Send message
-        add_message('ERASE', {'account': account.external,
-                              'scope': did['scope'].external,
-                              'name': did['name']},
-                    session=session)
+        message = {'account': account.external,
+                   'scope': did['scope'].external,
+                   'name': did['name']}
+        if did['scope'].vo != 'def':
+            message['vo'] = did['scope'].vo
+
+        add_message('ERASE', message, session=session)
     # Delete rules on did
     skip_deletion = False  # Skip deletion in case of expiration of a rule
     if rule_id_clause:
@@ -776,20 +786,26 @@ def detach_dids(scope, name, dids, session=None):
             else:
                 chld_type = 'UNKNOWN'
 
-            add_message('ERASE_CNT', {'scope': scope.external,
-                                      'name': name,
-                                      'childscope': source['scope'].external,
-                                      'childname': source['name'],
-                                      'childtype': chld_type},
-                        session=session)
+            message = {'scope': scope.external,
+                       'name': name,
+                       'childscope': source['scope'].external,
+                       'childname': source['name'],
+                       'childtype': chld_type}
+            if scope.vo != 'def':
+                message['vo'] = scope.vo
+                        
+            add_message('ERASE_CNT', message, session=session)
 
-        add_message('DETACH', {'scope': scope.external,
-                               'name': name,
-                               'did_type': str(did.did_type),
-                               'child_scope': source['scope'].external,
-                               'child_name': str(source['name']),
-                               'child_type': str(child_type)},
-                    session=session)
+        message = {'scope': scope.external,
+                   'name': name,
+                   'did_type': str(did.did_type),
+                   'child_scope': source['scope'].external,
+                   'child_name': str(source['name']),
+                   'child_type': str(child_type)}
+        if scope.vo != 'def':
+            message['vo'] = scope.vo
+
+        add_message('DETACH', message, session=session)
 
 
 @stream_session
@@ -1482,17 +1498,25 @@ def set_status(scope, name, session=None, **kwargs):
                 session.query(models.DatasetLock).filter_by(scope=scope, name=name).update({'length': values['length'], 'bytes': values['bytes']})
 
                 # Generate a message
-                add_message('CLOSE', {'scope': scope.external, 'name': name,
-                                      'bytes': values['bytes'],
-                                      'length': values['length'],
-                                      'events': values['events']},
-                            session=session)
+                message = {'scope': scope.external,
+                           'name': name,
+                           'bytes': values['bytes'],
+                           'length': values['length'],
+                           'events': values['events']}
+                if scope.vo != 'def':
+                    message['vo'] = scope.vo
+
+                add_message('CLOSE', message, session=session)
 
             else:
                 # Set status to open only for privileged accounts
                 query = query.filter_by(is_open=False).filter(models.DataIdentifier.did_type != DIDType.FILE)
                 values['is_open'] = True
-                add_message('OPEN', {'scope': scope.external, 'name': name}, session=session)
+
+                message = {'scope': scope.external, 'name': name}
+                if scope.vo != 'def':
+                    message['vo'] = scope.vo
+                add_message('OPEN', message, session=session)
 
     rowcount = query.update(values, synchronize_session='fetch')
 

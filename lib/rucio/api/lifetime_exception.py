@@ -33,7 +33,7 @@ def list_exceptions(exception_id=None, states=None):
         yield api_update_return_dict(e)
 
 
-def add_exception(dids, account, pattern, comments, expires_at):
+def add_exception(dids, account, pattern, comments, expires_at, vo='def'):
     """
     Add exceptions to Lifetime Model.
 
@@ -42,25 +42,27 @@ def add_exception(dids, account, pattern, comments, expires_at):
     :param pattern:     The account.
     :param comments:    The comments associated to the exception.
     :param expires_at:  The expiration date of the exception.
+    :param vo:          The VO to act on.
 
     returns:            The id of the exception.
     """
 
-    account = InternalAccount(account)
+    account = InternalAccount(account, vo=vo)
     for d in dids:
-        d['scope'] = InternalScope(d['scope'])
+        d['scope'] = InternalScope(d['scope'], vo=vo)
     return lifetime_exception.add_exception(dids=dids, account=account, pattern=pattern, comments=comments, expires_at=expires_at)
 
 
-def update_exception(exception_id, state, issuer):
+def update_exception(exception_id, state, issuer, vo='def'):
     """
     Update exceptions state to Lifetime Model.
 
     :param id:         The id of the exception.
     :param state:      The states to filter.
     :param issuer:     The issuer account.
+    :param vo:         The VO to act on.
     """
-    kwargs = {}
-    if not permission.has_permission(issuer=issuer, action='update_lifetime_exceptions', kwargs=kwargs):
+    kwargs = {'exception_id': exception_id, 'vo': vo}
+    if not permission.has_permission(issuer=issuer, vo=vo, action='update_lifetime_exceptions', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not update lifetime exceptions' % (issuer))
     return lifetime_exception.update_exception(exception_id=exception_id, state=state)

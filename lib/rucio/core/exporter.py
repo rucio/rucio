@@ -23,14 +23,15 @@ from rucio.db.sqla.session import transactional_session
 
 
 @transactional_session
-def export_rses(session=None):
+def export_rses(vo='def', session=None):
     """
     Export RSE data.
 
+    :param vo: The VO to export.
     :param session: database session in use.
     """
     data = {}
-    for rse in rse_module.list_rses(session=session):
+    for rse in rse_module.list_rses(filters={'vo':vo}, session=session):
         rse_id = rse['id']
         data[rse_id] = rse_module.export_rse(rse_id, session=session)
 
@@ -38,14 +39,15 @@ def export_rses(session=None):
 
 
 @transactional_session
-def export_data(session=None):
+def export_data(vo='def', session=None):
     """
     Export data.
 
+    :param vo: The VO to export.
     :param session: database session in use.
     """
     data = {
-        'rses': export_rses(session=session),
-        'distances': distance_module.export_distances(session=session)
+        'rses': export_rses(vo=vo, session=session),
+        'distances': distance_module.export_distances(vo, session=session)
     }
     return data

@@ -27,6 +27,7 @@ from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.uploadclient import UploadClient
+from rucio.common.config import config_get_bool
 from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.replica import delete_replicas
@@ -41,6 +42,11 @@ from rucio.tests.common import file_generator
 class TestAbacusCollectionReplica():
 
     def setUp(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': 'tst'}
+        else:
+            self.vo = {}
+
         self.account = 'root'
         self.scope = 'mock'
         self.rule_client = RuleClient()
@@ -50,7 +56,7 @@ class TestAbacusCollectionReplica():
         self.file_sizes = 2
         self.dataset = 'dataset_%s' % generate_uuid()
         self.rse = 'MOCK5'
-        self.rse_id = get_rse_id(rse=self.rse)
+        self.rse_id = get_rse_id(rse=self.rse, **self.vo)
 
     def tearDown(self):
         undertaker.run(once=True)
@@ -87,7 +93,7 @@ class TestAbacusCollectionReplica():
 
         # Delete one file -> collection replica should be unavailable
         cleaner.run(once=True)
-        delete_replicas(rse_id=self.rse_id, files=[{'name': self.files[0]['did_name'], 'scope': InternalScope(self.files[0]['did_scope'])}])
+        delete_replicas(rse_id=self.rse_id, files=[{'name': self.files[0]['did_name'], 'scope': InternalScope(self.files[0]['did_scope'], **self.vo)}])
         self.rule_client.add_replication_rule([{'scope': self.scope, 'name': self.dataset}], 1, self.rse, lifetime=-1)
         collection_replica.run(once=True)
         dataset_replica = [replica for replica in self.replica_client.list_dataset_replicas(self.scope, self.dataset)][0]

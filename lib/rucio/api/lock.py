@@ -10,22 +10,24 @@
 #
 # PY3K COMPATIBLE
 
+from rucio.common.exception import RucioException
 from rucio.common.types import InternalScope
 from rucio.common.utils import api_update_return_dict
 from rucio.core import lock
 from rucio.core.rse import get_rse_id
 
 
-def get_dataset_locks(scope, name):
+def get_dataset_locks(scope, name, vo='def'):
     """
     Get the dataset locks of a dataset.
 
     :param scope:          Scope of the dataset.
     :param name:           Name of the dataset.
+    :param vo:             The VO to act on.
     :return:               List of dicts {'rse_id': ..., 'state': ...}
     """
 
-    scope = InternalScope(scope)
+    scope = InternalScope(scope, vo=vo)
 
     locks = lock.get_dataset_locks(scope=scope, name=name)
 
@@ -33,30 +35,34 @@ def get_dataset_locks(scope, name):
         yield api_update_return_dict(l)
 
 
-def get_dataset_locks_by_rse(rse):
+def get_dataset_locks_by_rse(rse, vo='def'):
     """
     Get the dataset locks of an RSE.
 
     :param rse:            RSE name.
+    :param vo:             The VO to act on.
     :return:               List of dicts {'rse_id': ..., 'state': ...}
     """
 
-    rse_id = get_rse_id(rse=rse)
+    rse_id = get_rse_id(rse=rse, vo=vo)
     locks = lock.get_dataset_locks_by_rse_id(rse_id=rse_id)
 
     for l in locks:
         yield api_update_return_dict(l)
 
 
-def get_replica_locks_for_rule_id(rule_id):
+def get_replica_locks_for_rule_id(rule_id, vo='def'):
     """
     Get the replica locks for a rule_id.
 
     :param rule_id:     Rule ID.
+    :param vo:          The VO to act on.
     :return:            List of dicts.
     """
 
     locks = lock.get_replica_locks_for_rule_id(rule_id=rule_id)
 
     for l in locks:
+        if l['scope'].vo != vo:
+            raise RucioException('Cannot get rule on VO {}'.format(vo))
         yield api_update_return_dict(l)

@@ -40,9 +40,10 @@ from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalScope, InternalAccount
 from rucio.common.utils import generate_uuid, md5, render_json
+from rucio.core.rse import add_rse_attribute, get_rse_id
 from rucio.daemons.abacus import account as abacus_account
 from rucio.tests.common import execute, account_name_generator, rse_name_generator, file_generator, scope_name_generator
 from rucio.rse import rsemanager as rsemgr
@@ -51,6 +52,11 @@ from rucio.rse import rsemanager as rsemgr
 class TestBinRucio():
 
     def setup(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': 'tst'}
+        else:
+            self.vo = {}
+
         try:
             remove('/tmp/.rucio_root/auth_token_root')
         except OSError as e:
@@ -61,7 +67,7 @@ class TestBinRucio():
         self.auth_host = config_get('client', 'auth_host')
         self.user = 'data13_hip'
         self.def_rse = 'MOCK4'
-        self.rse_client = RSEClient()
+        self.rse_client = RSEClient(**self.vo)
         self.def_rse_id = self.rse_client.get_rse(rse=self.def_rse)['id']
         self.did_client = DIDClient()
         self.replica_client = ReplicaClient()
@@ -269,10 +275,10 @@ class TestBinRucio():
         if environ.get('SUITE', 'all') != 'client':
             from rucio.db.sqla import session, models
             db_session = session.get_session()
-            db_session.query(models.RSEFileAssociation).filter_by(name=tmp_file1_name, scope=InternalScope(self.user)).delete()
+            db_session.query(models.RSEFileAssociation).filter_by(name=tmp_file1_name, scope=InternalScope(self.user, **self.vo)).delete()
             db_session.query(models.ReplicaLock).delete()
-            db_session.query(models.ReplicationRule).filter_by(name=tmp_file1_name, scope=InternalScope(self.user)).delete()
-            db_session.query(models.DataIdentifier).filter_by(name=tmp_file1_name, scope=InternalScope(self.user)).delete()
+            db_session.query(models.ReplicationRule).filter_by(name=tmp_file1_name, scope=InternalScope(self.user, **self.vo)).delete()
+            db_session.query(models.DataIdentifier).filter_by(name=tmp_file1_name, scope=InternalScope(self.user, **self.vo)).delete()
             db_session.commit()
             tmp_file4 = file_generator()
             checksum_tmp_file4 = md5(tmp_file4)
@@ -674,7 +680,7 @@ class TestBinRucio():
         lfn = {'name': filename[5:], 'scope': self.user, 'bytes': filesize, 'md5': file_md5}
         # user uploads file
         self.replica_client.add_replicas(files=[lfn], rse=self.def_rse)
-        rse_settings = rsemgr.get_rse_info(rse=self.def_rse)
+        rse_settings = rsemgr.get_rse_info(rse=self.def_rse, **self.vo)
         protocol = rsemgr.create_protocol(rse_settings, 'write')
         protocol.connect()
         pfn = list(protocol.lfns2pfns(lfn).values())[0]
@@ -708,7 +714,7 @@ class TestBinRucio():
         lfn = {'name': filename[5:], 'scope': self.user, 'bytes': filesize, 'md5': '0123456789abcdef0123456789abcdef'}
         # user uploads file
         self.replica_client.add_replicas(files=[lfn], rse=self.def_rse)
-        rse_settings = rsemgr.get_rse_info(rse=self.def_rse)
+        rse_settings = rsemgr.get_rse_info(rse=self.def_rse, **self.vo)
         protocol = rsemgr.create_protocol(rse_settings, 'write')
         protocol.connect()
         pfn = list(protocol.lfns2pfns(lfn).values())[0]

@@ -38,6 +38,7 @@ import rucio.core.account_counter
 import rucio.core.rse
 
 from rucio.common import exception
+from rucio.core.vo import vo_exists
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, AccountType
 from rucio.db.sqla.enum import EnumSymbol
@@ -55,6 +56,10 @@ def add_account(account, type, email, session=None):
     :param email: The Email address associated with the account.
     :param session: the database session in use.
     """
+
+    if not vo_exists(vo=account.vo, session=session):
+        raise exception.RucioException('VO {} not found'.format(account.vo))
+
     new_account = models.Account(account=account, account_type=type, email=email,
                                  status=AccountStatus.ACTIVE)
     try:
@@ -161,6 +166,12 @@ def list_accounts(filter={}, session=None):
             query = query.join(models.IdentityAccountAssociation, models.Account.account == models.IdentityAccountAssociation.account).\
                 filter(models.IdentityAccountAssociation.identity == filter['identity'])
 
+        elif filter_type == 'account':
+            if '*' in filter['account'].internal:
+                account_str = filter['account'].internal.replace('*', '%')
+                query = query.filter(models.Account.account.like(account_str))
+            else:
+                query = query.filter_by(account=filter['account'])
         else:
             query = query.join(models.AccountAttrAssociation, models.Account.account == models.AccountAttrAssociation.account).\
                 filter(models.AccountAttrAssociation.key == filter_type).\

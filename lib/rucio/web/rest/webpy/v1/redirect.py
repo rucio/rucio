@@ -100,8 +100,11 @@ class MetaLinkRedirector(RucioController):
             if 'site' in params:
                 client_location['site'] = params['site'][0]
 
+        # get vo if given
+        vo = ctx.env.get('HTTP_X_RUCIO_VO', '')
+
         try:
-            tmp_replicas = [rep for rep in list_replicas(dids=dids, schemes=schemes, client_location=client_location)]
+            tmp_replicas = [rep for rep in list_replicas(dids=dids, schemes=schemes, client_location=client_location, vo=vo)]
 
             if not tmp_replicas:
                 raise ReplicaNotFound('no redirection possible - cannot find the DID')
@@ -233,7 +236,11 @@ class HeaderRedirector(RucioController):
                 header('Link', '<%s/metalink?schemes=%s&select=%s>; rel=describedby; type="application/metalink+xml"' % (cleaned_url, schemes, select))
                 schemes = [schemes]  # list_replicas needs a list
 
-            replicas = [r for r in list_replicas(dids=[{'scope': scope, 'name': name, 'type': 'FILE'}], schemes=schemes, client_location=client_location)]
+            # get vo if given
+            vo = ctx.env.get('HTTP_X_RUCIO_VO', '')
+
+            replicas = [r for r in list_replicas(dids=[{'scope': scope, 'name': name, 'type': 'FILE'}],
+                                                 schemes=schemes, client_location=client_location, vo=vo)]
 
             selected_url = None
             for r in replicas:

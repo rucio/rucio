@@ -89,7 +89,7 @@ def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, f
                     # Get destination rse information and protocol
                     dest_rse_name = get_rse_name(rse_id=dest_rse_id, session=session)
                     if dest_rse_id not in rses_info:
-                        rses_info[dest_rse_id] = rsemgr.get_rse_info(rse=dest_rse_name, session=session)
+                        rses_info[dest_rse_id] = rsemgr.get_rse_info(rse_id=dest_rse_id, session=session)
 
                     if staging_buffer != dest_rse_id:
                         continue
@@ -115,7 +115,7 @@ def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, f
 
                     source_rse_name = get_rse_name(rse_id=source_rse_id, session=session)
                     if source_rse_id not in rses_info:
-                        rses_info[source_rse_id] = rsemgr.get_rse_info(rse=source_rse_name, session=session)
+                        rses_info[source_rse_id] = rsemgr.get_rse_info(rse_id=source_rse_id, session=session)
                     if source_rse_id not in rse_attrs:
                         rse_attrs[source_rse_id] = get_rse_attributes(rse_id=source_rse_id, session=session)
 
@@ -148,7 +148,7 @@ def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, f
                     # to get space token and fts attribute
                     source_rse_name = get_rse_name(rse_id=source_rse_id, session=session)
                     if source_rse_id not in rses_info:
-                        rses_info[source_rse_id] = rsemgr.get_rse_info(rse=source_rse_name, session=session)
+                        rses_info[source_rse_id] = rsemgr.get_rse_info(rse_id=source_rse_id, session=session)
                     if source_rse_id not in rse_attrs:
                         rse_attrs[source_rse_id] = get_rse_attributes(rse_id=source_rse_id, session=session)
 

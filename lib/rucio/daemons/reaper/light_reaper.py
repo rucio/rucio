@@ -91,7 +91,7 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
                                                        total_workers=total_workers)
 
                 rse = rse_core.get_rse_name(rse_id=rse_id)
-                rse_info = rsemgr.get_rse_info(rse)
+                rse_info = rsemgr.get_rse_info(rse_id=rse_id)
                 rse_protocol = rse_core.get_rse_protocols(rse_id=rse_id)
                 prot = rsemgr.create_protocol(rse_info, 'delete', scheme=scheme)
                 deleted_replicas = []

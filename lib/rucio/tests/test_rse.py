@@ -37,6 +37,7 @@ from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import RSEType
 from rucio.client.rseclient import RSEClient
 from rucio.client.replicaclient import ReplicaClient
+from rucio.common.config import config_get_bool
 from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSupported,
                                     InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError,
                                     ResourceTemporaryUnavailable, RSEAttributeNotFound, RSEOperationNotSupported)
@@ -51,6 +52,12 @@ from rucio.web.rest.authentication import APP as auth_app
 
 
 class TestRSECoreApi(object):
+
+    def setup(self):        
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': 'tst'}
+        else:
+            self.vo = {}
 
     def test_create_and_check_for_rse(self):
         """ RSE (CORE): Test the creation, query, and deletion of a RSE """
@@ -72,6 +79,7 @@ class TestRSECoreApi(object):
             'longitude': 1.0,
             'latitude': 2.0
         }
+        properties.update(self.vo)
         rse_id = add_rse(rse_name, **properties)
         assert_equal(rse_exists(rse=rse_name), True)
         rse = get_rse(rse_id=rse_id)
@@ -93,14 +101,14 @@ class TestRSECoreApi(object):
         assert_equal(rse_exists(invalid_rse), False)
 
         with assert_raises(Duplicate):
-            add_rse(rse_name)
+            add_rse(rse_name, **self.vo)
         del_rse(rse_id=rse_id)
         assert_equal(rse_exists(rse=rse_name), False)
 
     def test_list_rses(self):
         """ RSE (CORE): Test the listing of all RSEs """
         rse = rse_name_generator()
-        rse_id = add_rse(rse)
+        rse_id = add_rse(rse, **self.vo)
         assert_equal(rse_exists(rse=rse), True)
         add_rse_attribute(rse_id=rse_id, key='tier', value='1')
         rses = list_rses(filters={'tier': '1'})
@@ -115,7 +123,7 @@ class TestRSECoreApi(object):
     def test_list_rse_attributes(self):
         """ RSE (CORE): Test the listing of RSE attributes """
         rse = rse_name_generator()
-        rse_id = add_rse(rse)
+        rse_id = add_rse(rse, **self.vo)
         add_rse_attribute(rse_id=rse_id, key='tier', value='1')
         attr = list_rse_attributes(rse_id=rse_id)
         assert_in('tier', list(attr.keys()))
@@ -128,7 +136,7 @@ class TestRSECoreApi(object):
         max_transfers = 100
         transfers = 90
         waitings = 20
-        rse_id = add_rse(rse)
+        rse_id = add_rse(rse, **self.vo)
 
         set_rse_transfer_limits(rse_id=rse_id, activity=activity, max_transfers=max_transfers, transfers=transfers, waitings=waitings)
         limits = get_rse_transfer_limits(rse_id=rse_id, activity=activity)
@@ -156,7 +164,7 @@ class TestRSECoreApi(object):
     def test_delete_rse_attribute(self):
         """ RSE (CORE): Test the deletion of a RSE attribute. """
         rse_name = rse_name_generator()
-        rse_id = add_rse(rse_name)
+        rse_id = add_rse(rse_name, **self.vo)
         del_rse_attribute(rse_id=rse_id, key=rse_name)
         assert_equal(get_rse_attribute(key=rse_name, rse_id=rse_id), [])
 
@@ -167,7 +175,7 @@ class TestRSECoreApi(object):
         """ RSE (CORE): Test deletion of RSE """
         # Deletion of not empty RSE
         rse_name = rse_name_generator()
-        rse_id = add_rse(rse_name)
+        rse_id = add_rse(rse_name, **self.vo)
         db_session = session.get_session()
         rse_usage = db_session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').one()
         rse_usage.used = 1
@@ -207,7 +215,7 @@ class TestRSECoreApi(object):
     def test_empty_rse(self):
         """ RSE (CORE): Test if RSE is empty """
         rse_name = rse_name_generator()
-        rse_id = add_rse(rse_name)
+        rse_id = add_rse(rse_name, **self.vo)
         assert_equal(rse_is_empty(rse_id=rse_id), True)
 
         db_session = session.get_session()
@@ -219,11 +227,20 @@ class TestRSECoreApi(object):
 
 class TestRSE(object):
 
+    def setup(self):        
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo_header = {'X-Rucio-VO': 'tst'}
+            self.vo = {'vo': 'tst'}
+        else:
+            self.vo_header = {}
+            self.vo = {}
+
     def test_create_rse_success(self):
         """ RSE (REST): send a POST to create a new RSE """
         mw = []
 
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.vo_header)
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
 
         assert_equal(r1.status, 200)
@@ -248,7 +265,7 @@ class TestRSE(object):
         }
         r2 = TestApp(rse_app.wsgifunc(*mw)).post('/' + rse_name, headers=headers2, expect_errors=True, params=dumps(properties))
         assert_equal(r2.status, 201)
-        rse = get_rse(rse_id=get_rse_id(rse=rse_name))
+        rse = get_rse(rse_id=get_rse_id(rse=rse_name, **self.vo))
         assert_equal(rse.rse, rse_name)
         assert_equal(rse.deterministic, properties['deterministic'])
         assert_equal(rse.volatile, properties['volatile'])
@@ -274,6 +291,7 @@ class TestRSE(object):
         mw = []
 
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.vo_header)
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
 
         assert_equal(r1.status, 200)
@@ -294,6 +312,7 @@ class TestRSE(object):
         mw = []
 
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.vo_header)
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
 
         assert_equal(r1.status, 200)
@@ -317,6 +336,7 @@ class TestRSE(object):
         """ RSE (REST): Test of RSE account usage and limit """
         mw = []
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.vo_header)
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
         assert_equal(r1.status, 200)
         token = str(r1.header('X-Rucio-Auth-Token'))
@@ -328,9 +348,10 @@ class TestRSE(object):
     def test_delete_rse_attribute(self):
         """ RSE (REST): Test the deletion of a RSE attribute """
         rse_name = rse_name_generator()
-        add_rse(rse_name)
+        add_rse(rse_name, **self.vo)
         mw = []
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.vo_header)
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
         token = str(r1.header('X-Rucio-Auth-Token'))
 
@@ -345,12 +366,13 @@ class TestRSE(object):
         """ RSE (REST): Test the deletion of RSE """
         mw = []
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.vo_header)
         r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
         token = str(r1.header('X-Rucio-Auth-Token'))
 
         # Normal deletion
         rse_name = rse_name_generator()
-        add_rse(rse_name)
+        add_rse(rse_name, **self.vo)
         headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
         r2 = TestApp(rse_app.wsgifunc(*mw)).delete('/{0}'.format(rse_name), headers=headers2, expect_errors=True)
         assert_equal(r2.status, 200, r2.body)
@@ -368,7 +390,7 @@ class TestRSE(object):
 
         # Deletion of not empty RSE
         rse_name = rse_name_generator()
-        rse_id = add_rse(rse_name)
+        rse_id = add_rse(rse_name, **self.vo)
         db_session = session.get_session()
         rse_usage = db_session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').one()
         rse_usage.used = 1
@@ -380,6 +402,11 @@ class TestRSE(object):
 class TestRSEClient(object):
 
     def setup(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': 'tst'}
+        else:
+            self.vo = {}
+
         self.client = RSEClient()
 
     def test_add_rse(self):
@@ -403,7 +430,7 @@ class TestRSEClient(object):
         }
         ret = self.client.add_rse(rse_name, **properties)
         assert_true(ret)
-        rse = get_rse(rse_id=get_rse_id(rse=rse_name))
+        rse = get_rse(rse_id=get_rse_id(rse=rse_name, **self.vo))
         assert_equal(rse.rse, rse_name)
         assert_equal(rse.deterministic, properties['deterministic'])
         assert_equal(rse.volatile, properties['volatile'])
@@ -523,7 +550,7 @@ class TestRSEClient(object):
                       'extended_attributes': 'TheOneWithAllTheRest'}, ]
         for p in protocols:
             self.client.add_protocol(protocol_rse, p)
-        resp = mgr.get_rse_info(protocol_rse)
+        resp = mgr.get_rse_info(rse=protocol_rse, **self.vo)
         for p in resp['protocols']:
             if ((p['port'] == 19) and (p['domains']['lan']['read'] != 1)) or \
                ((p['port'] == 20) and (p['domains']['lan']['read'] != 2)) or \
@@ -683,7 +710,7 @@ class TestRSEClient(object):
         # check if empty
         resp = None
         try:
-            resp = mgr.get_rse_info(protocol_rse)
+            resp = mgr.get_rse_info(rse=protocol_rse, **self.vo)
             mgr.select_protocol(resp, 'read', scheme=protocol_id)
         except RSEProtocolNotSupported:
             self.client.delete_rse(protocol_rse)
@@ -727,7 +754,7 @@ class TestRSEClient(object):
         self.client.delete_protocols(protocol_rse, scheme=protocol_id, hostname='localhost')
 
         # check if protocol for 'other_host' are still there
-        resp = mgr.get_rse_info(protocol_rse)
+        resp = mgr.get_rse_info(rse=protocol_rse, **self.vo)
         for r in resp['protocols']:
             if r['hostname'] == 'localhost':
                 self.client.delete_rse(protocol_rse)
@@ -783,7 +810,7 @@ class TestRSEClient(object):
         self.client.delete_protocols(protocol_rse, scheme=protocol_id, hostname='localhost', port=17)
 
         # check remaining protocols
-        resp = mgr.get_rse_info(protocol_rse)
+        resp = mgr.get_rse_info(rse=protocol_rse, **self.vo)
         for r in resp['protocols']:
             if r['port'] == 17:
                 self.client.delete_protocols(protocol_rse, protocol_id)
@@ -866,7 +893,7 @@ class TestRSEClient(object):
         for p in protocols:
             self.client.add_protocol(protocol_rse, p)
         # GET all = 3
-        resp = mgr.get_rse_info(protocol_rse)
+        resp = mgr.get_rse_info(rse=protocol_rse, **self.vo)
         if len(resp['protocols']) != 3:
             for p in protocols:
                 self.client.delete_protocols(protocol_rse, p['scheme'])
@@ -879,7 +906,7 @@ class TestRSEClient(object):
     @raises(RSENotFound)
     def test_get_protocols_rse_not_found(self):
         """ RSE (CLIENTS): get all protocols of rse (RSENotFound)."""
-        mgr.get_rse_info("TheOnethatshouldnotbehere")
+        mgr.get_rse_info(rse="TheOnethatshouldnotbehere", **self.vo)
 
     def test_get_protocols_operations(self):
         """ RSE (CLIENTS): get protocols for operations of rse."""
@@ -920,7 +947,7 @@ class TestRSEClient(object):
             self.client.add_protocol(protocol_rse, p)
 
         ops = {'read': 1, 'write': 2, 'delete': 3}
-        rse_attr = mgr.get_rse_info(protocol_rse)
+        rse_attr = mgr.get_rse_info(rse=protocol_rse, **self.vo)
         for op in ops:
             # resp = self.client.get_protocols(protocol_rse, operation=op, protocol_domain='lan')
             p = mgr.select_protocol(rse_attr, op, domain='lan')
@@ -969,7 +996,7 @@ class TestRSEClient(object):
         for p in protocols:
             self.client.add_protocol(protocol_rse, p)
 
-        rse_attr = mgr.get_rse_info(protocol_rse)
+        rse_attr = mgr.get_rse_info(rse=protocol_rse, **self.vo)
         for op in ['delete', 'read', 'write']:
             # resp = self.client.get_protocols(protocol_rse, operation=op, default=True, protocol_domain='lan')
             p = mgr.select_protocol(rse_attr, op, domain='lan')
@@ -1009,7 +1036,7 @@ class TestRSEClient(object):
         for p in protocols:
             self.client.add_protocol(protocol_rse, p)
 
-        resp = mgr.get_rse_info(protocol_rse)['protocols']
+        resp = mgr.get_rse_info(rse=protocol_rse, **self.vo)['protocols']
         assert((not resp[0]['extended_attributes']['more']['value2']) and resp[0]['extended_attributes']['more']['value1'])
 
     @raises(RSEProtocolNotSupported)
@@ -1052,7 +1079,7 @@ class TestRSEClient(object):
             self.client.add_protocol(protocol_rse, p)
 
         try:
-            rse_attr = mgr.get_rse_info(protocol_rse)
+            rse_attr = mgr.get_rse_info(rse=protocol_rse, **self.vo)
             rse_attr['domain'] = ['lan']
             mgr.select_protocol(rse_attr, 'read')
         except Exception as e:
@@ -1084,7 +1111,7 @@ class TestRSEClient(object):
             self.client.add_protocol(protocol_rse, p)
 
         try:
-            rse_attr = mgr.get_rse_info(protocol_rse)
+            rse_attr = mgr.get_rse_info(rse=protocol_rse, **self.vo)
             mgr.select_protocol(rse_attr, 'write', domain='FRIENDS')
         except Exception as e:
             self.client.delete_protocols(protocol_rse, 'MOCK')
@@ -1113,7 +1140,7 @@ class TestRSEClient(object):
             self.client.add_protocol(protocol_rse, p)
 
         try:
-            rse_attr = mgr.get_rse_info(protocol_rse)
+            rse_attr = mgr.get_rse_info(rse=protocol_rse, **self.vo)
             rse_attr['domain'] = ['wan']
             mgr.select_protocol(rse_attr, 'write')
         except Exception as e:
@@ -1163,7 +1190,7 @@ class TestRSEClient(object):
             self.client.add_protocol(protocol_rse, p)
 
         try:
-            rse_attr = mgr.get_rse_info(protocol_rse)
+            rse_attr = mgr.get_rse_info(rse=protocol_rse, **self.vo)
             rse_attr['domain'] = ['lan']
             mgr.select_protocol(rse_attr, 'read')
         except Exception as e:
@@ -1232,7 +1259,7 @@ class TestRSEClient(object):
             self.client.add_protocol(protocol_rse, p)
 
         self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=17, data={'prefix': 'where/the/files/are', 'extended_attributes': 'Something else', 'port': '12'})
-        rse_attr = mgr.get_rse_info(protocol_rse)
+        rse_attr = mgr.get_rse_info(rse=protocol_rse, **self.vo)
         p = mgr.select_protocol(rse_attr, 'read', scheme='MOCK', domain='lan')
         if p['prefix'] != 'where/the/files/are' and p['extended_attributes'] != 'Something else':
             raise Exception('Update gave unexpected results: %s' % p)
@@ -1490,7 +1517,7 @@ class TestRSEClient(object):
     def test_get_rse_protocols_includes_verify_checksum(self):
         """ RSE (CORE): Test validate_checksum in RSEs info"""
         rse = rse_name_generator()
-        rse_id = add_rse(rse)
+        rse_id = add_rse(rse, **self.vo)
         add_rse_attribute(rse_id=rse_id, key='verify_checksum', value=False)
         info = get_rse_protocols(rse_id)
 
@@ -1500,7 +1527,7 @@ class TestRSEClient(object):
         del_rse(rse_id)
 
         rse = rse_name_generator()
-        rse_id = add_rse(rse)
+        rse_id = add_rse(rse, **self.vo)
         add_rse_attribute(rse_id=rse_id, key='verify_checksum', value=True)
         info = get_rse_protocols(rse_id)
 
@@ -1513,7 +1540,7 @@ class TestRSEClient(object):
         rse_name = rse_name_generator()
         self.client.add_rse(rse_name)
         self.client.delete_rse_attribute(rse=rse_name, key=rse_name)
-        assert_equal(get_rse_attribute(key=rse_name, rse_id=get_rse_id(rse_name)), [])
+        assert_equal(get_rse_attribute(key=rse_name, rse_id=get_rse_id(rse_name, **self.vo)), [])
 
         with assert_raises(RSEAttributeNotFound):
             self.client.delete_rse_attribute(rse=rse_name, key=rse_name)
@@ -1522,8 +1549,8 @@ class TestRSEClient(object):
         """ RSE (CLIENTS): delete RSE """
         # Deletion of not empty RSE
         rse_name = rse_name_generator()
-        add_rse(rse_name)
-        rse_id = get_rse_id(rse_name)
+        add_rse(rse_name, **self.vo)
+        rse_id = get_rse_id(rse_name, **self.vo)
         db_session = session.get_session()
         rse_usage = db_session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').one()
         rse_usage.used = 1

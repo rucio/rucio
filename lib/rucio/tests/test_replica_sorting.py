@@ -20,6 +20,7 @@
 from nose.tools import assert_equal, assert_in, assert_not_in
 
 from rucio.client import ReplicaClient
+from rucio.common.config import config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.rse import add_rse, del_rse, add_rse_attribute, add_protocol
@@ -28,6 +29,12 @@ from rucio.tests.common import rse_name_generator
 
 class TestReplicaSorting(object):
 
+    def setup(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': 'tst'}
+        else:
+            self.vo = {}
+
     def test_replica_sorting(self):
         """ REPLICA (CORE): Test the correct sorting of the replicas across WAN and LAN """
 
@@ -35,14 +42,14 @@ class TestReplicaSorting(object):
 
         self.rse1 = 'APERTURE_%s' % rse_name_generator()
         self.rse2 = 'BLACKMESA_%s' % rse_name_generator()
-        self.rse1_id = add_rse(self.rse1)
-        self.rse2_id = add_rse(self.rse2)
+        self.rse1_id = add_rse(self.rse1, **self.vo)
+        self.rse2_id = add_rse(self.rse2, **self.vo)
         add_rse_attribute(rse_id=self.rse1_id, key='site', value='APERTURE')
         add_rse_attribute(rse_id=self.rse2_id, key='site', value='BLACKMESA')
 
-        self.files = [{'scope': InternalScope('mock'), 'name': 'element_0',
+        self.files = [{'scope': InternalScope('mock', **self.vo), 'name': 'element_0',
                        'bytes': 1234, 'adler32': 'deadbeef'}]
-        root = InternalAccount('root')
+        root = InternalAccount('root', **self.vo)
         add_replicas(rse_id=self.rse1_id, files=self.files, account=root)
         add_replicas(rse_id=self.rse2_id, files=self.files, account=root)
 

@@ -58,7 +58,7 @@ class Heartbeat(RucioController):
 
         header('Content-Type', 'application/json')
 
-        return json.dumps(list_heartbeats(issuer=ctx.env.get('issuer')),
+        return json.dumps(list_heartbeats(issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo')),
                           cls=APIEncoder)
 
 

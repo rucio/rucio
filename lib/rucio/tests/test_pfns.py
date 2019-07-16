@@ -10,15 +10,22 @@
 
 from nose.tools import assert_equal
 
+from rucio.common.config import config_get_bool
 from rucio.rse import rsemanager as rsemgr
 
 
 class TestPFNs(object):
 
+    def setup(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': 'tst'}
+        else:
+            self.vo = {}
+
     def test_pfn_srm(self):
         """ PFN (CORE): Test the splitting of PFNs with SRM"""
 
-        rse_info = rsemgr.get_rse_info('MOCK')
+        rse_info = rsemgr.get_rse_info('MOCK', **self.vo)
         proto = rsemgr.create_protocol(rse_info, 'read', scheme='srm')
         pfns = ['srm://mock.com:8443/rucio/tmpdisk/rucio_tests/whatever',
                 'srm://mock.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/whatever',
@@ -35,7 +42,7 @@ class TestPFNs(object):
     def test_pfn_https(self):
         """ PFN (CORE): Test the splitting of PFNs with https"""
 
-        rse_info = rsemgr.get_rse_info('MOCK')
+        rse_info = rsemgr.get_rse_info('MOCK', **self.vo)
         proto = rsemgr.create_protocol(rse_info, 'read', scheme='https')
         pfn = 'https://mock.com:2880/pnfs/rucio/disk-only/scratchdisk/whatever'
         ret = proto.parse_pfns([pfn])
@@ -48,7 +55,7 @@ class TestPFNs(object):
 
     def test_pfn_mock(self):
         """ PFN (CORE): Test the splitting of PFNs with mock"""
-        rse_info = rsemgr.get_rse_info('MOCK')
+        rse_info = rsemgr.get_rse_info('MOCK', **self.vo)
         proto = rsemgr.create_protocol(rse_info, 'read', scheme='mock')
         pfn = 'mock://localhost/tmp/rucio_rse/whatever'
         ret = proto.parse_pfns([pfn])
@@ -61,7 +68,7 @@ class TestPFNs(object):
 
     def test_pfn_filename_in_dataset(self):
         """ PFN (CORE): Test the splitting of PFNs cornercase: filename in prefix"""
-        rse_info = rsemgr.get_rse_info('MOCK')
+        rse_info = rsemgr.get_rse_info('MOCK', **self.vo)
         proto = rsemgr.create_protocol(rse_info, 'read', scheme='mock')
 
         pfn = 'mock://localhost/tmp/rucio_rse/rucio_rse'

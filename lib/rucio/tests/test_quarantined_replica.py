@@ -14,6 +14,7 @@
 
 from nose.tools import assert_equal
 
+from rucio.common.config import config_get_bool
 from rucio.common.utils import generate_uuid
 from rucio.core.quarantined_replica import (add_quarantined_replicas,
                                             list_quarantined_replicas,
@@ -23,7 +24,12 @@ from rucio.core.rse import get_rse_id
 
 def test_quarantined_replicas():
     """ QUARANTINED REPLICA (CORE): Add, List and Delete quarantined replicas """
-    rse_id = get_rse_id(rse='MOCK')
+    if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+        vo = {'vo': 'tst'}
+    else:
+        vo = {}
+
+    rse_id = get_rse_id(rse='MOCK', **vo)
 
     quarantined_replicas = len(list_quarantined_replicas(rse_id=rse_id, limit=10000))
 
