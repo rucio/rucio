@@ -161,13 +161,9 @@ def get_account_usage(account, rse_id=None, session=None):
         counters = session.query(models.AccountUsage).filter_by(account=account, rse_id=rse_id).all()
     result_list = []
 
-    rse_dict = {}
     for counter in counters:
         if counter.bytes > 0 or counter.files > 0 or rse_id in limits.keys():
-            if counter.rse_id not in rse_dict:
-                rse_dict[counter.rse_id] = get_rse_name(rse_id=counter.rse_id, session=session)
-
-            result_list.append({'rse_id': counter.rse_id, 'rse': rse_dict[counter.rse_id],
+            result_list.append({'rse_id': counter.rse_id, 'rse': get_rse_name(rse_id=counter.rse_id, session=session),
                                 'bytes': counter.bytes, 'files': counter.files,
                                 'bytes_limit': limits.get(counter.rse_id, 0),
                                 'bytes_remaining': limits.get(counter.rse_id, 0) - counter.bytes})

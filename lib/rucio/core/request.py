@@ -123,7 +123,7 @@ def queue_requests(requests, session=None):
     logging.debug("queue requests")
 
     request_clause = []
-    transfer_limits, rses = {}, {}
+    transfer_limits = {}
     for req in requests:
 
         if isinstance(req['attributes'], string_types):
@@ -136,9 +136,6 @@ def queue_requests(requests, session=None):
                                        models.Request.name == req['name'],
                                        models.Request.dest_rse_id == req['dest_rse_id'],
                                        models.Request.request_type == RequestType.TRANSFER))
-
-        if req['dest_rse_id'] not in rses:
-            rses[req['dest_rse_id']] = get_rse_name(req['dest_rse_id'], session=session)
 
         if req['attributes']['activity'] not in transfer_limits:
             transfer_limits[req['attributes']['activity']] = {req['dest_rse_id']: transfer_limits_core.get_transfer_limits(req['attributes']['activity'], req['dest_rse_id'])}
@@ -167,12 +164,12 @@ def queue_requests(requests, session=None):
 
     new_requests, sources, messages = [], [], []
     for request in requests:
-
+        dest_rse_name = get_rse_name(rse_id=request['dest_rse_id'], session=session)
         if req['request_type'] == RequestType.TRANSFER and (request['scope'], request['name'], request['dest_rse_id']) in existing_requests:
             logging.warn('Request TYPE %s for DID %s:%s at RSE %s exists - ignoring' % (request['request_type'],
                                                                                         request['scope'],
                                                                                         request['name'],
-                                                                                        rses[request['dest_rse_id']]))
+                                                                                        dest_rse_name))
             continue
 
         transfer_limit_activity = transfer_limits[request['attributes']['activity']].get(request['dest_rse_id'])
@@ -238,7 +235,7 @@ def queue_requests(requests, session=None):
                    'scope': request['scope'],
                    'name': request['name'],
                    'dst-rse-id': request['dest_rse_id'],
-                   'dst-rse': rses[request['dest_rse_id']],
+                   'dst-rse': dest_rse_name,
                    'state': str(request['state']),
                    'retry-count': request['retry_count'],
                    'rule-id': str(request['rule_id']),
@@ -337,19 +334,16 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
         query_result = query.all()
         if query_result:
             if mode_all:
-                rse_dict = {None: None}
                 for res in query_result:
                     res_dict = dict(res)
                     res_dict.pop('_sa_instance_state')
                     res_dict['request_id'] = res_dict['id']
                     res_dict['attributes'] = json.loads(str(res_dict['attributes']))
 
-                    if res_dict['dest_rse_id'] not in rse_dict:
-                        rse_dict[res_dict['dest_rse_id']] = get_rse_name(rse_id=res_dict['dest_rse_id'], session=session)
-                    if res_dict['source_rse_id'] not in rse_dict:
-                        rse_dict[res_dict['source_rse_id']] = get_rse_name(rse_id=res_dict['source_rse_id'], session=session)
-                    res_dict['dest_rse'] = rse_dict[res_dict['dest_rse_id']]
-                    res_dict['source_rse'] = rse_dict[res_dict['source_rse_id']]
+                    dst_id = res_dict['dest_rse_id']
+                    src_id = res_dict['source_rse_id']
+                    res_dict['dest_rse'] = get_rse_name(rse_id=dst_id, session=session) if dst_id is not None else None
+                    res_dict['source_rse'] = get_rse_name(rse_id=src_id, session=session) if src_id is not None else None
 
                     result.append(res_dict)
             else:

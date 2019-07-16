@@ -32,23 +32,16 @@ def export_data(issuer):
     rses = {}
     distances = {}
 
-    rse_dict = {}
     for rse_id in data['rses']:
         rse = data['rses'][rse_id]
-        if rse_id not in rse_dict:
-            rse_dict[rse_id] = get_rse_name(rse_id=rse_id)
-        rses[rse_dict[rse_id]] = rse
+        rses[get_rse_name(rse_id=rse_id)] = rse
     data['rses'] = rses
 
     for src_id, tmp in data['distances']:
-        if src_id not in rse_dict:
-            rse_dict[src_id] = get_rse_name(rse_id=src_id)
-        src = rse_dict[src_id]
+        src = get_rse_name(rse_id=src_id)
         distances[src] = {}
         for dst_id, dists in tmp:
-            if dst_id not in rse_dict:
-                rse_dict[dst_id] = get_rse_name(rse_id=dst_id)
-            dst = rse_dict[dst_id]
+            dst = get_rse_name(rse_id=dst_id)
             distances[src][dst] = dists
     data['distances'] = distances
     return data

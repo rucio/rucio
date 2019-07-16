@@ -119,8 +119,7 @@ def get_updated_account_counters(total_workers, worker_number, session=None):
     :param session:            Database session in use.
     :returns:                  List of rse_ids whose rse_counters need to be updated.
     """
-    query = session.query(models.UpdatedAccountCounter.account, models.UpdatedAccountCounter.rse_id, models.RSE.rse).\
-        filter(models.UpdatedAccountCounter.rse_id == models.RSE.id).\
+    query = session.query(models.UpdatedAccountCounter.account, models.UpdatedAccountCounter.rse_id).\
         distinct(models.UpdatedAccountCounter.account, models.UpdatedAccountCounter.rse_id)
 
     if total_workers > 0:

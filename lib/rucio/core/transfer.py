@@ -420,15 +420,12 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
     bring_online_local = bring_online
     transfers, rses_info, protocols, rse_attrs, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = {}, {}, {}, {}, [], [], []
-    rse_map = {}
 
     for req_id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, previous_attempt_id, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path, retry_count, src_url, ranking, link_ranking in req_sources:
-        if dest_rse_id not in rse_map:
-            rse_map[dest_rse_id] = get_rse_name(rse_id=dest_rse_id, session=session)
-        if source_rse_id is not None and source_rse_id not in rse_map:
-            rse_map[source_rse_id] = get_rse_name(rse_id=source_rse_id, session=session)
+        dest_rse_name = get_rse_name(rse_id=dest_rse_id, session=session)
+        source_rse_name = get_rse_name(rse_id=source_rse_id, session=session)
         if dest_rse_id in unavailable_write_rse_ids:
-            logging.warning('RSE %s is blacklisted for write. Will skip the submission of new jobs' % (rse_map[dest_rse_id]))
+            logging.warning('RSE %s is blacklisted for write. Will skip the submission of new jobs' % (dest_rse_name))
             continue
         transfer_src_type = "DISK"
         transfer_dst_type = "DISK"
@@ -453,7 +450,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     continue
 
                 if link_ranking is None:
-                    logging.debug("Request %s: no link from %s to %s" % (req_id, rse_map[source_rse_id], rse_map[dest_rse_id]))
+                    logging.debug("Request %s: no link from %s to %s" % (req_id, dest_rse_name, source_rse_name))
                     continue
 
                 if source_rse_id in unavailable_read_rse_ids:
@@ -461,13 +458,13 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 # Get destination rse information
                 if dest_rse_id not in rses_info:
-                    rses_info[dest_rse_id] = rsemgr.get_rse_info(rse=rse_map[dest_rse_id], session=session)
+                    rses_info[dest_rse_id] = rsemgr.get_rse_info(rse=dest_rse_name, session=session)
                 if dest_rse_id not in rse_attrs:
                     rse_attrs[dest_rse_id] = get_rse_attributes(dest_rse_id, session=session)
 
                 # Get the source rse information
                 if source_rse_id not in rses_info:
-                    rses_info[source_rse_id] = rsemgr.get_rse_info(rse=rse_map[source_rse_id], session=session)
+                    rses_info[source_rse_id] = rsemgr.get_rse_info(rse=source_rse_name, session=session)
                 if source_rse_id not in rse_attrs:
                     rse_attrs[source_rse_id] = get_rse_attributes(source_rse_id, session=session)
 
@@ -504,7 +501,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                                                   domain='wan',
                                                                   scheme=current_schemes)
                 except RSEProtocolNotSupported:
-                    logging.error('No matching schemes in %s for operation "third_party_copy" between %s and %s' % (current_schemes, rse_map[source_rse_id], rse_map[dest_rse_id]))
+                    logging.error('No matching schemes in %s for operation "third_party_copy" between %s and %s' % (current_schemes, source_rse_name, dest_rse_name))
                     if req_id in reqs_no_source:
                         reqs_no_source.remove(req_id)
                     if req_id not in reqs_scheme_mismatch:
@@ -517,7 +514,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     try:
                         protocols[dest_rse_id_key] = rsemgr.create_protocol(rses_info[dest_rse_id], 'third_party_copy', matching_scheme[0])
                     except RSEProtocolNotSupported:
-                        logging.error('Operation "third_party_copy" not supported by dest_rse %s with schemes %s' % (rse_map[dest_rse_id], current_schemes))
+                        logging.error('Operation "third_party_copy" not supported by dest_rse %s with schemes %s' % (dest_rse_name, current_schemes))
                         if req_id in reqs_no_source:
                             reqs_no_source.remove(req_id)
                         if req_id not in reqs_scheme_mismatch:
@@ -563,7 +560,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     try:
                         protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'third_party_copy', matching_scheme[1])
                     except RSEProtocolNotSupported:
-                        logging.error('Operation "third_party_copy" not supported by source_rse %s with schemes %s' % (rse_map[source_rse_id], matching_scheme[1]))
+                        logging.error('Operation "third_party_copy" not supported by source_rse %s with schemes %s' % (source_rse_name, matching_scheme[1]))
                         if req_id in reqs_no_source:
                             reqs_no_source.remove(req_id)
                         if req_id not in reqs_scheme_mismatch:
@@ -591,7 +588,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 # get external_host
                 fts_hosts = rse_attrs[dest_rse_id].get('fts', None)
                 if not fts_hosts:
-                    logging.error('Destination RSE %s FTS attribute not defined - SKIP REQUEST %s' % (rse_map[dest_rse_id], req_id))
+                    logging.error('Destination RSE %s FTS attribute not defined - SKIP REQUEST %s' % (dest_rse_name, req_id))
                     continue
                 if retry_count is None:
                     retry_count = 0
@@ -655,7 +652,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     continue
 
                 if link_ranking is None:
-                    logging.debug("Request %s: no link from %s to %s" % (req_id, rse_map[source_rse_id], rse_map[dest_rse_id]))
+                    logging.debug("Request %s: no link from %s to %s" % (req_id, source_rse_name, dest_rse_name))
                     continue
 
                 if source_rse_id in unavailable_read_rse_ids:
@@ -686,7 +683,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 # Compute the source rse information
                 if source_rse_id not in rses_info:
-                    rses_info[source_rse_id] = rsemgr.get_rse_info(rse=rse_map[source_rse_id], session=session)
+                    rses_info[source_rse_id] = rsemgr.get_rse_info(rse=source_rse_name, session=session)
 
                 # Get protocol
                 source_rse_id_key = '%s_%s' % (source_rse_id, '_'.join(current_schemes))

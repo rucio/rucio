@@ -102,14 +102,10 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
             incidents[(row[2], row[1], row[4])] = {}
         incidents[(row[2], row[1], row[4])][str(row[3])] = row[0]
 
-    rse_dict = {}
     for incident in incidents:
-        if incident[0] not in rse_dict:
-            rse_dict[incident[0]] = get_rse_name(rse_id=incident[0], session=session)
-
         res = incidents[incident]
         res['rse_id'] = incident[0]
-        res['rse'] = rse_dict[incident[0]]
+        res['rse'] = get_rse_name(rse_id=incident[0], session=session)
         res['created_at'] = incident[1]
         res['reason'] = incident[2]
         result.append(res)
@@ -177,14 +173,11 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than
     if limit:
         query = query.limit(limit)
 
-    rse_dict = {}
     for badfile in query.yield_per(1000):
         if list_pfns:
             result.append({'scope': badfile.scope, 'name': badfile.name, 'type': DIDType.FILE})
         else:
-            if badfile.rse_id not in rse_dict:
-                rse_dict[badfile.rse_id] = get_rse_name(rse_id=badfile.rse_id, session=session)
-            result.append({'scope': badfile.scope, 'name': badfile.name, 'rse': rse_dict[badfile.rse_id], 'rse_id': badfile.rse_id, 'state': badfile.state, 'created_at': badfile.created_at, 'updated_at': badfile.updated_at})
+            result.append({'scope': badfile.scope, 'name': badfile.name, 'rse': get_rse_name(rse_id=badfile.rse_id, session=session), 'rse_id': badfile.rse_id, 'state': badfile.state, 'created_at': badfile.created_at, 'updated_at': badfile.updated_at})
     if list_pfns:
         reps = []
         for rep in list_replicas(result, schemes=None, unavailable=False, request_id=None, ignore_availability=True, all_states=True, session=session):
@@ -516,11 +509,8 @@ def list_bad_replicas(limit=10000, thread=None, total_threads=None, session=None
 
     query = query.limit(limit)
     rows = []
-    rse_map = {}
     for scope, name, rse_id in query.yield_per(1000):
-        if rse_id not in rse_map:
-            rse_map[rse_id] = get_rse_name(rse_id=rse_id, session=session)
-        rows.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'rse': rse_map[rse_id]})
+        rows.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'rse': get_rse_name(rse_id=rse_id, session=session)})
     return rows
 
 

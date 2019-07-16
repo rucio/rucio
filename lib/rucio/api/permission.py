@@ -16,7 +16,8 @@
 '''
 
 from rucio.core import permission
-from rucio.core.rse import get_rse_id, rse_exists
+from rucio.core.rse import get_rse_id
+from rucio.common.exception import RSENotFound
 
 
 def has_permission(issuer, action, kwargs):
@@ -31,9 +32,10 @@ def has_permission(issuer, action, kwargs):
     """
 
     if 'rse' in kwargs and 'rse_id' not in kwargs:
-        rse_id = None
-        if rse_exists(kwargs.get('rse')):
+        try:
             rse_id = get_rse_id(rse=kwargs.get('rse'))
+        except RSENotFound:
+            rse_id = None
         kwargs.update({'rse_id': rse_id})
 
     return permission.has_permission(issuer=issuer, action=action, kwargs=kwargs)
