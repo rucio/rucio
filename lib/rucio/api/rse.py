@@ -424,14 +424,9 @@ def get_distance(source, destination, issuer):
     distances = distance_module.get_distances(src_rse_id=rse_module.get_rse_id(source),
                                               dest_rse_id=rse_module.get_rse_id(destination))
 
-    rse_dict = {}
     for d in distances:
         if 'src_rse_id' in d and d['src_rse_id'] is not None:
-            if d['src_rse_id'] not in rse_dict:
-                rse_dict[d['src_rse_id']] = rse_module.get_rse_name(rse_id=d['src_rse_id'])
-            d['src_rse'] = rse_dict[d['src_rse_id']]
+            d['src_rse'] = rse_module.get_rse_name(rse_id=d['src_rse_id'])
         if 'dest_rse_id' in d and d['dest_rse_id'] is not None:
-            if d['dest_rse_id'] not in rse_dict:
-                rse_dict[d['dest_rse_id']] = rse_module.get_rse_name(rse_id=d['dest_rse_id'])
             d['dest_rse'] = rse_module.get_rse_name(rse_id=d['dest_rse_id'])
     return distances

@@ -62,12 +62,9 @@ def get_dataset_locks(scope, name, session=None):
                           models.DatasetLock.bytes,
                           models.DatasetLock.accessed_at).filter_by(scope=scope, name=name)
 
-    dict = {}
     for rse_id, scope, name, rule_id, account, state, length, bytes, accessed_at in query.yield_per(500):
-        if rse_id not in dict:
-            dict[rse_id] = get_rse_name(rse_id, session=session)
         yield {'rse_id': rse_id,
-               'rse': dict[rse_id],
+               'rse': get_rse_name(rse_id, session=session),
                'scope': scope,
                'name': name,
                'rule_id': rule_id,
@@ -98,12 +95,9 @@ def get_dataset_locks_by_rse_id(rse_id, session=None):
                           models.DatasetLock.accessed_at).filter_by(rse_id=rse_id).\
         with_hint(models.DatasetLock, "index(DATASET_LOCKS DATASET_LOCKS_RSE_ID_IDX)", 'oracle')
 
-    dict = {}
     for rse_id, scope, name, rule_id, account, state, length, bytes, accessed_at in query.yield_per(500):
-        if rse_id not in dict:
-            dict[rse_id] = get_rse_name(rse_id, session=session)
         yield {'rse_id': rse_id,
-               'rse': dict[rse_id],
+               'rse': get_rse_name(rse_id, session=session),
                'scope': scope,
                'name': name,
                'rule_id': rule_id,
@@ -154,14 +148,11 @@ def get_replica_locks_for_rule_id(rule_id, session=None):
 
     query = session.query(models.ReplicaLock).filter_by(rule_id=rule_id)
 
-    rse_dict = {}
     for row in query:
-        if row.rse_id not in rse_dict:
-            rse_dict[row.rse_id] = get_rse_name(rse_id=row.rse_id, session=session)
         locks.append({'scope': row.scope,
                       'name': row.name,
                       'rse_id': row.rse_id,
-                      'rse': rse_dict[row.rse_id],
+                      'rse': get_rse_name(rse_id=row.rse_id, session=session),
                       'state': row.state,
                       'rule_id': row.rule_id})
 
@@ -183,12 +174,9 @@ def get_replica_locks_for_rule_id_per_rse(rule_id, session=None):
 
     query = session.query(models.ReplicaLock.rse_id).filter_by(rule_id=rule_id).group_by(models.ReplicaLock.rse_id)
 
-    rse_dict = {}
     for row in query:
-        if row.rse_id not in rse_dict:
-            rse_dict[row.rse_id] = get_rse_name(rse_id=row.rse_id, session=session)
         locks.append({'rse_id': row.rse_id,
-                      'rse': rse_dict[row.rse_id]})
+                      'rse': get_rse_name(rse_id=row.rse_id, session=session)})
 
     return locks
 
@@ -427,13 +415,11 @@ def touch_dataset_locks(dataset_locks, session=None):
     :returns: True, if successful, False otherwise.
     """
 
-    rse_ids, now = {}, datetime.utcnow()
+    now = datetime.utcnow()
     for dataset_lock in dataset_locks:
         try:
             if 'rse_id' not in dataset_lock:
-                if dataset_lock['rse'] not in rse_ids:
-                    rse_ids[dataset_lock['rse']] = get_rse_id(rse=dataset_lock['rse'], session=session)
-                dataset_lock['rse_id'] = rse_ids[dataset_lock['rse']]
+                dataset_lock['rse_id'] = get_rse_id(rse=dataset_lock['rse'], session=session)
         except RSENotFound:
             continue
 

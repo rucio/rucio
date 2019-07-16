@@ -378,12 +378,9 @@ class TestExporter(object):
 
         r2 = TestApp(export_app.wsgifunc(*mw)).get('/', headers=headers2, expect_errors=True)
         rses = export_rses()
-        rse_dict = {}
         sanitised = {}
         for rse_id in rses:
-            if rse_id not in rse_dict:
-                rse_dict[rse_id] = get_rse_name(rse_id=rse_id)
-            sanitised[rse_dict[rse_id]] = rses[rse_id]
+            sanitised[get_rse_name(rse_id=rse_id)] = rses[rse_id]
         rses = sanitised
 
         assert_equal(r2.status, 200)

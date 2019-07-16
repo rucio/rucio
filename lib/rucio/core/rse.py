@@ -169,7 +169,7 @@ def del_rse(rse_id, session=None):
 
     old_rse = None
     try:
-        old_rse = session.query(models.RSE).filter_by(id=rse_id).one()
+        old_rse = session.query(models.RSE).filter_by(id=rse_id, deleted=False).one()
         if not rse_is_empty(rse_id=rse_id, session=session):
             raise exception.RSEOperationNotSupported('RSE \'%s\' is not empty' % get_rse_name(rse_id=rse_id, session=session))
     except sqlalchemy.orm.exc.NoResultFound:
@@ -223,47 +223,69 @@ def get_rse(rse_id, session=None):
 
 
 @read_session
-def get_rse_id(rse, session=None, ignore_deleted=True):
+def get_rse_id(rse, session=None, include_deleted=True):
     """
     Get a RSE ID or raise if it does not exist.
 
     :param rse: the rse name.
     :param session: The database session in use.
-    :param ignore_deleted: Flag to toggle finding rse's marked as deleted.
+    :param include_deleted: Flag to toggle finding rse's marked as deleted.
 
     :returns: The rse id.
 
     :raises RSENotFound: If referred RSE was not found in the database.
     """
+
+    if include_deleted:
+        cache_key = 'rse-id_{}'.format(rse).replace(' ', '.')
+        result = REGION.get(cache_key)
+        if result != NO_VALUE:
+            return result
+
     try:
         query = session.query(models.RSE.id).filter_by(rse=rse)
-        if ignore_deleted:
+        if not include_deleted:
             query = query.filter_by(deleted=False)
-        return query.one()[0]
+        result = query.one()[0]
     except sqlalchemy.orm.exc.NoResultFound:
         raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse)
 
+    if include_deleted:
+        REGION.set(cache_key, result)
+    return result
+
 
 @read_session
-def get_rse_name(rse_id, session=None, ignore_deleted=True):
+def get_rse_name(rse_id, session=None, include_deleted=True):
     """
     Get a RSE name or raise if it does not exist.
 
     :param rse_id: the rse uuid from the database.
     :param session: The database session in use.
-    :param ignore_deleted: Flag to toggle finding rse's marked as deleted.
+    :param include_deleted: Flag to toggle finding rse's marked as deleted.
 
     :returns: The rse name.
 
     :raises RSENotFound: If referred RSE was not found in the database.
     """
+
+    if include_deleted:
+        cache_key = 'rse-name_{}'.format(rse_id)
+        result = REGION.get(cache_key)
+        if result != NO_VALUE:
+            return result
+
     try:
         query = session.query(models.RSE.rse).filter_by(id=rse_id)
-        if ignore_deleted:
+        if not include_deleted:
             query = query.filter_by(deleted=False)
-        return query.one()[0]
+        result = query.one()[0]
     except sqlalchemy.orm.exc.NoResultFound:
         raise exception.RSENotFound('RSE with ID \'%s\' cannot be found' % rse_id)
+
+    if include_deleted:
+        REGION.set(cache_key, result)
+    return result
 
 
 @read_session
@@ -760,7 +782,7 @@ def add_protocol(rse_id, parameter, session=None):
 
     rse = ""
     try:
-        rse = get_rse_name(rse_id=rse_id, session=session)
+        rse = get_rse_name(rse_id=rse_id, session=session, include_deleted=False)
     except exception.RSENotFound:
         raise exception.RSENotFound('RSE id \'%s\' not found' % rse_id)
     # Insert new protocol entry
@@ -966,9 +988,8 @@ def update_protocols(rse_id, scheme, data, hostname, port, session=None):
         except ValueError:
             pass  # String is not JSON
 
-    rse = ""
     try:
-        rse = get_rse_name(rse_id=rse_id, session=session)
+        rse = get_rse_name(rse_id=rse_id, session=session, include_deleted=False)
     except exception.RSENotFound:
         raise exception.RSENotFound('RSE with id \'%s\' not found' % rse_id)
 
@@ -1052,7 +1073,7 @@ def del_protocols(rse_id, scheme, hostname=None, port=None, session=None):
     :raises RSEProtocolNotSupported: If no macthing scheme was found for the given RSE.
     """
     try:
-        get_rse(rse_id=rse_id, session=session)
+        rse_name = get_rse_name(rse_id=rse_id, session=session, include_deleted=False)
     except exception.RSENotFound:
         raise exception.RSENotFound('RSE \'%s\' not found' % rse_id)
     terms = [models.RSEProtocols.rse_id == rse_id, models.RSEProtocols.scheme == scheme]
@@ -1063,7 +1084,7 @@ def del_protocols(rse_id, scheme, hostname=None, port=None, session=None):
     p = session.query(models.RSEProtocols).filter(*terms)
 
     if not p.all():
-        msg = 'RSE \'%s\' does not support protocol \'%s\'' % (get_rse_name(rse_id=rse_id, session=session), scheme)
+        msg = 'RSE \'%s\' does not support protocol \'%s\'' % (rse_name, scheme)
         msg += ' for hostname \'%s\'' % hostname if hostname else ''
         msg += ' on port \'%s\'' % port if port else ''
         raise exception.RSEProtocolNotSupported(msg)

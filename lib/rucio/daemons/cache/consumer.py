@@ -40,6 +40,7 @@ import stomp
 from rucio.common.config import config_get, config_get_int
 from rucio.core.monitor import record_counter
 from rucio.core.volatile_replica import add_volatile_replicas, delete_volatile_replicas
+from rucio.core.rse import get_rse_id
 
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
@@ -82,12 +83,17 @@ class Consumer(object):
         try:
             msg = json.loads(message)
             if isinstance(msg, dict) and 'operation' in msg.keys():
+                if 'rse_id' in msg:
+                    rse_id = msg['rse_id']
+                else:
+                    rse_id = get_rse_id(rse=msg['rse'])
+
                 if msg['operation'] == 'add_replicas':
                     logging.info('add_replicas to RSE %s: %s ' % (msg['rse'], str(msg['files'])))
-                    add_volatile_replicas(rse_id=msg['rse_id'], replicas=msg['files'])
+                    add_volatile_replicas(rse_id=rse_id, replicas=msg['files'])
                 elif msg['operation'] == 'delete_replicas':
                     logging.info('delete_replicas to RSE %s: %s ' % (msg['rse'], str(msg['files'])))
-                    delete_volatile_replicas(rse_id=msg['rse_id'], replicas=msg['files'])
+                    delete_volatile_replicas(rse_id=rse_id, replicas=msg['files'])
         except:
             logging.error(str(format_exc()))
 
