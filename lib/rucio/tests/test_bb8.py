@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2016
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
 from datetime import datetime
 
@@ -15,7 +16,7 @@ from nose.tools import assert_raises
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account_limit import set_account_limit
 from rucio.core.did import add_did, attach_dids
-from rucio.core.rse import add_rse_attribute, get_rse
+from rucio.core.rse import add_rse_attribute, get_rse_id
 from rucio.core.rule import add_rule, get_rule, delete_rule
 from rucio.core.lock import successful_transfer
 from rucio.daemons.judge.cleaner import rule_cleaner
@@ -35,24 +36,24 @@ class TestJudgeCleaner():
         cls.rse4 = 'MOCK4'
         cls.rse5 = 'MOCK5'
 
-        cls.rse1_id = get_rse(cls.rse1).id
-        cls.rse3_id = get_rse(cls.rse3).id
-        cls.rse4_id = get_rse(cls.rse4).id
-        cls.rse5_id = get_rse(cls.rse5).id
+        cls.rse1_id = get_rse_id(cls.rse1)
+        cls.rse3_id = get_rse_id(cls.rse3)
+        cls.rse4_id = get_rse_id(cls.rse4)
+        cls.rse5_id = get_rse_id(cls.rse5)
 
         # Add Tags
         cls.T1 = tag_generator()
         cls.T2 = tag_generator()
-        add_rse_attribute(cls.rse1, cls.T1, True)
-        add_rse_attribute(cls.rse3, cls.T1, True)
-        add_rse_attribute(cls.rse4, cls.T2, True)
-        add_rse_attribute(cls.rse5, cls.T1, True)
+        add_rse_attribute(cls.rse1_id, cls.T1, True)
+        add_rse_attribute(cls.rse3_id, cls.T1, True)
+        add_rse_attribute(cls.rse4_id, cls.T2, True)
+        add_rse_attribute(cls.rse5_id, cls.T1, True)
 
         # Add fake weights
-        add_rse_attribute(cls.rse1, "fakeweight", 10)
-        add_rse_attribute(cls.rse3, "fakeweight", 0)
-        add_rse_attribute(cls.rse4, "fakeweight", 0)
-        add_rse_attribute(cls.rse5, "fakeweight", 0)
+        add_rse_attribute(cls.rse1_id, "fakeweight", 10)
+        add_rse_attribute(cls.rse3_id, "fakeweight", 0)
+        add_rse_attribute(cls.rse4_id, "fakeweight", 0)
+        add_rse_attribute(cls.rse5_id, "fakeweight", 0)
 
         # Add quota
         set_account_limit('jdoe', cls.rse1_id, -1)
@@ -68,7 +69,7 @@ class TestJudgeCleaner():
     def test_bb8_rebalance_rule(self):
         """ BB8: Test the rebalance rule method"""
         scope = 'mock'
-        files = create_files(3, scope, self.rse1)
+        files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
         attach_dids(scope, dataset, files, 'jdoe')

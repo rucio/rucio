@@ -7,6 +7,7 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2017
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -48,10 +49,10 @@ GRACEFUL_STOP = threading.Event()
 
 def inject(rse, older_than):
     logging.info('Starting to inject objects for RSE: %s' % rse)
-    num_of_queued_dids = get_count_of_expired_temporary_dids(rse)
     rse_id = rse_core.get_rse_id(rse)
+    num_of_queued_dids = get_count_of_expired_temporary_dids(rse_id)
     if num_of_queued_dids < 1000:
-        max_being_deleted_files, needed_free_space, used, free = __check_rse_usage(rse=rse, rse_id=rse_id)
+        max_being_deleted_files, needed_free_space, used, free = __check_rse_usage(rse_id=rse_id)
         logging.info("needed_free_space: %s" % needed_free_space)
         if needed_free_space is None or needed_free_space > 0:
             rse_info = rsemgr.get_rse_info(rse)

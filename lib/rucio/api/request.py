@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -17,6 +18,7 @@ Interface for the requests abstraction layer
 from rucio.api import permission
 from rucio.common import exception
 from rucio.core import request
+from rucio.core.rse import get_rse_id
 
 
 def queue_requests(requests, issuer):
@@ -80,11 +82,13 @@ def cancel_request_did(scope, name, dest_rse, request_type, issuer, account):
     :param account: Account identifier as a string.
     """
 
+    dest_rse_id = get_rse_id(rse=dest_rse)
+
     kwargs = {'account': account, 'issuer': issuer}
     if not permission.has_permission(issuer=issuer, action='cancel_request_did', kwargs=kwargs):
         raise exception.AccessDenied('%(account)s cannot cancel %(request_type)s request for %(scope)s:%(name)s' % locals())
 
-    return request.cancel_request_did(scope, name, dest_rse, request_type)
+    return request.cancel_request_did(scope, name, dest_rse_id, request_type)
 
 
 def get_next(request_type, state, issuer, account):
@@ -115,9 +119,10 @@ def get_request_by_did(scope, name, rse, issuer):
     :param issuer: Issuing account as a string.
     :returns: Request as a dictionary.
     """
+    rse_id = get_rse_id(rse=rse)
 
-    kwargs = {'scope': scope, 'name': name, 'rse': rse, 'issuer': issuer}
+    kwargs = {'scope': scope, 'name': name, 'rse': rse, 'rse_id': rse_id, 'issuer': issuer}
     if not permission.has_permission(issuer=issuer, action='get_request_by_did', kwargs=kwargs):
         raise exception.AccessDenied('%(issuer)s cannot retrieve the request DID %(scope)s:%(name)s to RSE %(rse)s' % locals())
 
-    return request.get_request_by_did(scope, name, rse)
+    return request.get_request_by_did(scope, name, rse_id)

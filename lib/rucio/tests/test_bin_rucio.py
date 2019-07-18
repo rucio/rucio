@@ -24,6 +24,7 @@
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2017-2018
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -42,7 +43,7 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
 from rucio.common.config import config_get
 from rucio.common.utils import generate_uuid, md5
-from rucio.core.rse import add_rse_attribute
+from rucio.core.rse import add_rse_attribute, get_rse_id
 from rucio.tests.common import execute, account_name_generator, rse_name_generator, file_generator, scope_name_generator
 from rucio.rse import rsemanager as rsemgr
 
@@ -60,13 +61,14 @@ class TestBinRucio():
         self.auth_host = config_get('client', 'auth_host')
         self.user = 'data13_hip'
         self.def_rse = 'MOCK4'
+        self.def_rse_id = get_rse_id(rse=self.def_rse)
         self.did_client = DIDClient()
         self.replica_client = ReplicaClient()
         self.rule_client = RuleClient()
         self.account_client = AccountLimitClient()
         self.account_client.set_account_limit('root', self.def_rse, -1)
 
-        add_rse_attribute(self.def_rse, 'istape', 'False')
+        add_rse_attribute(self.def_rse_id, 'istape', 'False')
 
         self.upload_success_str = 'Successfully uploaded file %s'
 
@@ -664,7 +666,7 @@ class TestBinRucio():
         lfn = {'name': filename[5:], 'scope': self.user, 'bytes': filesize, 'md5': file_md5}
         # user uploads file
         self.replica_client.add_replicas(files=[lfn], rse=self.def_rse)
-        rse_settings = rsemgr.get_rse_info(self.def_rse)
+        rse_settings = rsemgr.get_rse_info(rse=self.def_rse)
         protocol = rsemgr.create_protocol(rse_settings, 'write')
         protocol.connect()
         pfn = protocol.lfns2pfns(lfn).values()[0]
@@ -698,7 +700,7 @@ class TestBinRucio():
         lfn = {'name': filename[5:], 'scope': self.user, 'bytes': filesize, 'md5': '0123456789abcdef0123456789abcdef'}
         # user uploads file
         self.replica_client.add_replicas(files=[lfn], rse=self.def_rse)
-        rse_settings = rsemgr.get_rse_info(self.def_rse)
+        rse_settings = rsemgr.get_rse_info(rse=self.def_rse)
         protocol = rsemgr.create_protocol(rse_settings, 'write')
         protocol.connect()
         pfn = protocol.lfns2pfns(lfn).values()[0]
@@ -1186,7 +1188,7 @@ class TestBinRucio():
             rse.deleted = False
             rse.deleted_at = None
             rse.save(session=db_session)
-            add_rse_attribute(rse=rse['rse'], key=rse['rse'], value=True, session=db_session)
+            add_rse_attribute(rse_id=rse['id'], key=rse['rse'], value=True, session=db_session)
         db_session.commit()
 
     def test_export_data(self):
