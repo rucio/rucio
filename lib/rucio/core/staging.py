@@ -8,6 +8,7 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -22,7 +23,8 @@ import traceback
 
 from rucio.common.exception import InvalidRSEExpression
 from rucio.common.rse_attributes import get_rse_attributes
-from rucio.core import request, rse as rse_core
+from rucio.core import request
+from rucio.core.rse import get_rse_name
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla.constants import RequestType
 from rucio.db.sqla.session import read_session
@@ -85,11 +87,11 @@ def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, f
                         continue
 
                     # Get destination rse information and protocol
+                    dest_rse_name = get_rse_name(rse_id=dest_rse_id, session=session)
                     if dest_rse_id not in rses_info:
-                        dest_rse = rse_core.get_rse_name(rse_id=dest_rse_id, session=session)
-                        rses_info[dest_rse_id] = rsemgr.get_rse_info(dest_rse, session=session)
+                        rses_info[dest_rse_id] = rsemgr.get_rse_info(rse=dest_rse_name, session=session)
 
-                    if staging_buffer != rses_info[dest_rse_id]['rse']:
+                    if staging_buffer != dest_rse_id:
                         continue
 
                     attr = None
@@ -107,16 +109,15 @@ def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, f
                             logging.error(prepend_str + "Invalid RSE exception %s: %s" % (source_replica_expression, error))
                             continue
                         else:
-                            allowed_rses = [x['rse'] for x in parsed_rses]
-                            if rse not in allowed_rses:
+                            allowed_rses = [x['id'] for x in parsed_rses]
+                            if source_rse_id not in allowed_rses:
                                 continue
 
+                    source_rse_name = get_rse_name(rse_id=source_rse_id, session=session)
                     if source_rse_id not in rses_info:
-                        # source_rse = rse_core.get_rse_name(rse_id=source_rse_id, session=session)
-                        source_rse = rse
-                        rses_info[source_rse_id] = rsemgr.get_rse_info(source_rse, session=session)
+                        rses_info[source_rse_id] = rsemgr.get_rse_info(rse=source_rse_name, session=session)
                     if source_rse_id not in rse_attrs:
-                        rse_attrs[source_rse_id] = get_rse_attributes(source_rse_id, session=session)
+                        rse_attrs[source_rse_id] = get_rse_attributes(rse_id=source_rse_id, session=session)
 
                     if source_rse_id not in protocols:
                         protocols[source_rse_id] = rsemgr.create_protocol(rses_info[source_rse_id], 'write', current_schemes)
@@ -145,12 +146,11 @@ def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, f
                             attr = json.loads(str(attributes))
 
                     # to get space token and fts attribute
+                    source_rse_name = get_rse_name(rse_id=source_rse_id, session=session)
                     if source_rse_id not in rses_info:
-                        # source_rse = rse_core.get_rse_name(rse_id=source_rse_id, session=session)
-                        source_rse = rse
-                        rses_info[source_rse_id] = rsemgr.get_rse_info(source_rse, session=session)
+                        rses_info[source_rse_id] = rsemgr.get_rse_info(rse=source_rse_name, session=session)
                     if source_rse_id not in rse_attrs:
-                        rse_attrs[source_rse_id] = get_rse_attributes(source_rse_id, session=session)
+                        rse_attrs[source_rse_id] = get_rse_attributes(rse_id=source_rse_id, session=session)
 
                     if source_rse_id not in protocols:
                         protocols[source_rse_id] = rsemgr.create_protocol(rses_info[source_rse_id], 'write', current_schemes)
@@ -186,8 +186,8 @@ def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, f
                                  'request_type': str(RequestType.STAGEIN).lower(),
                                  'src_type': "TAPE",
                                  'dst_type': "DISK",
-                                 'src_rse': rse,
-                                 'dst_rse': rse,
+                                 'src_rse': source_rse_name,
+                                 'dst_rse': dest_rse_name,
                                  'src_rse_id': source_rse_id,
                                  'dest_rse_id': dest_rse_id,
                                  'filesize': bytes,

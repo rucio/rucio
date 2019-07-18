@@ -15,6 +15,7 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
 from nose.tools import assert_equal, assert_in, assert_not_in
 
@@ -33,65 +34,65 @@ class TestReplicaSorting(object):
 
         self.rse1 = 'APERTURE_%s' % rse_name_generator()
         self.rse2 = 'BLACKMESA_%s' % rse_name_generator()
-        add_rse(self.rse1)
-        add_rse(self.rse2)
-        add_rse_attribute(rse=self.rse1, key='site', value='APERTURE')
-        add_rse_attribute(rse=self.rse2, key='site', value='BLACKMESA')
+        self.rse1_id = add_rse(self.rse1)
+        self.rse2_id = add_rse(self.rse2)
+        add_rse_attribute(rse_id=self.rse1_id, key='site', value='APERTURE')
+        add_rse_attribute(rse_id=self.rse2_id, key='site', value='BLACKMESA')
 
         self.files = [{'scope': 'mock', 'name': 'element_0',
                        'bytes': 1234, 'adler32': 'deadbeef'}]
-        add_replicas(rse=self.rse1, files=self.files, account='root')
-        add_replicas(rse=self.rse2, files=self.files, account='root')
+        add_replicas(rse_id=self.rse1_id, files=self.files, account='root')
+        add_replicas(rse_id=self.rse2_id, files=self.files, account='root')
 
-        add_protocol(self.rse1, {'scheme': 'root',
-                                 'hostname': 'root.aperture.com',
-                                 'port': 1409,
-                                 'prefix': '//test/chamber/',
-                                 'impl': 'rucio.rse.protocols.xrootd.Default',
-                                 'domains': {
-                                     'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                     'wan': {'read': 1, 'write': 1, 'delete': 1}}})
-        add_protocol(self.rse1, {'scheme': 'davs',
-                                 'hostname': 'davs.aperture.com',
-                                 'port': 443,
-                                 'prefix': '/test/chamber/',
-                                 'impl': 'rucio.rse.protocols.gfal.Default',
-                                 'domains': {
-                                     'lan': {'read': 2, 'write': 2, 'delete': 2},
-                                     'wan': {'read': 2, 'write': 2, 'delete': 2}}})
-        add_protocol(self.rse1, {'scheme': 'gsiftp',
-                                 'hostname': 'gsiftp.aperture.com',
-                                 'port': 8446,
-                                 'prefix': '/test/chamber/',
-                                 'impl': 'rucio.rse.protocols.gfal.Default',
-                                 'domains': {
-                                     'lan': {'read': 0, 'write': 0, 'delete': 0},
-                                     'wan': {'read': 3, 'write': 3, 'delete': 3}}})
+        add_protocol(self.rse1_id, {'scheme': 'root',
+                                    'hostname': 'root.aperture.com',
+                                    'port': 1409,
+                                    'prefix': '//test/chamber/',
+                                    'impl': 'rucio.rse.protocols.xrootd.Default',
+                                    'domains': {
+                                        'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                        'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+        add_protocol(self.rse1_id, {'scheme': 'davs',
+                                    'hostname': 'davs.aperture.com',
+                                    'port': 443,
+                                    'prefix': '/test/chamber/',
+                                    'impl': 'rucio.rse.protocols.gfal.Default',
+                                    'domains': {
+                                        'lan': {'read': 2, 'write': 2, 'delete': 2},
+                                        'wan': {'read': 2, 'write': 2, 'delete': 2}}})
+        add_protocol(self.rse1_id, {'scheme': 'gsiftp',
+                                    'hostname': 'gsiftp.aperture.com',
+                                    'port': 8446,
+                                    'prefix': '/test/chamber/',
+                                    'impl': 'rucio.rse.protocols.gfal.Default',
+                                    'domains': {
+                                        'lan': {'read': 0, 'write': 0, 'delete': 0},
+                                        'wan': {'read': 3, 'write': 3, 'delete': 3}}})
 
-        add_protocol(self.rse2, {'scheme': 'gsiftp',
-                                 'hostname': 'gsiftp.blackmesa.com',
-                                 'port': 8446,
-                                 'prefix': '/lambda/complex/',
-                                 'impl': 'rucio.rse.protocols.gfal.Default',
-                                 'domains': {
-                                     'lan': {'read': 2, 'write': 2, 'delete': 2},
-                                     'wan': {'read': 1, 'write': 1, 'delete': 1}}})
-        add_protocol(self.rse2, {'scheme': 'davs',
-                                 'hostname': 'davs.blackmesa.com',
-                                 'port': 443,
-                                 'prefix': '/lambda/complex/',
-                                 'impl': 'rucio.rse.protocols.gfal.Default',
-                                 'domains': {
-                                     'lan': {'read': 0, 'write': 0, 'delete': 0},
-                                     'wan': {'read': 2, 'write': 2, 'delete': 2}}})
-        add_protocol(self.rse2, {'scheme': 'root',
-                                 'hostname': 'root.blackmesa.com',
-                                 'port': 1409,
-                                 'prefix': '//lambda/complex/',
-                                 'impl': 'rucio.rse.protocols.xrootd.Default',
-                                 'domains': {
-                                     'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                     'wan': {'read': 3, 'write': 3, 'delete': 3}}})
+        add_protocol(self.rse2_id, {'scheme': 'gsiftp',
+                                    'hostname': 'gsiftp.blackmesa.com',
+                                    'port': 8446,
+                                    'prefix': '/lambda/complex/',
+                                    'impl': 'rucio.rse.protocols.gfal.Default',
+                                    'domains': {
+                                        'lan': {'read': 2, 'write': 2, 'delete': 2},
+                                        'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+        add_protocol(self.rse2_id, {'scheme': 'davs',
+                                    'hostname': 'davs.blackmesa.com',
+                                    'port': 443,
+                                    'prefix': '/lambda/complex/',
+                                    'impl': 'rucio.rse.protocols.gfal.Default',
+                                    'domains': {
+                                        'lan': {'read': 0, 'write': 0, 'delete': 0},
+                                        'wan': {'read': 2, 'write': 2, 'delete': 2}}})
+        add_protocol(self.rse2_id, {'scheme': 'root',
+                                    'hostname': 'root.blackmesa.com',
+                                    'port': 1409,
+                                    'prefix': '//lambda/complex/',
+                                    'impl': 'rucio.rse.protocols.xrootd.Default',
+                                    'domains': {
+                                        'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                        'wan': {'read': 3, 'write': 3, 'delete': 3}}})
 
         replicas = [r for r in self.rc.list_replicas(dids=[{'scope': 'mock',
                                                             'name': f['name'],
@@ -192,14 +193,14 @@ class TestReplicaSorting(object):
         # assert_not_in('priority="7"', ml)
 
         # ensure correct handling of disabled protocols
-        add_protocol(self.rse1, {'scheme': 'root',
-                                 'hostname': 'root2.aperture.com',
-                                 'port': 1409,
-                                 'prefix': '//test/chamber/',
-                                 'impl': 'rucio.rse.protocols.xrootd.Default',
-                                 'domains': {
-                                     'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                     'wan': {'read': 0, 'write': 0, 'delete': 0}}})
+        add_protocol(self.rse1_id, {'scheme': 'root',
+                                    'hostname': 'root2.aperture.com',
+                                    'port': 1409,
+                                    'prefix': '//test/chamber/',
+                                    'impl': 'rucio.rse.protocols.xrootd.Default',
+                                    'domains': {
+                                        'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                        'wan': {'read': 0, 'write': 0, 'delete': 0}}})
 
         ml = self.rc.list_replicas(dids=[{'scope': 'mock',
                                           'name': f['name'],
@@ -214,7 +215,7 @@ class TestReplicaSorting(object):
         assert_in('domain="wan" priority="5" client_extract="false">gsiftp://gsiftp.aperture.com:8446/test/chamber/mock/58/b5/element_0', ml)
         assert_not_in('priority="6"', ml)
 
-        delete_replicas(rse=self.rse1, files=self.files)
-        delete_replicas(rse=self.rse2, files=self.files)
-        del_rse(self.rse1)
-        del_rse(self.rse2)
+        delete_replicas(rse_id=self.rse1_id, files=self.files)
+        delete_replicas(rse_id=self.rse2_id, files=self.files)
+        del_rse(self.rse1_id)
+        del_rse(self.rse2_id)

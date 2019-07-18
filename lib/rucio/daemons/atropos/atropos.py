@@ -17,6 +17,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -37,6 +38,7 @@ from rucio.common.exception import InvalidRSEExpression, RuleNotFound
 from rucio.core import heartbeat
 import rucio.core.lifetime_exception
 from rucio.core.lock import get_dataset_locks
+from rucio.core.rse import get_rse_name
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_rules_beyond_eol, update_rule
 
@@ -140,10 +142,10 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
                         for lock in get_dataset_locks(rule.scope, rule.name):
                             if lock['rule_id'] == rule[4]:
                                 no_locks = False
-                                if lock['rse'] not in summary:
-                                    summary[lock['rse']] = {}
-                                if did not in summary[lock['rse']]:
-                                    summary[lock['rse']][did] = {'length': lock['length'] or 0, 'bytes': lock['bytes'] or 0}
+                                if lock['rse_id'] not in summary:
+                                    summary[lock['rse_id']] = {}
+                                if did not in summary[lock['rse_id']]:
+                                    summary[lock['rse_id']][did] = {'length': lock['length'] or 0, 'bytes': lock['bytes'] or 0}
                         if no_locks:
                             logging.warning(prepend_str + 'Cannot find a lock for rule %s on DID %s' % (rule.id, did))
                         if not dry_run:
@@ -164,13 +166,13 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
                 exc_type, exc_value, exc_traceback = exc_info()
                 logging.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
 
-            for rse in summary:
+            for rse_id in summary:
                 tot_size, tot_files, tot_datasets = 0, 0, 0
-                for did in summary[rse]:
+                for did in summary[rse_id]:
                     tot_datasets += 1
-                    tot_files += summary[rse][did].get('length', 0)
-                    tot_size += summary[rse][did].get('bytes', 0)
-                logging.info(prepend_str + 'For RSE %s %s datasets will be deleted representing %s files and %s bytes' % (rse, tot_datasets, tot_files, tot_size))
+                    tot_files += summary[rse_id][did].get('length', 0)
+                    tot_size += summary[rse_id][did].get('bytes', 0)
+                logging.info(prepend_str + 'For RSE %s %s datasets will be deleted representing %s files and %s bytes' % (get_rse_name(rse_id=rse_id), tot_datasets, tot_files, tot_size))
 
             if once:
                 break

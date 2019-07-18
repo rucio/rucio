@@ -14,6 +14,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2017-2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -34,7 +35,7 @@ from rucio.common.utils import generate_uuid, chunks
 from rucio.core import transfer_limits as transfer_limits_core
 from rucio.core.message import add_message
 from rucio.core.monitor import record_counter, record_timer
-from rucio.core.rse import get_rse_id, get_rse_name, get_rse_transfer_limits
+from rucio.core.rse import get_rse_name, get_rse_transfer_limits
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RequestState, RequestType, FTSState, ReplicaState, LockState, RequestErrMsg
 from rucio.db.sqla.session import read_session, transactional_session
@@ -122,7 +123,7 @@ def queue_requests(requests, session=None):
     logging.debug("queue requests")
 
     request_clause = []
-    transfer_limits, rses = {}, {}
+    transfer_limits = {}
     for req in requests:
 
         if isinstance(req['attributes'], string_types):
@@ -135,9 +136,6 @@ def queue_requests(requests, session=None):
                                        models.Request.name == req['name'],
                                        models.Request.dest_rse_id == req['dest_rse_id'],
                                        models.Request.request_type == RequestType.TRANSFER))
-
-        if req['dest_rse_id'] not in rses:
-            rses[req['dest_rse_id']] = get_rse_name(req['dest_rse_id'], session=session)
 
         if req['attributes']['activity'] not in transfer_limits:
             transfer_limits[req['attributes']['activity']] = {req['dest_rse_id']: transfer_limits_core.get_transfer_limits(req['attributes']['activity'], req['dest_rse_id'])}
@@ -166,12 +164,12 @@ def queue_requests(requests, session=None):
 
     new_requests, sources, messages = [], [], []
     for request in requests:
-
+        dest_rse_name = get_rse_name(rse_id=request['dest_rse_id'], session=session)
         if req['request_type'] == RequestType.TRANSFER and (request['scope'], request['name'], request['dest_rse_id']) in existing_requests:
             logging.warn('Request TYPE %s for DID %s:%s at RSE %s exists - ignoring' % (request['request_type'],
                                                                                         request['scope'],
                                                                                         request['name'],
-                                                                                        rses[request['dest_rse_id']]))
+                                                                                        dest_rse_name))
             continue
 
         transfer_limit_activity = transfer_limits[request['attributes']['activity']].get(request['dest_rse_id'])
@@ -237,7 +235,7 @@ def queue_requests(requests, session=None):
                    'scope': request['scope'],
                    'name': request['name'],
                    'dst-rse-id': request['dest_rse_id'],
-                   'dst-rse': rses[request['dest_rse_id']],
+                   'dst-rse': dest_rse_name,
                    'state': str(request['state']),
                    'retry-count': request['retry_count'],
                    'rule-id': str(request['rule_id']),
@@ -262,7 +260,7 @@ def queue_requests(requests, session=None):
 
 
 @read_session
-def get_next(request_type, state, limit=100, older_than=None, rse=None, activity=None,
+def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activity=None,
              total_workers=0, worker_number=0, mode_all=False, hash_variable='id',
              activity_shares=None, session=None):
     """
@@ -273,7 +271,7 @@ def get_next(request_type, state, limit=100, older_than=None, rse=None, activity
     :param state:             State of the request as a string or list of strings.
     :param limit:             Integer of requests to retrieve.
     :param older_than:        Only select requests older than this DateTime.
-    :param rse:               The RSE to filter on.
+    :param rse_id:            The RSE to filter on.
     :param activity:          The activity to filter on.
     :param total_workers:     Number of total workers.
     :param worker_number:     Id of the executing worker.
@@ -310,8 +308,8 @@ def get_next(request_type, state, limit=100, older_than=None, rse=None, activity
         if isinstance(older_than, datetime.datetime):
             query = query.filter(models.Request.updated_at < older_than)
 
-        if rse:
-            query = query.filter(models.Request.dest_rse_id == rse)
+        if rse_id:
+            query = query.filter(models.Request.dest_rse_id == rse_id)
 
         if share:
             query = query.filter(models.Request.activity == share)
@@ -341,6 +339,12 @@ def get_next(request_type, state, limit=100, older_than=None, rse=None, activity
                     res_dict.pop('_sa_instance_state')
                     res_dict['request_id'] = res_dict['id']
                     res_dict['attributes'] = json.loads(str(res_dict['attributes']))
+
+                    dst_id = res_dict['dest_rse_id']
+                    src_id = res_dict['source_rse_id']
+                    res_dict['dest_rse'] = get_rse_name(rse_id=dst_id, session=session) if dst_id is not None else None
+                    res_dict['source_rse'] = get_rse_name(rse_id=src_id, session=session) if src_id is not None else None
+
                     result.append(res_dict)
             else:
                 for res in query_result:
@@ -557,14 +561,13 @@ def get_requests_by_transfer(external_host, transfer_id, session=None):
 
 
 @read_session
-def get_request_by_did(scope, name, rse, rse_id=None, request_type=None, session=None):
+def get_request_by_did(scope, name, rse_id, request_type=None, session=None):
     """
     Retrieve a request by its DID for a destination RSE.
 
     :param scope:          The scope of the data identifier.
     :param name:           The name of the data identifier.
-    :param rse:            The destination RSE of the request.
-    :param rse_id:         The destination RSE ID of the request. Overrides rse param!
+    :param rse_id:         The destination RSE ID of the request.
     :param request_type:   The type of request as rucio.db.sqla.constants.RequestType.
     :param session:        Database session to use.
     :returns:              Request as a dictionary.
@@ -575,10 +578,7 @@ def get_request_by_did(scope, name, rse, rse_id=None, request_type=None, session
         tmp = session.query(models.Request).filter_by(scope=scope,
                                                       name=name)
 
-        if rse_id:
-            tmp = tmp.filter_by(dest_rse_id=rse_id)
-        else:
-            tmp = tmp.filter_by(dest_rse_id=get_rse_id(rse))
+        tmp = tmp.filter_by(dest_rse_id=rse_id)
 
         if request_type:
             tmp = tmp.filter_by(request_type=request_type)
@@ -589,6 +589,10 @@ def get_request_by_did(scope, name, rse, rse_id=None, request_type=None, session
         else:
             tmp = dict(tmp)
             tmp.pop('_sa_instance_state')
+
+            tmp['source_rse'] = get_rse_name(rse_id=tmp['source_rse_id'], session=session) if tmp['source_rse_id'] is not None else None
+            tmp['dest_rse'] = get_rse_name(rse_id=tmp['dest_rse_id'], session=session) if tmp['dest_rse_id'] is not None else None
+
             return tmp
     except IntegrityError as error:
         raise RucioException(error.args)
@@ -669,7 +673,7 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
                                                                      dest_rse_id=dest_rse_id,
                                                                      request_type=request_type).all()
         if not reqs:
-            logging.warn('Tried to cancel non-existant request for DID %s:%s at RSE ID %s' % (scope, name, dest_rse_id))
+            logging.warn('Tried to cancel non-existant request for DID %s:%s at RSE %s' % (scope, name, get_rse_name(rse_id=dest_rse_id, session=session)))
     except IntegrityError as error:
         raise RucioException(error.args)
 
@@ -894,17 +898,14 @@ def get_stats_by_activity_dest_state(state, session=None):
 
 
 @transactional_session
-def release_waiting_requests_per_free_volume(rse, rse_id=None, volume=None, session=None):
+def release_waiting_requests_per_free_volume(rse_id, volume=None, session=None):
     """
     Release waiting requests if they fit in available transfer volume. If the DID of a request is attached to a dataset, the volume will be checked for the whole dataset as all requests related to this dataset will be released.
 
-    :param rse:     The destination RSE name.
     :param rse_id:  The destination RSE id.
     :param volume:  The maximum volume in bytes that should be transfered.
     :param session: The database session.
     """
-    if not rse_id:
-        rse_id = get_rse_id(rse=rse, session=session)
 
     dialect = session.bind.dialect.name
     sum_volume_active_subquery = None
@@ -922,7 +923,7 @@ def release_waiting_requests_per_free_volume(rse, rse_id=None, volume=None, sess
                                                          models.Request.dest_rse_id == rse_id))
     sum_volume_active_subquery = sum_volume_active_subquery.subquery()
 
-    grouped_requests_subquery, filtered_requests_subquery = create_base_query_grouped_fifo(rse, rse_id, filter_by_rse='destination', session=session)
+    grouped_requests_subquery, filtered_requests_subquery = create_base_query_grouped_fifo(rse_id, filter_by_rse='destination', session=session)
 
     cumulated_volume_subquery = session.query(grouped_requests_subquery.c.name,
                                               grouped_requests_subquery.c.scope,
@@ -941,12 +942,11 @@ def release_waiting_requests_per_free_volume(rse, rse_id=None, volume=None, sess
 
 
 @read_session
-def create_base_query_grouped_fifo(rse, rse_id=None, filter_by_rse='destination', session=None):
+def create_base_query_grouped_fifo(rse_id, filter_by_rse='destination', session=None):
     """
     Build the sqlalchemy queries to filter relevant requests and to group them in datasets.
     Group requests either by same destination RSE or source RSE.
 
-    :param rse:              The RSE name.
     :param rse_id:           The RSE id.
     :param filter_by_rse:    Decide whether to filter by transfer destination or source RSE (`destination`, `source`).
     :param session:          The database session.
@@ -1021,19 +1021,16 @@ def create_base_query_grouped_fifo(rse, rse_id=None, filter_by_rse='destination'
 
 
 @transactional_session
-def release_waiting_requests_fifo(rse, activity=None, rse_id=None, count=None, account=None, session=None):
+def release_waiting_requests_fifo(rse_id, activity=None, count=None, account=None, session=None):
     """
     Release waiting requests. Transfer requests that were requested first, get released first (FIFO).
 
-    :param rse:              The RSE name.
-    :param activity:         The activity.
     :param rse_id:           The RSE id.
+    :param activity:         The activity.
     :param count:            The count to be released.
     :param account:          The account name whose requests to release.
     :param session:          The database session.
     """
-    if not rse_id:
-        rse_id = get_rse_id(rse=rse, session=session)
 
     dialect = session.bind.dialect.name
     rowcount = 0
@@ -1076,22 +1073,19 @@ def release_waiting_requests_fifo(rse, activity=None, rse_id=None, count=None, a
 
 
 @transactional_session
-def release_waiting_requests_grouped_fifo(rse, rse_id=None, count=None, session=None):
+def release_waiting_requests_grouped_fifo(rse_id, count=None, session=None):
     """
     Release waiting requests. Transfer requests that were requested first, get released first (FIFO).
     Also all requests to DIDs that are attached to the same dataset get released, if one children of the dataset is choosed to be released (Grouped FIFO).
 
-    :param rse:              The RSE name.
     :param rse_id:           The RSE id.
     :param count:            The count to be released. If None, release all waiting requests.
     :param session:          The database session.
     """
-    if not rse_id:
-        rse_id = get_rse_id(rse=rse, session=session)
 
     transfer_limits = None
     amount_updated_requests = 0
-    grouped_requests_subquery, filtered_requests_subquery = create_base_query_grouped_fifo(rse, rse_id, filter_by_rse='destination', session=session)
+    grouped_requests_subquery, filtered_requests_subquery = create_base_query_grouped_fifo(rse_id, filter_by_rse='destination', session=session)
 
     # cumulate amount of children per dataset and combine with each request and only keep requests that dont exceed the limit
     cumulated_children_subquery = session.query(grouped_requests_subquery.c.name,
@@ -1114,19 +1108,18 @@ def release_waiting_requests_grouped_fifo(rse, rse_id=None, count=None, session=
 
     # release requests where the whole datasets volume fits in the available volume space
     all_activities = 'all_activities'
-    transfer_limits = get_rse_transfer_limits(rse, all_activities, rse_id, session=session)[all_activities][rse_id]
+    transfer_limits = get_rse_transfer_limits(rse_id, all_activities, session=session)[all_activities][rse_id]
     volume = transfer_limits.get('volume', 0)
-    amount_updated_requests += release_waiting_requests_per_free_volume(rse, rse_id, volume=volume, session=session)
+    amount_updated_requests += release_waiting_requests_per_free_volume(rse_id, volume=volume, session=session)
 
     return amount_updated_requests
 
 
 @transactional_session
-def release_all_waiting_requests(rse, rse_id=None, activity=None, account=None, session=None):
+def release_all_waiting_requests(rse_id, activity=None, account=None, session=None):
     """
     Release all waiting requests per destination RSE.
 
-    :param rse:              The RSE name.
     :param rse_id:           The RSE id.
     :param activity:         The activity.
     :param account:          The account name whose requests to release.
@@ -1134,8 +1127,6 @@ def release_all_waiting_requests(rse, rse_id=None, activity=None, account=None, 
     """
     try:
         rowcount = 0
-        if not rse_id:
-            rse_id = get_rse_id(rse=rse, session=session)
         query = session.query(models.Request)\
                        .filter_by(dest_rse_id=rse_id, state=RequestState.WAITING)
         if activity:

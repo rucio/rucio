@@ -19,6 +19,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2016
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 
 from __future__ import print_function
 
@@ -34,7 +35,7 @@ from rucio.common.exception import InvalidObject, SubscriptionNotFound, Subscrip
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account_limit import set_account_limit
 from rucio.core.did import add_did, set_new_dids
-from rucio.core.rse import add_rse, get_rse_id
+from rucio.core.rse import add_rse
 from rucio.core.rule import add_rule
 from rucio.core.scope import add_scope
 from rucio.daemons.transmogrifier.transmogrifier import run
@@ -107,12 +108,12 @@ class TestSubscriptionCoreApi():
         site_a = 'RSE%s' % uuid().upper()
         site_b = 'RSE%s' % uuid().upper()
 
-        add_rse(site_a)
-        add_rse(site_b)
+        site_a_id = add_rse(site_a)
+        site_b_id = add_rse(site_b)
 
         # Add quota
-        set_account_limit('root', get_rse_id(site_a), -1)
-        set_account_limit('root', get_rse_id(site_b), -1)
+        set_account_limit('root', site_a_id, -1)
+        set_account_limit('root', site_b_id, -1)
 
         # add a new dataset
         dsn = 'dataset-%s' % uuid()
@@ -240,12 +241,12 @@ class TestSubscriptionRestApi():
         site_a = 'RSE%s' % uuid().upper()
         site_b = 'RSE%s' % uuid().upper()
 
-        add_rse(site_a)
-        add_rse(site_b)
+        site_a_id = add_rse(site_a)
+        site_b_id = add_rse(site_b)
 
         # Add quota
-        set_account_limit('root', get_rse_id(site_a), -1)
-        set_account_limit('root', get_rse_id(site_b), -1)
+        set_account_limit('root', site_a_id, -1)
+        set_account_limit('root', site_b_id, -1)
 
         # add a new dataset
         dsn = 'dataset-%s' % uuid()

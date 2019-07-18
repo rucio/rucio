@@ -10,11 +10,14 @@
   - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
   PY3K COMPATIBLE
 '''
 
 from rucio.core import permission
+from rucio.core.rse import get_rse_id
+from rucio.common.exception import RSENotFound
 
 
 def has_permission(issuer, action, kwargs):
@@ -27,4 +30,12 @@ def has_permission(issuer, action, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
+
+    if 'rse' in kwargs and 'rse_id' not in kwargs:
+        try:
+            rse_id = get_rse_id(rse=kwargs.get('rse'))
+        except RSENotFound:
+            rse_id = None
+        kwargs.update({'rse_id': rse_id})
+
     return permission.has_permission(issuer=issuer, action=action, kwargs=kwargs)
