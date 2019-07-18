@@ -9,6 +9,7 @@
  Authors:
  - Wen Guan, <wen.guan@cern.ch>, 2015-2016
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+ - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
  PY3K COMPATIBLE
 """
@@ -17,6 +18,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 
 from rucio.common import exception
+from rucio.core.rse import get_rse_name
 from rucio.db.sqla.models import Distance, RSE
 from rucio.db.sqla.session import transactional_session, read_session
 
@@ -45,7 +47,7 @@ def add_distance(src_rse_id, dest_rse_id, ranking=None, agis_distance=None, geoi
                                 active=active, submitted=submitted, finished=finished, failed=failed, transfer_speed=transfer_speed)
         new_distance.save(session=session)
     except IntegrityError:
-        raise exception.Duplicate('Distance from %s to %s already exists!' % (src_rse_id, dest_rse_id))
+        raise exception.Duplicate('Distance from %s to %s already exists!' % (get_rse_name(rse_id=src_rse_id, session=session), get_rse_name(rse_id=dest_rse_id, session=session)))
     except DatabaseError as error:
         raise exception.RucioException(error.args)
 
@@ -160,7 +162,7 @@ def list_distances(filter={}, session=None):
 @read_session
 def export_distances(session=None):
     """
-    Export distances between all the RSEs using RSE names.
+    Export distances between all the RSEs using RSE ids.
     :param session: The database session to use.
     :returns distance: dictionary of dictionaries with all the distances.
     """
@@ -169,18 +171,18 @@ def export_distances(session=None):
     try:
         rse_src = aliased(RSE)
         rse_dest = aliased(RSE)
-        query = session.query(Distance, rse_src.rse, rse_dest.rse)\
+        query = session.query(Distance, rse_src.id, rse_dest.id)\
                        .join(rse_src, rse_src.id == Distance.src_rse_id)\
                        .join(rse_dest, rse_dest.id == Distance.dest_rse_id)
         for result in query.all():
             distance = result[0]
-            src_name = result[1]
-            dst_name = result[2]
-            if src_name not in distances:
-                distances[src_name] = {}
-            distances[src_name][dst_name] = {}
-            distances[src_name][dst_name] = distance.to_dict()
-            del distances[src_name][dst_name]['_sa_instance_state']
+            src_id = result[1]
+            dst_id = result[2]
+            if src_id not in distances:
+                distances[src_id] = {}
+            distances[src_id][dst_id] = {}
+            distances[src_id][dst_id] = distance.to_dict()
+            del distances[src_id][dst_id]['_sa_instance_state']
         return distances
     except IntegrityError as error:
         raise exception.RucioException(error.args)

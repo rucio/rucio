@@ -46,7 +46,7 @@ def get_rse_attributes(rse_id, session=None):
     if isinstance(result, NoValue):
         try:
             result = None
-            result = rse_core.list_rse_attributes(None, rse_id=rse_id, session=session)
+            result = rse_core.list_rse_attributes(rse_id=rse_id, session=session)
             REGION.set(rse_id, result)
         except:
             logging.warning("Failed to get RSE %s attributes, error: %s" % (rse_id, traceback.format_exc()))

@@ -24,6 +24,7 @@
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -1007,3 +1008,26 @@ def run_cmd_process(cmd, timeout=3600):
         returncode = 0
 
     return returncode, stdout
+
+
+def api_update_return_dict(dictionary):
+    """
+    Ensure that rse is in a dictionary returned from core
+
+    :param dictionary: The dictionary to edit
+    :returns dictionary: The edited dictionary
+    """
+    if not isinstance(dictionary, dict):
+        return dictionary
+
+    from rucio.core.rse import get_rse_name  # Here to avoid circular dependancy
+    copied = False  # Avoid side effects from pass by object
+
+    if 'rse_id' in dictionary.keys():
+        if 'rse' not in dictionary.keys():
+            if not copied:
+                dictionary = dictionary.copy()
+                copied = True
+            dictionary['rse'] = get_rse_name(rse_id=dictionary['rse_id'])
+
+    return dictionary

@@ -18,6 +18,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -193,7 +194,7 @@ def perm_add_rse_attribute(issuer, kwargs):
             if kv['key'].startswith('country-') and kv['value'] == 'admin':
                 admin_in_country.append(kv['key'].partition('-')[2])
         if admin_in_country:
-            if list_rse_attributes(rse=kwargs['rse']).get('country') in admin_in_country:
+            if list_rse_attributes(rse_id=kwargs['rse_id']).get('country') in admin_in_country:
                 return True
     return False
 
@@ -215,7 +216,7 @@ def perm_del_rse_attribute(issuer, kwargs):
             if kv['key'].startswith('country-') and kv['value'] == 'admin':
                 admin_in_country.append(kv['key'].partition('-')[2])
         if admin_in_country:
-            if list_rse_attributes(rse=kwargs['rse']).get('country') in admin_in_country:
+            if list_rse_attributes(rse_id=kwargs['rse_id']).get('country') in admin_in_country:
                 return True
     return False
 
@@ -458,12 +459,12 @@ def perm_del_rule(issuer, kwargs):
     rses = parse_expression(rule['rse_expression'])
     if admin_in_country:
         for rse in rses:
-            if list_rse_attributes(rse=None, rse_id=rse['id']).get('country') in admin_in_country:
+            if list_rse_attributes(rse_id=rse['id']).get('country') in admin_in_country:
                 return True
 
     # DELETERS can approve the rule
     for rse in rses:
-        rse_attr = list_rse_attributes(rse=None, rse_id=rse['id'])
+        rse_attr = list_rse_attributes(rse_id=rse['id'])
         if rse_attr.get('rule_deleters'):
             if issuer in rse_attr.get('rule_deleters').split(','):
                 return True
@@ -501,7 +502,7 @@ def perm_update_rule(issuer, kwargs):
     rses = parse_expression(rule['rse_expression'])
     if admin_in_country:
         for rse in rses:
-            if list_rse_attributes(rse=None, rse_id=rse['id']).get('country') in admin_in_country:
+            if list_rse_attributes(rse_id=rse['id']).get('country') in admin_in_country:
                 return True
 
     # Only admin and country-admin are allowed to change locked state of rule
@@ -540,13 +541,13 @@ def perm_move_rule(issuer, kwargs):
         rule = get_rule(rule_id=kwargs['rule_id'])
         rses = parse_expression(rule['rse_expression'])
         for rse in rses:
-            if list_rse_attributes(rse=None, rse_id=rse['id']).get('country') in admin_in_country:
+            if list_rse_attributes(rse_id=rse['id']).get('country') in admin_in_country:
                 admin_source = True
                 break
 
         rses = parse_expression(kwargs['rse_expression'])
         for rse in rses:
-            if list_rse_attributes(rse=None, rse_id=rse['id']).get('country') in admin_in_country:
+            if list_rse_attributes(rse_id=rse['id']).get('country') in admin_in_country:
                 admin_destination = True
                 break
 
@@ -573,7 +574,7 @@ def perm_approve_rule(issuer, kwargs):
 
     # APPROVERS can approve the rule
     for rse in rses:
-        rse_attr = list_rse_attributes(rse=rse['rse'])
+        rse_attr = list_rse_attributes(rse_id=rse['id'])
         if rse_attr.get('rule_approvers'):
             if issuer in rse_attr.get('rule_approvers').split(','):
                 return True
@@ -585,7 +586,7 @@ def perm_approve_rule(issuer, kwargs):
             admin_in_country.append(kv['key'].partition('-')[2])
     if admin_in_country:
         for rse in rses:
-            rse_attr = list_rse_attributes(rse=rse['rse'])
+            rse_attr = list_rse_attributes(rse_id=rse['id'])
             if rse_attr.get('type', '') in ('LOCALGROUPDISK', 'LOCALGROUPTAPE'):
                 if rse_attr.get('country', '') in admin_in_country:
                     return True
@@ -597,7 +598,7 @@ def perm_approve_rule(issuer, kwargs):
             admin_for_phys_group.append(kv['key'].partition('-')[2])
     if admin_for_phys_group:
         for rse in rses:
-            rse_attr = list_rse_attributes(rse=rse['rse'])
+            rse_attr = list_rse_attributes(rse_id=rse['id'])
             if rse_attr.get('type', '') == 'GROUPDISK':
                 if rse_attr.get('physgroup', '') in admin_for_phys_group:
                     return True
@@ -740,13 +741,13 @@ def perm_add_replicas(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    rse = str(kwargs.get('rse', ''))
+    rse_id = str(kwargs.get('rse_id', ''))
     group = []
 
     for kv in list_account_attributes(account=issuer):
         if (kv['key'].startswith('group-') or kv['key'].startswith('country-')) and kv['value'] in ['admin', 'user']:
             group.append(kv['key'].partition('-')[2])
-    rse_attr = list_rse_attributes(rse=rse)
+    rse_attr = list_rse_attributes(rse_id=rse_id)
     if group:
         if rse_attr.get('type', '') == 'GROUPDISK':
             if rse_attr.get('physgroup', '') in group:
@@ -790,13 +791,13 @@ def perm_update_replicas_states(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    rse = str(kwargs.get('rse', ''))
+    rse_id = str(kwargs.get('rse_id', ''))
     group = []
 
     for kv in list_account_attributes(account=issuer):
         if (kv['key'].startswith('group-') or kv['key'].startswith('country-')) and kv['value'] in ['admin', 'user']:
             group.append(kv['key'].partition('-')[2])
-    rse_attr = list_rse_attributes(rse=rse)
+    rse_attr = list_rse_attributes(rse_id=rse_id)
     if group:
         if rse_attr.get('type', '') == 'GROUPDISK':
             if rse_attr.get('physgroup', '') in group:
@@ -902,7 +903,7 @@ def perm_set_account_limit(issuer, kwargs):
     for kv in list_account_attributes(account=issuer):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.append(kv['key'].partition('-')[2])
-    if admin_in_country and list_rse_attributes(rse=kwargs['rse'], rse_id=None).get('country') in admin_in_country:
+    if admin_in_country and list_rse_attributes(rse_id=kwargs['rse_id']).get('country') in admin_in_country:
         return True
     return False
 
@@ -922,7 +923,7 @@ def perm_delete_account_limit(issuer, kwargs):
     for kv in list_account_attributes(account=issuer):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.append(kv['key'].partition('-')[2])
-    if admin_in_country and list_rse_attributes(rse=kwargs['rse'], rse_id=None).get('country') in admin_in_country:
+    if admin_in_country and list_rse_attributes(rse_id=kwargs['rse_id']).get('country') in admin_in_country:
         return True
     return False
 

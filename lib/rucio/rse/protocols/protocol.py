@@ -25,6 +25,7 @@
 # - Nicolo Magini <Nicolo.Magini@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - James Clark <james.clark@physics.gatech.edu>, 2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -302,7 +303,7 @@ class RSEProtocol(object):
 
     def _get_path_nondeterministic_server(self, scope, name):  # pylint: disable=invalid-name
         """ Provides the path of a replica for non-deterministic sites. Will be assigned to get path by the __init__ method if neccessary. """
-        rep = replica.get_replica(rse=self.rse['rse'], scope=scope, name=name, rse_id=self.rse['id'])
+        rep = replica.get_replica(scope=scope, name=name, rse_id=self.rse['id'])
         if 'path' in rep and rep['path'] is not None:
             path = rep['path']
         elif 'state' in rep and (rep['state'] is None or rep['state'] == 'UNAVAILABLE'):

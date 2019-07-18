@@ -14,6 +14,7 @@
 #
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -32,7 +33,7 @@ from rucio.common.utils import render_json, parse_response
 from rucio.core.distance import add_distance, get_distances, export_distances
 from rucio.core.exporter import export_data, export_rses
 from rucio.core.importer import import_data
-from rucio.core.rse import get_rse_id, add_rse, get_rse, add_protocol, get_rse_protocols, list_rse_attributes, get_rse_limits, set_rse_limits, add_rse_attribute, list_rses, export_rse, get_rse_attribute
+from rucio.core.rse import get_rse_id, get_rse_name, add_rse, get_rse, add_protocol, get_rse_protocols, list_rse_attributes, get_rse_limits, set_rse_limits, add_rse_attribute, list_rses, export_rse, get_rse_attribute
 from rucio.tests.common import rse_name_generator
 from rucio.web.rest.importer import APP as import_app
 from rucio.web.rest.exporter import APP as export_app
@@ -40,7 +41,8 @@ from rucio.web.rest.authentication import APP as auth_app
 
 
 def check_rse(rse_name, test_data):
-    rse = get_rse(rse_name)
+    rse_id = get_rse_id(rse=rse_name)
+    rse = get_rse(rse_id=rse_id)
     assert_equal(rse['rse'], rse_name)
     assert_equal(rse['rse_type'], test_data[rse_name]['rse_type'])
     assert_equal(rse['region_code'], test_data[rse_name]['region_code'])
@@ -56,9 +58,10 @@ def check_rse(rse_name, test_data):
 
 
 def check_protocols(rse, test_data):
-    protocols = get_rse_protocols(rse)
-    assert_equal(test_data[rse]['lfn2pfn_algorithm'], get_rse_attribute('lfn2pfn_algorithm', rse_id=get_rse_id(rse), use_cache=False)[0])
-    assert_equal(test_data[rse]['verify_checksum'], get_rse_attribute('verify_checksum', rse_id=get_rse_id(rse), use_cache=False)[0])
+    rse_id = get_rse_id(rse=rse)
+    protocols = get_rse_protocols(rse_id)
+    assert_equal(test_data[rse]['lfn2pfn_algorithm'], get_rse_attribute('lfn2pfn_algorithm', rse_id=rse_id, use_cache=False)[0])
+    assert_equal(test_data[rse]['verify_checksum'], get_rse_attribute('verify_checksum', rse_id=rse_id, use_cache=False)[0])
     assert_equal(test_data[rse]['availability_write'], protocols['availability_write'])
     assert_equal(test_data[rse]['availability_read'], protocols['availability_read'])
     assert_equal(test_data[rse]['availability_delete'], protocols['availability_delete'])
@@ -73,7 +76,7 @@ def reset_rses():
         rse.deleted = False
         rse.deleted_at = None
         rse.save(session=db_session)
-        add_rse_attribute(rse=rse['rse'], key=rse['rse'], value=True, session=db_session)
+        add_rse_attribute(rse_id=rse['id'], key=rse['rse'], value=True, session=db_session)
     db_session.commit()
 
 
@@ -85,25 +88,27 @@ class TestImporter(object):
 
         # RSE 1 that already exists
         self.old_rse_1 = rse_name_generator()
-        add_rse(self.old_rse_1, availability=1, region_code='DE', country_name='DE', deterministic=True, volatile=True, staging_area=True, time_zone='Europe', latitude='1', longitude='2')
-        add_protocol(self.old_rse_1, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
-        add_protocol(self.old_rse_1, {'scheme': 'scheme3', 'hostname': 'hostname3', 'port': 1000, 'impl': 'TODO'})
-        self.old_rse_id_1 = get_rse_id(self.old_rse_1)
-        set_rse_limits(rse=self.old_rse_1, name='MaxBeingDeletedFiles', value='10')
-        set_rse_limits(rse=self.old_rse_1, name='MinFreeSpace', value='10')
-        add_rse_attribute(rse=self.old_rse_1, key='attr1', value='test10')
-        add_rse_attribute(rse=self.old_rse_1, key='lfn2pfn_algorithm', value='test10')
-        add_rse_attribute(rse=self.old_rse_1, key='verify_checksum', value=True)
+        self.old_rse_id_1 = add_rse(self.old_rse_1, availability=1, region_code='DE', country_name='DE', deterministic=True, volatile=True, staging_area=True, time_zone='Europe', latitude='1', longitude='2')
+        add_protocol(self.old_rse_id_1, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
+        add_protocol(self.old_rse_id_1, {'scheme': 'scheme3', 'hostname': 'hostname3', 'port': 1000, 'impl': 'TODO'})
+
+        set_rse_limits(rse_id=self.old_rse_id_1, name='MaxBeingDeletedFiles', value='10')
+        set_rse_limits(rse_id=self.old_rse_id_1, name='MinFreeSpace', value='10')
+        add_rse_attribute(rse_id=self.old_rse_id_1, key='attr1', value='test10')
+        add_rse_attribute(rse_id=self.old_rse_id_1, key='lfn2pfn_algorithm', value='test10')
+        add_rse_attribute(rse_id=self.old_rse_id_1, key='verify_checksum', value=True)
 
         # RSE 2 that already exists
         self.old_rse_2 = rse_name_generator()
-        add_rse(self.old_rse_2)
-        self.old_rse_id_2 = get_rse_id(self.old_rse_2)
+        self.old_rse_id_2 = add_rse(self.old_rse_2)
 
         # RSE 3 that already exists
         self.old_rse_3 = rse_name_generator()
-        add_rse(self.old_rse_3)
-        self.old_rse_id_3 = get_rse_id(self.old_rse_3)
+        self.old_rse_id_3 = add_rse(self.old_rse_3)
+
+        # RSE 4 that already exists
+        self.old_rse_4 = rse_name_generator()
+        self.old_rse_id_4 = add_rse(self.old_rse_4)
 
         # RSE 4 that already exists
         self.old_rse_4 = rse_name_generator()
@@ -184,8 +189,8 @@ class TestImporter(object):
             },
             'distances': {
                 self.old_rse_1: {
-                    self.old_rse_2: {'src_rse_id': self.old_rse_id_1, 'dest_rse_id': self.old_rse_id_2, 'ranking': 10},
-                    self.old_rse_3: {'src_rse_id': self.old_rse_id_1, 'dest_rse_id': self.old_rse_id_3, 'ranking': 4}
+                    self.old_rse_2: {'src_rse': self.old_rse_1, 'dest_rse': self.old_rse_2, 'ranking': 10},
+                    self.old_rse_3: {'src_rse': self.old_rse_1, 'dest_rse': self.old_rse_3, 'ranking': 4}
                 }
             }
         }
@@ -204,9 +209,11 @@ class TestImporter(object):
         check_rse(self.new_rse, self.data1['rses'])
         check_protocols(self.new_rse, self.data1['rses'])
 
-        attributes = list_rse_attributes(rse=self.new_rse)
+        new_rse_id = get_rse_id(rse=self.new_rse)
+
+        attributes = list_rse_attributes(rse_id=new_rse_id)
         assert_equal(attributes['attr1'], 'test')
-        limits = get_rse_limits(rse=self.new_rse)
+        limits = get_rse_limits(rse_id=new_rse_id)
         assert_equal(limits['MinFreeSpace'], 20000)
 
         # RSE 1 that already exists
@@ -216,15 +223,15 @@ class TestImporter(object):
         check_protocols(self.old_rse_1, self.data1['rses'])
 
         # one protocol should be removed as it is not specified in the import data
-        protocols = get_rse_protocols(self.old_rse_1)
+        protocols = get_rse_protocols(self.old_rse_id_1)
         protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port']} for protocol in protocols['protocols']]
         assert_true({'hostename': 'hostname3', 'port': 1000, 'scheme': 'scheme3'} not in protocols)
 
-        attributes = list_rse_attributes(rse=self.old_rse_1)
+        attributes = list_rse_attributes(rse_id=self.old_rse_id_1)
         assert_equal(attributes['attr1'], 'test1')
         assert_equal(attributes['attr2'], 'test2')
 
-        limits = get_rse_limits(rse=self.old_rse_1)
+        limits = get_rse_limits(rse_id=self.old_rse_id_1)
         assert_equal(limits['MaxBeingDeletedFiles'], 1000)
         assert_equal(limits['MinFreeSpace'], 10000)
 
@@ -236,7 +243,7 @@ class TestImporter(object):
 
         # RSE 4 should be flagged as deleted as it is missing in the import data
         with assert_raises(RSENotFound):
-            get_rse(self.old_rse_4)
+            get_rse(rse_id=self.old_rse_id_4)
 
         import_data(data=self.data2)
         import_data(data=self.data3)
@@ -249,25 +256,28 @@ class TestImporter(object):
         # RSE that had not existed before
         check_rse(self.new_rse, self.data1['rses'])
         check_protocols(self.new_rse, self.data1['rses'])
-        protocols = get_rse_protocols(self.old_rse_1)
+
+        new_rse_id = get_rse_id(rse=self.new_rse)
+
+        protocols = get_rse_protocols(self.old_rse_id_1)
         protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port']} for protocol in protocols['protocols']]
         assert_true({'hostename': 'hostname3', 'port': 1000, 'scheme': 'scheme3'} not in protocols)
 
-        attributes = list_rse_attributes(rse=self.new_rse)
+        attributes = list_rse_attributes(rse_id=new_rse_id)
         assert_equal(attributes['attr1'], 'test')
 
-        limits = get_rse_limits(rse=self.new_rse)
+        limits = get_rse_limits(rse_id=new_rse_id)
         assert_equal(limits['MinFreeSpace'], 20000)
 
         # RSE 1 that already exists
         check_rse(self.old_rse_1, self.data1['rses'])
         check_protocols(self.old_rse_1, self.data1['rses'])
 
-        attributes = list_rse_attributes(rse=self.old_rse_1)
+        attributes = list_rse_attributes(rse_id=self.old_rse_id_1)
         assert_equal(attributes['attr1'], 'test1')
         assert_equal(attributes['attr2'], 'test2')
 
-        limits = get_rse_limits(rse=self.old_rse_1)
+        limits = get_rse_limits(rse_id=self.old_rse_id_1)
         assert_equal(limits['MaxBeingDeletedFiles'], 1000)
         assert_equal(limits['MinFreeSpace'], 10000)
 
@@ -278,7 +288,7 @@ class TestImporter(object):
         assert_equal(distance['ranking'], 4)
 
         with assert_raises(RSENotFound):
-            get_rse(self.old_rse_4)
+            get_rse(rse_id=self.old_rse_id_4)
 
         import_client.import_data(data=self.data2)
         import_client.import_data(data=self.data3)
@@ -292,30 +302,33 @@ class TestImporter(object):
         headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
 
         r2 = TestApp(import_app.wsgifunc(*mw)).post('/', headers=headers2, expect_errors=True, params=render_json(**self.data1))
-        assert_equal(r2.status, 201)
+        assert_equal(r2.status, 201, r2.body)
 
         # RSE that not existed before
         check_rse(self.new_rse, self.data1['rses'])
         check_protocols(self.new_rse, self.data1['rses'])
-        protocols = get_rse_protocols(self.old_rse_1)
+
+        new_rse_id = get_rse_id(rse=self.new_rse)
+
+        protocols = get_rse_protocols(self.old_rse_id_1)
         protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port']} for protocol in protocols['protocols']]
         assert_true({'hostename': 'hostname3', 'port': 1000, 'scheme': 'scheme3'} not in protocols)
 
-        attributes = list_rse_attributes(rse=self.new_rse)
+        attributes = list_rse_attributes(rse_id=new_rse_id)
         assert_equal(attributes['attr1'], 'test')
 
-        limits = get_rse_limits(rse=self.new_rse)
+        limits = get_rse_limits(rse_id=new_rse_id)
         assert_equal(limits['MinFreeSpace'], 20000)
 
         # RSE 1 that already existed before
         check_rse(self.old_rse_1, self.data1['rses'])
         check_protocols(self.old_rse_1, self.data1['rses'])
 
-        attributes = list_rse_attributes(rse=self.old_rse_1)
+        attributes = list_rse_attributes(rse_id=self.old_rse_id_1)
         assert_equal(attributes['attr1'], 'test1')
         assert_equal(attributes['attr2'], 'test2')
 
-        limits = get_rse_limits(rse=self.old_rse_1)
+        limits = get_rse_limits(rse_id=self.old_rse_id_1)
         assert_equal(limits['MaxBeingDeletedFiles'], 1000)
         assert_equal(limits['MinFreeSpace'], 10000)
 
@@ -326,7 +339,7 @@ class TestImporter(object):
         assert_equal(distance['ranking'], 4)
 
         with assert_raises(RSENotFound):
-            get_rse(self.old_rse_4)
+            get_rse(rse_id=self.old_rse_id_4)
 
         r2 = TestApp(import_app.wsgifunc(*mw)).post('/', headers=headers2, expect_errors=True, params=render_json(**self.data2))
         assert_equal(r2.status, 201)
@@ -350,7 +363,8 @@ class TestExporter(object):
         rses = {}
         for rse in list_rses():
             rse_name = rse['rse']
-            rses[rse_name] = export_rse(rse_name)
+            rse_id = rse['id']
+            rses[rse_name] = export_rse(rse_id=rse_id)
         assert_equal(data['rses'], parse_response(render_json(**rses)))
         assert_equal(data['distances'], parse_response(render_json(**export_distances())))
 
@@ -364,6 +378,11 @@ class TestExporter(object):
 
         r2 = TestApp(export_app.wsgifunc(*mw)).get('/', headers=headers2, expect_errors=True)
         rses = export_rses()
+        sanitised = {}
+        for rse_id in rses:
+            sanitised[get_rse_name(rse_id=rse_id)] = rses[rse_id]
+        rses = sanitised
+
         assert_equal(r2.status, 200)
         assert_equal(r2.body, render_json(**{'rses': rses, 'distances': export_distances()}))
 
