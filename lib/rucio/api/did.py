@@ -530,3 +530,57 @@ def list_archive_content(scope, name):
     dids = did.list_archive_content(scope=scope, name=name)
     for d in dids:
         yield api_update_return_dict(d)
+
+
+def add_did_to_followed(scope, name, account, session=None):
+    """
+    Mark a did as followed by the given account
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param account: The account owner.
+    :param session: The database session in use.
+    """
+    return did.add_did_to_followed(scope=scope, name=name, account=account, session=session)
+
+
+def add_dids_to_followed(dids, account, session=None):
+    """
+    Bulk mark datasets as followed
+
+    :param dids: A list of dids.
+    :param account: The account owner.
+    :param session: The database session in use.
+    """
+    return did.add_dids_to_followed(dids=dids, account=account, session=session)
+
+
+def get_users_following_did(name, scope, session=None):
+    """
+    Return list of dids followed by an user
+
+    :param account: The account owner.
+    :param session: The database session in use.
+    """
+    return did.get_users_following_did(name=name, scope=scope, session=session)
+
+
+def remove_did_from_followed(scope, name, session=None):
+    """
+    Mark a did as not followed
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param session: The database session in use.
+    """
+    return did.remove_did_from_followed(scope=scope, name=name, session=session)
+
+
+def remove_dids_from_followed(dids, session=None):
+    """
+    Bulk mark datasets as not followed
+
+    :param dids: A list of dids.
+    :param session: The database session in use.
+    """
+    return did.remove_dids_from_followed(dids=dids, session=session)
