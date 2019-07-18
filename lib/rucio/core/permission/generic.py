@@ -69,6 +69,7 @@ def has_permission(issuer, action, kwargs):
             'get_auth_token_user_pass': perm_get_auth_token_user_pass,
             'get_auth_token_gss': perm_get_auth_token_gss,
             'get_auth_token_x509': perm_get_auth_token_x509,
+            'get_auth_token_saml': perm_get_auth_token_saml,
             'add_account_identity': perm_add_account_identity,
             'add_did': perm_add_did,
             'add_dids': perm_add_dids,

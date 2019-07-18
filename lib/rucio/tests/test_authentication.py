@@ -24,7 +24,7 @@ from rucio.core.identity import add_account_identity, del_account_identity
 from rucio.db.sqla.constants import IdentityType
 from rucio.web.rest.authentication import APP
 
-from requests import session
+from requests import Session
 
 
 PUBLIC_KEY = "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq5LySllrQFpPL"\
@@ -191,13 +191,13 @@ class TestAuthRestApi(object):
         """AUTHENTICATION (REST): SAML Username and password (correct credentials)."""
         options = []
 
-        headers = {'X-Rucio-Account': self.account}
+        headers = {'X-Rucio-Account': 'root'}
         userpass = {'username': 'ddmlab', 'password': 'secret'}
 
         result = TestApp(APP.wsgifunc(*options)).get('/saml', headers=headers, expect_errors=True)
         if not result.header('X-Rucio-Auth-Token'):
             SAML_auth_url = result.header('X-Rucio-SAML-Auth-URL')
-            result = session.post(SAML_auth_url, data=userpass, verify=False, allow_redirects=True)
+            result = Session().post(SAML_auth_url, data=userpass, verify=False, allow_redirects=True)
             result = TestApp(APP.wsgifunc(*options)).get('/saml', headers=headers, expect_errors=True)
 
         assert_equal(result.status, 200)
@@ -207,13 +207,13 @@ class TestAuthRestApi(object):
         """AUTHENTICATION (REST): SAML Username and password (wrong credentials)."""
         options = []
 
-        headers = {'X-Rucio-Account': self.account}
+        headers = {'X-Rucio-Account': 'root'}
         userpass = {'username': 'ddmlab', 'password': 'not_secret'}
 
         result = TestApp(APP.wsgifunc(*options)).get('/saml', headers=headers, expect_errors=True)
         if not result.header('X-Rucio-Auth-Token'):
             SAML_auth_url = result.header('X-Rucio-SAML-Auth-URL')
-            result = session.post(SAML_auth_url, data=userpass, verify=False, allow_redirects=True)
+            result = Session().post(SAML_auth_url, data=userpass, verify=False, allow_redirects=True)
             result = TestApp(APP.wsgifunc(*options)).get('/saml', headers=headers, expect_errors=True)
 
         assert_equal(result.status, 401)
