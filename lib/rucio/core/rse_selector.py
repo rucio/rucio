@@ -9,6 +9,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2019
 # - Robert Illingworth, <illingwo@fnal.gov>, 2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -45,7 +46,7 @@ class RSESelector():
         self.copies = copies
         if weight is not None:
             for rse in rses:
-                attributes = list_rse_attributes(rse=None, rse_id=rse['id'], session=session)
+                attributes = list_rse_attributes(rse_id=rse['id'], session=session)
                 availability_write = True if rse.get('availability', 7) & 2 else False
                 if weight not in attributes:
                     continue  # The RSE does not have the required weight set, therefore it is ignored
@@ -56,7 +57,7 @@ class RSESelector():
                                       'availability_write': availability_write,
                                       'staging_area': rse['staging_area']})
                 except ValueError:
-                    raise InvalidRuleWeight('The RSE with id \'%s\' has a non-number specified for the weight \'%s\'' % (rse['id'], weight))
+                    raise InvalidRuleWeight('The RSE \'%s\' has a non-number specified for the weight \'%s\'' % (rse['rse'], weight))
         else:
             for rse in rses:
                 mock_rse = has_rse_attribute(rse['id'], 'mock', session=session)
@@ -86,7 +87,7 @@ class RSESelector():
                     else:
                         rse['quota_left'] = quota_limit - get_usage(rse_id=rse['rse_id'], account=account, session=session)['bytes']
 
-                    space_limit = get_rse_limits('', 'MaxSpaceAvailable', rse_id=rse['rse_id'], session=session).get('MaxSpaceAvailable')
+                    space_limit = get_rse_limits(name='MaxSpaceAvailable', rse_id=rse['rse_id'], session=session).get('MaxSpaceAvailable')
                     if space_limit is None or space_limit < 0:
                         rse['space_left'] = float('inf')
                     else:

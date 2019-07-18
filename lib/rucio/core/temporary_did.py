@@ -9,6 +9,7 @@
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+  - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 
   PY3K COMPATIBLE
 """
@@ -19,7 +20,6 @@ from sqlalchemy import and_, or_, func
 from sqlalchemy.sql.expression import bindparam, case, text
 
 from rucio.core.did import attach_dids
-from rucio.core.rse import get_rse, get_rse_id
 from rucio.core.replica import add_replica
 from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session, transactional_session
@@ -35,16 +35,8 @@ def add_temporary_dids(dids, account, session=None):
     :param account: The account owner.
     :param session: The database session in use.
     """
-    temporary_dids, rses = [], {}
+    temporary_dids = []
     for did in dids:
-
-        rse = did['rse']
-        if rse not in rses:
-            if did.get('rse_id'):
-                rses[rse] = {'id': did['rse_id']}
-            else:
-                replica_rse = get_rse(rse=rse, session=session)
-                rses[rse] = {'id': replica_rse.id}
 
         if did.get('pfn'):
             did['path'] = did['pfn']
@@ -57,7 +49,7 @@ def add_temporary_dids(dids, account, session=None):
 
         temporary_dids.append({'scope': did['scope'],
                                'name': did['name'],
-                               'rse_id': rses[rse]['id'],
+                               'rse_id': did['rse_id'],
                                'path': did.get('path'),
                                'bytes': did.get('bytes'),
                                'md5': did.get('md5'),
@@ -75,7 +67,7 @@ def add_temporary_dids(dids, account, session=None):
 
 
 @transactional_session
-def compose(scope, name, rse, bytes, sources, account,
+def compose(scope, name, rse_id, bytes, sources, account,
             md5=None, adler32=None, pfn=None, meta={}, rules=[],
             parent_scope=None, parent_name=None,
             session=None):
@@ -84,7 +76,7 @@ def compose(scope, name, rse, bytes, sources, account,
 
     :param scope: the scope name.
     :param name: The data identifier name.
-    :param rse: the rse name.
+    :param rse_id: the rse id.
     :param bytes: the size of the file.
     :sources sources: The list of temporary DIDs.
     :param account: The account owner.
@@ -98,7 +90,7 @@ def compose(scope, name, rse, bytes, sources, account,
     :param session: The database session in use.
     """
     # Create the new file did and replica
-    add_replica(rse=rse, scope=scope, name=name, bytes=bytes, account=account,
+    add_replica(rse_id=rse_id, scope=scope, name=name, bytes=bytes, account=account,
                 adler32=adler32, md5=md5, pfn=pfn, meta=meta, rules=rules,
                 session=session)
 
@@ -106,7 +98,7 @@ def compose(scope, name, rse, bytes, sources, account,
     if parent_scope and parent_name:
         attach_dids(scope=parent_scope, name=parent_name,
                     dids=[{'scope': scope, 'name': name}], account=account,
-                    rse=None, session=session)
+                    rse_id=None, session=session)
 
     # Mark the merged dids as obsolete
     now, expired_dids = datetime.utcnow(), []
@@ -118,12 +110,12 @@ def compose(scope, name, rse, bytes, sources, account,
 
 
 @read_session
-def list_expired_temporary_dids(rse, limit, worker_number=None, total_workers=None,
+def list_expired_temporary_dids(rse_id, limit, worker_number=None, total_workers=None,
                                 session=None):
     """
     List expired temporary DIDs.
 
-    :param rse: the rse name.
+    :param rse_id: the rse id.
     :param limit: The maximum number of replicas returned.
     :param worker_number:      id of the executing worker.
     :param total_workers:      Number of total workers.
@@ -131,7 +123,6 @@ def list_expired_temporary_dids(rse, limit, worker_number=None, total_workers=No
 
     :returns: a list of dictionary replica.
     """
-    rse_id = get_rse_id(rse, session=session)
     is_none = None
     query = session.query(models.TemporaryDataIdentifier.scope,
                           models.TemporaryDataIdentifier.name,
@@ -150,7 +141,6 @@ def list_expired_temporary_dids(rse, limit, worker_number=None, total_workers=No
             query = query.filter(text('mod(abs((\'x\'||md5(path))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1)))
 
     return [{'path': path,
-             'rse': rse,
              'rse_id': rse_id,
              'scope': scope,
              'name': name,
@@ -161,10 +151,9 @@ def list_expired_temporary_dids(rse, limit, worker_number=None, total_workers=No
 @transactional_session
 def delete_temporary_dids(dids, session=None):
     """
-    Delete file replicas.
+    Delete temporary file replicas.
 
-    :param rse: the rse name.
-    :param files: the list of files to delete.
+    :param dids: the list of files to delete.
     :param session
     """
     where_clause = []
@@ -180,17 +169,15 @@ def delete_temporary_dids(dids, session=None):
 
 
 @read_session
-def get_count_of_expired_temporary_dids(rse, session=None):
+def get_count_of_expired_temporary_dids(rse_id, session=None):
     """
     List expired temporary DIDs.
 
-    :param rse: the rse name.
+    :param rse_id: the rse id.
     :param session: The database session in use.
 
     :returns: a count number.
     """
-    rse_id = get_rse_id(rse, session=session)
-
     is_none = None
     count = session.query(func.count(models.TemporaryDataIdentifier.scope)).\
         with_hint(models.TemporaryDataIdentifier, "INDEX(tmp_dids TMP_DIDS_EXPIRED_AT_IDX)", 'oracle').\

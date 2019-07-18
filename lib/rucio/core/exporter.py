@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 # Authors:
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
@@ -30,8 +31,8 @@ def export_rses(session=None):
     """
     data = {}
     for rse in rse_module.list_rses(session=session):
-        rse_name = rse['rse']
-        data[rse_name] = rse_module.export_rse(rse_name, session=session)
+        rse_id = rse['id']
+        data[rse_id] = rse_module.export_rse(rse_id, session=session)
 
     return data
 

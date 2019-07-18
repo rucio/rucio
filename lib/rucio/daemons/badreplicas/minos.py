@@ -14,6 +14,7 @@
 #
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -39,7 +40,7 @@ from rucio.core.did import get_metadata
 from rucio.core.replica import (get_bad_pfns, get_pfn_to_rse, declare_bad_file_replicas,
                                 get_did_from_pfns, update_replicas_states, bulk_add_bad_replicas,
                                 bulk_delete_bad_pfns, get_replicas_state)
-from rucio.core.rse import get_rse_id
+from rucio.core.rse import get_rse_name
 
 from rucio.core import heartbeat
 
@@ -131,21 +132,21 @@ def minos(bulk=1000, once=False, sleep_time=60):
                         schemes[scheme].append(pfn)
                     for scheme in schemes:
                         _, tmp_dict_rse, tmp_unknown_replicas = get_pfn_to_rse(schemes[scheme])
-                        for rse in tmp_dict_rse:
-                            if rse not in dict_rse:
-                                dict_rse[rse] = []
-                            dict_rse[rse].extend(tmp_dict_rse[rse])
+                        for rse_id in tmp_dict_rse:
+                            if rse_id not in dict_rse:
+                                dict_rse[rse_id] = []
+                            dict_rse[rse_id].extend(tmp_dict_rse[rse_id])
                             unknown_replicas.extend(tmp_unknown_replicas.get('unknown', []))
                     # The replicas in unknown_replicas do not exist, so we flush them from bad_pfns
                     if unknown_replicas:
                         logging.info(prepend_str + 'The following replicas are unknown and will be removed : %s' % str(unknown_replicas))
                         bulk_delete_bad_pfns(pfns=unknown_replicas, session=None)
 
-                    for rse in dict_rse:
-                        logging.debug(prepend_str + 'Running on RSE %s with %s replicas' % (rse, len(dict_rse[rse])))
+                    for rse_id in dict_rse:
+                        logging.debug(prepend_str + 'Running on RSE %s with %s replicas' % (get_rse_name(rse_id=rse_id), len(dict_rse[rse_id])))
                         nchunk = 0
-                        tot_chunk = int(math.ceil(len(dict_rse[rse]) / chunk_size))
-                        for chunk in chunks(dict_rse[rse], chunk_size):
+                        tot_chunk = int(math.ceil(len(dict_rse[rse_id]) / chunk_size))
+                        for chunk in chunks(dict_rse[rse_id], chunk_size):
                             nchunk += 1
                             logging.debug(prepend_str + 'Running on %s chunk out of %s' % (nchunk, tot_chunk))
                             unknown_replicas = declare_bad_file_replicas(pfns=chunk, reason=reason, issuer=account, status=state, session=session)
@@ -174,10 +175,10 @@ def minos(bulk=1000, once=False, sleep_time=60):
                     schemes[scheme].append(pfn)
                 for scheme in schemes:
                     _, tmp_dict_rse, tmp_unknown_replicas = get_pfn_to_rse(schemes[scheme])
-                    for rse in tmp_dict_rse:
-                        if rse not in dict_rse:
-                            dict_rse[rse] = []
-                        dict_rse[rse].extend(tmp_dict_rse[rse])
+                    for rse_id in tmp_dict_rse:
+                        if rse_id not in dict_rse:
+                            dict_rse[rse_id] = []
+                        dict_rse[rse_id].extend(tmp_dict_rse[rse_id])
                         unknown_replicas.extend(tmp_unknown_replicas.get('unknown', []))
 
                 # The replicas in unknown_replicas do not exist, so we flush them from bad_pfns
@@ -185,11 +186,11 @@ def minos(bulk=1000, once=False, sleep_time=60):
                     logging.info(prepend_str + 'The following replicas are unknown and will be removed : %s' % str(unknown_replicas))
                     bulk_delete_bad_pfns(pfns=unknown_replicas, session=None)
 
-                for rse in dict_rse:
+                for rse_id in dict_rse:
                     replicas = []
-                    rse_id = get_rse_id(rse=rse, session=None)
+                    rse = get_rse_name(rse_id=rse_id, session=None)
                     logging.debug(prepend_str + 'Running on RSE %s' % rse)
-                    for rep in get_did_from_pfns(pfns=dict_rse[rse], rse=None, session=None):
+                    for rep in get_did_from_pfns(pfns=dict_rse[rse_id], rse_id=None, session=None):
                         for pfn in rep:
                             scope = rep[pfn]['scope']
                             name = rep[pfn]['name']

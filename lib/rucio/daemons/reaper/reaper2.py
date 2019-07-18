@@ -20,6 +20,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -81,6 +82,7 @@ REGION = make_region().configure('dogpile.cache.memcached',
 def delete_from_storage(replicas, prot, rse_info, staging_areas, prepend_str):
     deleted_files = []
     rse_name = rse_info['rse']
+    rse_id = rse_info['id']
     try:
         prot.connect()
         for replica in replicas:
@@ -96,7 +98,7 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, prepend_str):
                 logging.info('%s Deletion ATTEMPT of %s:%s as %s on %s', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name)
                 start = time.time()
                 # For STAGING RSEs, no physical deletion
-                if rse_name in staging_areas:
+                if rse_id in staging_areas:
                     logging.warning('%s Deletion STAGING of %s:%s as %s on %s, will only delete the catalog and not do physical deletion', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name)
                     deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
                     continue
@@ -158,7 +160,7 @@ def get_rses_to_hostname_mapping():
     """
     Return a dictionaries mapping the RSEs to the hostname of the SE
 
-    :returns: Dictionary with RSE as key and (hostname, rse_info) as value
+    :returns: Dictionary with RSE_id as key and (hostname, rse_info) as value
     """
 
     result = REGION.get('rse_hostname_mapping')
@@ -166,11 +168,11 @@ def get_rses_to_hostname_mapping():
         result = {}
         all_rses = list_rses()
         for rse in all_rses:
-            rse_protocol = get_rse_protocols(rse['rse'])
+            rse_protocol = get_rse_protocols(rse_id=rse['id'])
             for prot in rse_protocol['protocols']:
                 if prot['domains']['wan']['delete'] == 1:
-                    result[rse['rse']] = (prot['hostname'], rse_protocol)
-            if rse['rse'] not in result:
+                    result[rse['id']] = (prot['hostname'], rse_protocol)
+            if rse['id'] not in result:
                 logging.warn('No default delete protocol for %s', rse['rse'])
 
         REGION.set('rse_hostname_mapping', result)
@@ -194,7 +196,7 @@ def __check_rse_usage(rse, rse_id, prepend_str):
         max_being_deleted_files, needed_free_space, used, free, obsolete = None, None, None, None, None
 
         # Get RSE limits
-        limits = get_rse_limits(rse=rse, rse_id=rse_id)
+        limits = get_rse_limits(rse_id=rse_id)
         if not limits and 'MinFreeSpace' not in limits and 'MaxBeingDeletedFiles' not in limits:
             result = (max_being_deleted_files, needed_free_space, used, free)
             REGION.set('rse_usage_%s' % rse_id, result)
@@ -205,7 +207,7 @@ def __check_rse_usage(rse, rse_id, prepend_str):
 
         # Check from which sources to get used and total spaces
         # Default is storage
-        attributes = list_rse_attributes(rse)
+        attributes = list_rse_attributes(rse_id=rse_id)
         source_for_total_space = attributes.get('sourceForTotalSpace', 'storage')
         source_for_used_space = attributes.get('sourceForUsedSpace', 'storage')
         greedy = attributes.get('greedyDeletion', False)
@@ -220,7 +222,7 @@ def __check_rse_usage(rse, rse_id, prepend_str):
             return result
 
         # Get total, used and obsolete space
-        rse_usage = get_rse_usage(rse=rse, rse_id=rse_id)
+        rse_usage = get_rse_usage(rse_id=rse_id)
         usage = [entry for entry in rse_usage if entry['source'] == 'obsolete']
         for var in usage:
             obsolete = var['used']
@@ -349,11 +351,11 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
 
             skip_until_next_run = []
             for rse_name, rse_id, needed_free_space, max_being_deleted_files in list_rses_mult:
-                if rse_name in skip_until_next_run:
+                if rse_id in skip_until_next_run:
                     continue
                 logging.debug('%s Working on %s. Percentage of the total space needed %.2f', prepend_str, rse_name, needed_free_space / tot_needed_free_space * 100)
-                rse_hostname, rse_info = rses_hostname_mapping[rse_name]
-                rse_hostname_key = '%s,%s' % (rse_name, rse_hostname)
+                rse_hostname, rse_info = rses_hostname_mapping[rse_id]
+                rse_hostname_key = '%s,%s' % (rse_id, rse_hostname)
                 payload_cnt = list_payload_counts(executable, older_than=600, hash_executable=None, session=None)
                 # logging.debug('%s Payload count : %s', prepend_str, str(payload_cnt))
                 tot_threads_for_hostname = 0
@@ -362,7 +364,7 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
                     if key and key.find(',') > -1:
                         if key.split(',')[1] == rse_hostname:
                             tot_threads_for_hostname += payload_cnt[key]
-                        if key.split(',')[0] == rse_name:
+                        if key.split(',')[0] == str(rse_id):
                             tot_threads_for_rse += payload_cnt[key]
 
                 if rse_hostname_key in payload_cnt and tot_threads_for_hostname >= max_deletion_thread:
@@ -385,7 +387,7 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
                     logging.debug('%s list_and_mark_unlocked_replicas  on %s for %s bytes in %s seconds: %s replicas', prepend_str, rse_name, needed_free_space, time.time() - del_start_time, len(replicas))
                     if len(replicas) < chunk_size:
                         logging.info('%s Not enough replicas to delete on %s (%s requested vs %s returned). Will skip any new attempts on this RSE until next cycle', prepend_str, rse_name, chunk_size, len(replicas))
-                        skip_until_next_run.append(rse_name)
+                        skip_until_next_run.append(rse_id)
 
                 except (DatabaseException, IntegrityError, DatabaseError) as error:
                     logging.error('%s %s', prepend_str, str(error))
@@ -419,7 +421,7 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
                         # Then finally delete the replicas
                         del_start = time.time()
                         with monitor.record_timer_block('reaper.delete_replicas'):
-                            delete_replicas(rse=rse_name, files=deleted_files)
+                            delete_replicas(rse_id=rse_id, files=deleted_files)
                         logging.debug('%s delete_replicas successed on %s : %s replicas in %s seconds', prepend_str, rse_name, len(deleted_files), time.time() - del_start)
                         monitor.record_counter(counters='reaper.deletion.done', delta=len(deleted_files))
 
