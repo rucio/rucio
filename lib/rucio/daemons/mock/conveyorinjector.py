@@ -18,6 +18,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -73,15 +74,15 @@ def generate_rse(endpoint, token):
             'lan': {'read': 1, 'write': 1, 'delete': 1},
             'wan': {'read': 1, 'write': 1, 'delete': 1}}}
 
-    rse.add_rse(rse_name)
+    rse_id = rse.add_rse(rse_name)
     tmp_proto['hostname'] = endpoint.split(':')[1][2:]
     tmp_proto['port'] = endpoint.split(':')[2].split('/')[0]
     tmp_proto['prefix'] = '/'.join([''] + endpoint.split(':')[2].split('/')[1:])
     if scheme == 'srm':
         tmp_proto['extended_attributes'] = {'space_token': token,
                                             'web_service_path': '/srm/managerv2?SFN='}
-    rse.add_protocol(rse_name, tmp_proto)
-    rse.add_rse_attribute(rse_name, key='fts', value='https://fts3-pilot.cern.ch:8446')
+    rse.add_protocol(rse_id=rse_id, parameter=tmp_proto)
+    rse.add_rse_attribute(rse_id=rse_id, key='fts', value='https://fts3-pilot.cern.ch:8446')
 
     account_limit.set_account_limit(account='root', rse_id=rsemanager.get_rse_info(rse_name)['id'], bytes=-1)
 
@@ -145,7 +146,7 @@ def request_transfer(loop=1, src=None, dst=None,
                     break
 
             # add the replica
-            replica.add_replica(rse=src_rse['rse'], scope='mock', name='file-%s' % tmp_name,
+            replica.add_replica(rse_id=src_rse['id'], scope='mock', name='file-%s' % tmp_name,
                                 bytes=config_get_int('injector', 'bytes'),
                                 adler32=config_get('injector', 'adler32'),
                                 md5=config_get('injector', 'md5'),

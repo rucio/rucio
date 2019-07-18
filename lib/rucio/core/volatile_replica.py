@@ -8,6 +8,7 @@
 
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
+  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
   PY3K COMPATIBLE
 """
@@ -19,26 +20,27 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import select
 
 from rucio.common import exception
+from rucio.core.rse import get_rse_name
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import ReplicaState
 from rucio.db.sqla.session import transactional_session
 
 
 @transactional_session
-def add_volatile_replicas(rse, replicas, session=None):
+def add_volatile_replicas(rse_id, replicas, session=None):
     """
     Bulk add volatile replicas.
 
-    :param rse: the rse name.
+    :param rse_id: the rse id.
     :param replicas: the list of volatile replicas.
     :param session: The database session in use.
     :returns: True is successful.
     """
     # first check that the rse is a volatile one
     try:
-        rse_id = session.query(models.RSE.id).filter_by(rse=rse, volatile=True).one()[0]
+        session.query(models.RSE.id).filter_by(rse_id=rse_id, volatile=True).one()
     except NoResultFound:
-        raise exception.UnsupportedOperation('No volatile rse found for %(rse)s !' % locals())
+        raise exception.UnsupportedOperation('No volatile rse found for %s !' % get_rse_name(rse_id=rse_id, session=session))
 
     file_clause, replica_clause = [], []
     for replica in replicas:
@@ -74,20 +76,20 @@ def add_volatile_replicas(rse, replicas, session=None):
 
 
 @transactional_session
-def delete_volatile_replicas(rse, replicas, session=None):
+def delete_volatile_replicas(rse_id, replicas, session=None):
     """
     Bulk delete volatile replicas.
 
-    :param rse: the rse name.
+    :param rse_id: the rse id.
     :param replicas: the list of volatile replicas.
     :param session: The database session in use.
     :returns: True is successful.
     """
     # first check that the rse is a volatile one
     try:
-        rse_id = session.query(models.RSE.id).filter_by(rse=rse, volatile=True).one()[0]
+        session.query(models.RSE.id).filter_by(rse_id=rse_id, volatile=True).one()
     except NoResultFound:
-        raise exception.UnsupportedOperation('No volatile rse found for %(rse)s !' % locals())
+        raise exception.UnsupportedOperation('No volatile rse found for %s !' % get_rse_name(rse_id=rse_id, session=session))
 
     conditions = []
     for replica in replicas:

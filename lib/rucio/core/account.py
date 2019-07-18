@@ -27,6 +27,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import exc
 
 import rucio.core.account_counter
+import rucio.core.rse
 
 from rucio.common import exception
 from rucio.db.sqla import models
@@ -309,5 +310,5 @@ def get_usage_history(rse_id, account, session=None):
         for row in query.all():
             result.append({'bytes': row.bytes, 'files': row.files, 'updated_at': row.updated_at})
     except exc.NoResultFound:
-        raise exception.CounterNotFound('No usage can be found for account %s on RSE with id %s' % (account, rse_id))
+        raise exception.CounterNotFound('No usage can be found for account %s on RSE %s' % (account, rucio.core.rse.get_rse_name(rse_id=rse_id, session=session)))
     return result

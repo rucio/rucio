@@ -7,6 +7,7 @@
 
   Authors:
   - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
   PY3K COMPATIBLE
 '''
@@ -14,6 +15,7 @@
 from rucio.api import permission
 from rucio.common import exception
 from rucio.core import exporter
+from rucio.core.rse import get_rse_name
 
 
 def export_data(issuer):
@@ -26,4 +28,20 @@ def export_data(issuer):
     if not permission.has_permission(issuer=issuer, action='export', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not export data' % issuer)
 
-    return exporter.export_data()
+    data = exporter.export_data()
+    rses = {}
+    distances = {}
+
+    for rse_id in data['rses']:
+        rse = data['rses'][rse_id]
+        rses[get_rse_name(rse_id=rse_id)] = rse
+    data['rses'] = rses
+
+    for src_id, tmp in data['distances']:
+        src = get_rse_name(rse_id=src_id)
+        distances[src] = {}
+        for dst_id, dists in tmp:
+            dst = get_rse_name(rse_id=dst_id)
+            distances[src][dst] = dists
+    data['distances'] = distances
+    return data

@@ -15,6 +15,7 @@
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -30,7 +31,7 @@ from rucio.common.utils import generate_uuid
 from rucio.core.account import get_usage_history
 from rucio.core.account_counter import update_account_counter_history
 from rucio.core.account_limit import get_account_usage, set_account_limit
-from rucio.core.rse import get_rse
+from rucio.core.rse import get_rse_id
 from rucio.daemons.undertaker import undertaker
 from rucio.daemons.abacus import account
 from rucio.daemons.judge import cleaner
@@ -47,7 +48,7 @@ class TestAbacusAccount():
         self.account_client = AccountClient()
         self.file_sizes = 2
         self.rse = 'MOCK4'
-        self.rse_id = get_rse(self.rse).id
+        self.rse_id = get_rse_id(self.rse)
         self.session = get_session()
 
     def tearDown(self):

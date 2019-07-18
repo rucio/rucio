@@ -13,6 +13,7 @@
   - Martin Barisits, <martin.barisits@cern.ch>, 2013
   - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
   - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
   PY3K COMPATIBLE
 '''
@@ -20,6 +21,7 @@
 from rucio.api import permission
 from rucio.common import exception
 from rucio.common.schema import validate_schema
+from rucio.common.utils import api_update_return_dict
 from rucio.core import distance as distance_module
 from rucio.core import rse as rse_module
 from rucio.core.rse_expression_parser import parse_expression
@@ -71,7 +73,9 @@ def get_rse(rse):
 
     :raises RSENotFound: if the referred RSE was not found in the database
     """
-    return rse_module.get_rse_protocols(rse)
+
+    rse_id = rse_module.get_rse_id(rse=rse)
+    return rse_module.get_rse_protocols(rse_id=rse_id)
 
 
 def del_rse(rse, issuer):
@@ -81,12 +85,13 @@ def del_rse(rse, issuer):
     :param rse: The RSE name.
     :param issuer: The issuer account.
     """
+    rse_id = rse_module.get_rse_id(rse=rse)
 
-    kwargs = {'rse': rse}
+    kwargs = {'rse': rse, 'rse_id': rse_id}
     if not permission.has_permission(issuer=issuer, action='del_rse', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not delete RSE' % (issuer))
 
-    return rse_module.del_rse(rse)
+    return rse_module.del_rse(rse_id)
 
 
 def list_rses(filters=None):
@@ -111,11 +116,13 @@ def del_rse_attribute(rse, key, issuer):
     :return: True if RSE attribute was deleted successfully, False otherwise.
     """
 
-    kwargs = {'rse': rse, 'key': key}
+    rse_id = rse_module.get_rse_id(rse=rse)
+
+    kwargs = {'rse': rse, 'rse_id': rse_id, 'key': key}
     if not permission.has_permission(issuer=issuer, action='del_rse_attribute', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not delete RSE attributes' % (issuer))
 
-    return rse_module.del_rse_attribute(rse=rse, key=key)
+    return rse_module.del_rse_attribute(rse_id=rse_id, key=key)
 
 
 def add_rse_attribute(rse, key, value, issuer):
@@ -128,12 +135,13 @@ def add_rse_attribute(rse, key, value, issuer):
 
     returns: True if successful, False otherwise.
     """
+    rse_id = rse_module.get_rse_id(rse=rse)
 
-    kwargs = {'rse': rse, 'key': key, 'value': value}
+    kwargs = {'rse': rse, 'rse_id': rse_id, 'key': key, 'value': value}
     if not permission.has_permission(issuer=issuer, action='add_rse_attribute', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not add RSE attributes' % (issuer))
 
-    return rse_module.add_rse_attribute(rse=rse, key=key, value=value)
+    return rse_module.add_rse_attribute(rse_id=rse_id, key=key, value=value)
 
 
 def list_rse_attributes(rse):
@@ -145,7 +153,8 @@ def list_rse_attributes(rse):
     :returns: List of all RSE attributes for a RSE_MODULE.
     """
 
-    return rse_module.list_rse_attributes(rse=rse)
+    rse_id = rse_module.get_rse_id(rse=rse)
+    return rse_module.list_rse_attributes(rse_id=rse_id)
 
 
 def has_rse_attribute(rse_id, key):
@@ -179,11 +188,12 @@ def add_protocol(rse, issuer, **data):
     :param issuer: The issuer account.
     :param data: Parameters (protocol identifier, port, hostname, ...) provided by the request.
     """
+    rse_id = rse_module.get_rse_id(rse=rse)
 
-    kwargs = {'rse': rse}
+    kwargs = {'rse': rse, 'rse_id': rse_id}
     if not permission.has_permission(issuer=issuer, action='add_protocol', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not add protocols to RSE %s' % (issuer, rse))
-    rse_module.add_protocol(rse, data['data'])
+    rse_module.add_protocol(rse_id, data['data'])
 
 
 def get_rse_protocols(rse, issuer):
@@ -195,7 +205,8 @@ def get_rse_protocols(rse, issuer):
 
     :returns: A dict with all supported protocols and their attibutes.
     """
-    return rse_module.get_rse_protocols(rse)
+    rse_id = rse_module.get_rse_id(rse=rse)
+    return rse_module.get_rse_protocols(rse_id)
 
 
 def del_protocols(rse, scheme, issuer, hostname=None, port=None):
@@ -210,10 +221,11 @@ def del_protocols(rse, scheme, issuer, hostname=None, port=None):
     :param port: The port (to be used if more than one protocol using the same
                  identifier and hostname are present)
     """
-    kwargs = {'rse': rse}
+    rse_id = rse_module.get_rse_id(rse=rse)
+    kwargs = {'rse': rse, 'rse_id': rse_id}
     if not permission.has_permission(issuer=issuer, action='del_protocol', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not delete protocols from RSE %s' % (issuer, rse))
-    rse_module.del_protocols(rse, scheme=scheme, hostname=hostname, port=port)
+    rse_module.del_protocols(rse_id=rse_id, scheme=scheme, hostname=hostname, port=port)
 
 
 def update_protocols(rse, scheme, data, issuer, hostname=None, port=None):
@@ -227,10 +239,11 @@ def update_protocols(rse, scheme, data, issuer, hostname=None, port=None):
     :param hostname: The hostname (to be used if more then one protocol using the same identifier are present)
     :param port: The port (to be used if more than one protocol using the same identifier and hostname are present)
     """
-    kwargs = {'rse': rse}
+    rse_id = rse_module.get_rse_id(rse=rse)
+    kwargs = {'rse': rse, 'rse_id': rse_id}
     if not permission.has_permission(issuer=issuer, action='update_protocol', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not update protocols from RSE %s' % (issuer, rse))
-    rse_module.update_protocols(rse, scheme=scheme, hostname=hostname, port=port, data=data)
+    rse_module.update_protocols(rse_id=rse_id, scheme=scheme, hostname=hostname, port=port, data=data)
 
 
 def set_rse_usage(rse, source, used, free, issuer):
@@ -245,11 +258,13 @@ def set_rse_usage(rse, source, used, free, issuer):
 
     :returns: List of RSE usage data.
     """
-    kwargs = {'rse': rse}
+    rse_id = rse_module.get_rse_id(rse=rse)
+
+    kwargs = {'rse': rse, 'rse_id': rse_id}
     if not permission.has_permission(issuer=issuer, action='set_rse_usage', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not update RSE usage information for RSE %s' % (issuer, rse))
 
-    return rse_module.set_rse_usage(rse=rse, source=source, used=used, free=free)
+    return rse_module.set_rse_usage(rse_id=rse_id, source=source, used=used, free=free)
 
 
 def get_rse_usage(rse, issuer, source=None, per_account=False):
@@ -262,7 +277,10 @@ def get_rse_usage(rse, issuer, source=None, per_account=False):
 
     :returns: True if successful, otherwise false.
     """
-    return rse_module.get_rse_usage(rse=rse, source=source, per_account=per_account)
+    rse_id = rse_module.get_rse_id(rse=rse)
+    usages = rse_module.get_rse_usage(rse_id=rse_id, source=source, per_account=per_account)
+
+    return [api_update_return_dict(u) for u in usages]
 
 
 def list_rse_usage_history(rse, issuer, source=None):
@@ -275,7 +293,9 @@ def list_rse_usage_history(rse, issuer, source=None):
 
     :returns: A list of historic RSE usage.
     """
-    return rse_module.list_rse_usage_history(rse=rse, source=source)
+    rse_id = rse_module.get_rse_id(rse=rse)
+    for u in rse_module.list_rse_usage_history(rse_id=rse_id, source=source):
+        yield api_update_return_dict(u)
 
 
 def set_rse_limits(rse, name, value, issuer):
@@ -289,11 +309,12 @@ def set_rse_limits(rse, name, value, issuer):
 
     :returns: True if successful, otherwise false.
     """
-    kwargs = {'rse': rse}
+    rse_id = rse_module.get_rse_id(rse=rse)
+    kwargs = {'rse': rse, 'rse_id': rse_id}
     if not permission.has_permission(issuer=issuer, action='set_rse_limits', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not update RSE limits for RSE %s' % (issuer, rse))
 
-    return rse_module.set_rse_limits(rse=rse, name=name, value=value)
+    return rse_module.set_rse_limits(rse_id=rse_id, name=name, value=value)
 
 
 def get_rse_limits(rse, issuer):
@@ -305,7 +326,8 @@ def get_rse_limits(rse, issuer):
 
     :returns: True if successful, otherwise false.
     """
-    return rse_module.get_rse_limits(rse=rse)
+    rse_id = rse_module.get_rse_id(rse=rse)
+    return rse_module.get_rse_limits(rse_id=rse_id)
 
 
 def parse_rse_expression(rse_expression):
@@ -331,10 +353,11 @@ def update_rse(rse, parameters, issuer):
 
     :raises RSENotFound: If RSE is not found.
     """
-    kwargs = {'rse': rse}
+    rse_id = rse_module.get_rse_id(rse=rse)
+    kwargs = {'rse': rse, 'rse_id': rse_id}
     if not permission.has_permission(issuer=issuer, action='update_rse', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not update RSE' % (issuer))
-    return rse_module.update_rse(rse=rse, parameters=parameters)
+    return rse_module.update_rse(rse_id=rse_id, parameters=parameters)
 
 
 def add_distance(source, destination, issuer, ranking=None, distance=None,
@@ -398,5 +421,12 @@ def get_distance(source, destination, issuer):
 
     :returns distance: List of dictionaries.
     """
-    return distance_module.get_distances(src_rse_id=rse_module.get_rse_id(source),
-                                         dest_rse_id=rse_module.get_rse_id(destination))
+    distances = distance_module.get_distances(src_rse_id=rse_module.get_rse_id(source),
+                                              dest_rse_id=rse_module.get_rse_id(destination))
+
+    for d in distances:
+        if 'src_rse_id' in d and d['src_rse_id'] is not None:
+            d['src_rse'] = rse_module.get_rse_name(rse_id=d['src_rse_id'])
+        if 'dest_rse_id' in d and d['dest_rse_id'] is not None:
+            d['dest_rse'] = rse_module.get_rse_name(rse_id=d['dest_rse_id'])
+    return distances

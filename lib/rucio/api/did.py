@@ -13,6 +13,7 @@
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
   - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
   - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
+  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
   PY3K COMPATIBLE
 '''
@@ -22,6 +23,7 @@ from __future__ import print_function
 import rucio.api.permission
 
 from rucio.core import did, naming_convention, meta as meta_core
+from rucio.core.rse import get_rse_id
 from rucio.common.constants import RESERVED_KEYS
 from rucio.common.schema import validate_schema
 from rucio.db.sqla.constants import DIDType
@@ -84,9 +86,13 @@ def add_did(scope, name, type, issuer, account=None, statuses={}, meta={}, rules
         # Validate metadata
         meta_core.validate_meta(meta=meta, did_type=DIDType.from_sym(type))
 
+    rse_id = None
+    if rse is not None:
+        rse_id = get_rse_id(rse=rse)
+
     return did.add_did(scope=scope, name=name, type=DIDType.from_sym(type), account=account or issuer,
                        statuses=statuses, meta=meta, rules=rules, lifetime=lifetime,
-                       dids=dids, rse=rse)
+                       dids=dids, rse_id=rse_id)
 
 
 def add_dids(dids, issuer):
@@ -96,6 +102,10 @@ def add_dids(dids, issuer):
     :param dids: A list of dids.
     :param issuer: The issuer account.
     """
+    for d in dids:
+        if 'rse' in d.keys():
+            d.update({'rse_id': get_rse_id(rse=d.get('rse'))})
+
     kwargs = {'issuer': issuer, 'dids': dids}
     if not rucio.api.permission.has_permission(issuer=issuer, action='add_dids', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not bulk add data identifier' % (issuer))
@@ -112,12 +122,23 @@ def attach_dids(scope, name, attachment, issuer):
     """
     validate_schema(name='attachment', obj=attachment)
 
+    rse_id = None
+    if 'rse' in attachment:
+        rse_id = get_rse_id(rse=attachment.get('rse'))
+        attachment['rse_id'] = rse_id
+
     kwargs = {'scope': scope, 'name': name, 'attachment': attachment}
     if not rucio.api.permission.has_permission(issuer=issuer, action='attach_dids', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifiers to %s:%s' % (issuer, scope, name))
 
-    return did.attach_dids(scope=scope, name=name, dids=attachment['dids'],
-                           account=attachment.get('account', issuer), rse=attachment.get('rse'))
+    if rse_id is not None:
+        dids = did.attach_dids(scope=scope, name=name, dids=attachment['dids'],
+                               account=attachment.get('account', issuer), rse_id=rse_id)
+    else:
+        dids = did.attach_dids(scope=scope, name=name, dids=attachment['dids'],
+                               account=attachment.get('account', issuer))
+
+    return dids
 
 
 def attach_dids_to_dids(attachments, issuer, ignore_duplicate=False):
@@ -129,6 +150,9 @@ def attach_dids_to_dids(attachments, issuer, ignore_duplicate=False):
     :param ignore_duplicate: If True, ignore duplicate entries.
     """
     validate_schema(name='attachments', obj=attachments)
+
+    for a in attachments:
+        a.update({'rse_id': get_rse_id(rse=a.get('rse'))})
 
     if not rucio.api.permission.has_permission(issuer=issuer, action='attach_dids_to_dids', kwargs={'attachments': attachments}):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifiers' % (issuer))

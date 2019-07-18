@@ -12,6 +12,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Robert Illingworth, <illingwo@fnal.gov>, 2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -1050,7 +1051,7 @@ def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, tran
     else:
         lock.repair_cnt += 1
 
-    if get_rse(rse=None, rse_id=lock.rse_id, session=session).staging_area:
+    if get_rse(rse_id=lock.rse_id, session=session).staging_area:
         lifetime = rule.expires_at - datetime.utcnow()
         lifetime = lifetime.seconds + lifetime.days * 24 * 3600
         transfers_to_create.append(create_transfer_dict(dest_rse_id=lock.rse_id,

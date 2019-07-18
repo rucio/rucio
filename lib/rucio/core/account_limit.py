@@ -17,33 +17,34 @@
 #  - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 #  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 #  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
+#  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import and_, or_
 
-from rucio.core.rse import get_rse_name, get_rse_id
 from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session, transactional_session
+from rucio.core.rse import get_rse_name
 
 
 @read_session
-def get_rse_account_usage(rse, session=None):
+def get_rse_account_usage(rse_id, session=None):
     """
     Returns the account limit and usage for all for all accounts on a RSE.
 
-    :param rse:      The RSE name.
+    :param rse_id:   The id of the RSE.
     :param session:  Database session in use.
     :return:         List of dictionnaries.
     """
     result = []
-    rse_id = get_rse_id(rse=rse, session=session)
-    query = session.query(models.AccountUsage.account, models.AccountUsage.files, models.AccountUsage.bytes, models.AccountLimit.bytes)
+    query = session.query(models.AccountUsage.account, models.AccountUsage.files, models.AccountUsage.bytes, models.AccountLimit.bytes, models.RSE.rse)
+    query = query.filter(models.RSE.id == models.AccountUsage.rse_id)
     query = query.outerjoin(models.AccountLimit, and_(models.AccountUsage.account == models.AccountLimit.account, models.AccountUsage.rse_id == models.AccountLimit.rse_id)).filter(models.AccountUsage.rse_id == rse_id)
     account_limits_tmp = query.all()
     for row in account_limits_tmp:
-        result.append({'rse': rse, 'account': row[0], 'used_files': row[1], 'used_bytes': row[2], 'quota_bytes': row[3]})
+        result.append({'rse_id': rse_id, 'rse': row[4], 'account': row[0], 'used_files': row[1], 'used_bytes': row[2], 'quota_bytes': row[3]})
     return result
 
 
@@ -159,9 +160,10 @@ def get_account_usage(account, rse_id=None, session=None):
         limits = get_account_limits(account=account, rse_ids=[rse_id], session=session)
         counters = session.query(models.AccountUsage).filter_by(account=account, rse_id=rse_id).all()
     result_list = []
+
     for counter in counters:
         if counter.bytes > 0 or counter.files > 0 or rse_id in limits.keys():
-            result_list.append({'rse': get_rse_name(rse_id=counter.rse_id, session=session),
+            result_list.append({'rse_id': counter.rse_id, 'rse': get_rse_name(rse_id=counter.rse_id, session=session),
                                 'bytes': counter.bytes, 'files': counter.files,
                                 'bytes_limit': limits.get(counter.rse_id, 0),
                                 'bytes_remaining': limits.get(counter.rse_id, 0) - counter.bytes})
