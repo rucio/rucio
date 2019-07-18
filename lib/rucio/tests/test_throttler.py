@@ -68,10 +68,10 @@ class TestThrottlerGroupedFIFO(object):
         name4 = generate_uuid()
         dataset_1_name = generate_uuid()
         add_did(self.scope, dataset_1_name, constants.DIDType.DATASET, self.account, session=self.db_session)
-        add_replica(self.source_rse, self.scope, name1, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse, self.scope, name2, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse, self.scope, name3, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse, self.scope, name4, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id, self.scope, name3, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id, self.scope, name4, 1, self.account, session=self.db_session)
         attach_dids(self.scope, dataset_1_name, [{'name': name1, 'scope': self.scope}], self.account, session=self.db_session)
         attach_dids(self.scope, dataset_1_name, [{'name': name2, 'scope': self.scope}], self.account, session=self.db_session)
         requests = [{
@@ -147,13 +147,13 @@ class TestThrottlerGroupedFIFO(object):
         queue_requests(requests, session=self.db_session)
         self.db_session.commit()
         throttler.run(once=True, sleep_time=1)
-        request_1 = get_request_by_did(self.scope, name1, self.dest_rse)
+        request_1 = get_request_by_did(self.scope, name1, self.dest_rse_id)
         assert_equal(request_1['state'], constants.RequestState.QUEUED)
-        request_2 = get_request_by_did(self.scope, name2, self.dest_rse)
+        request_2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
         assert_equal(request_2['state'], constants.RequestState.QUEUED)
-        request_3 = get_request_by_did(self.scope, name3, self.dest_rse)
+        request_3 = get_request_by_did(self.scope, name3, self.dest_rse_id)
         assert_equal(request_3['state'], constants.RequestState.QUEUED)
-        request_4 = get_request_by_did(self.scope, name4, self.dest_rse)
+        request_4 = get_request_by_did(self.scope, name4, self.dest_rse_id)
         assert_equal(request_4['state'], constants.RequestState.QUEUED)
 
     def test_throttler_grouped_fifo_nothing(self):
@@ -172,10 +172,10 @@ class TestThrottlerGroupedFIFO(object):
         name4 = generate_uuid()
         dataset_1_name = generate_uuid()
         add_did(self.scope, dataset_1_name, constants.DIDType.DATASET, self.account, session=self.db_session)
-        add_replica(self.source_rse, self.scope, name1, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse, self.scope, name2, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse, self.scope, name3, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse, self.scope, name4, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id, self.scope, name3, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id, self.scope, name4, 1, self.account, session=self.db_session)
         attach_dids(self.scope, dataset_1_name, [{'name': name1, 'scope': self.scope}], self.account, session=self.db_session)
         attach_dids(self.scope, dataset_1_name, [{'name': name2, 'scope': self.scope}], self.account, session=self.db_session)
         requests = [{
@@ -251,13 +251,13 @@ class TestThrottlerGroupedFIFO(object):
         queue_requests(requests, session=self.db_session)
         self.db_session.commit()
         throttler.run(once=True, sleep_time=1)
-        request_1 = get_request_by_did(self.scope, name1, self.dest_rse)
+        request_1 = get_request_by_did(self.scope, name1, self.dest_rse_id)
         assert_equal(request_1['state'], constants.RequestState.WAITING)
-        request_2 = get_request_by_did(self.scope, name2, self.dest_rse)
+        request_2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
         assert_equal(request_2['state'], constants.RequestState.WAITING)
-        request_3 = get_request_by_did(self.scope, name3, self.dest_rse)
+        request_3 = get_request_by_did(self.scope, name3, self.dest_rse_id)
         assert_equal(request_3['state'], constants.RequestState.WAITING)
-        request_4 = get_request_by_did(self.scope, name4, self.dest_rse)
+        request_4 = get_request_by_did(self.scope, name4, self.dest_rse_id)
         assert_equal(request_4['state'], constants.RequestState.WAITING)
 
     def test_throttler_grouped_fifo_subset(self):
@@ -265,7 +265,7 @@ class TestThrottlerGroupedFIFO(object):
         if self.dialect == 'mysql':
             return True
 
-        set_rse_transfer_limits(self.dest_rse, self.all_activities, volume=10, max_transfers=1, session=self.db_session)
+        set_rse_transfer_limits(self.dest_rse_id, self.all_activities, volume=10, max_transfers=1, session=self.db_session)
         set('throttler', '%s,%s' % (self.all_activities, self.dest_rse), 1, session=self.db_session)  # threshold used by throttler
         name1 = generate_uuid()
         name2 = generate_uuid()
@@ -273,10 +273,10 @@ class TestThrottlerGroupedFIFO(object):
         name4 = generate_uuid()
         dataset_1_name = generate_uuid()
         add_did(self.scope, dataset_1_name, constants.DIDType.DATASET, self.account, session=self.db_session)
-        add_replica(self.source_rse, self.scope, name1, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse, self.scope, name2, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse, self.scope, name3, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse, self.scope, name4, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id, self.scope, name3, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id, self.scope, name4, 1, self.account, session=self.db_session)
         attach_dids(self.scope, dataset_1_name, [{'name': name1, 'scope': self.scope}], self.account, session=self.db_session)
         attach_dids(self.scope, dataset_1_name, [{'name': name2, 'scope': self.scope}], self.account, session=self.db_session)
         requests = [{
@@ -353,16 +353,16 @@ class TestThrottlerGroupedFIFO(object):
         self.db_session.commit()
         throttler.run(once=True, sleep_time=1)
         # released because it got requested first
-        request_1 = get_request_by_did(self.scope, name1, self.dest_rse)
+        request_1 = get_request_by_did(self.scope, name1, self.dest_rse_id)
         assert_equal(request_1['state'], constants.RequestState.QUEUED)
         # released because the DID is attached to the same dataset
-        request_2 = get_request_by_did(self.scope, name2, self.dest_rse)
+        request_2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
         assert_equal(request_2['state'], constants.RequestState.QUEUED)
         # released because of available volume
-        request_3 = get_request_by_did(self.scope, name3, self.dest_rse)
+        request_3 = get_request_by_did(self.scope, name3, self.dest_rse_id)
         assert_equal(request_3['state'], constants.RequestState.QUEUED)
         # still waiting because there is no free volume
-        request_4 = get_request_by_did(self.scope, name4, self.dest_rse)
+        request_4 = get_request_by_did(self.scope, name4, self.dest_rse_id)
         assert_equal(request_4['state'], constants.RequestState.WAITING)
 
 
@@ -378,7 +378,7 @@ class TestThrottlerFIFO(object):
         cls.account = 'root'
         cls.user_activity = 'User Subscription'
         cls.all_activities = 'all_activities'
-        set_rse_transfer_limits(cls.dest_rse, cls.user_activity, max_transfers=1, session=cls.db_session)
+        set_rse_transfer_limits(cls.dest_rse_id, cls.user_activity, max_transfers=1, session=cls.db_session)
         set('throttler_release_strategy', 'dest_%s' % cls.dest_rse_id, 'fifo', session=cls.db_session)
 
     def setUp(self):
@@ -397,8 +397,8 @@ class TestThrottlerFIFO(object):
         # no threshold -> release all waiting requests
         name1 = generate_uuid()
         name2 = generate_uuid()
-        add_replica(self.source_rse, self.scope, name1, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse, self.scope, name2, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
         requests = [{
             'dest_rse_id': self.dest_rse_id,
             'source_rse_id': self.source_rse_id,
@@ -437,16 +437,16 @@ class TestThrottlerFIFO(object):
         queue_requests(requests, session=self.db_session)
         self.db_session.commit()
         throttler.run(once=True, sleep_time=1)
-        request = get_request_by_did(self.scope, name1, self.dest_rse)
+        request = get_request_by_did(self.scope, name1, self.dest_rse_id)
         assert_equal(request['state'], constants.RequestState.QUEUED)
-        request2 = get_request_by_did(self.scope, name2, self.dest_rse)
+        request2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
         assert_equal(request2['state'], constants.RequestState.QUEUED)
 
         # active transfers + waiting requests are less than the threshold -> release all waiting requests
         self.db_session.query(models.Request).delete()
         self.db_session.commit()
         name1 = generate_uuid()
-        add_replica(self.source_rse, self.scope, name1, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
         set('throttler', '%s,%s' % (self.user_activity, self.dest_rse), 3, session=self.db_session)
         request = models.Request(dest_rse_id=self.dest_rse_id, activity=self.user_activity, state=constants.RequestState.SUBMITTED)
         request.save(session=self.db_session)
@@ -471,7 +471,7 @@ class TestThrottlerFIFO(object):
         queue_requests(requests, session=self.db_session)
         self.db_session.commit()
         throttler.run(once=True, sleep_time=1)
-        request = get_request_by_did(self.scope, name1, self.dest_rse)
+        request = get_request_by_did(self.scope, name1, self.dest_rse_id)
         assert_equal(request['state'], constants.RequestState.QUEUED)
 
     def test_throttler_fifo_release_nothing(self):
@@ -483,8 +483,8 @@ class TestThrottlerFIFO(object):
         request.save(session=self.db_session)
         name1 = generate_uuid()
         name2 = generate_uuid()
-        add_replica(self.source_rse, self.scope, name1, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse, self.scope, name2, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
         requests = [{
             'dest_rse_id': self.dest_rse_id,
             'source_rse_id': self.source_rse_id,
@@ -523,9 +523,9 @@ class TestThrottlerFIFO(object):
         queue_requests(requests, session=self.db_session)
         self.db_session.commit()
         throttler.run(once=True, sleep_time=1)
-        request = get_request_by_did(self.scope, name1, self.dest_rse)
+        request = get_request_by_did(self.scope, name1, self.dest_rse_id)
         assert_equal(request['state'], constants.RequestState.WAITING)
-        request2 = get_request_by_did(self.scope, name2, self.dest_rse)
+        request2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
         assert_equal(request2['state'], constants.RequestState.WAITING)
 
     def test_throttler_fifo_release_subset(self):
@@ -534,8 +534,8 @@ class TestThrottlerFIFO(object):
         set('throttler', '%s,%s' % (self.user_activity, self.dest_rse), 1, session=self.db_session)
         name1 = generate_uuid()
         name2 = generate_uuid()
-        add_replica(self.source_rse, self.scope, name1, 1, self.account, session=self.db_session)
-        add_replica(self.source_rse, self.scope, name2, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
         requests = [{
             'dest_rse_id': self.dest_rse_id,
             'source_rse_id': self.source_rse_id,
@@ -574,7 +574,7 @@ class TestThrottlerFIFO(object):
         queue_requests(requests, session=self.db_session)
         self.db_session.commit()
         throttler.run(once=True, sleep_time=1)
-        request = get_request_by_did(self.scope, name1, self.dest_rse)
+        request = get_request_by_did(self.scope, name1, self.dest_rse_id)
         assert_equal(request['state'], constants.RequestState.QUEUED)
-        request2 = get_request_by_did(self.scope, name2, self.dest_rse)
+        request2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
         assert_equal(request2['state'], constants.RequestState.WAITING)

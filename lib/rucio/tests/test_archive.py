@@ -18,6 +18,7 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -66,26 +67,26 @@ class TestArchive(object):
 
         scope = 'mock'
         rse = 'APERTURE_%s' % rse_name_generator()
-        add_rse(rse)
+        rse_id = add_rse(rse)
 
-        add_protocol(rse, {'scheme': 'root',
-                           'hostname': 'root.aperture.com',
-                           'port': 1409,
-                           'prefix': '//test/chamber/',
-                           'impl': 'rucio.rse.protocols.xrootd.Default',
-                           'domains': {
-                               'lan': {'read': 1, 'write': 1, 'delete': 1},
-                               'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+        add_protocol(rse_id, {'scheme': 'root',
+                              'hostname': 'root.aperture.com',
+                              'port': 1409,
+                              'prefix': '//test/chamber/',
+                              'impl': 'rucio.rse.protocols.xrootd.Default',
+                              'domains': {
+                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
 
         # register archive
         archive = {'scope': scope, 'name': 'weighted.storage.cube.zip', 'type': 'FILE',
                    'bytes': 2596, 'adler32': 'beefdead'}
-        add_replicas(rse=rse, files=[archive], account='root')
+        add_replicas(rse_id=rse_id, files=[archive], account='root')
 
         # archived files with replicas
         files_with_replicas = [{'scope': scope, 'name': 'witrep-%i-%s' % (i, str(generate_uuid())), 'type': 'FILE',
                                 'bytes': 1234, 'adler32': 'deadbeef'} for i in range(2)]
-        add_replicas(rse=rse, files=files_with_replicas, account='root')
+        add_replicas(rse_id=rse_id, files=files_with_replicas, account='root')
         self.dc.add_files_to_archive(scope=scope, name=archive['name'], files=files_with_replicas)
 
         res = [r['pfns'] for r in self.rc.list_replicas(dids=[{'scope': scope, 'name': f['name']} for f in files_with_replicas],
@@ -116,32 +117,32 @@ class TestArchive(object):
         scope = 'mock'
 
         rse1 = 'APERTURE_%s' % rse_name_generator()
-        add_rse(rse1)
-        add_protocol(rse1, {'scheme': 'root',
-                            'hostname': 'root.aperture.com',
-                            'port': 1409,
-                            'prefix': '//test/chamber/',
-                            'impl': 'rucio.rse.protocols.xrootd.Default',
-                            'domains': {
-                                'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+        rse1_id = add_rse(rse1)
+        add_protocol(rse1_id, {'scheme': 'root',
+                               'hostname': 'root.aperture.com',
+                               'port': 1409,
+                               'prefix': '//test/chamber/',
+                               'impl': 'rucio.rse.protocols.xrootd.Default',
+                               'domains': {
+                                   'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                   'wan': {'read': 1, 'write': 1, 'delete': 1}}})
 
         rse2 = 'BLACKMESA_%s' % rse_name_generator()
-        add_rse(rse2)
-        add_protocol(rse2, {'scheme': 'root',
-                            'hostname': 'root.blackmesa.com',
-                            'port': 1409,
-                            'prefix': '//lambda/complex/',
-                            'impl': 'rucio.rse.protocols.xrootd.Default',
-                            'domains': {
-                                'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+        rse2_id = add_rse(rse2)
+        add_protocol(rse2_id, {'scheme': 'root',
+                               'hostname': 'root.blackmesa.com',
+                               'port': 1409,
+                               'prefix': '//lambda/complex/',
+                               'impl': 'rucio.rse.protocols.xrootd.Default',
+                               'domains': {
+                                   'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                   'wan': {'read': 1, 'write': 1, 'delete': 1}}})
 
         # register archive
         archive1 = {'scope': scope, 'name': 'cube.1.zip', 'type': 'FILE', 'bytes': 2596, 'adler32': 'beefdead'}
         archive2 = {'scope': scope, 'name': 'cube.2.zip', 'type': 'FILE', 'bytes': 5432, 'adler32': 'deadbeef'}
-        add_replicas(rse=rse1, files=[archive1], account='root')
-        add_replicas(rse=rse2, files=[archive2], account='root')
+        add_replicas(rse_id=rse1_id, files=[archive1], account='root')
+        add_replicas(rse_id=rse2_id, files=[archive2], account='root')
 
         # archived files with replicas
         archived_file = [{'scope': scope, 'name': 'zippedfile-%i-%s' % (i, str(generate_uuid())), 'type': 'FILE',

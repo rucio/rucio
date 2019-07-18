@@ -175,7 +175,7 @@ def update_account_counter_history(account, rse_id, session=None):
         counter = session.query(models.AccountUsage).filter_by(rse_id=rse_id, account=account).one()
         AccountUsageHistory(rse_id=rse_id, account=account, files=counter.files, bytes=counter.bytes).save(session=session)
     except NoResultFound:
-        raise CounterNotFound('No usage can be found for account %s on RSE with id %s' % (account, rse_id))
+        raise CounterNotFound('No usage can be found for account %s on RSE %s' % (account, rucio.core.rse.get_rse_name(rse_id=rse_id, session=session)))
 
 
 @transactional_session

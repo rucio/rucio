@@ -20,6 +20,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -266,13 +267,13 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
 
                                     if split_rule:
                                         rses = parse_expression(rse_expression)
-                                        list_of_rses = [rse['rse'] for rse in rses]
+                                        list_of_rses = [rse['id'] for rse in rses]
                                         # Check that some rule doesn't already exist for this DID and subscription
                                         preferred_rse_ids = []
                                         for rule in list_rules(filters={'subscription_id': subscription_id, 'scope': did['scope'], 'name': did['name']}):
                                             already_existing_rses = [(rse['rse'], rse['id']) for rse in parse_expression(rule['rse_expression'])]
                                             for rse, rse_id in already_existing_rses:
-                                                if (rse in list_of_rses) and (rse_id not in preferred_rse_ids):
+                                                if (rse_id in list_of_rses) and (rse_id not in preferred_rse_ids):
                                                     preferred_rse_ids.append(rse_id)
                                         if len(preferred_rse_ids) >= copies:
                                             skip_rule_creation = True

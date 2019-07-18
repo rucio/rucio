@@ -18,6 +18,7 @@
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -355,7 +356,8 @@ def rebalance_rse(rse, max_bytes=1E9, max_files=None, dry_run=False, exclude_exp
     rebalanced_bytes = 0
     rebalanced_files = 0
     rebalanced_datasets = []
-    rse_attributes = list_rse_attributes(rse=rse, session=session)
+    rse_id = get_rse_id(rse=rse)
+    rse_attributes = list_rse_attributes(rse_id=rse_id, session=session)
 
     print('***************************')
     print('BB8 - Execution Summary')

@@ -8,6 +8,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2016-2017
 # - Tomas Javurek, <tomas.javurek@cern.ch>, 2017
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -47,7 +48,7 @@ def group_space(site):
         return group_total
 
     for rse in site_groupdisks:
-        used = get_rse_usage(rse=rse['rse'], source='rucio')[0]['used']
+        used = get_rse_usage(rse_id=rse['id'], source='rucio')[0]['used']
         group_total += used
 
     return group_total
@@ -62,10 +63,10 @@ global_ratio = float(0)
 for rse in rses:
     site_name = get_rse_attribute(key='site', rse_id=rse['id'])[0]
     rse['groupdisk'] = group_space(site_name)
-    rse['primary'] = get_rse_usage(rse=None, rse_id=rse['id'], source='rucio')[0]['used'] - get_rse_usage(rse=None, rse_id=rse['id'], source='expired')[0]['used']
+    rse['primary'] = get_rse_usage(rse_id=rse['id'], source='rucio')[0]['used'] - get_rse_usage(rse_id=rse['id'], source='expired')[0]['used']
     rse['primary'] += rse['groupdisk']
-    rse['secondary'] = get_rse_usage(rse=None, rse_id=rse['id'], source='expired')[0]['used']
-    rse['total'] = get_rse_usage(rse=None, rse_id=rse['id'], source='storage')[0]['total'] - get_rse_usage(rse=None, rse_id=rse['id'], source='min_free_space')[0]['used']
+    rse['secondary'] = get_rse_usage(rse_id=rse['id'], source='expired')[0]['used']
+    rse['total'] = get_rse_usage(rse_id=rse['id'], source='storage')[0]['total'] - get_rse_usage(rse_id=rse['id'], source='min_free_space')[0]['used']
     rse['ratio'] = float(rse['primary']) / float(rse['total'])
     total_primary += rse['primary']
     total_secondary += rse['secondary']

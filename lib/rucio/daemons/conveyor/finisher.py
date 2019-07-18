@@ -19,6 +19,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -53,7 +54,7 @@ from rucio.common.exception import DatabaseException, ConfigNotFound, Unsupporte
 from rucio.core import request as request_core, heartbeat, replica as replica_core
 from rucio.core.config import items
 from rucio.core.monitor import record_timer, record_counter
-from rucio.core.rse import list_rses, get_rse_name, get_rse
+from rucio.core.rse import list_rses, get_rse_name
 from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState, BadFilesStatus
 from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager
@@ -438,8 +439,7 @@ def __update_replica(replica, session=None):
         try:
             if replica['state'] == ReplicaState.AVAILABLE and replica['request_type'] != RequestType.STAGEIN:
                 logging.info("Replica cannot be found. Adding a replica %s:%s AT RSE %s with tombstone=utcnow", replica['scope'], replica['name'], replica['rse_id'])
-                rse = get_rse(rse=None, rse_id=replica['rse_id'], session=session)
-                replica_core.add_replica(rse['rse'],
+                replica_core.add_replica(replica['rse_id'],
                                          replica['scope'],
                                          replica['name'],
                                          replica['bytes'],

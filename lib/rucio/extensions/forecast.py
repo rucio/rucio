@@ -8,6 +8,7 @@
 # Authors:
 # - Joaquin Bogado, <jbogadog@cern.ch>, 2017
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -69,7 +70,7 @@ class T3CModel():
 
         for rse in list_rses():
             if rse['deleted'] is False:
-                attribs = list_rse_attributes(rse['rse'])
+                attribs = list_rse_attributes(rse['id'])
                 try:
                     self._rse2site[rse['rse']] = attribs['site']
                     self._rseid2site[rse['id']] = attribs['site']
