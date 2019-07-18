@@ -1263,6 +1263,39 @@ class LifetimeExceptions(BASE, ModelBase):
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='LIFETIME_EXCEPT_ACCOUNT_FK'))
 
 
+class DidsFollowed(BASE, ModelBase):
+    """Represents the datasets followed by an user"""
+    __tablename__ = 'dids_followed'
+    scope = Column(String(SCOPE_LENGTH))
+    name = Column(String(NAME_LENGTH))
+    account = Column(String(25))
+    did_type = Column(DIDType.db_type(name='DIDS_FOLLOWED_TYPE_CHK'))
+    expires_at = Column(DateTime)
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'account', name='DIDS_FOLLOWED_PK'),
+                   CheckConstraint('SCOPE IS NOT NULL', name='DIDS_FOLLOWED_SCOPE_NN'),
+                   CheckConstraint('NAME IS NOT NULL', name='DIDS_FOLLOWED_NAME_NN'),
+                   CheckConstraint('DID_TYPE IS NOT NULL', name='DIDS_FOLLOWED_DID_TYPE_NN'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='DIDS_FOLLOWED_ACCOUNT_FK'))
+
+
+class FollowEvents(BASE, ModelBase):
+    """Represents the events affecting the datasets which are followed"""
+    __tablename__ = 'follow_events'
+    scope = Column(String(SCOPE_LENGTH))
+    name = Column(String(NAME_LENGTH))
+    account = Column(String(25))
+    did_type = Column(DIDType.db_type(name='FOLLOW_EVENTS_TYPE_CHK'))
+    payload = Column(LargeBinary(255))
+    is_deleted = Column(Boolean(name='FOLLOW_EVENTS_IS_DELETED_CHK'), server_default='0')
+    is_file_lost = Column(Boolean(name='FOLLOW_EVENTS_IS_FILE_LOST'), server_default='0')
+    is_lifetime_expired = Column(Boolean(name='FOLLOW_EVENTS_IS_LIFETIME_EXPIRED'), server_default='0')
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'account', name='AFFECTING_EVENTS_PK'),
+                   CheckConstraint('SCOPE IS NOT NULL', name='AFFECTING_EVENTS_SCOPE_NN'),
+                   CheckConstraint('NAME IS NOT NULL', name='AFFECTING_EVENTS_NAME_NN'),
+                   CheckConstraint('DID_TYPE IS NOT NULL', name='AFFECTING_EVENTS_DID_TYPE_NN'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='AFFECTING_EVENTS_ACCOUNT_FK'))
+
+
 def register_models(engine):
     """
     Creates database tables for all models with the given engine
@@ -1285,6 +1318,8 @@ def register_models(engine):
               DataIdentifier,
               DidMeta,
               DeletedDataIdentifier,
+              DidsFollowed,
+              FollowEvents,
               Heartbeats,
               Identity,
               IdentityAccountAssociation,
@@ -1341,6 +1376,8 @@ def unregister_models(engine):
               DidMeta,
               DataIdentifier,
               DeletedDataIdentifier,
+              DidsFollowed,
+              FollowEvents,
               Heartbeats,
               Identity,
               IdentityAccountAssociation,

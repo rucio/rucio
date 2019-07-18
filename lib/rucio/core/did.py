@@ -1833,3 +1833,87 @@ def list_archive_content(scope, name, session=None):
                    'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5}
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+
+
+@transactional_session
+def add_did_to_followed(scope, name, account, session=None):
+    """
+    Mark a did as followed by the given account
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param account: The account owner.
+    :param session: The database session in use.
+    """
+    return add_dids_to_followed(dids=[{'scope': scope, 'name': name}],
+                                account=account, session=session)
+
+
+@transactional_session
+def add_dids_to_followed(dids, account, session=None):
+    """
+    Bulk mark datasets as followed
+
+    :param dids: A list of dids.
+    :param account: The account owner.
+    :param session: The database session in use.
+    """
+    try:
+        for did in dids:
+            did = session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).one()
+            new_did_followed = models.DidsFollowed(scope=did.scope, name=did.name, account=account,
+                                                   did_type=did.did_type, expired_at=did.expired_at)
+
+            new_did_followed.save(session=session, flush=True)
+
+    except IntegrityError as error:
+        raise exception.RucioException(error.args)
+
+
+@transactional_session
+def get_users_following_did(name, scope, session=None):
+    """
+    Return list of dids followed by an user
+
+    :param account: The account owner.
+    :param session: The database session in use.
+    """
+    try:
+        query = session.query(models.DidsFollowed).filter_by(name=name, scope=scope).all()
+        users = list()
+
+        for user in query:
+            users.append(user.account)
+
+        return users
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (scope, name))
+
+
+@transactional_session
+def remove_did_from_followed(scope, name, session=None):
+    """
+    Mark a did as not followed
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param session: The database session in use.
+    """
+    return remove_dids_from_followed(dids=[{'scope': scope, 'name': name}], session=session)
+
+
+@transactional_session
+def remove_dids_from_followed(dids, session=None):
+    """
+    Bulk mark datasets as not followed
+
+    :param dids: A list of dids.
+    :param session: The database session in use.
+    """
+    try:
+        for did in dids:
+            session.query(models.DidsFollowed).filter_by(scope=did['scope'], name=did['name']).\
+                delete(synchronize_session=False)
+
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (did['scope'], did['name']))
