@@ -20,9 +20,10 @@
 from rucio.api import permission
 from rucio.common import exception
 from rucio.core import credential
+from rucio.core.rse import get_rse_id
 
 
-def get_signed_url(account, appid, ip, service, operation, url, lifetime):
+def get_signed_url(account, appid, ip, rse, service, operation, url, lifetime):
     """
     Get a signed URL for a particular service and operation.
 
@@ -31,6 +32,7 @@ def get_signed_url(account, appid, ip, service, operation, url, lifetime):
     :param account: Account identifier as a string.
     :param appid: The application identifier as a string.
     :param ip: IP address of the client as a string.
+    :param rse: The name of the RSE to which the URL points.
     :param service: The service to authorise, currently only 'gsc'.
     :param operation: The operation to sign, either 'read', 'write', or 'delete'.
     :param url: The URL to sign.
@@ -40,10 +42,9 @@ def get_signed_url(account, appid, ip, service, operation, url, lifetime):
 
     kwargs = {'account': account}
     if not permission.has_permission(issuer=account, action='get_signed_url', kwargs=kwargs):
-        raise exception.AccessDenied('Account %s can not get signed URL for service=%s, operation=%s, url=%s, lifetime=%s' % (account,
-                                                                                                                              service,
-                                                                                                                              operation,
-                                                                                                                              url,
-                                                                                                                              lifetime))
+        raise exception.AccessDenied('Account %s can not get signed URL for rse=%s, service=%s, operation=%s, url=%s, lifetime=%s' % (account, rse, service, operation, url, lifetime))
 
-    return credential.get_signed_url(service, operation, url, lifetime)
+    # look up RSE ID for name
+    rse_id = get_rse_id(rse)
+
+    return credential.get_signed_url(rse_id, service, operation, url, lifetime)
