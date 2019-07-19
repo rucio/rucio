@@ -21,6 +21,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2019
 # - Wen Guan, <wen.guan@cern.ch>, 2015
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 

@@ -25,6 +25,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Tobias Wegner <twegner@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -1870,20 +1871,21 @@ def add_dids_to_followed(dids, account, session=None):
         raise exception.RucioException(error.args)
 
 
-@transactional_session
-def get_users_following_did(name, scope, session=None):
+@read_session
+def get_users_following_did(scope, name, session=None):
     """
     Return list of dids followed by an user
 
-    :param account: The account owner.
+    :param scope: The scope name.
+    :param name: The data identifier name.
     :param session: The database session in use.
     """
     try:
-        query = session.query(models.DidsFollowed).filter_by(name=name, scope=scope).all()
+        query = session.query(models.DidsFollowed).filter_by(scope=scope, name=name).all()
         users = list()
 
         for user in query:
-            users.append(user.account)
+            users.append({'user': user.account})
 
         return users
     except NoResultFound:
@@ -1891,28 +1893,32 @@ def get_users_following_did(name, scope, session=None):
 
 
 @transactional_session
-def remove_did_from_followed(scope, name, session=None):
+def remove_did_from_followed(scope, name, account, session=None):
     """
     Mark a did as not followed
 
     :param scope: The scope name.
     :param name: The data identifier name.
+    :param account: The account owner.
     :param session: The database session in use.
     """
-    return remove_dids_from_followed(dids=[{'scope': scope, 'name': name}], session=session)
+    return remove_dids_from_followed(dids=[{'scope': scope, 'name': name}],
+                                     account=account, session=session)
 
 
 @transactional_session
-def remove_dids_from_followed(dids, session=None):
+def remove_dids_from_followed(dids, account, session=None):
     """
     Bulk mark datasets as not followed
 
     :param dids: A list of dids.
+    :param account: The account owner.
     :param session: The database session in use.
     """
     try:
         for did in dids:
-            session.query(models.DidsFollowed).filter_by(scope=did['scope'], name=did['name']).\
+            session.query(models.DidsFollowed).\
+                filter_by(scope=did['scope'], name=did['name'], account=account).\
                 delete(synchronize_session=False)
 
     except NoResultFound:
