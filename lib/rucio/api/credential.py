@@ -42,7 +42,12 @@ def get_signed_url(account, appid, ip, rse, service, operation, url, lifetime):
 
     kwargs = {'account': account}
     if not permission.has_permission(issuer=account, action='get_signed_url', kwargs=kwargs):
-        raise exception.AccessDenied('Account %s can not get signed URL for rse=%s, service=%s, operation=%s, url=%s, lifetime=%s' % (account, rse, service, operation, url, lifetime))
+        raise exception.AccessDenied('Account %s can not get signed URL for rse=%s, service=%s, operation=%s, url=%s, lifetime=%s' % (account,
+                                                                                                                                      rse,
+                                                                                                                                      service,
+                                                                                                                                      operation,
+                                                                                                                                      url,
+                                                                                                                                      lifetime))
 
     # look up RSE ID for name
     rse_id = get_rse_id(rse)
