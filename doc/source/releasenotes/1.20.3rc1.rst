@@ -1,0 +1,21 @@
+=========
+1.20.3rc1
+=========
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Core & Internals: Replace use of RSE names with ids in core `#2500 <https://github.com/rucio/rucio/issues/2500>`_
+- Core & Internals: small enhancements for data import `#2725 <https://github.com/rucio/rucio/issues/2725>`_
+- Traces: Kronos needs rse_id update `#2737 <https://github.com/rucio/rucio/issues/2737>`_
+
+****
+Bugs
+****
+
+- Core & Internals: Incorrectly passing strings to SQLAlchemy without an explicit text() declaration `#2732 <https://github.com/rucio/rucio/issues/2732>`_
