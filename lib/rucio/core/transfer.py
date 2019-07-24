@@ -422,11 +422,26 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
     transfers, rses_info, protocols, rse_attrs, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = {}, {}, {}, {}, [], [], []
 
     for req_id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, previous_attempt_id, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path, retry_count, src_url, ranking, link_ranking in req_sources:
+
+        # source_rse_id will be None if no source replicas
+        # rse will be None if rse is staging area
+        if source_rse_id is None or rse is None:
+            continue
+
         dest_rse_name = get_rse_name(rse_id=dest_rse_id, session=session)
         source_rse_name = get_rse_name(rse_id=source_rse_id, session=session)
+
+        if link_ranking is None:
+            logging.debug("Request %s: no link from %s to %s" % (req_id, source_rse_name, dest_rse_name))
+            continue
+
+        if source_rse_id in unavailable_read_rse_ids:
+            continue
+
         if dest_rse_id in unavailable_write_rse_ids:
             logging.warning('RSE %s is blacklisted for write. Will skip the submission of new jobs' % (dest_rse_name))
             continue
+
         transfer_src_type = "DISK"
         transfer_dst_type = "DISK"
         allow_tape_source = True
@@ -443,18 +458,6 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             if req_id not in transfers:
                 if req_id not in reqs_no_source:
                     reqs_no_source.append(req_id)
-
-                # source_rse_id will be None if no source replicas
-                # rse will be None if rse is staging area
-                if source_rse_id is None or rse is None:
-                    continue
-
-                if link_ranking is None:
-                    logging.debug("Request %s: no link from %s to %s" % (req_id, dest_rse_name, source_rse_name))
-                    continue
-
-                if source_rse_id in unavailable_read_rse_ids:
-                    continue
 
                 # Get destination rse information
                 if dest_rse_id not in rses_info:
@@ -645,18 +648,6 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                      'file_metadata': file_metadata}
             else:
                 current_schemes = transfers[req_id]['schemes']
-
-                # source_rse_id will be None if no source replicas
-                # rse will be None if rse is staging area
-                if source_rse_id is None or rse is None:
-                    continue
-
-                if link_ranking is None:
-                    logging.debug("Request %s: no link from %s to %s" % (req_id, source_rse_name, dest_rse_name))
-                    continue
-
-                if source_rse_id in unavailable_read_rse_ids:
-                    continue
 
                 attr = None
                 if attributes:
