@@ -26,6 +26,9 @@ def add_temporary_dids(dids, issuer):
     """
     for did in dids:
         if 'rse' in did and 'rse_id' not in did:
-            did['rse_id'] = get_rse_id(rse=did['rse'])
+            rse_id = None
+            if did['rse'] is not None:
+                rse_id = get_rse_id(rse=did['rse'])
+            did['rse_id'] = rse_id
 
     return temporary_did.add_temporary_dids(dids=dids, account=issuer)
