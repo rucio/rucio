@@ -41,7 +41,7 @@ from rucio.api.did import (add_did, add_dids, list_content, list_content_history
                            attach_dids_to_dids, get_dataset_by_guid, list_parent_dids,
                            create_did_sample, list_new_dids, resurrect, get_did_meta,
                            add_did_meta, list_dids_by_meta, delete_did_meta, add_did_to_followed,
-                           add_did_to_followed, get_users_following_did, remove_did_from_followed)
+                           get_users_following_did, remove_did_from_followed)
 from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,

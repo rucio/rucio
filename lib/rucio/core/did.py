@@ -1923,3 +1923,26 @@ def remove_dids_from_followed(dids, account, session=None):
 
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (did['scope'], did['name']))
+
+
+@transactional_session
+def trigger_event(scope, name, event_type, payload, session=None):
+    """
+    Records changes occuring in the did to the FollowEvents table
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param event_type: The type of event affecting the did.
+    :param payload: Any message to be stored along with the event.
+    :param session: The database session in use.
+    """
+    try:
+        dids = session.query(models.DidsFollowed).filter_by(scope=scope, name=name).all()
+
+        for did in dids:
+            new_event = models.DidsFollowed(scope=scope, name=name, account=did.account,
+                                            did_type=did.did_type, event_type=event_type, payload=payload)
+            new_event.save(session=session, flush=True)
+
+    except IntegrityError as error:
+        raise exception.RucioException(error.args)

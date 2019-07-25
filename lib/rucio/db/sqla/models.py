@@ -1286,15 +1286,13 @@ class FollowEvents(BASE, ModelBase):
     name = Column(String(NAME_LENGTH))
     account = Column(String(25))
     did_type = Column(DIDType.db_type(name='FOLLOW_EVENTS_TYPE_CHK'))
+    event_type = Column(String(1024))
     payload = Column(LargeBinary(255))
-    is_deleted = Column(Boolean(name='FOLLOW_EVENTS_IS_DELETED_CHK'), server_default='0')
-    is_file_lost = Column(Boolean(name='FOLLOW_EVENTS_IS_FILE_LOST'), server_default='0')
-    is_lifetime_expired = Column(Boolean(name='FOLLOW_EVENTS_IS_LIFETIME_EXPIRED'), server_default='0')
-    _table_args = (PrimaryKeyConstraint('scope', 'name', 'account', name='AFFECTING_EVENTS_PK'),
-                   CheckConstraint('SCOPE IS NOT NULL', name='AFFECTING_EVENTS_SCOPE_NN'),
-                   CheckConstraint('NAME IS NOT NULL', name='AFFECTING_EVENTS_NAME_NN'),
-                   CheckConstraint('DID_TYPE IS NOT NULL', name='AFFECTING_EVENTS_DID_TYPE_NN'),
-                   ForeignKeyConstraint(['account'], ['accounts.account'], name='AFFECTING_EVENTS_ACCOUNT_FK'))
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'account', name='FOLLOW_EVENTS_PK'),
+                   CheckConstraint('SCOPE IS NOT NULL', name='FOLLOW_EVENTS_SCOPE_NN'),
+                   CheckConstraint('NAME IS NOT NULL', name='FOLLOW_EVENTS_NAME_NN'),
+                   CheckConstraint('DID_TYPE IS NOT NULL', name='FOLLOW_EVENTS_DID_TYPE_NN'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='FOLLOW_EVENTS_ACCOUNT_FK'))
 
 
 def register_models(engine):
