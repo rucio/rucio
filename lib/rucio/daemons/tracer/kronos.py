@@ -20,6 +20,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
 # - Cedric Serfon <cedric.serfon@cern,ch>, 2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -53,6 +54,7 @@ from rucio.core.did import touch_dids, list_parent_dids
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.lock import touch_dataset_locks
 from rucio.core.replica import touch_replica, touch_collection_replicas, declare_bad_file_replicas
+from rucio.core.rse import get_rse_id
 from rucio.db.sqla.constants import DIDType, BadFilesStatus
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
@@ -213,22 +215,25 @@ class AMQConsumer(object):
 
                     rses = report['remoteSite'].strip().split(',')
                     for rse in rses:
-                        replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': rse, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix']),
+                        rse_id = get_rse_id(rse=rse)
+                        replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': rse, 'rse_id': rse_id, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix']),
                                          'traceTimeentryUnix': report['traceTimeentryUnix'], 'eventVersion': report['eventVersion']})
                 else:
                     # if touch event and if datasetScope is in the report then it means
                     # that there is no file scope/name and therefore only the dataset is
                     # put in the queue to be updated and the rest is skipped.
+                    rse_id = None
+                    rse = None
+                    if 'remoteSite' in report:
+                        rse = report['remoteSite']
+                        rse_id = get_rse_id(rse=rse)
                     if 'datasetScope' in report:
-                        rse = None
-                        if 'remoteSite' in report:
-                            rse = report['remoteSite']
-                        self.__dataset_queue.put({'scope': report['datasetScope'], 'name': report['dataset'], 'rse': rse, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
+                        self.__dataset_queue.put({'scope': report['datasetScope'], 'name': report['dataset'], 'rse_id': rse_id, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
                         continue
                     else:
                         if 'remoteSite' not in report:
                             continue
-                        replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': report['remoteSite'], 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
+                        replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': rse, 'rse_id': rse_id, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
 
             except (KeyError, AttributeError):
                 logging.error(format_exc())
@@ -242,7 +247,8 @@ class AMQConsumer(object):
                 if did['scope'] == 'panda' and '_dis' in did['name']:
                     continue
                 for rse in rses:
-                    self.__dataset_queue.put({'scope': did['scope'], 'name': did['name'], 'did_type': did['type'], 'rse': rse, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
+                    rse_id = get_rse_id(rse=rse)
+                    self.__dataset_queue.put({'scope': did['scope'], 'name': did['name'], 'did_type': did['type'], 'rse_id': rse_id, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
 
         logging.debug(replicas)
 
@@ -394,7 +400,7 @@ def __update_datasets(dataset_queue):
     for _ in range(0, len_ds):
         dataset = dataset_queue.get()
         did = dataset['scope'] + ":" + dataset['name']
-        rse = dataset['rse']
+        rse = dataset['rse_id']
         if did not in datasets:
             datasets[did] = dataset['accessed_at']
         else:
@@ -416,7 +422,7 @@ def __update_datasets(dataset_queue):
         update_did = {'scope': scope, 'name': name, 'type': DIDType.DATASET, 'accessed_at': accessed_at}
         # if update fails, put back in queue and retry next time
         if not touch_dids((update_did,)):
-            update_did['rse'] = None
+            update_did['rse_id'] = None
             dataset_queue.put(update_did)
             failed += 1
         total += 1
@@ -426,7 +432,7 @@ def __update_datasets(dataset_queue):
     for did, rses in dslocks.items():
         scope, name = did.split(':')
         for rse, accessed_at in rses.items():
-            update_dslock = {'scope': scope, 'name': name, 'rse': rse, 'accessed_at': accessed_at}
+            update_dslock = {'scope': scope, 'name': name, 'rse_id': rse, 'accessed_at': accessed_at}
             # if update fails, put back in queue and retry next time
             if not touch_dataset_locks((update_dslock,)):
                 dataset_queue.put(update_dslock)
@@ -438,7 +444,7 @@ def __update_datasets(dataset_queue):
     for did, rses in dslocks.items():
         scope, name = did.split(':')
         for rse, accessed_at in rses.items():
-            update_dslock = {'scope': scope, 'name': name, 'rse': rse, 'accessed_at': accessed_at}
+            update_dslock = {'scope': scope, 'name': name, 'rse_id': rse, 'accessed_at': accessed_at}
             # if update fails, put back in queue and retry next time
             if not touch_collection_replicas((update_dslock,)):
                 dataset_queue.put(update_dslock)

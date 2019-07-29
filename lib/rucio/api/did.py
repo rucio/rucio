@@ -103,8 +103,11 @@ def add_dids(dids, issuer):
     :param issuer: The issuer account.
     """
     for d in dids:
-        if 'rse' in d.keys():
-            d.update({'rse_id': get_rse_id(rse=d.get('rse'))})
+        if 'rse' in d:
+            rse_id = None
+            if d['rse'] is not None:
+                rse_id = get_rse_id(rse=d['rse'])
+            d['rse_id'] = rse_id
 
     kwargs = {'issuer': issuer, 'dids': dids}
     if not rucio.api.permission.has_permission(issuer=issuer, action='add_dids', kwargs=kwargs):
@@ -124,7 +127,8 @@ def attach_dids(scope, name, attachment, issuer):
 
     rse_id = None
     if 'rse' in attachment:
-        rse_id = get_rse_id(rse=attachment.get('rse'))
+        if attachment['rse'] is not None:
+            rse_id = get_rse_id(rse=attachment['rse'])
         attachment['rse_id'] = rse_id
 
     kwargs = {'scope': scope, 'name': name, 'attachment': attachment}
@@ -152,7 +156,11 @@ def attach_dids_to_dids(attachments, issuer, ignore_duplicate=False):
     validate_schema(name='attachments', obj=attachments)
 
     for a in attachments:
-        a.update({'rse_id': get_rse_id(rse=a.get('rse'))})
+        if 'rse' in a:
+            rse_id = None
+            if a['rse'] is not None:
+                rse_id = get_rse_id(rse=a['rse'])
+            a['rse_id'] = rse_id
 
     if not rucio.api.permission.has_permission(issuer=issuer, action='attach_dids_to_dids', kwargs={'attachments': attachments}):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifiers' % (issuer))
