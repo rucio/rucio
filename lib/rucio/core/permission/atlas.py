@@ -19,6 +19,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -109,7 +110,9 @@ def has_permission(issuer, action, kwargs):
             'get_signed_url': perm_get_signed_url,
             'add_bad_pfns': perm_add_bad_pfns,
             'del_account_identity': perm_del_account_identity,
-            'del_identity': perm_del_identity}
+            'del_identity': perm_del_identity,
+            'remove_did_from_followed': perm_remove_did_from_followed,
+            'remove_dids_from_followed': perm_remove_dids_from_followed}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -1042,3 +1045,35 @@ def perm_add_bad_pfns(issuer, kwargs):
     elif kwargs['state'] == str(BadPFNStatus.SUSPICIOUS):
         return True
     return _is_root(issuer)
+
+
+def perm_remove_did_from_followed(issuer, kwargs):
+    """
+    Checks if an account can remove did from followed table.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return _is_root(issuer)\
+        or has_account_attribute(account=issuer, key='admin')\
+        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)\
+        or kwargs['scope'] == 'mock'
+
+
+def perm_remove_dids_from_followed(issuer, kwargs):
+    """
+    Checks if an account can bulk remove dids from followed table.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
+        return True
+    scopes = [did['scope'] for did in kwargs['dids']]
+    scopes = list(set(scopes))
+    for scope in scopes:
+        if not rucio.core.scope.is_scope_owner(scope, issuer):
+            return False
+    return True

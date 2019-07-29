@@ -1271,12 +1271,13 @@ class DidsFollowed(BASE, ModelBase):
     name = Column(String(NAME_LENGTH))
     account = Column(String(25))
     did_type = Column(DIDType.db_type(name='DIDS_FOLLOWED_TYPE_CHK'))
-    expires_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'account', name='DIDS_FOLLOWED_PK'),
                    CheckConstraint('SCOPE IS NOT NULL', name='DIDS_FOLLOWED_SCOPE_NN'),
                    CheckConstraint('NAME IS NOT NULL', name='DIDS_FOLLOWED_NAME_NN'),
                    CheckConstraint('DID_TYPE IS NOT NULL', name='DIDS_FOLLOWED_DID_TYPE_NN'),
-                   ForeignKeyConstraint(['account'], ['accounts.account'], name='DIDS_FOLLOWED_ACCOUNT_FK'))
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='DIDS_FOLLOWED_ACCOUNT_FK'),
+                   ForeignKeyConstraint(['scope'], ['dids.scope'], name='DIDS_FOLLOWED_SCOPE_FK'),
+                   ForeignKeyConstraint(['name'], ['dids.name'], name='DIDS_FOLLOWED_NAME_FK'))
 
 
 class FollowEvents(BASE, ModelBase):
@@ -1287,12 +1288,13 @@ class FollowEvents(BASE, ModelBase):
     account = Column(String(25))
     did_type = Column(DIDType.db_type(name='FOLLOW_EVENTS_TYPE_CHK'))
     event_type = Column(String(1024))
-    payload = Column(LargeBinary(255))
+    payload = Column(Text)
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'account', name='FOLLOW_EVENTS_PK'),
                    CheckConstraint('SCOPE IS NOT NULL', name='FOLLOW_EVENTS_SCOPE_NN'),
                    CheckConstraint('NAME IS NOT NULL', name='FOLLOW_EVENTS_NAME_NN'),
                    CheckConstraint('DID_TYPE IS NOT NULL', name='FOLLOW_EVENTS_DID_TYPE_NN'),
-                   ForeignKeyConstraint(['account'], ['accounts.account'], name='FOLLOW_EVENTS_ACCOUNT_FK'))
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='FOLLOW_EVENTS_ACCOUNT_FK'),
+                   Index('FOLLOW_EVENTS_ACCOUNT_IDX', 'account'))
 
 
 def register_models(engine):
