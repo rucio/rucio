@@ -560,28 +560,38 @@ def get_users_following_did(name, scope, session=None):
     """
     Return list of dids followed by an user
 
-    :param account: The account owner.
+    :param scope: The scope name.
+    :param name: The data identifier name.
     :param session: The database session in use.
     """
     return did.get_users_following_did(name=name, scope=scope, session=session)
 
 
-def remove_did_from_followed(scope, name, session=None):
+def remove_did_from_followed(scope, name, account, issuer, session=None):
     """
     Mark a did as not followed
 
     :param scope: The scope name.
     :param name: The data identifier name.
+    :param account: The account owner.
     :param session: The database session in use.
+    :param issuer: The issuer account
     """
-    return did.remove_did_from_followed(scope=scope, name=name, session=session)
+    kwargs = {'scope': scope, 'issuer': issuer}
+    if not rucio.api.permission.has_permission(issuer=issuer, action='remove_did_from_followed', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('Account %s can not remove data identifiers from followed table' % (issuer))
+    return did.remove_did_from_followed(scope=scope, name=name, account=account, session=session)
 
 
-def remove_dids_from_followed(dids, session=None):
+def remove_dids_from_followed(dids, account, session=None):
     """
     Bulk mark datasets as not followed
 
     :param dids: A list of dids.
+    :param account: The account owner.
     :param session: The database session in use.
     """
-    return did.remove_dids_from_followed(dids=dids, session=session)
+    kwargs = {'dids': dids, 'issuer': issuer}
+    if not rucio.api.permission.has_permission(issuer=issuer, action='remove_dids_from_followed', kwargs=kwargs):
+        raise rucio.common.exception.AccessDenied('Account %s can not bulk remove data identifiers from followed table' % (issuer))
+    return did.remove_dids_from_followed(dids=dids, account=account, session=session)

@@ -75,7 +75,7 @@ URLS = (
     '/new', 'NewDIDs',
     '/resurrect', 'Resurrect',
     '/list_dids_by_meta', 'ListByMeta',
-    '%s/follow/(.*)' % SCOPE_NAME_REGEXP, 'Follow',
+    '%s/follow' % SCOPE_NAME_REGEXP, 'Follow',
 )
 
 
@@ -1016,8 +1016,9 @@ class Follow(RucioController):
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            users = get_users_following_did(scope=scope, name=name)
-            return render_json(**users)
+            # Get the users following a did and render it as json.
+            for user in get_users_following_did(scope=scope, name=name):
+                yield render_json(**user) + '\n'
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException as error:
@@ -1026,7 +1027,7 @@ class Follow(RucioController):
             print(format_exc())
             raise InternalError(error)
 
-    def POST(self, scope, name, account):
+    def POST(self, scope, name):
         """
         Mark the input DID as being followed by the given account.
 
@@ -1040,10 +1041,14 @@ class Follow(RucioController):
 
         :param scope: The scope of the input DID.
         :param name: The name of the input DID.
-        :param account: The account owner.
         """
         try:
-            add_did_to_followed(scope=scope, name=name, account=account)
+            json_data = loads(data())
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            add_did_to_followed(scope=scope, name=name, account=json_data['account'])
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except AccessDenied as error:
@@ -1056,7 +1061,7 @@ class Follow(RucioController):
             print(format_exc())
             raise InternalError(error)
 
-    def DELETE(self, scope, name, account):
+    def DELETE(self, scope, name):
         """
         Mark the input DID as not followed
 
@@ -1069,10 +1074,14 @@ class Follow(RucioController):
 
         :param scope: The scope of the input DID.
         :param name: The name of the input DID.
-        :param account: The account owner.
         """
         try:
-            remove_did_from_followed(scope=scope, name=name, account=account)
+            json_data = loads(data())
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            remove_did_from_followed(scope=scope, name=name, account=json_data['account'])
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException as error:

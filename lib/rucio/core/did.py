@@ -1861,12 +1861,15 @@ def add_dids_to_followed(dids, account, session=None):
     """
     try:
         for did in dids:
+            # Get the did details corresponding to the scope and name passed.
             did = session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).one()
+            # Add the queried to the followed table.
             new_did_followed = models.DidsFollowed(scope=did.scope, name=did.name, account=account,
-                                                   did_type=did.did_type, expired_at=did.expired_at)
+                                                   did_type=did.did_type)
 
-            new_did_followed.save(session=session, flush=True)
+            new_did_followed.save(session=session, flush=False)
 
+        session.flush()
     except IntegrityError as error:
         raise exception.RucioException(error.args)
 
@@ -1882,12 +1885,11 @@ def get_users_following_did(scope, name, session=None):
     """
     try:
         query = session.query(models.DidsFollowed).filter_by(scope=scope, name=name).all()
-        users = list()
 
         for user in query:
-            users.append({'user': user.account})
+            # Return a dictionary of users to be rendered as json.
+            yield {'user': user.account}
 
-        return users
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (scope, name))
 
@@ -1940,9 +1942,49 @@ def trigger_event(scope, name, event_type, payload, session=None):
         dids = session.query(models.DidsFollowed).filter_by(scope=scope, name=name).all()
 
         for did in dids:
-            new_event = models.DidsFollowed(scope=scope, name=name, account=did.account,
+            # Create a new event using teh specified parameters.
+            new_event = models.FollowEvents(scope=scope, name=name, account=did.account,
                                             did_type=did.did_type, event_type=event_type, payload=payload)
-            new_event.save(session=session, flush=True)
+            new_event.save(session=session, flush=False)
 
+        session.flush()
     except IntegrityError as error:
         raise exception.RucioException(error.args)
+
+
+@read_session
+def create_reports(session=None):
+    """
+    Create a summary report of the events affecting a dataset, for its followers.
+
+    :param session: The database session in use.
+    """
+    # Get all the distinct accounts from the table.
+    accounts = session.query(models.FollowEvents.account).distinct()
+    for account in accounts:
+        try:
+            events = session.query(models.FollowEvents).filter_by(account=account).all()
+            # If events exist for an account then create a report.
+            if events:
+                body = '''
+                       Hello,
+                       This is an auto-generated report of the events that have affected the datasets you follow.
+
+                       '''
+                # Add each event to the message body.
+                for i, event in enumerate(events):
+                    body += "{}. Dataset: {} Event: {}\n".format(i, event.name, event.event_type)
+                    if event.payload:
+                        body += "Message: {}\n".format(event.payload)
+                    body += "\n"
+
+                body += "Thank You."
+
+                # Get the email associated with the account.
+                email = session.query(models.Account.email).filter_by(account=account)
+                add_message('email', {'to': email,
+                                      'subject': 'Report of affected dataset(s)',
+                                      'body': body})
+
+        except NoResultFound:
+            raise exception.AccountNotFound("No email found for given account.")
