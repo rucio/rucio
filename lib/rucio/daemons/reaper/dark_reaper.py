@@ -193,6 +193,8 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
         rses = list_rses()
     elif not rses:
         rses = [rse['id'] for rse in rse_core.list_rses()]
+    else:
+        rses = [rse_core.get_rse_id(rse=rse) for rse in rses]
 
     threads = []
     for worker in range(total_workers):
