@@ -161,7 +161,7 @@ def list_rses(session=None):
 
     :returns: a list of RSEs.
     """
-    query = session.query(models.RSE.rse_id).distinct(models.RSE.rse_id).\
+    query = session.query(models.RSE.id).distinct(models.RSE.id).\
         filter(models.QuarantinedReplica.rse_id == models.RSE.id).\
         filter(models.RSE.deleted == false())
     return [rse for (rse,) in query]
