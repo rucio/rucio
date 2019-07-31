@@ -45,12 +45,14 @@ from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.account_limit import set_account_limit
 from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids, detach_dids,
-                            get_metadata, set_metadata, get_did, get_did_access_cnt)
+                            get_metadata, set_metadata, get_did, get_did_access_cnt, add_did_to_followed,
+                            get_users_following_did, remove_did_from_followed, trigger_event)
 from rucio.core.rse import get_rse_id
 from rucio.core.replica import add_replica
 from rucio.db.sqla.constants import DIDType
+from rucio.web.rest.did import APP as did_app
 
-from rucio.tests.common import rse_name_generator, scope_name_generator
+from rucio.tests.common import rse_name_generator, scope_name_generator, account_name_generator
 
 
 class TestDIDCore:
@@ -172,6 +174,51 @@ class TestDIDCore:
         attach_dids(scope=tmp_scope, name=parent_name, rse_id=rse_id, dids=files, account=root)
 
         detach_dids(scope=tmp_scope, name=parent_name, dids=files)
+
+    def test_add_did_to_followed(self):
+        """ DATA IDENTIFIERS (CORE): Mark a did as followed """
+        tmp_scope = 'mock'
+        dsn = 'dsn_%s' % generate_uuid()
+
+        add_did_to_followed(scope=tmp_scope, name=dsn, account='root')
+        users = get_users_following_did(scope=tmp_scope, name=dsn)
+        rows = 0
+        for user in users:
+            rows += 1
+
+        assert_equal(rows, 1)
+
+    def test_get_users_following_did(self):
+        """ DATA IDENTIFIERS (CORE): Get the list of users following a did """
+        tmp_scope = 'mock'
+        dsn = 'dsn_%s' % generate_uuid()
+
+        add_did_to_followed(scope=tmp_scope, name=dsn, account='root')
+
+        with assert_raises(DataIdentifierNotFound):
+            get_users_following_did(scope='Nimportnawak', name='no_name')
+
+        users = get_users_following_did(scope=tmp_scope, name=dsn)
+        rows = 0
+        for user in users:
+            rows += 1
+
+        assert_equal(rows, 1)
+
+    def test_remove_did_from_followed(self):
+        """ DATA IDENTIFIERS (CORE): Mark a did as not followed """
+        tmp_scope = 'mock'
+        dsn = 'dsn_%s' % generate_uuid()
+
+        add_did_to_followed(scope=tmp_scope, name=dsn, account='root')
+
+        with assert_raises(DataIdentifierNotFound):
+            remove_did_from_followed(scope='Nimportnawak', name='no_name', account='not_root')
+
+        remove_did_from_followed(scope=tmp_scope, name=dsn, account='root')
+
+        with assert_raises(DataIdentifierNotFound):
+            get_users_following_did(scope=tmp_scope, name=dsn)
 
 
 class TestDIDApi:
@@ -942,3 +989,44 @@ class TestDIDClients:
 
         # Add a third file replica
         self.did_client.set_status(scope=tmp_scope, name=tmp_dataset, open=True)
+
+
+class TestDIDRest(object):
+
+    def test_add_did_to_followed(self):
+        """ DATA IDENTIFIERS (REST): Send a POST to mark a did as followed """
+        mw = []
+
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        res1 = TestApp(did_app.wsgifunc(*mw)).get('/follow', headers=headers1, expect_errors=True)
+
+        assert_equal(res1.status, 200)
+        token = str(res1.header('X-Rucio-Auth-Token'))
+
+        # Specify the follower account
+        account = account_name_generator()
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
+        data = dumps({'account': account})
+        res2 = TestApp(account_app.wsgifunc(*mw)).post('/follow', headers=headers2, params=data, expect_errors=True)
+        assert_equal(res2.status, 201)
+
+    def test_remove_did_from_followed(self):
+        """ DATA IDENTIFIERS (REST): Send a DELETE to remove did from followed """
+        mw = []
+
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        res1 = TestApp(did_app.wsgifunc(*mw)).get('/follow', headers=headers1, expect_errors=True)
+
+        assert_equal(res1.status, 200)
+        token = str(res1.header('X-Rucio-Auth-Token'))
+
+        # First add a did as followed by the given account
+        account = account_name_generator()
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
+        data = dumps({'account': account})
+        res2 = TestApp(account_app.wsgifunc(*mw)).post('/follow', headers=headers2, params=data, expect_errors=True)
+        assert_equal(res2.status, 201)
+
+        # Remove the did added above
+        res3 = TestApp(account_app.wsgifunc(*mw)).delete('/follow', headers=headers2, params=data, expect_errors=True)
+        assert_equal(res3.status, 200)

@@ -1877,7 +1877,7 @@ def add_dids_to_followed(dids, account, session=None):
 @read_session
 def get_users_following_did(scope, name, session=None):
     """
-    Return list of dids followed by an user
+    Return list of users following a did
 
     :param scope: The scope name.
     :param name: The data identifier name.
