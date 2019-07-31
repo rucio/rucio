@@ -943,7 +943,7 @@ def declare_temporary_unavailable_replicas(args):
     """
     %(prog)s show [options] <field1=value1 field2=value2 ...>
 
-    Declare a list of temporary unvailable replicas.
+    Declare a list of temporary unavailable replicas.
 
     """
     client = get_client(args)
@@ -952,7 +952,7 @@ def declare_temporary_unavailable_replicas(args):
         with open(args.inputfile) as infile:
             for line in infile:
                 bad_file = line.rstrip('\n')
-                if bad_file.find('://') == -1:
+                if '://' not in bad_file:
                     print('%s is not a valid PFN. Aborting', bad_file)
                     return FAILURE
                 if bad_file != '':
