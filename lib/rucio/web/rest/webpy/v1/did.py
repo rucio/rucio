@@ -998,7 +998,7 @@ class DidMeta(RucioController):
 
 class Follow(RucioController):
 
-    @check_accept_header_wrapper(['application/x-json-stream'])
+    @check_accept_header_wrapper(['application/json'])
     def GET(self, scope, name):
         """
         Return all users following a specific DID.
@@ -1014,7 +1014,7 @@ class Follow(RucioController):
         :param name: The data identifier name.
         :param scope: The scope name.
         """
-        header('Content-Type', 'application/x-json-stream')
+        header('Content-Type', 'application/json')
         try:
             # Get the users following a did and render it as json.
             for user in get_users_following_did(scope=scope, name=name):
@@ -1081,7 +1081,7 @@ class Follow(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            remove_did_from_followed(scope=scope, name=name, account=json_data['account'])
+            remove_did_from_followed(scope=scope, name=name, account=json_data['account'], issuer=ctx.env.get('issuer'))
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException as error:

@@ -583,7 +583,7 @@ def remove_did_from_followed(scope, name, account, issuer, session=None):
     return did.remove_did_from_followed(scope=scope, name=name, account=account, session=session)
 
 
-def remove_dids_from_followed(dids, account, session=None):
+def remove_dids_from_followed(dids, account, issuer, session=None):
     """
     Bulk mark datasets as not followed
 

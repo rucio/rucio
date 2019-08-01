@@ -29,6 +29,8 @@ from __future__ import print_function
 from datetime import datetime, timedelta
 
 from nose.tools import assert_equal, assert_not_equal, assert_raises, assert_true, assert_in, assert_not_in, raises
+from paste.fixture import TestApp
+from json import dumps
 
 from rucio.api import did
 from rucio.api import scope
@@ -46,7 +48,7 @@ from rucio.common.utils import generate_uuid
 from rucio.core.account_limit import set_account_limit
 from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids, detach_dids,
                             get_metadata, set_metadata, get_did, get_did_access_cnt, add_did_to_followed,
-                            get_users_following_did, remove_did_from_followed, trigger_event)
+                            get_users_following_did, remove_did_from_followed)
 from rucio.core.rse import get_rse_id
 from rucio.core.replica import add_replica
 from rucio.db.sqla.constants import DIDType
@@ -179,7 +181,9 @@ class TestDIDCore:
         """ DATA IDENTIFIERS (CORE): Mark a did as followed """
         tmp_scope = 'mock'
         dsn = 'dsn_%s' % generate_uuid()
+        root = InternalAccount('root')
 
+        add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
         add_did_to_followed(scope=tmp_scope, name=dsn, account='root')
         users = get_users_following_did(scope=tmp_scope, name=dsn)
         rows = 0
@@ -192,7 +196,9 @@ class TestDIDCore:
         """ DATA IDENTIFIERS (CORE): Get the list of users following a did """
         tmp_scope = 'mock'
         dsn = 'dsn_%s' % generate_uuid()
+        root = InternalAccount('root')
 
+        add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
         add_did_to_followed(scope=tmp_scope, name=dsn, account='root')
 
         with assert_raises(DataIdentifierNotFound):
@@ -209,7 +215,9 @@ class TestDIDCore:
         """ DATA IDENTIFIERS (CORE): Mark a did as not followed """
         tmp_scope = 'mock'
         dsn = 'dsn_%s' % generate_uuid()
+        root = InternalAccount('root')
 
+        add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
         add_did_to_followed(scope=tmp_scope, name=dsn, account='root')
 
         with assert_raises(DataIdentifierNotFound):
@@ -997,8 +1005,18 @@ class TestDIDRest(object):
         """ DATA IDENTIFIERS (REST): Send a POST to mark a did as followed """
         mw = []
 
+        tmp_scope = 'mock'
+        dsn = 'dsn_%s' % generate_uuid()
+        root = InternalAccount('root')
+
+        # Add a new did just to avoid DataIdentifierNotFound exception while making GET request
+        add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
+        add_did_to_followed(scope=tmp_scope, name=dsn, account='root')
+
+        # Make GET request to get the auth token
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        res1 = TestApp(did_app.wsgifunc(*mw)).get('/follow', headers=headers1, expect_errors=True)
+        res1 = TestApp(did_app.wsgifunc(*mw)).get('/{0}/{1}/follow'.format(tmp_scope, dsn),
+                                                  headers=headers1, expect_errors=True)
 
         assert_equal(res1.status, 200)
         token = str(res1.header('X-Rucio-Auth-Token'))
@@ -1007,15 +1025,27 @@ class TestDIDRest(object):
         account = account_name_generator()
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         data = dumps({'account': account})
-        res2 = TestApp(account_app.wsgifunc(*mw)).post('/follow', headers=headers2, params=data, expect_errors=True)
+        # Now mark the did as followed by the above account using REST
+        res2 = TestApp(did_app.wsgifunc(*mw)).post('/{0}/{1}/follow'.format(tmp_scope, dsn),
+                                                   headers=headers2, params=data, expect_errors=True)
         assert_equal(res2.status, 201)
 
     def test_remove_did_from_followed(self):
         """ DATA IDENTIFIERS (REST): Send a DELETE to remove did from followed """
         mw = []
 
+        tmp_scope = 'mock'
+        dsn = 'dsn_%s' % generate_uuid()
+        root = InternalAccount('root')
+
+        # Add a new did just to avoid DataIdentifierNotFound exception while making GET request
+        add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
+        add_did_to_followed(scope=tmp_scope, name=dsn, account='root')
+
+        # Make GET request to get the auth token
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        res1 = TestApp(did_app.wsgifunc(*mw)).get('/follow', headers=headers1, expect_errors=True)
+        res1 = TestApp(did_app.wsgifunc(*mw)).get('/{0}/{1}/follow'.format(tmp_scope, dsn),
+                                                  headers=headers1, expect_errors=True)
 
         assert_equal(res1.status, 200)
         token = str(res1.header('X-Rucio-Auth-Token'))
@@ -1024,9 +1054,12 @@ class TestDIDRest(object):
         account = account_name_generator()
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         data = dumps({'account': account})
-        res2 = TestApp(account_app.wsgifunc(*mw)).post('/follow', headers=headers2, params=data, expect_errors=True)
+        # Now mark the did as followed by the above account using REST
+        res2 = TestApp(did_app.wsgifunc(*mw)).post('/{0}/{1}/follow'.format(tmp_scope, dsn),
+                                                   headers=headers2, params=data, expect_errors=True)
         assert_equal(res2.status, 201)
 
-        # Remove the did added above
-        res3 = TestApp(account_app.wsgifunc(*mw)).delete('/follow', headers=headers2, params=data, expect_errors=True)
+        # Remove the did from being followed by the above account
+        res3 = TestApp(did_app.wsgifunc(*mw)).delete('/{0}/{1}/follow'.format(tmp_scope, dsn),
+                                                     headers=headers2, params=data, expect_errors=True)
         assert_equal(res3.status, 200)

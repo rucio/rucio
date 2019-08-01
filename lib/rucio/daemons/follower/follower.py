@@ -20,11 +20,8 @@
 import logging
 import os
 import socket
-import sys
 import threading
-import traceback
 
-from rucio.common.config import config_get
 from rucio.common.utils import get_thread_with_periodic_running_function
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.did import create_reports
@@ -33,7 +30,6 @@ from rucio.core.did import create_reports
 graceful_stop = threading.Event()
 
 
-@read_session
 def aggregate_events():
     """
     Collect all the events affecting the dids followed by the corresponding account.
