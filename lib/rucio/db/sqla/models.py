@@ -1276,8 +1276,7 @@ class DidsFollowed(BASE, ModelBase):
                    CheckConstraint('NAME IS NOT NULL', name='DIDS_FOLLOWED_NAME_NN'),
                    CheckConstraint('DID_TYPE IS NOT NULL', name='DIDS_FOLLOWED_DID_TYPE_NN'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='DIDS_FOLLOWED_ACCOUNT_FK'),
-                   ForeignKeyConstraint(['scope'], ['dids.scope'], name='DIDS_FOLLOWED_SCOPE_FK'),
-                   ForeignKeyConstraint(['name'], ['dids.name'], name='DIDS_FOLLOWED_NAME_FK'))
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DIDS_FOLLOWED_SCOPE_NAME_FK'))
 
 
 class FollowEvents(BASE, ModelBase):
