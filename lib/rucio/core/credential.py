@@ -52,13 +52,13 @@ REGION = make_region().configure('dogpile.cache.memory',
                                  expiration_time=3600)
 
 
-def get_signed_url(rse, service, operation, url, lifetime=600):
+def get_signed_url(rse_id, service, operation, url, lifetime=600):
     """
     Get a signed URL for a particular service and operation.
 
     The signed URL will be valid for 1 hour but can be overriden.
 
-    :param rse: The ID of the RSE that the URL points to.
+    :param rse_id: The ID of the RSE that the URL points to.
     :param service: The service to authorise, either 'gcs', 's3' or 'swift'.
     :param operation: The operation to sign, either 'read', 'write', or 'delete'.
     :param url: The URL to sign.
@@ -136,7 +136,7 @@ def get_signed_url(rse, service, operation, url, lifetime=600):
             host = host[:colon]
 
         # look up in RSE account configuration by RSE ID
-        cred_name = rse
+        cred_name = rse_id
         cred = REGION.get('s3-%s' % cred_name)
         if cred is NO_VALUE:
             rse_cred = get_rse_credentials()
@@ -170,7 +170,7 @@ def get_signed_url(rse, service, operation, url, lifetime=600):
             host = host[:colon]
 
         # use RSE ID to look up key
-        cred_name = rse
+        cred_name = rse_id
 
         # look up tempurl signing key
         cred = REGION.get('swift-%s' % cred_name)
