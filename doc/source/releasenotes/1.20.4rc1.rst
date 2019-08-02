@@ -1,0 +1,20 @@
+=========
+1.20.4rc1
+=========
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Core & Internals: Account and Scope new types `#2553 <https://github.com/rucio/rucio/issues/2553>`_
+
+****
+Bugs
+****
+
+- Consistency checks: Dark Reaper rse_id crash `#2760 <https://github.com/rucio/rucio/issues/2760>`_
+- RSE Manager: Parent directory creation with gfal `#2754 <https://github.com/rucio/rucio/issues/2754>`_
