@@ -15,10 +15,11 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 
 from nose.tools import assert_equal
 
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.temporary_did import (add_temporary_dids, compose, delete_temporary_dids,
                                       list_expired_temporary_dids)
@@ -30,20 +31,22 @@ from rucio.client.didclient import DIDClient
 def test_core_temporary_dids():
     """ TMP DATA IDENTIFIERS (CORE): """
 
+    scope = InternalScope('mock')
+    root = InternalAccount('root')
     temporary_dids = []
     rse = 'MOCK'
     rse_id = get_rse_id(rse=rse)
     for _ in range(10):
-        temporary_dids.append({'scope': 'mock',
+        temporary_dids.append({'scope': scope,
                                'name': 'object_%s' % generate_uuid(),
                                'rse_id': rse_id,
                                'bytes': 1,
                                'path': None})
 
-    add_temporary_dids(dids=temporary_dids, account='root')
+    add_temporary_dids(dids=temporary_dids, account=root)
 
-    compose(scope='mock', name='file_%s' % generate_uuid(), rse_id=rse_id,
-            bytes=10, sources=temporary_dids, account='root',
+    compose(scope=scope, name='file_%s' % generate_uuid(), rse_id=rse_id,
+            bytes=10, sources=temporary_dids, account=root,
             md5=None, adler32=None, pfn=None, meta={}, rules=[],
             parent_scope=None, parent_name=None)
 

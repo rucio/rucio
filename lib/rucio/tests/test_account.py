@@ -13,6 +13,7 @@
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015, 2017
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -25,6 +26,7 @@ from rucio.api.account import add_account, account_exists, del_account, update_a
 from rucio.client.accountclient import AccountClient
 from rucio.common.config import config_get
 from rucio.common.exception import AccountNotFound, Duplicate, InvalidObject
+from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import list_identities
 from rucio.core.identity import add_account_identity, add_identity
@@ -64,7 +66,7 @@ class TestAccountCoreApi():
         email = 'email'
         identity = uuid()
         identity_type = IdentityType.USERPASS
-        account = 'root'
+        account = InternalAccount('root')
         add_account_identity(identity, identity_type, account, email, password='secret')
         identities = list_identities(account)
         assert_in({'type': identity_type, 'identity': identity, 'email': email}, identities)
@@ -302,7 +304,7 @@ class TestAccountRestApi():
         password = 'secret'
         add_account(account, 'USER', 'rucio@email.com', 'root')
         add_identity(identity, IdentityType.USERPASS, 'email@email.com', password)
-        add_account_identity(identity, IdentityType.USERPASS, account, 'email@email.com')
+        add_account_identity(identity, IdentityType.USERPASS, InternalAccount(account), 'email@email.com')
         headers1 = {'X-Rucio-Account': account, 'X-Rucio-Username': identity, 'X-Rucio-Password': password}
         res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
         token = str(res1.header('X-Rucio-Auth-Token'))

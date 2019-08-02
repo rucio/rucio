@@ -8,6 +8,7 @@
 
   Authors:
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2017
+  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
   PY3K COMPATIBLE
 '''
@@ -15,6 +16,8 @@
 from rucio.api import permission
 from rucio.core import lifetime_exception
 from rucio.common import exception
+from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.utils import api_update_return_dict
 
 
 def list_exceptions(exception_id=None, states=None):
@@ -25,7 +28,9 @@ def list_exceptions(exception_id=None, states=None):
     :param states:     The states to filter
     """
 
-    return lifetime_exception.list_exceptions(exception_id=exception_id, states=states)
+    exceptions = lifetime_exception.list_exceptions(exception_id=exception_id, states=states)
+    for e in exceptions:
+        yield api_update_return_dict(e)
 
 
 def add_exception(dids, account, pattern, comments, expires_at):
@@ -40,6 +45,10 @@ def add_exception(dids, account, pattern, comments, expires_at):
 
     returns:            The id of the exception.
     """
+
+    account = InternalAccount(account)
+    for d in dids:
+        d['scope'] = InternalScope(d['scope'])
     return lifetime_exception.add_exception(dids=dids, account=account, pattern=pattern, comments=comments, expires_at=expires_at)
 
 

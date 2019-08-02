@@ -169,7 +169,7 @@ def set_transfers_state(transfers, submitted_at, session=None):
             request_type = transfers[request_id].get('request_type', None)
             msg = {'request-id': request_id,
                    'request-type': str(request_type).lower() if request_type else request_type,
-                   'scope': transfers[request_id]['scope'],
+                   'scope': transfers[request_id]['scope'].external,
                    'name': transfers[request_id]['name'],
                    'src-rse-id': transfers[request_id]['metadata'].get('src_rse_id', None),
                    'src-rse': transfers[request_id]['metadata'].get('src_rse', None),

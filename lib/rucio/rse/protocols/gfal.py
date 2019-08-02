@@ -80,14 +80,14 @@ class Default(protocol.RSEProtocol):
         lfns = [lfns] if type(lfns) == dict else lfns
         if self.attributes['port'] == 0:
             for lfn in lfns:
-                scope, name = lfn['scope'], lfn['name']
+                scope, name = str(lfn['scope']), lfn['name']
                 path = lfn['path'] if 'path' in lfn and lfn['path'] else self._get_path(scope=scope, name=name)
                 if self.attributes['scheme'] != 'root' and path.startswith('/'):  # do not modify path if it is root
                     path = path[1:]
                 pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, web_service_path, prefix, path])
         else:
             for lfn in lfns:
-                scope, name = lfn['scope'], lfn['name']
+                scope, name = str(lfn['scope']), lfn['name']
                 path = lfn['path'] if 'path' in lfn and lfn['path'] else self._get_path(scope=scope, name=name)
                 if self.attributes['scheme'] != 'root' and path.startswith('/'):  # do not modify path if it is root
                     path = path[1:]

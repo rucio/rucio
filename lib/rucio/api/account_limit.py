@@ -15,6 +15,7 @@ import rucio.api.permission
 import rucio.common.exception
 
 from rucio.common.utils import api_update_return_dict
+from rucio.common.types import InternalAccount
 
 from rucio.core import account_limit as account_limit_core
 from rucio.core.account import account_exists
@@ -44,6 +45,8 @@ def get_account_limits(account):
     :returns: The account limits.
     """
 
+    account = InternalAccount(account)
+
     rse_instead_id = {}
     for elem in account_limit_core.get_account_limits(account=account).items():
         rse_instead_id[get_rse_name(rse_id=elem[0])] = elem[1]
@@ -61,6 +64,8 @@ def get_account_limit(account, rse):
 
     :returns: The account limit.
     """
+
+    account = InternalAccount(account)
 
     rse_id = get_rse_id(rse=rse)
     return {rse: account_limit_core.get_account_limit(account=account, rse_id=rse_id)}
@@ -80,6 +85,8 @@ def set_account_limit(account, rse, bytes, issuer):
     kwargs = {'account': account, 'rse': rse, 'rse_id': rse_id, 'bytes': bytes}
     if not rucio.api.permission.has_permission(issuer=issuer, action='set_account_limit', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not set account limits.' % (issuer))
+
+    account = InternalAccount(account)
 
     if not account_exists(account=account):
         raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (account))
@@ -102,6 +109,8 @@ def delete_account_limit(account, rse, issuer):
     kwargs = {'account': account, 'rse': rse, 'rse_id': rse_id}
     if not rucio.api.permission.has_permission(issuer=issuer, action='delete_account_limit', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not delete account limits.' % (issuer))
+
+    account = InternalAccount(account)
 
     if not account_exists(account=account):
         raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (account))
@@ -128,7 +137,9 @@ def get_account_usage(account, rse, issuer):
     if not rucio.api.permission.has_permission(issuer=issuer, action='get_account_usage', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not list account usage.' % (issuer))
 
+    account = InternalAccount(account)
+
     if not account_exists(account=account):
         raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (account))
 
-    return account_limit_core.get_account_usage(account=account, rse_id=rse_id)
+    return [api_update_return_dict(d) for d in account_limit_core.get_account_usage(account=account, rse_id=rse_id)]

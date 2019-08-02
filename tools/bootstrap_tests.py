@@ -18,6 +18,7 @@
 from rucio.client import Client
 from rucio.common.exception import Duplicate
 from rucio.core.account import add_account_attribute
+from rucio.common.types import InternalAccount
 
 
 if __name__ == '__main__':
@@ -28,13 +29,13 @@ if __name__ == '__main__':
         print('Account jdoe already added' % locals())
 
     try:
-        add_account_attribute(account='root', key='admin', value=True)
+        add_account_attribute(account=InternalAccount('root'), key='admin', value=True)  # bypass client as schema validation fails at API level
     except Exception as error:
         print(error)
 
     try:
         c.add_account('panda', 'SERVICE', 'panda@email.com')
-        add_account_attribute(account='panda', key='admin', value=True)
+        add_account_attribute(account=InternalAccount('panda'), key='admin', value=True)
     except Duplicate:
         print('Account panda already added' % locals())
 
