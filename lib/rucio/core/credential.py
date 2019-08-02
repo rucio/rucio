@@ -88,8 +88,8 @@ def get_signed_url(rse_id, service, operation, url, lifetime=600):
     if service == 'gcs':
         if not CREDS_GCS:
             CREDS_GCS = ServiceAccountCredentials.from_json_keyfile_name(config_get('credentials', 'gcs',
-                                                                         raise_exception=False,
-                                                                         default='/opt/rucio/etc/google-cloud-storage-test.json'))
+                                                                                    raise_exception=False,
+                                                                                    default='/opt/rucio/etc/google-cloud-storage-test.json'))
 
         # select the correct operation
         operations = {'read': 'GET', 'write': 'PUT', 'delete': 'DELETE'}
