@@ -13,6 +13,7 @@
   PY3K COMPATIBLE
 '''
 
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.core import temporary_did
 from rucio.core.rse import get_rse_id
 
@@ -30,5 +31,10 @@ def add_temporary_dids(dids, issuer):
             if did['rse'] is not None:
                 rse_id = get_rse_id(rse=did['rse'])
             did['rse_id'] = rse_id
+        if 'scope' in did:
+            did['scope'] = InternalScope(did['scope'])
+        if 'parent_scope' in did:
+            did['parent_scope'] = InternalScope(did['parent_scope'])
 
+    issuer = InternalAccount(issuer)
     return temporary_did.add_temporary_dids(dids=dids, account=issuer)

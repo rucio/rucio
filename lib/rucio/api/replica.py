@@ -28,6 +28,7 @@ from rucio.core import replica
 from rucio.core.rse import get_rse_id, get_rse_name
 from rucio.common import exception
 from rucio.common.schema import validate_schema
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import api_update_return_dict
 
 
@@ -72,6 +73,8 @@ def declare_bad_file_replicas(pfns, reason, issuer):
     if not permission.has_permission(issuer=issuer, action='declare_bad_file_replicas', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not declare bad replicas' % (issuer))
 
+    issuer = InternalAccount(issuer)
+
     replicas = replica.declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=issuer, status=BadFilesStatus.BAD)
 
     for k in list(replicas):
@@ -95,6 +98,8 @@ def declare_suspicious_file_replicas(pfns, reason, issuer):
     if not permission.has_permission(issuer=issuer, action='declare_suspicious_file_replicas', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not declare suspicious replicas' % (issuer))
 
+    issuer = InternalAccount(issuer)
+
     replicas = replica.declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=issuer, status=BadFilesStatus.SUSPICIOUS)
 
     for k in list(replicas):
@@ -116,7 +121,12 @@ def get_did_from_pfns(pfns, rse):
     :returns: A dictionary {pfn: {'scope': scope, 'name': name}}
     """
     rse_id = get_rse_id(rse=rse)
-    return replica.get_did_from_pfns(pfns=pfns, rse_id=rse_id)
+    replicas = replica.get_did_from_pfns(pfns=pfns, rse_id=rse_id)
+
+    for r in replicas:
+        for k in r.keys():
+            r[k]['scope'] = r[k]['scope'].external
+        yield r
 
 
 def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
@@ -147,6 +157,9 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     if permission.has_permission(issuer=issuer, action='get_signed_url', kwargs={}):
         sign_urls = True
 
+    for d in dids:
+        d['scope'] = InternalScope(d['scope'])
+
     replicas = replica.list_replicas(dids=dids, schemes=schemes, unavailable=unavailable,
                                      request_id=request_id,
                                      ignore_availability=ignore_availability,
@@ -166,6 +179,16 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                     rse = get_rse_name(rse_id=rse_id) if rse_id is not None else None
                     new_dict[rse] = old_dict[rse_id]
                 rep[k] = new_dict
+
+        rep['scope'] = rep['scope'].external
+        if 'parents' in rep:
+            new_parents = []
+            for p in rep['parents']:
+                scope, name = p.split(':')
+                scope = InternalScope(scope, fromExternal=False).external
+                new_parents.append('{}:{}'.format(scope, name))
+            rep['parents'] = new_parents
+
         yield rep
 
 
@@ -189,6 +212,12 @@ def add_replicas(rse, files, issuer, ignore_availability=False):
         raise exception.AccessDenied('Account %s can not add file replicas on %s' % (issuer, rse))
     if not permission.has_permission(issuer=issuer, action='skip_availability_check', kwargs=kwargs):
         ignore_availability = False
+
+    issuer = InternalAccount(issuer)
+    for f in files:
+        f['scope'] = InternalScope(f['scope'])
+        if 'account' in f:
+            f['account'] = InternalAccount(f['account'])
 
     replica.add_replicas(rse_id=rse_id, files=files, account=issuer, ignore_availability=ignore_availability)
 
@@ -214,6 +243,9 @@ def delete_replicas(rse, files, issuer, ignore_availability=False):
     if not permission.has_permission(issuer=issuer, action='skip_availability_check', kwargs=kwargs):
         ignore_availability = False
 
+    for f in files:
+        f['scope'] = InternalScope(f['scope'])
+
     replica.delete_replicas(rse_id=rse_id, files=files, ignore_availability=ignore_availability)
 
 
@@ -237,6 +269,7 @@ def update_replicas_states(rse, files, issuer):
     for file in files:
         rep = file
         rep['rse_id'] = rse_id
+        rep['scope'] = InternalScope(rep['scope'])
         replicas.append(rep)
     replica.update_replicas_states(replicas=replicas)
 
@@ -249,7 +282,14 @@ def list_dataset_replicas(scope, name, deep=False):
 
     :returns: A list of dict dataset replicas
     """
-    return replica.list_dataset_replicas(scope=scope, name=name, deep=deep)
+
+    scope = InternalScope(scope)
+
+    replicas = replica.list_dataset_replicas(scope=scope, name=name, deep=deep)
+
+    for r in replicas:
+        r['scope'] = r['scope'].external
+        yield r
 
 
 def list_dataset_replicas_vp(scope, name, deep=False):
@@ -262,7 +302,10 @@ def list_dataset_replicas_vp(scope, name, deep=False):
 
     NOTICE: This is an RnD function and might change or go away at any time.
     """
-    return replica.list_dataset_replicas_vp(scope=scope, name=name, deep=deep)
+
+    scope = InternalScope(scope)
+    for r in replica.list_dataset_replicas_vp(scope=scope, name=name, deep=deep):
+        yield api_update_return_dict(r)
 
 
 def list_datasets_per_rse(rse, filters=None, limit=None):
@@ -277,7 +320,8 @@ def list_datasets_per_rse(rse, filters=None, limit=None):
     """
 
     rse_id = get_rse_id(rse=rse)
-
+    if 'scope' in filters:
+        filters['scope'] = InternalScope(filters['scope'])
     for r in replica.list_datasets_per_rse(rse_id, filters=filters, limit=limit):
         yield api_update_return_dict(r)
 
@@ -299,6 +343,9 @@ def add_bad_pfns(pfns, issuer, state, reason=None, expires_at=None):
     kwargs = {'state': state}
     if not permission.has_permission(issuer=issuer, action='add_bad_pfns', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not declare bad PFNs' % (issuer))
+
+    issuer = InternalAccount(issuer)
+
     return replica.add_bad_pfns(pfns=pfns, account=issuer, state=state, reason=reason, expires_at=expires_at)
 
 
@@ -328,4 +375,6 @@ def set_tombstone(rse, scope, name, issuer):
 
     if not permission.has_permission(issuer=issuer, action='set_tombstone', kwargs={}):
         raise exception.AccessDenied('Account %s can not set tombstones' % (issuer))
+
+    scope = InternalScope(scope)
     replica.set_tombstone(rse_id, scope, name)

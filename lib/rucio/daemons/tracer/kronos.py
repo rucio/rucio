@@ -48,6 +48,7 @@ from stomp import Connection
 
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import ConfigNotFound
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.config import get
 from rucio.core.did import touch_dids, list_parent_dids
@@ -150,7 +151,7 @@ class AMQConsumer(object):
                                 else:
                                     try:
                                         surl = report['url']
-                                        declare_bad_file_replicas([surl, ], reason=reason, issuer='root', status=BadFilesStatus.SUSPICIOUS)
+                                        declare_bad_file_replicas([surl, ], reason=reason, issuer=InternalAccount('root'), status=BadFilesStatus.SUSPICIOUS)
                                         logging.info('Declare suspicious file %s with reason %s' % (report['url'], reason))
                                     except Exception as error:
                                         logging.error('Failed to declare suspicious file' + str(error))
@@ -164,6 +165,7 @@ class AMQConsumer(object):
                         continue
                 else:
                     record_counter('daemons.tracer.kronos.with_scope')
+                    report['scope'] = InternalScope(report['scope'])
 
                 # handle all events starting with get* and download and touch events.
                 if not report['eventType'].startswith('get') and not report['eventType'].startswith('sm_get') and not report['eventType'] == 'download' and not report['eventType'] == 'touch':
@@ -244,7 +246,7 @@ class AMQConsumer(object):
                 if did['type'] != DIDType.DATASET:
                     continue
                 # do not update _dis datasets
-                if did['scope'] == 'panda' and '_dis' in did['name']:
+                if did['scope'].external == 'panda' and '_dis' in did['name']:
                     continue
                 for rse in rses:
                     rse_id = get_rse_id(rse=rse)
@@ -257,7 +259,7 @@ class AMQConsumer(object):
             for replica in replicas:
                 # if touch replica hits a locked row put the trace back into queue for later retry
                 if not touch_replica(replica):
-                    resubmit = {'filename': replica['name'], 'scope': replica['scope'], 'remoteSite': replica['rse'], 'traceTimeentryUnix': replica['traceTimeentryUnix'],
+                    resubmit = {'filename': replica['name'], 'scope': replica['scope'].external, 'remoteSite': replica['rse'], 'traceTimeentryUnix': replica['traceTimeentryUnix'],
                                 'eventType': 'get', 'usrdn': 'someuser', 'clientState': 'DONE', 'eventVersion': replica['eventVersion']}
                     self.__conn.send(body=jdumps(resubmit), destination=self.__queue, headers={'appversion': 'rucio', 'resubmitted': '1'})
                     record_counter('daemons.tracer.kronos.sent_resubmitted')
@@ -399,7 +401,7 @@ def __update_datasets(dataset_queue):
     now = time()
     for _ in range(0, len_ds):
         dataset = dataset_queue.get()
-        did = dataset['scope'] + ":" + dataset['name']
+        did = '%s:%s' % (dataset['scope'].internal, dataset['name'])
         rse = dataset['rse_id']
         if did not in datasets:
             datasets[did] = dataset['accessed_at']
@@ -419,6 +421,7 @@ def __update_datasets(dataset_queue):
     total, failed, start = 0, 0, time()
     for did, accessed_at in datasets.items():
         scope, name = did.split(':')
+        scope = InternalScope(scope, fromExternal=False)
         update_did = {'scope': scope, 'name': name, 'type': DIDType.DATASET, 'accessed_at': accessed_at}
         # if update fails, put back in queue and retry next time
         if not touch_dids((update_did,)):
@@ -431,6 +434,7 @@ def __update_datasets(dataset_queue):
     total, failed, start = 0, 0, time()
     for did, rses in dslocks.items():
         scope, name = did.split(':')
+        scope = InternalScope(scope, fromExternal=False)
         for rse, accessed_at in rses.items():
             update_dslock = {'scope': scope, 'name': name, 'rse_id': rse, 'accessed_at': accessed_at}
             # if update fails, put back in queue and retry next time
@@ -443,6 +447,7 @@ def __update_datasets(dataset_queue):
     total, failed, start = 0, 0, time()
     for did, rses in dslocks.items():
         scope, name = did.split(':')
+        scope = InternalScope(scope, fromExternal=False)
         for rse, accessed_at in rses.items():
             update_dslock = {'scope': scope, 'name': name, 'rse_id': rse, 'accessed_at': accessed_at}
             # if update fails, put back in queue and retry next time

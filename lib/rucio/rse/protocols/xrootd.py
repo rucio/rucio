@@ -95,7 +95,7 @@ class Default(protocol.RSEProtocol):
 
         lfns = [lfns] if type(lfns) == dict else lfns
         for lfn in lfns:
-            scope, name = lfn['scope'], lfn['name']
+            scope, name = str(lfn['scope']), lfn['name']
             if 'path' in lfn and lfn['path'] is not None:
                 pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), prefix, lfn['path']])
             else:

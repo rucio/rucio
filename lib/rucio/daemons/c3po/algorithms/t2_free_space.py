@@ -58,8 +58,8 @@ class PlacementAlgorithm:
 
     def place(self, did):
         self.__update_penalties()
-        decision = {'did': ':'.join(did)}
-        if (not did[0].startswith('data')) and (not did[0].startswith('mc')):
+        decision = {'did': '{}:{}'.format(did[0].internal, did[1])}
+        if (not did[0].external.startswith('data')) and (not did[0].external.startswith('mc')):
             decision['error_reason'] = 'not a data or mc dataset'
             return decision
 

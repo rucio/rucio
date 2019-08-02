@@ -31,6 +31,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc, bindparam, text, false, true
 
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, chunks
 from rucio.core import transfer_limits as transfer_limits_core
 from rucio.core.message import add_message
@@ -176,13 +177,18 @@ def queue_requests(requests, session=None):
         transfer_limit_all_activities = transfer_limits['all_activities'].get(request['dest_rse_id'])
         request['state'] = RequestState.WAITING if transfer_limit_activity or transfer_limit_all_activities else RequestState.QUEUED
 
+        def temp_serializer(obj):
+            if isinstance(obj, (InternalAccount, InternalScope)):
+                return obj.internal
+            raise TypeError('Could not serialise object %r' % obj)
+
         if 'previous_attempt_id' in request and 'retry_count' in request:
             new_requests.append({'id': request['request_id'],
                                  'request_type': request['request_type'],
                                  'scope': request['scope'],
                                  'name': request['name'],
                                  'dest_rse_id': request['dest_rse_id'],
-                                 'attributes': json.dumps(request['attributes']),
+                                 'attributes': json.dumps(request['attributes'], default=temp_serializer),
                                  'state': request['state'],
                                  'rule_id': request['rule_id'],
                                  'activity': request['attributes']['activity'],
@@ -201,7 +207,7 @@ def queue_requests(requests, session=None):
                                  'scope': request['scope'],
                                  'name': request['name'],
                                  'dest_rse_id': request['dest_rse_id'],
-                                 'attributes': json.dumps(request['attributes']),
+                                 'attributes': json.dumps(request['attributes'], default=temp_serializer),
                                  'state': request['state'],
                                  'rule_id': request['rule_id'],
                                  'activity': request['attributes']['activity'],
@@ -232,7 +238,7 @@ def queue_requests(requests, session=None):
 
         payload = {'request-id': request['request_id'],
                    'request-type': str(request['request_type']).lower(),
-                   'scope': request['scope'],
+                   'scope': request['scope'].external,
                    'name': request['name'],
                    'dst-rse-id': request['dest_rse_id'],
                    'dst-rse': dest_rse_name,
@@ -1213,11 +1219,9 @@ def update_request_state(response, logging_prepend_str=None, session=None):
                 src_rse_id = response.get('src_rse_id', None)
                 started_at = response.get('started_at', None)
                 transferred_at = response.get('transferred_at', None)
-                scope = response.get('scope', None)
-                name = response.get('name', None)
                 if job_m_replica and (str(job_m_replica).lower() == str('true')) and src_url:
                     try:
-                        src_rse_name, src_rse_id = __get_source_rse(response['request_id'], scope, name, src_url, session=session)
+                        src_rse_name, src_rse_id = __get_source_rse(response['request_id'], src_url, session=session)
                     except Exception:
                         logging.warn(prepend_str + 'Cannot get correct RSE for source url: %s(%s)' % (src_url, traceback.format_exc()))
                         src_rse_name = None
@@ -1370,7 +1374,7 @@ def __touch_request(request_id, session=None):
 
 
 @read_session
-def __get_source_rse(request_id, scope, name, src_url, session=None):
+def __get_source_rse(request_id, src_url, session=None):
     """
     Based on a request, scope, name and src_url extract the source rse name and id.
 
