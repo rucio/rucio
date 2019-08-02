@@ -31,6 +31,7 @@ import time
 import traceback
 
 from rucio.common.config import config_get
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.core import rse as rse_core
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.temporary_did import (add_temporary_dids, get_count_of_expired_temporary_dids)
@@ -68,7 +69,7 @@ def inject(rse, older_than):
                 for key in prot.list():
                     d = dateutil.parser.parse(key.last_modified)
                     if d < older_than_time:
-                        did = {'scope': 'transient',
+                        did = {'scope': InternalScope('transient'),
                                'name': key.name.encode('utf-8'),
                                'rse': rse,
                                'rse_id': rse_id,
@@ -76,7 +77,7 @@ def inject(rse, older_than):
                                'created_at': d}
                         dids.append(did)
                         if len(dids) == 1000:
-                            add_temporary_dids(dids=dids, account='root')
+                            add_temporary_dids(dids=dids, account=InternalAccount('root'))
                             logging.info('Adding 1000 dids to temp dids.')
                             dids = []
                     else:

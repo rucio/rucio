@@ -8,6 +8,7 @@
  Authors:
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2017
  - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011-2017
+ - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 '''
 
 import base64
@@ -17,6 +18,7 @@ from paste.fixture import TestApp
 
 from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_ssh, get_ssh_challenge_token
 from rucio.common.exception import Duplicate
+from rucio.common.types import InternalAccount
 from rucio.common.utils import ssh_sign
 from rucio.core.identity import add_account_identity, del_account_identity
 from rucio.db.sqla.constants import IdentityType
@@ -78,8 +80,9 @@ class TestAuthCoreApi(object):
     def test_get_auth_token_ssh_success(self):
         """AUTHENTICATION (CORE): SSH RSA public key exchange (good signature)."""
 
+        root = InternalAccount('root')
         try:
-            add_account_identity(PUBLIC_KEY, IdentityType.SSH, 'root', email='ph-adp-ddm-lab@cern.ch')
+            add_account_identity(PUBLIC_KEY, IdentityType.SSH, root, email='ph-adp-ddm-lab@cern.ch')
         except Duplicate:
             pass  # might already exist, can skip
 
@@ -91,13 +94,14 @@ class TestAuthCoreApi(object):
 
         assert_is_not_none(result)
 
-        del_account_identity(PUBLIC_KEY, IdentityType.SSH, 'root')
+        del_account_identity(PUBLIC_KEY, IdentityType.SSH, root)
 
     def test_get_auth_token_ssh_fail(self):
         """AUTHENTICATION (CORE): SSH RSA public key exchange (wrong signature)."""
 
+        root = InternalAccount('root')
         try:
-            add_account_identity(PUBLIC_KEY, IdentityType.SSH, 'root', email='ph-adp-ddm-lab@cern.ch')
+            add_account_identity(PUBLIC_KEY, IdentityType.SSH, root, email='ph-adp-ddm-lab@cern.ch')
         except Duplicate:
             pass  # might already exist, can skip
 
@@ -107,7 +111,7 @@ class TestAuthCoreApi(object):
 
         assert_is_none(result)
 
-        del_account_identity(PUBLIC_KEY, IdentityType.SSH, 'root')
+        del_account_identity(PUBLIC_KEY, IdentityType.SSH, root)
 
 
 class TestAuthRestApi(object):
@@ -132,8 +136,9 @@ class TestAuthRestApi(object):
     def test_ssh_success(self):
         """AUTHENTICATION (REST): SSH RSA public key exchange (correct credentials)."""
 
+        root = InternalAccount('root')
         try:
-            add_account_identity(PUBLIC_KEY, IdentityType.SSH, 'root', email='ph-adp-ddm-lab@cern.ch')
+            add_account_identity(PUBLIC_KEY, IdentityType.SSH, root, email='ph-adp-ddm-lab@cern.ch')
         except Duplicate:
             pass  # might already exist, can skip
 
@@ -150,13 +155,14 @@ class TestAuthRestApi(object):
         assert_equal(result.status, 200)
         assert_greater(len(result.header('X-Rucio-Auth-Token')), 32)
 
-        del_account_identity(PUBLIC_KEY, IdentityType.SSH, 'root')
+        del_account_identity(PUBLIC_KEY, IdentityType.SSH, root)
 
     def test_ssh_fail(self):
         """AUTHENTICATION (REST): SSH RSA public key exchange (wrong credentials)."""
 
+        root = InternalAccount('root')
         try:
-            add_account_identity(PUBLIC_KEY, IdentityType.SSH, 'root', email='ph-adp-ddm-lab@cern.ch')
+            add_account_identity(PUBLIC_KEY, IdentityType.SSH, root, email='ph-adp-ddm-lab@cern.ch')
         except Duplicate:
             pass  # might already exist, can skip
 
@@ -167,4 +173,4 @@ class TestAuthRestApi(object):
         result = TestApp(APP.wsgifunc(*options)).get('/ssh', headers=headers, expect_errors=True)
         assert_equal(result.status, 401)
 
-        del_account_identity(PUBLIC_KEY, IdentityType.SSH, 'root')
+        del_account_identity(PUBLIC_KEY, IdentityType.SSH, root)

@@ -9,6 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014, 2017-2018
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -25,6 +26,7 @@ from sqlalchemy.schema import MetaData, Table, DropTable, ForeignKeyConstraint, 
 from sqlalchemy.sql.expression import select, text
 
 from rucio.common.config import config_get
+from rucio.common.types import InternalAccount
 from rucio.core.account_counter import create_counters_for_new_account
 from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import AccountStatus, AccountType, IdentityType
@@ -134,7 +136,7 @@ def create_root_account():
 
     s = session.get_session()
 
-    account = models.Account(account='root', account_type=AccountType.SERVICE, status=AccountStatus.ACTIVE)
+    account = models.Account(account=InternalAccount('root'), account_type=AccountType.SERVICE, status=AccountStatus.ACTIVE)
 
     identity1 = models.Identity(identity=up_id, identity_type=IdentityType.USERPASS, password=up_pwd, salt='0', email=up_email)
     iaa1 = models.IdentityAccountAssociation(identity=identity1.identity, identity_type=identity1.identity_type, account=account.account, is_default=True)
@@ -152,7 +154,7 @@ def create_root_account():
     iaa4 = models.IdentityAccountAssociation(identity=identity4.identity, identity_type=identity4.identity_type, account=account.account, is_default=True)
 
     # Account counters
-    create_counters_for_new_account(account='root', session=s)
+    create_counters_for_new_account(account=account.account, session=s)
 
     # Apply
     s.add_all([account, identity1, identity2, identity3, identity4])

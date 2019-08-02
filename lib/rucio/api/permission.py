@@ -15,6 +15,8 @@
   PY3K COMPATIBLE
 '''
 
+from copy import deepcopy
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.core import permission
 from rucio.core.rse import get_rse_id
 from rucio.common.exception import RSENotFound
@@ -31,11 +33,33 @@ def has_permission(issuer, action, kwargs):
     :returns: True if account is allowed to call the API call, otherwise False
     """
 
+    kwargs = deepcopy(kwargs)
     if 'rse' in kwargs and 'rse_id' not in kwargs:
         try:
             rse_id = get_rse_id(rse=kwargs.get('rse'))
         except RSENotFound:
             rse_id = None
         kwargs.update({'rse_id': rse_id})
+
+    if 'scope' in kwargs:
+        kwargs['scope'] = InternalScope(kwargs['scope'])
+    if 'attachments' in kwargs:
+        for a in kwargs['attachments']:
+            a['scope'] = InternalScope(a['scope'])
+
+    if 'account' in kwargs:
+        kwargs['account'] = InternalAccount(kwargs['account'])
+    if 'accounts' in kwargs:
+        kwargs['accounts'] = [InternalAccount(a) for a in kwargs['accounts']]
+    if 'rules' in kwargs:
+        for r in kwargs['rules']:
+            r['account'] = InternalAccount(r['account'])
+    if 'dids' in kwargs:
+        for d in kwargs['dids']:
+            if 'rules' in d:
+                for r in d['rules']:
+                    r['account'] = InternalAccount(r['account'])
+
+    issuer = InternalAccount(issuer)
 
     return permission.has_permission(issuer=issuer, action=action, kwargs=kwargs)

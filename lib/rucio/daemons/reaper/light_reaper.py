@@ -100,7 +100,7 @@ def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False
                         nothing_to_do = False
                         try:
                             # pfn = str(rsemgr.lfns2pfns(rse_settings=rse_info,
-                            #                            lfns=[{'scope': replica['scope'], 'name': replica['name'], 'path': replica['path']}],
+                            #                            lfns=[{'scope': replica['scope'].external, 'name': replica['name'], 'path': replica['path']}],
                             #                            operation='delete', scheme=scheme).values()[0])
                             pfn = 's3://%s%s%s' % (prot.attributes['hostname'], prot.attributes['prefix'], replica['name'])
                             # logging.debug('Light Reaper %s-%s: Deletion ATTEMPT of %s:%s as %s on %s', worker_number, total_workers, replica['scope'], replica['name'], pfn, rse)
@@ -108,7 +108,7 @@ def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False
                             prot.delete(pfn)
                             duration = time.time() - start
                             logging.info('Light Reaper %s-%s: Deletion SUCCESS of %s:%s as %s on %s in %s seconds', worker_number, total_workers, replica['scope'], replica['name'], pfn, rse, duration)
-                            add_message('deletion-done', {'scope': replica['scope'],
+                            add_message('deletion-done', {'scope': replica['scope'].external,
                                                           'name': replica['name'],
                                                           'rse': rse,
                                                           'rse_id': rse_id,
@@ -125,7 +125,7 @@ def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False
                         except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
                             err_msg = 'Light Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s' % (worker_number, total_workers, replica['scope'], replica['name'], pfn, rse, str(error))
                             logging.warning(err_msg)
-                            add_message('deletion-failed', {'scope': replica['scope'],
+                            add_message('deletion-failed', {'scope': replica['scope'].external,
                                                             'name': replica['name'],
                                                             'rse': rse,
                                                             'rse_id': rse_id,

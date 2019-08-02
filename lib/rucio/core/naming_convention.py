@@ -89,7 +89,7 @@ def delete_naming_convention(scope, regexp, convention_type, session=None):
     :param convention_type: the did_type on which the regexp should apply.
     :param session: The database session in use.
     """
-    REGION.delete(str(scope))
+    REGION.delete(scope.internal)
     return session.query(models.NamingConvention.regexp).\
         filter(models.NamingConvention.scope == scope).\
         filter(models.NamingConvention.convention_type == convention_type).\
@@ -123,18 +123,18 @@ def validate_name(scope, name, did_type, session=None):
 
     :returns: a dictionary with metadata.
     """
-    if scope.startswith('user'):
+    if scope.external.startswith('user'):
         return {'project': 'user'}
-    elif scope.startswith('group'):
+    elif scope.external.startswith('group'):
         return {'project': 'group'}
 
     # Check if naming convention can be found in cache region
-    regexp = REGION.get(str(scope))
+    regexp = REGION.get(scope.internal)
     if regexp is NO_VALUE:  # no cached entry found
         regexp = get_naming_convention(scope=scope,
                                        convention_type=KeyType.DATASET,
                                        session=session)
-        regexp and REGION.set(str(scope), regexp)
+        regexp and REGION.set(scope.internal, regexp)
 
     if not regexp:
         return
