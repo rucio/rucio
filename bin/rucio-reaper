@@ -24,7 +24,6 @@ Reaper is a daemon to manage file deletion
 
 import argparse
 import signal
-import sys
 
 from rucio.daemons.reaper.reaper import run, stop
 
