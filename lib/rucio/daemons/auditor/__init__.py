@@ -43,6 +43,7 @@ from rucio.common.dumper import LogPipeHandler
 from rucio.common.dumper import mkdir
 from rucio.common.dumper import temp_file
 from rucio.common.dumper.consistency import Consistency
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.quarantined_replica import add_quarantined_replicas
 from rucio.core.replica import declare_bad_file_replicas, list_replicas
 from rucio.core.rse import get_rse_usage, get_rse_id
@@ -152,10 +153,10 @@ def process_output(output, sanity_check=True, compress=True):
                 scope, name = guess_replica_info(path)
                 if label == 'DARK':
                     dark_replicas.append({'path': path,
-                                          'scope': scope,
+                                          'scope': InternalScope(scope),
                                           'name': name})
                 elif label == 'LOST':
-                    lost_replicas.append({'scope': scope,
+                    lost_replicas.append({'scope': InternalScope(scope),
                                           'name': name})
                 else:
                     raise ValueError('unexpected label')
@@ -194,7 +195,7 @@ def process_output(output, sanity_check=True, compress=True):
     logger.debug('Processed %d DARK files from "%s"', len(dark_replicas),
                  output)
     declare_bad_file_replicas(lost_pfns, reason='Reported by Auditor',
-                              issuer='root', status=BadFilesStatus.SUSPICIOUS)
+                              issuer=InternalAccount('root'), status=BadFilesStatus.SUSPICIOUS)
     logger.debug('Processed %d LOST files from "%s"', len(lost_replicas),
                  output)
 

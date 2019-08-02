@@ -17,6 +17,7 @@ from nose.tools import assert_equal, assert_in
 
 from rucio.client.accountclient import AccountClient
 from rucio.client.accountlimitclient import AccountLimitClient
+from rucio.common.types import InternalAccount
 from rucio.core import account_limit
 from rucio.core.account import add_account
 from rucio.core.rse import get_rse_id
@@ -28,7 +29,7 @@ class TestCoreAccountLimits():
     @classmethod
     def setUpClass(cls):
         # Add test account
-        cls.account = ''.join(random.choice(string.ascii_uppercase) for x in range(10))
+        cls.account = InternalAccount(''.join(random.choice(string.ascii_uppercase) for x in range(10)))
         add_account(account=cls.account, type=AccountType.USER, email='rucio@email.com')
 
         # Add test RSE
@@ -51,7 +52,7 @@ class TestAccountClient():
     @classmethod
     def setUpClass(cls):
         # Add test account
-        cls.account = ''.join(random.choice(string.ascii_uppercase) for x in range(10))
+        cls.account = InternalAccount(''.join(random.choice(string.ascii_uppercase) for x in range(10)))
         add_account(account=cls.account, type=AccountType.USER, email='rucio@email.com')
 
         # Add test RSE
@@ -70,7 +71,7 @@ class TestAccountClient():
         account_limit.set_account_limit(account=self.account, rse_id=self.rse1_id, bytes=12345)
         account_limit.set_account_limit(account=self.account, rse_id=self.rse2_id, bytes=12345)
 
-        limits = self.client.get_account_limits(account=self.account)
+        limits = self.client.get_account_limits(account=self.account.external)
 
         assert_in((self.rse1, 12345), limits.items())
         assert_in((self.rse2, 12345), limits.items())
@@ -83,28 +84,28 @@ class TestAccountClient():
         account_limit.delete_account_limit(account=self.account, rse_id=self.rse1_id)
         account_limit.set_account_limit(account=self.account, rse_id=self.rse1_id, bytes=333)
 
-        limit = self.client.get_account_limit(account=self.account, rse=self.rse1)
+        limit = self.client.get_account_limit(account=self.account.external, rse=self.rse1)
 
         assert_equal(limit, {self.rse1: 333})
         account_limit.delete_account_limit(account=self.account, rse_id=self.rse1_id)
 
     def test_setting_account_limit(self):
         """ ACCOUNTLIMIT (CLIENTS): Test setting account limit """
-        self.alclient.set_account_limit(account=self.account, rse=self.rse1, bytes=987)
+        self.alclient.set_account_limit(account=self.account.external, rse=self.rse1, bytes=987)
 
-        limit = self.client.get_account_limit(account=self.account, rse=self.rse1)
+        limit = self.client.get_account_limit(account=self.account.external, rse=self.rse1)
 
         assert_equal(limit[self.rse1], 987)
         account_limit.delete_account_limit(account=self.account, rse_id=self.rse1_id)
 
     def test_deleting_account_limit(self):
         """ ACCOUNTLIMIT (CLIENTS): Test deleting account limit """
-        self.alclient.set_account_limit(account=self.account, rse=self.rse1, bytes=786)
+        self.alclient.set_account_limit(account=self.account.external, rse=self.rse1, bytes=786)
 
-        limit = self.client.get_account_limit(account=self.account, rse=self.rse1)
+        limit = self.client.get_account_limit(account=self.account.external, rse=self.rse1)
         assert_equal(limit, {self.rse1: 786})
 
-        self.alclient.delete_account_limit(account=self.account, rse=self.rse1)
-        limit = self.client.get_account_limit(account=self.account, rse=self.rse1)
+        self.alclient.delete_account_limit(account=self.account.external, rse=self.rse1)
+        limit = self.client.get_account_limit(account=self.account.external, rse=self.rse1)
         assert_equal(limit[self.rse1], None)
         account_limit.delete_account_limit(account=self.account, rse_id=self.rse1_id)

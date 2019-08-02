@@ -32,6 +32,7 @@ from rucio.api.subscription import list_subscriptions, add_subscription, update_
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.client.didclient import DIDClient
 from rucio.common.exception import InvalidObject, SubscriptionNotFound, SubscriptionDuplicate
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account_limit import set_account_limit
 from rucio.core.did import add_did, set_new_dids
@@ -103,8 +104,9 @@ class TestSubscriptionCoreApi():
 
     def test_list_rules_states(self):
         """ SUBSCRIPTION (API): Test listing of rule states for subscription """
-        tmp_scope = 'mock_' + uuid()[:8]
-        add_scope(tmp_scope, 'root')
+        tmp_scope = InternalScope('mock_' + uuid()[:8])
+        root = InternalAccount('root')
+        add_scope(tmp_scope, root)
         site_a = 'RSE%s' % uuid().upper()
         site_b = 'RSE%s' % uuid().upper()
 
@@ -112,21 +114,21 @@ class TestSubscriptionCoreApi():
         site_b_id = add_rse(site_b)
 
         # Add quota
-        set_account_limit('root', site_a_id, -1)
-        set_account_limit('root', site_b_id, -1)
+        set_account_limit(root, site_a_id, -1)
+        set_account_limit(root, site_b_id, -1)
 
         # add a new dataset
         dsn = 'dataset-%s' % uuid()
         add_did(scope=tmp_scope, name=dsn,
-                type=DIDType.DATASET, account='root')
+                type=DIDType.DATASET, account=root)
 
         subscription_name = uuid()
-        subid = add_subscription(name=subscription_name, account='root', filter={'account': ['root', ], 'scope': [tmp_scope, ]},
+        subid = add_subscription(name=subscription_name, account='root', filter={'account': ['root', ], 'scope': [tmp_scope.external, ]},
                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], lifetime=100000, retroactive=0, dry_run=0, comments='This is a comment', issuer='root')
 
         # Add two rules
-        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account='root', copies=1, rse_expression=site_a, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
-        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account='root', copies=1, rse_expression=site_b, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
+        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account=root, copies=1, rse_expression=site_a, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
+        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account=root, copies=1, rse_expression=site_b, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
 
         for rule in list_subscription_rule_states(account='root', name=subscription_name):
             assert_equal(rule[3], 2)
@@ -235,8 +237,9 @@ class TestSubscriptionRestApi():
 
     def test_list_rules_states(self):
         """ SUBSCRIPTION (REST): Test listing of rule states for subscription """
-        tmp_scope = 'mock_' + uuid()[:8]
-        add_scope(tmp_scope, 'root')
+        tmp_scope = InternalScope('mock_' + uuid()[:8])
+        root = InternalAccount('root')
+        add_scope(tmp_scope, root)
         mw = []
         site_a = 'RSE%s' % uuid().upper()
         site_b = 'RSE%s' % uuid().upper()
@@ -245,21 +248,21 @@ class TestSubscriptionRestApi():
         site_b_id = add_rse(site_b)
 
         # Add quota
-        set_account_limit('root', site_a_id, -1)
-        set_account_limit('root', site_b_id, -1)
+        set_account_limit(root, site_a_id, -1)
+        set_account_limit(root, site_b_id, -1)
 
         # add a new dataset
         dsn = 'dataset-%s' % uuid()
         add_did(scope=tmp_scope, name=dsn,
-                type=DIDType.DATASET, account='root')
+                type=DIDType.DATASET, account=root)
 
         subscription_name = uuid()
-        subid = add_subscription(name=subscription_name, account='root', filter={'account': ['root', ], 'scope': [tmp_scope, ]},
+        subid = add_subscription(name=subscription_name, account='root', filter={'account': ['root', ], 'scope': [tmp_scope.external, ]},
                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], lifetime=100000, retroactive=0, dry_run=0, comments='We want a shrubbery', issuer='root')
 
         # Add two rules
-        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account='root', copies=1, rse_expression=site_a, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
-        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account='root', copies=1, rse_expression=site_b, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
+        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account=root, copies=1, rse_expression=site_a, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
+        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account=root, copies=1, rse_expression=site_b, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
 
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
         res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
@@ -331,19 +334,20 @@ class TestSubscriptionClient():
 
     def test_run_transmogrifier(self):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier and the split_rule mode """
-        tmp_scope = 'mock_' + uuid()[:8]
-        add_scope(tmp_scope, 'root')
+        tmp_scope = InternalScope('mock_' + uuid()[:8])
+        root = InternalAccount('root')
+        add_scope(tmp_scope, root)
         subscription_name = uuid()
         dsn = 'dataset-%s' % uuid()
-        add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account='root')
+        add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
 
-        subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'scope': [tmp_scope, ], 'pattern': 'dataset-.*', 'split_rule': True},
+        subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'scope': [tmp_scope.external, ], 'pattern': 'dataset-.*', 'split_rule': True},
                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK-POSIX|MOCK2|MOCK3', 'copies': 2, 'activity': 'Data Brokering'}],
                                                  lifetime=None, retroactive=0, dry_run=0, comments='Ni ! Ni!', priority=1)
         run(threads=1, bulk=1000000, once=True)
-        rules = [rule for rule in self.did_client.list_did_rules(scope=tmp_scope, name=dsn) if str(rule['subscription_id']) == str(subid)]
+        rules = [rule for rule in self.did_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
         assert_equal(len(rules), 2)
         set_new_dids([{'scope': tmp_scope, 'name': dsn}, ], 1)
         run(threads=1, bulk=1000000, once=True)
-        rules = [rule for rule in self.did_client.list_did_rules(scope=tmp_scope, name=dsn) if str(rule['subscription_id']) == str(subid)]
+        rules = [rule for rule in self.did_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
         assert_equal(len(rules), 2)

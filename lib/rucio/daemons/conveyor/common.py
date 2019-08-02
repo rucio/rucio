@@ -23,6 +23,7 @@
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Eric Vaandering <ericvaandering@gmail.com>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -270,6 +271,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
 
         external_host = transfer['external_host']
         scope = t_file['metadata']['scope']
+        scope_str = scope.internal
         activity = t_file['activity']
 
         if external_host not in grouped_transfers:
@@ -278,9 +280,9 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                 grouped_jobs[external_host] = []
             elif activity in USER_ACTIVITY:
                 grouped_jobs[external_host] = {}
-                if scope not in grouped_transfers[external_host]:
-                    grouped_transfers[external_host][scope] = {}
-                    grouped_jobs[external_host][scope] = []
+                if scope_str not in grouped_transfers[external_host]:
+                    grouped_transfers[external_host][scope_str] = {}
+                    grouped_jobs[external_host][scope_str] = []
 
         job_params = {'verify_checksum': verify_checksum,
                       'copy_pin_lifetime': transfer['copy_pin_lifetime'] if transfer['copy_pin_lifetime'] else -1,
@@ -308,7 +310,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
             if USER_TRANSFERS not in ['cms'] or activity not in USER_ACTIVITY:
                 grouped_jobs[external_host].append({'files': [t_file], 'job_params': job_params})
             elif activity in USER_ACTIVITY:
-                grouped_jobs[external_host][scope].append({'files': [t_file], 'job_params': job_params})
+                grouped_jobs[external_host][scope_str].append({'files': [t_file], 'job_params': job_params})
         else:
             job_params['job_metadata']['multi_sources'] = False
             job_key = '%s,%s,%s,%s,%s,%s,%s,%s' % (job_params['verify_checksum'], job_params.get('spacetoken', None),
@@ -323,7 +325,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                 if USER_TRANSFERS not in ['cms'] or activity not in USER_ACTIVITY:
                     grouped_transfers[external_host][job_key] = {}
                 elif activity in USER_ACTIVITY:
-                    grouped_transfers[external_host][scope][job_key] = {}
+                    grouped_transfers[external_host][scope_str][job_key] = {}
 
             if policy == 'rule':
                 policy_key = '%s' % (transfer['rule_id'])
@@ -347,10 +349,10 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                 else:
                     grouped_transfers[external_host][job_key][policy_key]['files'].append(t_file)
             elif activity in USER_ACTIVITY:
-                if policy_key not in grouped_transfers[external_host][scope][job_key]:
-                    grouped_transfers[external_host][scope][job_key][policy_key] = {'files': [t_file], 'job_params': job_params}
+                if policy_key not in grouped_transfers[external_host][scope_str][job_key]:
+                    grouped_transfers[external_host][scope_str][job_key][policy_key] = {'files': [t_file], 'job_params': job_params}
                 else:
-                    grouped_transfers[external_host][scope][job_key][policy_key]['files'].append(t_file)
+                    grouped_transfers[external_host][scope_str][job_key][policy_key]['files'].append(t_file)
 
     # for jobs with different job_key, we cannot put in one job.
     for external_host in grouped_transfers:

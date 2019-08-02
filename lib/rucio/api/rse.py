@@ -280,6 +280,10 @@ def get_rse_usage(rse, issuer, source=None, per_account=False):
     rse_id = rse_module.get_rse_id(rse=rse)
     usages = rse_module.get_rse_usage(rse_id=rse_id, source=source, per_account=per_account)
 
+    for u in usages:
+        if 'account_usages' in u:
+            for account_usage in u['account_usages']:
+                account_usage['account'] = account_usage['account'].external
     return [api_update_return_dict(u) for u in usages]
 
 

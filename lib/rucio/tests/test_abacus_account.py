@@ -28,6 +28,7 @@ from rucio.db.sqla.session import get_session
 from rucio.client.accountclient import AccountClient
 from rucio.client.uploadclient import UploadClient
 from rucio.common.utils import generate_uuid
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.account import get_usage_history
 from rucio.core.account_counter import update_account_counter_history
 from rucio.core.account_limit import get_account_usage, set_account_limit
@@ -42,8 +43,8 @@ from rucio.tests.common import file_generator
 class TestAbacusAccount():
 
     def setUp(self):
-        self.account = 'root'
-        self.scope = 'mock'
+        self.account = InternalAccount('root')
+        self.scope = InternalScope('mock')
         self.upload_client = UploadClient()
         self.account_client = AccountClient()
         self.file_sizes = 2
@@ -63,7 +64,7 @@ class TestAbacusAccount():
         self.session.commit()  # pylint: disable=no-member
 
         # Upload files -> account usage should increase
-        self.files = [{'did_scope': self.scope, 'did_name': 'file_' + generate_uuid(), 'path': file_generator(size=self.file_sizes), 'rse': self.rse, 'lifetime': -1} for i in range(0, 2)]
+        self.files = [{'did_scope': self.scope.external, 'did_name': 'file_' + generate_uuid(), 'path': file_generator(size=self.file_sizes), 'rse': self.rse, 'lifetime': -1} for i in range(0, 2)]
         self.upload_client.upload(self.files)
         [os.remove(file['path']) for file in self.files]
         account.run(once=True)
@@ -78,7 +79,7 @@ class TestAbacusAccount():
         assert_equal(usage_history[-1]['files'], len(self.files))
 
         # Check the account history with the client
-        usage_history = self.account_client.get_account_usage_history(rse=self.rse, account=self.account)
+        usage_history = self.account_client.get_account_usage_history(rse=self.rse, account=self.account.external)
         assert_equal(usage_history[-1]['bytes'], len(self.files) * self.file_sizes)
         assert_equal(usage_history[-1]['files'], len(self.files))
 

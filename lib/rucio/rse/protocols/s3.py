@@ -68,7 +68,7 @@ class Default(protocol.RSEProtocol):
         pfns = {}
         lfns = [lfns] if type(lfns) == dict else lfns
         for lfn in lfns:
-            scope, name = lfn['scope'], lfn['name']
+            scope, name = str(lfn['scope']), lfn['name']
             pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self._get_path(scope=scope, name=name)])
         return pfns
 

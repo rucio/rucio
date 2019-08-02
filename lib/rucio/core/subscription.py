@@ -19,6 +19,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2019
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -238,7 +239,8 @@ def list_subscription_rule_states(name=None, account=None, session=None):
     """
     subscription = aliased(models.Subscription)
     rule = aliased(models.ReplicationRule)
-    query = session.query(subscription.account, subscription.name, rule.state, func.count()).join(rule, subscription.id == rule.subscription_id)
+    # count needs a label to allow conversion to dict (label name can be changed)
+    query = session.query(subscription.account, subscription.name, rule.state, func.count().label('count')).join(rule, subscription.id == rule.subscription_id)
 
     try:
         if name:

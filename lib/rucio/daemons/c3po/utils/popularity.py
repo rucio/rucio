@@ -8,6 +8,7 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2016-2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -58,7 +59,7 @@ def get_popularity(did):
         "size": 0
     }
 
-    query['query']['bool']['must'].append({"term": {"scope": did[0]}})
+    query['query']['bool']['must'].append({"term": {"scope": did[0].external}})
     query['query']['bool']['must'].append({"term": {"name": did[1]}})
 
     logging.debug(query)

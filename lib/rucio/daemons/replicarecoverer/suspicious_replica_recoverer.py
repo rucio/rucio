@@ -16,6 +16,7 @@
 # Authors:
 #  - Cedric Serfon, <cedric.serfon@cern.ch>, 2018
 #  - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019
+#  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # PY3K COMPATIBLE
 
 """
@@ -46,6 +47,7 @@ from rucio.db.sqla.constants import BadFilesStatus
 from rucio.db.sqla.util import get_db_time
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException
+from rucio.common.types import InternalAccount
 
 
 logging.basicConfig(stream=stdout,
@@ -166,7 +168,7 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
                     if len(surls_to_recover[rse_id]) > max_replicas_per_rse:
                         logging.warning('replica_recoverer[%i/%i]: encountered more than %i suspicious replicas (%s) on %s. Please investigate.', worker_number, total_workers, max_replicas_per_rse, str(len(surls_to_recover[rse_id])), rse)
                     else:
-                        declare_bad_file_replicas(pfns=surls_to_recover[rse_id], reason='Suspicious. Automatic recovery.', issuer='root', status=BadFilesStatus.BAD, session=None)
+                        declare_bad_file_replicas(pfns=surls_to_recover[rse_id], reason='Suspicious. Automatic recovery.', issuer=InternalAccount('root'), status=BadFilesStatus.BAD, session=None)
                         logging.info('replica_recoverer[%i/%i]: finished declaring bad replicas on %s.', worker_number, total_workers, rse)
 
         except (DatabaseException, DatabaseError) as err:
