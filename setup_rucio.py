@@ -222,7 +222,4 @@ setup(
     install_requires=requires,
     extras_require=extras_require,
     dependency_links=depend_links,
-    entry_points={'console_scripts': ['rucio-reaper=rucio.clis.daemons.reaper.reaper:main',
-                                      'rucio-dark-reaper=rucio.clis.daemons.reaper.dark:main',
-                                      'rucio-light-reaper=rucio.clis.daemons.reaper.light:main']}
 )
