@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - John Doe <john.doe@asdf.com>, 2019
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 
 ''' add DidsFollowed and FollowEvents table '''
 

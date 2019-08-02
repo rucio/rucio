@@ -1874,7 +1874,7 @@ def add_dids_to_followed(dids, account, session=None):
         raise exception.RucioException(error.args)
 
 
-@read_session
+@stream_session
 def get_users_following_did(scope, name, session=None):
     """
     Return list of users following a did
