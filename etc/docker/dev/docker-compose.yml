@@ -1,22 +1,25 @@
 version: "2"
 services:
   rucio:
-    image: rucio/rucio-dev
+    image: rucio-dev
     ports:
       - "443:443"
     links:
-      - mysql:mysql
+      - psql:psql
       - graphite:graphite
     volumes:
       - ../../../tools:/opt/rucio/tools
       - ../../../bin:/opt/rucio/bin
       - ../../../lib:/opt/rucio/lib
-  mysql:
-    image: mysql/mysql-server:5.7
+  psql:
+    image: postgres:11
+    restart: always
     environment:
-      - MYSQL_DATABASE=mysql
-      - MYSQL_USER=root
-      - MYSQL_PASSWORD=secret
+      - POSTGRES_USER=rucio
+      - POSTGRES_DB=rucio
+      - POSTGRES_PASSWORD=secret
+    ports:
+      - "5432:5432"
   graphite:
     image: graphiteapp/graphite-statsd
     ports:

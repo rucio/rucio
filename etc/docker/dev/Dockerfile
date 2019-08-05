@@ -17,6 +17,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2017-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
 FROM centos:7
 
@@ -42,8 +43,8 @@ RUN yum -y update && yum clean all && yum install -y epel-release &&\
       gridsite \
       which \
       libaio \
-      mysql-devel \
-      memcached
+      memcached \
+      netcat
 
 ENV RUCIOHOME=/opt/rucio
 RUN mkdir -p $RUCIOHOME
@@ -57,7 +58,6 @@ RUN mkdir -p \
 COPY .pep8 .pep8
 COPY .flake8 .flake8
 COPY pylintrc /etc/pylintrc
-COPY etc etc
 COPY tools tools
 
 RUN pip install --upgrade pip && pip install --upgrade setuptools
@@ -65,14 +65,15 @@ RUN rm -rf /usr/lib/python2.7/site-packages/ipaddress*
 RUN pip install -r tools/pip-requires-client
 RUN pip install -r tools/pip-requires
 RUN pip install -r tools/pip-requires-test
-RUN pip install mysql
+RUN pip install psycopg2-binary
 RUN ln -s $RUCIOHOME/lib/rucio /usr/lib/python2.7/site-packages/rucio
 RUN ln -s $RUCIOHOME/lib/rucio /usr/lib/python3.4/site-packages/rucio
 
 RUN mkdir /var/log/rucio /var/log/rucio/trace && chmod 777 /var/log/rucio
 
+COPY etc etc
 COPY etc/docker/dev/rucio.cfg  $RUCIOHOME/etc/rucio.cfg
-COPY etc/docker/dev/alembic_mysql.ini  $RUCIOHOME/etc/alembic.ini
+COPY etc/docker/dev/alembic.ini  $RUCIOHOME/etc/alembic.ini
 COPY etc/docker/dev/aliases-py27.conf $RUCIOHOME/etc/web/aliases-py27.conf
 COPY etc/docker/dev/ui-aliases-py27.conf $RUCIOHOME/etc/web/ui-aliases-py27.conf
 COPY etc/docker/travis/google-cloud-storage-test.json $RUCIOHOME/etc/google-cloud-storage-test.json
