@@ -30,7 +30,7 @@ from alembic.config import Config
 
 from sqlalchemy import func
 from sqlalchemy.engine import reflection
-from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.exc import DatabaseError, ProgrammingError
 from sqlalchemy.schema import CreateSchema, MetaData, Table, DropTable, ForeignKeyConstraint, DropConstraint
 from sqlalchemy.sql.expression import select, text
 
@@ -47,11 +47,13 @@ def build_database(echo=True, tests=False):
 
     schema = config_get('database', 'schema', raise_exception=False)
     if schema:
-        print('Schema set in config, trying to create if not exists:', schema)
+        print('Schema set in config, trying to create schema:', schema)
         try:
             engine.execute(CreateSchema(schema))
+        except DatabaseError as e:
+            print('Cannot create schema, please validate manually if schema creation is needed, continuing:', e)
         except ProgrammingError as e:
-            print('Schema already exists, continuing:', e)
+            print('Cannot create schema, most likely exists already, continuing:', e)
 
     models.register_models(engine)
 
