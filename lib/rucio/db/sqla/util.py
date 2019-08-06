@@ -50,10 +50,8 @@ def build_database(echo=True, tests=False):
         print('Schema set in config, trying to create schema:', schema)
         try:
             engine.execute(CreateSchema(schema))
-        except DatabaseError as e:
+        except:
             print('Cannot create schema, please validate manually if schema creation is needed, continuing:', e)
-        except ProgrammingError as e:
-            print('Cannot create schema, most likely exists already, continuing:', e)
 
     models.register_models(engine)
 
