@@ -6,16 +6,16 @@ Prerequisites
 
 We provide a containerised version of the Rucio development environment for a quick start. Our containers are ready-made for Docker, which means you need to have a working Docker installation. To install Docker for your platform, please refer to the `Docker installation guide <https://docs.docker.com/install/>`_, for example, for Debian/Ubuntu `follow these instructions for the Docker Community Edition <https://docs.docker.com/install/linux/docker-ce/debian/>`_.
 
-You can confirm that Docker is running properly by executing (might need `sudo`)::
+Start the Docker daemon with `sudo systemctl start docker`. You can confirm that Docker is running properly by executing (might need `sudo`)::
 
     docker run hello-world
 
-If successful, this will print an informational message telling you that you are ready to go.  Now, also install the `docker-compose` helper tool, e.g., with `sudo apt install docker-compose`, and then start the Docker daemon with `sudo systemctl start docker`. You are now ready to install the Rucio development environment.
+If successful, this will print an informational message telling you that you are ready to go.  Now, also install the `docker-compose` helper tool, e.g., with `sudo apt install docker-compose`. You are now ready to install the Rucio development environment.
 
 Preparing the environment
 -------------------------
 
-This container can be found on Dockerhub as `rucio/rucio-dev`, and the corresponding `Dockerfile <https://https://github.com/mlassnig/containers/tree/master/dev>`_ is also available. It provides a Rucio environment which allows you to mount your local code in the containers `bin`, `lib`, and `tools` directory. The container is set up to run against a PostgreSQL database. Tests and checks can be run against the development code without having to rebuild the container.
+This container can be found on Dockerhub as `rucio/rucio-dev`, and the corresponding `Dockerfile <https://github.com/rucio/containers/tree/master/dev>`_ is also available. It provides a Rucio environment which allows you to mount your local code in the containers `bin`, `lib`, and `tools` directory. The container is set up to run against a PostgreSQL database. Tests and checks can be run against the development code without having to rebuild the container.
 
 The first step is to fork the `main Rucio repository on GitHub <https://github.com/rucio/rucio>`_ by clicking the yellow Fork Star button, and then clone your private forked Rucio repository to your `~/dev/rucio`. Afterwards add the main upstream repository as an additional remote to be able to submit pull requests later::
 
@@ -25,7 +25,7 @@ The first step is to fork the `main Rucio repository on GitHub <https://github.c
     git remote add upstream git@github.com:rucio/rucio.git
     git fetch --all
 
-Now, ensure that the `.git/config` is proper, i.e., mentioning your full name and email address, and that the `.githubtoken` is correctly set. Optionally, you can also replace the `~/dev/rucio/tools/pre-commit` hook with the one provided `here <https://github.com/rucio/rucio/blob/master/etc/docker/dev/pre-commit>`_ so that `pylint` run in the container rather then in the local system.
+Now, ensure that the `.git/config` is proper, i.e., mentioning your full name and email address, and that the `.githubtoken` is correctly set. Optionally, you can also replace the `~/dev/rucio/tools/pre-commit` hook with the one provided `here <https://raw.githubusercontent.com/rucio/containers/master/dev/pre-commit>`_ so that `pylint` run in the container rather then in the local system.
 
 Next, setup and configure the Rucio development environment (again might need `sudo`)::
 
