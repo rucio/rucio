@@ -35,7 +35,8 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        alter_column('rse_protocols', 'extended_attributes', existing_type=sa.String(1024), type_=sa.String(4000))
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        alter_column('rse_protocols', 'extended_attributes', existing_type=sa.String(1024), type_=sa.String(4000), schema=schema)
 
 
 def downgrade():
@@ -44,4 +45,5 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        alter_column('rse_protocols', 'extended_attributes', existing_type=sa.String(4000), type_=sa.String(1024))
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        alter_column('rse_protocols', 'extended_attributes', existing_type=sa.String(4000), type_=sa.String(1024), schema=schema)
