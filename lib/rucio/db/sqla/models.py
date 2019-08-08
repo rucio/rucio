@@ -46,7 +46,9 @@ from rucio.db.sqla.constants import (AccountStatus, AccountType, DIDAvailability
                                      BadPFNStatus)
 from rucio.db.sqla.history import Versioned
 from rucio.db.sqla.session import BASE
-from rucio.db.sqla.types import GUID, BooleanString, JSON, InternalAccountString, InternalScopeString
+from rucio.db.sqla.types import GUID, BooleanString, JSON
+from rucio.db.sqla.types import InternalAccountString as _InternalAccountString
+from rucio.db.sqla.types import InternalScopeString as _InternalScopeString
 
 
 # Recipe to force str instead if unicode
@@ -54,6 +56,16 @@ from rucio.db.sqla.types import GUID, BooleanString, JSON, InternalAccountString
 def String(*arg, **kw):
     kw['convert_unicode'] = 'force'
     return _String(*arg, **kw)
+
+
+def InternalScopeString(*arg, **kw):
+    kw['convert_unicode'] = 'force'
+    return _InternalScopeString(*arg, **kw)
+
+
+def InternalAccountString(*arg, **kw):
+    kw['convert_unicode'] = 'force'
+    return _InternalAccountString(*arg, **kw)
 
 
 @compiles(Boolean, "oracle")
