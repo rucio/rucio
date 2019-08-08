@@ -88,7 +88,7 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, prepend_str):
         for replica in replicas:
             # Physical deletion
             try:
-                deletion_dict = {'scope': replica['scope'],
+                deletion_dict = {'scope': replica['scope'].external,
                                  'name': replica['name'],
                                  'rse': rse_name,
                                  'file-size': replica['bytes'],
@@ -142,7 +142,7 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, prepend_str):
     except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
         for replica in replicas:
             logging.warning('%s Deletion NOACCESS of %s:%s as %s on %s: %s', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name, str(error))
-            add_message('deletion-failed', {'scope': replica['scope'],
+            add_message('deletion-failed', {'scope': replica['scope'].external,
                                             'name': replica['name'],
                                             'rse': rse_name,
                                             'file-size': replica['bytes'],
