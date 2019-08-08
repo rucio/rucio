@@ -572,6 +572,7 @@ def delete_dids(dids, account, expire_rules=False, session=None):
     parent_content_clause, did_clause = [], []
     collection_replica_clause, file_clause = [], []
     not_purge_replicas = []
+    did_followed_clause = []
 
     for did in dids:
         logging.info('Removing did %(scope)s:%(name)s (%(did_type)s)' % did)
@@ -582,6 +583,7 @@ def delete_dids(dids, account, expire_rules=False, session=None):
             content_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name']))
             collection_replica_clause.append(and_(models.CollectionReplica.scope == did['scope'],
                                                   models.CollectionReplica.name == did['name']))
+            did_followed_clause.append(and_(models.DidsFollowed.scope == did['scope'], models.DidsFollowed.name == did['name']))
 
         # ATLAS LOCALGROUPDISK Archive policy
         if did['did_type'] == DIDType.DATASET and did['scope'].external != 'archive':
@@ -690,6 +692,11 @@ def delete_dids(dids, account, expire_rules=False, session=None):
             rowcount = session.query(models.DataIdentifier).filter(or_(*did_clause)).\
                 filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).\
                 delete(synchronize_session=False)
+
+    if did_followed_clause:
+        with record_timer_block('undertaker.dids'):
+            rowcount = session.query(models.DidsFollowed).filter(or_(*did_followed_clause)).\
+            delete(synchronize_session=False)
 
     if file_clause:
         rowcount = session.query(models.DataIdentifier).filter(or_(*file_clause)).\
