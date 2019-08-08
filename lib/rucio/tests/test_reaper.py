@@ -19,6 +19,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core import rse as rse_core
 from rucio.core import replica as replica_core
