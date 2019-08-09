@@ -43,8 +43,23 @@ class Default(protocol.RSEProtocol):
         return '%s/%s' % (scope, name)
 
     def lfns2pfns(self, lfns):
-        """ In this case, just returns back lfn. """
-        return lfns
+        """ In this case, just returns back lfn with external scope. """
+        if type(lfns) == dict:
+            val = lfns.copy()
+            if 'scope' in val and val['scope'] is not None:
+                val['scope'] = val['scope'].external
+
+        elif type(lfns) == list:
+            val = []
+            for l in lfns:
+                v = l.copy()
+                if 'scope' in v and v['scope'] is not None:
+                    v['scope'] = v['scope'].external
+                val.append(v)
+
+        else:
+            val = lfns
+        return val
 
     def path2pfn(self, path):
         """
