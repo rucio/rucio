@@ -1,0 +1,22 @@
+=========
+1.20.4rc3
+=========
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Core & Internals: Account and Scope new types `#2553 <https://github.com/rucio/rucio/issues/2553>`_
+
+****
+Bugs
+****
+
+- Consistency checks: Dark Reaper rse_id crash `#2760 <https://github.com/rucio/rucio/issues/2760>`_
+- Core & Internals: Release candidate 1.20.4rc1 is unstable `#2788 <https://github.com/rucio/rucio/issues/2788>`_
+- RSE Manager: 1.20.4rc2 storm protocol bug `#2799 <https://github.com/rucio/rucio/issues/2799>`_
+- RSE Manager: Parent directory creation with gfal `#2754 <https://github.com/rucio/rucio/issues/2754>`_
