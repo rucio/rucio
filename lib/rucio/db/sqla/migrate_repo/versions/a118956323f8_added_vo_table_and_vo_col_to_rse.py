@@ -22,7 +22,7 @@ import datetime
 import sqlalchemy as sa
 from alembic import context
 from alembic.op import (add_column, create_table, create_unique_constraint,
-                        drop_column, drop_constraint, drop_table, execute)
+                        drop_column, drop_constraint, drop_table, bulk_insert)
 
 
 def String(*arg, **kw):
@@ -43,17 +43,18 @@ def upgrade():
     if context.get_context().dialect.name in ['oracle', 'postgresql', 'mysql']:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         # add a vo table
-        create_table('vos',
-                     sa.Column('vo', String(3), primary_key=True),
-                     sa.Column('description', String(255)),
-                     sa.Column('email', String(255)),
-                     sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
-                     sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
-                     schema=schema)
+        vos = create_table('vos',
+                           sa.Column('vo', String(3), primary_key=True),
+                           sa.Column('description', String(255)),
+                           sa.Column('email', String(255)),
+                           sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
+                           sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
+                           schema=schema)
 
         # create base vo
-        schema_str = schema + '.' if schema != '' else ''
-        execute("INSERT INTO {0}vos (vo, description, email, created_at, updated_at) VALUES ('def', 'Base VO', 'N/A', '{1}', '{1}')".format(schema_str, datetime.datetime.utcnow()))
+        bulk_insert(vos, [{'vo': 'def',
+                           'description': 'Base VO',
+                           'email': 'N/A'}])
 
         # add a vo column
         add_column('rses', sa.Column('vo', String(3), sa.ForeignKey('vos.vo', name='RSES_VOS_FK'), nullable=False, server_default='def'), schema=schema)

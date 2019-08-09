@@ -24,6 +24,8 @@ from copy import deepcopy
 from nose.tools import assert_equal, assert_true, assert_raises
 from paste.fixture import TestApp
 
+import json
+
 from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import RSEType
 from rucio.client.importclient import ImportClient
@@ -384,7 +386,7 @@ class TestExporter(object):
         rses = sanitised
 
         assert_equal(r2.status, 200)
-        assert_equal(r2.body, render_json(**{'rses': rses, 'distances': export_distances()}))
+        assert_equal(json.loads(r2.body), json.loads(render_json(**{'rses': rses, 'distances': export_distances()})))
 
 
 class TestExportImport(object):
