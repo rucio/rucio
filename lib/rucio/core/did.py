@@ -1993,5 +1993,9 @@ def create_reports(session=None):
                                       'subject': 'Report of affected dataset(s)',
                                       'body': body})
 
+                # Clean up the events after creating the report
+                session.query(models.FollowEvents).filter_by(account=account).\
+                delete(synchronize_session=False)
+
         except NoResultFound:
             raise exception.AccountNotFound("No email found for given account.")
