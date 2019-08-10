@@ -1057,7 +1057,7 @@ def perm_remove_did_from_followed(issuer, kwargs):
     """
     return _is_root(issuer)\
         or has_account_attribute(account=issuer, key='admin')\
-        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)\
+        or kwargs['account'] == issuer\
         or kwargs['scope'] == 'mock'
 
 
@@ -1071,9 +1071,6 @@ def perm_remove_dids_from_followed(issuer, kwargs):
     """
     if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
         return True
-    scopes = [did['scope'] for did in kwargs['dids']]
-    scopes = list(set(scopes))
-    for scope in scopes:
-        if not rucio.core.scope.is_scope_owner(scope, issuer):
-            return False
+    if not kwargs['account'] == issuer:
+        return False
     return True
