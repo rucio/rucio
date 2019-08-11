@@ -21,16 +21,25 @@ import logging
 import os
 import socket
 import threading
+import time
+import sys
 
 from rucio.common.utils import get_thread_with_periodic_running_function
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.did import create_reports
-
+from rucio.common.config import config_get
 
 graceful_stop = threading.Event()
 
+logging.basicConfig(stream=sys.stdout,
+                    level=getattr(logging,
+                                  config_get('common', 'loglevel',
+                                             raise_exception=False,
+                                             default='DEBUG').upper()),
+                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
-def aggregate_events():
+
+def aggregate_events(once=False):
     """
     Collect all the events affecting the dids followed by the corresponding account.
     """
@@ -43,9 +52,15 @@ def aggregate_events():
     live(executable='rucio-follower', hostname=hostname, pid=pid, thread=current_thread)
 
     while not graceful_stop.is_set():
-        # Create reports of events for all the accounts.
-        create_reports()
-        break
+        heartbeat = live(executable='rucio-follower', hostname=hostname, pid=pid, thread=current_thread)
+        # Create a report of events and send a mail to the corresponding account.
+        start_time = time.time()
+        create_reports(total_workers=heartbeat['nr_threads'] - 1,
+                       worker_number=heartbeat['assign_thread'])
+        logging.info('worker[%s/%s] took %s for creating reports' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, time.time() - start_time))
+
+        if once:
+            break
 
     logging.info('follower: graceful stop requested')
     die(executable='rucio-follower', hostname=hostname, pid=pid, thread=current_thread)
@@ -68,7 +83,7 @@ def run(once=False, threads=1):
 
     if once:
         logging.info("executing one follower iteration only")
-        aggregate_events()
+        aggregate_events(once)
     else:
         logging.info("starting follower threads")
         # Run the follower daemon thrice a day

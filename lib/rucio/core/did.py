@@ -696,7 +696,7 @@ def delete_dids(dids, account, expire_rules=False, session=None):
     if did_followed_clause:
         with record_timer_block('undertaker.dids'):
             rowcount = session.query(models.DidsFollowed).filter(or_(*did_followed_clause)).\
-            delete(synchronize_session=False)
+                delete(synchronize_session=False)
 
     if file_clause:
         rowcount = session.query(models.DataIdentifier).filter(or_(*file_clause)).\
@@ -1960,42 +1960,52 @@ def trigger_event(scope, name, event_type, payload, session=None):
 
 
 @read_session
-def create_reports(session=None):
+def create_reports(total_workers, worker_number, session=None):
     """
     Create a summary report of the events affecting a dataset, for its followers.
 
     :param session: The database session in use.
     """
-    # Get all the distinct accounts from the table.
-    accounts = session.query(models.FollowEvents.account).distinct()
-    for account in accounts:
-        try:
-            events = session.query(models.FollowEvents).filter_by(account=account).all()
-            # If events exist for an account then create a report.
-            if events:
-                body = '''
-                       Hello,
-                       This is an auto-generated report of the events that have affected the datasets you follow.
+    # Query the FollowEvents table
+    query = session.query(models.FollowEvents)
 
-                       '''
+    # Use hearbeat mechanism to select a chunck of events based on the hased account
+    if total_workers > 0:
+        if session.bind.dialect.name == 'oracle':
+            bindparams = [bindparam('worker_number', worker_number),
+                          bindparam('total_workers', total_workers)]
+            query = query.filter(text('ORA_HASH(account, :total_workers) = :worker_number', bindparams=bindparams))
+        elif session.bind.dialect.name == 'mysql':
+            query = query.filter(text('mod(md5(account), %s) = %s' % (total_workers + 1, worker_number)))
+        elif session.bind.dialect.name == 'postgresql':
+            query = query.filter(text('mod(abs((\'x\'||md5(account))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+
+    try:
+        events = query.order_by(models.FollowEvents.created_at).all()
+        # If events exist for an account then create a report.
+        if events:
+            body = '''
+                Hello,
+                This is an auto-generated report of the events that have affected the datasets you follow.
+
+                '''
+
+            for i, event in enumerate(events):
                 # Add each event to the message body.
-                for i, event in enumerate(events):
-                    body += "{}. Dataset: {} Event: {}\n".format(i, event.name, event.event_type)
-                    if event.payload:
-                        body += "Message: {}\n".format(event.payload)
-                    body += "\n"
+                body += "{}. Dataset: {} Event: {}\n".format(i + 1, event.name, event.event_type)
+                if event.payload:
+                    body += "Message: {}\n".format(event.payload)
+                body += "\n"
+            body += "Thank You."
+            # Get the email associated with the account.
+            email = session.query(models.Account.email).filter_by(account=event.account)
+            add_message('email', {'to': email,
+                                  'subject': 'Report of affected dataset(s)',
+                                  'body': body})
 
-                body += "Thank You."
-
-                # Get the email associated with the account.
-                email = session.query(models.Account.email).filter_by(account=account)
-                add_message('email', {'to': email,
-                                      'subject': 'Report of affected dataset(s)',
-                                      'body': body})
-
-                # Clean up the events after creating the report
-                session.query(models.FollowEvents).filter_by(account=account).\
+            # Clean up the events after creating the report
+            session.query(models.FollowEvents).filter_by(account=event.account).\
                 delete(synchronize_session=False)
 
-        except NoResultFound:
-            raise exception.AccountNotFound("No email found for given account.")
+    except NoResultFound:
+        raise exception.AccountNotFound("No email found for given account.")
