@@ -54,7 +54,7 @@ import rucio.core.account_counter
 
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.common import exception, utils
-from rucio.common.config import get_lfn2pfn_algorithm_default
+from rucio.common.config import get_lfn2pfn_algorithm_default, config_get
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RSEType
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
@@ -62,7 +62,7 @@ from rucio.db.sqla.session import read_session, transactional_session, stream_se
 
 REGION = make_region().configure('dogpile.cache.memcached',
                                  expiration_time=3600,
-                                 arguments={'url': "127.0.0.1:11211",
+                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'),
                                             'distributed_lock': True})
 
 

@@ -21,10 +21,11 @@ from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 
 from rucio.core import rse as rse_core
+from rucio.common.config import config_get
 
 REGION = make_region().configure('dogpile.cache.memcached',
                                  expiration_time=3600,
-                                 arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
+                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
 
 # for local test
 # REGION = make_region().configure('dogpile.cache.memory',

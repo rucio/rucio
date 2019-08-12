@@ -23,6 +23,7 @@ from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 
 from rucio.common.exception import Duplicate, RucioException, InvalidObject
+from rucio.common.config import config_get
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import KeyType
 from rucio.db.sqla.session import read_session, transactional_session
@@ -30,7 +31,7 @@ from rucio.db.sqla.session import read_session, transactional_session
 
 REGION = make_region().configure('dogpile.cache.memcached',
                                  expiration_time=3600,
-                                 arguments={'url': "127.0.0.1:11211",
+                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'),
                                             'distributed_lock': True})
 
 

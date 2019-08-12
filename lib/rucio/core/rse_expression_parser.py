@@ -24,6 +24,7 @@ from hashlib import sha256
 from six import add_metaclass
 
 from rucio.common import schema
+from rucio.common.config import config_get
 from rucio.common.exception import InvalidRSEExpression, RSEBlacklisted
 from rucio.core.rse import list_rses, get_rses_with_attribute, get_rse_attribute
 from rucio.db.sqla.session import transactional_session
@@ -41,7 +42,7 @@ PATTERN = r'^%s(%s|%s|%s)*' % (PRIMITIVE, UNION, INTERSECTION, COMPLEMENT)
 
 REGION = make_region().configure('dogpile.cache.memcached',
                                  expiration_time=3600,
-                                 arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
+                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
 
 
 @transactional_session
