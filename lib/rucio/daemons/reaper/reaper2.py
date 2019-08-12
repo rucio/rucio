@@ -75,7 +75,7 @@ GRACEFUL_STOP = threading.Event()
 
 REGION = make_region().configure('dogpile.cache.memcached',
                                  expiration_time=600,
-                                 arguments={'url': "127.0.0.1:11211",
+                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'),
                                             'distributed_lock': True})
 
 

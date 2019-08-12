@@ -53,7 +53,7 @@ Requests accessed by request_id  are covered in the core request.py
 
 REGION_SHORT = make_region().configure('dogpile.cache.memcached',
                                        expiration_time=600,
-                                       arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
+                                       arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
 USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
 
 

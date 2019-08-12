@@ -91,5 +91,5 @@ if rsemanager.SERVER_MODE:   # pylint:disable=no-member
     RSE_REGION = make_region(function_key_generator=rse_key_generator).configure(
         'dogpile.cache.memcached',
         expiration_time=3600,
-        arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
+        arguments={'url': config.config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
     setattr(rsemanager, 'RSE_REGION', RSE_REGION)
