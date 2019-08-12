@@ -57,9 +57,6 @@ class TestRequestCore(object):
 
     def test_release_waiting_requests_per_free_volume(self):
         """ REQUEST (CORE): release waiting requests that fit grouped in available volume."""
-        if self.dialect == 'mysql':
-            return True
-
         # release unattached requests that fit in available volume with respect to already submitted transfers
         name1 = generate_uuid()
         add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
@@ -255,9 +252,6 @@ class TestRequestCore(object):
 
     def test_release_waiting_requests_grouped_fifo(self):
         """ REQUEST (CORE): release waiting requests based on grouped FIFO. """
-        if self.dialect == 'mysql':
-            return True
-
         # set max_volume to 0 to check first without releasing extra requests
         set_rse_transfer_limits(self.dest_rse_id, self.all_activities, volume=0, max_transfers=1, session=self.db_session)
 
