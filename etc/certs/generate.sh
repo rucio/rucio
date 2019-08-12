@@ -14,7 +14,7 @@ openssl x509 -req -days 9999 -CAcreateserial -in ruciouser.csr -CA rucio_ca.pem 
 
 # Rucio
 openssl req -new -newkey rsa:2048 -nodes -keyout hostcert_rucio.key.pem -subj "/CN=rucio" > hostcert_rucio.csr
-openssl x509 -req -days 9999 -CAcreateserial -in hostcert_rucio.csr -CA rucio_ca.pem -CAkey rucio_ca.key.pem -out hostcert_rucio.pem -passin env:PASSPHRASE
+openssl x509 -req -days 9999 -CAcreateserial -extfile <(printf "subjectAltName=DNS:localhost") -in hostcert_rucio.csr -CA rucio_ca.pem -CAkey rucio_ca.key.pem -out hostcert_rucio.pem -passin env:PASSPHRASE
 
 
 # FTS
