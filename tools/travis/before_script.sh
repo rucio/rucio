@@ -30,7 +30,7 @@ if [[ $RDBMS == "oracle" ]]; then
     docker exec -it rucio httpd -k restart
 
 elif [[ $RDBMS == "mysql" ]]; then
-    docker run --name=mysql -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% -d mysql/mysql-server:5.7
+    docker run --name=mysql -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% -d mysql/mysql-server:8.0.17 --default-authentication-plugin=mysql_native_password --character-set-server=latin1
     docker run --name=activemq -d webcenter/activemq:latest
     sleep 100
     docker run -d --link mysql:mysql --link activemq:activemq --name=rucio rucio/rucio

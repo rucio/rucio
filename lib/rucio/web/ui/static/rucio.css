@@ -129,3 +129,16 @@ a.info {
 .valign-middle [class*="column"] + [class*="column"]:last-child {
   float: none;
 }
+
+/* Centering the login page elements */
+.center{
+  display: table;
+  margin: 0 auto;
+  float: none;
+  position: relative;
+}
+
+#login_form table {
+  width: 50%;
+  margin: 0 auto;
+}

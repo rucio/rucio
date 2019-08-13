@@ -98,12 +98,6 @@ class BooleanString(TypeDecorator):
                 return 'true'
             elif value.lower() == 'false':
                 return 'false'
-            # FIXME
-            # ATLAS RSE listing workaround (since booleans are capital 'True'/'False')
-            # remove elif branch after appropriate database fix has been applied
-            # see also core/rse.py
-            elif value.startswith('tmp_atlas_'):
-                return value[10:]
 
         return str(value)
 
@@ -111,12 +105,9 @@ class BooleanString(TypeDecorator):
         if value is None:
             return value
 
-        # FIXME
-        # be backward compatible for now by still including 0/1 as acceptable booleans
-        # remove 0/1 after appropriate database fix has been applied
-        if value.lower() in ['1', 'true']:
+        if value.lower() == 'true':
             return True
-        elif value.lower() in ['0', 'false']:
+        elif value.lower() == 'false':
             return False
         else:
             return value
