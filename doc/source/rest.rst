@@ -71,7 +71,6 @@ The methods are separated per resource type.
     restapi/lock
     restapi/meta
     restapi/nongrid_trace
-    restapi/objectstore
     restapi/ping
     restapi/redirect
     restapi/replica

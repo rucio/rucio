@@ -32,7 +32,6 @@ from web import application, ctx, header, seeother, InternalError
 from logging import getLogger, StreamHandler, DEBUG
 
 from rucio.api.replica import list_replicas
-from rucio.common.objectstore import connect, get_signed_urls
 from rucio.common.exception import RucioException, DataIdentifierNotFound, ReplicaNotFound
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_ranking, sort_dynamic, site_selector
 from rucio.common.schema import SCOPE_NAME_REGEXP
@@ -74,7 +73,7 @@ class MetaLinkRedirector(RucioController):
         header('Access-Control-Allow-Methods', '*')
         header('Access-Control-Allow-Credentials', 'true')
 
-        dids, schemes, select = [{'scope': scope, 'name': name}], ['http', 'https', 's3+rucio', 's3+https', 'root', 'gsiftp', 'srm', 'davs'], None
+        dids, schemes, select = [{'scope': scope, 'name': name}], ['http', 'https', 'root', 'gsiftp', 'srm', 'davs'], None
 
         # set the correct client IP
         client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
@@ -194,7 +193,7 @@ class HeaderRedirector(RucioController):
         try:
 
             # use the default HTTP protocols if no scheme is given
-            select, rse, site, schemes = 'random', None, None, ['davs', 'http', 'https', 's3+rucio']
+            select, rse, site, schemes = 'random', None, None, ['davs', 'http', 'https']
 
             client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
             if client_ip is None:
@@ -236,7 +235,7 @@ class HeaderRedirector(RucioController):
 
             replicas = [r for r in list_replicas(dids=[{'scope': scope, 'name': name, 'type': 'FILE'}], schemes=schemes, client_location=client_location)]
 
-            selected_url, selected_rse = None, None
+            selected_url = None
             for r in replicas:
                 if r['rses']:
                     dictreplica = {}
@@ -244,7 +243,6 @@ class HeaderRedirector(RucioController):
                     if rse:
                         if rse in r['rses'] and r['rses'][rse]:
                             selected_url = r['rses'][rse][0]
-                            selected_rse = rse
                         else:
                             raise ReplicaNotFound('no redirection possible - no valid RSE for HTTP redirection found')
                     else:
@@ -279,19 +277,7 @@ class HeaderRedirector(RucioController):
 
                             selected_url = rep[0]
 
-                        for rep in r['rses']:
-                            for replica in r['rses'][rep]:
-                                if selected_url == replica:
-                                    selected_rse = rep
-
             if selected_url:
-                if selected_url.startswith('s3+rucio://'):
-                    connect(selected_rse, selected_url)
-                    signed_URLS = get_signed_urls([selected_url],
-                                                  rse=selected_rse,
-                                                  operation='read')
-                    raise seeother(signed_URLS[selected_url])
-
                 raise seeother(selected_url)
 
             raise ReplicaNotFound('no redirection possible - file does not exist')
