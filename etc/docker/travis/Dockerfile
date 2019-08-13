@@ -18,19 +18,17 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
 FROM centos:7
 
-RUN yum -y update
-RUN yum clean all
-
 RUN yum install -y epel-release.noarch
-
-RUN yum install -y gcc
-RUN yum install -y httpd
-RUN yum install -y python-pip gmp-devel krb5-devel httpd mod_ssl mod_auth_kerb mod_wsgi git python-devel.x86_64 openssl-devel.x86_64 gridsite which MySQL-python libaio memcached
+RUN yum -y update
+RUN yum install -y gcc httpd python-pip gmp-devel krb5-devel httpd mod_ssl mod_auth_kerb mod_wsgi git python-devel.x86_64 openssl-devel.x86_64 gridsite which MySQL-python libaio memcached
 RUN yum -y install https://centos7.iuscommunity.org/ius-release.rpm
 RUN yum -y install python36u python36u-devel python36u-pip python35u python35u-devel python35u-pip
+RUN yum clean all
+
 RUN rm -rf /usr/lib/python2.7/site-packages/ipaddress*
 
 # Install sqlite3 version 3.28
