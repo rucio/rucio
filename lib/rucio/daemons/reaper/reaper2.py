@@ -195,6 +195,14 @@ def __check_rse_usage(rse, rse_id, prepend_str):
     if result is NO_VALUE:
         max_being_deleted_files, needed_free_space, used, free, obsolete = None, None, None, None, None
 
+        # First of all check if greedy mode is enabled for this RSE
+        attributes = list_rse_attributes(rse_id=rse_id)
+        greedy = attributes.get('greedyDeletion', False)
+        if greedy:
+            result = (max_being_deleted_files, 1000000000000, used, free)
+            REGION.set('rse_usage_%s' % rse_id, result)
+            return result
+
         # Get RSE limits
         limits = get_rse_limits(rse_id=rse_id)
         if not limits and 'MinFreeSpace' not in limits and 'MaxBeingDeletedFiles' not in limits:
@@ -207,19 +215,11 @@ def __check_rse_usage(rse, rse_id, prepend_str):
 
         # Check from which sources to get used and total spaces
         # Default is storage
-        attributes = list_rse_attributes(rse_id=rse_id)
         source_for_total_space = attributes.get('sourceForTotalSpace', 'storage')
         source_for_used_space = attributes.get('sourceForUsedSpace', 'storage')
-        greedy = attributes.get('greedyDeletion', False)
 
         logging.debug('%s RSE: %s, source_for_total_space: %s, source_for_used_space: %s',
                       prepend_str, rse, source_for_total_space, source_for_used_space)
-
-        # First of all check if greedy mode is enabled for this RSE
-        if greedy:
-            result = (max_being_deleted_files, 1000000000000, used, free)
-            REGION.set('rse_usage_%s' % rse_id, result)
-            return result
 
         # Get total, used and obsolete space
         rse_usage = get_rse_usage(rse_id=rse_id)
