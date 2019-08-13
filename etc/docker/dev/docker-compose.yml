@@ -2,24 +2,79 @@ version: "2"
 services:
   rucio:
     image: rucio/rucio-dev
+    hostname: rucio
     ports:
       - "443:443"
     links:
-      - psql:psql
+      - ruciodb:ruciodb
       - graphite:graphite
+      - fts:fts
+      - ftsdb:ftsdb
+      - xrd1:xrd1
+      - xrd2:xrd2
+      - xrd3:xrd3
     volumes:
       - ../../../tools:/opt/rucio/tools
       - ../../../bin:/opt/rucio/bin
       - ../../../lib:/opt/rucio/lib
-  mysql:
-    image: mysql/mysql-server:8.0.17
-    command: ['--default-authentication-plugin=mysql_native_password', '--character-set-server=latin1']
     environment:
-      - MYSQL_DATABASE=mysql
-      - MYSQL_USER=root
-      - MYSQL_PASSWORD=secret
-      - MYSQL_ROOT_PASSWORD=secret
+      - X509_USER_CERT=/opt/rucio/etc/usercert.pem
+      - X509_USER_KEY=/opt/rucio/etc/userkey.pem
+  ruciodb:
+    image: postgres:11
+    environment:
+      - POSTGRES_USER=rucio
+      - POSTGRES_DB=rucio
+      - POSTGRES_PASSWORD=secret
+    ports:
+      - "5432:5432"
   graphite:
     image: graphiteapp/graphite-statsd
     ports:
       - "80:80"
+  fts:
+    image: rucio/fts
+    hostname: fts
+    ports:
+      - "8446:8446"
+      - "8449:8449"
+  ftsdb:
+    image: mysql:5
+    hostname: ftsdb
+    environment:
+      - MYSQL_USER=fts
+      - MYSQL_PASSWORD=fts
+      - MYSQL_ROOT_PASSWORD=fts
+      - MYSQL_DATABASE=fts
+    ports:
+      - "3306:3306"
+  xrd1:
+    image: rucio/xrootd
+    hostname: xrd1
+    environment:
+      - XRDPORT=1094
+    ports:
+      - "1094:1094"
+    volumes:
+      - ../../certs/hostcert_xrd1.pem:/etc/grid-security/xrd/xrdcert.pem
+      - ../../certs/hostcert_xrd1.key.pem:/etc/grid-security/xrd/xrdkey.pem
+  xrd2:
+    image: rucio/xrootd
+    hostname: xrd2
+    environment:
+      - XRDPORT=1095
+    ports:
+      - "1095:1095"
+    volumes:
+      - ../../certs/hostcert_xrd2.pem:/etc/grid-security/xrd/xrdcert.pem
+      - ../../certs/hostcert_xrd2.key.pem:/etc/grid-security/xrd/xrdkey.pem
+  xrd3:
+    image: rucio/xrootd
+    hostname: xrd3
+    environment:
+      - XRDPORT=1096
+    ports:
+      - "1096:1096"
+    volumes:
+      - ../../certs/hostcert_xrd3.pem:/etc/grid-security/xrd/xrdcert.pem
+      - ../../certs/hostcert_xrd3.key.pem:/etc/grid-security/xrd/xrdkey.pem
