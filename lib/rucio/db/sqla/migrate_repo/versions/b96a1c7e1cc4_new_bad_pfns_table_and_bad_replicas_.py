@@ -36,8 +36,6 @@ from rucio.db.sqla.constants import BadPFNStatus
 revision = 'b96a1c7e1cc4'
 down_revision = '1f46c5f240ac'
 
-schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-
 
 def upgrade():
     '''
@@ -45,6 +43,7 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'postgresql', 'mysql']:
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         # Create new bad_pfns table
         create_table('bad_pfns',
                      sa.Column('path', sa.String(2048)),
@@ -91,6 +90,8 @@ def downgrade():
         create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'created_at'])
 
     elif context.get_context().dialect.name == 'postgresql':
+        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+
         drop_table('bad_pfns')
         drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
 
