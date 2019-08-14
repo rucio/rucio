@@ -17,6 +17,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -46,7 +47,7 @@ logging.getLogger("boto.s3.connection").setLevel(logging.WARNING)
 
 REGION = make_region().configure('dogpile.cache.memcached',
                                  expiration_time=3600,
-                                 arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
+                                 arguments={'url': config.config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
 
 # for local test
 REGION = make_region().configure('dogpile.cache.memory',
