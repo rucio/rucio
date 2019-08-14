@@ -30,8 +30,6 @@ from alembic.op import (add_column, create_check_constraint,
 revision = '1d96f484df21'
 down_revision = '3d9813fab443'
 
-schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
-
 
 def upgrade():
     '''
@@ -44,6 +42,7 @@ def upgrade():
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O', 'W', 'I')")
 
     elif context.get_context().dialect.name == 'postgresql':
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False), schema=schema)
         drop_constraint('RULES_STATE_CHK', 'rules')
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O', 'W', 'I')")
@@ -59,6 +58,7 @@ def downgrade():
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O')")
 
     elif context.get_context().dialect.name == 'postgresql':
+        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
         drop_column('rules', 'ignore_account_limit', schema=schema[:-1])
         op.execute('ALTER TABLE ' + schema + 'rules DROP CONSTRAINT IF EXISTS "RULES_STATE_CHK", ALTER COLUMN state TYPE CHAR')  # pylint: disable=no-member
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O')")
