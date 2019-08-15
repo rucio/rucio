@@ -1,7 +1,7 @@
 # All dependencies needed to run rucio should be defined here
 
 SQLAlchemy==1.3.3                                 # db backend
-alembic==1.0.9                                    # Lightweight database migration tool for SQLAlchemy
+alembic==1.0.11                                   # Lightweight database migration tool for SQLAlchemy
 web.py==0.39; python_version <= '2.7'             # Python web framework for Python2
 web.py==0.40.dev1; python_version > '2.7'         # Python web framework for Python3
 python-memcached==1.59; python_version <= '2.7'   # Quick and small memcached client for Python2

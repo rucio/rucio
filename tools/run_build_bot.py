@@ -171,7 +171,7 @@ def start_test(mr):
     tools/sync_rses.py;
     tools/sync_meta.py;
     tools/bootstrap_tests.py;
-    nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient --exclude=.*test_rse_protocol_.* --exclude=test_alembic --exclude=test_rucio_cache --exclude=test_rucio_server --exclude=test_dq2* --exclude=test_objectstore > /tmp/rucio_nose.txt 2> /tmp/rucio_nose.txt;
+    nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient --exclude=.*test_rse_protocol_.* --exclude=test_alembic --exclude=test_rucio_cache --exclude=test_rucio_server --exclude=test_dq2* > /tmp/rucio_nose.txt 2> /tmp/rucio_nose.txt;
     tools/reset_database.py;
     nosetests -v lib/rucio/tests/test_alembic.py > /tmp/rucio_alembic.txt 2> /tmp/rucio_alembic.txt;
     flake8 --exclude=*.cfg bin/* lib/ tools/*.py > /tmp/rucio_flake8.txt;

@@ -154,7 +154,7 @@ def get_signed_url(service, operation, url, lifetime=600):
             s3op = 'delete_object'
 
         with record_timer_block('credential.signs3'):
-            s3 = boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_key, config=Config(signature_version=signature_version, region_name=region_name))
+            s3 = boto3.client('s3', endpoint_url='https://' + host, aws_access_key_id=access_key, aws_secret_access_key=secret_key, config=Config(signature_version=signature_version, region_name=region_name))
 
             signed_url = s3.generate_presigned_url(s3op, Params={'Bucket': bucket, 'Key': key}, ExpiresIn=lifetime)
 
