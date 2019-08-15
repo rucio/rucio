@@ -112,7 +112,8 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
            or re.match(".*columns name, account are not unique.*", error.args[0])\
            or re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTIONS_NAME_ACCOUNT_UQ.*violated.*', error.args[0])\
            or re.match('.*IntegrityError.*1062.*Duplicate entry.*', error.args[0]) \
-           or re.match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]):
+           or re.match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+           or re.match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]):
             raise SubscriptionDuplicate('Subscription \'%s\' owned by \'%s\' already exists!' % (name, account))
         raise RucioException(error.args)
     return new_subscription.id

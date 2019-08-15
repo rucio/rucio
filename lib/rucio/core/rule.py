@@ -248,6 +248,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                        or match('.*IntegrityError.*UNIQUE constraint failed.*', str(error.args[0]))\
                        or match('.*1062.*Duplicate entry.*for key.*', str(error.args[0]))\
                        or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+                       or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
                        or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
                         raise DuplicateRule(error.args[0])
                     raise InvalidReplicationRule(error.args[0])
