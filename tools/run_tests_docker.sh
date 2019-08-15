@@ -54,6 +54,11 @@ if [ $? != 0 ]; then
     exit 1
 fi
 
+if [ -f /tmp/rucio.db ]; then
+    echo 'Disable SQLite database access restriction'
+    chmod 777 /tmp/rucio.db
+fi
+
 echo 'Running full alembic migration'
 alembic -c /opt/rucio/etc/alembic.ini downgrade base
 if [ $? != 0 ]; then
