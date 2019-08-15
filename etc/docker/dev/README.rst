@@ -12,10 +12,10 @@ Start the Docker daemon with `sudo systemctl start docker`. You can confirm that
 
 If successful, this will print an informational message telling you that you are ready to go.  Now, also install the `docker-compose` helper tool, e.g., with `sudo apt install docker-compose`. You are now ready to install the Rucio development environment.
 
+This container can be found on Dockerhub as `rucio/rucio-dev`, and the corresponding `Dockerfile <https://github.com/rucio/containers/tree/master/dev>`_ is also available. It provides a Rucio environment which allows you to mount your local code in the containers `bin`, `lib`, and `tools` directory. The container is set up to run against a PostgreSQL database with fsync and most durability features for the WAL disabled to improve testing IO throughput. Tests and checks can be run against the development code without having to rebuild the container.
+
 Preparing the environment
 -------------------------
-
-This container can be found on Dockerhub as `rucio/rucio-dev`, and the corresponding `Dockerfile <https://github.com/rucio/containers/tree/master/dev>`_ is also available. It provides a Rucio environment which allows you to mount your local code in the containers `bin`, `lib`, and `tools` directory. The container is set up to run against a PostgreSQL database. Tests and checks can be run against the development code without having to rebuild the container.
 
 The first step is to fork the `main Rucio repository on GitHub <https://github.com/rucio/rucio>`_ by clicking the yellow Fork Star button, and then clone your private forked Rucio repository to your `~/dev/rucio`. Afterwards add the main upstream repository as an additional remote to be able to submit pull requests later::
 
@@ -29,22 +29,28 @@ Now, ensure that the `.git/config` is proper, i.e., mentioning your full name an
 
 Next, setup and configure the Rucio development environment (again might need `sudo`)::
 
-   docker-compose --file etc/docker/dev/docker-compose.yml up -d
+    docker-compose --file etc/docker/dev/docker-compose.yml up -d
 
 And verify that it is running properly::
 
     docker ps
 
-This should show you three running containers: the Rucio server, the Graphite monitoring, and the PostgreSQL database.
+This should show you a few running containers: the Rucio server, the PostgreSQL database, FTS and its associated MySQL database, the Graphite monitoring, and three XrootD storage servers.
 
-Finally, you have to bootstrap the database, so inside the container run::
+Finally, you can jump into the container with::
 
     docker exec -it dev_rucio_1 bin/bash
-    tools/reset_database.sh
 
-To verify that everything is in order, you can now run the unit tests. So again, inside the container::
+To verify that everything is in order, you can now run the unit tests. So again, inside the container, either run the full testing suite (which takes ~10 minutes)::
 
     tools/run_tests_docker.sh
+
+Or alternatively, just bootstrap the test environment once and then selectively run test case modules, test case groups, or even single test cases, for example::
+
+    tools/run_tests_docker.sh -i
+    nosetests -v lib/rucio/tests/test_replica.py
+    nosetests -v lib/rucio/tests/test_replica.py:TestReplicaCore
+    nosetests -v lib/rucio/tests/test_replica.py:TestReplicaCore.test_delete_replicas_from_datasets
 
 Development
 -----------
@@ -54,12 +60,12 @@ The idea for containerised development is that you use your host machine to edit
     cd ~/dev/rucio
     emacs <file>
 
-To see your changes in action the recommended way is to jump twice into the container in parallel. One terminal to follow the output of the Rucio server, and on terminal to run interactive commands:
+To see your changes in action the recommended way is to jump twice into the container in parallel. One terminal to follow the output of the Rucio server with a shortcut to tail the logfiles (`logshow`), and one terminal to actually run interactive commands:
 
-From your host, get a separate Terminal 1 (the Rucio "server watcher")::
+From your host, get a separate Terminal 1 (the Rucio "server log show")::
 
    docker exec -it dev_rucio_1 /bin/bash
-   tail -f /var/log/httpd/*log /var/log/rucio/*log
+   logshow
 
 Terminal 1 can now be left open, and then from your host go into a new Terminal 2 (the "interactive" terminal)::
 
@@ -83,38 +89,9 @@ Database access
 
 The default database is PostgreSQL, and `docker-compose` is configured to open its port to the host machine. Using your favourite SQL navigator, e.g., `DBeaver <https://dbeaver.org>`_, you can connect to the database using the default access on `localhost:5432` to database name `rucio`, schema name `dev`, with username `rucio` and password `secret`.
 
+Docker is eating my disk space
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Manual setup without docker-compose
------------------------------------
+You can reclaim this with::
 
-The container environment may also be setup by hand. First setup the PostgreSQL server::
-
-    docker run -it -d --name psql \
-               -e POSTGRES_USER=rucio \
-               -e POSTGRES_DB=rucio \
-               -e POSTGRES_PASSWORD=secret \
-               -p 5432:5432 \
-               postgres:11
-
-And to provide a server for Rucio monitoring to report to::
-
-    docker run -d \
-               --name graphite \
-               --restart=always \
-               -p 80:80 \
-               -p 2003-2004:2003-2004 \
-               -p 2023-2024:2023-2024 \
-               -p 8125:8125/udp \
-               -p 8126:8126 \
-               graphiteapp/graphite-statsd
-
-Then start the Rucio container::
-
-    docker run -it -d --name rucio \
-               -p 443:443 \
-               -v `pwd`/tools/:/opt/rucio/tools \
-               -v `pwd`/bin/:/opt/rucio/bin \
-               -v `pwd`/lib/:/opt/rucio/lib \
-               --link psql:psql \
-               --link graphite:graphite \
-               rucio/rucio-dev
+    docker system prune -f --volumes
