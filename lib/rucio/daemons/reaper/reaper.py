@@ -188,9 +188,6 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                         if protocol['impl'] == 'rucio.rse.protocols.srm.Default' or protocol['impl'] == 'rucio.rse.protocols.gsiftp.Default':
                             protocol['impl'] = 'rucio.rse.protocols.gfal.Default'
 
-                        if protocol['impl'] == 'rucio.rse.protocols.signeds3.Default':
-                            protocol['impl'] = 'rucio.rse.protocols.s3es.Default'
-
                     needed_free_space, max_being_deleted_files = None, 100
                     needed_free_space_per_child = None
                     if not greedy:
