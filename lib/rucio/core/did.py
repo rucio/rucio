@@ -208,6 +208,7 @@ def add_dids(dids, account, session=None):
                 or match('.*IntegrityError.*UNIQUE constraint failed: dids.scope, dids.name.*', error.args[0]) \
                 or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
                 or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+                or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
                 or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
             raise exception.DataIdentifierAlreadyExists('Data Identifier already exists!')
 
@@ -216,6 +217,7 @@ def add_dids(dids, account, session=None):
                 or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', error.args[0]) \
                 or match('.*IntegrityError.*02291.*integrity constraint.*DIDS_SCOPE_FK.*violated - parent key not found.*', error.args[0]) \
                 or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint.*', error.args[0]) \
+                or match('.*ForeignKeyViolation.*insert or update on table.*violates foreign key constraint.*', error.args[0]) \
                 or match('.*sqlite3.IntegrityError.*foreign key constraint failed', error.args[0]):
             raise exception.ScopeNotFound('Scope not found!')
 
@@ -390,6 +392,7 @@ def __add_files_to_dataset(scope, name, files, account, rse_id, ignore_duplicate
         elif match('.*IntegrityError.*ORA-00001: unique constraint .*CONTENTS_PK.*violated.*', error.args[0]) \
                 or match('.*IntegrityError.*UNIQUE constraint failed: contents.scope, contents.name, contents.child_scope, contents.child_name.*', error.args[0])\
                 or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+                or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
                 or match('.*IntegrityError.*1062.*Duplicate entry .*for key.*PRIMARY.*', error.args[0]) \
                 or match('.*duplicate entry.*key.*PRIMARY.*', error.args[0]) \
                 or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
@@ -466,6 +469,7 @@ def __add_collections_to_container(scope, name, collections, account, session):
                 or match('.*IntegrityError.*1062.*Duplicate entry .*for key.*PRIMARY.*', error.args[0]) \
                 or match('.*columns scope, name, child_scope, child_name are not unique.*', error.args[0]) \
                 or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+                or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
                 or match('.*IntegrityError.* UNIQUE constraint failed: contents.scope, contents.name, contents.child_scope, contents.child_name.*', error.args[0]):
             raise exception.DuplicateContent(error.args)
         raise exception.RucioException(error.args)
