@@ -316,6 +316,21 @@ def get_ssh_challenge_token(account, appid, ip=None, session=None):
 
 @transactional_session
 def get_auth_token_saml(account, saml_nameid, appid, ip=None, session=None):
+    """
+    Authenticate a Rucio account temporarily via SAML.
+
+    The token lifetime is 1 hour.
+
+    :param account: Account identifier as a string.
+    :param saml_nameid: SAML NameID of the client.
+    :param appid: The application identifier as a string.
+    :param ip: IP address of the client a a string.
+    :param session: The database session in use.
+
+    :returns: Authentication token as a Python struct
+              .token string
+              .expired_at datetime
+    """
 
     # Make sure the account exists
     if not account_exists(account, session=session):

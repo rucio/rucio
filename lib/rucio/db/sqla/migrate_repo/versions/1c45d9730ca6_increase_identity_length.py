@@ -92,7 +92,7 @@ def downgrade():
 
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', SAML')")
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SAML')")
 
         alter_column('tokens', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
         alter_column('account_map', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
@@ -114,7 +114,7 @@ def downgrade():
         op.execute('ALTER TABLE ' + schema + 'account_map DROP CONSTRAINT IF EXISTS "ACCOUNT_MAP_ID_TYPE_CHK", ALTER COLUMN identity_type TYPE VARCHAR')  # pylint: disable=no-member
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', SAML')")
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SAML')")
         create_foreign_key('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', 'identities', ['identity', 'identity_type'], ['identity', 'identity_type'])
 
         alter_column('tokens', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema[:-1])

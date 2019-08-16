@@ -19,6 +19,7 @@
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 
 FROM centos:7
 ARG python
@@ -28,6 +29,7 @@ RUN yum -y update
 RUN yum install -y gcc httpd python-pip gmp-devel krb5-devel httpd mod_ssl mod_auth_kerb git python-devel.x86_64 openssl-devel.x86_64 gridsite which libaio memcached
 RUN yum -y install https://centos7.iuscommunity.org/ius-release.rpm
 RUN yum -y install python36u python36u-devel python36u-pip python35u python35u-devel python35u-pip
+RUN yum -y install xmlsec1-devel xmlsec1-openssl-devel libtool-ltdl-devel
 RUN yum clean all
 
 RUN rm -rf /usr/lib/python2.7/site-packages/ipaddress*
