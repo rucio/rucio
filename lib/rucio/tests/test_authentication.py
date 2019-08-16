@@ -13,11 +13,11 @@
 
 import base64
 
-from nose.tools import assert_equal, assert_is_none, assert_is_not_none, assert_greater, assert_in
+from nose.tools import assert_equal, assert_is_none, assert_is_not_none, assert_greater, assert_in, assert_raises
 from paste.fixture import TestApp
 
 from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_ssh, get_ssh_challenge_token, get_auth_token_saml
-from rucio.common.exception import Duplicate
+from rucio.common.exception import Duplicate, AccessDenied
 from rucio.common.types import InternalAccount
 from rucio.common.utils import ssh_sign
 from rucio.core.identity import add_account_identity, del_account_identity
@@ -117,13 +117,25 @@ class TestAuthCoreApi(object):
 
     def test_get_auth_token_saml_success(self):
         """AUTHENTICATION (CORE): SAML NameID (correct credentials)."""
+        root = InternalAccount('root')
+        try:
+            add_account_identity(PUBLIC_KEY, IdentityType.SAML, root, email='ph-adp-ddm-lab@cern.ch')
+        except Duplicate:
+            pass  # might already exist, can skip
+
         result = get_auth_token_saml(account='root', saml_nameid='ddmlab', appid='test', ip='127.0.0.1')
         assert_is_not_none(result)
 
     def test_get_auth_token_saml_fail(self):
         """AUTHENTICATION (CORE): SAML NameID (wrong credentials)."""
-        result = get_auth_token_saml(account='root', saml_nameid='not_ddmlab', appid='test', ip='127.0.0.1')
-        assert_is_none(result)
+        root = InternalAccount('root')
+        try:
+            add_account_identity(PUBLIC_KEY, IdentityType.SAML, root, email='ph-adp-ddm-lab@cern.ch')
+        except Duplicate:
+            pass  # might already exist, can skip
+
+        with assert_raises(AccessDenied):
+            get_auth_token_saml(account='root', saml_nameid='not_ddmlab', appid='test', ip='127.0.0.1')
 
 
 class TestAuthRestApi(object):
