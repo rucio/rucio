@@ -37,11 +37,12 @@ def export_data(issuer):
         rses[get_rse_name(rse_id=rse_id)] = rse
     data['rses'] = rses
 
-    for src_id, tmp in data['distances']:
+    for src_id in data['distances']:
+        dests = data['distances'][src_id]
         src = get_rse_name(rse_id=src_id)
         distances[src] = {}
-        for dst_id, dists in tmp:
-            dst = get_rse_name(rse_id=dst_id)
-            distances[src][dst] = dists
+        for dest_id in dests:
+            dest = get_rse_name(rse_id=dest_id)
+            distances[src][dest] = dests[dest_id]
     data['distances'] = distances
     return data
