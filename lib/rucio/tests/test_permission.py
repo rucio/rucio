@@ -8,6 +8,7 @@
 # Authors:
 # - Vincent Garonne,  <vincent.garonne@cern.ch> , 2012
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
 """
 Test the Permission Core and API
@@ -17,6 +18,7 @@ from nose.tools import assert_true, assert_false
 
 from rucio.api.permission import has_permission
 from rucio.common.config import config_get
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.scope import add_scope
 from rucio.tests.common import scope_name_generator
 
@@ -37,7 +39,7 @@ class TestPermissionCoreApi(object):
     def test_permission_add_did(self):
         """ PERMISSION(CORE): Check permission to add a did"""
         scope = scope_name_generator()
-        add_scope(scope=scope, account='root')
+        add_scope(scope=InternalScope(scope), account=InternalAccount('root'))
         assert_true(has_permission(issuer='panda', action='add_did', kwargs={'scope': scope}))
         assert_false(has_permission(issuer='spock', action='add_did', kwargs={'scope': scope}))
 

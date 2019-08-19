@@ -4,83 +4,94 @@ Setting up a Rucio development environment
 Prerequisites
 --------------
 
-Setting up a Rucio development environment requires to have Docker installed. Docker is an
-application that makes it simple and easy to run application processes. To install Docker for
-your platform, please refer to the `Docker installation guide <https://docs.docker.com/install/>`_.
+We provide a containerised version of the Rucio development environment for a quick start. Our containers are ready-made for Docker, which means you need to have a working Docker installation. To install Docker for your platform, please refer to the `Docker installation guide <https://docs.docker.com/install/>`_, for example, for Debian/Ubuntu `follow these instructions for the Docker Community Edition <https://docs.docker.com/install/linux/docker-ce/debian/>`_.
 
-Container for Development
+Start the Docker daemon with `sudo systemctl start docker`. You can confirm that Docker is running properly by executing (might need `sudo`)::
+
+    docker run hello-world
+
+If successful, this will print an informational message telling you that you are ready to go.  Now, also install the `docker-compose` helper tool, e.g., with `sudo apt install docker-compose`. You are now ready to install the Rucio development environment.
+
+This container can be found on Dockerhub as `rucio/rucio-dev`, and the corresponding `Dockerfile <https://github.com/rucio/containers/tree/master/dev>`_ is also available. It provides a Rucio environment which allows you to mount your local code in the containers `bin`, `lib`, and `tools` directory. The container is set up to run against a PostgreSQL database with fsync and most durability features for the WAL disabled to improve testing IO throughput. Tests and checks can be run against the development code without having to rebuild the container.
+
+Preparing the environment
 -------------------------
 
-The Dockerfile in this container is used to centrally produce the docker container available as rucio/rucio-dev. It
-provides a rucio environment which allow you to mount your local code in the containers bin, lib, and tools directory. The
-container is set up to run against a mysql database called rucio with user rucio, password rucio. Tests and checks may be
-run against the development code without having to rebuild the environment for each test.
+The first step is to fork the `main Rucio repository on GitHub <https://github.com/rucio/rucio>`_ by clicking the yellow Fork Star button, and then clone your private forked Rucio repository to your `~/dev/rucio`. Afterwards add the main upstream repository as an additional remote to be able to submit pull requests later::
 
-docker-compose
---------------
+    cd ~/dev
+    git clone git@github.com:<your_username>/rucio.git
+    cd rucio
+    git remote add upstream git@github.com:rucio/rucio.git
+    git fetch --all
 
-YAML for docker compose has been provided to allow easy setup the containers from the rucio code directory::
+Now, ensure that the `.git/config` is proper, i.e., mentioning your full name and email address, and that the `.githubtoken` is correctly set. Optionally, you can also replace the `~/dev/rucio/tools/pre-commit` hook with the one provided `here <https://raw.githubusercontent.com/rucio/containers/master/dev/pre-commit>`_ so that `pylint` run in the container rather then in the local system.
 
-   $> docker-compose --file etc/docker/dev/docker-compose.yml up -d
+Next, setup and configure the Rucio development environment (again might need `sudo`)::
 
-The names of the two containers (rucio and mysql) should be printed in the terminal for you.
+    docker-compose --file etc/docker/dev/docker-compose.yml up -d
 
-Docker By Hand
---------------
+And verify that it is running properly::
 
-The container environment may also be setup by hand. First setup the mysql server::
+    docker ps
 
-   $> docker run -it -d --name mysql \
-           -e MYSQL_RANDOM_ROOT_PASSWORD=True \
-           -e MYSQL_DATABASE=rucio \
-           -e MYSQL_USER=rucio \
-           -e MYSQL_PASSWORD=rucio \
-           mysql/mysql-server:5.7
+This should show you a few running containers: the Rucio server, the PostgreSQL database, FTS and its associated MySQL database, the Graphite monitoring, and three XrootD storage servers.
 
-And to provide a server for rucio monitoring to report to::
+Finally, you can jump into the container with::
 
-  $> docker run -d\
-                --name graphite\
-                --restart=always\
-                -p 80:80\
-                -p 2003-2004:2003-2004\
-                -p 2023-2024:2023-2024\
-                -p 8125:8125/udp\
-                -p 8126:8126\
-                graphiteapp/graphite-statsd
+    docker exec -it dev_rucio_1 bin/bash
 
-Then start the rucio container::
+To verify that everything is in order, you can now run the unit tests. So again, inside the container, either run the full testing suite (which takes ~10 minutes)::
 
-   $> docker run -it -d --name rucio -p "443:443" \
-           -v `pwd`/tools/:/opt/rucio/tools \
-           -v `pwd`/bin/:/opt/rucio/bin \
-           -v `pwd`/lib/:/opt/rucio/lib \
-           --link mysql:mysql \
-           rucio/rucio-dev
+    tools/run_tests_docker.sh
 
+Or alternatively, just bootstrap the test environment once and then selectively run test case modules, test case groups, or even single test cases, for example::
 
-Running Tests
--------------
+    tools/run_tests_docker.sh -i
+    nosetests -v lib/rucio/tests/test_replica.py
+    nosetests -v lib/rucio/tests/test_replica.py:TestReplicaCore
+    nosetests -v lib/rucio/tests/test_replica.py:TestReplicaCore.test_delete_replicas_from_datasets
 
-You should have something like this::
+Development
+-----------
 
-   $> docker ps
-   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS                    PORTS                        NAMES
-   5bbf88de58a7        graphiteapp/graphite-statsd   "/sbin/my_init"           2 hours ago        Up 2 hours                0.0.0.0:80->80/tcp, ...     dev_graphite_1
-   3d9dfb317ada        rucio-dev                     "httpd -D FOREGROUND"    28 minutes ago      Up 28 minutes             0.0.0.0:443->443/tcp        dev_rucio_1
-   88a5ad6cf6d0        mysql/mysql-server:5.7        "/entrypoint.sh my..."   28 minutes ago      Up 28 minutes (healthy)   3306/tcp, 33060/tcp         dev_mysql_1
+The idea for containerised development is that you use your host machine to edit the files, and test the changes within the container environment. On your host machine, you should be able to simply::
 
+    cd ~/dev/rucio
+    emacs <file>
 
-Note that the names of the containers may end up looking different on your system. To run the test suite use `docker exec` with the rucio container, e.g.::
+To see your changes in action the recommended way is to jump twice into the container in parallel. One terminal to follow the output of the Rucio server with a shortcut to tail the logfiles (`logshow`), and one terminal to actually run interactive commands:
 
-   $> docker exec -it dev_rucio_1 tools/run_tests_docker.sh
+From your host, get a separate Terminal 1 (the Rucio "server log show")::
 
-If needed, it is also possible to login directly to the container::
+   docker exec -it dev_rucio_1 /bin/bash
+   logshow
 
-   $> docker exec -it dev_rucio_1 /bin/bash
+Terminal 1 can now be left open, and then from your host go into a new Terminal 2 (the "interactive" terminal)::
 
-Git Hook
---------
+    docker exec -it dev_rucio_1 /bin/bash
+    rucio whoami
 
-Replace the `pre-commit` hook provided in `tools` with the one provided `here <https://github.com/rucio/rucio/blob/master/etc/docker/dev/pre-commit>`_.
-It runs `pylint` in the rucio development container rather then in the local system.
+The command will output in Terminal 2, and at the same time the server debug output will be shown in Terminal 1.
+
+Development tricks
+------------------
+
+Server changes
+~~~~~~~~~~~~~~
+
+If you edit server-side files, e.g. in `lib/rucio/web`, and your changes are not showing up then it is usually helpful to flush the memcache and force the webserver to restart without having to restart the container. Inside the container execute::
+
+    echo 'flush_all' | nc localhost 11211 && httpd -k graceful
+
+Database access
+~~~~~~~~~~~~~~~
+
+The default database is PostgreSQL, and `docker-compose` is configured to open its port to the host machine. Using your favourite SQL navigator, e.g., `DBeaver <https://dbeaver.org>`_, you can connect to the database using the default access on `localhost:5432` to database name `rucio`, schema name `dev`, with username `rucio` and password `secret`.
+
+Docker is eating my disk space
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can reclaim this with::
+
+    docker system prune -f --volumes

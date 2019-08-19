@@ -31,6 +31,7 @@ from nose.tools import assert_equal, assert_in, assert_not_in
 from paste.fixture import TestApp
 
 from rucio.client import ReplicaClient
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.config import set as config_set
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.rse import add_rse, add_rse_attribute, del_rse, add_protocol
@@ -65,7 +66,7 @@ class TestROOTProxy(object):
         # APERTURE1 site has an internal proxy
         config_set('root-proxy-internal', 'APERTURE1', 'proxy.aperture.com:1094')
 
-        self.files = [{'scope': 'mock',
+        self.files = [{'scope': InternalScope('mock'),
                        'name': 'half-life_%s' % i,
                        'bytes': 1234,
                        'adler32': 'deadbeef',
@@ -73,7 +74,7 @@ class TestROOTProxy(object):
         for rse_id in [self.rse_with_proxy_id, self.rse_without_proxy_id]:
             add_replicas(rse_id=rse_id,
                          files=self.files,
-                         account='root',
+                         account=InternalAccount('root'),
                          ignore_availability=True)
 
         add_protocol(self.rse_without_proxy_id, {'scheme': 'root',

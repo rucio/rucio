@@ -325,19 +325,8 @@ def list_rses(filters={}, session=None):
             else:
                 t = aliased(models.RSEAttrAssociation)
                 query = query.join(t, t.rse_id == models.RSEAttrAssociation.rse_id)
-                query = query.filter(t.key == k)
-
-                # FIXME
-                # ATLAS RSE listing workaround (since booleans are capital 'True'/'False')
-                # remove elif branch after appropriate database fix has been applied
-                # see also db/types.py
-                if isinstance(v, bool):
-                    query = query.filter(or_(t.value == v,
-                                             t.value == 'tmp_atlas_%s' % v,
-                                             t.value == 'tmp_atlas_%s' % 1 if v else 0))
-                else:
-                    query = query.filter(or_(t.value == v,
-                                             t.value == 'tmp_atlas_%s' % v))
+                query = query.filter(t.key == k,
+                                     t.value == v)
 
         condition1, condition2 = [], []
         for i in range(0, 8):
@@ -825,6 +814,7 @@ def add_protocol(rse_id, parameter, session=None):
            or match('.*IntegrityError.*ORA-00001: unique constraint.*RSE_PROTOCOLS_PK.*violated.*', error.args[0]) \
            or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
            or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0])\
+           or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0])\
            or match('.*IntegrityError.*columns.*are not unique.*', error.args[0]):
             raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (parameter['scheme'], parameter['port'], rse, parameter['hostname']))
         elif 'may not be NULL' in error.args[0] \

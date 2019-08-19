@@ -10,6 +10,7 @@
 # - Tomas Kouba, <tomas.kouba@cern.ch>, 2014
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -20,6 +21,7 @@ Interface for identity abstraction layer
 
 from rucio.api import permission
 from rucio.common import exception
+from rucio.common.types import InternalAccount
 from rucio.core import identity
 from rucio.db.sqla.constants import IdentityType
 
@@ -67,6 +69,8 @@ def add_account_identity(identity_key, id_type, account, email, issuer, default=
     if not permission.has_permission(issuer=issuer, action='add_account_identity', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not add account identity' % (issuer))
 
+    account = InternalAccount(account)
+
     return identity.add_account_identity(identity=identity_key, type=IdentityType.from_sym(id_type), default=default, email=email, account=account, password=password)
 
 
@@ -82,6 +86,8 @@ def del_account_identity(identity_key, id_type, account, issuer):
     kwargs = {'account': account}
     if not permission.has_permission(issuer=issuer, action='del_account_identity', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not delete account identity' % (issuer))
+
+    account = InternalAccount(account)
 
     return identity.del_account_identity(identity_key, IdentityType.from_sym(id_type), account)
 
@@ -102,7 +108,8 @@ def get_default_account(identity_key, id_type):
     :param identity_key: The identity key name. For example x509 DN, or a username.
     :param id_type: The type of the authentication (x509, gss, userpass, ssh).
     """
-    return identity.get_default_account(identity_key, IdentityType.from_sym(id_type))
+    account = identity.get_default_account(identity_key, IdentityType.from_sym(id_type))
+    return account.external
 
 
 def list_accounts_for_identity(identity_key, id_type):
@@ -114,4 +121,5 @@ def list_accounts_for_identity(identity_key, id_type):
 
     returns: A list of all accounts for the identity.
     """
-    return identity.list_accounts_for_identity(identity_key, IdentityType.from_sym(id_type))
+    accounts = identity.list_accounts_for_identity(identity_key, IdentityType.from_sym(id_type))
+    return [account.external for account in accounts]

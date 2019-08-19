@@ -18,6 +18,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -43,6 +44,7 @@ from sqlalchemy.orm.exc import FlushError
 
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed
+from rucio.common.types import InternalScope
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.rule import re_evaluate_did, get_updated_dids, delete_updated_did
 from rucio.core.monitor import record_counter
@@ -86,7 +88,7 @@ def re_evaluator(once=False):
             dids = get_updated_dids(total_workers=heartbeat['nr_threads'] - 1,
                                     worker_number=heartbeat['assign_thread'],
                                     limit=100,
-                                    blacklisted_dids=[key for key in paused_dids])
+                                    blacklisted_dids=[(InternalScope(key[0], fromExternal=False), key[1]) for key in paused_dids])
             logging.debug('re_evaluator[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, time.time() - start, len(dids)))
 
             # If the list is empty, sent the worker to sleep
@@ -100,25 +102,26 @@ def re_evaluator(once=False):
                         break
 
                     # Check if this did has already been operated on
-                    if '%s:%s' % (did.scope, did.name) in done_dids:
-                        if did.rule_evaluation_action in done_dids['%s:%s' % (did.scope, did.name)]:
+                    did_tag = '%s:%s' % (did.scope.internal, did.name)
+                    if did_tag in done_dids:
+                        if did.rule_evaluation_action in done_dids[did_tag]:
                             logging.debug('re_evaluator[%s/%s]: evaluation of %s:%s already done' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, did.scope, did.name))
                             delete_updated_did(id=did.id)
                             continue
                     else:
-                        done_dids['%s:%s' % (did.scope, did.name)] = []
+                        done_dids[did_tag] = []
 
                     try:
                         start_time = time.time()
                         re_evaluate_did(scope=did.scope, name=did.name, rule_evaluation_action=did.rule_evaluation_action)
                         logging.debug('re_evaluator[%s/%s]: evaluation of %s:%s took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, did.scope, did.name, time.time() - start_time))
                         delete_updated_did(id=did.id)
-                        done_dids['%s:%s' % (did.scope, did.name)].append(did.rule_evaluation_action)
+                        done_dids[did_tag].append(did.rule_evaluation_action)
                     except DataIdentifierNotFound as e:
                         delete_updated_did(id=did.id)
                     except (DatabaseException, DatabaseError) as e:
                         if match('.*ORA-00054.*', str(e.args[0])):
-                            paused_dids[(did.scope, did.name)] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
+                            paused_dids[(did.scope.internal, did.name)] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
                             logging.warning('re_evaluator[%s/%s]: Locks detected for %s:%s' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, did.scope, did.name))
                             record_counter('rule.judge.exceptions.LocksDetected')
                         elif match('.*QueuePool.*', str(e.args[0])):

@@ -19,6 +19,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2019
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -111,7 +112,8 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
            or re.match(".*columns name, account are not unique.*", error.args[0])\
            or re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTIONS_NAME_ACCOUNT_UQ.*violated.*', error.args[0])\
            or re.match('.*IntegrityError.*1062.*Duplicate entry.*', error.args[0]) \
-           or re.match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]):
+           or re.match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+           or re.match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]):
             raise SubscriptionDuplicate('Subscription \'%s\' owned by \'%s\' already exists!' % (name, account))
         raise RucioException(error.args)
     return new_subscription.id
@@ -238,7 +240,8 @@ def list_subscription_rule_states(name=None, account=None, session=None):
     """
     subscription = aliased(models.Subscription)
     rule = aliased(models.ReplicationRule)
-    query = session.query(subscription.account, subscription.name, rule.state, func.count()).join(rule, subscription.id == rule.subscription_id)
+    # count needs a label to allow conversion to dict (label name can be changed)
+    query = session.query(subscription.account, subscription.name, rule.state, func.count().label('count')).join(rule, subscription.id == rule.subscription_id)
 
     try:
         if name:
