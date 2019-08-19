@@ -58,12 +58,12 @@ class PlacementAlgorithm:
 
     def place(self, did):
         self.__update_penalties()
-        decision = {'did': ':'.join(did)}
-        if (self._added_cache.check_dataset(':'.join(did))):
+        decision = {'did': '{}:{}'.format(did[0].internal, did[1])}
+        if (self._added_cache.check_dataset(decision['did'])):
             decision['error_reason'] = 'already added replica for this did in the last 24h'
             return decision
 
-        if (not did[0].startswith('data')) and (not did[0].startswith('mc')):
+        if (not did[0].external.startswith('data')) and (not did[0].external.startswith('mc')):
             decision['error_reason'] = 'not a data or mc dataset'
             return decision
 
@@ -123,6 +123,6 @@ class PlacementAlgorithm:
         decision['rse_ratios'] = sorted_rses
         self._penalties[sorted_rses[0][0]] = 10.0
 
-        self._added_cache.add_dataset(':'.join(did))
+        self._added_cache.add_dataset(decision['did'])
 
         return decision

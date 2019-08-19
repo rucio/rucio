@@ -27,6 +27,7 @@ from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.uploadclient import UploadClient
+from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.replica import delete_replicas
 from rucio.core.rse import get_rse_id
@@ -86,7 +87,7 @@ class TestAbacusCollectionReplica():
 
         # Delete one file -> collection replica should be unavailable
         cleaner.run(once=True)
-        delete_replicas(rse_id=self.rse_id, files=[{'name': self.files[0]['did_name'], 'scope': self.files[0]['did_scope']}])
+        delete_replicas(rse_id=self.rse_id, files=[{'name': self.files[0]['did_name'], 'scope': InternalScope(self.files[0]['did_scope'])}])
         self.rule_client.add_replication_rule([{'scope': self.scope, 'name': self.dataset}], 1, self.rse, lifetime=-1)
         collection_replica.run(once=True)
         dataset_replica = [replica for replica in self.replica_client.list_dataset_replicas(self.scope, self.dataset)][0]

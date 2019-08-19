@@ -62,6 +62,7 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound,
                                     ManualRuleApprovalBlocked, UnsupportedOperation, UndefinedPolicy)
 from rucio.common.schema import validate_schema
+from rucio.common.types import InternalScope
 from rucio.common.utils import str_to_date, sizefmt
 from rucio.core import account_counter, rse_counter, request as request_core
 from rucio.core.account import get_account
@@ -247,6 +248,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                        or match('.*IntegrityError.*UNIQUE constraint failed.*', str(error.args[0]))\
                        or match('.*1062.*Duplicate entry.*for key.*', str(error.args[0]))\
                        or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+                       or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
                        or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
                         raise DuplicateRule(error.args[0])
                     raise InvalidReplicationRule(error.args[0])
@@ -1776,10 +1778,10 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
     for dts in datasets:
         logging.info('File %s:%s bad at site %s is completely lost from dataset %s:%s. Will be marked as LOST and detached', scope, name, rse, dts['scope'], dts['name'])
         rucio.core.did.detach_dids(scope=dts['scope'], name=dts['name'], dids=[{'scope': scope, 'name': name}], session=session)
-        add_message('LOST', {'scope': scope,
+        add_message('LOST', {'scope': scope.external,
                              'name': name,
                              'dataset_name': dts['name'],
-                             'dataset_scope': dts['scope']},
+                             'dataset_scope': dts['scope'].external},
                     session=session)
 
 
@@ -1875,7 +1877,7 @@ def generate_rule_notifications(rule, replicating_locks_before=None, session=Non
         # RULE_OK RULE_PROGRESS NOTIFICATIONS:
         if rule.notification == RuleNotification.YES:
             add_message(event_type='RULE_OK',
-                        payload={'scope': rule.scope,
+                        payload={'scope': rule.scope.external,
                                  'name': rule.name,
                                  'rule_id': rule.id},
                         session=session)
@@ -1884,13 +1886,13 @@ def generate_rule_notifications(rule, replicating_locks_before=None, session=Non
                 did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, session=session)
                 if not did['open']:
                     add_message(event_type='RULE_OK',
-                                payload={'scope': rule.scope,
+                                payload={'scope': rule.scope.external,
                                          'name': rule.name,
                                          'rule_id': rule.id},
                                 session=session)
                     if rule.notification == RuleNotification.PROGRESS:
                         add_message(event_type='RULE_PROGRESS',
-                                    payload={'scope': rule.scope,
+                                    payload={'scope': rule.scope.external,
                                              'name': rule.name,
                                              'rule_id': rule.id,
                                              'progress': __progress_class(rule.locks_replicating_cnt, total_locks)},
@@ -1906,7 +1908,7 @@ def generate_rule_notifications(rule, replicating_locks_before=None, session=Non
                 dataset_locks = session.query(models.DatasetLock).filter_by(rule_id=rule.id).all()
                 for dataset_lock in dataset_locks:
                     add_message(event_type='DATASETLOCK_OK',
-                                payload={'scope': dataset_lock.scope,
+                                payload={'scope': dataset_lock.scope.external,
                                          'name': dataset_lock.name,
                                          'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
                                          'rse_id': dataset_lock.rse_id,
@@ -1922,7 +1924,7 @@ def generate_rule_notifications(rule, replicating_locks_before=None, session=Non
                                 return
                             if did['length'] * rule.copies == rule.locks_ok_cnt:
                                 add_message(event_type='DATASETLOCK_OK',
-                                            payload={'scope': dataset_lock.scope,
+                                            payload={'scope': dataset_lock.scope.external,
                                                      'name': dataset_lock.name,
                                                      'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
                                                      'rse_id': dataset_lock.rse_id,
@@ -1938,7 +1940,7 @@ def generate_rule_notifications(rule, replicating_locks_before=None, session=Non
                 did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, session=session)
                 if not did['open']:
                     add_message(event_type='RULE_PROGRESS',
-                                payload={'scope': rule.scope,
+                                payload={'scope': rule.scope.external,
                                          'name': rule.name,
                                          'rule_id': rule.id,
                                          'progress': __progress_class(rule.locks_replicating_cnt, total_locks)},
@@ -1969,7 +1971,7 @@ def generate_email_for_rule_ok_notification(rule, session=None):
                                                  'expires_at': str(rule.expires_at),
                                                  'rse_expression': rule.rse_expression,
                                                  'comment': rule.comments,
-                                                 'scope': rule.scope,
+                                                 'scope': rule.scope.external,
                                                  'name': rule.name,
                                                  'did_type': rule.did_type})
                 add_message(event_type='email',
@@ -2042,7 +2044,7 @@ def approve_rule(rule_id, approver=None, notify_approvers=True, session=None):
                                                      'expires_at': str(rule.expires_at),
                                                      'rse_expression': rule.rse_expression,
                                                      'comment': rule.comments,
-                                                     'scope': rule.scope,
+                                                     'scope': rule.scope.external,
                                                      'name': rule.name,
                                                      'did_type': rule.did_type,
                                                      'approver': approver})
@@ -2098,7 +2100,7 @@ def deny_rule(rule_id, approver=None, reason=None, session=None):
                 text = template.safe_substitute({'rule_id': str(rule.id),
                                                  'rse_expression': rule.rse_expression,
                                                  'comment': rule.comments,
-                                                 'scope': rule.scope,
+                                                 'scope': rule.scope.external,
                                                  'name': rule.name,
                                                  'did_type': rule.did_type,
                                                  'approver': approver,
@@ -2961,11 +2963,11 @@ def __create_rule_approval_email(rule, session=None):
         text = template.safe_substitute({'rule_id': str(rule.id),
                                          'created_at': str(rule.created_at),
                                          'expires_at': str(rule.expires_at),
-                                         'account': rule.account,
+                                         'account': rule.account.external,
                                          'email': get_account(account=rule.account, session=session).email,
                                          'rse_expression': rule.rse_expression,
                                          'comment': rule.comments,
-                                         'scope': rule.scope,
+                                         'scope': rule.scope.external,
                                          'name': rule.name,
                                          'did_type': rule.did_type,
                                          'length': '0' if did['length'] is None else str(did['length']),
@@ -3073,9 +3075,10 @@ def archive_localgroupdisk_datasets(scope, name, session=None):
 
     rses_to_rebalance = []
 
+    archive = InternalScope('archive')
     # Check if the archival dataset already exists
     try:
-        rucio.core.did.get_did(scope='archive', name=name, session=session)
+        rucio.core.did.get_did(scope=archive, name=name, session=session)
         return
     except DataIdentifierNotFound:
         pass
@@ -3095,7 +3098,7 @@ def archive_localgroupdisk_datasets(scope, name, session=None):
             did = rucio.core.did.get_did(scope=scope, name=name, session=session)
             meta = rucio.core.did.get_metadata(scope=scope, name=name, session=session)
             new_meta = {k: v for k, v in meta.items() if k in ['project', 'datatype', 'run_number', 'stream_name', 'prod_step', 'version', 'campaign', 'task_id', 'panda_id'] and v is not None}
-            rucio.core.did.add_did(scope='archive',
+            rucio.core.did.add_did(scope=archive,
                                    name=name,
                                    type=DIDType.DATASET,
                                    account=did['account'],
@@ -3106,12 +3109,12 @@ def archive_localgroupdisk_datasets(scope, name, session=None):
                                    dids=[],
                                    rse_id=None,
                                    session=session)
-            rucio.core.did.attach_dids(scope='archive', name=name, dids=content, account=did['account'], session=session)
+            rucio.core.did.attach_dids(scope=archive, name=name, dids=content, account=did['account'], session=session)
             if not did['open']:
                 rucio.core.did.set_status(scope='archive', name=name, open=False, session=session)
 
             for rse in rses_to_rebalance:
-                add_rule(dids=[{'scope': 'archive', 'name': name}],
+                add_rule(dids=[{'scope': archive, 'name': name}],
                          account=rse['account'],
                          copies=1,
                          rse_expression=rse['rse'],

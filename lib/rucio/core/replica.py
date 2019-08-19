@@ -51,6 +51,7 @@ import rucio.core.lock
 
 from rucio.common import exception
 from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
+from rucio.common.types import InternalScope
 from rucio.core.config import get as config_get
 from rucio.core.credential import get_signed_url
 from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute
@@ -313,6 +314,9 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
             else:
                 scope = path.split('/')[0]
                 name = parsed_pfn[pfn]['name']
+
+            scope = InternalScope(scope)
+
             __exists, scope, name, already_declared, size = __exists_replicas(rse_id, scope, name, path=None, session=session)
             if __exists and ((str(status) == str(BadFilesStatus.BAD) and not already_declared) or str(status) == str(BadFilesStatus.SUSPICIOUS)):
                 replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
@@ -551,6 +555,7 @@ def get_did_from_pfns(pfns, rse_id=None, session=None):
                 else:
                     scope = path.split('/')[0]
                     name = parsed_pfn[pfn]['name']
+                scope = InternalScope(scope)
                 yield {pfn: {'scope': scope, 'name': name}}
         else:
             condition = []
@@ -600,7 +605,7 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, resolve_ar
                                          models.ConstituentAssociation.child_name == name)\
                                  .with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)", 'oracle')\
                                  .all()
-                constituents['%s:%s' % (scope, name)] = [{'scope': tmp[0], 'name': tmp[1]} for tmp in archive]
+                constituents['%s:%s' % (scope.internal, name)] = [{'scope': tmp[0], 'name': tmp[1]} for tmp in archive]
 
             if did_type == DIDType.FILE:
                 files.append({'scope': scope, 'name': name})
@@ -782,7 +787,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
 
             # if the file is a constituent, find the available archives and add them to the list of possible PFNs
             # taking into account the original rse_expression
-            if '%s:%s' % (scope, name) in constituents:
+            if '%s:%s' % (scope.internal, name) in constituents:
 
                 # special protocol handling for constituents
                 # force the use of root if client didn't specify
@@ -793,7 +798,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                     schemes.append('root')
                     schemes = list(set(schemes))
 
-                archive_result = list_replicas(dids=constituents['%s:%s' % (scope, name)],
+                archive_result = list_replicas(dids=constituents['%s:%s' % (scope.internal, name)],
                                                schemes=schemes, client_location=client_location,
                                                domain=domain, sign_urls=sign_urls,
                                                rse_expression=rse_expression,
@@ -935,10 +940,10 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                     protocol = tmp_protocol[1]
                     if 'determinism_type' in protocol.attributes:  # PFN is cachable
                         try:
-                            path = pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope, name)]
+                            path = pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope.internal, name)]
                         except KeyError:  # No cache entry scope:name found for this protocol
                             path = protocol._get_path(scope, name)
-                            pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope, name)] = path
+                            pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope.internal, name)] = path
 
                     try:
                         pfn = protocol.lfns2pfns(lfns={'scope': scope,
@@ -997,7 +1002,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                     file['states'][rse_id] = str(state)
 
                     if resolve_parents:
-                        file['parents'] = ['%s:%s' % (parent['scope'], parent['name'])
+                        file['parents'] = ['%s:%s' % (parent['scope'].internal, parent['name'])
                                            for parent in rucio.core.did.list_all_parent_dids(scope, name, session=session)]
 
                     for tmp_pfn in pfns:
@@ -1010,7 +1015,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                                     'client_extract': tmp_pfn[3]}
                 else:
                     if resolve_parents:
-                        file['parents'] = ['%s:%s' % (parent['scope'], parent['name'])
+                        file['parents'] = ['%s:%s' % (parent['scope'].internal, parent['name'])
                                            for parent in rucio.core.did.list_all_parent_dids(file['scope'], file['name'], session=session)]
 
                     # quick exit, but don't forget to set the total order for the priority
@@ -1043,7 +1048,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                 file['states'] = {rse_id: str(state)}
 
                 if resolve_parents:
-                    file['parents'] = ['%s:%s' % (parent['scope'], parent['name'])
+                    file['parents'] = ['%s:%s' % (parent['scope'].internal, parent['name'])
                                        for parent in rucio.core.did.list_all_parent_dids(scope, name, session=session)]
 
                 if rse_id:
@@ -1081,7 +1086,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
 
         # don't forget to resolve parents for the last replica
         if resolve_parents:
-            file['parents'] = ['%s:%s' % (parent['scope'], parent['name'])
+            file['parents'] = ['%s:%s' % (parent['scope'].internal, parent['name'])
                                for parent in rucio.core.did.list_all_parent_dids(file['scope'], file['name'], session=session)]
 
         # also sort the pfns inside the rse structure
@@ -1517,7 +1522,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
         for scope, name, did_type in query:
             if did_type == DIDType.DATASET:
                 messages.append({'event_type': 'ERASE',
-                                 'payload': dumps({'scope': scope,
+                                 'payload': dumps({'scope': scope.external,
                                                    'name': name,
                                                    'account': 'root'})})
             deleted_rules.append(and_(models.ReplicationRule.scope == scope,
@@ -2403,11 +2408,12 @@ def list_datasets_per_rse(rse_id, filters=None, limit=None, session=None):
 
     for (k, v) in filters and filters.items() or []:
         if k == 'name' or k == 'scope':
-            if '*' in v or '%' in v:
+            v_str = v if k != 'scope' else v.internal
+            if '*' in v_str or '%' in v_str:
                 if session.bind.dialect.name == 'postgresql':  # PostgreSQL escapes automatically
-                    query = query.filter(getattr(models.CollectionReplica, k).like(v.replace('*', '%')))
+                    query = query.filter(getattr(models.CollectionReplica, k).like(v_str.replace('*', '%')))
                 else:
-                    query = query.filter(getattr(models.CollectionReplica, k).like(v.replace('*', '%'), escape='\\'))
+                    query = query.filter(getattr(models.CollectionReplica, k).like(v_str.replace('*', '%'), escape='\\'))
             else:
                 query = query.filter(getattr(models.CollectionReplica, k) == v)
                 # hints ?

@@ -184,11 +184,11 @@ def define_eol(scope, name, rses, session=None):
         return None
     policy_dict = rucio.common.policy.get_lifetime_policy()
     did_type = 'other'
-    if scope.startswith('mc'):
+    if scope.external.startswith('mc'):
         did_type = 'mc'
-    elif scope.startswith('data'):
+    elif scope.external.startswith('data'):
         did_type = 'data'
-    elif scope.startswith('valid'):
+    elif scope.external.startswith('valid'):
         did_type = 'valid'
     else:
         did_type = 'other'

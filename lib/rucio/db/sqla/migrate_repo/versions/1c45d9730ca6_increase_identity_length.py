@@ -14,6 +14,7 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 
 ''' increase identity length '''
 
@@ -26,6 +27,8 @@ from alembic.op import alter_column, create_check_constraint, create_foreign_key
 revision = '1c45d9730ca6'
 down_revision = 'b4293a99f344'
 
+schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+
 
 def upgrade():
     '''
@@ -33,8 +36,6 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'postgresql']:
-
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
         alter_column('identities', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
         alter_column('account_map', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
@@ -58,6 +59,8 @@ def upgrade():
         alter_column('account_map', 'identity', existing_type=sa.String(255), type_=sa.String(2048), nullable=False)
         create_foreign_key('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', 'identities', ['identity', 'identity_type'], ['identity', 'identity_type'])
 
+        drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check')
+        drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
@@ -94,7 +97,6 @@ def downgrade():
         alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
 
     elif context.get_context().dialect.name == 'postgresql':
-        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
         execute("DELETE FROM " + schema + "account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
         execute("DELETE FROM " + schema + "identities WHERE identity_type='SSH'")  # pylint: disable=no-member
 
@@ -118,10 +120,12 @@ def downgrade():
         execute("DELETE FROM account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
         execute("DELETE FROM identities WHERE identity_type='SSH'")  # pylint: disable=no-member
 
+        drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check')
+        drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
+
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS')")
-
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS')")

@@ -16,11 +16,12 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 
 import nose.tools
 
 from rucio.common.utils import execute, generate_uuid
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.core import rse as rse_core
 from rucio.core import replica as replica_core
 
@@ -34,9 +35,9 @@ def test_reaper():
     rse_id = rse_core.get_rse_id(rse='MOCK')
 
     for i in range(nb_files):
-        replica_core.add_replica(rse_id=rse_id, scope='data13_hip',
+        replica_core.add_replica(rse_id=rse_id, scope=InternalScope('data13_hip'),
                                  name='lfn' + generate_uuid(), bytes=file_size,
-                                 account='root', adler32=None, md5=None)
+                                 account=InternalAccount('root'), adler32=None, md5=None)
 
     rse_core.set_rse_usage(rse_id=rse_id, source='srm', used=nb_files * file_size, free=800)
     rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=10737418240)

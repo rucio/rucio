@@ -15,6 +15,7 @@
 from nose.tools import assert_equal, assert_in
 
 from rucio.db.sqla import session, models
+from rucio.common.types import InternalAccount
 from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_usage
 from rucio.core.rse import get_rse_id
@@ -89,7 +90,7 @@ class TestCoreAccountCounter():
         """ACCOUNT COUNTER (CORE): Increase, decrease and get counter """
         account_update(once=True)
         rse_id = get_rse_id(rse='MOCK')
-        account = 'jdoe'
+        account = InternalAccount('jdoe')
         account_counter.del_counter(rse_id=rse_id, account=account)
         account_counter.add_counter(rse_id=rse_id, account=account)
         cnt = get_usage(rse_id=rse_id, account=account)

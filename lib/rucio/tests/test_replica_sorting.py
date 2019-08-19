@@ -20,6 +20,7 @@
 from nose.tools import assert_equal, assert_in, assert_not_in
 
 from rucio.client import ReplicaClient
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.rse import add_rse, del_rse, add_rse_attribute, add_protocol
 from rucio.tests.common import rse_name_generator
@@ -39,10 +40,11 @@ class TestReplicaSorting(object):
         add_rse_attribute(rse_id=self.rse1_id, key='site', value='APERTURE')
         add_rse_attribute(rse_id=self.rse2_id, key='site', value='BLACKMESA')
 
-        self.files = [{'scope': 'mock', 'name': 'element_0',
+        self.files = [{'scope': InternalScope('mock'), 'name': 'element_0',
                        'bytes': 1234, 'adler32': 'deadbeef'}]
-        add_replicas(rse_id=self.rse1_id, files=self.files, account='root')
-        add_replicas(rse_id=self.rse2_id, files=self.files, account='root')
+        root = InternalAccount('root')
+        add_replicas(rse_id=self.rse1_id, files=self.files, account=root)
+        add_replicas(rse_id=self.rse2_id, files=self.files, account=root)
 
         add_protocol(self.rse1_id, {'scheme': 'root',
                                     'hostname': 'root.aperture.com',
