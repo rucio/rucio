@@ -119,7 +119,7 @@ class TestAuthCoreApi(object):
         """AUTHENTICATION (CORE): SAML NameID (correct credentials)."""
         root = InternalAccount('root')
         try:
-            add_account_identity(PUBLIC_KEY, IdentityType.SAML, root, email='ph-adp-ddm-lab@cern.ch')
+            add_account_identity('ddmlab', IdentityType.SAML, root, email='ph-adp-ddm-lab@cern.ch')
         except Duplicate:
             pass  # might already exist, can skip
 
@@ -130,7 +130,7 @@ class TestAuthCoreApi(object):
         """AUTHENTICATION (CORE): SAML NameID (wrong credentials)."""
         root = InternalAccount('root')
         try:
-            add_account_identity(PUBLIC_KEY, IdentityType.SAML, root, email='ph-adp-ddm-lab@cern.ch')
+            add_account_identity('ddmlab', IdentityType.SAML, root, email='ph-adp-ddm-lab@cern.ch')
         except Duplicate:
             pass  # might already exist, can skip
 
