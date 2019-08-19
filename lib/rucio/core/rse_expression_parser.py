@@ -11,6 +11,7 @@
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
   - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
+  - Brandon White, <bjwhite@fnal.gov>, 2019
 
   PY3K COMPATIBLE
 '''
@@ -24,6 +25,7 @@ from hashlib import sha256
 from six import add_metaclass
 
 from rucio.common import schema
+from rucio.common.config import config_get
 from rucio.common.exception import InvalidRSEExpression, RSEBlacklisted
 from rucio.core.rse import list_rses, get_rses_with_attribute, get_rse_attribute
 from rucio.db.sqla.session import transactional_session
@@ -41,7 +43,7 @@ PATTERN = r'^%s(%s|%s|%s)*' % (PRIMITIVE, UNION, INTERSECTION, COMPLEMENT)
 
 REGION = make_region().configure('dogpile.cache.memcached',
                                  expiration_time=3600,
-                                 arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
+                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
 
 
 @transactional_session
