@@ -30,7 +30,7 @@ from rucio.client.importclient import ImportClient
 from rucio.client.exportclient import ExportClient
 from rucio.common.exception import RSENotFound
 from rucio.common.utils import render_json, parse_response
-from rucio.core.distance import add_distance, get_distances, export_distances
+from rucio.core.distance import add_distance, get_distances
 from rucio.core.exporter import export_data, export_rses
 from rucio.core.importer import import_data
 from rucio.core.rse import get_rse_id, get_rse_name, add_rse, get_rse, add_protocol, get_rse_protocols, list_rse_attributes, get_rse_limits, set_rse_limits, add_rse_attribute, list_rses, export_rse, get_rse_attribute
@@ -350,11 +350,32 @@ class TestImporter(object):
 
 class TestExporter(object):
 
+    def setup(self):
+        self.db_session = session.get_session()
+        self.db_session.query(models.Distance).delete()
+        self.db_session.commit()
+        self.rse_1 = 'MOCK'
+        self.rse_1_id = get_rse_id(self.rse_1)
+        self.rse_2 = 'MOCK2'
+        self.rse_2_id = get_rse_id(self.rse_2)
+        ranking = 10
+        add_distance(self.rse_1_id, self.rse_2_id, ranking)
+        self.distances = {
+            self.rse_1: {
+                self.rse_2: get_distances(self.rse_1_id, self.rse_2_id)[0]
+            }
+        }
+        self.distances_core = {
+            self.rse_1_id: {
+                self.rse_2_id: get_distances(self.rse_1_id, self.rse_2_id)[0]
+            }
+        }
+
     def test_export_core(self):
         """ EXPORT (CORE): Test the export of data."""
         data = export_data()
         assert_equal(data['rses'], export_rses())
-        assert_equal(data['distances'], export_distances())
+        assert_equal(data['distances'], self.distances_core)
 
     def test_export_client(self):
         """ EXPORT (CLIENT): Test the export of data."""
@@ -366,7 +387,7 @@ class TestExporter(object):
             rse_id = rse['id']
             rses[rse_name] = export_rse(rse_id=rse_id)
         assert_equal(data['rses'], parse_response(render_json(**rses)))
-        assert_equal(data['distances'], parse_response(render_json(**export_distances())))
+        assert_equal(data['distances'], parse_response(render_json(**self.distances)))
 
     def test_export_rest(self):
         """ EXPORT (REST): Test the export of data."""
@@ -384,7 +405,7 @@ class TestExporter(object):
         rses = sanitised
 
         assert_equal(r2.status, 200)
-        assert_equal(r2.body, render_json(**{'rses': rses, 'distances': export_distances()}))
+        assert_equal(parse_response(r2.body), parse_response(render_json(**{'rses': rses, 'distances': self.distances})))
 
 
 class TestExportImport(object):
