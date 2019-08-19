@@ -9,6 +9,7 @@
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2016-2017
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+ - James Perry, <j.perry@epcc.ed.ac.uk>, 2019
 
  PY3K COMPATIBLE
 """
@@ -19,24 +20,21 @@ except ImportError:
     from configparser import NoOptionError, NoSectionError
 from rucio.common import config
 
-if config.config_has_section('permission'):
-    try:
-        POLICY = config.config_get('permission', 'policy')
-    except (NoOptionError, NoSectionError) as error:
-        POLICY = 'generic'
-elif config.config_has_section('policy'):
-    try:
-        POLICY = config.config_get('policy', 'permission')
-    except (NoOptionError, NoSectionError) as error:
-        POLICY = 'generic'
-else:
-    POLICY = 'generic'
+import importlib
 
-if POLICY.lower() == 'generic':
-    from .generic import *  # NOQA pylint:disable=wildcard-import
-elif POLICY.lower() == 'atlas':
-    from .atlas import *  # NOQA pylint:disable=wildcard-import
-elif POLICY.lower() == 'cms':
-    from .cms import *  # NOQA pylint:disable=wildcard-import
+if config.config_has_section('policy'):
+    try:
+        POLICY = config.config_get('policy', 'package') + ".permission"
+    except (NoOptionError, NoSectionError) as error:
+        POLICY = 'rucio.core.permission.generic'
 else:
-    from .generic import *  # NOQA pylint:disable=wildcard-import
+    POLICY = 'rucio.core.permission.generic'
+
+try:
+    module = importlib.import_module(POLICY)
+except (ImportError) as error:
+    module = importlib.import_module('rucio.core.permission.generic')
+
+for i in dir(module):
+    if i[:1] != '_' or i == '_is_root':
+        globals()[i] = getattr(module, i)
