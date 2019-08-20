@@ -32,7 +32,7 @@ def add_identity(identity_key, id_type, email, password=None):
     Creates a user identity.
 
     :param identity_key: The identity key name. For example x509 DN, or a username.
-    :param id_type: The type of the authentication (x509, gss, userpass, ssh)
+    :param id_type: The type of the authentication (x509, gss, userpass, ssh, saml)
     :param email: The Email address associated with the identity.
     :param password: If type==userpass, this sets the password.
     """
@@ -43,7 +43,7 @@ def del_identity(identity_key, id_type, issuer):
     """
     Deletes a user identity.
     :param identity_key: The identity key name. For example x509 DN, or a username.
-    :param id_type: The type of the authentication (x509, gss, userpass, ssh).
+    :param id_type: The type of the authentication (x509, gss, userpass, ssh, saml).
     :param issuer: The issuer account.
     """
     id_type = IdentityType.from_sym(id_type)
@@ -59,7 +59,7 @@ def add_account_identity(identity_key, id_type, account, email, issuer, default=
     Adds a membership association between identity and account.
 
     :param identity_key: The identity key name. For example x509 DN, or a username.
-    :param id_type: The type of the authentication (x509, gss, userpass, ssh).
+    :param id_type: The type of the authentication (x509, gss, userpass, ssh, saml).
     :param account: The account name.
     :param email: The Email address associated with the identity.
     :param issuer: The issuer account.
@@ -80,7 +80,7 @@ def del_account_identity(identity_key, id_type, account, issuer):
     Removes a membership association between identity and account.
 
     :param identity_key: The identity key name. For example x509 DN, or a username.
-    :param id_type: The type of the authentication (x509, gss, userpass, ssh).
+    :param id_type: The type of the authentication (x509, gss, userpass, ssh, saml).
     :param account: The account name.
     :param issuer: The issuer account.
     """
@@ -107,7 +107,7 @@ def get_default_account(identity_key, id_type):
     Returns the default account for this identity.
 
     :param identity_key: The identity key name. For example x509 DN, or a username.
-    :param id_type: The type of the authentication (x509, gss, userpass, ssh).
+    :param id_type: The type of the authentication (x509, gss, userpass, ssh, saml).
     """
     account = identity.get_default_account(identity_key, IdentityType.from_sym(id_type))
     return account.external
