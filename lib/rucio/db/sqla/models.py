@@ -1267,9 +1267,9 @@ class LifetimeExceptions(BASE, ModelBase):
 class DidsFollowed(BASE, ModelBase):
     """Represents the datasets followed by an user"""
     __tablename__ = 'dids_followed'
-    scope = Column(String(SCOPE_LENGTH))
+    scope = Column(InternalScopeString(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
-    account = Column(String(25))
+    account = Column(InternalAccountString(25))
     did_type = Column(DIDType.db_type(name='DIDS_FOLLOWED_TYPE_CHK'))
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'account', name='DIDS_FOLLOWED_PK'),
                    CheckConstraint('SCOPE IS NOT NULL', name='DIDS_FOLLOWED_SCOPE_NN'),
