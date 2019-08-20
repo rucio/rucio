@@ -81,10 +81,11 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
     lifetime_exceptions = {}
     rand = random.Random(hb['assign_thread'])
     for excep in rucio.core.lifetime_exception.list_exceptions(exception_id=None, states=[LifetimeExceptionsState.APPROVED, ], session=None):
-        if '%s:%s' % (excep['scope'], excep['name']) not in lifetime_exceptions:
-            lifetime_exceptions['%s:%s' % (excep['scope'], excep['name'])] = excep['expires_at']
-        elif lifetime_exceptions['%s:%s' % (excep['scope'], excep['name'])] < excep['expires_at']:
-            lifetime_exceptions['%s:%s' % (excep['scope'], excep['name'])] = excep['expires_at']
+        key = '{}:{}'.format(excep['scope'].internal, excep['name'])
+        if key not in lifetime_exceptions:
+            lifetime_exceptions[key] = excep['expires_at']
+        elif lifetime_exceptions[key] < excep['expires_at']:
+            lifetime_exceptions[key] = excep['expires_at']
     logging.debug(prepend_str + '%s active exceptions' % len(lifetime_exceptions))
     if not dry_run and date_check > now:
         logging.error(prepend_str + 'Atropos cannot run in non-dry-run mode for date in the future')
@@ -100,6 +101,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
                 logging.info(prepend_str + '%s rules to process' % (len(rules)))
                 for rule_idx, rule in enumerate(rules, start=1):
                     did = '%s:%s' % (rule.scope, rule.name)
+                    did_key = '{}:{}'.format(rule.scope.internal, rule.name)
                     logging.debug(prepend_str + 'Working on rule %s on DID %s on %s' % (rule.id, did, rule.rse_expression))
 
                     if (rule_idx % 1000) == 0:
@@ -122,17 +124,17 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
                             continue
 
                     # Check the exceptions
-                    if did in lifetime_exceptions:
-                        if eol_at > lifetime_exceptions[did]:
+                    if did_key in lifetime_exceptions:
+                        if eol_at > lifetime_exceptions[did_key]:
                             logging.info(prepend_str + 'Rule %s on DID %s on %s has longer expiration date than the one requested : %s' % (rule.id, did, rule.rse_expression,
-                                                                                                                                           lifetime_exceptions[did]))
+                                                                                                                                           lifetime_exceptions[did_key]))
                         else:
                             # If eol_at < requested extension, update eol_at
                             logging.info(prepend_str + 'Updating rule %s on DID %s on %s according to the exception till %s' % (rule.id, did, rule.rse_expression,
-                                                                                                                                lifetime_exceptions[did]))
-                            eol_at = lifetime_exceptions[did]
+                                                                                                                                lifetime_exceptions[did_key]))
+                            eol_at = lifetime_exceptions[did_key]
                             try:
-                                update_rule(rule.id, options={'eol_at': lifetime_exceptions[did]})
+                                update_rule(rule.id, options={'eol_at': lifetime_exceptions[did_key]})
                             except RuleNotFound:
                                 logging.warning(prepend_str + 'Cannot find rule %s on DID %s' % (rule.id, did))
                                 continue
@@ -145,8 +147,8 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
                                 no_locks = False
                                 if lock['rse_id'] not in summary:
                                     summary[lock['rse_id']] = {}
-                                if did not in summary[lock['rse_id']]:
-                                    summary[lock['rse_id']][did] = {'length': lock['length'] or 0, 'bytes': lock['bytes'] or 0}
+                                if did_key not in summary[lock['rse_id']]:
+                                    summary[lock['rse_id']][did_key] = {'length': lock['length'] or 0, 'bytes': lock['bytes'] or 0}
                         if no_locks:
                             logging.warning(prepend_str + 'Cannot find a lock for rule %s on DID %s' % (rule.id, did))
                         if not dry_run:

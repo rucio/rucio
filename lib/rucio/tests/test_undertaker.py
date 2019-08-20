@@ -100,7 +100,7 @@ class TestUndertaker:
         """ UNDERTAKER (CORE): Test that the undertaker does not list expired dids with locked rules"""
         tmp_scope = InternalScope('mock', **self.vo)
         jdoe = InternalAccount('jdoe', **self.vo)
-        root = InternalAccount('root', *self.vo)
+        root = InternalAccount('root', **self.vo)
 
         # Add quota
         set_local_account_limit(jdoe, get_rse_id('MOCK', **self.vo), -1)

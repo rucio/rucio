@@ -37,7 +37,7 @@ class TestScopeCoreApi():
             self.vo = {'vo': 'tst'}
         else:
             self.vo = {}
-        
+
         self.scopes = [InternalScope(scope_name_generator(), **self.vo) for _ in range(5)]
         self.jdoe = InternalAccount('jdoe', **self.vo)
 

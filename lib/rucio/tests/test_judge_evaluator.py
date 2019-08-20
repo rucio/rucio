@@ -106,7 +106,7 @@ class TestJudgeEvaluator():
 
     def test_judge_add_dataset_to_container(self):
         """ JUDGE EVALUATOR: Test the judge when adding dataset to container"""
-        scope = InternalScope('mock')
+        scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)

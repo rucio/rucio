@@ -56,7 +56,7 @@ from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
 from rucio.common.types import InternalScope
 from rucio.core.config import get as config_get
 from rucio.core.credential import get_signed_url
-from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute
+from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute, get_rse_vo
 from rucio.core.rse_counter import decrease, increase
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models, filter_thread_work
@@ -308,7 +308,7 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
                 scope = path.split('/')[0]
                 name = parsed_pfn[pfn]['name']
 
-            scope = InternalScope(scope)
+            scope = InternalScope(scope, vo=issuer.vo)
 
             __exists, scope, name, already_declared, size = __exists_replicas(rse_id, scope, name, path=None, session=session)
             if __exists and ((str(status) == str(BadFilesStatus.BAD) and not already_declared) or str(status) == str(BadFilesStatus.SUSPICIOUS)):
@@ -528,6 +528,8 @@ def get_did_from_pfns(pfns, rse_id=None, session=None):
         proto = rsemgr.create_protocol(rse_info, 'read', scheme=scheme)
         if rse_info['deterministic']:
             parsed_pfn = proto.parse_pfns(pfns=pfns)
+            vo = get_rse_vo(rse_id=rse_id, session=session)
+
             # WARNING : this part is ATLAS specific and must be changed
             for pfn in parsed_pfn:
                 path = parsed_pfn[pfn]['path']
@@ -540,7 +542,7 @@ def get_did_from_pfns(pfns, rse_id=None, session=None):
                 else:
                     scope = path.split('/')[0]
                     name = parsed_pfn[pfn]['name']
-                scope = InternalScope(scope)
+                scope = InternalScope(scope, vo)
                 yield {pfn: {'scope': scope, 'name': name}}
         else:
             condition = []

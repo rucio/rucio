@@ -91,7 +91,7 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
 
     # Physical upload
     logging.info('%s Uploading physically the files %s on %s', prepend_str, str(lfns), rse)
-    rse_info = rsemgr.get_rse_info(rse)
+    rse_info = rsemgr.get_rse_info(rse, vo=client.vo)
     try:
         success_upload = True
         for cnt in range(0, 3):

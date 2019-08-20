@@ -43,7 +43,7 @@ import time
 import traceback
 
 from rucio.db.sqla.constants import ReplicaState
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (SourceNotFound, ServiceUnavailable, RSEAccessDenied,
                                     ReplicaUnAvailable, ResourceTemporaryUnavailable,
                                     DatabaseException, UnsupportedOperation,
@@ -373,7 +373,7 @@ def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, gr
     :param threads_per_worker: Total number of threads created by each worker.
     :param once: If True, only runs one iteration of the main loop.
     :param greedy: If True, delete right away replicas with tombstone.
-    :param rses: List of RSEs the reaper should work against. If empty, it considers all RSEs.
+    :param rses: List of RSEs the reaper should work against. If empty, it considers all RSEs. (Single-VO only)
     :param scheme: Force the reaper to use a particular protocol/scheme, e.g., mock.
     :param exclude_rses: RSE expression to exclude RSEs from the Reaper.
     :param include_rses: RSE expression to include RSEs.
@@ -382,12 +382,16 @@ def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, gr
 
     all_rses = rse_core.list_rses()
     if rses:
-        invalid = set(rses) - set([rse['rse'] for rse in all_rses])
-        if invalid:
-            msg = 'RSE{} {} cannot be found'.format('s' if len(invalid) > 1 else '',
-                                                    ', '.join([repr(rse) for rse in invalid]))
-            raise RSENotFound(msg)
-        rses = [rse for rse in all_rses if rse['rse'] in rses]
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            logging.warning('Ignoring argument rses, this is only available in a single-vo setup. Please try an RSE Expression with include_rses if it is required.')
+            rses = all_rses
+        else:
+            invalid = set(rses) - set([rse['rse'] for rse in all_rses])
+            if invalid:
+                msg = 'RSE{} {} cannot be found'.format('s' if len(invalid) > 1 else '',
+                                                        ', '.join([repr(rse) for rse in invalid]))
+                raise RSENotFound(msg)
+            rses = [rse for rse in all_rses if rse['rse'] in rses]
     else:
         rses = all_rses
 

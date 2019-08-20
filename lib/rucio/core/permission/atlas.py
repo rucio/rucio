@@ -384,7 +384,7 @@ def perm_add_did(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     # Check the accounts of the issued rules
-    if issuer != 'root' and not has_account_attribute(account=issuer, key='admin'):
+    if not _is_root(issuer) and not has_account_attribute(account=issuer, key='admin'):
         for rule in kwargs.get('rules', []):
             if rule['account'] != issuer:
                 return False
@@ -404,7 +404,7 @@ def perm_add_dids(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     # Check the accounts of the issued rules
-    if issuer != 'root' and not has_account_attribute(account=issuer, key='admin'):
+    if not _is_root(issuer) and not has_account_attribute(account=issuer, key='admin'):
         for did in kwargs['dids']:
             for rule in did.get('rules', []):
                 if rule['account'] != issuer:
@@ -692,7 +692,7 @@ def perm_set_status(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     if kwargs.get('open', False):
-        if issuer != 'root' and not has_account_attribute(account=issuer, key='admin'):
+        if not _is_root(issuer) and not has_account_attribute(account=issuer, key='admin'):
             return False
     cond = (_is_root(issuer) or has_account_attribute(account=issuer, key='admin'))
     if kwargs['scope'] != 'archive':

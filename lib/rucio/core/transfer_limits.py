@@ -19,7 +19,7 @@ from dogpile.cache.api import NoValue
 
 from rucio.common.config import config_get
 from rucio.core import config as config_core
-from rucio.core.rse import get_rse_id, get_rse_transfer_limits
+from rucio.core.rse import get_rse_transfer_limits
 
 queue_mode = config_get('conveyor', 'queue_mode', False, 'default')
 if queue_mode.upper() == 'STRICT':
@@ -101,11 +101,7 @@ def get_config_limits():
     items = config_core.items('throttler', use_cache=using_memcache)
     for opt, value in items:
         try:
-            activity, rsename = opt.split(',')
-            if rsename == 'all_rses':
-                rse_id = 'all_rses'
-            else:
-                rse_id = get_rse_id(rsename)
+            activity, rse_id = opt.split(',')
             if activity not in config_limits:
                 config_limits[activity] = {}
             config_limits[activity][rse_id] = int(value)

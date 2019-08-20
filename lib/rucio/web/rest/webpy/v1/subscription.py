@@ -268,7 +268,7 @@ class SubscriptionId:
         """
         header('Content-Type', 'application/json')
         try:
-            subscription = get_subscription_by_id(subscription_id)
+            subscription = get_subscription_by_id(subscription_id, vo=ctx.env.get('vo'))
         except SubscriptionNotFound as error:
             raise generate_http_error(404, 'SubscriptionNotFound', error.args[0])
         except RucioException as error:

@@ -157,6 +157,8 @@ class DownloadClient:
         self.trace_tpl['hostname'] = self.client_location['fqdn']
         self.trace_tpl['localSite'] = self.client_location['site']
         self.trace_tpl['account'] = self.client.account
+        if self.client.vo != 'def':
+            self.trace_tpl['vo'] = self.client.vo
         self.trace_tpl['eventType'] = 'download'
         self.trace_tpl['eventVersion'] = 'api_%s' % version.RUCIO_VERSION[0]
 

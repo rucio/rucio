@@ -176,7 +176,7 @@ def export_distances(vo='def', session=None):
                        .join(rse_src, rse_src.id == Distance.src_rse_id)\
                        .join(rse_dest, rse_dest.id == Distance.dest_rse_id)\
                        .filter(rse_src.vo == vo)\
-                       .filter(rse_dest == vo)
+                       .filter(rse_dest.vo == vo)
         for result in query.all():
             distance = result[0]
             src_id = result[1]

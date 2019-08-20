@@ -10,7 +10,7 @@
 #
 # PY3K COMPATIBLE
 
-from rucio.common.exception import RucioException
+from rucio.common.exception import RuleNotFound
 from rucio.common.types import InternalScope
 from rucio.common.utils import api_update_return_dict
 from rucio.core import lock
@@ -64,5 +64,5 @@ def get_replica_locks_for_rule_id(rule_id, vo='def'):
 
     for l in locks:
         if l['scope'].vo != vo:
-            raise RucioException('Cannot get rule on VO {}'.format(vo))
+            raise RuleNotFound('Cannot get rule on VO {}'.format(vo))
         yield api_update_return_dict(l)

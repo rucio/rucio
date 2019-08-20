@@ -53,7 +53,7 @@ class LifetimeException:
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            for exception in list_exceptions():
+            for exception in list_exceptions(vo=ctx.env.get('vo')):
                 yield dumps(exception, cls=APIEncoder) + '\n'
         except LifetimeExceptionNotFound as error:
             raise generate_http_error(404, 'LifetimeExceptionNotFound', error.args[0])
@@ -125,7 +125,7 @@ class LifetimeExceptionId:
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            for exception in list_exceptions(exception_id):
+            for exception in list_exceptions(exception_id, vo=ctx.env.get('vo')):
                 yield dumps(exception, cls=APIEncoder) + '\n'
 
         except LifetimeExceptionNotFound as error:

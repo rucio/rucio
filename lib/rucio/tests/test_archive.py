@@ -104,9 +104,9 @@ class TestArchive(object):
             files_with_replicas_client.append(new_file)
 
         add_replicas(rse_id=rse_id, files=files_with_replicas, account=root)
-        self.dc.add_files_to_archive(scope=scope.external, name=archive_client['name'], files=files_with_replicas_client)
+        self.dc.add_files_to_archive(scope=archive_client['scope'], name=archive_client['name'], files=files_with_replicas_client)
 
-        res = [r['pfns'] for r in self.rc.list_replicas(dids=[{'scope': scope.external, 'name': f['name']} for f in files_with_replicas_client],
+        res = [r['pfns'] for r in self.rc.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files_with_replicas_client],
                                                         resolve_archives=True)]
         assert_equal(len(res), 2)
         assert_equal(len(res[0]), 2)
@@ -121,8 +121,8 @@ class TestArchive(object):
         # archived files without replicas
         files = [{'scope': scope.external, 'name': 'norep-%i-%s' % (i, str(generate_uuid())), 'type': 'FILE',
                   'bytes': 1234, 'adler32': 'deadbeef'} for i in range(2)]
-        self.dc.add_files_to_archive(scope=scope.external, name=archive_client['name'], files=files)
-        res = [r['pfns'] for r in self.rc.list_replicas(dids=[{'scope': scope.external, 'name': f['name']} for f in files],
+        self.dc.add_files_to_archive(scope=archive_client['scope'], name=archive_client['name'], files=files)
+        res = [r['pfns'] for r in self.rc.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files],
                                                         resolve_archives=True)]
         assert_equal(len(res), 2)
         for r in res:

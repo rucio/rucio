@@ -23,7 +23,7 @@ from sqlalchemy.util import KeyedTuple
 from rucio.api.permission import has_permission
 from rucio.common.exception import InvalidObject, AccessDenied
 from rucio.common.schema import validate_schema
-from rucio.common.types import InternalAccount
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.core import subscription
 
 
@@ -76,6 +76,24 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
         raise TypeError(error)
 
     account = InternalAccount(account, vo=vo)
+
+    keys = ['scope', 'account']
+    types = [InternalScope, InternalAccount]
+    for _key, _type in zip(keys, types):
+        if _key in filter:
+            if isinstance(filter[_key], list):
+                filter[_key] = [_type(val, vo=vo).internal for val in filter[_key]]
+            else:
+                filter[_key] = _type(filter[_key], vo=vo).internal
+
+    for rule in replication_rules:
+        if vo != 'def':
+            for key in ['source_replica_expression', 'rse_expression']:
+                if key in rule and rule[key] is not None:
+                    rule[key] = 'vo={}&({})'.format(vo, rule[key])
+                else:
+                    rule[key] = 'vo={}'.format(vo)
+
     return subscription.add_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, priority=priority)
 
 
@@ -92,7 +110,7 @@ def update_subscription(name, account, metadata=None, issuer=None, vo='def'):
     :param issuer: The account issuing this operation.
     :type issuer: String
     :param vo: The VO to act on.
-    :type v: String
+    :type vo: String
     :raises: SubscriptionNotFound if subscription is not found
     """
     if not has_permission(issuer=issuer, vo=vo, action='update_subscription', kwargs={'account': account}):
@@ -114,6 +132,28 @@ def update_subscription(name, account, metadata=None, issuer=None, vo='def'):
         raise TypeError(error)
 
     account = InternalAccount(account, vo=vo)
+
+    if 'filter' in metadata and metadata['filter'] is not None:
+        filter = metadata['filter']
+        keys = ['scope', 'account']
+        types = [InternalScope, InternalAccount]
+
+        for _key, _type in zip(keys, types):
+            if _key in filter and filter[_key] is not None:
+                if isinstance(filter[_key], list):
+                    filter[_key] = [_type(val, vo=vo).internal for val in filter[_key]]
+                else:
+                    filter[_key] = _type(filter[_key], vo=vo).internal
+
+    if 'replication_rules' in metadata and metadata['replication_rules'] is not None:
+        for rule in metadata['replication_rules']:
+            if vo != 'def':
+                for key in ['source_replica_expression', 'rse_expression']:
+                    if key in rule and rule[key] is not None:
+                        rule[key] = 'vo={}&({})'.format(vo, rule[key])
+                    else:
+                        rule[key] = 'vo={}'.format(vo)
+
     return subscription.update_subscription(name=name, account=account, metadata=metadata)
 
 

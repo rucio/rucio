@@ -88,12 +88,12 @@ class TestReplicaMetalinkRedirection:
         """ REDIRECT: metalink to replica"""
         tmp_scope = 'mock'
         tmp_name = 'file_%s' % generate_uuid()
-        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Auth-Token: %s" %s -X GET %s/redirect/%s/%s''' % (self.cacert,
-                                                                                                    self.token,
-                                                                                                    self.vo_header,
-                                                                                                    self.host,
-                                                                                                    tmp_scope,
-                                                                                                    tmp_name)
+        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Auth-Token: %s" %s -X GET %s/redirect/%s/%s' % (self.cacert,
+                                                                                                  self.token,
+                                                                                                  self.vo_header,
+                                                                                                  self.host,
+                                                                                                  tmp_scope,
+                                                                                                  tmp_name)
         _, out, _ = execute(cmd)
         assert_in('404 Not Found', out)
 
@@ -110,12 +110,12 @@ class TestReplicaMetalinkRedirection:
         assert_in('Link: </redirect/%s/%s/metalink' % (tmp_scope,
                                                        tmp_name), out)
 
-        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Auth-Token: %s" %s -X GET %s/redirect/%s/%s/metalink''' % (self.cacert,
-                                                                                                             self.token,
-                                                                                                             self.vo_header,
-                                                                                                             self.host,
-                                                                                                             tmp_scope,
-                                                                                                             tmp_name)
+        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Auth-Token: %s" %s -X GET %s/redirect/%s/%s/metalink' % (self.cacert,
+                                                                                                           self.token,
+                                                                                                           self.vo_header,
+                                                                                                           self.host,
+                                                                                                           tmp_scope,
+                                                                                                           tmp_name)
         _, out, _ = execute(cmd)
         assert_in('200 OK', out)
         assert_in('<?xml', out)

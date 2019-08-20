@@ -44,7 +44,7 @@ class PlacementAlgorithm:
 
     def place(self, did):
         self.__update_penalties()
-        decision = {'did': ':'.join(did)}
+        decision = {'did': '{}:{}'.format(did['scope'].internal, did['name'])}
         try:
             meta = get_did(did[0], did[1])
         except DataIdentifierNotFound:

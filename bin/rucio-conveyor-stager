@@ -54,7 +54,7 @@ def get_parser():
     parser.add_argument('--include-rses', action="store", default=None, type=str,
                         help='RSE expression to include')
     parser.add_argument('--rses', nargs='+', type=str,
-                        help='Explicit list of RSEs to include')
+                        help='Explicit list of RSEs to include (Single-VO only)')
     parser.add_argument('--activities', nargs='+', type=str,
                         help='Explicit list of activities to include')
     parser.add_argument('--sleep-time', action="store", default=600, type=int,

@@ -37,23 +37,26 @@ from rucio.tests.common import file_generator
 
 class TestAbacusRSE():
     def setUp(self):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
-        else:
-            self.vo = {}
-
         self.account = 'root'
         self.scope = 'mock'
-        self.upload_client = UploadClient()
-        self.file_sizes = 2
         self.rse = 'MOCK4'
-        self.rse_id = get_rse_id(self.rse, **self.vo)
+        self.file_sizes = 2
+        self.upload_client = UploadClient()
         self.session = get_session()
+
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': 'tst'}
+            self.rse_include = 'vo=tst&{}'.format(self.rse)
+        else:
+            self.vo = {}
+            self.rse_include = self.rse
+
+        self.rse_id = get_rse_id(self.rse, session=self.session, **self.vo)
 
     def tearDown(self):
         undertaker.run(once=True)
         cleaner.run(once=True)
-        reaper.run(once=True, rses=[self.rse], greedy=True)
+        reaper.run(once=True, include_rses=self.rse_include, greedy=True)
 
     def test_abacus_rse(self):
         """ ABACUS (RSE): Test update of RSE usage. """
@@ -76,7 +79,7 @@ class TestAbacusRSE():
 
         # Delete files -> rse usage should decrease
         cleaner.run(once=True)
-        reaper.run(once=True, rses=[self.rse], greedy=True)
+        reaper.run(once=True, include_rses=self.rse_include, greedy=True)
         rse.run(once=True)
         rse_usage = get_rse_usage(rse_id=self.rse_id)[0]
         assert_equal(rse_usage['used'], 0)
