@@ -20,17 +20,19 @@ from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import api_update_return_dict
 
 
-def list_exceptions(exception_id=None, states=None):
+def list_exceptions(exception_id=None, states=None, vo='def'):
     """
     List exceptions to Lifetime Model.
 
     :param id:         The id of the exception
     :param states:     The states to filter
+    :param vo:         The VO to act on
     """
 
     exceptions = lifetime_exception.list_exceptions(exception_id=exception_id, states=states)
     for e in exceptions:
-        yield api_update_return_dict(e)
+        if vo == e['scope'].vo:
+            yield api_update_return_dict(e)
 
 
 def add_exception(dids, account, pattern, comments, expires_at, vo='def'):

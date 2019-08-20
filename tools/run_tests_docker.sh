@@ -19,7 +19,6 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
-kill $(ps -o pid -C memcached h)
 memcached -u root -d
 
 function usage {
@@ -68,17 +67,17 @@ if [ -f /tmp/rucio.db ]; then
     chmod 777 /tmp/rucio.db
 fi
 
-#echo 'Running full alembic migration'
-#alembic -c /opt/rucio/etc/alembic.ini downgrade base
-#if [ $? != 0 ]; then
-#    echo 'Failed to downgrade the database!'
-#    exit 1
-#fi
-#alembic -c /opt/rucio/etc/alembic.ini upgrade head
-#if [ $? != 0 ]; then
-#    echo 'Failed to upgrade the database!'
-#    exit 1
-#fi
+echo 'Running full alembic migration'
+alembic -c /opt/rucio/etc/alembic.ini downgrade base
+if [ $? != 0 ]; then
+    echo 'Failed to downgrade the database!'
+    exit 1
+fi
+alembic -c /opt/rucio/etc/alembic.ini upgrade head
+if [ $? != 0 ]; then
+    echo 'Failed to upgrade the database!'
+    exit 1
+fi
 
 echo 'Bootstrap tests: Create jdoe account/mock scope'
 tools/bootstrap_tests.py
@@ -122,5 +121,4 @@ echo 'Running tests'
 noseopts="--exclude=test_alembic --exclude=.*test_rse_protocol_.* --exclude=test_rucio_server --exclude=test_objectstore --exclude=test_auditor* --exclude=test_release* --exclude=test_throttler*"
 
 nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts
-
 exit $?

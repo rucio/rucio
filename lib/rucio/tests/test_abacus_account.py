@@ -44,24 +44,27 @@ from rucio.tests.common import file_generator
 class TestAbacusAccount():
 
     def setUp(self):
+        self.rse = 'MOCK4'
+        self.file_sizes = 2
+        self.upload_client = UploadClient()
+        self.account_client = AccountClient()
+        self.session = get_session()
+
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': 'tst'}
+            self.rse_include = 'vo=tst&{}'.format(self.rse)
         else:
             self.vo = {}
+            self.rse_include = self.rse
 
         self.account = InternalAccount('root', **self.vo)
         self.scope = InternalScope('mock', **self.vo)
-        self.upload_client = UploadClient()
-        self.account_client = AccountClient()
-        self.file_sizes = 2
-        self.rse = 'MOCK4'
-        self.rse_id = get_rse_id(self.rse, **self.vo)
-        self.session = get_session()
+        self.rse_id = get_rse_id(self.rse, session=self.session, **self.vo)
 
     def tearDown(self):
         undertaker.run(once=True)
         cleaner.run(once=True)
-        reaper.run(once=True, rses=[self.rse], greedy=True)
+        reaper.run(once=True, include_rses=self.rse_include, greedy=True)
 
     def test_abacus_account(self):
         """ ABACUS (ACCOUNT): Test update of account usage """

@@ -31,7 +31,7 @@ def export_rses(vo='def', session=None):
     :param session: database session in use.
     """
     data = {}
-    for rse in rse_module.list_rses(filters={'vo':vo}, session=session):
+    for rse in rse_module.list_rses(filters={'vo': vo}, session=session):
         rse_id = rse['id']
         data[rse_id] = rse_module.export_rse(rse_id, session=session)
 

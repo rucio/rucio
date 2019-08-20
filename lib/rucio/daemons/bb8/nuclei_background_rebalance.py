@@ -91,7 +91,7 @@ for rse in active_rses:
     print('  %s' % (rse[0]))
     for des in rses_under_ratio:
         des_as_expr = des['rse']
-        if des['vo'] != '':
+        if des['vo'] != 'def':
             des_as_expr = 'vo={}&({})'.format(des['vo'], des_as_expr)
         if des_as_expr == rse[0]:
             rses_under_ratio.remove(des)
@@ -140,10 +140,10 @@ for source_rse in rses_over_ratio:
             if available_target_rebalance_volume >= available_source_rebalance_volume:
                 available_target_rebalance_volume = available_source_rebalance_volume
 
-            vo_str = 'on VO {}'.format(destination_rse['vo']) if destination_rse['vo'] != '' else ''
+            vo_str = 'on VO {}'.format(destination_rse['vo']) if destination_rse['vo'] != 'def' else 'def'
             print('Rebalance %dTB from %s(%f) to %s(%f)%s' % (available_target_rebalance_volume / 1E12, source_rse['rse'], source_rse['ratio'], destination_rse['rse'], destination_rse['ratio'], vo_str))
             expr = destination_rse['rse']
-            if destination_rse['vo'] != '':
+            if destination_rse['vo'] != 'def':
                 expr = 'vo={}&({})'.format(destination_rse['vo'], expr)
             rebalance_rse(rse_id=source_rse['id'], max_bytes=available_target_rebalance_volume, dry_run=False, comment='Nuclei Background rebalancing', force_expression=expr)
 

@@ -58,7 +58,7 @@ def add_account(account, type, email, session=None):
     """
 
     if not vo_exists(vo=account.vo, session=session):
-        raise exception.RucioException('VO {} not found'.format(account.vo))
+        raise exception.VONotFound('VO {} not found'.format(account.vo))
 
     new_account = models.Account(account=account, account_type=type, email=email,
                                  status=AccountStatus.ACTIVE)

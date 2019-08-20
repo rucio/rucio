@@ -35,7 +35,6 @@ if __name__ == '__main__':
     c = Client()
     for rse in repo_data:
         try:
-            vo = repo_data[rse].get('vo', '')
             deterministic = repo_data[rse].get('deterministic', True)
             volatile = repo_data[rse].get('volatile', False)
             region_code = repo_data[rse].get('region_code')

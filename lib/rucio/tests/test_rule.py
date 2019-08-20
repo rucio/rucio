@@ -87,11 +87,15 @@ def tag_generator(size=8, chars=string.ascii_uppercase):
 
 @transactional_session
 def check_dataset_ok_callback(scope, name, rse, rse_id, rule_id, session=None):
-    callbacks = session.query(models.Message.id).filter(models.Message.payload == json.dumps({'scope': scope.external,
-                                                                                              'name': name,
-                                                                                              'rse': rse,
-                                                                                              'rse_id': rse_id,
-                                                                                              'rule_id': rule_id})).all()
+    message = {'scope': scope.external,
+               'name': name,
+               'rse': rse,
+               'rse_id': rse_id,
+               'rule_id': rule_id}
+    if scope.vo != 'def':
+        message['vo'] = scope.vo
+
+    callbacks = session.query(models.Message.id).filter(models.Message.payload == json.dumps(message)).all()
     if len(callbacks) > 0:
         return True
     return False
@@ -99,10 +103,14 @@ def check_dataset_ok_callback(scope, name, rse, rse_id, rule_id, session=None):
 
 @transactional_session
 def check_rule_progress_callback(scope, name, progress, rule_id, session=None):
-    callbacks = session.query(models.Message.id).filter(models.Message.payload == json.dumps({'scope': scope.external,
-                                                                                              'name': name,
-                                                                                              'rule_id': rule_id,
-                                                                                              'progress': progress})).all()
+    message = {'scope': scope.external,
+               'name': name,
+               'rule_id': rule_id,
+               'progress': progress}
+    if scope.vo != 'def':
+        message['vo'] = scope.vo
+
+    callbacks = session.query(models.Message.id).filter(models.Message.payload == json.dumps(message)).all()
     if callbacks:
         return True
     return False

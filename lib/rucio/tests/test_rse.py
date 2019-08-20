@@ -53,7 +53,7 @@ from rucio.web.rest.authentication import APP as auth_app
 
 class TestRSECoreApi(object):
 
-    def setup(self):        
+    def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': 'tst'}
         else:
@@ -81,7 +81,7 @@ class TestRSECoreApi(object):
         }
         properties.update(self.vo)
         rse_id = add_rse(rse_name, **properties)
-        assert_equal(rse_exists(rse=rse_name), True)
+        assert_equal(rse_exists(rse=rse_name, **self.vo), True)
         rse = get_rse(rse_id=rse_id)
         assert_equal(rse.rse, rse_name)
         assert_equal(rse.deterministic, properties['deterministic'])
@@ -98,18 +98,18 @@ class TestRSECoreApi(object):
         assert_equal(rse.latitude, properties['latitude'])
         assert_equal(rse.ASN, properties['ASN'])
         assert_equal(rse.availability, properties['availability'])
-        assert_equal(rse_exists(invalid_rse), False)
+        assert_equal(rse_exists(invalid_rse, **self.vo), False)
 
         with assert_raises(Duplicate):
             add_rse(rse_name, **self.vo)
         del_rse(rse_id=rse_id)
-        assert_equal(rse_exists(rse=rse_name), False)
+        assert_equal(rse_exists(rse=rse_name, **self.vo), False)
 
     def test_list_rses(self):
         """ RSE (CORE): Test the listing of all RSEs """
         rse = rse_name_generator()
         rse_id = add_rse(rse, **self.vo)
-        assert_equal(rse_exists(rse=rse), True)
+        assert_equal(rse_exists(rse=rse, **self.vo), True)
         add_rse_attribute(rse_id=rse_id, key='tier', value='1')
         rses = list_rses(filters={'tier': '1'})
         assert_in((rse_id, rse), [(r['id'], r['rse']) for r in rses])
@@ -227,7 +227,7 @@ class TestRSECoreApi(object):
 
 class TestRSE(object):
 
-    def setup(self):        
+    def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo_header = {'X-Rucio-VO': 'tst'}
             self.vo = {'vo': 'tst'}

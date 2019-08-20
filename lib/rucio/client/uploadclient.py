@@ -69,6 +69,8 @@ class UploadClient:
         self.trace = {}
         self.trace['hostname'] = socket.getfqdn()
         self.trace['account'] = self.client.account
+        if self.client.vo != 'def':
+            self.trace['vo'] = self.client.vo
         self.trace['eventType'] = 'upload'
         self.trace['eventVersion'] = version.RUCIO_VERSION[0]
 

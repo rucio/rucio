@@ -1896,7 +1896,7 @@ def generate_rule_notifications(rule, replicating_locks_before=None, session=Non
                                    'rule_id': rule.id,
                                    'progress': __progress_class(rule.locks_replicating_cnt, total_locks)}
                         if rule.scope.vo != 'def':
-                            payload['vo'] = rule.scop.vo
+                            payload['vo'] = rule.scope.vo
 
                         add_message(event_type='RULE_PROGRESS', payload=payload, session=session)
 

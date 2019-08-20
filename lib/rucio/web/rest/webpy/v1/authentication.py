@@ -111,7 +111,7 @@ class UserPass(RucioController):
         HTTP Error:
             401 Unauthorized
 
-        :param Rucio-VO: VO name as a string (Multi-VO Only). 
+        :param Rucio-VO: VO name as a string (Multi-VO Only).
         :param Rucio-Account: Account identifier as a string.
         :param Rucio-Username: Username as a string.
         :param Rucio-Password: SHA1 hash of the password as a string.
@@ -130,7 +130,7 @@ class UserPass(RucioController):
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
 
-        vo = ctx.env.get('HTTP_X_RUCIO_VO', '')
+        vo = ctx.env.get('HTTP_X_RUCIO_VO', 'def')
         account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
         username = ctx.env.get('HTTP_X_RUCIO_USERNAME')
         password = ctx.env.get('HTTP_X_RUCIO_PASSWORD')
@@ -536,7 +536,7 @@ class GSS(RucioController):
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
 
-        vo = ctx.env.get('HTTP_X_RUCIO_VO', '')
+        vo = ctx.env.get('HTTP_X_RUCIO_VO', 'def')
         account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
         gsscred = ctx.env.get('REMOTE_USER')
         appid = ctx.env.get('HTTP_X_RUCIO_APPID')
@@ -608,7 +608,7 @@ class x509(RucioController):
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
 
-        vo = ctx.env.get('HTTP_X_RUCIO_VO', '')
+        vo = ctx.env.get('HTTP_X_RUCIO_VO', 'def')
         account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
         dn = ctx.env.get('SSL_CLIENT_S_DN')
         if not dn:
@@ -703,7 +703,7 @@ class SSH(RucioController):
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
 
-        vo = ctx.env.get('HTTP_X_RUCIO_VO', '')
+        vo = ctx.env.get('HTTP_X_RUCIO_VO', 'def')
         account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
         signature = ctx.env.get('HTTP_X_RUCIO_SSH_SIGNATURE')
         appid = ctx.env.get('HTTP_X_RUCIO_APPID')
@@ -783,7 +783,7 @@ class SSHChallengeToken(RucioController):
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
 
-        vo = ctx.env.get('HTTP_X_RUCIO_VO', '')
+        vo = ctx.env.get('HTTP_X_RUCIO_VO', 'def')
         account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
         appid = ctx.env.get('HTTP_X_RUCIO_APPID')
         if appid is None:

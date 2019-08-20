@@ -32,14 +32,19 @@ from rucio.daemons.reaper.reaper import reaper
 
 def test_reaper():
     """ REAPER (DAEMON): Test the reaper daemon."""
+
+    rse = 'MOCK'
+
     if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
         vo = {'vo': 'tst'}
+        rse_expr = 'vo=tst&{}'.format(rse)
     else:
         vo = {}
+        rse_expr = rse
 
     nb_files = 30
     file_size = 2147483648  # 2G
-    rse_id = rse_core.get_rse_id(rse='MOCK', **vo)
+    rse_id = rse_core.get_rse_id(rse=rse, **vo)
 
     for i in range(nb_files):
         replica_core.add_replica(rse_id=rse_id, scope=InternalScope('data13_hip', **vo),
@@ -50,6 +55,6 @@ def test_reaper():
     rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=10737418240)
     rse_core.set_rse_limits(rse_id=rse_id, name='MaxBeingDeletedFiles', value=10)
 
-    rses = [rse_core.get_rse(rse_core.get_rse_id('MOCK')), ]
+    rses = [rse_core.get_rse(rse_core.get_rse_id('MOCK', **vo)), ]
     reaper(once=True, rses=rses)
     reaper(once=True, rses=rses)

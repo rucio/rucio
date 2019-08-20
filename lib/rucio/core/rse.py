@@ -99,7 +99,7 @@ def add_rse(rse, vo='def', deterministic=True, volatile=False, city=None, region
         rse_type = RSEType.from_string(str(rse_type))
 
     if not vo_exists(vo=vo, session=session):
-        raise exception.RucioException('VO {} not found'.format(vo))
+        raise exception.VONotFound('VO {} not found'.format(vo))
 
     new_rse = models.RSE(rse=rse, vo=vo, deterministic=deterministic, volatile=volatile, city=city,
                          region_code=region_code, country_name=country_name,

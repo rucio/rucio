@@ -36,6 +36,8 @@ class VOs(RucioController):
 
     @check_accept_header_wrapper(['application/json'])
     def GET(self):
+        raise NotImplementedError
+        # Currently super_root will use server side commands
         ''' List all VOs. '''
         header('Content-Type', 'application/json')
 
@@ -54,6 +56,8 @@ class VO(RucioController):
     ''' Add a VO. '''
 
     def POST(self, new_vo):
+        raise NotImplementedError
+        # Currently super_root will use server side commands
         ''' Add a VO with a given name. '''
 
         json_data = data()

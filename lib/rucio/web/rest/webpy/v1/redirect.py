@@ -101,7 +101,7 @@ class MetaLinkRedirector(RucioController):
                 client_location['site'] = params['site'][0]
 
         # get vo if given
-        vo = ctx.env.get('HTTP_X_RUCIO_VO', '')
+        vo = ctx.env.get('HTTP_X_RUCIO_VO', 'def')
 
         try:
             tmp_replicas = [rep for rep in list_replicas(dids=dids, schemes=schemes, client_location=client_location, vo=vo)]
@@ -237,7 +237,7 @@ class HeaderRedirector(RucioController):
                 schemes = [schemes]  # list_replicas needs a list
 
             # get vo if given
-            vo = ctx.env.get('HTTP_X_RUCIO_VO', '')
+            vo = ctx.env.get('HTTP_X_RUCIO_VO', 'def')
 
             replicas = [r for r in list_replicas(dids=[{'scope': scope, 'name': name, 'type': 'FILE'}],
                                                  schemes=schemes, client_location=client_location, vo=vo)]

@@ -1205,25 +1205,17 @@ def api_update_return_dict(dictionary):
                 copied = True
             import rucio.core.rse
             dictionary['rse'] = rucio.core.rse.get_rse_name(rse_id=dictionary['rse_id'])
-        # if 'vo' not in dictionary.keys():
-        #     if not copied:
-        #         dictionary = dictionary.copy()
-        #         copied = True
-        #     import rucio.core.rse
-        #     dictionary['vo'] = rucio.core.rse.get_rse_vo(rse_id=dictionary['rse_id'])
 
     if 'account' in dictionary.keys():
         if not copied:
             dictionary = dictionary.copy()
             copied = True
-        # dictionary['vo'] = dictionary['account'].vo
         dictionary['account'] = dictionary['account'].external
 
     if 'scope' in dictionary.keys():
         if not copied:
             dictionary = dictionary.copy()
             copied = True
-        # dictionary['vo'] = dictionary['scope'].vo
         dictionary['scope'] = dictionary['scope'].external
 
     return dictionary

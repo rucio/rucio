@@ -1002,3 +1002,13 @@ class SubscriptionWrongParameter(RucioException):
         super(SubscriptionWrongParameter, self).__init__(*args, **kwargs)
         self._message = "Subscription wrong parameters"
         self.error_code = 95
+
+
+class VONotFound(RucioException):
+    """
+    Requested VO does not exist.
+    """
+    def __init__(self, *args, **kwargs):
+        super(VONotFound, self).__init__(*args, **kwargs)
+        self.message = 'The requested VO does not exist'
+        self.error_code = 96

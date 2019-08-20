@@ -92,7 +92,7 @@ for rse in active_rses:
     print('  %s' % (rse[0]))
     for des in rses_under_ratio:
         des_as_expr = des['rse']
-        if des['vo'] != '':
+        if des['vo'] != 'def':
             des_as_expr = 'vo={}&({})'.format(des['vo'], des_as_expr)
         if des_as_expr == rse[0]:
             rses_under_ratio.remove(des)
@@ -143,7 +143,7 @@ for source_rse in rses_over_ratio:
 
             print('Rebalance %dTB from %s(%f) to %s(%f)' % (available_target_rebalance_volume / 1E12, source_rse['rse'], source_rse['ratio'], destination_rse['rse'], destination_rse['ratio']))
             expr = destination_rse['rse']
-            if destination_rse['vo'] != '':
+            if destination_rse['vo'] != 'def':
                 expr = 'vo={}&({})'.format(destination_rse['vo'], expr)
             rebalance_rse(rse_id=source_rse['id'], max_bytes=available_target_rebalance_volume, dry_run=False, comment='T2 Background rebalancing', force_expression=expr)
 

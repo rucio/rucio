@@ -25,8 +25,6 @@ class InternalType(object):
     Base for Internal representations of string types
     '''
     def __init__(self, value, vo='def', fromExternal=True):
-        if vo=='':
-            raise TypeError('THIS IS INVALID VO!')
         if value is None:
             self.external = None
             self.internal = None

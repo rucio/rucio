@@ -79,7 +79,6 @@ def parse_expression(expression, filter=None, session=None):
             raise InvalidRSEExpression('Problem with parantheses.')
 
         # Check the expression pattern
-        print(expression)
         match = re.match(PATTERN, expression)
         if match is None:
             raise InvalidRSEExpression('Expression does not comply to RSE Expression syntax')

@@ -42,26 +42,30 @@ from rucio.tests.common import file_generator
 class TestAbacusCollectionReplica():
 
     def setUp(self):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
-        else:
-            self.vo = {}
-
         self.account = 'root'
         self.scope = 'mock'
+        self.rse = 'MOCK5'
+        self.file_sizes = 2
+        self.dataset = 'dataset_%s' % generate_uuid()
+
         self.rule_client = RuleClient()
         self.did_client = DIDClient()
         self.replica_client = ReplicaClient()
         self.upload_client = UploadClient()
-        self.file_sizes = 2
-        self.dataset = 'dataset_%s' % generate_uuid()
-        self.rse = 'MOCK5'
+
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': 'tst'}
+            self.rse_include = 'vo=tst&{}'.format(self.rse)
+        else:
+            self.vo = {}
+            self.rse_include = self.rse
+
         self.rse_id = get_rse_id(rse=self.rse, **self.vo)
 
     def tearDown(self):
         undertaker.run(once=True)
         cleaner.run(once=True)
-        reaper.run(once=True, rses=[self.rse], greedy=True)
+        reaper.run(once=True, include_rses=self.rse_include, greedy=True)
 
     def test_abacus_collection_replica(self):
         """ ABACUS (COLLECTION REPLICA): Test update of collection replica. """
@@ -105,7 +109,7 @@ class TestAbacusCollectionReplica():
 
         # Delete all files -> collection replica should be deleted
         cleaner.run(once=True)
-        reaper.run(once=True, rses=[self.rse], greedy=True)
+        reaper.run(once=True, include_rses=self.rse_include, greedy=True)
         self.rule_client.add_replication_rule([{'scope': self.scope, 'name': self.dataset}], 1, self.rse, lifetime=-1)
         collection_replica.run(once=True)
         dataset_replica = [replica for replica in self.replica_client.list_dataset_replicas(self.scope, self.dataset)]

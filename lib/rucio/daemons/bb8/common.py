@@ -37,7 +37,7 @@ from sqlalchemy.sql.expression import case, select
 from rucio.core.lock import get_dataset_locks
 from rucio.core.rule import get_rule, add_rule, update_rule
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.core.rse import list_rse_attributes, get_rse_id, get_rse_name
+from rucio.core.rse import list_rse_attributes, get_rse_name, get_rse_vo
 from rucio.core.rse_selector import RSESelector
 from rucio.common.config import config_get
 from rucio.common.exception import (InsufficientTargetRSEs, RuleNotFound, DuplicateRule,
@@ -84,7 +84,7 @@ def rebalance_rule(parent_rule, activity, rse_expression, priority, source_repli
 
     # ensure that expressions are for correct vo
     rule_vo = parent_rule['scope'].vo
-    if parent_rule['scope'].vo != 'def':
+    if rule_vo != 'def':
         source_replica_expression = 'vo={}&({})'.format(rule_vo, source_replica_expression)
         rse_expression = 'vo={}&({})'.format(rule_vo, rse_expression)
 
@@ -130,13 +130,16 @@ def rebalance_rule(parent_rule, activity, rse_expression, priority, source_repli
     return child_rule
 
 
-def __dump_url(rse):
+def __dump_url(rse_id):
     """
     getting potential urls of the dump over last week
 
-    :param rse:       RSE where the dump is released.
+    :param rse_id: RSE where the dump is released.
     """
-    ERROR_HERE_NEEDS_VO_OR_ID
+
+    rse = get_rse_name(rse_id=rse_id)
+    vo = get_rse_vo(rse_id=rse_id)
+
     # get the date of the most recent dump
     today = date.today()
     dump_dates = []
@@ -161,7 +164,7 @@ def __dump_url(rse):
     # populating url template
     urls = []
     for d in dump_dates:
-        url = url_template.substitute({'date': d, 'rse': rse})
+        url = url_template.substitute({'date': d, 'rse': rse, 'vo': vo})
         urls.append(url)
     return urls
 
@@ -177,7 +180,7 @@ def _list_rebalance_rule_candidates_dump(rse_id, mode=None):
     # fetching the dump
     candidates = []
     rules = {}
-    rse_dump_urls = __dump_url(rse=rse)
+    rse_dump_urls = __dump_url(rse_id=rse_id)
     rse_dump_urls.reverse()
     r = None
     if not rse_dump_urls:

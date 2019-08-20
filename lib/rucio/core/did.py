@@ -452,7 +452,7 @@ def __add_collections_to_container(scope, name, collections, account, session):
             chld_type = 'DATASET'
         else:
             chld_type = 'UNKNOWN'
-        
+
         message = {'account': account.external,
                    'scope': scope.external,
                    'name': name,
@@ -793,7 +793,7 @@ def detach_dids(scope, name, dids, session=None):
                        'childtype': chld_type}
             if scope.vo != 'def':
                 message['vo'] = scope.vo
-                        
+
             add_message('ERASE_CNT', message, session=session)
 
         message = {'scope': scope.external,

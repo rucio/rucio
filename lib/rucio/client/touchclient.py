@@ -58,6 +58,8 @@ class TouchClient(BaseClient):
         trace['eventType'] = 'touch'
         trace['clientState'] = 'DONE'
         trace['account'] = self.account
+        if self.vo != 'def':
+            trace['vo'] = self.vo
 
         if rse:
             self.get_rse(rse)  # pylint: disable=no-member
