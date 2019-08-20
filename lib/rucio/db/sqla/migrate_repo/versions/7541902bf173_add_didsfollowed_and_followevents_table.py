@@ -60,10 +60,10 @@ def upgrade():
                      sa.Column('payload', sa.Text))
 
         create_primary_key('FOLLOW_EVENTS_PK', 'follow_events', ['scope', 'name', 'account'])
-        create_check_constraint('FOLLOW_EVENTS_SCOPE_NN', 'dids_followed', 'scope is not null')
-        create_check_constraint('FOLLOW_EVENTS_NAME_NN', 'dids_followed', 'name is not null')
-        create_check_constraint('FOLLOW_EVENTS_DID_TYPE_NN', 'dids_followed', 'did_type is not null')
-        create_foreign_key('FOLLOW_EVENTS_ACCOUNT_FK', 'dids_followed', 'accounts',
+        create_check_constraint('FOLLOW_EVENTS_SCOPE_NN', 'follow_events', 'scope is not null')
+        create_check_constraint('FOLLOW_EVENTS_NAME_NN', 'follow_events', 'name is not null')
+        create_check_constraint('FOLLOW_EVENTS_DID_TYPE_NN', 'follow_events', 'did_type is not null')
+        create_foreign_key('FOLLOW_EVENTS_ACCOUNT_FK', 'follow_events', 'accounts',
                            ['account'], ['account'])
         create_index('FOLLOW_EVENTS_ACCOUNT_IDX', 'follow_events', ['account'])
 
