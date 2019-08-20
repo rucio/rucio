@@ -2,7 +2,7 @@
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+# You may obtain a copy of the License at 
 #
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
@@ -29,7 +29,7 @@ RUN yum -y update
 RUN yum install -y gcc httpd python-pip gmp-devel krb5-devel httpd mod_ssl mod_auth_kerb git python-devel.x86_64 openssl-devel.x86_64 gridsite which libaio memcached
 RUN yum -y install https://centos7.iuscommunity.org/ius-release.rpm
 RUN yum -y install python36u python36u-devel python36u-pip python35u python35u-devel python35u-pip
-RUN yum -y install xmlsec1-devel xmlsec1-openssl-devel libtool-ltdl-devel
+RUN yum -y install libxml2-devel xmlsec1-devel xmlsec1-openssl-devel libtool-ltdl-devel
 RUN yum clean all
 
 RUN rm -rf /usr/lib/python2.7/site-packages/ipaddress*
