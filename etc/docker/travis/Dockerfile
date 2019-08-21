@@ -24,24 +24,12 @@ FROM centos:7
 
 RUN yum install -y epel-release.noarch
 RUN yum -y update
-RUN yum install -y gcc httpd python-pip gmp-devel krb5-devel httpd mod_ssl mod_auth_kerb mod_wsgi git python-devel.x86_64 openssl-devel.x86_64 gridsite which MySQL-python libaio memcached
+RUN yum install -y gcc httpd python-pip gmp-devel krb5-devel httpd mod_ssl mod_auth_kerb mod_wsgi git python-devel.x86_64 openssl-devel.x86_64 gridsite which MySQL-python libaio memcached sqlite sqlite-devel
 RUN yum -y install https://centos7.iuscommunity.org/ius-release.rpm
 RUN yum -y install python36u python36u-devel python36u-pip python35u python35u-devel python35u-pip
 RUN yum clean all
 
 RUN rm -rf /usr/lib/python2.7/site-packages/ipaddress*
-
-# Install sqlite3 version 3.28
-RUN curl https://www.sqlite.org/2019/sqlite-autoconf-3280000.tar.gz > sqlite.tar.gz
-RUN tar xvfz sqlite.tar.gz
-WORKDIR ./sqlite-autoconf-3280000
-RUN ./configure --prefix=/usr/local
-RUN make
-RUN make install
-WORKDIR /usr/local
-RUN mv lib/libsqlite3.so /lib64
-RUN mv lib/libsqlite3.so.0 /lib64
-RUN mv lib/libsqlite3.so.0.8.6 /lib64
 
 WORKDIR /opt
 
@@ -74,22 +62,26 @@ RUN if [ "$python" == "3.6" ] ; then pip3.6 install .[oracle,postgresql,mysql,ke
 RUN cp etc/docker/travis/aliases-py27.conf etc/web/aliases-py27.conf
 RUN cp etc/docker/travis/google-cloud-storage-test.json etc/google-cloud-storage-test.json
 
-RUN mkdir /var/log/rucio
-RUN mkdir /var/log/rucio/trace
-RUN chmod 777 /var/log/rucio
+RUN mkdir -p /var/log/rucio/trace
+RUN chmod -R 777 /var/log/rucio
 
 RUN cp etc/docker/travis/httpd.conf /etc/httpd/conf/httpd.conf
 RUN cp etc/docker/travis/rucio.conf /etc/httpd/conf.d/rucio.conf
 RUN cp etc/docker/travis/00-mpm.conf /etc/httpd/conf.modules.d/00-mpm.conf
 
-RUN cp etc/docker/travis/certs/ca.pem /opt/rucio/etc/web/CERN-bundle.pem
-RUN cp etc/docker/travis/certs/ca.pem /opt/rucio/etc/web/ca.crt
-RUN cp etc/docker/travis/certs/usercert.pem /opt/rucio/etc/web/usercert.pem
+RUN mkdir -p /etc/grid-security/certificates
+RUN cp etc/docker/travis/certs/rucio_ca.pem /etc/grid-security/certificates/5fca1cb1.0
+RUN cp etc/docker/travis/certs/ruciouser.pem /opt/rucio/etc/ruciouser.pem
+RUN cp etc/docker/travis/certs/ruciouser.key.pem /opt/rucio/etc/ruciouser.key.pem
+RUN cp etc/docker/travis/certs/ruciouser.key.pem /opt/rucio/etc/ruciouser.certkey.pem
 
-RUN cp etc/docker/travis/certs/server.crt /etc/grid-security/hostcert.pem
-RUN cp etc/docker/travis/certs/server.key /etc/grid-security/hostkey.pem
+RUN cp etc/docker/travis/certs/hostcert_rucio.pem /etc/grid-security/hostcert.pem
+RUN cp etc/docker/travis/certs/hostcert_rucio.key.pem /etc/grid-security/hostkey.pem
 RUN chmod 400 /etc/grid-security/hostkey.pem
 
 RUN rm /etc/httpd/conf.d/ssl.conf /etc/httpd/conf.d/autoindex.conf /etc/httpd/conf.d/userdir.conf /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/zgridsite.conf
+
+RUN cp etc/docker/travis/wait-for-it.sh /usr/local/bin/wait-for-it.sh
+RUN chmod +x /usr/local/bin/wait-for-it.sh
 
 CMD ["httpd","-D","FOREGROUND"]
