@@ -71,6 +71,8 @@ RUN if [ "$python" == "3.6" ] ; then pip3.6 install --upgrade setuptools ; elif 
 # Install Rucio + dependencies
 RUN if [ "$python" == "3.6" ] ; then pip3.6 install .[oracle,postgresql,mysql,kerberos,dev] ; elif [ "$python" == "3.5" ] ; then pip3.5 install .[oracle,postgresql,mysql,kerberos,dev] ; else pip install .[oracle,postgresql,mysql,kerberos,dev] ; fi
 
+COPY 00-mpm.conf /etc/httpd/conf.modules.d/00-mpm.conf
+
 RUN cp etc/docker/travis/aliases-py27.conf etc/web/aliases-py27.conf
 RUN cp etc/docker/travis/google-cloud-storage-test.json etc/google-cloud-storage-test.json
 
@@ -89,6 +91,6 @@ RUN cp etc/docker/travis/certs/server.crt /etc/grid-security/hostcert.pem
 RUN cp etc/docker/travis/certs/server.key /etc/grid-security/hostkey.pem
 RUN chmod 400 /etc/grid-security/hostkey.pem
 
-RUN rm /etc/httpd/conf.d/ssl.conf /etc/httpd/conf.d/autoindex.conf /etc/httpd/conf.d/userdir.conf /etc/httpd/conf.d/welcome.conf
+RUN rm /etc/httpd/conf.d/ssl.conf /etc/httpd/conf.d/autoindex.conf /etc/httpd/conf.d/userdir.conf /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/zgridsite.conf
 
 CMD ["httpd","-D","FOREGROUND"]
