@@ -81,7 +81,4 @@ RUN chmod 400 /etc/grid-security/hostkey.pem
 
 RUN rm /etc/httpd/conf.d/ssl.conf /etc/httpd/conf.d/autoindex.conf /etc/httpd/conf.d/userdir.conf /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/zgridsite.conf
 
-RUN cp etc/docker/travis/wait-for-it.sh /usr/local/bin/wait-for-it.sh
-RUN chmod +x /usr/local/bin/wait-for-it.sh
-
 CMD ["httpd","-D","FOREGROUND"]
