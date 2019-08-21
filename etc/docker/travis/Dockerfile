@@ -71,8 +71,6 @@ RUN if [ "$python" == "3.6" ] ; then pip3.6 install --upgrade setuptools ; elif 
 # Install Rucio + dependencies
 RUN if [ "$python" == "3.6" ] ; then pip3.6 install .[oracle,postgresql,mysql,kerberos,dev] ; elif [ "$python" == "3.5" ] ; then pip3.5 install .[oracle,postgresql,mysql,kerberos,dev] ; else pip install .[oracle,postgresql,mysql,kerberos,dev] ; fi
 
-COPY 00-mpm.conf /etc/httpd/conf.modules.d/00-mpm.conf
-
 RUN cp etc/docker/travis/aliases-py27.conf etc/web/aliases-py27.conf
 RUN cp etc/docker/travis/google-cloud-storage-test.json etc/google-cloud-storage-test.json
 
@@ -82,6 +80,7 @@ RUN chmod 777 /var/log/rucio
 
 RUN cp etc/docker/travis/httpd.conf /etc/httpd/conf/httpd.conf
 RUN cp etc/docker/travis/rucio.conf /etc/httpd/conf.d/rucio.conf
+RUN cp etc/docker/travis/00-mpm.conf /etc/httpd/conf.modules.d/00-mpm.conf
 
 RUN cp etc/docker/travis/certs/ca.pem /opt/rucio/etc/web/CERN-bundle.pem
 RUN cp etc/docker/travis/certs/ca.pem /opt/rucio/etc/web/ca.crt
