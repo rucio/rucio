@@ -59,9 +59,6 @@ class TestThrottlerGroupedFIFO(object):
 
     def test_throttler_grouped_fifo_all(self):
         """ THROTTLER (CLIENTS): throttler release all waiting requests (grouped fifo). """
-        if self.dialect == 'mysql':
-            return True
-
         # no threshold -> release all waiting requests
         name1 = generate_uuid()
         name2 = generate_uuid()
@@ -159,9 +156,6 @@ class TestThrottlerGroupedFIFO(object):
 
     def test_throttler_grouped_fifo_nothing(self):
         """ THROTTLER (CLIENTS): throttler release nothing (grouped fifo). """
-        if self.dialect == 'mysql':
-            return True
-
         # four waiting requests and one active requests but threshold is 1
         # more than 80% of the transfer limit are already used -> release nothing
         set('throttler', '%s,%s' % (self.all_activities, self.dest_rse), 1, session=self.db_session)
@@ -263,9 +257,6 @@ class TestThrottlerGroupedFIFO(object):
 
     def test_throttler_grouped_fifo_subset(self):
         """ THROTTLER (CLIENTS): throttler release subset of waiting requests (grouped fifo). """
-        if self.dialect == 'mysql':
-            return True
-
         set_rse_transfer_limits(self.dest_rse_id, self.all_activities, volume=10, max_transfers=1, session=self.db_session)
         set('throttler', '%s,%s' % (self.all_activities, self.dest_rse), 1, session=self.db_session)  # threshold used by throttler
         name1 = generate_uuid()
