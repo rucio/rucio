@@ -79,3 +79,15 @@ services:
     volumes:
       - ../../certs/hostcert_xrd3.pem:/tmp/xrdcert.pem
       - ../../certs/hostcert_xrd3.key.pem:/tmp/xrdkey.pem
+  minio:
+    image: minio/minio
+    hostname: minio
+    environment:
+      - MINIO_ACCESS_KEY=admin
+      - MINIO_SECRET_KEY=password
+    ports:
+      - "9000:9000"
+    volumes:
+      - ../../certs/hostcert_minio.pem:/root/.minio/certs/public.crt
+      - ../../certs/hostcert_minio.key.pem:/root/.minio/certs/private.key
+    command: ["server", "/data"]
