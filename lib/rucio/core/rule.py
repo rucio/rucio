@@ -3111,7 +3111,7 @@ def archive_localgroupdisk_datasets(scope, name, session=None):
                                    session=session)
             rucio.core.did.attach_dids(scope=archive, name=name, dids=content, account=did['account'], session=session)
             if not did['open']:
-                rucio.core.did.set_status(scope='archive', name=name, open=False, session=session)
+                rucio.core.did.set_status(scope=archive, name=name, open=False, session=session)
 
             for rse in rses_to_rebalance:
                 add_rule(dids=[{'scope': archive, 'name': name}],
