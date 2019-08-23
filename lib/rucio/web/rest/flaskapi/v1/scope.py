@@ -18,6 +18,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -77,7 +78,7 @@ class Scope(MethodView):
         :status 500: internal server error
         """
         try:
-            add_scope(scope, account, issuer=request.environ.get('issuer'))
+            add_scope(scope, account, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except Duplicate as error:
             return generate_http_error_flask(409, 'Duplicate', error.args[0])
         except AccountNotFound as error:

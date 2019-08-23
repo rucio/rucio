@@ -20,6 +20,7 @@
 # - Sartirana Andrea <sartiran@llr.in2p3.fr>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 

@@ -18,6 +18,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -74,7 +75,8 @@ class UserPass(MethodView):
         try:
             add_account_identity(username, 'userpass', account,
                                  email=email, password=password,
-                                 issuer=request.environ.get('issuer'))
+                                 issuer=request.environ.get('issuer'),
+                                 vo=request.environ.get('vo'))
         except Exception as error:
             return error, 500
 
@@ -106,7 +108,9 @@ class X509(MethodView):
 
         try:
             add_account_identity(dn, 'x509', account,
-                                 email=email, issuer=request.environ.get('issuer'))
+                                 email=email,
+                                 issuer=request.environ.get('issuer'),
+                                 vo=request.environ.get('vo'))
         except Exception as error:
             return error, 500
 
@@ -138,7 +142,9 @@ class GSS(MethodView):
 
         try:
             add_account_identity(gsscred, 'gss', account,
-                                 email=email, issuer=request.environ.get('issuer'))
+                                 email=email,
+                                 issuer=request.environ.get('issuer'),
+                                 vo=request.environ.get('vo'))
         except Exception as error:
             return error, 500
 

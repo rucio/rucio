@@ -15,6 +15,7 @@
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
 #
 # PY3K COMPATIBLE

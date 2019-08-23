@@ -16,6 +16,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -47,6 +48,7 @@ def before_request():
     if auth is None:
         return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
+    request.environ['vo'] = auth.get('vo')
     request.environ['issuer'] = auth.get('account')
     request.environ['identity'] = auth.get('identity')
     request.environ['request_id'] = generate_uuid()

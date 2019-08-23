@@ -17,6 +17,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 

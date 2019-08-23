@@ -18,6 +18,7 @@
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 

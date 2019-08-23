@@ -15,6 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 

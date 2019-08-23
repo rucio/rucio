@@ -14,6 +14,7 @@
 #
 # Authors:
 # - Diego Ciangottini <diego.ciangottini@gmail.com>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 
 try:
     from urllib import quote_plus

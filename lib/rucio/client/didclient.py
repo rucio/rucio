@@ -25,6 +25,7 @@
 # - Eric Vaandering <ericvaandering@gmail.com>, 2018
 # - Asket Agarwal <asket.agarwal96@gmail.com>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 

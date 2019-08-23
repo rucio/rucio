@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
 from nose.tools import assert_equal
 

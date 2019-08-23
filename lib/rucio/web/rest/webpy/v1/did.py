@@ -22,7 +22,8 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Martin Baristis <martin.barisits@cern.ch>, 2014-2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -805,7 +806,7 @@ class NewDIDs(RucioController):
         if 'type' in params:
             type = params['type'][0]
         try:
-            for did in list_new_dids(type):
+            for did in list_new_dids(type, vo=ctx.env.get('vo')):
                 yield dumps(did, cls=APIEncoder) + '\n'
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])

@@ -16,6 +16,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
