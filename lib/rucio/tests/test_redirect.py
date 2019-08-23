@@ -16,6 +16,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 
 from nose.tools import assert_in
 

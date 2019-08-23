@@ -15,6 +15,7 @@
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 

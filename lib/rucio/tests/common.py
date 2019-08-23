@@ -19,6 +19,7 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Fernando Lopez <fernando.e.lopez@gmail.com>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 
 from paste.fixture import TestApp
 from random import choice

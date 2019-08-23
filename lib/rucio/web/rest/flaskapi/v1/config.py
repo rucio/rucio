@@ -18,6 +18,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -62,9 +63,9 @@ class Config(MethodView):
         """
 
         res = {}
-        for section in config.sections(issuer=request.environ.get('issuer')):
+        for section in config.sections(issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
             res[section] = {}
-            for item in config.items(section, issuer=request.environ.get('issuer')):
+            for item in config.items(section, issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
                 res[section][item[0]] = item[1]
 
         return Response(json.dumps(res), content_type="application/json")
@@ -90,7 +91,7 @@ class Section(MethodView):
         """
 
         res = {}
-        for item in config.items(section, issuer=request.environ.get('issuer')):
+        for item in config.items(section, issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
             res[item[0]] = item[1]
 
         if res == {}:
@@ -119,7 +120,7 @@ class OptionGetDel(MethodView):
         """
 
         try:
-            return Response(json.dumps(config.get(section=section, option=option, issuer=request.environ.get('issuer'))), content_type="application/json")
+            return Response(json.dumps(config.get(section=section, option=option, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))), content_type="application/json")
         except Exception:
             return generate_http_error_flask(404, 'ConfigNotFound', 'No configuration found for section \'%s\' option \'%s\'' % (section, option))
 
@@ -134,7 +135,7 @@ class OptionGetDel(MethodView):
         :status 500: Internal Error.
         """
 
-        config.remove_option(section=section, option=option, issuer=request.environ.get('issuer'))
+        config.remove_option(section=section, option=option, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
 
 
 class OptionSet(MethodView):
@@ -153,7 +154,7 @@ class OptionSet(MethodView):
         """
 
         try:
-            config.set(section=section, option=option, value=value, issuer=request.environ.get('issuer'))
+            config.set(section=section, option=option, value=value, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except ConfigurationError:
             return generate_http_error_flask(500, 'ConfigurationError', 'Could not set value \'%s\' for section \'%s\' option \'%s\'' % (value, section, option))
         except Exception as error:

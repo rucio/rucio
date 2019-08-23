@@ -18,6 +18,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 
 from __future__ import print_function
 

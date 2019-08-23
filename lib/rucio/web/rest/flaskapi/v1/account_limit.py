@@ -19,6 +19,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -72,7 +73,7 @@ class AccountLimit(MethodView):
             return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            set_local_account_limit(account=account, rse=rse, bytes=bytes, issuer=request.environ.get('issuer'))
+            set_local_account_limit(account=account, rse=rse, bytes=bytes, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as exception:
             return generate_http_error_flask(401, 'AccessDenied', exception.args[0])
         except RSENotFound as exception:
@@ -98,7 +99,7 @@ class AccountLimit(MethodView):
         :status 404: Account not found
         """
         try:
-            delete_local_account_limit(account=account, rse=rse, issuer=request.environ.get('issuer'))
+            delete_local_account_limit(account=account, rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as exception:
             return generate_http_error_flask(401, 'AccessDenied', exception.args[0])
         except AccountNotFound as exception:

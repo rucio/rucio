@@ -18,6 +18,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -64,7 +65,8 @@ class RequestGet(MethodView):
             res = json.dumps(request.get_request_by_did(scope=scope,
                                                         name=name,
                                                         rse=rse,
-                                                        issuer=f_request.environ.get('issuer')),
+                                                        issuer=f_request.environ.get('issuer'),
+                                                        vo=request.environ.get('vo')),
                              cls=APIEncoder)
             return Response(res, content_type="application/json")
         except Exception:

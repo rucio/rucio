@@ -19,6 +19,7 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 

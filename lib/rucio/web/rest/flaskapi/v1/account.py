@@ -22,6 +22,7 @@
 # - Joaquin Bogado <joaquin.bogado@cern.ch>, 2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -67,7 +68,7 @@ class Attributes(MethodView):
         :returns: JSON dict containing informations about the requested account.
         """
         try:
-            attribs = list_account_attributes(account)
+            attribs = list_account_attributes(account, vo=request.environ.get('vo'))
         except AccountNotFound as error:
             return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
         except RucioException as error:
@@ -108,7 +109,7 @@ class Attributes(MethodView):
             return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            add_account_attribute(key=key, value=value, account=account, issuer=request.environ.get('issuer'))
+            add_account_attribute(key=key, value=value, account=account, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except Duplicate as error:
@@ -134,7 +135,7 @@ class Attributes(MethodView):
         :status 500: Database Exception.
         """
         try:
-            del_account_attribute(account=account, key=key, issuer=request.environ.get('issuer'))
+            del_account_attribute(account=account, key=key, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except AccountNotFound as error:
@@ -163,7 +164,7 @@ class Scopes(MethodView):
         :returns: A list containing all scope names for an account.
         """
         try:
-            scopes = get_scopes(account)
+            scopes = get_scopes(account, vo=request.environ.get('vo'))
         except AccountNotFound as error:
             return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
         except RucioException as error:
@@ -191,7 +192,7 @@ class Scopes(MethodView):
         :status 500: Database exception.
         """
         try:
-            add_scope(scope, account, issuer=request.environ.get('issuer'))
+            add_scope(scope, account, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except Duplicate as error:
@@ -233,7 +234,7 @@ class AccountParameter(MethodView):
 
         acc = None
         try:
-            acc = get_account_info(account)
+            acc = get_account_info(account, vo=request.environ.get('vo'))
         except AccountNotFound as error:
             return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
         except AccessDenied as error:
@@ -273,7 +274,7 @@ class AccountParameter(MethodView):
             return generate_http_error_flask(400, 'ValueError', 'cannot decode json parameter dictionary')
         for key, value in parameter.items():
             try:
-                update_account(account, key=key, value=value, issuer=request.environ.get('issuer'))
+                update_account(account, key=key, value=value, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
             except ValueError:
                 return generate_http_error_flask(400, 'ValueError', 'Unknown value %s' % value)
             except AccessDenied as error:
@@ -321,7 +322,7 @@ class AccountParameter(MethodView):
             return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            add_account(account, type, email, issuer=request.environ.get('issuer'))
+            add_account(account, type, email, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except Duplicate as error:
             return generate_http_error_flask(409, 'Duplicate', error.args[0])
         except AccessDenied as error:
@@ -346,7 +347,7 @@ class AccountParameter(MethodView):
         :status 500: Database exception.
         """
         try:
-            del_account(account, issuer=request.environ.get('issuer'))
+            del_account(account, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except AccountNotFound as error:
@@ -377,7 +378,7 @@ class Account(MethodView):
             filter[k] = v
 
         data = ""
-        for account in list_accounts(filter=filter):
+        for account in list_accounts(filter=filter, vo=request.environ.get('vo')):
             data += render_json(**account) + "\n"
 
         return Response(data, content_type="application/x-json-stream")
@@ -403,9 +404,9 @@ class LocalAccountLimits(MethodView):
 
         try:
             if rse:
-                limits = get_local_account_limit(account=account, rse=rse)
+                limits = get_local_account_limit(account=account, rse=rse, vo=request.environ.get('vo'))
             else:
-                limits = get_local_account_limits(account=account)
+                limits = get_local_account_limits(account=account, vo=request.environ.get('vo'))
         except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
 
@@ -432,9 +433,9 @@ class GlobalAccountLimits(MethodView):
 
         try:
             if rse_expression:
-                limits = get_global_account_limit(account=account, rse_expression=rse_expression)
+                limits = get_global_account_limit(account=account, rse_expression=rse_expression, vo=request.environ.get('vo'))
             else:
-                limits = get_global_account_limits(account=account)
+                limits = get_global_account_limits(account=account, vo=request.environ.get('vo'))
         except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
 
@@ -476,7 +477,7 @@ class Identities(MethodView):
             return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            add_account_identity(identity_key=identity, id_type=authtype, account=account, email=email, password=password, issuer=request.environ.get('issuer'))
+            add_account_identity(identity_key=identity, id_type=authtype, account=account, email=email, password=password, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except Duplicate as error:
@@ -508,7 +509,7 @@ class Identities(MethodView):
 
         try:
             data = ""
-            for identity in list_identities(account):
+            for identity in list_identities(account, vo=request.environ.get('vo')):
                 data += render_json(**identity) + "\n"
             return Response(data, content_type="application/x-json-stream")
         except AccountNotFound as error:
@@ -546,7 +547,7 @@ class Identities(MethodView):
         except TypeError:
             return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
         try:
-            del_account_identity(identity, authtype, account, request.environ.get('issuer'))
+            del_account_identity(identity, authtype, account, request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except AccountNotFound as error:
@@ -585,7 +586,7 @@ class Rules(MethodView):
 
         try:
             data = ""
-            for rule in list_replication_rules(filters=filters):
+            for rule in list_replication_rules(filters=filters, vo=request.environ.get('vo')):
                 data += dumps(rule, cls=APIEncoder) + '\n'
             return Response(data, content_type="application/x-json-stream")
         except RuleNotFound as error:
@@ -616,7 +617,7 @@ class UsageHistory(MethodView):
         Return the account usage of the account.
         """
         try:
-            return get_usage_history(account=account, rse=None, issuer=request.environ.get('issuer'))
+            return get_usage_history(account=account, rse=None, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccountNotFound as error:
             return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
         except CounterNotFound as error:
@@ -650,7 +651,7 @@ class LocalUsage(MethodView):
 
         try:
             data = ""
-            for usage in get_local_account_usage(account=account, rse=rse, issuer=request.environ.get('issuer')):
+            for usage in get_local_account_usage(account=account, rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
                 data += dumps(usage, cls=APIEncoder) + '\n'
             return Response(data, content_type="application/x-json-stream")
         except AccountNotFound as error:
@@ -686,7 +687,7 @@ class GlobalUsage(MethodView):
 
         try:
             data = ""
-            for usage in get_global_account_usage(account=account, rse_expression=rse_expression, issuer=request.environ.get('issuer')):
+            for usage in get_global_account_usage(account=account, rse_expression=rse_expression, issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
                 data += dumps(usage, cls=APIEncoder) + '\n'
             return Response(data, content_type="application/x-json-stream")
         except AccountNotFound as error:

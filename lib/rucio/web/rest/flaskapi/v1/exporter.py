@@ -15,6 +15,7 @@
 #
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -61,7 +62,7 @@ class Export(MethodView):
         """
 
         try:
-            return render_json(**export_data(issuer=request.environ.get('issuer')))
+            return render_json(**export_data(issuer=request.environ.get('issuer'), vo=request.environ.get('vo')))
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
 

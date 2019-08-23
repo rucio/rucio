@@ -11,6 +11,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2014-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2018
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2018
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
