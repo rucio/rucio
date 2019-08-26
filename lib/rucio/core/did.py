@@ -583,7 +583,7 @@ def delete_dids(dids, account, expire_rules=False, session=None):
                                                   models.CollectionReplica.name == did['name']))
 
         # ATLAS LOCALGROUPDISK Archive policy
-        if did['did_type'] == DIDType.DATASET and did['scope'] != 'archive':
+        if did['did_type'] == DIDType.DATASET and did['scope'].external != 'archive':
             try:
                 rucio.core.rule.archive_localgroupdisk_datasets(scope=did['scope'], name=did['name'], session=session)
             except exception.UndefinedPolicy:
