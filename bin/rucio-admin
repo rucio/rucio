@@ -18,7 +18,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012-2017
 # - Vincent Garonne, <vgaronne@gmail.com>, 2012-2018
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2019
 # - Wen Guan, <wguan.icedew@gmail.com>, 2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
 # - David Cameron, <d.g.cameron@gmail.com>, 2014-2015
@@ -31,10 +31,13 @@
 #
 # PY3K COMPATIBLE
 
+from __future__ import division
 from __future__ import print_function
 
 import argparse
+import datetime
 import json
+import math
 import logging
 import os
 import signal
@@ -48,7 +51,6 @@ except ImportError:
     from configparser import NoOptionError, NoSectionError
 
 from functools import wraps
-from itertools import groupby
 
 import argcomplete
 import tabulate
@@ -920,26 +922,61 @@ def declare_bad_file_replicas(args):
         for pfn in bad_files_pfns:
             print(pfn)
 
-    # Group file list in separate sublists for different schemes
-    bad_files_pfns.sort()
-    bad_files_pfns_grouped = groupby(bad_files_pfns, lambda f: f[:f.find('://')])
-    all_non_declared = {}
+    chunk_size = 10000
+    tot_files = len(bad_files)
+    cnt = 0
+    nchunk = math.ceil(tot_files / chunk_size)
+    for chunk in chunks(bad_files_pfns, chunk_size):
+        cnt += 1
+        client.add_bad_pfns(pfns=chunk, reason=args.reason, state='BAD', expires_at=None)
+        ndeclared = len(chunk)
+        print('Chunk %s/%s : %s replicas successfully declared' % (int(cnt), int(nchunk), ndeclared))
+    print('--------------------------------')
+    print('Summary')
+    print('%s replicas successfully declared' % tot_files)
 
-    for sublist in bad_files_pfns_grouped:
-        for chunk in chunks(list(sublist[1]), 500):
-            non_declared = client.declare_bad_file_replicas(pfns=chunk, reason=args.reason)
-            for rse in non_declared:
-                if rse not in all_non_declared:
-                    all_non_declared[rse] = []
-                all_non_declared[rse] += non_declared[rse]
+    return SUCCESS
 
-    if non_declared:
-        for rse in non_declared:
-            for pfn in non_declared[rse]:
-                logger.error('%s : PFN %s cannot be declared.' % (rse, pfn))
-        return FAILURE
 
-    logger.info('PFNs got declared bad.')
+@exception_handler
+def declare_temporary_unavailable_replicas(args):
+    """
+    %(prog)s show [options] <field1=value1 field2=value2 ...>
+
+    Declare a list of temporary unavailable replicas.
+
+    """
+    client = get_client(args)
+    bad_files = []
+    if args.inputfile:
+        with open(args.inputfile) as infile:
+            for line in infile:
+                bad_file = line.rstrip('\n')
+                if '://' not in bad_file:
+                    print('%s is not a valid PFN. Aborting', bad_file)
+                    return FAILURE
+                if bad_file != '':
+                    bad_files.append(bad_file)
+    else:
+        bad_files = args.listbadfiles
+
+    if args.expiration_date:
+        expiration_date = (datetime.datetime.now() + datetime.timedelta(hours=args.expiration_date)).isoformat()
+
+    chunk_size = 10000
+    tot_files = len(bad_files)
+    cnt = 0
+    nchunk = math.ceil(tot_files / chunk_size)
+    for chunk in chunks(bad_files, chunk_size):
+        cnt += 1
+        client.declare_bad_file_replicas(pfns=chunk, reason=args.reason)
+        client.add_bad_pfns(pfns=chunk, reason=args.reason, state='TEMPORARY_UNAVAILABLE', expires_at=expiration_date)
+        ndeclared = len(chunk)
+        print('Chunk %s/%s : %s replicas successfully declared' % (int(cnt), int(nchunk), ndeclared))
+    print('--------------------------------')
+    print('Summary')
+    print('%s replicas successfully declared' % tot_files)
+
     return SUCCESS
 
 
@@ -1907,6 +1944,22 @@ def get_parser():
     declare_bad_file_replicas_parser.add_argument('--inputfile', dest='inputfile', nargs='?', action='store', help='File containing list of bad items')
     declare_bad_file_replicas_parser.add_argument('--allow-collection', dest='allow_collection', action='store_true', help='Allow passing a collection DID as bad item')
 
+    # The declare-temporary-unavailable command
+    declare_temporary_unavailable_replicas_parser = rep_subparser.add_parser('declare-temporary-unavailable',
+                                                                             help='Declare temporary unavailable replicas',
+                                                                             formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                                             epilog='Usage example\n'
+                                                                                    '"""""""""""""\n'
+                                                                                    '::\n'
+                                                                                    '\n'
+                                                                                    '    $ rucio-admin replicas declare-temporary-unavailable\n'
+                                                                                    '    srm://se.bfg.uni-freiburg.de/pnfs/bfg.uni-freiburg.de/data/atlasdatadisk/rucio/user/jdoe/e2/a7/jdoe.TXT.txt --expiration-date 168 --reason \'test only\'\n')
+    declare_temporary_unavailable_replicas_parser.set_defaults(which='declare_temporary_unavailable_replicas')
+    declare_temporary_unavailable_replicas_parser.add_argument(dest='listbadfiles', action='store', nargs='*', help='List of replicas. Each needs to be a proper PFN including the protocol')
+    declare_temporary_unavailable_replicas_parser.add_argument('--reason', dest='reason', required=True, action='store', help='Reason')
+    declare_temporary_unavailable_replicas_parser.add_argument('--inputfile', dest='inputfile', nargs='?', action='store', help='File containing list of replicas')
+    declare_temporary_unavailable_replicas_parser.add_argument('--expiration-date', dest='expiration_date', action='store', type=int, default=24, help='Timeout in hours when the replicas will become available again. Default 24')
+
     # The list-pfns command
     list_pfns_parser = rep_subparser.add_parser('list-pfns',
                                                 help='List the possible PFN for a file at a site.',
@@ -1989,6 +2042,7 @@ if __name__ == '__main__':
                 'update_subscription': update_subscription,
                 'reevaluate_did_for_subscription': reevaluate_did_for_subscription,
                 'declare_bad_file_replicas': declare_bad_file_replicas,
+                'declare_temporary_unavailable_replicas': declare_temporary_unavailable_replicas,
                 'list_pfns': list_pfns,
                 'import': import_data,
                 'export': export_data,
