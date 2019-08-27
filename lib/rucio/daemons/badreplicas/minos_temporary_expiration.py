@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
-# - Martin Barisits <martin.barisits@cern.ch>, 2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -98,7 +98,7 @@ def minos_tu_expiration(bulk=1000, once=False, sleep_time=60):
 
             for chunk in chunks(replicas, chunk_size):
                 # Process and update the replicas in chunks
-                update_replicas_states(chunk, nowait=False, session=session)
+                update_replicas_states(chunk, nowait=True, session=session)
             for chunk in chunks(bad_replicas, chunk_size):
                 # Remove the replicas from bad_replicas table in chunks
                 bulk_delete_bad_replicas(chunk, session=session)
