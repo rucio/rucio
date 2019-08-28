@@ -27,13 +27,12 @@ from alembic.op import create_check_constraint, drop_constraint, execute
 revision = '01eaf73ab656'
 down_revision = '90f47792bb76'
 
-schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
-
 
 def upgrade():
     '''
     Upgrade the database to this revision
     '''
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name in ['oracle', 'mysql']:
         drop_constraint('RULES_NOTIFICATION_CHK', 'rules', type_='check')
@@ -50,6 +49,7 @@ def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name in ['oracle', 'mysql']:
         drop_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules', type_='check')
