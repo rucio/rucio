@@ -28,8 +28,6 @@ from alembic.op import create_check_constraint, drop_constraint
 revision = '3c9df354071b'
 down_revision = '2edee4a83846'
 
-schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-
 
 def upgrade():
     '''
