@@ -181,6 +181,7 @@ def export_distances(session=None):
             if src_id not in distances:
                 distances[src_id] = {}
             distances[src_id][dst_id] = {}
+            distance['distance'] = distance['agis_distance']
             distances[src_id][dst_id] = distance.to_dict()
             del distances[src_id][dst_id]['_sa_instance_state']
         return distances
