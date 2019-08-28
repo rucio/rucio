@@ -32,7 +32,7 @@ import base64
 from re import search
 from traceback import format_exc
 
-from web import application, ctx, OK, BadRequest, header, InternalError
+from web import application, ctx, OK, BadRequest, header, InternalError, input as param_input
 
 from rucio.api.authentication import (get_auth_token_user_pass,
                                       get_auth_token_gss,
@@ -528,7 +528,7 @@ class SAML(RucioController):
         SAML_PATH = '/opt/rucio/lib/rucio/web/ui/common/saml/'
 
         request = ctx.env
-        data = dict(input())
+        data = dict(param_input())
         req = prepare_webpy_request(request, data)
         auth = OneLogin_Saml2_Auth(req, custom_base_path=SAML_PATH)
 
@@ -538,7 +538,7 @@ class SAML(RucioController):
     def POST(self):
         SAML_PATH = '/opt/rucio/lib/rucio/web/ui/common/saml/'
         request = ctx.env
-        data = dict(input())
+        data = dict(param_input())
         req = prepare_webpy_request(request, data)
         auth = OneLogin_Saml2_Auth(req, custom_base_path=SAML_PATH)
 

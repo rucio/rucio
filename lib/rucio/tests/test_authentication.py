@@ -218,7 +218,7 @@ class TestAuthRestApi(object):
         try:
             if not result.header('X-Rucio-Auth-Token'):
                 SAML_auth_url = result.header('X-Rucio-SAML-Auth-URL')
-                result = session.session().post(SAML_auth_url, data=userpass, verify=False, allow_redirects=True)
+                result = session().post(SAML_auth_url, data=userpass, verify=False, allow_redirects=True)
                 result = TestApp(APP.wsgifunc(*options)).get('/saml', headers=headers, expect_errors=True)
 
             assert_equal(result.status, 200)
@@ -238,7 +238,7 @@ class TestAuthRestApi(object):
         try:
             if not result.header('X-Rucio-Auth-Token'):
                 SAML_auth_url = result.header('X-Rucio-SAML-Auth-URL')
-                result = session.session().post(SAML_auth_url, data=userpass, verify=False, allow_redirects=True)
+                result = session().post(SAML_auth_url, data=userpass, verify=False, allow_redirects=True)
                 result = TestApp(APP.wsgifunc(*options)).get('/saml', headers=headers, expect_errors=True)
 
             assert_equal(result.status, 401)
