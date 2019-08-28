@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
@@ -63,17 +63,19 @@ class SubscriptionClient(BaseClient):
         """
         path = self.SUB_BASEURL + '/' + account + '/' + name
         url = build_url(choice(self.list_hosts), path=path)
-        if filter and type(filter) != dict:
+        if retroactive:
+            raise NotImplementedError('Retroactive mode is not implemented')
+        if filter and not isinstance(filter, dict):
             raise TypeError('filter should be a dict')
-        if replication_rules and type(replication_rules) != list:
+        if replication_rules and not isinstance(replication_rules, list):
             raise TypeError('replication_rules should be a list')
         data = dumps({'options': {'filter': filter, 'replication_rules': replication_rules, 'comments': comments,
-                      'lifetime': lifetime, 'retroactive': retroactive, 'dry_run': dry_run, 'priority': priority}})
-        r = self._send_request(url, type='POST', data=data)
-        if r.status_code == codes.created:
-            return r.text
+                                  'lifetime': lifetime, 'retroactive': retroactive, 'dry_run': dry_run, 'priority': priority}})
+        result = self._send_request(url, type='POST', data=data)
+        if result.status_code == codes.created:   # pylint: disable=no-member
+            return result.text
         else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=result.headers, status_code=result.status_code, data=result.content)
             raise exc_cls(exc_msg)
 
     def list_subscriptions(self, name=None, account=None):
@@ -97,11 +99,11 @@ class SubscriptionClient(BaseClient):
         else:
             path += '/'
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='GET')
-        if r.status_code == codes.ok:
-            return self._load_json_data(r)
+        result = self._send_request(url, type='GET')
+        if result.status_code == codes.ok:   # pylint: disable=no-member
+            return self._load_json_data(result)
         else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=result.headers, status_code=result.status_code, data=result.content)
             raise exc_cls(exc_msg)
 
     def update_subscription(self, name, account=None, filter=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, dry_run=None, priority=None):
@@ -131,19 +133,21 @@ class SubscriptionClient(BaseClient):
         """
         if not account:
             account = self.account
+        if retroactive:
+            raise NotImplementedError('Retroactive mode is not implemented')
         path = self.SUB_BASEURL + '/' + account + '/' + name
         url = build_url(choice(self.list_hosts), path=path)
-        if filter and type(filter) != dict:
+        if filter and not isinstance(filter, dict):
             raise TypeError('filter should be a dict')
-        if replication_rules and type(replication_rules) != list:
+        if replication_rules and not isinstance(replication_rules, list):
             raise TypeError('replication_rules should be a list')
         data = dumps({'options': {'filter': filter, 'replication_rules': replication_rules, 'comments': comments,
-                      'lifetime': lifetime, 'retroactive': retroactive, 'dry_run': dry_run, 'priority': priority}})
-        r = self._send_request(url, type='PUT', data=data)
-        if r.status_code == codes.created:
+                                  'lifetime': lifetime, 'retroactive': retroactive, 'dry_run': dry_run, 'priority': priority}})
+        result = self._send_request(url, type='PUT', data=data)
+        if result.status_code == codes.created:   # pylint: disable=no-member
             return True
         else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=result.headers, status_code=result.status_code, data=result.content)
             raise exc_cls(exc_msg)
 
     def list_subscription_rules(self, account, name):
@@ -156,9 +160,9 @@ class SubscriptionClient(BaseClient):
 
         path = '/'.join([self.SUB_BASEURL, account, name, 'Rules'])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='GET')
-        if r.status_code == codes.ok:
-            return self._load_json_data(r)
+        result = self._send_request(url, type='GET')
+        if result.status_code == codes.ok:   # pylint: disable=no-member
+            return self._load_json_data(result)
         else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(headers=result.headers, status_code=result.status_code, data=result.content)
             raise exc_cls(exc_msg)
