@@ -18,10 +18,13 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann, <thomas.beermann@cern.ch> 2019>
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 
 if [[ $SUITE == "client" ]]; then
 
  if [[ "$TRAVIS_PYTHON_VERSION" !=  "2.6" ]]; then pip install -r tools/pip-requires; fi
+    sudo apt-get update
+    sudo apt-get install libxml2-dev libxmlsec1-dev libxmlsec1-openssl
     pip install setuptools_scm
     pip install -r tools/pip-requires-test
     python setup_rucio_client.py install
@@ -30,6 +33,8 @@ if [[ $SUITE == "client" ]]; then
     docker build -t rucio/rucio .
 
 elif [[ $SUITE == "syntax" ]]; then
+    sudo apt-get update
+    sudo apt-get install libxml2-dev libxmlsec1-dev libxmlsec1-openssl
     pip install setuptools_scm
     pip install google_compute_engine
     pip install .[dev]
@@ -48,6 +53,8 @@ elif [[ $SUITE == "all" ]]; then
     fi
 
 elif [[ $SUITE == 'python3' ]]; then 
+    sudo apt-get update
+    sudo apt-get install libxml2-dev libxmlsec1-dev libxmlsec1-openssl
     pip install -r tools/pip-requires-test
 
 fi

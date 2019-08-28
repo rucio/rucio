@@ -15,7 +15,6 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 
 ''' increase identity length '''
 
@@ -43,11 +42,11 @@ def upgrade():
         drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
         drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check')
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
 
     elif context.get_context().dialect.name == 'mysql':
         alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048))
@@ -63,10 +62,10 @@ def upgrade():
         drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
 
 
 def downgrade():
@@ -80,19 +79,17 @@ def downgrade():
     if context.get_context().dialect.name == 'oracle':
         execute("DELETE FROM account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
         execute("DELETE FROM identities WHERE identity_type='SSH'")  # pylint: disable=no-member
-        execute("DELETE FROM account_map WHERE identity_type='SAML'")  # pylint: disable=no-member
-        execute("DELETE FROM identities WHERE identity_type='SAML'")  # pylint: disable=no-member
 
         drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SAML')")
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS')")
 
         drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check')
 
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SAML')")
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS')")
 
         alter_column('tokens', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
         alter_column('account_map', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
@@ -100,21 +97,20 @@ def downgrade():
 
     elif context.get_context().dialect.name == 'postgresql':
         schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+
         execute("DELETE FROM " + schema + "account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
         execute("DELETE FROM " + schema + "identities WHERE identity_type='SSH'")  # pylint: disable=no-member
-        execute("DELETE FROM " + schema + "account_map WHERE identity_type='SAML'")  # pylint: disable=no-member
-        execute("DELETE FROM " + schema + "identities WHERE identity_type='SAML'")  # pylint: disable=no-member
 
         drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
         op.execute('ALTER TABLE ' + schema + 'identities DROP CONSTRAINT IF EXISTS "IDENTITIES_TYPE_CHK", ALTER COLUMN identity_type TYPE VARCHAR')  # pylint: disable=no-member
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SAML')")
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS')")
 
         op.execute('ALTER TABLE ' + schema + 'account_map DROP CONSTRAINT IF EXISTS "ACCOUNT_MAP_ID_TYPE_CHK", ALTER COLUMN identity_type TYPE VARCHAR')  # pylint: disable=no-member
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SAML')")
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS')")
         create_foreign_key('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', 'identities', ['identity', 'identity_type'], ['identity', 'identity_type'])
 
         alter_column('tokens', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema[:-1])
@@ -124,18 +120,16 @@ def downgrade():
     elif context.get_context().dialect.name == 'mysql':
         execute("DELETE FROM account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
         execute("DELETE FROM identities WHERE identity_type='SSH'")  # pylint: disable=no-member
-        execute("DELETE FROM account_map WHERE identity_type='SAML'")  # pylint: disable=no-member
-        execute("DELETE FROM identities WHERE identity_type='SAML'")  # pylint: disable=no-member
 
         drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check')
         drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
 
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SAML')")
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS')")
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SAML')")
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS')")
 
         alter_column('tokens', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
 

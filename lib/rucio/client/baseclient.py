@@ -560,7 +560,7 @@ class BaseClient(object):
 
                 SAML_auth_url = SAML_auth_result.headers['X-Rucio-SAML-Auth-URL']
                 result = self.session.post(SAML_auth_url, data=userpass, verify=False, allow_redirects=True)
-                result = self.get(url, headers=headers)
+                result = self.session.get(url, headers=headers)
                 break
             except ConnectionError as error:
                 LOG.warning('ConnectionError: ' + str(error))
@@ -608,7 +608,7 @@ class BaseClient(object):
             elif self.auth_type == 'saml':
                 if not self.__get_token_saml():
                     raise CannotAuthenticate('saml authentication failed for account=%s with identity=%s' % (self.account,
-                                                                                                            self.creds))
+                                                                                                             self.creds))
             else:
                 raise CannotAuthenticate('auth type \'%s\' not supported' % self.auth_type)
 
