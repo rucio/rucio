@@ -16,7 +16,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2015-2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
@@ -251,8 +251,8 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, prep
                 __check_suspicious_files(req, suspicious_patterns)
                 tss = time.time()
                 try:
-                    new_req = request_core.requeue_and_archive(req, retry_protocol_mismatches)
-                    if new_req:
+                    if request_core.should_retry_request(req, retry_protocol_mismatches):
+                        new_req = request_core.requeue_and_archive(req, retry_protocol_mismatches)
                         # should_retry_request and requeue_and_archive are not in one session,
                         # another process can requeue_and_archive and this one will return None.
                         record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time() - tss) * 1000)
@@ -278,8 +278,8 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, prep
                     continue
                 try:
                     tss = time.time()
-                    new_req = request_core.requeue_and_archive(req, retry_protocol_mismatches)
-                    if new_req:
+                    if request_core.should_retry_request(req, retry_protocol_mismatches):
+                        new_req = request_core.requeue_and_archive(req, retry_protocol_mismatches)
                         record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time() - tss) * 1000)
                         logging.warn(prepend_str + 'REQUEUED SUBMITTING DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
                                                                                                               req['name'],
