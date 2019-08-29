@@ -18,6 +18,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -36,6 +37,7 @@ import traceback
 import requests
 
 from rucio.common.config import config_get, config_get_int
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core import account_limit, did, rse, replica, rule
 from rucio.db.sqla.constants import DIDType
@@ -73,17 +75,17 @@ def generate_rse(endpoint, token):
             'lan': {'read': 1, 'write': 1, 'delete': 1},
             'wan': {'read': 1, 'write': 1, 'delete': 1}}}
 
-    rse.add_rse(rse_name)
+    rse_id = rse.add_rse(rse_name)
     tmp_proto['hostname'] = endpoint.split(':')[1][2:]
     tmp_proto['port'] = endpoint.split(':')[2].split('/')[0]
     tmp_proto['prefix'] = '/'.join([''] + endpoint.split(':')[2].split('/')[1:])
     if scheme == 'srm':
         tmp_proto['extended_attributes'] = {'space_token': token,
                                             'web_service_path': '/srm/managerv2?SFN='}
-    rse.add_protocol(rse_name, tmp_proto)
-    rse.add_rse_attribute(rse_name, key='fts', value='https://fts3-pilot.cern.ch:8446')
+    rse.add_protocol(rse_id=rse_id, parameter=tmp_proto)
+    rse.add_rse_attribute(rse_id=rse_id, key='fts', value='https://fts3-pilot.cern.ch:8446')
 
-    account_limit.set_account_limit(account='root', rse_id=rsemanager.get_rse_info(rse_name)['id'], bytes=-1)
+    account_limit.set_account_limit(account=InternalAccount('root'), rse_id=rsemanager.get_rse_info(rse_name)['id'], bytes=-1)
 
     return rsemanager.get_rse_info(rse_name)
 
@@ -119,11 +121,13 @@ def request_transfer(loop=1, src=None, dst=None,
             tmp_name = generate_uuid()
 
             # add a new dataset
-            did.add_did(scope='mock', name='dataset-%s' % tmp_name,
-                        type=DIDType.DATASET, account='root', session=session)
+            scope = InternalScope('mock')
+            account = InternalAccount('root')
+            did.add_did(scope=scope, name='dataset-%s' % tmp_name,
+                        type=DIDType.DATASET, account=account, session=session)
 
             # construct PFN
-            pfn = rsemanager.lfns2pfns(src_rse, lfns=[{'scope': 'mock', 'name': 'file-%s' % tmp_name}])['mock:file-%s' % tmp_name]
+            pfn = rsemanager.lfns2pfns(src_rse, lfns=[{'scope': scope.external, 'name': 'file-%s' % tmp_name}])['%s:file-%s' % (scope.external, tmp_name)]
 
             if upload:
                 # create the directories if needed
@@ -141,26 +145,26 @@ def request_transfer(loop=1, src=None, dst=None,
                     p.put(fn, pfn, source_dir=fp)
                 except:
                     logging.critical('Could not upload, removing temporary DID: %s' % str(sys.exc_info()))
-                    did.delete_dids([{'scope': 'mock', 'name': 'dataset-%s' % tmp_name}], account='root', session=session)
+                    did.delete_dids([{'scope': scope, 'name': 'dataset-%s' % tmp_name}], account=account, session=session)
                     break
 
             # add the replica
-            replica.add_replica(rse=src_rse['rse'], scope='mock', name='file-%s' % tmp_name,
+            replica.add_replica(rse_id=src_rse['id'], scope=scope, name='file-%s' % tmp_name,
                                 bytes=config_get_int('injector', 'bytes'),
                                 adler32=config_get('injector', 'adler32'),
                                 md5=config_get('injector', 'md5'),
-                                account='root', session=session)
+                                account=account, session=session)
             logging.info('added replica on %s for DID mock:%s' % (src_rse['rse'], tmp_name))
 
             # to the dataset
-            did.attach_dids(scope='mock', name='dataset-%s' % tmp_name, dids=[{'scope': 'mock',
-                                                                               'name': 'file-%s' % tmp_name,
-                                                                               'bytes': config_get('injector', 'bytes')}],
-                            account='root', session=session)
+            did.attach_dids(scope=scope, name='dataset-%s' % tmp_name, dids=[{'scope': scope,
+                                                                              'name': 'file-%s' % tmp_name,
+                                                                              'bytes': config_get('injector', 'bytes')}],
+                            account=account, session=session)
 
             # add rule for the dataset
-            rule.add_rule(dids=[{'scope': 'mock', 'name': 'dataset-%s' % tmp_name}],
-                          account='root',
+            rule.add_rule(dids=[{'scope': scope, 'name': 'dataset-%s' % tmp_name}],
+                          account=account,
                           copies=1,
                           rse_expression=dst_rse['rse'],
                           grouping='ALL',
@@ -170,7 +174,7 @@ def request_transfer(loop=1, src=None, dst=None,
                           subscription_id=None,
                           activity='mock-injector',
                           session=session)
-            logging.info('added rule for %s for DID mock:%s' % (dst_rse['rse'], tmp_name))
+            logging.info('added rule for %s for DID %s:%s' % (dst_rse['rse'], scope, tmp_name))
 
             session.commit()
         except:

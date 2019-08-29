@@ -15,7 +15,7 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2019
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2017
-# - Martin Barisits <martin.barisits@cern.ch>, 2014-2016
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2019
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 #
@@ -29,6 +29,7 @@ from sqlalchemy.sql.expression import bindparam, text
 
 
 from rucio.common.exception import InvalidObject, RucioException
+from rucio.common.utils import APIEncoder
 from rucio.db.sqla.models import Message, MessageHistory
 from rucio.db.sqla.session import transactional_session
 
@@ -46,7 +47,7 @@ def add_message(event_type, payload, session=None):
     """
 
     try:
-        payload = json.dumps(payload)
+        payload = json.dumps(payload, cls=APIEncoder)
     except TypeError as e:
         raise InvalidObject('Invalid JSON for payload: %(e)s' % locals())
 
@@ -81,9 +82,9 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
                 bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
                 subquery = subquery.filter(text('ORA_HASH(id, :total_threads) = :thread_number', bindparams=bindparams))
             elif session.bind.dialect.name == 'mysql':
-                subquery = subquery.filter('mod(md5(id), %s) = %s' % (total_threads - 1, thread))
+                subquery = subquery.filter(text('mod(md5(id), %s) = %s' % (total_threads - 1, thread)))
             elif session.bind.dialect.name == 'postgresql':
-                subquery = subquery.filter('mod(abs((\'x\'||md5(id::text))::bit(32)::int), %s) = %s' % (total_threads - 1, thread))
+                subquery = subquery.filter(text('mod(abs((\'x\'||md5(id::text))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
 
         if event_type:
             subquery = subquery.filter_by(event_type=event_type)

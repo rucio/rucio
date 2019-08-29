@@ -13,17 +13,23 @@
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
   - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
   - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
+  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
   PY3K COMPATIBLE
 '''
 
 from __future__ import print_function
 
+from copy import deepcopy
+
 import rucio.api.permission
 
 from rucio.core import did, naming_convention, meta as meta_core
+from rucio.core.rse import get_rse_id
 from rucio.common.constants import RESERVED_KEYS
 from rucio.common.schema import validate_schema
+from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.utils import api_update_return_dict
 from rucio.db.sqla.constants import DIDType
 
 
@@ -41,8 +47,19 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
     :param recursive: Recursively list DIDs content.
     """
     validate_schema(name='did_filters', obj=filters)
-    return did.list_dids(scope=scope, filters=filters, type=type, ignore_case=ignore_case,
-                         limit=limit, offset=offset, long=long, recursive=recursive)
+
+    scope = InternalScope(scope)
+
+    if 'account' in filters:
+        filters['account'] = InternalAccount(filters['account'])
+    if 'scope' in filters:
+        filters['scope'] = InternalScope(filters['scope'])
+
+    result = did.list_dids(scope=scope, filters=filters, type=type, ignore_case=ignore_case,
+                           limit=limit, offset=offset, long=long, recursive=recursive)
+
+    for d in result:
+        yield api_update_return_dict(d)
 
 
 def add_did(scope, name, type, issuer, account=None, statuses={}, meta={}, rules=[], lifetime=None, dids=[], rse=None):
@@ -69,6 +86,19 @@ def add_did(scope, name, type, issuer, account=None, statuses={}, meta={}, rules
     if not rucio.api.permission.has_permission(issuer=issuer, action='add_did', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifier to scope %s' % (issuer, scope))
 
+    if account is not None:
+        account = InternalAccount(account)
+    issuer = InternalAccount(issuer)
+    scope = InternalScope(scope)
+    for d in dids:
+        d['scope'] = InternalScope(d['scope'])
+    for r in rules:
+        r['account'] = InternalAccount(r['account'])
+
+    rse_id = None
+    if rse is not None:
+        rse_id = get_rse_id(rse=rse)
+
     if type == 'DATASET':
         # naming_convention validation
         extra_meta = naming_convention.validate_name(scope=scope, name=name, did_type='D')
@@ -86,7 +116,7 @@ def add_did(scope, name, type, issuer, account=None, statuses={}, meta={}, rules
 
     return did.add_did(scope=scope, name=name, type=DIDType.from_sym(type), account=account or issuer,
                        statuses=statuses, meta=meta, rules=rules, lifetime=lifetime,
-                       dids=dids, rse=rse)
+                       dids=dids, rse_id=rse_id)
 
 
 def add_dids(dids, issuer):
@@ -96,10 +126,23 @@ def add_dids(dids, issuer):
     :param dids: A list of dids.
     :param issuer: The issuer account.
     """
+    for d in dids:
+        if 'rse' in d:
+            rse_id = None
+            if d['rse'] is not None:
+                rse_id = get_rse_id(rse=d['rse'])
+            d['rse_id'] = rse_id
+
     kwargs = {'issuer': issuer, 'dids': dids}
     if not rucio.api.permission.has_permission(issuer=issuer, action='add_dids', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not bulk add data identifier' % (issuer))
 
+    issuer = InternalAccount(issuer)
+    for d in dids:
+        d['scope'] = InternalScope(d['scope'])
+        if 'dids' in d.keys():
+            for child in d['dids']:
+                child['scope'] = InternalScope(child['scope'])
     return did.add_dids(dids, account=issuer)
 
 
@@ -112,12 +155,31 @@ def attach_dids(scope, name, attachment, issuer):
     """
     validate_schema(name='attachment', obj=attachment)
 
+    rse_id = None
+    if 'rse' in attachment:
+        if attachment['rse'] is not None:
+            rse_id = get_rse_id(rse=attachment['rse'])
+        attachment['rse_id'] = rse_id
+
     kwargs = {'scope': scope, 'name': name, 'attachment': attachment}
     if not rucio.api.permission.has_permission(issuer=issuer, action='attach_dids', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifiers to %s:%s' % (issuer, scope, name))
 
-    return did.attach_dids(scope=scope, name=name, dids=attachment['dids'],
-                           account=attachment.get('account', issuer), rse=attachment.get('rse'))
+    scope = InternalScope(scope)
+    issuer = InternalAccount(issuer)
+    if 'account' in attachment.keys():
+        attachment['account'] = InternalAccount(attachment['account'])
+    for d in attachment['dids']:
+        d['scope'] = InternalScope(d['scope'])
+
+    if rse_id is not None:
+        dids = did.attach_dids(scope=scope, name=name, dids=attachment['dids'],
+                               account=attachment.get('account', issuer), rse_id=rse_id)
+    else:
+        dids = did.attach_dids(scope=scope, name=name, dids=attachment['dids'],
+                               account=attachment.get('account', issuer))
+
+    return dids
 
 
 def attach_dids_to_dids(attachments, issuer, ignore_duplicate=False):
@@ -130,8 +192,21 @@ def attach_dids_to_dids(attachments, issuer, ignore_duplicate=False):
     """
     validate_schema(name='attachments', obj=attachments)
 
+    for a in attachments:
+        if 'rse' in a:
+            rse_id = None
+            if a['rse'] is not None:
+                rse_id = get_rse_id(rse=a['rse'])
+            a['rse_id'] = rse_id
+
     if not rucio.api.permission.has_permission(issuer=issuer, action='attach_dids_to_dids', kwargs={'attachments': attachments}):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifiers' % (issuer))
+
+    issuer = InternalAccount(issuer)
+    for attachment in attachments:
+        attachment['scope'] = InternalScope(attachment['scope'])
+        for d in attachment['dids']:
+            d['scope'] = InternalScope(d['scope'])
 
     return did.attach_dids_to_dids(attachments=attachments, account=issuer,
                                    ignore_duplicate=ignore_duplicate)
@@ -149,6 +224,11 @@ def detach_dids(scope, name, dids, issuer):
     kwargs = {'scope': scope, 'name': name, 'dids': dids, 'issuer': issuer}
     if not rucio.api.permission.has_permission(issuer=issuer, action='detach_dids', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not detach data identifiers from %s:%s' % (issuer, scope, name))
+
+    scope = InternalScope(scope)
+    for d in dids:
+        d['scope'] = InternalScope(d['scope'])
+
     return did.detach_dids(scope=scope, name=name, dids=dids)
 
 
@@ -158,7 +238,9 @@ def list_new_dids(type=None, thread=None, total_threads=None, chunk_size=1000):
 
     :param type : The DID type.
     """
-    return did.list_new_dids(did_type=type and DIDType.from_sym(type), thread=thread, total_threads=total_threads, chunk_size=chunk_size)
+    dids = did.list_new_dids(did_type=type and DIDType.from_sym(type), thread=thread, total_threads=total_threads, chunk_size=chunk_size)
+    for d in dids:
+        yield api_update_return_dict(d)
 
 
 def set_new_dids(dids, new_flag=True):
@@ -169,6 +251,9 @@ def set_new_dids(dids, new_flag=True):
     :param name: The data identifier name.
     :param new_flag: A boolean to flag new DIDs.
     """
+    for d in dids:
+        d['scope'] = InternalScope(d['scope'])
+
     return did.set_new_dids(dids, new_flag)
 
 
@@ -179,7 +264,12 @@ def list_content(scope, name):
     :param scope: The scope name.
     :param name: The data identifier name.
     """
-    return did.list_content(scope=scope, name=name)
+
+    scope = InternalScope(scope)
+
+    dids = did.list_content(scope=scope, name=name)
+    for d in dids:
+        yield api_update_return_dict(d)
 
 
 def list_content_history(scope, name):
@@ -189,7 +279,13 @@ def list_content_history(scope, name):
     :param scope: The scope name.
     :param name: The data identifier name.
     """
-    return did.list_content_history(scope=scope, name=name)
+
+    scope = InternalScope(scope)
+
+    dids = did.list_content_history(scope=scope, name=name)
+
+    for d in dids:
+        yield api_update_return_dict(d)
 
 
 def list_files(scope, name, long):
@@ -201,7 +297,12 @@ def list_files(scope, name, long):
     :param long:       A boolean to choose if GUID is returned or not.
     """
 
-    return did.list_files(scope=scope, name=name, long=long)
+    scope = InternalScope(scope)
+
+    dids = did.list_files(scope=scope, name=name, long=long)
+
+    for d in dids:
+        yield api_update_return_dict(d)
 
 
 def scope_list(scope, name=None, recursive=False):
@@ -213,7 +314,16 @@ def scope_list(scope, name=None, recursive=False):
     :param recursive: boolean, True or False.
     """
 
-    return did.scope_list(scope, name=name, recursive=recursive)
+    scope = InternalScope(scope)
+
+    dids = did.scope_list(scope, name=name, recursive=recursive)
+
+    for d in dids:
+        ret_did = deepcopy(d)
+        ret_did['scope'] = ret_did['scope'].external
+        if ret_did['parent'] is not None:
+            ret_did['parent']['scope'] = ret_did['parent']['scope'].external
+        yield ret_did
 
 
 def get_did(scope, name, dynamic=False):
@@ -225,7 +335,10 @@ def get_did(scope, name, dynamic=False):
     :return did: Dictionary containing {'name', 'scope', 'type'}, Exception otherwise
     """
 
-    return did.get_did(scope=scope, name=name, dynamic=dynamic)
+    scope = InternalScope(scope)
+
+    d = did.get_did(scope=scope, name=name, dynamic=dynamic)
+    return api_update_return_dict(d)
 
 
 def set_metadata(scope, name, key, value, issuer, recursive=False):
@@ -246,6 +359,8 @@ def set_metadata(scope, name, key, value, issuer, recursive=False):
 
     if not rucio.api.permission.has_permission(issuer=issuer, action='set_metadata', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add metadata to data identifier %s:%s' % (issuer, scope, name))
+
+    scope = InternalScope(scope)
     return did.set_metadata(scope=scope, name=name, key=key, value=value, recursive=recursive)
 
 
@@ -256,7 +371,11 @@ def get_metadata(scope, name):
     :param scope: The scope name.
     :param name: The data identifier name.
     """
-    return did.get_metadata(scope=scope, name=name)
+
+    scope = InternalScope(scope)
+
+    d = did.get_metadata(scope=scope, name=name)
+    return api_update_return_dict(d)
 
 
 def get_did_meta(scope, name):
@@ -266,6 +385,8 @@ def get_did_meta(scope, name):
     :param scope: the scope of did
     :param name: the name of the did
     """
+
+    scope = InternalScope(scope)
     return did.get_did_meta(scope=scope, name=name)
 
 
@@ -277,6 +398,8 @@ def add_did_meta(scope, name, meta):
     :param name: the name of the did
     :param meta: the metadata to be added or updated
     """
+
+    scope = InternalScope(scope)
     return did.add_did_meta(scope=scope, name=name, meta=meta)
 
 
@@ -288,6 +411,8 @@ def delete_did_meta(scope, name, key):
     :param name: the name of the did
     :param key: the key to be deleted
     """
+
+    scope = InternalScope(scope)
     return did.delete_did_meta(scope=scope, name=name, key=key)
 
 
@@ -298,7 +423,9 @@ def list_dids_by_meta(scope, select):
     :param scope: the scope to search in(optional)
     :param select: the list of key value pairs to filter on
     """
-    return did.list_dids_by_meta(scope=scope, select=select)
+
+    scope = InternalScope(scope)
+    return [api_update_return_dict(d) for d in did.list_dids_by_meta(scope=scope, select=select)]
 
 
 def set_status(scope, name, issuer, **kwargs):
@@ -313,6 +440,9 @@ def set_status(scope, name, issuer, **kwargs):
 
     if not rucio.api.permission.has_permission(issuer=issuer, action='set_status', kwargs={'scope': scope, 'name': name, 'issuer': issuer}):
         raise rucio.common.exception.AccessDenied('Account %s can not set status on data identifier %s:%s' % (issuer, scope, name))
+
+    scope = InternalScope(scope)
+
     return did.set_status(scope=scope, name=name, **kwargs)
 
 
@@ -323,7 +453,10 @@ def get_dataset_by_guid(guid):
 
     :returns: A did
     """
-    return did.get_dataset_by_guid(guid=guid)
+    dids = did.get_dataset_by_guid(guid=guid)
+
+    for d in dids:
+        yield api_update_return_dict(d)
 
 
 def list_parent_dids(scope, name):
@@ -334,7 +467,12 @@ def list_parent_dids(scope, name):
     :param name:    The name.
     """
 
-    return did.list_parent_dids(scope=scope, name=name)
+    scope = InternalScope(scope)
+
+    dids = did.list_parent_dids(scope=scope, name=name)
+
+    for d in dids:
+        yield api_update_return_dict(d)
 
 
 def create_did_sample(input_scope, input_name, output_scope, output_name, issuer, nbfiles):
@@ -352,6 +490,12 @@ def create_did_sample(input_scope, input_name, output_scope, output_name, issuer
     kwargs = {'issuer': issuer, 'scope': output_scope}
     if not rucio.api.permission.has_permission(issuer=issuer, action='create_did_sample', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not bulk add data identifier' % (issuer))
+
+    input_scope = InternalScope(input_scope)
+    output_scope = InternalScope(output_scope)
+
+    issuer = InternalAccount(issuer)
+
     return did.create_did_sample(input_scope=input_scope, input_name=input_name, output_scope=output_scope, output_name=output_name, account=issuer, nbfiles=nbfiles)
 
 
@@ -366,6 +510,10 @@ def resurrect(dids, issuer):
     if not rucio.api.permission.has_permission(issuer=issuer, action='resurrect', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not resurrect data identifiers' % (issuer))
     validate_schema(name='dids', obj=dids)
+
+    for d in dids:
+        d['scope'] = InternalScope(d['scope'])
+
     return did.resurrect(dids=dids)
 
 
@@ -376,4 +524,9 @@ def list_archive_content(scope, name):
     :param scope: The archive scope name.
     :param name: The archive data identifier name.
     """
-    return did.list_archive_content(scope=scope, name=name)
+
+    scope = InternalScope(scope)
+
+    dids = did.list_archive_content(scope=scope, name=name)
+    for d in dids:
+        yield api_update_return_dict(d)

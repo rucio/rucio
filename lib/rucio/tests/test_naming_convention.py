@@ -8,6 +8,7 @@
 
   Authors:
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 """
 
 # pylint: disable=E0611
@@ -15,6 +16,7 @@ from nose.tools import assert_equal, assert_raises
 
 from rucio.client.didclient import DIDClient
 from rucio.common.exception import InvalidObject
+from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.naming_convention import (add_naming_convention,
                                           validate_name,
@@ -38,19 +40,20 @@ class TestNamingConventionCore:
         for convention in list_naming_conventions():
             conventions[convention['scope']] = convention['regexp']
 
-        if 'mock' not in conventions:
-            add_naming_convention(scope='mock',
+        scope = InternalScope('mock')
+        if scope not in conventions:
+            add_naming_convention(scope=scope,
                                   regexp='^(?P<project>mock)\.(?P<datatype>\w+)\.\w+$',
                                   convention_type=KeyType.DATASET)
 
-        meta = validate_name(scope='mck', name='mock.DESD.yipeeee', did_type='D')
+        meta = validate_name(scope=InternalScope('mck'), name='mock.DESD.yipeeee', did_type='D')
         assert_equal(meta, None)
 
-        meta = validate_name(scope='mock', name='mock.DESD.yipeeee', did_type='D')
+        meta = validate_name(scope=scope, name='mock.DESD.yipeeee', did_type='D')
         assert_equal(meta, {u'project': 'mock', u'datatype': 'DESD'})
 
         with assert_raises(InvalidObject):
-            validate_name(scope='mock', name='mockyipeeee', did_type='D')
+            validate_name(scope=scope, name='mockyipeeee', did_type='D')
 
         # Register a dataset
         tmp_dataset = 'mock.AD.' + str(generate_uuid())
@@ -65,6 +68,6 @@ class TestNamingConventionCore:
         observed_datatype = self.did_client.get_metadata(scope='mock', name=tmp_dataset)['datatype']
         assert_equal(observed_datatype, 'AOD')
 
-        delete_naming_convention(scope='mock',
+        delete_naming_convention(scope=scope,
                                  regexp='(?P<project>mock)\.(\w+)$',
                                  convention_type=KeyType.DATASET)

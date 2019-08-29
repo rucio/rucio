@@ -12,7 +12,6 @@ pyflakes==2.0.0                               # Passive checker of Python progra
 flake8==3.5.0                                 # Wrapper around PyFlakes&pep8
 pylint==1.9.4; python_version >= '2.7'        # static code analysis. 1.9.4 last 2.7 compatible release
 virtualenv==16.2.0                            # Virtual Python Environment builder
-tox==3.9.0                                    # Automate and standardize testing in Python
 xmltodict==0.12.0                             # Makes working with XML feel like you are working with JSON
 pytz==2019.1                                  # World timezone definitions, modern and historical
 Babel==2.6.0                                  # Internationalization utilities - Dependency of sphinx

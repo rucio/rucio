@@ -17,12 +17,14 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
 import datetime
 import logging
 import os
+import random
 import socket
 import threading
 import time
@@ -36,6 +38,7 @@ from rucio.common.exception import InvalidRSEExpression, RuleNotFound
 from rucio.core import heartbeat
 import rucio.core.lifetime_exception
 from rucio.core.lock import get_dataset_locks
+from rucio.core.rse import get_rse_name
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_rules_beyond_eol, update_rule
 
@@ -50,7 +53,7 @@ GRACEFUL_STOP = threading.Event()
 
 
 def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
-            once=True, unlock=False):
+            once=True, unlock=False, spread_period=0, purge_replicas=False):
     """
     Creates an Atropos Worker that gets a list of rules which have an eol_at expired and delete them.
 
@@ -75,6 +78,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
     logging.debug(prepend_str + 'Starting worker')
     summary = {}
     lifetime_exceptions = {}
+    rand = random.Random(hb['assign_thread'])
     for excep in rucio.core.lifetime_exception.list_exceptions(exception_id=None, states=[LifetimeExceptionsState.APPROVED, ], session=None):
         if '%s:%s' % (excep['scope'], excep['name']) not in lifetime_exceptions:
             lifetime_exceptions['%s:%s' % (excep['scope'], excep['name'])] = excep['expires_at']
@@ -138,15 +142,18 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
                         for lock in get_dataset_locks(rule.scope, rule.name):
                             if lock['rule_id'] == rule[4]:
                                 no_locks = False
-                                if lock['rse'] not in summary:
-                                    summary[lock['rse']] = {}
-                                if did not in summary[lock['rse']]:
-                                    summary[lock['rse']][did] = {'length': lock['length'] or 0, 'bytes': lock['bytes'] or 0}
+                                if lock['rse_id'] not in summary:
+                                    summary[lock['rse_id']] = {}
+                                if did not in summary[lock['rse_id']]:
+                                    summary[lock['rse_id']][did] = {'length': lock['length'] or 0, 'bytes': lock['bytes'] or 0}
                         if no_locks:
                             logging.warning(prepend_str + 'Cannot find a lock for rule %s on DID %s' % (rule.id, did))
                         if not dry_run:
-                            logging.info(prepend_str + 'Setting %s seconds lifetime for rule %s' % (grace_period, rule.id))
-                            options = {'lifetime': grace_period}
+                            lifetime = grace_period + rand.randrange(spread_period + 1)
+                            logging.info(prepend_str + 'Setting %s seconds lifetime for rule %s' % (lifetime, rule.id))
+                            options = {'lifetime': lifetime}
+                            if purge_replicas:
+                                options = {'purge_replicas': True}
                             if rule.locked and unlock:
                                 logging.info(prepend_str + 'Unlocking rule %s', rule.id)
                                 options['locked'] = False
@@ -159,13 +166,13 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
                 exc_type, exc_value, exc_traceback = exc_info()
                 logging.critical(''.join(format_exception(exc_type, exc_value, exc_traceback)).strip())
 
-            for rse in summary:
+            for rse_id in summary:
                 tot_size, tot_files, tot_datasets = 0, 0, 0
-                for did in summary[rse]:
+                for did in summary[rse_id]:
                     tot_datasets += 1
-                    tot_files += summary[rse][did].get('length', 0)
-                    tot_size += summary[rse][did].get('bytes', 0)
-                logging.info(prepend_str + 'For RSE %s %s datasets will be deleted representing %s files and %s bytes' % (rse, tot_datasets, tot_files, tot_size))
+                    tot_files += summary[rse_id][did].get('length', 0)
+                    tot_size += summary[rse_id][did].get('bytes', 0)
+                logging.info(prepend_str + 'For RSE %s %s datasets will be deleted representing %s files and %s bytes' % (get_rse_name(rse_id=rse_id), tot_datasets, tot_files, tot_size))
 
             if once:
                 break
@@ -182,7 +189,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
 
 
 def run(threads=1, bulk=100, date_check=None, dry_run=True, grace_period=86400,
-        once=True, unlock=False):
+        once=True, unlock=False, spread_period=0, purge_replicas=False):
     """
     Starts up the atropos threads.
     """
@@ -199,7 +206,9 @@ def run(threads=1, bulk=100, date_check=None, dry_run=True, grace_period=86400,
                                                             'dry_run': dry_run,
                                                             'grace_period': grace_period,
                                                             'bulk': bulk,
-                                                            'unlock': unlock}) for i in range(0, threads)]
+                                                            'unlock': unlock,
+                                                            'spread_period': spread_period,
+                                                            'purge_replicas': purge_replicas}) for i in range(0, threads)]
     [t.start() for t in thread_list]
 
     logging.info('waiting for interrupts')

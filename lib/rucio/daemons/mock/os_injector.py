@@ -7,6 +7,7 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2017
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -30,6 +31,7 @@ import time
 import traceback
 
 from rucio.common.config import config_get
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.core import rse as rse_core
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.temporary_did import (add_temporary_dids, get_count_of_expired_temporary_dids)
@@ -48,10 +50,10 @@ GRACEFUL_STOP = threading.Event()
 
 def inject(rse, older_than):
     logging.info('Starting to inject objects for RSE: %s' % rse)
-    num_of_queued_dids = get_count_of_expired_temporary_dids(rse)
     rse_id = rse_core.get_rse_id(rse)
+    num_of_queued_dids = get_count_of_expired_temporary_dids(rse_id)
     if num_of_queued_dids < 1000:
-        max_being_deleted_files, needed_free_space, used, free = __check_rse_usage(rse=rse, rse_id=rse_id)
+        max_being_deleted_files, needed_free_space, used, free = __check_rse_usage(rse_id=rse_id)
         logging.info("needed_free_space: %s" % needed_free_space)
         if needed_free_space is None or needed_free_space > 0:
             rse_info = rsemgr.get_rse_info(rse)
@@ -67,7 +69,7 @@ def inject(rse, older_than):
                 for key in prot.list():
                     d = dateutil.parser.parse(key.last_modified)
                     if d < older_than_time:
-                        did = {'scope': 'transient',
+                        did = {'scope': InternalScope('transient'),
                                'name': key.name.encode('utf-8'),
                                'rse': rse,
                                'rse_id': rse_id,
@@ -75,7 +77,7 @@ def inject(rse, older_than):
                                'created_at': d}
                         dids.append(did)
                         if len(dids) == 1000:
-                            add_temporary_dids(dids=dids, account='root')
+                            add_temporary_dids(dids=dids, account=InternalAccount('root'))
                             logging.info('Adding 1000 dids to temp dids.')
                             dids = []
                     else:

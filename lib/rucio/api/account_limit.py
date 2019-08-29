@@ -7,11 +7,15 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
 import rucio.api.permission
 import rucio.common.exception
+
+from rucio.common.utils import api_update_return_dict
+from rucio.common.types import InternalAccount
 
 from rucio.core import account_limit as account_limit_core
 from rucio.core.account import account_exists
@@ -25,7 +29,9 @@ def get_rse_account_usage(rse):
     :param rse:      The RSE name.
     :return:         List of dictionnaries.
     """
-    return account_limit_core.get_rse_account_usage(rse=rse)
+    rse_id = get_rse_id(rse=rse)
+
+    return [api_update_return_dict(d) for d in account_limit_core.get_rse_account_usage(rse_id=rse_id)]
 
 
 def get_account_limits(account):
@@ -39,9 +45,11 @@ def get_account_limits(account):
     :returns: The account limits.
     """
 
+    account = InternalAccount(account)
+
     rse_instead_id = {}
     for elem in account_limit_core.get_account_limits(account=account).items():
-        rse_instead_id[get_rse_name(elem[0])] = elem[1]
+        rse_instead_id[get_rse_name(rse_id=elem[0])] = elem[1]
     return rse_instead_id
 
 
@@ -57,6 +65,8 @@ def get_account_limit(account, rse):
     :returns: The account limit.
     """
 
+    account = InternalAccount(account)
+
     rse_id = get_rse_id(rse=rse)
     return {rse: account_limit_core.get_account_limit(account=account, rse_id=rse_id)}
 
@@ -70,15 +80,17 @@ def set_account_limit(account, rse, bytes, issuer):
     :param bytes:   The limit in bytes.
     :param issuer:  The issuer account_core.
     """
+    rse_id = get_rse_id(rse=rse)
 
-    kwargs = {'account': account, 'rse': rse, 'bytes': bytes}
+    kwargs = {'account': account, 'rse': rse, 'rse_id': rse_id, 'bytes': bytes}
     if not rucio.api.permission.has_permission(issuer=issuer, action='set_account_limit', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not set account limits.' % (issuer))
+
+    account = InternalAccount(account)
 
     if not account_exists(account=account):
         raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (account))
 
-    rse_id = get_rse_id(rse=rse)
     account_limit_core.set_account_limit(account=account, rse_id=rse_id, bytes=bytes)
 
 
@@ -93,14 +105,16 @@ def delete_account_limit(account, rse, issuer):
     :returns: True if successful; False otherwise.
     """
 
-    kwargs = {'account': account, 'rse': rse}
+    rse_id = get_rse_id(rse=rse)
+    kwargs = {'account': account, 'rse': rse, 'rse_id': rse_id}
     if not rucio.api.permission.has_permission(issuer=issuer, action='delete_account_limit', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not delete account limits.' % (issuer))
+
+    account = InternalAccount(account)
 
     if not account_exists(account=account):
         raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (account))
 
-    rse_id = get_rse_id(rse=rse)
     return account_limit_core.delete_account_limit(account=account, rse_id=rse_id)
 
 
@@ -115,14 +129,17 @@ def get_account_usage(account, rse, issuer):
     :returns:        List of dicts {'rse_id', 'bytes_used', 'files_used', 'bytes_limit'}
     """
 
-    kwargs = {'account': account, 'rse': rse}
+    rse_id = None
+
+    if rse:
+        rse_id = get_rse_id(rse=rse)
+    kwargs = {'account': account, 'rse': rse, 'rse_id': rse_id}
     if not rucio.api.permission.has_permission(issuer=issuer, action='get_account_usage', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not list account usage.' % (issuer))
+
+    account = InternalAccount(account)
 
     if not account_exists(account=account):
         raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (account))
 
-    rse_id = None
-    if rse:
-        rse_id = get_rse_id(rse=rse)
-    return account_limit_core.get_account_usage(account=account, rse_id=rse_id)
+    return [api_update_return_dict(d) for d in account_limit_core.get_account_usage(account=account, rse_id=rse_id)]

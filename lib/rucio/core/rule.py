@@ -21,6 +21,8 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -60,6 +62,7 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound,
                                     ManualRuleApprovalBlocked, UnsupportedOperation, UndefinedPolicy)
 from rucio.common.schema import validate_schema
+from rucio.common.types import InternalScope
 from rucio.common.utils import str_to_date, sizefmt
 from rucio.core import account_counter, rse_counter, request as request_core
 from rucio.core.account import get_account
@@ -149,7 +152,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             # Block manual approval if RSE does not allow it
             if ask_approval:
                 for rse in rses:
-                    if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('block_manual_approval', False):
+                    if list_rse_attributes(rse_id=rse['id'], session=session).get('block_manual_approval', False):
                         raise ManualRuleApprovalBlocked()
 
             if source_replica_expression:
@@ -245,6 +248,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                        or match('.*IntegrityError.*UNIQUE constraint failed.*', str(error.args[0]))\
                        or match('.*1062.*Duplicate entry.*for key.*', str(error.args[0]))\
                        or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+                       or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
                        or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
                         raise DuplicateRule(error.args[0])
                     raise InvalidReplicationRule(error.args[0])
@@ -257,7 +261,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                     raise InvalidReplicationRule('Ask approval is not allowed for rules with multiple RSEs')
                 if len(rses) == 1 and not did.is_open and did.bytes is not None and did.length is not None:
                     # This rule can be considered for auto-approval:
-                    rse_attr = list_rse_attributes(rse=None, rse_id=rses[0]['id'], session=session)
+                    rse_attr = list_rse_attributes(rse_id=rses[0]['id'], session=session)
                     auto_approve = False
                     if 'auto_approve_bytes' in rse_attr and 'auto_approve_files' in rse_attr:
                         if did.bytes < int(rse_attr.get('auto_approve_bytes')) and did.length < int(rse_attr.get('auto_approve_bytes')):
@@ -459,7 +463,7 @@ def add_rules(dids, rules, session=None):
                     # Block manual approval if RSE does not allow it
                     if rule.get('ask_approval', False):
                         for rse in rses:
-                            if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('block_manual_approval', False):
+                            if list_rse_attributes(rse_id=rse['id'], session=session).get('block_manual_approval', False):
                                 raise ManualRuleApprovalBlocked()
 
                     if rule.get('source_replica_expression'):
@@ -526,7 +530,7 @@ def add_rules(dids, rules, session=None):
                             raise InvalidReplicationRule('Ask approval is not allowed for rules with multiple RSEs')
                         if len(rses) == 1 and not did.is_open and did.bytes is not None and did.length is not None:
                             # This rule can be considered for auto-approval:
-                            rse_attr = list_rse_attributes(rse=None, rse_id=rses[0]['id'], session=session)
+                            rse_attr = list_rse_attributes(rse_id=rses[0]['id'], session=session)
                             auto_approve = False
                             if 'auto_approve_bytes' in rse_attr and 'auto_approve_files' in rse_attr:
                                 if did.bytes < int(rse_attr.get('auto_approve_bytes')) and did.length < int(rse_attr.get('auto_approve_bytes')):
@@ -1196,7 +1200,7 @@ def update_rule(rule_id, options, session=None):
     :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used, ScratchDiskLifetimeConflict if wrong ScratchDiskLifetime is used.
     """
 
-    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority', 'child_rule_id', 'eol_at', 'meta']
+    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority', 'child_rule_id', 'eol_at', 'meta', 'purge_replicas']
 
     for key in options:
         if key not in valid_options:
@@ -1774,10 +1778,10 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
     for dts in datasets:
         logging.info('File %s:%s bad at site %s is completely lost from dataset %s:%s. Will be marked as LOST and detached', scope, name, rse, dts['scope'], dts['name'])
         rucio.core.did.detach_dids(scope=dts['scope'], name=dts['name'], dids=[{'scope': scope, 'name': name}], session=session)
-        add_message('LOST', {'scope': scope,
+        add_message('LOST', {'scope': scope.external,
                              'name': name,
                              'dataset_name': dts['name'],
-                             'dataset_scope': dts['scope']},
+                             'dataset_scope': dts['scope'].external},
                     session=session)
 
 
@@ -1795,7 +1799,6 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
 
     locks = session.query(models.ReplicaLock).filter(models.ReplicaLock.scope == scope, models.ReplicaLock.name == name, models.ReplicaLock.rse_id == rse_id).with_for_update(nowait=nowait).all()
     replica = session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).with_for_update(nowait=nowait).one()
-    rse = get_rse_name(rse_id, session=session)
 
     nlock = 0
     datasets = []
@@ -1811,7 +1814,7 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
         dataset = '%s:%s' % (ds_scope, ds_name)
         if dataset not in datasets:
             datasets.append(dataset)
-            logging.info('Recovering file %s:%s from dataset %s:%s at site %s', scope, name, ds_scope, ds_name, rse)
+            logging.info('Recovering file %s:%s from dataset %s:%s at site %s', scope, name, ds_scope, ds_name, get_rse_name(rse_id=rse_id, session=session))
         # Insert a new row in the UpdateCollectionReplica table
         models.UpdatedCollectionReplica(scope=ds_scope,
                                         name=ds_name,
@@ -1827,7 +1830,7 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
         rule.locks_replicating_cnt += 1
         # Generate the request
         try:
-            request_core.get_request_by_did(scope, name, rse, session=session)
+            request_core.get_request_by_did(scope, name, rse_id, session=session)
         except RequestNotFound:
             bytes = replica.bytes
             md5 = replica.md5
@@ -1850,7 +1853,7 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
     if nlock:
         session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).update({'state': ReplicaState.COPYING})
     else:
-        logging.info('File %s:%s at site %s has no locks. Will be deleted now.', scope, name, rse)
+        logging.info('File %s:%s at site %s has no locks. Will be deleted now.', scope, name, get_rse_name(rse_id=rse_id, session=session))
         tombstone = OBSOLETE
         session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).update({'state': ReplicaState.UNAVAILABLE, 'tombstone': tombstone})
 
@@ -1874,7 +1877,7 @@ def generate_rule_notifications(rule, replicating_locks_before=None, session=Non
         # RULE_OK RULE_PROGRESS NOTIFICATIONS:
         if rule.notification == RuleNotification.YES:
             add_message(event_type='RULE_OK',
-                        payload={'scope': rule.scope,
+                        payload={'scope': rule.scope.external,
                                  'name': rule.name,
                                  'rule_id': rule.id},
                         session=session)
@@ -1883,13 +1886,13 @@ def generate_rule_notifications(rule, replicating_locks_before=None, session=Non
                 did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, session=session)
                 if not did['open']:
                     add_message(event_type='RULE_OK',
-                                payload={'scope': rule.scope,
+                                payload={'scope': rule.scope.external,
                                          'name': rule.name,
                                          'rule_id': rule.id},
                                 session=session)
                     if rule.notification == RuleNotification.PROGRESS:
                         add_message(event_type='RULE_PROGRESS',
-                                    payload={'scope': rule.scope,
+                                    payload={'scope': rule.scope.external,
                                              'name': rule.name,
                                              'rule_id': rule.id,
                                              'progress': __progress_class(rule.locks_replicating_cnt, total_locks)},
@@ -1905,9 +1908,10 @@ def generate_rule_notifications(rule, replicating_locks_before=None, session=Non
                 dataset_locks = session.query(models.DatasetLock).filter_by(rule_id=rule.id).all()
                 for dataset_lock in dataset_locks:
                     add_message(event_type='DATASETLOCK_OK',
-                                payload={'scope': dataset_lock.scope,
+                                payload={'scope': dataset_lock.scope.external,
                                          'name': dataset_lock.name,
                                          'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
+                                         'rse_id': dataset_lock.rse_id,
                                          'rule_id': rule.id},
                                 session=session)
             elif rule.notification == RuleNotification.CLOSE:
@@ -1920,9 +1924,10 @@ def generate_rule_notifications(rule, replicating_locks_before=None, session=Non
                                 return
                             if did['length'] * rule.copies == rule.locks_ok_cnt:
                                 add_message(event_type='DATASETLOCK_OK',
-                                            payload={'scope': dataset_lock.scope,
+                                            payload={'scope': dataset_lock.scope.external,
                                                      'name': dataset_lock.name,
                                                      'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
+                                                     'rse_id': dataset_lock.rse_id,
                                                      'rule_id': rule.id},
                                             session=session)
                     except DataIdentifierNotFound:
@@ -1935,7 +1940,7 @@ def generate_rule_notifications(rule, replicating_locks_before=None, session=Non
                 did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, session=session)
                 if not did['open']:
                     add_message(event_type='RULE_PROGRESS',
-                                payload={'scope': rule.scope,
+                                payload={'scope': rule.scope.external,
                                          'name': rule.name,
                                          'rule_id': rule.id,
                                          'progress': __progress_class(rule.locks_replicating_cnt, total_locks)},
@@ -1966,7 +1971,7 @@ def generate_email_for_rule_ok_notification(rule, session=None):
                                                  'expires_at': str(rule.expires_at),
                                                  'rse_expression': rule.rse_expression,
                                                  'comment': rule.comments,
-                                                 'scope': rule.scope,
+                                                 'scope': rule.scope.external,
                                                  'name': rule.name,
                                                  'did_type': rule.did_type})
                 add_message(event_type='email',
@@ -2039,7 +2044,7 @@ def approve_rule(rule_id, approver=None, notify_approvers=True, session=None):
                                                      'expires_at': str(rule.expires_at),
                                                      'rse_expression': rule.rse_expression,
                                                      'comment': rule.comments,
-                                                     'scope': rule.scope,
+                                                     'scope': rule.scope.external,
                                                      'name': rule.name,
                                                      'did_type': rule.did_type,
                                                      'approver': approver})
@@ -2095,7 +2100,7 @@ def deny_rule(rule_id, approver=None, reason=None, session=None):
                 text = template.safe_substitute({'rule_id': str(rule.id),
                                                  'rse_expression': rule.rse_expression,
                                                  'comment': rule.comments,
-                                                 'scope': rule.scope,
+                                                 'scope': rule.scope.external,
                                                  'name': rule.name,
                                                  'did_type': rule.did_type,
                                                  'approver': approver,
@@ -2159,14 +2164,17 @@ def examine_rule(rule_id, session=None):
                     last_request = transfers[0]
                     last_error = last_request.state
                     last_time = last_request.created_at
-                    last_source = None if last_request.source_rse_id is None else get_rse_name(last_request.source_rse_id, session=session)
+                    last_source = None if last_request.source_rse_id is None else last_request.source_rse_id
                     available_replicas = session.query(models.RSEFileAssociation).filter_by(scope=lock.scope, name=lock.name, state=ReplicaState.AVAILABLE).all()
+
                     for replica in available_replicas:
-                        sources.append((get_rse(None, rse_id=replica.rse_id, session=session).rse,
-                                        True if get_rse(None, rse_id=replica.rse_id, session=session).availability >= 4 else False))
+                        sources.append((replica.rse_id,
+                                        True if get_rse(rse_id=replica.rse_id, session=session).availability >= 4 else False))
+
                 result['transfers'].append({'scope': lock.scope,
                                             'name': lock.name,
-                                            'rse': get_rse_name(lock.rse_id, session=session),
+                                            'rse_id': lock.rse_id,
+                                            'rse': get_rse_name(rse_id=lock.rse_id, session=session),
                                             'attempts': transfer_cnt,
                                             'last_error': str(last_error),
                                             'last_source': last_source,
@@ -2906,7 +2914,7 @@ def __delete_lock_and_update_replica(lock, purge_replicas=False, nowait=False, s
                 replica.tombstone = OBSOLETE
                 return True
     except NoResultFound:
-        logging.error("Replica for lock %s:%s for rule %s on rse %s could not be found", lock.scope, lock.name, str(lock.rule_id), get_rse_name(lock.rse_id, session=session))
+        logging.error("Replica for lock %s:%s for rule %s on rse %s could not be found", lock.scope, lock.name, str(lock.rule_id), get_rse_name(rse_id=lock.rse_id, session=session))
     return False
 
 
@@ -2923,7 +2931,7 @@ def __create_rule_approval_email(rule, session=None):
         template = Template(templatefile.read())
 
     did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, dynamic=True, session=session)
-    rses = [rep['rse'] for rep in rucio.core.replica.list_dataset_replicas(scope=rule.scope, name=rule.name, session=session) if rep['state'] == ReplicaState.AVAILABLE]
+    rses = [rep['rse_id'] for rep in rucio.core.replica.list_dataset_replicas(scope=rule.scope, name=rule.name, session=session) if rep['state'] == ReplicaState.AVAILABLE]
 
     # RSE occupancy
     target_rses = parse_expression(rule.rse_expression, session=session)
@@ -2933,11 +2941,12 @@ def __create_rule_approval_email(rule, session=None):
         free_space_after = 'undefined'
     else:
         target_rse = target_rses[0]['rse']
+        target_rse_id = target_rses[0]['id']
         free_space = 'undefined'
         free_space_after = 'undefined'
 
         try:
-            for usage in get_rse_usage(rse=target_rse, session=session):
+            for usage in get_rse_usage(rse_id=target_rse_id, session=session):
                 if usage['source'] == 'storage':
                     free_space = sizefmt(usage['free'])
                     if did['bytes'] is None:
@@ -2954,11 +2963,11 @@ def __create_rule_approval_email(rule, session=None):
         text = template.safe_substitute({'rule_id': str(rule.id),
                                          'created_at': str(rule.created_at),
                                          'expires_at': str(rule.expires_at),
-                                         'account': rule.account,
+                                         'account': rule.account.external,
                                          'email': get_account(account=rule.account, session=session).email,
                                          'rse_expression': rule.rse_expression,
                                          'comment': rule.comments,
-                                         'scope': rule.scope,
+                                         'scope': rule.scope.external,
                                          'name': rule.name,
                                          'did_type': rule.did_type,
                                          'length': '0' if did['length'] is None else str(did['length']),
@@ -2992,7 +3001,7 @@ def __create_recipents_list(rse_expression, session=None):
     # APPROVERS-LIST
     # If there are accounts in the approvers-list of any of the RSEs only these should be used
     for rse in parse_expression(rse_expression, session=session):
-        rse_attr = list_rse_attributes(rse=rse['rse'], session=session)
+        rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
         if rse_attr.get('rule_approvers'):
             for account in rse_attr.get('rule_approvers').split(','):
                 try:
@@ -3005,7 +3014,7 @@ def __create_recipents_list(rse_expression, session=None):
     # LOCALGROUPDISK/LOCALGROUPTAPE
     if not recipents:
         for rse in parse_expression(rse_expression, session=session):
-            rse_attr = list_rse_attributes(rse=rse['rse'], session=session)
+            rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
             if rse_attr.get('type', '') in ('LOCALGROUPDISK', 'LOCALGROUPTAPE'):
                 accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='country-%s' % rse_attr.get('country', ''),
                                                                                           value='admin').all()
@@ -3020,7 +3029,7 @@ def __create_recipents_list(rse_expression, session=None):
     # GROUPDISK
     if not recipents:
         for rse in parse_expression(rse_expression, session=session):
-            rse_attr = list_rse_attributes(rse=rse['rse'], session=session)
+            rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
             if rse_attr.get('type', '') == 'GROUPDISK':
                 accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='group-%s' % rse_attr.get('physgroup', ''),
                                                                                           value='admin').all()
@@ -3066,9 +3075,10 @@ def archive_localgroupdisk_datasets(scope, name, session=None):
 
     rses_to_rebalance = []
 
+    archive = InternalScope('archive')
     # Check if the archival dataset already exists
     try:
-        rucio.core.did.get_did(scope='archive', name=name, session=session)
+        rucio.core.did.get_did(scope=archive, name=name, session=session)
         return
     except DataIdentifierNotFound:
         pass
@@ -3076,7 +3086,7 @@ def archive_localgroupdisk_datasets(scope, name, session=None):
     # Check if the dataset has a rule on a LOCALGROUPDISK
     for lock in rucio.core.lock.get_dataset_locks(scope=scope, name=name, session=session):
         if 'LOCALGROUPDISK' in lock['rse']:
-            rses_to_rebalance.append({'rse': lock['rse'], 'account': lock['account']})
+            rses_to_rebalance.append({'rse_id': lock['rse_id'], 'rse': lock['rse'], 'account': lock['account']})
     # Remove duplicates from list
     rses_to_rebalance = [dict(t) for t in set([tuple(sorted(d.items())) for d in rses_to_rebalance])]
 
@@ -3088,7 +3098,7 @@ def archive_localgroupdisk_datasets(scope, name, session=None):
             did = rucio.core.did.get_did(scope=scope, name=name, session=session)
             meta = rucio.core.did.get_metadata(scope=scope, name=name, session=session)
             new_meta = {k: v for k, v in meta.items() if k in ['project', 'datatype', 'run_number', 'stream_name', 'prod_step', 'version', 'campaign', 'task_id', 'panda_id'] and v is not None}
-            rucio.core.did.add_did(scope='archive',
+            rucio.core.did.add_did(scope=archive,
                                    name=name,
                                    type=DIDType.DATASET,
                                    account=did['account'],
@@ -3097,14 +3107,14 @@ def archive_localgroupdisk_datasets(scope, name, session=None):
                                    rules=[],
                                    lifetime=None,
                                    dids=[],
-                                   rse=None,
+                                   rse_id=None,
                                    session=session)
-            rucio.core.did.attach_dids(scope='archive', name=name, dids=content, account=did['account'], session=session)
+            rucio.core.did.attach_dids(scope=archive, name=name, dids=content, account=did['account'], session=session)
             if not did['open']:
-                rucio.core.did.set_status(scope='archive', name=name, open=False, session=session)
+                rucio.core.did.set_status(scope=archive, name=name, open=False, session=session)
 
             for rse in rses_to_rebalance:
-                add_rule(dids=[{'scope': 'archive', 'name': name}],
+                add_rule(dids=[{'scope': archive, 'name': name}],
                          account=rse['account'],
                          copies=1,
                          rse_expression=rse['rse'],
@@ -3135,6 +3145,6 @@ def get_scratch_policy(account, rses, lifetime, session=None):
     # Check SCRATCHDISK Policy
     if not has_account_attribute(account=account, key='admin', session=session) and (lifetime is None or lifetime > 60 * 60 * 24 * scratchdisk_lifetime):
         # Check if one of the rses is a SCRATCHDISK:
-        if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') == 'SCRATCHDISK']:
+        if [rse for rse in rses if list_rse_attributes(rse_id=rse['id'], session=session).get('type') == 'SCRATCHDISK']:
             lifetime = 60 * 60 * 24 * scratchdisk_lifetime - 1
     return lifetime

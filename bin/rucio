@@ -1846,7 +1846,7 @@ Please use the filter option `--filter type=all` to find all types of Data IDent
 
 You can query the DIDs matching a certain pattern. It always requires to specify the scope in which you want to search::
 
-    $ rucio list-dids user.jdoe:*
+    $ rucio list-dids --filter 'type=all' user.jdoe:*
     +-------------------------------------------+--------------+
     | SCOPE:NAME                                | [DID TYPE]   |
     |-------------------------------------------+--------------|

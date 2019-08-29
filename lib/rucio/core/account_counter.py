@@ -128,9 +128,9 @@ def get_updated_account_counters(total_workers, worker_number, session=None):
                           bindparam('total_workers', total_workers)]
             query = query.filter(text('ORA_HASH(CONCAT(account, rse_id), :total_workers) = :worker_number', bindparams=bindparams))
         elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(concat(account, rse_id)), %s) = %s' % (total_workers + 1, worker_number))
+            query = query.filter(text('mod(md5(concat(account, rse_id)), %s) = %s' % (total_workers + 1, worker_number)))
         elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(concat(account, rse_id)))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number))
+            query = query.filter(text('mod(abs((\'x\'||md5(concat(account, rse_id)))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
 
     return query.all()
 
@@ -175,7 +175,7 @@ def update_account_counter_history(account, rse_id, session=None):
         counter = session.query(models.AccountUsage).filter_by(rse_id=rse_id, account=account).one()
         AccountUsageHistory(rse_id=rse_id, account=account, files=counter.files, bytes=counter.bytes).save(session=session)
     except NoResultFound:
-        raise CounterNotFound('No usage can be found for account %s on RSE with id %s' % (account, rse_id))
+        raise CounterNotFound('No usage can be found for account %s on RSE %s' % (account, rucio.core.rse.get_rse_name(rse_id=rse_id, session=session)))
 
 
 @transactional_session

@@ -17,6 +17,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -26,21 +27,19 @@ from sqlalchemy import and_, or_, exists, not_
 from sqlalchemy.sql.expression import bindparam, text, select, false
 
 from rucio.common.utils import chunks
-from rucio.core.rse import get_rse_id
 from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session, transactional_session
 
 
 @transactional_session
-def add_quarantined_replicas(rse, replicas, session=None):
+def add_quarantined_replicas(rse_id, replicas, session=None):
     """
     Bulk add quarantined file replicas.
 
-    :param rse:      The rse name.
+    :param rse_id:      The rse id.
     :param replicas: A list of dicts with the replica information.
     :param session:  The database session in use.
     """
-    rse_id = get_rse_id(rse, session=session)
 
     for chunk in chunks(replicas, 100):
         # Exlude files that have a registered replica.  This is a
@@ -78,16 +77,15 @@ def add_quarantined_replicas(rse, replicas, session=None):
 
 
 @transactional_session
-def delete_quarantined_replicas(rse, replicas, session=None):
+def delete_quarantined_replicas(rse_id, replicas, session=None):
     """
     Delete file replicas.
 
-    :param rse: the rse name.
+    :param rse_id: the rse id.
     :param files: the list of files to delete.
     :param ignore_availability: Ignore the RSE blacklisting.
     :param session: The database session in use.
     """
-    rse_id = get_rse_id(rse, session=session)
 
     conditions = []
     for replica in replicas:
@@ -109,11 +107,11 @@ def delete_quarantined_replicas(rse, replicas, session=None):
 
 
 @read_session
-def list_quarantined_replicas(rse, limit, worker_number=None, total_workers=None, session=None):
+def list_quarantined_replicas(rse_id, limit, worker_number=None, total_workers=None, session=None):
     """
     List RSE Quarantined File replicas.
 
-    :param rse: the rse name.
+    :param rse_id: the rse id.
     :param limit: The maximum number of replicas returned.
     :param worker_number:      id of the executing worker.
     :param total_workers:      Number of total workers.
@@ -121,7 +119,6 @@ def list_quarantined_replicas(rse, limit, worker_number=None, total_workers=None
 
     :returns: a list of dictionary replica.
     """
-    rse_id = get_rse_id(rse, session=session)
 
     query = session.query(models.QuarantinedReplica.path,
                           models.QuarantinedReplica.bytes,
@@ -147,7 +144,6 @@ def list_quarantined_replicas(rse, limit, worker_number=None, total_workers=None
             query = query.filter('mod(abs((\'x\'||md5(path))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1))
 
     return [{'path': path,
-             'rse': rse,
              'rse_id': rse_id,
              'created_at': created_at,
              'scope': scope,
@@ -165,7 +161,7 @@ def list_rses(session=None):
 
     :returns: a list of RSEs.
     """
-    query = session.query(models.RSE.rse).distinct(models.RSE.rse).\
+    query = session.query(models.RSE.id).distinct(models.RSE.id).\
         filter(models.QuarantinedReplica.rse_id == models.RSE.id).\
         filter(models.RSE.deleted == false())
     return [rse for (rse,) in query]

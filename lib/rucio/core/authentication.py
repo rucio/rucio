@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Mario Lassnig <mario@lassnig.net>, 2012-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2012-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2012-2019
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2017
 # - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
@@ -114,7 +114,7 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
 
     # remove expired tokens
     session.query(models.Token).filter(models.Token.expired_at < datetime.datetime.utcnow(),
-                                       models.Token.account == account).delete()
+                                       models.Token.account == account).with_for_update(skip_locked=True).delete()
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
@@ -150,7 +150,7 @@ def get_auth_token_x509(account, dn, appid, ip=None, session=None):
 
     # remove expired tokens
     session.query(models.Token).filter(models.Token.expired_at < datetime.datetime.utcnow(),
-                                       models.Token.account == account).delete()
+                                       models.Token.account == account).with_for_update(skip_locked=True).delete()
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
@@ -186,7 +186,7 @@ def get_auth_token_gss(account, gsstoken, appid, ip=None, session=None):
 
     # remove expired tokens
     session.query(models.Token).filter(models.Token.expired_at < datetime.datetime.utcnow(),
-                                       models.Token.account == account).delete()
+                                       models.Token.account == account).with_for_update(skip_locked=True).delete()
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
@@ -250,7 +250,7 @@ def get_auth_token_ssh(account, signature, appid, ip=None, session=None):
 
     # remove expired tokens
     session.query(models.Token).filter(models.Token.expired_at < datetime.datetime.utcnow(),
-                                       models.Token.account == account).delete()
+                                       models.Token.account == account).with_for_update(skip_locked=True).delete()
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA

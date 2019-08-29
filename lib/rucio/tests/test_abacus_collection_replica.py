@@ -14,6 +14,7 @@
 #
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -26,9 +27,10 @@ from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.uploadclient import UploadClient
+from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.replica import delete_replicas
-from rucio.core.rse import get_rse
+from rucio.core.rse import get_rse_id
 from rucio.daemons.undertaker import undertaker
 from rucio.daemons.abacus import collection_replica
 from rucio.daemons.judge import cleaner
@@ -48,7 +50,7 @@ class TestAbacusCollectionReplica():
         self.file_sizes = 2
         self.dataset = 'dataset_%s' % generate_uuid()
         self.rse = 'MOCK5'
-        self.rse_id = get_rse(self.rse).id
+        self.rse_id = get_rse_id(rse=self.rse)
 
     def tearDown(self):
         undertaker.run(once=True)
@@ -85,7 +87,7 @@ class TestAbacusCollectionReplica():
 
         # Delete one file -> collection replica should be unavailable
         cleaner.run(once=True)
-        delete_replicas(rse=self.rse, files=[{'name': self.files[0]['did_name'], 'scope': self.files[0]['did_scope']}])
+        delete_replicas(rse_id=self.rse_id, files=[{'name': self.files[0]['did_name'], 'scope': InternalScope(self.files[0]['did_scope'])}])
         self.rule_client.add_replication_rule([{'scope': self.scope, 'name': self.dataset}], 1, self.rse, lifetime=-1)
         collection_replica.run(once=True)
         dataset_replica = [replica for replica in self.replica_client.list_dataset_replicas(self.scope, self.dataset)][0]
