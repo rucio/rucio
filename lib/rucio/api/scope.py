@@ -8,6 +8,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -15,6 +16,7 @@ import rucio.api.permission
 import rucio.common.exception
 
 from rucio.core import scope as core_scope
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.schema import validate_schema
 
 
@@ -24,7 +26,7 @@ def list_scopes():
 
     :returns: A list containing all scopes.
     """
-    return core_scope.list_scopes()
+    return [scope.external for scope in core_scope.list_scopes()]
 
 
 def add_scope(scope, account, issuer):
@@ -42,6 +44,9 @@ def add_scope(scope, account, issuer):
     if not rucio.api.permission.has_permission(issuer=issuer, action='add_scope', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add scope' % (issuer))
 
+    scope = InternalScope(scope)
+    account = InternalAccount(account)
+
     core_scope.add_scope(scope, account)
 
 
@@ -53,4 +58,7 @@ def get_scopes(account):
 
     :returns: A list containing the names of all scopes for this account.
     """
-    return core_scope.get_scopes(account)
+
+    account = InternalAccount(account)
+
+    return [scope.external for scope in core_scope.get_scopes(account)]

@@ -17,6 +17,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -41,6 +42,7 @@ from sqlalchemy.exc import DatabaseError
 
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, UnsupportedOperation, RuleNotFound
+from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
@@ -94,7 +96,7 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False):
             for chunk in chunks(dids, chunk_size):
                 try:
                     logging.info('Undertaker(%s): Receive %s dids to delete', worker_number, len(chunk))
-                    delete_dids(dids=chunk, account='root', expire_rules=True)
+                    delete_dids(dids=chunk, account=InternalAccount('root'), expire_rules=True)
                     logging.info('Undertaker(%s): Delete %s dids', worker_number, len(chunk))
                     record_counter(counters='undertaker.delete_dids', delta=len(chunk))
                 except RuleNotFound as error:
@@ -106,7 +108,7 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False):
                         record_counter('undertaker.delete_dids.exceptions.LocksDetected')
                         logging.warning('undertaker[%s/%s]: Locks detected for chunk', heartbeat['assign_thread'], heartbeat['nr_threads'])
                     else:
-                        logging.error('Undertaker(%s): Got database error %s.', worker_number, str(error))
+                        logging.error('Undertaker(%s): Got database error %s.', worker_number, str(e))
         except:
             logging.critical(traceback.format_exc())
             time.sleep(1)

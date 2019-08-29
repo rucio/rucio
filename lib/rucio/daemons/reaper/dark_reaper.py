@@ -17,6 +17,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -86,13 +87,14 @@ def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False
             nothing_to_do = True
 
             random.shuffle(rses)
-            for rse in rses:
-                replicas = list_quarantined_replicas(rse=rse,
+            for rse_id in rses:
+                rse = rse_core.get_rse_name(rse_id=rse_id)
+                rse_info = rsemgr.get_rse_info(rse)
+                replicas = list_quarantined_replicas(rse_id=rse_id,
                                                      limit=chunk_size, worker_number=worker_number,
                                                      total_workers=total_workers)
 
-                rse_info = rsemgr.get_rse_info(rse)
-                rse_protocol = rse_core.get_rse_protocols(rse)
+                rse_protocol = rse_core.get_rse_protocols(rse_id=rse_id)
                 prot = rsemgr.create_protocol(rse_info, 'delete', scheme=scheme)
                 deleted_replicas = []
                 try:
@@ -101,16 +103,17 @@ def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False
                         nothing_to_do = False
                         try:
                             pfn = str(rsemgr.lfns2pfns(rse_settings=rse_info,
-                                                       lfns=[{'scope': replica['scope'], 'name': replica['name'], 'path': replica['path']}],
+                                                       lfns=[{'scope': replica['scope'].external, 'name': replica['name'], 'path': replica['path']}],
                                                        operation='delete', scheme=scheme).values()[0])
                             logging.info('Dark Reaper %s-%s: Deletion ATTEMPT of %s:%s as %s on %s', worker_number, total_workers, replica['scope'], replica['name'], pfn, rse)
                             start = time.time()
                             prot.delete(pfn)
                             duration = time.time() - start
                             logging.info('Dark Reaper %s-%s: Deletion SUCCESS of %s:%s as %s on %s in %s seconds', worker_number, total_workers, replica['scope'], replica['name'], pfn, rse, duration)
-                            add_message('deletion-done', {'scope': replica['scope'],
+                            add_message('deletion-done', {'scope': replica['scope'].external,
                                                           'name': replica['name'],
                                                           'rse': rse,
+                                                          'rse_id': rse_id,
                                                           'file-size': replica.get('bytes') or 0,
                                                           'bytes': replica.get('bytes') or 0,
                                                           'url': pfn,
@@ -124,9 +127,10 @@ def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False
                         except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
                             err_msg = 'Dark Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s' % (worker_number, total_workers, replica['scope'], replica['name'], pfn, rse, str(error))
                             logging.warning(err_msg)
-                            add_message('deletion-failed', {'scope': replica['scope'],
+                            add_message('deletion-failed', {'scope': replica['scope'].external,
                                                             'name': replica['name'],
                                                             'rse': rse,
+                                                            'rse_id': rse_id,
                                                             'file-size': replica['bytes'] or 0,
                                                             'bytes': replica['bytes'] or 0,
                                                             'url': pfn,
@@ -138,7 +142,7 @@ def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False
                 finally:
                     prot.close()
 
-                delete_quarantined_replicas(rse=rse, replicas=deleted_replicas)
+                delete_quarantined_replicas(rse_id=rse_id, replicas=deleted_replicas)
 
                 if once:
                     break
@@ -188,17 +192,19 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
     if all_rses:
         rses = list_rses()
     elif not rses:
-        rses = [rse['rse'] for rse in rse_core.list_rses()]
+        rses = [rse['id'] for rse in rse_core.list_rses()]
+    else:
+        rses = [rse_core.get_rse_id(rse=rse) for rse in rses]
 
     threads = []
     for worker in range(total_workers):
-            kwargs = {'worker_number': worker,
-                      'total_workers': total_workers,
-                      'rses': rses,
-                      'once': once,
-                      'chunk_size': chunk_size,
-                      'scheme': scheme}
-            threads.append(threading.Thread(target=reaper, kwargs=kwargs, name='Worker: %s, Total_Workers: %s' % (worker, total_workers)))
+        kwargs = {'worker_number': worker,
+                  'total_workers': total_workers,
+                  'rses': rses,
+                  'once': once,
+                  'chunk_size': chunk_size,
+                  'scheme': scheme}
+        threads.append(threading.Thread(target=reaper, kwargs=kwargs, name='Worker: %s, Total_Workers: %s' % (worker, total_workers)))
     [t.start() for t in threads]
     while threads[0].is_alive():
         [t.join(timeout=3.14) for t in threads]

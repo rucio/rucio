@@ -16,9 +16,10 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2015-2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -53,7 +54,7 @@ from rucio.common.exception import DatabaseException, ConfigNotFound, Unsupporte
 from rucio.core import request as request_core, heartbeat, replica as replica_core
 from rucio.core.config import items
 from rucio.core.monitor import record_timer, record_counter
-from rucio.core.rse import list_rses, get_rse_name, get_rse
+from rucio.core.rse import list_rses, get_rse_name
 from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState, BadFilesStatus
 from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager
@@ -250,8 +251,8 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, prep
                 __check_suspicious_files(req, suspicious_patterns)
                 tss = time.time()
                 try:
-                    new_req = request_core.requeue_and_archive(req, retry_protocol_mismatches)
-                    if new_req:
+                    if request_core.should_retry_request(req, retry_protocol_mismatches):
+                        new_req = request_core.requeue_and_archive(req, retry_protocol_mismatches)
                         # should_retry_request and requeue_and_archive are not in one session,
                         # another process can requeue_and_archive and this one will return None.
                         record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time() - tss) * 1000)
@@ -277,8 +278,8 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, prep
                     continue
                 try:
                     tss = time.time()
-                    new_req = request_core.requeue_and_archive(req, retry_protocol_mismatches)
-                    if new_req:
+                    if request_core.should_retry_request(req, retry_protocol_mismatches):
+                        new_req = request_core.requeue_and_archive(req, retry_protocol_mismatches)
                         record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time() - tss) * 1000)
                         logging.warn(prepend_str + 'REQUEUED SUBMITTING DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
                                                                                                               req['name'],
@@ -438,8 +439,7 @@ def __update_replica(replica, session=None):
         try:
             if replica['state'] == ReplicaState.AVAILABLE and replica['request_type'] != RequestType.STAGEIN:
                 logging.info("Replica cannot be found. Adding a replica %s:%s AT RSE %s with tombstone=utcnow", replica['scope'], replica['name'], replica['rse_id'])
-                rse = get_rse(rse=None, rse_id=replica['rse_id'], session=session)
-                replica_core.add_replica(rse['rse'],
+                replica_core.add_replica(replica['rse_id'],
                                          replica['scope'],
                                          replica['name'],
                                          replica['bytes'],

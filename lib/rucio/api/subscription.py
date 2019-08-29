@@ -12,15 +12,18 @@
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015, 2017
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+ - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
  PY3K COMPATIBLE
 """
 
 from json import dumps
+from sqlalchemy.util import KeyedTuple
 
 from rucio.api.permission import has_permission
 from rucio.common.exception import InvalidObject, AccessDenied
 from rucio.common.schema import validate_schema
+from rucio.common.types import InternalAccount
 from rucio.core import subscription
 
 
@@ -70,6 +73,7 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
     except ValueError as error:
         raise TypeError(error)
 
+    account = InternalAccount(account)
     return subscription.add_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, priority=priority)
 
 
@@ -102,6 +106,8 @@ def update_subscription(name, account, metadata=None, issuer=None):
                     validate_schema(name='activity', obj=rule.get('activity', 'default'))
     except ValueError as error:
         raise TypeError(error)
+
+    account = InternalAccount(account)
     return subscription.update_subscription(name=name, account=account, metadata=metadata)
 
 
@@ -118,7 +124,13 @@ def list_subscriptions(name=None, account=None, state=None):
     :rtype:   Dict
     :raises: exception.NotFound if subscription is not found
     """
-    return subscription.list_subscriptions(name, account, state)
+
+    if account is not None:
+        account = InternalAccount(account)
+    subs = subscription.list_subscriptions(name, account, state)
+    for sub in subs:
+        sub['account'] = sub['account'].external
+        yield sub
 
 
 def list_subscription_rule_states(name=None, account=None):
@@ -129,7 +141,15 @@ def list_subscription_rule_states(name=None, account=None):
     :param session: The database session in use.
     :returns: List with tuple (account, name, state, count)
     """
-    return subscription.list_subscription_rule_states(name, account)
+    if account is not None:
+        account = InternalAccount(account)
+    subs = subscription.list_subscription_rule_states(name, account)
+    for sub in subs:
+        # sub is an immutable KeyedTuple so return new KeyedTuple with edited entries
+        labels = sub._fields
+        d = sub._asdict()
+        d['account'] = d['account'].external
+        yield KeyedTuple([d[l] for l in labels], labels=labels)
 
 
 def delete_subscription(subscription_id):
@@ -151,4 +171,6 @@ def get_subscription_by_id(subscription_id):
     :param session: The database session in use.
     :raises: SubscriptionNotFound if no Subscription can be found.
     """
-    return subscription.get_subscription_by_id(subscription_id)
+    sub = subscription.get_subscription_by_id(subscription_id)
+    sub['account'] = sub['account'].external
+    return sub

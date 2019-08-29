@@ -21,6 +21,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 
 from __future__ import print_function
 from datetime import datetime, timedelta
@@ -40,13 +41,14 @@ from rucio.common.config import config_get
 from rucio.common.utils import generate_uuid, clean_surls
 from rucio.common.exception import (DataIdentifierNotFound, AccessDenied, UnsupportedOperation,
                                     RucioException, ReplicaIsLocked, ReplicaNotFound)
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files, get_did_atime
 from rucio.core.replica import (add_replica, add_replicas, delete_replicas, get_replicas_state,
                                 update_replica_lock_counter, get_replica, list_replicas,
                                 declare_bad_file_replicas, list_bad_replicas,
                                 update_replicas_paths, update_replica_state,
                                 get_replica_atime, touch_replica, get_bad_pfns, set_tombstone)
-from rucio.core.rse import add_rse, add_protocol, add_rse_attribute, del_rse_attribute
+from rucio.core.rse import add_rse, add_protocol, add_rse_attribute, del_rse_attribute, get_rse_id
 from rucio.client.ruleclient import RuleClient
 from rucio.daemons.badreplicas.necromancer import run as necromancer_run
 from rucio.daemons.badreplicas.minos import run as minos_run
@@ -61,43 +63,45 @@ class TestReplicaCore:
 
     def test_update_replicas_paths(self):
         """ REPLICA (CORE): Force update the replica path """
-        tmp_scope = 'mock'
+        tmp_scope = InternalScope('mock')
+        root = InternalAccount('root')
         nbfiles = 5
-        rse_info = rsemgr.get_rse_info('MOCK')
+        rse_id = get_rse_id(rse='MOCK')
+        rse_id2 = get_rse_id(rse='MOCK2')
         files = [{'scope': tmp_scope,
                   'name': 'file_%s' % generate_uuid(),
                   'pfn': 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/does/not/really/matter/where',
                   'bytes': 1,
                   'adler32': '0cc737eb',
                   'meta': {'events': 10},
-                  'rse_id': rse_info['id'],
+                  'rse_id': rse_id,
                   'path': '/does/not/really/matter/where'} for _ in range(nbfiles)]
-        add_replicas(rse='MOCK2', files=files, account='root', ignore_availability=True)
+        add_replicas(rse_id=rse_id2, files=files, account=root, ignore_availability=True)
         update_replicas_paths(files)
         for replica in list_replicas(dids=[{'scope': f['scope'],
                                             'name': f['name'],
                                             'type': DIDType.FILE} for f in files],
                                      schemes=['srm']):
             # force the changed string - if we look it up from the DB, then we're not testing anything :-D
-            assert_equal(replica['rses']['MOCK2'][0], 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/does/not/really/matter/where')
+            assert_equal(replica['rses'][rse_id2][0], 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/does/not/really/matter/where')
 
     def test_add_list_bad_replicas(self):
         """ REPLICA (CORE): Add bad replicas and list them"""
-        tmp_scope = 'mock'
+        tmp_scope = InternalScope('mock')
+        root = InternalAccount('root')
         nbfiles = 5
         # Adding replicas to deterministic RSE
         files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-        rse_info = rsemgr.get_rse_info('MOCK')
-        rse_id1 = rse_info['id']
-        add_replicas(rse='MOCK', files=files, account='root', ignore_availability=True)
+        rse_id1 = get_rse_id(rse='MOCK')
+        add_replicas(rse_id=rse_id1, files=files, account=root, ignore_availability=True)
 
         # Listing replicas on deterministic RSE
         replicas = []
         list_rep = []
         for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm']):
-            replicas.extend(replica['rses']['MOCK'])
+            replicas.extend(replica['rses'][rse_id1])
             list_rep.append(replica)
-        r = declare_bad_file_replicas(replicas, 'This is a good reason', 'root')
+        r = declare_bad_file_replicas(replicas, 'This is a good reason', root)
         assert_equal(r, {})
         bad_replicas = list_bad_replicas()
         nbbadrep = 0
@@ -111,17 +115,16 @@ class TestReplicaCore:
         # Adding replicas to non-deterministic RSE
         files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
                   'pfn': 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
-        rse_info = rsemgr.get_rse_info('MOCK2')
-        rse_id2 = rse_info['id']
-        add_replicas(rse='MOCK2', files=files, account='root', ignore_availability=True)
+        rse_id2 = get_rse_id(rse='MOCK2')
+        add_replicas(rse_id=rse_id2, files=files, account=root, ignore_availability=True)
 
         # Listing replicas on non-deterministic RSE
         replicas = []
         list_rep = []
         for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm']):
-            replicas.extend(replica['rses']['MOCK2'])
+            replicas.extend(replica['rses'][rse_id2])
             list_rep.append(replica)
-        r = declare_bad_file_replicas(replicas, 'This is a good reason', 'root')
+        r = declare_bad_file_replicas(replicas, 'This is a good reason', root)
         assert_equal(r, {})
         bad_replicas = list_bad_replicas()
         nbbadrep = 0
@@ -134,18 +137,19 @@ class TestReplicaCore:
 
         # Now adding non-existing bad replicas
         files = ['srm://mock2.com/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), ]
-        r = declare_bad_file_replicas(files, 'This is a good reason', 'root')
+        r = declare_bad_file_replicas(files, 'This is a good reason', root)
         output = ['%s Unknown replica' % rep for rep in files]
-        assert_equal(r, {'MOCK2': output})
+        assert_equal(r, {rse_id2: output})
 
     def test_add_list_replicas(self):
         """ REPLICA (CORE): Add and list file replicas """
-        tmp_scope = 'mock'
+        tmp_scope = InternalScope('mock')
+        root = InternalAccount('root')
         nbfiles = 13
         files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-        rses = ['MOCK', 'MOCK3']
-        for rse in rses:
-            add_replicas(rse=rse, files=files, account='root', ignore_availability=True)
+        rses = [get_rse_id(rse='MOCK'), get_rse_id(rse='MOCK3')]
+        for rse_id in rses:
+            add_replicas(rse_id=rse_id, files=files, account=root, ignore_availability=True)
 
         replica_cpt = 0
         for _ in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm']):
@@ -155,16 +159,20 @@ class TestReplicaCore:
 
     def test_delete_replicas(self):
         """ REPLICA (CORE): Delete replicas """
-        tmp_scope = 'mock'
+        tmp_scope = InternalScope('mock')
+        root = InternalAccount('root')
         nbfiles = 5
         files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-        add_replicas(rse='MOCK', files=files1, account='root', ignore_availability=True)
+        rse_id1 = get_rse_id(rse='MOCK')
+        rse_id2 = get_rse_id(rse='MOCK3')
+
+        add_replicas(rse_id=rse_id1, files=files1, account=root, ignore_availability=True)
 
         files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-        add_replicas(rse='MOCK', files=files2, account='root', ignore_availability=True)
-        add_replicas(rse='MOCK3', files=files2, account='root', ignore_availability=True)
+        add_replicas(rse_id=rse_id1, files=files2, account=root, ignore_availability=True)
+        add_replicas(rse_id=rse_id2, files=files2, account=root, ignore_availability=True)
 
-        delete_replicas(rse='MOCK', files=files1 + files2)
+        delete_replicas(rse_id=rse_id1, files=files1 + files2)
 
         for file in files1:
             with assert_raises(DataIdentifierNotFound):
@@ -175,21 +183,23 @@ class TestReplicaCore:
 
     def test_delete_replicas_from_datasets(self):
         """ REPLICA (CORE): Delete replicas from dataset """
-        tmp_scope = 'mock'
+        tmp_scope = InternalScope('mock')
+        root = InternalAccount('root')
         tmp_dsn1 = 'dsn_%s' % generate_uuid()
         tmp_dsn2 = 'dsn_%s' % generate_uuid()
         nbfiles = 5
         files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+        rse_id = get_rse_id(rse='MOCK')
 
-        add_did(scope=tmp_scope, name=tmp_dsn1, type=DIDType.DATASET, account='root')
-        add_did(scope=tmp_scope, name=tmp_dsn2, type=DIDType.DATASET, account='root')
+        add_did(scope=tmp_scope, name=tmp_dsn1, type=DIDType.DATASET, account=root)
+        add_did(scope=tmp_scope, name=tmp_dsn2, type=DIDType.DATASET, account=root)
 
-        attach_dids(scope=tmp_scope, name=tmp_dsn1, rse='MOCK', dids=files1, account='root')
-        attach_dids(scope=tmp_scope, name=tmp_dsn2, dids=files1, account='root')
+        attach_dids(scope=tmp_scope, name=tmp_dsn1, rse_id=rse_id, dids=files1, account=root)
+        attach_dids(scope=tmp_scope, name=tmp_dsn2, dids=files1, account=root)
 
         set_status(scope=tmp_scope, name=tmp_dsn1, open=False)
 
-        delete_replicas(rse='MOCK', files=files1)
+        delete_replicas(rse_id=rse_id, files=files1)
 
         with assert_raises(DataIdentifierNotFound):
             get_did(scope=tmp_scope, name=tmp_dsn1)
@@ -201,66 +211,72 @@ class TestReplicaCore:
     def test_update_lock_counter(self):
         """ RSE (CORE): Test the update of a replica lock counter """
         rse = 'MOCK'
-        tmp_scope = 'mock'
+        rse_id = get_rse_id(rse=rse)
+
+        tmp_scope = InternalScope('mock')
         tmp_file = 'file_%s' % generate_uuid()
-        add_replica(rse=rse, scope=tmp_scope, name=tmp_file, bytes=1, adler32='0cc737eb', account='jdoe')
+        add_replica(rse_id=rse_id, scope=tmp_scope, name=tmp_file, bytes=1, adler32='0cc737eb', account=InternalAccount('jdoe'))
 
         values = (1, 1, 1, -1, -1, -1, 1, 1, -1)
         tombstones = (True, True, True, True, True, False, True, True, True)
         lock_counters = (1, 2, 3, 2, 1, 0, 1, 2, 1)
         for value, tombstone, lock_counter in zip(values, tombstones, lock_counters):
-            status = update_replica_lock_counter(rse=rse, scope=tmp_scope, name=tmp_file, value=value)
+            status = update_replica_lock_counter(rse_id=rse_id, scope=tmp_scope, name=tmp_file, value=value)
             assert_equal(status, True)
-            replica = get_replica(rse=rse, scope=tmp_scope, name=tmp_file)
+            replica = get_replica(rse_id=rse_id, scope=tmp_scope, name=tmp_file)
             assert_equal(replica['tombstone'] is None, tombstone)
             assert_equal(lock_counter, replica['lock_cnt'])
 
     def test_touch_replicas(self):
         """ REPLICA (CORE): Touch replicas accessed_at timestamp"""
-        tmp_scope = 'mock'
+        tmp_scope = InternalScope('mock')
+        root = InternalAccount('root')
         nbfiles = 5
         files1 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         files2 = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         files2.append(files1[0])
-        add_replicas(rse='MOCK', files=files1, account='root', ignore_availability=True)
-        add_replicas(rse='MOCK', files=files2, account='root', ignore_availability=True)
+        rse_id = get_rse_id(rse='MOCK')
+
+        add_replicas(rse_id=rse_id, files=files1, account=root, ignore_availability=True)
+        add_replicas(rse_id=rse_id, files=files2, account=root, ignore_availability=True)
 
         now = datetime.utcnow()
 
         now -= timedelta(microseconds=now.microsecond)
 
-        assert_equal(None, get_replica_atime({'scope': files1[0]['scope'], 'name': files1[0]['name'], 'rse': 'MOCK'}))
+        assert_equal(None, get_replica_atime({'scope': files1[0]['scope'], 'name': files1[0]['name'], 'rse_id': rse_id}))
         assert_equal(None, get_did_atime(scope=tmp_scope, name=files1[0]['name']))
 
-        for r in [{'scope': files1[0]['scope'], 'name': files1[0]['name'], 'rse': 'MOCK', 'accessed_at': now}]:
+        for r in [{'scope': files1[0]['scope'], 'name': files1[0]['name'], 'rse_id': rse_id, 'accessed_at': now}]:
             touch_replica(r)
 
-        assert_equal(now, get_replica_atime({'scope': files1[0]['scope'], 'name': files1[0]['name'], 'rse': 'MOCK'}))
+        assert_equal(now, get_replica_atime({'scope': files1[0]['scope'], 'name': files1[0]['name'], 'rse_id': rse_id}))
         assert_equal(now, get_did_atime(scope=tmp_scope, name=files1[0]['name']))
 
         for i in range(1, nbfiles):
-            assert_equal(None, get_replica_atime({'scope': files1[i]['scope'], 'name': files1[i]['name'], 'rse': 'MOCK'}))
+            assert_equal(None, get_replica_atime({'scope': files1[i]['scope'], 'name': files1[i]['name'], 'rse_id': rse_id}))
 
         for i in range(0, nbfiles - 1):
-            assert_equal(None, get_replica_atime({'scope': files2[i]['scope'], 'name': files2[i]['name'], 'rse': 'MOCK'}))
+            assert_equal(None, get_replica_atime({'scope': files2[i]['scope'], 'name': files2[i]['name'], 'rse_id': rse_id}))
 
     def test_list_replicas_all_states(self):
         """ REPLICA (CORE): list file replicas with all_states"""
-        tmp_scope = 'mock'
+        tmp_scope = InternalScope('mock')
+        root = InternalAccount('root')
         nbfiles = 13
         files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-        rses = ['MOCK', 'MOCK3']
-        for rse in rses:
-            add_replicas(rse=rse, files=files, account='root', ignore_availability=True)
+        rses = [get_rse_id(rse='MOCK'), get_rse_id(rse='MOCK3')]
+        for rse_id in rses:
+            add_replicas(rse_id=rse_id, files=files, account=root, ignore_availability=True)
 
         for file in files:
-            update_replica_state('MOCK', tmp_scope, file['name'], ReplicaState.COPYING)
+            update_replica_state(rses[0], tmp_scope, file['name'], ReplicaState.COPYING)
 
         replica_cpt = 0
         for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm'], all_states=True):
             assert_in('states', replica)
-            assert_equal(replica['states']['MOCK'], str(ReplicaState.COPYING))
-            assert_equal(replica['states']['MOCK3'], str(ReplicaState.AVAILABLE))
+            assert_equal(replica['states'][rses[0]], str(ReplicaState.COPYING))
+            assert_equal(replica['states'][rses[1]], str(ReplicaState.AVAILABLE))
             replica_cpt += 1
 
         assert_equal(nbfiles, replica_cpt)
@@ -268,8 +284,11 @@ class TestReplicaCore:
     def test_list_replica_with_domain(self):
         """ REPLICA (CORE): Add and list file replicas forcing domain"""
 
+        tmp_scope = InternalScope('mock')
+        root = InternalAccount('root')
+
         tmp_rse = rse_name_generator()
-        add_rse(tmp_rse)
+        tmp_rse_id = add_rse(tmp_rse)
 
         protocols = [{'scheme': 'MOCK',
                       'hostname': 'localhost',
@@ -296,16 +315,16 @@ class TestReplicaCore:
                                   'write': 1,
                                   'delete': 1}}}, ]
         for p in protocols:
-            add_protocol(tmp_rse, p)
+            add_protocol(tmp_rse_id, p)
 
         nbfiles = 3
-        files = [{'scope': 'mock',
+        files = [{'scope': tmp_scope,
                   'name': 'file_%s' % generate_uuid(),
                   'bytes': 1234,
                   'adler32': '01234567',
                   'meta': {'events': 1234}} for _ in range(nbfiles)]
 
-        add_replicas(rse=tmp_rse, files=files, account='root', ignore_availability=True)
+        add_replicas(rse_id=tmp_rse_id, files=files, account=root, ignore_availability=True)
 
         for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
                                      schemes=['MOCK'],
@@ -352,24 +371,26 @@ class TestReplicaCore:
         rc = ReplicaClient()
 
         rse = 'APERTURE_%s' % rse_name_generator()
-        add_rse(rse)
+        rse_id = add_rse(rse)
 
-        add_protocol(rse, {'scheme': 'http',
-                           'hostname': 'http.aperture.com',
-                           'port': 80,
-                           'prefix': '//test/chamber/',
-                           'impl': 'rucio.rse.protocols.gfalv2.Default',
-                           'domains': {
-                               'lan': {'read': 1, 'write': 1, 'delete': 1},
-                               'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+        add_protocol(rse_id, {'scheme': 'http',
+                              'hostname': 'http.aperture.com',
+                              'port': 80,
+                              'prefix': '//test/chamber/',
+                              'impl': 'rucio.rse.protocols.gfalv2.Default',
+                              'domains': {
+                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
 
-        scope = 'mock'
+        scope = InternalScope('mock')
+        root = InternalAccount('root')
+
         name = 'element_%s' % generate_uuid()
         file_item = {'scope': scope, 'name': name, 'bytes': 1234, 'adler32': 'deadbeef'}
 
-        add_replicas(rse=rse, files=[file_item], account='root')
+        add_replicas(rse_id=rse_id, files=[file_item], account=root)
 
-        replicas = list(rc.list_replicas([{'scope': scope, 'name': name}]))
+        replicas = list(rc.list_replicas([{'scope': scope.external, 'name': name}]))
         assert_in('http://', replicas[0]['pfns'].keys()[0])
 
     def test_replica_no_site(self):
@@ -378,22 +399,25 @@ class TestReplicaCore:
         rc = ReplicaClient()
 
         rse = 'APERTURE_%s' % rse_name_generator()
-        add_rse(rse)
+        rse_id = add_rse(rse)
 
-        add_protocol(rse, {'scheme': 'root',
-                           'hostname': 'root.aperture.com',
-                           'port': 1409,
-                           'prefix': '//test/chamber/',
-                           'impl': 'rucio.rse.protocols.xrootd.Default',
-                           'domains': {
-                               'lan': {'read': 1, 'write': 1, 'delete': 1},
-                               'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+        add_protocol(rse_id, {'scheme': 'root',
+                              'hostname': 'root.aperture.com',
+                              'port': 1409,
+                              'prefix': '//test/chamber/',
+                              'impl': 'rucio.rse.protocols.xrootd.Default',
+                              'domains': {
+                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
 
-        add_rse_attribute(rse=rse, key='site', value='APERTURE')
+        add_rse_attribute(rse_id=rse_id, key='site', value='APERTURE')
 
-        files = [{'scope': 'mock', 'name': 'element_%s' % generate_uuid(),
+        tmp_scope = InternalScope('mock')
+        root = InternalAccount('root')
+
+        files = [{'scope': tmp_scope, 'name': 'element_%s' % generate_uuid(),
                   'bytes': 1234, 'adler32': 'deadbeef'}]
-        add_replicas(rse=rse, files=files, account='root')
+        add_replicas(rse_id=rse_id, files=files, account=root)
 
         replicas = [r for r in rc.list_replicas(dids=[{'scope': 'mock', 'name': f['name']} for f in files])]
         assert_in('root://', replicas[0]['pfns'].keys()[0])
@@ -402,7 +426,7 @@ class TestReplicaCore:
                                                 client_location={'site': 'SOMEWHERE'})]
         assert_in('root://', replicas[0]['pfns'].keys()[0])
 
-        del_rse_attribute(rse=rse, key='site')
+        del_rse_attribute(rse_id=rse_id, key='site')
 
         replicas = [r for r in rc.list_replicas(dids=[{'scope': 'mock', 'name': f['name']} for f in files])]
         assert_in('root://', replicas[0]['pfns'].keys()[0])
@@ -415,25 +439,26 @@ class TestReplicaCore:
         """ REPLICA (CORE): set tombstone on replica """
         # Set tombstone on one replica
         rse = 'MOCK4'
-        scope = 'mock'
-        user = 'root'
+        rse_id = get_rse_id(rse=rse)
+        scope = InternalScope('mock')
+        user = InternalAccount('root')
         name = generate_uuid()
-        add_replica(rse, scope, name, 4, user)
-        assert_equal(get_replica(rse, scope, name)['tombstone'], None)
-        set_tombstone(rse, scope, name)
-        assert_equal(get_replica(rse, scope, name)['tombstone'], OBSOLETE)
+        add_replica(rse_id, scope, name, 4, user)
+        assert_equal(get_replica(rse_id, scope, name)['tombstone'], None)
+        set_tombstone(rse_id, scope, name)
+        assert_equal(get_replica(rse_id, scope, name)['tombstone'], OBSOLETE)
 
         # Set tombstone on locked replica
         name = generate_uuid()
-        add_replica(rse, scope, name, 4, user)
-        RuleClient().add_replication_rule([{'name': name, 'scope': scope}], 1, rse, locked=True)
+        add_replica(rse_id, scope, name, 4, user)
+        RuleClient().add_replication_rule([{'name': name, 'scope': scope.external}], 1, rse, locked=True)
         with assert_raises(ReplicaIsLocked):
-            set_tombstone(rse, scope, name)
+            set_tombstone(rse_id, scope, name)
 
         # Set tombstone on not found replica
         name = generate_uuid()
         with assert_raises(ReplicaNotFound):
-            set_tombstone(rse, scope, name)
+            set_tombstone(rse_id, scope, name)
 
 
 class TestReplicaClients:
@@ -448,8 +473,7 @@ class TestReplicaClients:
         nbfiles = 5
         # Adding replicas to deterministic RSE
         files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-        rse_info = rsemgr.get_rse_info('MOCK')
-        rse_id1 = rse_info['id']
+        rse_id1 = get_rse_id('MOCK')
         self.replica_client.add_replicas(rse='MOCK', files=files)
 
         # Listing replicas on deterministic RSE
@@ -464,7 +488,7 @@ class TestReplicaClients:
         for rep in list_rep:
             for badrep in bad_replicas:
                 if badrep['rse_id'] == rse_id1:
-                    if badrep['scope'] == rep['scope'] and badrep['name'] == rep['name']:
+                    if badrep['scope'].external == rep['scope'] and badrep['name'] == rep['name']:
                         nbbadrep += 1
         assert_equal(len(replicas), nbbadrep)
 
@@ -480,8 +504,7 @@ class TestReplicaClients:
         # Adding replicas to non-deterministic RSE
         files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
                   'pfn': 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
-        rse_info = rsemgr.get_rse_info('MOCK2')
-        rse_id2 = rse_info['id']
+        rse_id2 = get_rse_id('MOCK2')
         self.replica_client.add_replicas(rse='MOCK2', files=files)
 
         # Listing replicas on non-deterministic RSE
@@ -498,7 +521,7 @@ class TestReplicaClients:
         for rep in list_rep:
             for badrep in bad_replicas:
                 if badrep['rse_id'] == rse_id2:
-                    if badrep['scope'] == rep['scope'] and badrep['name'] == rep['name']:
+                    if badrep['scope'].external == rep['scope'] and badrep['name'] == rep['name']:
                         nbbadrep += 1
         assert_equal(len(replicas), nbbadrep)
 
@@ -751,7 +774,7 @@ class TestReplicaClients:
 
         # Check the state in the replica table
         for did in files:
-            rep = get_replicas_state(scope=did['scope'], name=did['name'])
+            rep = get_replicas_state(scope=InternalScope(did['scope']), name=did['name'])
             assert_equal(str(rep.keys()[0]), 'TEMPORARY_UNAVAILABLE')
 
         rep = []
@@ -763,32 +786,33 @@ class TestReplicaClients:
         minos_temp_run(threads=1, once=True)
         # Check the state in the replica table
         for did in files:
-            rep = get_replicas_state(scope=did['scope'], name=did['name'])
+            rep = get_replicas_state(scope=InternalScope(did['scope']), name=did['name'])
             assert_equal(str(rep.keys()[0]), 'AVAILABLE')
 
     def test_set_tombstone(self):
         """ REPLICA (CLIENT): set tombstone on replica """
         # Set tombstone on one replica
         rse = 'MOCK4'
-        scope = 'mock'
-        user = 'root'
+        rse_id = get_rse_id(rse=rse)
+        scope = InternalScope('mock')
+        user = InternalAccount('root')
         name = generate_uuid()
-        add_replica(rse, scope, name, 4, user)
-        assert_equal(get_replica(rse, scope, name)['tombstone'], None)
-        self.replica_client.set_tombstone([{'rse': rse, 'scope': scope, 'name': name}])
-        assert_equal(get_replica(rse, scope, name)['tombstone'], OBSOLETE)
+        add_replica(rse_id, scope, name, 4, user)
+        assert_equal(get_replica(rse_id, scope, name)['tombstone'], None)
+        self.replica_client.set_tombstone([{'rse': rse, 'scope': scope.external, 'name': name}])
+        assert_equal(get_replica(rse_id, scope, name)['tombstone'], OBSOLETE)
 
         # Set tombstone on locked replica
         name = generate_uuid()
-        add_replica(rse, scope, name, 4, user)
-        RuleClient().add_replication_rule([{'name': name, 'scope': scope}], 1, rse, locked=True)
+        add_replica(rse_id, scope, name, 4, user)
+        RuleClient().add_replication_rule([{'name': name, 'scope': scope.external}], 1, rse, locked=True)
         with assert_raises(ReplicaIsLocked):
-            self.replica_client.set_tombstone([{'rse': rse, 'scope': scope, 'name': name}])
+            self.replica_client.set_tombstone([{'rse': rse, 'scope': scope.external, 'name': name}])
 
         # Set tombstone on not found replica
         name = generate_uuid()
         with assert_raises(ReplicaNotFound):
-            self.replica_client.set_tombstone([{'rse': rse, 'scope': scope, 'name': name}])
+            self.replica_client.set_tombstone([{'rse': rse, 'scope': scope.external, 'name': name}])
 
 
 class TestReplicaMetalink:
@@ -824,40 +848,44 @@ class TestReplicaMetalink:
     def test_get_did_from_pfns_nondeterministic(self):
         """ REPLICA (CLIENT): Get list of DIDs associated to PFNs for non-deterministic sites"""
         rse = 'MOCK2'
-        tmp_scope = 'mock'
+        rse_id = get_rse_id(rse=rse)
+        tmp_scope = InternalScope('mock')
+        root = InternalAccount('root')
         nbfiles = 3
         pfns = []
         input = {}
-        rse_info = rsemgr.get_rse_info(rse)
+        rse_info = rsemgr.get_rse_info(rse=rse)
         assert_equal(rse_info['deterministic'], False)
         files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb',
                   'pfn': 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/%s/%s' % (tmp_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
         for f in files:
-            input[f['pfn']] = {'scope': f['scope'], 'name': f['name']}
-        add_replicas(rse=rse, files=files, account='root', ignore_availability=True)
+            input[f['pfn']] = {'scope': f['scope'].external, 'name': f['name']}
+        add_replicas(rse_id=rse_id, files=files, account=root, ignore_availability=True)
         for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm'], ignore_availability=True):
-            for rse in replica['rses']:
-                pfns.extend(replica['rses'][rse])
+            for r in replica['rses']:
+                pfns.extend(replica['rses'][r])
         for result in self.replica_client.get_did_from_pfns(pfns, rse):
             pfn = result.keys()[0]
             assert_equal(input[pfn], result.values()[0])
 
     def test_get_did_from_pfns_deterministic(self):
         """ REPLICA (CLIENT): Get list of DIDs associated to PFNs for deterministic sites"""
-        tmp_scope = 'mock'
+        tmp_scope = InternalScope('mock')
+        root = InternalAccount('root')
         rse = 'MOCK3'
+        rse_id = get_rse_id(rse=rse)
         nbfiles = 3
         pfns = []
         input = {}
-        rse_info = rsemgr.get_rse_info(rse)
+        rse_info = rsemgr.get_rse_info(rse=rse)
         assert_equal(rse_info['deterministic'], True)
         files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         p = rsemgr.create_protocol(rse_info, 'read', scheme='srm')
         for f in files:
-            pfn = p.lfns2pfns(lfns={'scope': f['scope'], 'name': f['name']}).values()[0]
+            pfn = p.lfns2pfns(lfns={'scope': f['scope'].external, 'name': f['name']}).values()[0]
             pfns.append(pfn)
-            input[pfn] = {'scope': f['scope'], 'name': f['name']}
-        add_replicas(rse=rse, files=files, account='root', ignore_availability=True)
+            input[pfn] = {'scope': f['scope'].external, 'name': f['name']}
+        add_replicas(rse_id=rse_id, files=files, account=root, ignore_availability=True)
         for result in self.replica_client.get_did_from_pfns(pfns, rse):
             pfn = result.keys()[0]
             assert_equal(input[pfn], result.values()[0])

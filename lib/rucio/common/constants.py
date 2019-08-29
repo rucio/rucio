@@ -6,7 +6,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2018
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2019
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2018
 #
 # PY3K COMPATIBLE
@@ -31,3 +31,5 @@ SCHEME_MAP = {'srm': ['srm', 'gsiftp'],
               'davs': ['https', 'davs', 's3'],
               'root': ['root'],
               's3': ['https', 'davs', 's3']}
+
+SUPPORTED_PROTOCOLS = ['gsiftp', 'srm', 'root', 'davs', 'http', 'https', 'file', 's3', 's3+rucio', 's3+https', 'storm']

@@ -9,6 +9,7 @@
 #  - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2018
 #  - Dimitrios Christidis, <dimitrios.christidis@cern.ch> 2018
 #  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+#  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -173,7 +174,7 @@ def define_eol(scope, name, rses, session=None):
         return None
 
     # Check if on ATLAS managed space
-    if [rse for rse in rses if list_rse_attributes(rse=None, rse_id=rse['id'], session=session).get('type') in ['LOCALGROUPDISK', 'LOCALGROUPTAPE', 'GROUPDISK', 'GROUPTAPE']]:
+    if [rse for rse in rses if list_rse_attributes(rse_id=rse['id'], session=session).get('type') in ['LOCALGROUPDISK', 'LOCALGROUPTAPE', 'GROUPDISK', 'GROUPTAPE']]:
         return None
     # Now check the lifetime policy
     try:
@@ -183,11 +184,11 @@ def define_eol(scope, name, rses, session=None):
         return None
     policy_dict = rucio.common.policy.get_lifetime_policy()
     did_type = 'other'
-    if scope.startswith('mc'):
+    if scope.external.startswith('mc'):
         did_type = 'mc'
-    elif scope.startswith('data'):
+    elif scope.external.startswith('data'):
         did_type = 'data'
-    elif scope.startswith('valid'):
+    elif scope.external.startswith('valid'):
         did_type = 'valid'
     else:
         did_type = 'other'

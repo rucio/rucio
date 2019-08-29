@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2016-2017
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -14,7 +15,7 @@
 Collector to get the SRM free and used information for DATADISK RSEs.
 """
 
-from rucio.db.sqla.models import RSE, RSEUsage, RSEAttrAssociation
+from rucio.db.sqla.models import RSEUsage, RSEAttrAssociation
 from rucio.db.sqla.session import read_session
 
 
@@ -34,12 +35,11 @@ class FreeSpaceCollector(object):
             """
             Retrieve free space from database
             """
-            query = session.query(RSE.rse, RSEUsage.free, RSEUsage.used).\
-                join(RSEUsage, RSE.id == RSEUsage.rse_id).\
-                join(RSEAttrAssociation, RSE.id == RSEAttrAssociation.rse_id).\
+            query = session.query(RSEUsage.rse_id, RSEUsage.free, RSEUsage.used).\
+                join(RSEAttrAssociation, RSEUsage.rse_id == RSEAttrAssociation.rse_id).\
                 filter(RSEUsage.source == 'storage').filter(RSEAttrAssociation.key == 'type', RSEAttrAssociation.value == 'DATADISK')
-            for rse, free, used in query:
-                self.rses[rse] = {'total': used + free, 'used': used, 'free': free}
+            for rse_id, free, used in query:
+                self.rses[rse_id] = {'total': used + free, 'used': used, 'free': free}
 
     instance = None
 

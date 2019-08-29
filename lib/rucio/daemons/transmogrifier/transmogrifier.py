@@ -20,6 +20,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -37,8 +38,6 @@ from sys import exc_info, stdout, argv
 from traceback import format_exception
 
 
-from rucio.api.did import list_new_dids, set_new_dids, get_metadata
-from rucio.api.subscription import list_subscriptions, update_subscription
 from rucio.db.sqla.constants import DIDType, SubscriptionState
 from rucio.common.exception import (DatabaseException, DataIdentifierNotFound, InvalidReplicationRule, DuplicateRule, RSEBlacklisted,
                                     InvalidRSEExpression, InsufficientTargetRSEs, InsufficientAccountLimit, InputValidationError, RSEOverQuota,
@@ -47,10 +46,12 @@ from rucio.common.config import config_get
 from rucio.common.schema import validate_schema
 from rucio.common.utils import chunks
 from rucio.core import monitor, heartbeat
+from rucio.core.did import list_new_dids, set_new_dids, get_metadata
 from rucio.core.rse import list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rse_selector import RSESelector
 from rucio.core.rule import add_rule, list_rules
+from rucio.core.subscription import list_subscriptions, update_subscription
 
 
 logging.basicConfig(stream=stdout,
@@ -120,7 +121,7 @@ def is_matching_subscription(subscription, did, metadata):
         elif key == 'scope':
             match_scope = False
             for scope in values:
-                if re.match(scope, did['scope']):
+                if re.match(scope, did['scope'].external):
                     match_scope = True
                     break
             if not match_scope:
@@ -172,7 +173,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
 
         try:
             #  Get the new DIDs based on the is_new flag
-            for did in list_new_dids(thread=heart_beat['assign_thread'], total_threads=heart_beat['nr_threads'], chunk_size=bulk):
+            for did in list_new_dids(thread=heart_beat['assign_thread'], total_threads=heart_beat['nr_threads'], chunk_size=bulk, did_type=None):
                 dids.append({'scope': did['scope'], 'did_type': str(did['did_type']), 'name': did['name']})
 
             sub_dict = {3: []}
@@ -180,7 +181,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
             #  The priority is defined as 'policyid'
             for sub in list_subscriptions(None, None):
                 if sub['state'] != SubscriptionState.INACTIVE and sub['lifetime'] and (datetime.now() > sub['lifetime']):
-                    update_subscription(name=sub['name'], account=sub['account'], metadata={'state': SubscriptionState.INACTIVE}, issuer='root')
+                    update_subscription(name=sub['name'], account=sub['account'], metadata={'state': SubscriptionState.INACTIVE})
 
                 elif sub['state'] in [SubscriptionState.ACTIVE, SubscriptionState.UPDATED]:
                     priority = 3
@@ -211,7 +212,8 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
             for did in dids:
                 did_success = True
                 if did['did_type'] == str(DIDType.DATASET) or did['did_type'] == str(DIDType.CONTAINER):
-                    results['%s:%s' % (did['scope'], did['name'])] = []
+                    did_tag = '%s:%s' % (did['scope'].internal, did['name'])
+                    results[did_tag] = []
                     try:
                         metadata = get_metadata(did['scope'], did['name'])
                         # Loop over all the subscriptions
@@ -225,7 +227,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                 elif split_rule == 'false':
                                     split_rule = False
                                 stime = time.time()
-                                results['%s:%s' % (did['scope'], did['name'])].append(subscription['id'])
+                                results[did_tag].append(subscription['id'])
                                 logging.info(prepend_str + '%s:%s matches subscription %s' % (did['scope'], did['name'], subscription['name']))
                                 for rule_string in loads(subscription['replication_rules']):
                                     # Get all the rule and subscription parameters
@@ -266,13 +268,13 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
 
                                     if split_rule:
                                         rses = parse_expression(rse_expression)
-                                        list_of_rses = [rse['rse'] for rse in rses]
+                                        list_of_rses = [rse['id'] for rse in rses]
                                         # Check that some rule doesn't already exist for this DID and subscription
                                         preferred_rse_ids = []
                                         for rule in list_rules(filters={'subscription_id': subscription_id, 'scope': did['scope'], 'name': did['name']}):
                                             already_existing_rses = [(rse['rse'], rse['id']) for rse in parse_expression(rule['rse_expression'])]
                                             for rse, rse_id in already_existing_rses:
-                                                if (rse in list_of_rses) and (rse_id not in preferred_rse_ids):
+                                                if (rse_id in list_of_rses) and (rse_id not in preferred_rse_ids):
                                                     preferred_rse_ids.append(rse_id)
                                         if len(preferred_rse_ids) >= copies:
                                             skip_rule_creation = True
@@ -370,7 +372,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
             logging.info(prepend_str + 'Time to set the new flag : %f' % (time.time() - time1))
             tottime = time.time() - start_time
             for sub in subscriptions:
-                update_subscription(name=sub['name'], account=sub['account'], metadata={'last_processed': datetime.now()}, issuer='root')
+                update_subscription(name=sub['name'], account=sub['account'], metadata={'last_processed': datetime.now()})
             logging.info(prepend_str + 'It took %f seconds to process %i DIDs' % (tottime, len(dids)))
             logging.debug(prepend_str + 'DIDs processed : %s' % (str(dids)))
             monitor.record_counter(counters='transmogrifier.job.done', delta=1)

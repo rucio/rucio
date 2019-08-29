@@ -1,0 +1,13 @@
+============
+1.20.1.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Transfers: Crash on __list_transfer_requests_and_source_replicas `#2672 <https://github.com/rucio/rucio/issues/2672>`_

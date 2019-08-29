@@ -9,6 +9,7 @@
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2012
   - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
+  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
   PY3K COMPATIBLE
 '''
@@ -16,6 +17,8 @@
 from rucio.api.permission import has_permission
 from rucio.common.exception import AccessDenied
 from rucio.common.schema import validate_schema
+from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.utils import api_update_return_dict
 from rucio.core import rule
 
 
@@ -67,6 +70,11 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
 
     if not has_permission(issuer=issuer, action='add_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not add replication rule' % (issuer))
+
+    account = InternalAccount(account)
+    for d in dids:
+        d['scope'] = InternalScope(d['scope'])
+
     return rule.add_rule(account=account,
                          dids=dids,
                          copies=copies,
@@ -95,7 +103,8 @@ def get_replication_rule(rule_id, estimate_ttc=None):
 
     :param rule_id: The rule_id to get.
     """
-    return rule.get_rule(rule_id, estimate_ttc)
+    result = rule.get_rule(rule_id, estimate_ttc)
+    return api_update_return_dict(result)
 
 
 def list_replication_rules(filters={}):
@@ -104,7 +113,14 @@ def list_replication_rules(filters={}):
 
     :param filters: dictionary of attributes by which the results should be filtered.
     """
-    return rule.list_rules(filters)
+    if 'scope' in filters:
+        filters['scope'] = InternalScope(filters['scope'])
+    if 'account' in filters:
+        filters['account'] = InternalAccount(filters['account'])
+
+    rules = rule.list_rules(filters)
+    for r in rules:
+        yield api_update_return_dict(r)
 
 
 def list_replication_rule_history(rule_id):
@@ -123,7 +139,10 @@ def list_replication_rule_full_history(scope, name):
     :param scope: The scope of the DID.
     :param name: The name of the DID.
     """
-    return rule.list_rule_full_history(scope, name)
+    scope = InternalScope(scope)
+    rules = rule.list_rule_full_history(scope, name)
+    for r in rules:
+        yield api_update_return_dict(r)
 
 
 def list_associated_replication_rules_for_file(scope, name):
@@ -133,7 +152,10 @@ def list_associated_replication_rules_for_file(scope, name):
     :param scope: Scope of the file..
     :param name:  Name of the file.
     """
-    return rule.list_associated_rules_for_file(scope=scope, name=name)
+    scope = InternalScope(scope)
+    rules = rule.list_associated_rules_for_file(scope=scope, name=name)
+    for r in rules:
+        yield api_update_return_dict(r)
 
 
 def delete_replication_rule(rule_id, purge_replicas, issuer):
@@ -163,6 +185,8 @@ def update_replication_rule(rule_id, options, issuer):
     if 'approve' in options:
         if not has_permission(issuer=issuer, action='approve_rule', kwargs=kwargs):
             raise AccessDenied('Account %s can not approve/deny this replication rule.' % (issuer))
+
+        issuer = InternalAccount(issuer)
         if options['approve']:
             rule.approve_rule(rule_id=rule_id, approver=issuer)
         else:
@@ -195,7 +219,11 @@ def examine_replication_rule(rule_id):
 
     :param rule_id: The rule_id to get.
     """
-    return rule.examine_rule(rule_id)
+    result = rule.examine_rule(rule_id)
+    result = api_update_return_dict(result)
+    if 'transfers' in result:
+        result['transfers'] = [api_update_return_dict(t) for t in result['transfers']]
+    return result
 
 
 def move_replication_rule(rule_id, rse_expression, issuer):

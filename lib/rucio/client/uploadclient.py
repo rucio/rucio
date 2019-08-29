@@ -156,7 +156,7 @@ class UploadClient:
             if not is_deterministic and not pfn:
                 logger.error('PFN has to be defined for NON-DETERMINISTIC RSE.')
                 continue
-            if pfn and not is_deterministic:
+            if pfn and is_deterministic:
                 logger.warning('Upload with given pfn implies that no_register is True, except non-deterministic RSEs')
                 no_register = True
 
@@ -166,7 +166,7 @@ class UploadClient:
             # if register_after_upload, file should be overwritten if it is not registered
             # otherwise if file already exists on RSE we're done
             if register_after_upload:
-                if rsemgr.exists(rse_settings, file_did):
+                if rsemgr.exists(rse_settings, pfn if pfn else file_did):
                     try:
                         self.client.get_did(file['did_scope'], file['did_name'])
                         logger.info('File already registered. Skipping upload.')

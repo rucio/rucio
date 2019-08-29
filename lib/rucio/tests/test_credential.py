@@ -14,11 +14,13 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2018
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
 from nose.tools import assert_equal, assert_raises, assert_in, assert_greater
 
 from rucio.client import client
 from rucio.common.exception import UnsupportedOperation
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.credential import get_signed_url
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.rse import add_rse, del_rse, add_protocol, add_rse_attribute
@@ -32,47 +34,48 @@ class TestCredential(object):
         self.rc = client.ReplicaClient()
         self.rse1 = rse_name_generator()
         self.rse2 = rse_name_generator()
-        add_rse(self.rse1)
-        add_rse(self.rse2)
+        self.rse1_id = add_rse(self.rse1)
+        self.rse2_id = add_rse(self.rse2)
 
-        add_protocol(self.rse1, {'scheme': 'https',
-                                 'hostname': 'storage.googleapis.com',
-                                 'port': 443,
-                                 'prefix': '/atlas-europe-west1/',
-                                 'impl': 'rucio.rse.protocols.gfal.Default',
-                                 'domains': {
-                                     'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                     'wan': {'read': 1, 'write': 1, 'delete': 1, 'third_party_copy': 1}}})
+        add_protocol(self.rse1_id, {'scheme': 'https',
+                                    'hostname': 'storage.googleapis.com',
+                                    'port': 443,
+                                    'prefix': '/atlas-europe-west1/',
+                                    'impl': 'rucio.rse.protocols.gfal.Default',
+                                    'domains': {
+                                        'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                        'wan': {'read': 1, 'write': 1, 'delete': 1, 'third_party_copy': 1}}})
 
-        add_protocol(self.rse2, {'scheme': 'https',
-                                 'hostname': 'storage.googleapis.com',
-                                 'port': 443,
-                                 'prefix': '/atlas-europe-east1/',
-                                 'impl': 'rucio.rse.protocols.gfal.Default',
-                                 'domains': {
-                                     'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                     'wan': {'read': 1, 'write': 1, 'delete': 1, 'third_party_copy': 1}}})
+        add_protocol(self.rse2_id, {'scheme': 'https',
+                                    'hostname': 'storage.googleapis.com',
+                                    'port': 443,
+                                    'prefix': '/atlas-europe-east1/',
+                                    'impl': 'rucio.rse.protocols.gfal.Default',
+                                    'domains': {
+                                        'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                        'wan': {'read': 1, 'write': 1, 'delete': 1, 'third_party_copy': 1}}})
 
         # register some files there
-        self.files = [{'scope': 'mock',
+        self.files = [{'scope': InternalScope('mock'),
                        'name': 'file-on-gcs_%s' % i,
                        'bytes': 1234,
                        'adler32': 'deadbeef',
                        'meta': {'events': 666}} for i in range(0, 3)]
-        add_replicas(rse=self.rse1,
+        root = InternalAccount('root')
+        add_replicas(rse_id=self.rse1_id,
                      files=self.files,
-                     account='root',
+                     account=root,
                      ignore_availability=True)
-        add_replicas(rse=self.rse2,
+        add_replicas(rse_id=self.rse2_id,
                      files=self.files,
-                     account='root',
+                     account=root,
                      ignore_availability=True)
 
         def tearDown(self):
-            delete_replicas(rse=self.rse1, files=self.files)
-            delete_replicas(rse=self.rse2, files=self.files)
-            del_rse(self.rse1)
-            del_rse(self.rse2)
+            delete_replicas(rse_id=self.rse1_id, files=self.files)
+            delete_replicas(rse_id=self.rse2_id, files=self.files)
+            del_rse(rse_id=self.rse1_id)
+            del_rse(rse_id=self.rse2_id)
 
     def test_sign_url_gcs(self):
         """ CREDENTIAL: Sign a URL for Google Cloud Storage """
@@ -113,7 +116,7 @@ class TestCredential(object):
     def test_list_replicas_sign_url(self):
         """ CREDENTIAL: List replicas for an RSE where signature is enabled """
 
-        add_rse_attribute(rse=self.rse1, key='sign_url', value='gcs')
+        add_rse_attribute(rse_id=self.rse1_id, key='sign_url', value='gcs')
         replicas = [r for r in self.rc.list_replicas(dids=[{'scope': 'mock',
                                                             'name': f['name'],
                                                             'type': 'FILE'} for f in self.files],

@@ -24,6 +24,7 @@
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2017-2018
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -41,8 +42,9 @@ from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
 from rucio.common.config import config_get
+from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid, md5
-from rucio.core.rse import add_rse_attribute
+from rucio.core.rse import add_rse_attribute, get_rse_id
 from rucio.tests.common import execute, account_name_generator, rse_name_generator, file_generator, scope_name_generator
 from rucio.rse import rsemanager as rsemgr
 
@@ -60,13 +62,14 @@ class TestBinRucio():
         self.auth_host = config_get('client', 'auth_host')
         self.user = 'data13_hip'
         self.def_rse = 'MOCK4'
+        self.def_rse_id = get_rse_id(rse=self.def_rse)
         self.did_client = DIDClient()
         self.replica_client = ReplicaClient()
         self.rule_client = RuleClient()
         self.account_client = AccountLimitClient()
         self.account_client.set_account_limit('root', self.def_rse, -1)
 
-        add_rse_attribute(self.def_rse, 'istape', 'False')
+        add_rse_attribute(self.def_rse_id, 'istape', 'False')
 
         self.upload_success_str = 'Successfully uploaded file %s'
 
@@ -258,10 +261,10 @@ class TestBinRucio():
         # removing replica -> file on RSE should be overwritten
         # (simulating an upload error, where a part of the file is uploaded but the replica is not registered)
         db_session = session.get_session()
-        db_session.query(models.RSEFileAssociation).filter_by(name=tmp_file1_name, scope=self.user).delete()
+        db_session.query(models.RSEFileAssociation).filter_by(name=tmp_file1_name, scope=InternalScope(self.user)).delete()
         db_session.query(models.ReplicaLock).delete()
-        db_session.query(models.ReplicationRule).filter_by(name=tmp_file1_name, scope=self.user).delete()
-        db_session.query(models.DataIdentifier).filter_by(name=tmp_file1_name, scope=self.user).delete()
+        db_session.query(models.ReplicationRule).filter_by(name=tmp_file1_name, scope=InternalScope(self.user)).delete()
+        db_session.query(models.DataIdentifier).filter_by(name=tmp_file1_name, scope=InternalScope(self.user)).delete()
         db_session.commit()
         tmp_file4 = file_generator()
         checksum_tmp_file4 = md5(tmp_file4)
@@ -579,7 +582,7 @@ class TestBinRucio():
         print(out, err)
         remove(tmp_file1)
         db_session = session.get_session()
-        db_session.query(models.DataIdentifier).filter_by(scope=self.user, name=dataset_name).one().length = 15
+        db_session.query(models.DataIdentifier).filter_by(scope=InternalScope(self.user), name=dataset_name).one().length = 15
         db_session.commit()
         cmd = 'rucio download --dir /tmp --scope {0} --filter length=100'.format(self.user)
         exitcode, out, err = execute(cmd)
@@ -607,7 +610,7 @@ class TestBinRucio():
         print(out, err)
         remove(tmp_file1)
         db_session = session.get_session()
-        db_session.query(models.DataIdentifier).filter_by(scope=self.user, name=dataset_name).one().length = 1
+        db_session.query(models.DataIdentifier).filter_by(scope=InternalScope(self.user), name=dataset_name).one().length = 1
         db_session.commit()
         cmd = 'rucio download --dir /tmp {0}:{1} --filter length=10'.format(self.user, dataset_name[0:-1] + '*')
         exitcode, out, err = execute(cmd)
@@ -664,7 +667,7 @@ class TestBinRucio():
         lfn = {'name': filename[5:], 'scope': self.user, 'bytes': filesize, 'md5': file_md5}
         # user uploads file
         self.replica_client.add_replicas(files=[lfn], rse=self.def_rse)
-        rse_settings = rsemgr.get_rse_info(self.def_rse)
+        rse_settings = rsemgr.get_rse_info(rse=self.def_rse)
         protocol = rsemgr.create_protocol(rse_settings, 'write')
         protocol.connect()
         pfn = protocol.lfns2pfns(lfn).values()[0]
@@ -698,7 +701,7 @@ class TestBinRucio():
         lfn = {'name': filename[5:], 'scope': self.user, 'bytes': filesize, 'md5': '0123456789abcdef0123456789abcdef'}
         # user uploads file
         self.replica_client.add_replicas(files=[lfn], rse=self.def_rse)
-        rse_settings = rsemgr.get_rse_info(self.def_rse)
+        rse_settings = rsemgr.get_rse_info(rse=self.def_rse)
         protocol = rsemgr.create_protocol(rse_settings, 'write')
         protocol.connect()
         pfn = protocol.lfns2pfns(lfn).values()[0]
@@ -1173,13 +1176,21 @@ class TestBinRucio():
     def test_import_data(self):
         """ CLIENT(ADMIN): Import data into rucio"""
         file_path = 'data_import.json'
-        data = {'rses': [{'rse': rse_name_generator()}]}
+        data = {'rses': {rse_name_generator(): {'country_name': 'test'}}}
         with open(file_path, 'w+') as file:
             file.write(json.dumps(data))
         cmd = 'rucio-admin data import {0}'.format(file_path)
         exitcode, out, err = execute(cmd)
         nose.tools.assert_not_equal(re.search('Data successfully imported', out), None)
         remove(file_path)
+        # reset RSEs that got deleted
+        db_session = session.get_session()
+        for rse in db_session.query(models.RSE).all():
+            rse.deleted = False
+            rse.deleted_at = None
+            rse.save(session=db_session)
+            add_rse_attribute(rse_id=rse['id'], key=rse['rse'], value=True, session=db_session)
+        db_session.commit()
 
     def test_export_data(self):
         """ CLIENT(ADMIN): Export data from rucio"""

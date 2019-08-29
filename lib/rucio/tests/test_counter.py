@@ -10,13 +10,15 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Cedric Serfon,<cedric.serfon@cern.ch>, 2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
 from nose.tools import assert_equal, assert_in
 
 from rucio.db.sqla import session, models
+from rucio.common.types import InternalAccount
 from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_usage
-from rucio.core.rse import get_rse
+from rucio.core.rse import get_rse_id
 from rucio.daemons.abacus.rse import rse_update
 from rucio.daemons.abacus.account import account_update
 
@@ -25,7 +27,7 @@ class TestCoreRSECounter():
 
     def test_inc_dec_get_counter(self):
         """ RSE COUNTER (CORE): Increase, decrease and get counter """
-        rse_id = get_rse('MOCK').id
+        rse_id = get_rse_id(rse='MOCK')
         rse_update(once=True)
         rse_counter.del_counter(rse_id=rse_id)
         rse_counter.add_counter(rse_id=rse_id)
@@ -87,8 +89,8 @@ class TestCoreAccountCounter():
     def test_inc_dec_get_counter(self):
         """ACCOUNT COUNTER (CORE): Increase, decrease and get counter """
         account_update(once=True)
-        rse_id = get_rse('MOCK').id
-        account = 'jdoe'
+        rse_id = get_rse_id(rse='MOCK')
+        account = InternalAccount('jdoe')
         account_counter.del_counter(rse_id=rse_id, account=account)
         account_counter.add_counter(rse_id=rse_id, account=account)
         cnt = get_usage(rse_id=rse_id, account=account)

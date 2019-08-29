@@ -18,6 +18,7 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -25,6 +26,7 @@ from nose.tools import assert_equal, assert_in, assert_not_in
 
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.replica import add_replicas
 from rucio.core.rse import add_rse, add_protocol
@@ -64,31 +66,41 @@ class TestArchive(object):
     def test_list_archive_contents_transparently(self):
         """ ARCHIVE (CORE): Transparent archive listing """
 
-        scope = 'mock'
+        scope = InternalScope('mock')
         rse = 'APERTURE_%s' % rse_name_generator()
-        add_rse(rse)
+        rse_id = add_rse(rse)
+        root = InternalAccount('root')
 
-        add_protocol(rse, {'scheme': 'root',
-                           'hostname': 'root.aperture.com',
-                           'port': 1409,
-                           'prefix': '//test/chamber/',
-                           'impl': 'rucio.rse.protocols.xrootd.Default',
-                           'domains': {
-                               'lan': {'read': 1, 'write': 1, 'delete': 1},
-                               'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+        add_protocol(rse_id, {'scheme': 'root',
+                              'hostname': 'root.aperture.com',
+                              'port': 1409,
+                              'prefix': '//test/chamber/',
+                              'impl': 'rucio.rse.protocols.xrootd.Default',
+                              'domains': {
+                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
 
         # register archive
         archive = {'scope': scope, 'name': 'weighted.storage.cube.zip', 'type': 'FILE',
                    'bytes': 2596, 'adler32': 'beefdead'}
-        add_replicas(rse=rse, files=[archive], account='root')
+        archive_client = archive.copy()
+        archive_client['scope'] = archive_client['scope'].external
+
+        add_replicas(rse_id=rse_id, files=[archive], account=root)
 
         # archived files with replicas
         files_with_replicas = [{'scope': scope, 'name': 'witrep-%i-%s' % (i, str(generate_uuid())), 'type': 'FILE',
                                 'bytes': 1234, 'adler32': 'deadbeef'} for i in range(2)]
-        add_replicas(rse=rse, files=files_with_replicas, account='root')
-        self.dc.add_files_to_archive(scope=scope, name=archive['name'], files=files_with_replicas)
+        files_with_replicas_client = []
+        for f in files_with_replicas:
+            new_file = f.copy()
+            new_file['scope'] = new_file['scope'].external
+            files_with_replicas_client.append(new_file)
 
-        res = [r['pfns'] for r in self.rc.list_replicas(dids=[{'scope': scope, 'name': f['name']} for f in files_with_replicas],
+        add_replicas(rse_id=rse_id, files=files_with_replicas, account=root)
+        self.dc.add_files_to_archive(scope=scope.external, name=archive_client['name'], files=files_with_replicas_client)
+
+        res = [r['pfns'] for r in self.rc.list_replicas(dids=[{'scope': scope.external, 'name': f['name']} for f in files_with_replicas_client],
                                                         resolve_archives=True)]
         assert_equal(len(res), 2)
         assert_equal(len(res[0]), 2)
@@ -101,10 +113,10 @@ class TestArchive(object):
                     assert_not_in('weighted.storage.cube.zip?xrdcl.unzip=witrep-', p)
 
         # archived files without replicas
-        files = [{'scope': scope, 'name': 'norep-%i-%s' % (i, str(generate_uuid())), 'type': 'FILE',
+        files = [{'scope': scope.external, 'name': 'norep-%i-%s' % (i, str(generate_uuid())), 'type': 'FILE',
                   'bytes': 1234, 'adler32': 'deadbeef'} for i in range(2)]
-        self.dc.add_files_to_archive(scope=scope, name=archive['name'], files=files)
-        res = [r['pfns'] for r in self.rc.list_replicas(dids=[{'scope': scope, 'name': f['name']} for f in files],
+        self.dc.add_files_to_archive(scope=scope.external, name=archive_client['name'], files=files)
+        res = [r['pfns'] for r in self.rc.list_replicas(dids=[{'scope': scope.external, 'name': f['name']} for f in files],
                                                         resolve_archives=True)]
         assert_equal(len(res), 2)
         for r in res:
@@ -113,50 +125,51 @@ class TestArchive(object):
     def test_list_archive_contents_at_rse(self):
         """ ARCHIVE (CORE): Transparent archive listing at RSE """
 
-        scope = 'mock'
+        scope = InternalScope('mock')
+        root = InternalAccount('root')
 
         rse1 = 'APERTURE_%s' % rse_name_generator()
-        add_rse(rse1)
-        add_protocol(rse1, {'scheme': 'root',
-                            'hostname': 'root.aperture.com',
-                            'port': 1409,
-                            'prefix': '//test/chamber/',
-                            'impl': 'rucio.rse.protocols.xrootd.Default',
-                            'domains': {
-                                'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+        rse1_id = add_rse(rse1)
+        add_protocol(rse1_id, {'scheme': 'root',
+                               'hostname': 'root.aperture.com',
+                               'port': 1409,
+                               'prefix': '//test/chamber/',
+                               'impl': 'rucio.rse.protocols.xrootd.Default',
+                               'domains': {
+                                   'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                   'wan': {'read': 1, 'write': 1, 'delete': 1}}})
 
         rse2 = 'BLACKMESA_%s' % rse_name_generator()
-        add_rse(rse2)
-        add_protocol(rse2, {'scheme': 'root',
-                            'hostname': 'root.blackmesa.com',
-                            'port': 1409,
-                            'prefix': '//lambda/complex/',
-                            'impl': 'rucio.rse.protocols.xrootd.Default',
-                            'domains': {
-                                'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+        rse2_id = add_rse(rse2)
+        add_protocol(rse2_id, {'scheme': 'root',
+                               'hostname': 'root.blackmesa.com',
+                               'port': 1409,
+                               'prefix': '//lambda/complex/',
+                               'impl': 'rucio.rse.protocols.xrootd.Default',
+                               'domains': {
+                                   'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                   'wan': {'read': 1, 'write': 1, 'delete': 1}}})
 
         # register archive
         archive1 = {'scope': scope, 'name': 'cube.1.zip', 'type': 'FILE', 'bytes': 2596, 'adler32': 'beefdead'}
         archive2 = {'scope': scope, 'name': 'cube.2.zip', 'type': 'FILE', 'bytes': 5432, 'adler32': 'deadbeef'}
-        add_replicas(rse=rse1, files=[archive1], account='root')
-        add_replicas(rse=rse2, files=[archive2], account='root')
+        add_replicas(rse_id=rse1_id, files=[archive1], account=root)
+        add_replicas(rse_id=rse2_id, files=[archive2], account=root)
 
         # archived files with replicas
-        archived_file = [{'scope': scope, 'name': 'zippedfile-%i-%s' % (i, str(generate_uuid())), 'type': 'FILE',
+        archived_file = [{'scope': scope.external, 'name': 'zippedfile-%i-%s' % (i, str(generate_uuid())), 'type': 'FILE',
                           'bytes': 4322, 'adler32': 'beefbeef'} for i in range(2)]
-        self.dc.add_files_to_archive(scope=scope, name=archive1['name'], files=archived_file)
-        self.dc.add_files_to_archive(scope=scope, name=archive2['name'], files=archived_file)
+        self.dc.add_files_to_archive(scope=scope.external, name=archive1['name'], files=archived_file)
+        self.dc.add_files_to_archive(scope=scope.external, name=archive2['name'], files=archived_file)
 
-        res = [r['pfns'] for r in self.rc.list_replicas(dids=[{'scope': scope, 'name': f['name']} for f in archived_file],
+        res = [r['pfns'] for r in self.rc.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in archived_file],
                                                         rse_expression=rse1,
                                                         resolve_archives=True)]
 
-        res = self.rc.list_replicas(dids=[{'scope': scope, 'name': f['name']} for f in archived_file], metalink=True, rse_expression=rse1, resolve_archives=True)
+        res = self.rc.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in archived_file], metalink=True, rse_expression=rse1, resolve_archives=True)
         assert_in('APERTURE', res)
         assert_not_in('BLACKMESA', res)
 
-        res = self.rc.list_replicas(dids=[{'scope': scope, 'name': f['name']} for f in archived_file], metalink=True, rse_expression=rse2, resolve_archives=True)
+        res = self.rc.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in archived_file], metalink=True, rse_expression=rse2, resolve_archives=True)
         assert_in('BLACKMESA', res)
         assert_not_in('APERTURE', res)

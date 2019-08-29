@@ -13,6 +13,7 @@
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -23,6 +24,8 @@ import rucio.core.identity
 from rucio.core import account as account_core
 from rucio.core.rse import get_rse_id
 from rucio.common.schema import validate_schema
+from rucio.common.utils import api_update_return_dict
+from rucio.common.types import InternalAccount
 from rucio.db.sqla.constants import AccountType
 
 
@@ -44,6 +47,8 @@ def add_account(account, type, email, issuer):
     if not rucio.api.permission.has_permission(issuer=issuer, action='add_account', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add account' % (issuer))
 
+    account = InternalAccount(account)
+
     account_core.add_account(account, AccountType.from_sym(type), email)
 
 
@@ -59,6 +64,8 @@ def del_account(account, issuer):
     if not rucio.api.permission.has_permission(issuer=issuer, action='del_account', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not delete account' % (issuer))
 
+    account = InternalAccount(account)
+
     account_core.del_account(account)
 
 
@@ -69,7 +76,12 @@ def get_account_info(account):
     :param account: The account name.
     :returns: A list with all account information.
     """
-    return account_core.get_account(account)
+
+    account = InternalAccount(account)
+
+    acc = account_core.get_account(account)
+    acc.account = acc.account.external
+    return acc
 
 
 def update_account(account, key, value, issuer='root'):
@@ -83,6 +95,9 @@ def update_account(account, key, value, issuer='root'):
     kwargs = {}
     if not rucio.api.permission.has_permission(issuer=issuer, action='update_account', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not change %s  of the account' % (issuer, key))
+
+    account = InternalAccount(account)
+
     return account_core.update_account(account, key, value)
 
 
@@ -96,7 +111,10 @@ def list_accounts(filter={}):
 
     :returns: List of all accounts.
     """
-    return account_core.list_accounts(filter=filter)
+    if 'account' in filter:
+        filter['account'] = InternalAccount(filter['account'])
+    for result in account_core.list_accounts(filter=filter):
+        yield api_update_return_dict(result)
 
 
 def account_exists(account):
@@ -106,6 +124,9 @@ def account_exists(account):
     :param account: Name of the account_core.
     :returns: True if found, otherwise false.
     """
+
+    account = InternalAccount(account)
+
     return account_core.account_exists(account)
 
 
@@ -115,6 +136,9 @@ def list_identities(account):
 
     :param account: The account name.
     """
+
+    account = InternalAccount(account)
+
     return account_core.list_identities(account)
 
 
@@ -124,6 +148,9 @@ def list_account_attributes(account):
 
     :param account: The account name.
     """
+
+    account = InternalAccount(account)
+
     return account_core.list_account_attributes(account)
 
 
@@ -142,6 +169,9 @@ def add_account_attribute(key, value, account, issuer):
     kwargs = {'account': account, 'key': key, 'value': value}
     if not rucio.api.permission.has_permission(issuer=issuer, action='add_attribute', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add attributes' % (issuer))
+
+    account = InternalAccount(account)
+
     account_core.add_account_attribute(account, key, value)
 
 
@@ -156,6 +186,9 @@ def del_account_attribute(key, account, issuer):
     kwargs = {'account': account, 'key': key}
     if not rucio.api.permission.has_permission(issuer=issuer, action='del_attribute', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not delete attribute' % (issuer))
+
+    account = InternalAccount(account)
+
     account_core.del_account_attribute(account, key)
 
 
@@ -169,6 +202,8 @@ def get_usage(rse, account, issuer):
     :returns:                A dictionary with total and bytes.
     """
     rse_id = get_rse_id(rse=rse)
+    account = InternalAccount(account)
+
     return account_core.get_usage(rse_id, account)
 
 
@@ -182,4 +217,6 @@ def get_usage_history(rse, account, issuer):
     :returns:                A dictionary with total and bytes.
     """
     rse_id = get_rse_id(rse=rse)
+    account = InternalAccount(account)
+
     return account_core.get_usage_history(rse_id, account)

@@ -16,13 +16,15 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2019
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import get_usage
 from rucio.core.account_limit import set_account_limit
 from rucio.core.did import add_did, attach_dids, detach_dids
 from rucio.core.lock import get_replica_locks, get_dataset_locks
-from rucio.core.rse import add_rse_attribute, get_rse
+from rucio.core.rse import add_rse_attribute, get_rse_id
 from rucio.core.rule import add_rule, get_rule
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.daemons.abacus.account import account_update
@@ -40,51 +42,53 @@ class TestJudgeEvaluator():
         cls.rse4 = 'MOCK4'
         cls.rse5 = 'MOCK5'
 
-        cls.rse1_id = get_rse(cls.rse1).id
-        cls.rse3_id = get_rse(cls.rse3).id
-        cls.rse4_id = get_rse(cls.rse4).id
-        cls.rse5_id = get_rse(cls.rse5).id
+        cls.rse1_id = get_rse_id(rse=cls.rse1)
+        cls.rse3_id = get_rse_id(rse=cls.rse3)
+        cls.rse4_id = get_rse_id(rse=cls.rse4)
+        cls.rse5_id = get_rse_id(rse=cls.rse5)
 
         # Add Tags
         cls.T1 = tag_generator()
         cls.T2 = tag_generator()
-        add_rse_attribute(cls.rse1, cls.T1, True)
-        add_rse_attribute(cls.rse3, cls.T1, True)
-        add_rse_attribute(cls.rse4, cls.T2, True)
-        add_rse_attribute(cls.rse5, cls.T1, True)
+        add_rse_attribute(cls.rse1_id, cls.T1, True)
+        add_rse_attribute(cls.rse3_id, cls.T1, True)
+        add_rse_attribute(cls.rse4_id, cls.T2, True)
+        add_rse_attribute(cls.rse5_id, cls.T1, True)
 
         # Add fake weights
-        add_rse_attribute(cls.rse1, "fakeweight", 10)
-        add_rse_attribute(cls.rse3, "fakeweight", 0)
-        add_rse_attribute(cls.rse4, "fakeweight", 0)
-        add_rse_attribute(cls.rse5, "fakeweight", 0)
+        add_rse_attribute(cls.rse1_id, "fakeweight", 10)
+        add_rse_attribute(cls.rse3_id, "fakeweight", 0)
+        add_rse_attribute(cls.rse4_id, "fakeweight", 0)
+        add_rse_attribute(cls.rse5_id, "fakeweight", 0)
 
         # Add quota
-        set_account_limit('jdoe', cls.rse1_id, -1)
-        set_account_limit('jdoe', cls.rse3_id, -1)
-        set_account_limit('jdoe', cls.rse4_id, -1)
-        set_account_limit('jdoe', cls.rse5_id, -1)
+        cls.jdoe = InternalAccount('jdoe')
+        cls.root = InternalAccount('root')
+        set_account_limit(cls.jdoe, cls.rse1_id, -1)
+        set_account_limit(cls.jdoe, cls.rse3_id, -1)
+        set_account_limit(cls.jdoe, cls.rse4_id, -1)
+        set_account_limit(cls.jdoe, cls.rse5_id, -1)
 
-        set_account_limit('root', cls.rse1_id, -1)
-        set_account_limit('root', cls.rse3_id, -1)
-        set_account_limit('root', cls.rse4_id, -1)
-        set_account_limit('root', cls.rse5_id, -1)
+        set_account_limit(cls.root, cls.rse1_id, -1)
+        set_account_limit(cls.root, cls.rse3_id, -1)
+        set_account_limit(cls.root, cls.rse4_id, -1)
+        set_account_limit(cls.root, cls.rse5_id, -1)
 
     def test_judge_add_files_to_dataset(self):
         """ JUDGE EVALUATOR: Test the judge when adding files to dataset"""
-        scope = 'mock'
-        files = create_files(3, scope, self.rse1)
+        scope = InternalScope('mock')
+        files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
 
         # Add a first rule to the DS
-        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-        attach_dids(scope, dataset, files, 'jdoe')
+        attach_dids(scope, dataset, files, self.jdoe)
         re_evaluator(once=True)
 
-        files = create_files(3, scope, self.rse1)
-        attach_dids(scope, dataset, files, 'jdoe')
+        files = create_files(3, scope, self.rse1_id)
+        attach_dids(scope, dataset, files, self.jdoe)
 
         # Fake judge
         re_evaluator(once=True)
@@ -95,17 +99,17 @@ class TestJudgeEvaluator():
 
     def test_judge_add_dataset_to_container(self):
         """ JUDGE EVALUATOR: Test the judge when adding dataset to container"""
-        scope = 'mock'
-        files = create_files(3, scope, self.rse1)
+        scope = InternalScope('mock')
+        files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
-        attach_dids(scope, dataset, files, 'jdoe')
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
 
         parent_container = 'dataset_' + str(uuid())
-        add_did(scope, parent_container, DIDType.from_sym('CONTAINER'), 'jdoe')
+        add_did(scope, parent_container, DIDType.from_sym('CONTAINER'), self.jdoe)
         # Add a first rule to the DS
-        add_rule(dids=[{'scope': scope, 'name': parent_container}], account='jdoe', copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
-        attach_dids(scope, parent_container, [{'scope': scope, 'name': dataset}], 'jdoe')
+        add_rule(dids=[{'scope': scope, 'name': parent_container}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
+        attach_dids(scope, parent_container, [{'scope': scope, 'name': dataset}], self.jdoe)
         # Fake judge
         re_evaluator(once=True)
 
@@ -122,22 +126,22 @@ class TestJudgeEvaluator():
         re_evaluator(once=True)
         account_update(once=True)
 
-        scope = 'mock'
-        files = create_files(3, scope, self.rse1, bytes=100)
+        scope = InternalScope('mock')
+        files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
 
         # Add a first rule to the DS
-        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-        account_counter_before = get_usage(self.rse1_id, 'jdoe')
-        attach_dids(scope, dataset, files, 'jdoe')
+        account_counter_before = get_usage(self.rse1_id, self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
 
         # Fake judge
         re_evaluator(once=True)
         account_update(once=True)
 
-        account_counter_after = get_usage(self.rse1_id, 'jdoe')
+        account_counter_after = get_usage(self.rse1_id, self.jdoe)
         assert(account_counter_before['bytes'] + 3 * 100 == account_counter_after['bytes'])
         assert(account_counter_before['files'] + 3 == account_counter_after['files'])
 
@@ -146,18 +150,18 @@ class TestJudgeEvaluator():
         re_evaluator(once=True)
         account_update(once=True)
 
-        scope = 'mock'
-        files = create_files(3, scope, self.rse1, bytes=100)
+        scope = InternalScope('mock')
+        files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
-        attach_dids(scope, dataset, files, 'jdoe')
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
 
         # Add a first rule to the DS
-        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         account_update(once=True)
 
-        account_counter_before = get_usage(self.rse1_id, 'jdoe')
+        account_counter_before = get_usage(self.rse1_id, self.jdoe)
 
         detach_dids(scope, dataset, [files[0]])
 
@@ -165,7 +169,7 @@ class TestJudgeEvaluator():
         re_evaluator(once=True)
         account_update(once=True)
 
-        account_counter_after = get_usage(self.rse1_id, 'jdoe')
+        account_counter_after = get_usage(self.rse1_id, self.jdoe)
         assert(account_counter_before['bytes'] - 100 == account_counter_after['bytes'])
         assert(account_counter_before['files'] - 1 == account_counter_after['files'])
 
@@ -173,18 +177,18 @@ class TestJudgeEvaluator():
         """ JUDGE EVALUATOR: Test if the a datasetlock is detached correctly when removing a dataset from a container"""
         re_evaluator(once=True)
 
-        scope = 'mock'
-        files = create_files(3, scope, self.rse1, bytes=100)
+        scope = InternalScope('mock')
+        files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
-        attach_dids(scope, dataset, files, 'jdoe')
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
 
         container = 'container_' + str(uuid())
-        add_did(scope, container, DIDType.from_sym('CONTAINER'), 'jdoe')
-        attach_dids(scope, container, [{'scope': scope, 'name': dataset}], 'jdoe')
+        add_did(scope, container, DIDType.from_sym('CONTAINER'), self.jdoe)
+        attach_dids(scope, container, [{'scope': scope, 'name': dataset}], self.jdoe)
 
         # Add a rule to the Container
-        add_rule(dids=[{'scope': scope, 'name': container}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
+        add_rule(dids=[{'scope': scope, 'name': container}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         # Check if the datasetlock is there
         locks = [ds_lock for ds_lock in get_dataset_locks(scope=scope, name=dataset)]
@@ -202,33 +206,33 @@ class TestJudgeEvaluator():
         """ JUDGE EVALUATOR: Test if the detach is done correctly"""
         re_evaluator(once=True)
 
-        scope = 'mock'
+        scope = InternalScope('mock')
         container = 'container_' + str(uuid())
-        add_did(scope, container, DIDType.from_sym('CONTAINER'), 'jdoe')
+        add_did(scope, container, DIDType.from_sym('CONTAINER'), self.jdoe)
 
-        scope = 'mock'
-        files = create_files(3, scope, self.rse1, bytes=100)
+        scope = InternalScope('mock')
+        files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
-        attach_dids(scope, dataset, files, 'jdoe')
-        attach_dids(scope, container, [{'scope': scope, 'name': dataset}], 'jdoe')
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
+        attach_dids(scope, container, [{'scope': scope, 'name': dataset}], self.jdoe)
 
-        scope = 'mock'
-        files = create_files(3, scope, self.rse1, bytes=100)
+        scope = InternalScope('mock')
+        files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
-        attach_dids(scope, dataset, files, 'jdoe')
-        attach_dids(scope, container, [{'scope': scope, 'name': dataset}], 'jdoe')
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
+        attach_dids(scope, container, [{'scope': scope, 'name': dataset}], self.jdoe)
 
-        scope = 'mock'
-        files = create_files(3, scope, self.rse1, bytes=100)
+        scope = InternalScope('mock')
+        files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
-        attach_dids(scope, dataset, files, 'jdoe')
-        attach_dids(scope, container, [{'scope': scope, 'name': dataset}], 'jdoe')
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
+        attach_dids(scope, container, [{'scope': scope, 'name': dataset}], self.jdoe)
 
         # Add a first rule to the Container
-        rule_id = add_rule(dids=[{'scope': scope, 'name': container}], account='jdoe', copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+        rule_id = add_rule(dids=[{'scope': scope, 'name': container}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
         # Fake judge
         re_evaluator(once=True)
@@ -244,20 +248,20 @@ class TestJudgeEvaluator():
 
     def test_judge_add_files_to_dataset_with_2_rules(self):
         """ JUDGE EVALUATOR: Test the judge when adding files to dataset with 2 rules"""
-        scope = 'mock'
-        files = create_files(3, scope, self.rse1)
+        scope = InternalScope('mock')
+        files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
 
         # Add a first rule to the DS
-        add_rule(dids=[{'scope': scope, 'name': dataset}], account='jdoe', copies=1, rse_expression=self.rse5, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
-        add_rule(dids=[{'scope': scope, 'name': dataset}], account='root', copies=1, rse_expression=self.rse5, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse5, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.root, copies=1, rse_expression=self.rse5, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-        attach_dids(scope, dataset, files, 'jdoe')
+        attach_dids(scope, dataset, files, self.jdoe)
         re_evaluator(once=True)
 
-        files = create_files(3, scope, self.rse1)
-        attach_dids(scope, dataset, files, 'jdoe')
+        files = create_files(3, scope, self.rse1_id)
+        attach_dids(scope, dataset, files, self.jdoe)
 
         # Fake judge
         re_evaluator(once=True)
@@ -268,22 +272,22 @@ class TestJudgeEvaluator():
 
     def test_judge_add_files_to_dataset_rule_on_container(self):
         """ JUDGE EVALUATOR: Test the judge when attaching file to dataset with rule on two levels of containers"""
-        scope = 'mock'
-        files = create_files(3, scope, self.rse1)
+        scope = InternalScope('mock')
+        files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), 'jdoe')
-        attach_dids(scope, dataset, files, 'jdoe')
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
 
         parent_container = 'dataset_' + str(uuid())
-        add_did(scope, parent_container, DIDType.from_sym('CONTAINER'), 'jdoe')
-        attach_dids(scope, parent_container, [{'scope': scope, 'name': dataset}], 'jdoe')
+        add_did(scope, parent_container, DIDType.from_sym('CONTAINER'), self.jdoe)
+        attach_dids(scope, parent_container, [{'scope': scope, 'name': dataset}], self.jdoe)
 
         parent_parent_container = 'dataset_' + str(uuid())
-        add_did(scope, parent_parent_container, DIDType.from_sym('CONTAINER'), 'jdoe')
-        attach_dids(scope, parent_parent_container, [{'scope': scope, 'name': parent_container}], 'jdoe')
+        add_did(scope, parent_parent_container, DIDType.from_sym('CONTAINER'), self.jdoe)
+        attach_dids(scope, parent_parent_container, [{'scope': scope, 'name': parent_container}], self.jdoe)
 
         # Add a first rule to the DS
-        add_rule(dids=[{'scope': scope, 'name': parent_parent_container}], account='jdoe', copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
+        add_rule(dids=[{'scope': scope, 'name': parent_parent_container}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         # Fake judge
         re_evaluator(once=True)
@@ -293,8 +297,8 @@ class TestJudgeEvaluator():
             assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2)
 
         # create more files and attach them
-        more_files = create_files(3, scope, self.rse1)
-        attach_dids(scope, dataset, more_files, 'jdoe')
+        more_files = create_files(3, scope, self.rse1_id)
+        attach_dids(scope, dataset, more_files, self.jdoe)
         re_evaluator(once=True)
         # Check if the Locks are created properly
         for file in more_files:

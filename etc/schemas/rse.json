@@ -1,5 +1,0 @@
-{
-    "type": "string",
-    "pattern": "^([A-Z0-9]+([_-][A-Z0-9]+)*)$",
-    "description": "RSE name."
-}

@@ -1,16 +1,25 @@
-'''
- Copyright European Organization for Nuclear Research (CERN)
-
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Ralph Vigne, <ralph.vigne@cern.ch>, 2013 - 2014
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
- - James Perry, <j.perry@epcc.ed.ac.uk>, 2019
-'''
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013 - 2014
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017-2019
+# - James Perry, <j.perry@epcc.ed.ac.uk>, 2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+#
+# PY3K COMPATIBLE
 
 from dogpile.cache import make_region
 
@@ -70,9 +79,14 @@ if rsemanager.CLIENT_MODE:   # pylint:disable=no-member
 
 
 if rsemanager.SERVER_MODE:   # pylint:disable=no-member
-    from rucio.core.rse import get_rse_protocols
+    from rucio.core.rse import get_rse_protocols, get_rse_id
     from rucio.core.credential import get_signed_url
-    setattr(rsemanager, '__request_rse_info', get_rse_protocols)
+
+    def tmp_rse_info(rse, session=None):
+        rse_id = get_rse_id(rse=rse)
+        return get_rse_protocols(rse_id=rse_id, session=session)
+
+    setattr(rsemanager, '__request_rse_info', tmp_rse_info)
     setattr(rsemanager, '__get_signed_url', get_signed_url)
     RSE_REGION = make_region(function_key_generator=rse_key_generator).configure(
         'dogpile.cache.memcached',
