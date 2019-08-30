@@ -28,13 +28,12 @@ from alembic.op import (create_primary_key, create_check_constraint,
 revision = '58c8b78301ab'
 down_revision = '2b8e7bcb4783'
 
-schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-
 
 def upgrade():
     '''
     Upgrade the database to this revision
     '''
+    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name in ['oracle', 'mysql']:
         drop_constraint('callbacks_pk', 'callbacks', type_='primary')
@@ -59,6 +58,7 @@ def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
+    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name in ['oracle', 'mysql']:
         drop_constraint('MESSAGES_EVENT_TYPE_NN', 'messages', type_='check')
