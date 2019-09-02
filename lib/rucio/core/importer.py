@@ -20,8 +20,9 @@
 
 from six import string_types
 from rucio.common.exception import RSEOperationNotSupported, RSENotFound
-from rucio.core import rse as rse_module, distance as distance_module
-from rucio.db.sqla.constants import RSEType
+from rucio.core import rse as rse_module, distance as distance_module, account as account_module, identity as identity_module
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import RSEType, AccountType, IdentityType
 from rucio.db.sqla.session import transactional_session
 
 
@@ -128,6 +129,71 @@ def import_distances(distances, session=None):
 
 
 @transactional_session
+def import_identities(identities, account_name, old_identities, old_identity_account, account_email, session=None):
+    for identity in identities:
+        identity['type'] = IdentityType.from_sym(identity['type'])
+
+    missing_identities = [identity for identity in identities if (identity['identity'], identity['type']) not in old_identities]
+    missing_identity_account = [identity for identity in identities if (identity['identity'], identity['type'], account_name) not in old_identity_account]
+    to_be_removed_identity_account = [old_identity for old_identity in old_identity_account if (old_identity[0], old_identity[1], old_identity[2]) not in
+                                      [(identity['identity'], identity['type'], account_name) for identity in identities] and old_identity[2] == account_name]
+
+    # add missing identities
+    for identity in missing_identities:
+        identity_type = identity['type']
+        password = identity.get('password')
+        identity = identity['identity']
+        if identity_type == IdentityType.USERPASS:
+            identity_module.add_identity(identity=identity, password=password, email=account_email, type=identity_type, session=session)
+        elif identity_type == IdentityType.GSS or identity_type == IdentityType.SSH or identity_type == IdentityType.X509:
+            identity_module.add_identity(identity=identity, email=account_email, type=identity_type, session=session)
+
+    # add missing identity-account association
+    for identity in missing_identity_account:
+        identity_module.add_account_identity(identity['identity'], identity['type'], account_name, email=account_email, session=session)
+
+    # remove identities from account-identity association
+    for identity in to_be_removed_identity_account:
+        identity_module.del_account_identity(identity=identity[0], type=identity[1], account=identity[2], session=session)
+
+
+@transactional_session
+def import_accounts(accounts, session=None):
+    old_accounts = {account['account']: account for account in account_module.list_accounts(session=session)}
+    missing_accounts = [account for account in accounts if account['account'] not in old_accounts]
+    outdated_accounts = [account for account in accounts if account['account'] in old_accounts]
+    to_be_removed_accounts = [old_account for old_account in old_accounts if old_account not in [account['account'] for account in accounts]]
+    old_identities = identity_module.list_identities(session=session)
+    old_identity_account = session.query(models.IdentityAccountAssociation.identity, models.IdentityAccountAssociation.identity_type, models.IdentityAccountAssociation.account).all()
+
+    # add missing accounts
+    for account_dict in missing_accounts:
+        account = account_dict['account']
+        email = account_dict['email']
+        account_module.add_account(account=account, type=AccountType.USER, email=email, session=session)
+        identities = account_dict.get('identities', [])
+        if identities:
+            import_identities(identities, account, old_identities, old_identity_account, email, session=session)
+
+    # remove left over accounts
+    for account in to_be_removed_accounts:
+        if account.external != 'root':
+            account_module.del_account(account=account, session=session)
+
+    # update existing accounts
+    for account_dict in outdated_accounts:
+        account = account_dict['account']
+        email = account_dict['email']
+        old_account = old_accounts[account]
+        if email and old_account['email'] != email:
+            account_module.update_account(account, key='email', value=email, session=session)
+
+        identities = account_dict.get('identities', [])
+        if identities:
+            import_identities(identities, account, old_identities, old_identity_account, email, session=session)
+
+
+@transactional_session
 def import_data(data, session=None):
     """
     Import data to add and update records in Rucio.
@@ -144,3 +210,8 @@ def import_data(data, session=None):
     distances = data.get('distances')
     if distances:
         import_distances(distances, session=session)
+
+    # Accounts
+    accounts = data.get('accounts')
+    if accounts:
+        import_accounts(accounts, session=session)

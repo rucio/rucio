@@ -14,6 +14,7 @@
 from rucio.api import permission
 from rucio.common import exception
 from rucio.common.schema import validate_schema
+from rucio.common.types import InternalAccount
 from rucio.core import importer
 
 
@@ -29,4 +30,6 @@ def import_data(data, issuer):
     if not permission.has_permission(issuer=issuer, action='import', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not import data' % issuer)
 
+    for account in data.get('accounts', []):
+        account['account'] = InternalAccount(account['account'])
     return importer.import_data(data)
