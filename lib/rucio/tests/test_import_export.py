@@ -21,17 +21,20 @@
 from __future__ import print_function
 
 from copy import deepcopy
-from nose.tools import assert_equal, assert_true, assert_raises
+from nose.tools import assert_equal, assert_true, assert_raises, assert_in
 from paste.fixture import TestApp
 
 from rucio.db.sqla import session, models
-from rucio.db.sqla.constants import RSEType
+from rucio.db.sqla.constants import RSEType, AccountType, IdentityType, AccountStatus
 from rucio.client.importclient import ImportClient
 from rucio.client.exportclient import ExportClient
 from rucio.common.exception import RSENotFound
+from rucio.common.types import InternalAccount
 from rucio.common.utils import render_json, parse_response
+from rucio.core.account import add_account, get_account
 from rucio.core.distance import add_distance, get_distances
 from rucio.core.exporter import export_data, export_rses
+from rucio.core.identity import add_identity, list_identities, add_account_identity, list_accounts_for_identity
 from rucio.core.importer import import_data
 from rucio.core.rse import get_rse_id, get_rse_name, add_rse, get_rse, add_protocol, get_rse_protocols, list_rse_attributes, get_rse_limits, set_rse_limits, add_rse_attribute, list_rses, export_rse, get_rse_attribute
 from rucio.tests.common import rse_name_generator
@@ -118,6 +121,23 @@ class TestImporter(object):
         # Distance that already exists
         add_distance(self.old_rse_id_1, self.old_rse_id_2)
 
+        # Account 1 that already exists
+        self.old_account_1 = InternalAccount(rse_name_generator())
+        add_account(self.old_account_1, AccountType.USER, email='test')
+
+        # Account 2 that already exists
+        self.old_account_2 = InternalAccount(rse_name_generator())
+        add_account(self.old_account_2, AccountType.USER, email='test')
+
+        # Identity that should be removed
+        self.identity_to_be_removed = rse_name_generator()
+        add_identity(self.identity_to_be_removed, IdentityType.X509, email='email')
+        add_account_identity(self.identity_to_be_removed, IdentityType.X509, self.old_account_2, 'email')
+
+        # Identity that already exsits but should be added to the account
+        self.identity_to_be_added_to_account = rse_name_generator()
+        add_identity(self.identity_to_be_added_to_account, IdentityType.X509, email='email')
+
         self.data1 = {
             'rses': {
                 self.new_rse: {
@@ -192,7 +212,36 @@ class TestImporter(object):
                     self.old_rse_2: {'src_rse': self.old_rse_1, 'dest_rse': self.old_rse_2, 'ranking': 10},
                     self.old_rse_3: {'src_rse': self.old_rse_1, 'dest_rse': self.old_rse_3, 'ranking': 4}
                 }
-            }
+            },
+            'accounts': [{
+                'account': InternalAccount('new_account'),
+                'email': 'email',
+                'identities': [{
+                    'type': 'userpass',
+                    'identity': 'username',
+                    'password': 'password'
+                }]
+            }, {
+                'account': InternalAccount('new_account2'),
+                'email': 'email'
+            }, {
+                'account': self.old_account_2,
+                'email': 'new_email',
+                'identities': [
+                    {
+                        'identity': self.identity_to_be_added_to_account,
+                        'type': 'x509'
+                    },
+                    {
+                        'type': 'userpass',
+                        'identity': 'username2',
+                        'password': 'password'
+                    }
+                ]
+            }, {
+                'account': InternalAccount('jdoe'),
+                'email': 'email'
+            }]
         }
 
         self.data2 = {'rses': {self.new_rse: {'rse': self.new_rse}}}
@@ -200,6 +249,37 @@ class TestImporter(object):
 
     def tearDown(self):
         reset_rses()
+
+    def check_accounts(self, test_accounts):
+        db_identities = list_identities()
+        for account in test_accounts:
+            # check existence
+            db_account = get_account(account=account['account'])
+            assert_equal(db_account['account'], account['account'])
+
+            # check properties
+            email = account.get('email')
+            if email:
+                assert_equal(db_account['email'], account['email'])
+
+            # check identities
+            identities = account.get('identities')
+            if identities:
+                for identity in identities:
+                    # check identity creation and identity-account association
+                    identity_type = IdentityType.from_sym(identity['type'])
+                    identity = identity['identity']
+                    assert_in((identity, identity_type), db_identities)
+                    accounts_for_identity = list_accounts_for_identity(identity, identity_type)
+                    assert_in(account['account'], accounts_for_identity)
+
+        # check removal of account
+        account = get_account(self.old_account_1)
+        assert_equal(account['status'], AccountStatus.DELETED)
+
+        # check removal of identities
+        accounts_for_identity = list_accounts_for_identity(self.identity_to_be_removed, IdentityType.X509)
+        assert_true(account['account'] not in accounts_for_identity)
 
     def test_importer_core(self):
         """ IMPORTER (CORE): test import. """
@@ -240,6 +320,8 @@ class TestImporter(object):
 
         distance = get_distances(self.old_rse_id_1, self.old_rse_id_3)[0]
         assert_equal(distance['ranking'], 4)
+
+        self.check_accounts(self.data1['accounts'])
 
         # RSE 4 should be flagged as deleted as it is missing in the import data
         with assert_raises(RSENotFound):
@@ -286,6 +368,8 @@ class TestImporter(object):
 
         distance = get_distances(self.old_rse_id_1, self.old_rse_id_3)[0]
         assert_equal(distance['ranking'], 4)
+
+        self.check_accounts(self.data1['accounts'])
 
         with assert_raises(RSENotFound):
             get_rse(rse_id=self.old_rse_id_4)
@@ -337,6 +421,8 @@ class TestImporter(object):
 
         distance = get_distances(self.old_rse_id_1, self.old_rse_id_3)[0]
         assert_equal(distance['ranking'], 4)
+
+        self.check_accounts(self.data1['accounts'])
 
         with assert_raises(RSENotFound):
             get_rse(rse_id=self.old_rse_id_4)
