@@ -17,15 +17,13 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
-import nose.tools
-
-from rucio.common.utils import execute, generate_uuid
 from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.utils import generate_uuid
 from rucio.core import rse as rse_core
 from rucio.core import replica as replica_core
-
-from rucio.clis.daemons.reaper.reaper import main
+from rucio.daemons.reaper.reaper import reaper
 
 
 def test_reaper():
@@ -43,10 +41,6 @@ def test_reaper():
     rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=10737418240)
     rse_core.set_rse_limits(rse_id=rse_id, name='MaxBeingDeletedFiles', value=10)
 
-    argv = ['--run-once', '--rses', 'MOCK']
-    main(argv)
-    # Test the rucio-reaper console script
-    cmd = 'rucio-reaper ' + ' '.join(argv)
-    exitcode, out, err = execute(cmd)
-    print(cmd, out, err)
-    nose.tools.assert_equal(exitcode, 0)
+    rses = [rse_core.get_rse(rse_core.get_rse_id('MOCK')), ]
+    reaper(once=True, rses=rses)
+    reaper(once=True, rses=rses)
