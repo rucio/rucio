@@ -153,4 +153,5 @@ def list_requests(src_rse, dst_rse, states, issuer):
     if not permission.has_permission(issuer=issuer, action='list_requests', kwargs=kwargs):
         raise exception.AccessDenied('%(issuer)s cannot list requests from RSE %(src_rse)s to RSE %(dst_rse)s' % locals())
 
-    return request.list_requests(src_rse_id, dst_rse_id, states)
+    for req in request.list_requests(src_rse_id, dst_rse_id, states):
+        yield api_update_return_dict(req)
