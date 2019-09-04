@@ -1153,3 +1153,18 @@ class TestReplicationRuleClient():
         get2 = self.rule_client.get_replication_rule(rule_id_1)
 
         assert(get['expires_at'] != get2['expires_at'])
+
+    def test_approve_rule(self):
+        """ REPLICATION RULE (CLIENT): Approve rule"""
+        scope = InternalScope('mock')
+        files = create_files(3, scope, self.rse1_id)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight='fakeweight', lifetime=150, locked=True, subscription_id=None, ask_approval=True)[0]
+        rule = self.rule_client.get_replication_rule(rule_id)
+        assert_equal(rule['state'], str(RuleState.WAITING_APPROVAL))
+        self.rule_client.approve_replication_rule(rule_id)
+        rule = self.rule_client.get_replication_rule(rule_id)
+        assert_equal(rule['state'], str(RuleState.INJECT))

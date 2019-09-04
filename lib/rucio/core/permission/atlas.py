@@ -352,7 +352,7 @@ def perm_del_identity(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
 
-    return _is_root(issuer) or issuer in kwargs.get('accounts')
+    return _is_root(issuer) or issuer.external in kwargs.get('accounts')
 
 
 def perm_add_did(issuer, kwargs):
@@ -470,7 +470,7 @@ def perm_del_rule(issuer, kwargs):
     for rse in rses:
         rse_attr = list_rse_attributes(rse_id=rse['id'])
         if rse_attr.get('rule_deleters'):
-            if issuer in rse_attr.get('rule_deleters').split(','):
+            if issuer.external in rse_attr.get('rule_deleters').split(','):
                 return True
 
     return False
@@ -580,7 +580,7 @@ def perm_approve_rule(issuer, kwargs):
     for rse in rses:
         rse_attr = list_rse_attributes(rse_id=rse['id'])
         if rse_attr.get('rule_approvers'):
-            if issuer in rse_attr.get('rule_approvers').split(','):
+            if issuer.external in rse_attr.get('rule_approvers').split(','):
                 return True
 
     # LOCALGROUPDISK/LOCALGROUPTAPE admins can approve the rule
