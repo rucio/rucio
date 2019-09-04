@@ -23,6 +23,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2018
 # - Tobias Wegner <twegner@cern.ch>, 2017
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2017-2018
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -152,8 +153,8 @@ class BaseClient(object):
         if auth_type is None:
             LOG.debug('no auth_type passed. Trying to get it from the environment variable RUCIO_AUTH_TYPE and config file.')
             if 'RUCIO_AUTH_TYPE' in environ:
-                if environ['RUCIO_AUTH_TYPE'] not in ('userpass', 'x509', 'x509_proxy', 'gss', 'ssh'):
-                    raise MissingClientParameter('Possible RUCIO_AUTH_TYPE values: userpass, x509, x509_proxy, gss, ssh, vs. ' + environ['RUCIO_AUTH_TYPE'])
+                if environ['RUCIO_AUTH_TYPE'] not in ('userpass', 'x509', 'x509_proxy', 'gss', 'ssh', 'saml'):
+                    raise MissingClientParameter('Possible RUCIO_AUTH_TYPE values: userpass, x509, x509_proxy, gss, ssh, saml, vs. ' + environ['RUCIO_AUTH_TYPE'])
                 self.auth_type = environ['RUCIO_AUTH_TYPE']
             else:
                 try:
@@ -165,7 +166,7 @@ class BaseClient(object):
             LOG.debug('no creds passed. Trying to get it from the config file.')
             self.creds = {}
             try:
-                if self.auth_type == 'userpass':
+                if self.auth_type == 'userpass' or self.auth_type == 'saml':
                     self.creds['username'] = config_get('client', 'username')
                     self.creds['password'] = config_get('client', 'password')
                 elif self.auth_type == 'x509':
@@ -538,6 +539,49 @@ class BaseClient(object):
         LOG.debug('got new token')
         return True
 
+    def __get_token_saml(self):
+        """
+        Sends a request to get an auth token from the server and stores it as a class attribute. Uses saml authentication.
+
+        :returns: True if the token was successfully received. False otherwise.
+        """
+
+        headers = {'X-Rucio-Account': self.account}
+        userpass = {'username': self.creds['username'], 'password': self.creds['password']}
+        url = build_url(self.auth_host, path='auth/sso')
+
+        result = None
+        for retry in range(self.AUTH_RETRIES + 1):
+            try:
+                SAML_auth_result = self.session.get(url, headers=headers)
+
+                if SAML_auth_result.headers['X-Rucio-Auth-Token']:
+                    return SAML_auth_result.headers['X-Rucio-Auth-Token']
+
+                SAML_auth_url = SAML_auth_result.headers['X-Rucio-SAML-Auth-URL']
+                result = self.session.post(SAML_auth_url, data=userpass, verify=False, allow_redirects=True)
+                result = self.get(url, headers=headers)
+                break
+            except ConnectionError as error:
+                LOG.warning('ConnectionError: ' + str(error))
+                self.ca_cert = False
+                if retry > self.request_retries:
+                    raise
+
+        if not result or 'result' not in locals():
+            LOG.error('cannot get auth_token')
+            return False
+
+        if result.status_code != codes.ok:  # pylint: disable-msg=E1101
+            exc_cls, exc_msg = self._get_exception(headers=result.headers,
+                                                   status_code=result.status_code,
+                                                   data=result.content)
+            raise exc_cls(exc_msg)
+
+        self.auth_token = result.headers['X-Rucio-Auth-Token']
+        LOG.debug('got new token')
+        return True
+
     def __get_token(self):
         """
         Calls the corresponding method to receive an auth token depending on the auth type. To be used if a 401 - Unauthorized error is received.
@@ -560,6 +604,10 @@ class BaseClient(object):
             elif self.auth_type == 'ssh':
                 if not self.__get_token_ssh():
                     raise CannotAuthenticate('ssh authentication failed for account=%s with identity=%s' % (self.account,
+                                                                                                            self.creds))
+            elif self.auth_type == 'saml':
+                if not self.__get_token_saml():
+                    raise CannotAuthenticate('saml authentication failed for account=%s with identity=%s' % (self.account,
                                                                                                             self.creds))
             else:
                 raise CannotAuthenticate('auth type \'%s\' not supported' % self.auth_type)
@@ -639,6 +687,9 @@ class BaseClient(object):
                 raise NoAuthInformation('The SSH private key has to be defined')
         elif self.auth_type == 'gss':
             pass
+        elif self.auth_type == 'saml':
+            if self.creds['username'] is None or self.creds['password'] is None:
+                raise NoAuthInformation('No SAML username or password passed')
         else:
             raise CannotAuthenticate('auth type \'%s\' not supported' % self.auth_type)
 

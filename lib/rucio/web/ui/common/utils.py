@@ -22,7 +22,7 @@ from rucio.db.sqla.constants import AccountType
 
 try:
     AUTH_TYPE = config_get('webui', 'auth_type')
-    if AUTH_TYPE == 'sso':
+    if AUTH_TYPE == 'saml':
         from onelogin.saml2.auth import OneLogin_Saml2_Auth
 except:
     AUTH_TYPE = 'x509'
@@ -395,7 +395,7 @@ def authenticate(rendered_tpl):
 
         return render.no_certificate()
 
-    elif AUTH_TYPE == 'sso':
+    elif AUTH_TYPE == 'saml':
         return saml_authentication("GET", rendered_tpl)
 
     return render.problem('Invalid auth type')

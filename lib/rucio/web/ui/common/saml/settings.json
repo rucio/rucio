@@ -10,11 +10,12 @@
         "NameIDFormat": "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified"
     },
     "idp": {
-        "entityId": "<Enter IdP entityId here>",
+
+        "entityId": "https://login.cern.ch",
         "singleSignOnService": {
-            "url": "<Enter IdP SSO url here>",
+            "url": "https://login.cern.ch/adfs/ls/auth/integrated/",
             "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
         },
-        "x509cert": "<Enter IdP certificate here>"
+        "x509cert": "<IdP certificate here>"
     }
 }
