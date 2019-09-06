@@ -755,7 +755,7 @@ def list_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, 
         elif session.bind.dialect.name == 'mysql':
             sub_requests = sub_requests.filter(text('mod(md5(id), %s) = %s' % (total_workers + 1, worker_number)))
         elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(id::text))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(requests.id::text))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
 
     if limit:
         sub_requests = sub_requests.limit(limit)
