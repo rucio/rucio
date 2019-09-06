@@ -84,7 +84,7 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
             elif session.bind.dialect.name == 'mysql':
                 subquery = subquery.filter(text('mod(md5(id), %s) = %s' % (total_threads - 1, thread)))
             elif session.bind.dialect.name == 'postgresql':
-                subquery = subquery.filter(text('mod(abs((\'x\'||md5(id::text))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
+                subquery = subquery.filter(text('mod(abs((\'x\'||md5(messages.id::text))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
 
         if event_type:
             subquery = subquery.filter_by(event_type=event_type)
