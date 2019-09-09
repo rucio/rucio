@@ -362,8 +362,13 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                 try:  # Get metadata of file to verify if upload was successful
                     try:
                         stats = _retry_protocol_stat(protocol, '%s.rucio.upload' % pfn)
+
                         # Verify all supported checksums and keep rack of the verified ones
-                        verified_checksums = map(lambda x: stats[x] == lfn[x], GLOBALLY_SUPPORTED_CHECKSUMS)
+                        verified_checksums = []
+                        for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
+                            if (checksum_name in stats) and (checksum_name in lfn):
+                                verified_checksums.append(stats[checksum_name] == lfn[checksum_name])
+
                         # Upload is successful if at least one checksum was found
                         valid = any(verified_checksums)
                         if not valid and ('filesize' in stats) and ('filesize' in lfn):
@@ -406,8 +411,13 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                 try:  # Get metadata of file to verify if upload was successful
                     try:
                         stats = _retry_protocol_stat(protocol, '%s.rucio.upload' % pfn)
+
                         # Verify all supported checksums and keep rack of the verified ones
-                        verified_checksums = map(lambda x: stats[x] == lfn[x], GLOBALLY_SUPPORTED_CHECKSUMS)
+                        verified_checksums = []
+                        for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
+                            if (checksum_name in stats) and (checksum_name in lfn):
+                                verified_checksums.append(stats[checksum_name] == lfn[checksum_name])
+
                         # Upload is successful if at least one checksum was found
                         valid = any(verified_checksums)
                         if not valid and ('filesize' in stats) and ('filesize' in lfn):
