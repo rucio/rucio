@@ -42,7 +42,7 @@ except ImportError:
     from urllib.parse import urlparse
 
 from rucio.common import exception, utils, constants
-from rucio.common.config import config_get
+from rucio.common.config import config_get_int
 from rucio.common.constraints import STRING_TYPES
 from rucio.common.utils import make_valid_did
 
@@ -733,7 +733,7 @@ def _retry_protocol_stat(protocol, pfn):
     :param protocol     The protocol to use to reach this file
     :param pfn          Physical file name of the target for the protocol stat
     """
-    retries = config_get('client', 'protocol_stat_retries', raise_exception=False, default=6)
+    retries = config_get_int('client', 'protocol_stat_retries', raise_exception=False, default=6)
 
     for attempt in range(retries):
         try:
