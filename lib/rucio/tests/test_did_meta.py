@@ -8,6 +8,7 @@
 # Authors:
 # - Asket Agarwal, <asket.agarwal96@gmail.com>
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Aristeidis Fkiaras, <aristeidis.fkiaras@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -15,7 +16,8 @@ from nose.tools import assert_equal, assert_is_instance, assert_in, assert_raise
 
 from rucio.client.didclient import DIDClient
 from rucio.common.utils import generate_uuid as uuid
-from rucio.common.exception import RucioException, DataIdentifierNotFound, KeyNotFound
+from rucio.common.exception import DataIdentifierNotFound, KeyNotFound
+from rucio.db.sqla.session import get_session
 
 
 class TestDidMetaClient():
@@ -25,10 +27,18 @@ class TestDidMetaClient():
         self.tmp_scope = 'mock'
         self.tmp_name = 'name_%s' % uuid()
         self.did_client.add_did(scope=self.tmp_scope, name=self.tmp_name, type="DATASET")
+        self.implemented = True
+        session = get_session()
+        if session.bind.dialect.name == 'oracle':
+            oracle_version = int(session.connection().connection.version.split('.')[0])
+            if oracle_version < 12:
+                self.implemented = False
+        elif session.bind.dialect.name == 'sqlite':
+            self.implemented = False
 
     def test_add_did_meta(self):
         """ META (CLIENTS) : Adds a fully set json column to a did, updates if some keys present """
-        try:
+        if self.implemented:
             data1 = {"key1": "value_" + str(uuid()), "key2": "value_" + str(uuid()), "key3": "value_" + str(uuid())}
             self.did_client.add_did_meta(scope=self.tmp_scope, name=self.tmp_name, meta=data1)
 
@@ -52,12 +62,9 @@ class TestDidMetaClient():
             assert_equal(len(metadata), 6)
             assert_equal(metadata["key2"], "value2")
 
-        except RucioException:
-            pass
-
     def test_delete_generic_metadata(self):
         """ META (CLIENTS) : Deletes metadata key """
-        try:
+        if self.implemented:
             data = {"key1": "value_" + str(uuid()), "key2": "value_" + str(uuid()), "key3": "value_" + str(uuid())}
             self.did_client.add_did_meta(scope=self.tmp_scope, name=self.tmp_name, meta=data)
 
@@ -69,50 +76,44 @@ class TestDidMetaClient():
             with assert_raises(KeyNotFound):
                 self.did_client.delete_did_meta(scope=self.tmp_scope, name=self.tmp_name, key="key9")
 
-        except RucioException:
-            pass
-
     def test_get_generic_metadata(self):
         """ META (CLIENTS) : Gets all metadata for the given did """
-        try:
+        if self.implemented:
             data = {"key1": "value_" + str(uuid()), "key2": "value_" + str(uuid()), "key3": "value_" + str(uuid())}
             self.did_client.add_did_meta(scope=self.tmp_scope, name=self.tmp_name, meta=data)
 
             metadata = self.did_client.get_did_meta(scope=self.tmp_scope, name=self.tmp_name)
             assert_equal(metadata, data)
 
-        except RucioException:
-            pass
-
     def test_list_dids_by_generic_meta(self):
         """ META (CLIENTS) : Get all dids matching the values of the provided metadata keys """
-        try:
+        if self.implemented:
             tmp_scope = 'mock'
             tmp_dids = []
 
-            did1 = 'name_1'
+            did1 = 'name_%s' % uuid()
             tmp_dids.append(did1)
             self.did_client.add_did(scope=tmp_scope, name=did1, type="DATASET")
             data = {"key1": "value1"}
             self.did_client.add_did_meta(scope=tmp_scope, name=did1, meta=data)
 
-            did2 = 'name_2'
+            did2 = 'name_%s' % uuid()
             tmp_dids.append(did2)
             self.did_client.add_did(scope=tmp_scope, name=did2, type="DATASET")
             data = {"key1": "value1", "key2": "value2"}
             self.did_client.add_did_meta(scope=tmp_scope, name=did2, meta=data)
 
-            did3 = 'name_3'
+            did3 = 'name_%s' % uuid()
             tmp_dids.append(did3)
             self.did_client.add_did(scope=tmp_scope, name=did3, type="DATASET")
             data = {"key1": "value1", "key2": "value2", "key3": "value3"}
             self.did_client.add_did_meta(scope=tmp_scope, name=did3, meta=data)
 
-            did4 = 'name_4'
+            did4 = 'name_%s' % uuid()
             tmp_dids.append(did4)
-            self.did_client.add_did(scope=tmp_scope, name=did1, type="DATASET")
+            self.did_client.add_did(scope=tmp_scope, name=did4, type="DATASET")
             data = {"key1": "value1", "key2": "value2", "key3": "value3", "key4": "value4"}
-            self.did_client.add_did_meta(scope=tmp_scope, name=did1, meta=data)
+            self.did_client.add_did_meta(scope=tmp_scope, name=did4, meta=data)
 
             dids = self.did_client.list_dids_by_meta(scope=tmp_scope, select={"key1": "value1"})
             for did in tmp_dids:
@@ -137,8 +138,6 @@ class TestDidMetaClient():
             select_query = {"key1": "value1", "key2": "value2"}
             dids = self.did_client.list_dids_by_meta(scope=tmp_scope, select=select_query)
             assert_is_instance(dids, list)
-            assert_equal(len(dids), 3)
-            assert_in({'scope': 'mock', 'name': 'name_2'}, dids)
-
-        except RucioException:
-            pass
+            # Since there is no cleanup and key is not uuid, (len(dids), 3) would fail on second run.
+            # assert_equal(len(dids), 3)
+            assert_in({'scope': 'mock', 'name': did2}, dids)
