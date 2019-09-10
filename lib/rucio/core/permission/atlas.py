@@ -352,7 +352,7 @@ def perm_del_identity(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
 
-    return _is_root(issuer) or issuer in kwargs.get('accounts')
+    return _is_root(issuer) or issuer.external in kwargs.get('accounts')
 
 
 def perm_add_did(issuer, kwargs):
