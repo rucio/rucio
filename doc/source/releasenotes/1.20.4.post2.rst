@@ -1,0 +1,13 @@
+============
+1.20.4.post2
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Core & Internals: Correct storm path resolve for list_replicas `#2882 <https://github.com/rucio/rucio/issues/2882>`_
