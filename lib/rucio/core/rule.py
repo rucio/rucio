@@ -62,7 +62,7 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound,
                                     ManualRuleApprovalBlocked, UnsupportedOperation, UndefinedPolicy)
 from rucio.common.schema import validate_schema
-from rucio.common.types import InternalScope
+from rucio.common.types import InternalScope, InternalAccount
 from rucio.common.utils import str_to_date, sizefmt
 from rucio.core import account_counter, rse_counter, request as request_core
 from rucio.core.account import get_account
@@ -3004,6 +3004,7 @@ def __create_recipents_list(rse_expression, session=None):
         rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
         if rse_attr.get('rule_approvers'):
             for account in rse_attr.get('rule_approvers').split(','):
+                account = InternalAccount(account)
                 try:
                     email = get_account(account=account, session=session).email
                     if email:
