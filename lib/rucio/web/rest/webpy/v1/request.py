@@ -20,15 +20,19 @@
 #
 # PY3K COMPATIBLE
 
-import json
-
 from logging import getLogger, StreamHandler, DEBUG
+try:
+    from urlparse import parse_qs
+except ImportError:
+    from urllib.parse import parse_qs
 
 from web import application, ctx, loadhook, header
 
 from rucio.api import request
+from rucio.db.sqla.constants import RequestState
+from rucio.core.rse import get_rses_with_attribute_value, get_rse_name
 from rucio.common.schema import SCOPE_NAME_REGEXP
-from rucio.common.utils import generate_http_error, APIEncoder
+from rucio.common.utils import generate_http_error, render_json
 from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrapper, check_accept_header_wrapper
 
 
@@ -37,7 +41,8 @@ SH = StreamHandler()
 SH.setLevel(DEBUG)
 LOGGER.addHandler(SH)
 
-URLS = ('%s/(.+)' % SCOPE_NAME_REGEXP, 'RequestGet',)
+URLS = ('%s/(.+)' % SCOPE_NAME_REGEXP, 'RequestGet',
+        '/list', 'RequestsGet')
 
 
 class RequestGet(RucioController):
@@ -61,15 +66,73 @@ class RequestGet(RucioController):
         header('Content-Type', 'application/json')
 
         try:
-            return json.dumps(request.get_request_by_did(scope=scope,
-                                                         name=name,
-                                                         rse=rse,
-                                                         issuer=ctx.env.get('issuer')),
-                              cls=APIEncoder)
+            return render_json(**request.get_request_by_did(scope=scope,
+                                                            name=name,
+                                                            rse=rse,
+                                                            issuer=ctx.env.get('issuer')))
         except:
             raise generate_http_error(404, 'RequestNotFound', 'No request found for DID %s:%s at RSE %s' % (scope,
                                                                                                             name,
                                                                                                             rse))
+
+
+class RequestsGet(RucioController):
+    """ REST API to get requests. """
+
+    @exception_wrapper
+    @check_accept_header_wrapper(['application/x-json-stream'])
+    def GET(self):
+        """
+        List requests for a given source and destination RSE or site.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 Request Not Found
+            406 Not Acceptable
+        """
+
+        header('Content-Type', 'application/x-json-stream')
+
+        params = parse_qs(ctx.query[1:])
+        src_rse = params.get('src_rse', [None])[0]
+        dst_rse = params.get('dst_rse', [None])[0]
+        src_site = params.get('src_site', [None])[0]
+        dst_site = params.get('dst_site', [None])[0]
+        request_states = params.get('request_states', [None])[0]
+
+        if not request_states:
+            raise generate_http_error(400, 'MissingParameter', 'Request state is missing')
+        if src_rse and not dst_rse:
+            raise generate_http_error(400, 'MissingParameter', 'Destination RSE is missing')
+        elif dst_rse and not src_rse:
+            raise generate_http_error(400, 'MissingParameter', 'Source RSE is missing')
+        elif src_site and not dst_site:
+            raise generate_http_error(400, 'MissingParameter', 'Destination site is missing')
+        elif dst_site and not src_site:
+            raise generate_http_error(400, 'MissingParameter', 'Source site is missing')
+
+        try:
+            states = [RequestState.from_string(state) for state in request_states.split(',')]
+        except ValueError:
+            raise generate_http_error(400, 'Invalid', 'Request state value is invalid')
+
+        if src_site:
+            src_rse = get_rses_with_attribute_value(key='site', value=src_site, lookup_key='site')
+            if not src_rse:
+                raise generate_http_error(404, 'NotFound', 'Could not resolve site name %s to RSE' % src_site)
+            src_rse = get_rse_name(src_rse[0]['rse_id'])
+            dst_rse = get_rses_with_attribute_value(key='site', value=dst_site, lookup_key='site')
+            if not dst_rse:
+                raise generate_http_error(404, 'NotFound', 'Could not resolve site name %s to RSE' % dst_site)
+            dst_rse = get_rse_name(dst_rse[0]['rse_id'])
+
+        for result in request.list_requests(src_rse, dst_rse, states, issuer=ctx.env.get('issuer')):
+            result = result.to_dict()
+            del result['_sa_instance_state']
+            yield render_json(**result) + '\n'
 
 
 """----------------------
