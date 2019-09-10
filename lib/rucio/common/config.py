@@ -80,14 +80,24 @@ def config_add_section(section):
     return __CONFIG.add_section(section)
 
 
-def config_get_int(section, option):
+def config_get_int(section, option, raise_exception=True, default=None):
     """Return the integer value for a given option in a section"""
-    return __CONFIG.getint(section, option)
+    try:
+        return __CONFIG.getint(section, option)
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as err:
+        if raise_exception and default is None:
+            raise err
+        return default
 
 
-def config_get_float(section, option):
+def config_get_float(section, option, raise_exception=True, default=None):
     """Return the floating point value for a given option in a section"""
-    return __CONFIG.getfloat(section, option)
+    try:
+        return __CONFIG.getfloat(section, option)
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as err:
+        if raise_exception and default is None:
+            raise err
+        return default
 
 
 def config_get_bool(section, option, raise_exception=True, default=None):
