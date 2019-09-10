@@ -29,6 +29,8 @@ from flask import Flask, Blueprint, Response, request as f_request
 from flask.views import MethodView
 
 from rucio.api import request
+from rucio.db.sqla.constants import RequestState
+from rucio.core.rse import get_rses_with_attribute_value, get_rse_name
 from rucio.common.utils import generate_http_error_flask, APIEncoder
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
@@ -71,13 +73,71 @@ class RequestGet(MethodView):
                                                                                                                    rse))
 
 
+class RequestsGet(MethodView):
+    """ REST API to get requests. """
+
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
+    def get(self):
+        """
+        List requests for a given source and destination RSE or site.
+
+        .. :quickref: RequestsGet; list requests
+
+        :reqheader Content-Type: application/x-json-stream
+        :status 200: Request found.
+        :status 404: Request not found.
+        :status 406: Not Acceptable.
+        """
+
+        src_rse = f_request.get('src_rse')
+        dst_rse = f_request.get('dst_rse')
+        src_site = f_request.get('src_site')
+        dst_site = f_request.get('dst_site')
+        request_states = f_request.get('request_states')
+
+        if not request_states:
+            return generate_http_error_flask(400, 'MissingParameter', 'Request state is missing')
+        if src_rse and not dst_rse:
+            return generate_http_error_flask(400, 'MissingParameter', 'Destination RSE is missing')
+        elif dst_rse and not src_rse:
+            return generate_http_error_flask(400, 'MissingParameter', 'Source RSE is missing')
+        elif src_site and not dst_site:
+            return generate_http_error_flask(400, 'MissingParameter', 'Destination site is missing')
+        elif dst_site and not src_site:
+            return generate_http_error_flask(400, 'MissingParameter', 'Source site is missing')
+
+        try:
+            states = [RequestState.from_string(state) for state in request_states.split(',')]
+        except ValueError:
+            return generate_http_error_flask(400, 'Invalid', 'Request state value is invalid')
+
+        if src_site:
+            src_rse = get_rses_with_attribute_value(key='site', value=src_site, lookup_key='site')
+            if not src_rse:
+                return generate_http_error_flask(404, 'NotFound', 'Could not resolve site name %s to RSE' % src_site)
+            src_rse = get_rse_name(src_rse[0]['rse_id'])
+            dst_rse = get_rses_with_attribute_value(key='site', value=dst_site, lookup_key='site')
+            if not dst_rse:
+                return generate_http_error_flask(404, 'NotFound', 'Could not resolve site name %s to RSE' % dst_site)
+            dst_rse = get_rse_name(dst_rse[0]['rse_id'])
+
+        results = []
+        for result in request.list_requests(src_rse, dst_rse, states, issuer=f_request.environ.get('issuer')):
+            result = result.to_dict()
+            del result['_sa_instance_state']
+            results.append(result)
+        return json.dumps(results, cls=APIEncoder)
+
+
 """----------------------
    Web service startup
 ----------------------"""
 
 bp = Blueprint('request', __name__)
 request_get_view = RequestGet.as_view('request_get')
+requests_get_view = RequestsGet.as_view('requests_get')
 bp.add_url_rule('/<scope>/<name>/<rse>', view_func=request_get_view, methods=['get', ])
+bp.add_url_rule('/list', view_func=requests_get_view, methods=['get', ])
 
 application = Flask(__name__)
 application.register_blueprint(bp)
