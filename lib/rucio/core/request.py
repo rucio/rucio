@@ -1405,17 +1405,17 @@ def __get_source_rse(request_id, src_url, session=None):
 
 
 @stream_session
-def list_requests(src_rse_id, dst_rse_id, states=[RequestState.WAITING], session=None):
+def list_requests(src_rse_ids, dst_rse_ids, states=[RequestState.WAITING], session=None):
     """
     List all requests in a specific state from a source RSE to a destination RSE.
 
-    :param src_rse_id: source RSE id.
-    :param dst_rse_id: destination RSE id.
+    :param src_rse_ids: source RSE ids.
+    :param dst_rse_ids: destination RSE ids.
     :param states: list of request states.
     :param session: The database session in use.
     """
     query = session.query(models.Request).filter(models.Request.state.in_(states),
-                                                 models.Request.source_rse_id == src_rse_id,
-                                                 models.Request.dest_rse_id == dst_rse_id)
+                                                 models.Request.source_rse_id.in_(src_rse_ids),
+                                                 models.Request.dest_rse_id.in_(dst_rse_ids))
     for request in query.yield_per(500):
         yield request

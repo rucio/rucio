@@ -119,17 +119,22 @@ class RequestsGet(RucioController):
         except ValueError:
             raise generate_http_error(400, 'Invalid', 'Request state value is invalid')
 
+        src_rses = []
+        dst_rses = []
         if src_site:
-            src_rse = get_rses_with_attribute_value(key='site', value=src_site, lookup_key='site')
-            if not src_rse:
+            src_rses = get_rses_with_attribute_value(key='site', value=src_site, lookup_key='site')
+            if not src_rses:
                 raise generate_http_error(404, 'NotFound', 'Could not resolve site name %s to RSE' % src_site)
-            src_rse = get_rse_name(src_rse[0]['rse_id'])
-            dst_rse = get_rses_with_attribute_value(key='site', value=dst_site, lookup_key='site')
-            if not dst_rse:
+            src_rses = [get_rse_name(rse['rse_id']) for rse in src_rses]
+            dst_rses = get_rses_with_attribute_value(key='site', value=dst_site, lookup_key='site')
+            if not dst_rses:
                 raise generate_http_error(404, 'NotFound', 'Could not resolve site name %s to RSE' % dst_site)
-            dst_rse = get_rse_name(dst_rse[0]['rse_id'])
+            dst_rses = [get_rse_name(rse['rse_id']) for rse in dst_rses]
+        else:
+            dst_rses = [dst_rse]
+            src_rses = [src_rse]
 
-        for result in request.list_requests(src_rse, dst_rse, states, issuer=ctx.env.get('issuer')):
+        for result in request.list_requests(src_rses, dst_rses, states, issuer=ctx.env.get('issuer')):
             result = result.to_dict()
             del result['_sa_instance_state']
             yield render_json(**result) + '\n'

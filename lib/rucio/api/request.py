@@ -137,21 +137,21 @@ def get_request_by_did(scope, name, rse, issuer):
     return api_update_return_dict(req)
 
 
-def list_requests(src_rse, dst_rse, states, issuer):
+def list_requests(src_rses, dst_rses, states, issuer):
     """
     List all requests in a specific state from a source RSE to a destination RSE.
 
-    :param src_rse: source RSE.
-    :param dst_rse: destination RSE.
+    :param src_rses: source RSEs.
+    :param dst_rses: destination RSEs.
     :param states: list of request states.
     :param issuer: Issuing account as a string.
     """
-    src_rse_id = get_rse_id(rse=src_rse)
-    dst_rse_id = get_rse_id(rse=dst_rse)
+    src_rse_ids = [get_rse_id(rse=rse) for rse in src_rses]
+    dst_rse_ids = [get_rse_id(rse=rse) for rse in dst_rses]
 
-    kwargs = {'src_rse_id': src_rse_id, 'dst_rse_id': dst_rse_id, 'issuer': issuer}
+    kwargs = {'src_rse_id': src_rse_ids, 'dst_rse_id': dst_rse_ids, 'issuer': issuer}
     if not permission.has_permission(issuer=issuer, action='list_requests', kwargs=kwargs):
         raise exception.AccessDenied('%(issuer)s cannot list requests from RSE %(src_rse)s to RSE %(dst_rse)s' % locals())
 
-    for req in request.list_requests(src_rse_id, dst_rse_id, states):
+    for req in request.list_requests(src_rse_ids, dst_rse_ids, states):
         yield api_update_return_dict(req)
