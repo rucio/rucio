@@ -835,10 +835,13 @@ class TestRequestCore(object):
         models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id, dest_rse_id=self.dest_rse_id).save(session=self.db_session)
         models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id, dest_rse_id=self.dest_rse_id).save(session=self.db_session)
 
-        requests = [request for request in list_requests(self.source_rse_id, self.dest_rse_id, [constants.RequestState.SUBMITTED], session=self.db_session)]
+        requests = [request for request in list_requests([self.source_rse_id], [self.dest_rse_id], [constants.RequestState.SUBMITTED], session=self.db_session)]
         assert_equal(len(requests), 2)
 
-        requests = [request for request in list_requests(self.source_rse_id, self.dest_rse_id, [constants.RequestState.QUEUED], session=self.db_session)]
+        requests = [request for request in list_requests([self.source_rse_id, self.source_rse_id2], [self.dest_rse_id], [constants.RequestState.SUBMITTED], session=self.db_session)]
+        assert_equal(len(requests), 3)
+
+        requests = [request for request in list_requests([self.source_rse_id], [self.dest_rse_id], [constants.RequestState.QUEUED], session=self.db_session)]
         assert_equal(len(requests), 0)
 
 
@@ -854,6 +857,8 @@ class TestRequestREST():
         cls.source_rse_id = get_rse_id(cls.source_rse)
         cls.source_rse2 = 'MOCK2'
         cls.source_rse_id2 = get_rse_id(cls.source_rse2)
+        cls.source_rse3 = 'MOCK5'
+        cls.source_rse_id3 = get_rse_id(cls.source_rse3)
         cls.dest_rse = 'MOCK3'
         cls.dest_rse_id = get_rse_id(cls.dest_rse)
         cls.dest_rse2 = 'MOCK4'
@@ -865,6 +870,7 @@ class TestRequestREST():
         cls.dst_site2 = 'SITE4'
         add_rse_attribute(cls.source_rse_id, 'site', cls.source_site)
         add_rse_attribute(cls.source_rse_id2, 'site', cls.source_site2)
+        add_rse_attribute(cls.source_rse_id3, 'site', cls.source_site)
         add_rse_attribute(cls.dest_rse_id, 'site', cls.dst_site)
         add_rse_attribute(cls.dest_rse_id2, 'site', cls.dst_site2)
 
@@ -901,6 +907,7 @@ class TestRequestREST():
         models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id, dest_rse_id=self.dest_rse_id2, name=name1).save(session=self.db_session)
         models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id, dest_rse_id=self.dest_rse_id, name=name1).save(session=self.db_session)
         models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id, dest_rse_id=self.dest_rse_id, name=name2).save(session=self.db_session)
+        models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id3, dest_rse_id=self.dest_rse_id, name=name2).save(session=self.db_session)
         self.db_session.commit()
 
         params = {'src_rse': self.source_rse, 'dst_rse': self.dest_rse, 'request_states': 'S'}
@@ -927,6 +934,8 @@ class TestRequestREST():
         expected_requests = set()
         expected_requests.add(('SUBMITTED', self.source_rse_id, self.dest_rse_id, name1))
         expected_requests.add(('SUBMITTED', self.source_rse_id, self.dest_rse_id, name2))
+        # check correct resolution of site attribute to multiple RSE
+        expected_requests.add(('SUBMITTED', self.source_rse_id3, self.dest_rse_id, name2))
         self.check_correct_api(params, expected_requests)
 
         params = {'src_site': self.source_site, 'dst_site': self.dst_site, 'request_states': 'S,W,Q'}
@@ -934,6 +943,7 @@ class TestRequestREST():
         expected_requests.add(('SUBMITTED', self.source_rse_id, self.dest_rse_id, name1))
         expected_requests.add(('SUBMITTED', self.source_rse_id, self.dest_rse_id, name2))
         expected_requests.add(('WAITING', self.source_rse_id, self.dest_rse_id, name3))
+        expected_requests.add(('SUBMITTED', self.source_rse_id3, self.dest_rse_id, name2))
         self.check_correct_api(params, expected_requests)
 
         params = {'src_site': self.source_site2, 'dst_site': self.dst_site, 'request_states': 'S'}
