@@ -269,17 +269,21 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                   'activity': str(transfer['file_metadata']['activity'])}
 
         if verify_checksum != 'none':
-            rse_id = transfer['file_metadata']['dest_rse_id']
-            supported_checksums = get_rse_supported_checksums(rse_id=rse_id, session=session)
-            logging.info('Checksums supported by rse_id={}: {}'.format(rse_id, supported_checksums))
-            for checksum_name in supported_checksums:
-                checksum_name = checksum_name.replace('\']', '').replace('[u\'', '')
-                logging.info('Trying with {}'.format(checksum_name))
-                if checksum_name in list(t_file['metadata'].keys()) and t_file['metadata'][checksum_name]:
-                    logging.info('{} is supported!'.format(checksum_name))
-                    t_file['checksum'] = '%s:%s' % (checksum_name.capitalize(), str(t_file['metadata'][checksum_name]))
-                    if checksum_name == PREFERRED_CHECKSUM:
-                        break
+            try:
+                rse_id = transfer['file_metadata']['dest_rse_id']
+                supported_checksums = get_rse_supported_checksums(rse_id=rse_id, session=session)
+                logging.info('Checksums supported by rse_id={}: {}'.format(rse_id, supported_checksums))
+                for checksum_name in supported_checksums:
+                    checksum_name = checksum_name.replace('\']', '').replace('[u\'', '')
+                    logging.info('Trying with {}'.format(checksum_name))
+                    if checksum_name in t_file['metadata'].keys() and t_file['metadata'][checksum_name]:
+                        logging.info('{} is supported. Adding {}'.format(checksum_name, str(t_file['metadata'][checksum_name])))
+                        t_file['checksum'] = '%s:%s' % (checksum_name.upper(), str(t_file['metadata'][checksum_name]))
+                        logging.info('{}'.format(t_file['checksum']))
+                        if checksum_name == PREFERRED_CHECKSUM:
+                            break
+            except:
+                return
 
         multihop = transfer.get('multihop', False)
 
