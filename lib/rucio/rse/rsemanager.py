@@ -44,7 +44,9 @@ except ImportError:
 from rucio.common import exception, utils, constants
 from rucio.common.config import config_get_int
 from rucio.common.constraints import STRING_TYPES
-from rucio.common.utils import make_valid_did, GLOBALLY_SUPPORTED_CHECKSUMS
+from rucio.common.utils import make_valid_did, GLOBALLY_SUPPORTED_CHECKSUMS, CHECKSUM_ALGO_DICT, PREFERRED_CHECKSUM
+from rucio.core.rse import get_rse_is_checksum_supported, get_rse_id
+from rucio.db.sqla.session import get_session
 
 
 def get_rse_info(rse, session=None):
