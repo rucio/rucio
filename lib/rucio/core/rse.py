@@ -547,8 +547,11 @@ def get_rse_supported_checksums(rse_id=None, session=None):
 
     :returns: The list of checksums supported by the selected RSE.
     """
-
-    return str(get_rse_attribute(CHECKSUM_KEY, rse_id=rse_id, session=session)).split(',')
+    # each checksum is formatted as: ["[u'adler32']"]
+    return str(get_rse_attribute(CHECKSUM_KEY, rse_id=rse_id, session=session))\
+        .replace('[u\'', '')\
+        .replace('\']', '')\
+        .split(',')
 
 
 @read_session
