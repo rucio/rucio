@@ -182,6 +182,7 @@ def clean_headers(msg):
 
 
 GLOBALLY_SUPPORTED_CHECKSUMS = ['adler32', 'md5']
+CHECKSUM_ALGO_DICT = {}
 PREFERRED_CHECKSUM = GLOBALLY_SUPPORTED_CHECKSUMS[0]
 CHECKSUM_KEY = 'supported_checksums'
 
@@ -222,6 +223,9 @@ def adler32(file):
     return str('%08x' % adler)
 
 
+CHECKSUM_ALGO_DICT['adler32'] = adler32
+
+
 def md5(file):
     """
     Runs the MD5 algorithm (RFC-1321) on the binary content of the file named file and returns the hexadecimal digest
@@ -237,6 +241,9 @@ def md5(file):
         raise Exception('FATAL - could not get MD5 checksum of file %s - %s' % (file, e))
 
     return hash_md5.hexdigest()
+
+
+CHECKSUM_ALGO_DICT['md5'] = md5
 
 
 def str_to_date(string):
