@@ -270,14 +270,24 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
 
         if verify_checksum != 'none':
             try:
-                rse_id = transfer['file_metadata']['dest_rse_id']
-                supported_checksums = get_rse_supported_checksums(rse_id=rse_id, session=session)
-                logging.info('Checksums supported by rse_id={}: {}'.format(rse_id, supported_checksums))
-                for checksum_name in supported_checksums:
-                    checksum_name = checksum_name.replace('\']', '').replace('[u\'', '')
+                dest_rse_id = transfer['file_metadata']['dest_rse_id']
+                source_rse_id = transfer['file_metadata']['src_rse_id']
+                dest_supported_checksums = get_rse_supported_checksums(rse_id=dest_rse_id, session=session)
+                source_supported_checksums = get_rse_supported_checksums(rse_id=source_rse_id, session=session)
+
+                logging.info('source RSE checksum compatibility: {}'.format(source_supported_checksums))
+                logging.info('destination RSE checksum compatibility: {}'.format(dest_supported_checksums))
+                common_checksum_names = set(source_supported_checksums).intersection(dest_supported_checksums)
+                if len(common_checksum_names) == 0:
+                    logging.info('No common checksum method. Verifying destination only.')
+                    verify_checksum = 'destination'
+
+                logging.info('Checksums supported by rse_id={}: {}'.format(dest_rse_id, dest_supported_checksums))
+                for checksum_name in dest_supported_checksums:
                     logging.info('Trying with {}'.format(checksum_name))
                     if checksum_name in t_file['metadata'].keys() and t_file['metadata'][checksum_name]:
-                        logging.info('{} is supported. Adding {}'.format(checksum_name, str(t_file['metadata'][checksum_name])))
+                        logging.info(
+                            '{} is supported. Adding {}'.format(checksum_name, str(t_file['metadata'][checksum_name])))
                         t_file['checksum'] = '%s:%s' % (checksum_name.upper(), str(t_file['metadata'][checksum_name]))
                         logging.info('{}'.format(t_file['checksum']))
                         if checksum_name == PREFERRED_CHECKSUM:
