@@ -38,7 +38,7 @@ from rucio.common.exception import (RucioException, UnsupportedOperation,
                                     RequestNotFound, NoDistance)
 from rucio.common.rse_attributes import get_rse_attributes
 from rucio.common.types import InternalAccount
-from rucio.common.utils import construct_surl
+from rucio.common.utils import construct_surl, CHECKSUM_KEY
 from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.monitor import record_counter, record_timer
@@ -779,6 +779,10 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                         verify_checksum = 'destination'
                     else:
                         verify_checksum = 'both'
+
+                common_checksum_names = set(rse_attrs[dest_rse_id][CHECKSUM_KEY]).intersection(rse_attrs[source_rse_id][CHECKSUM_KEY])
+                if len(common_checksum_names) == 0:
+                    verify_checksum = 'destination'
 
                 # VI - Fill the transfer dictionary including file_metadata
                 file_metadata = {'request_id': req_id,
