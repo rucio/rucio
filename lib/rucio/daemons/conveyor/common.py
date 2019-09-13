@@ -308,8 +308,6 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                                 logging.info('{} is the preferred algorithm. Moving on.'.format(checksum_name))
                                 break
 
-                logging.info('Checksums supported by dest_rse_id={}: {}'.format(dest_rse_id, dest_supported_checksums))
-
             except:
                 return
 
