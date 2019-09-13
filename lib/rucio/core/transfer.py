@@ -780,8 +780,11 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     else:
                         verify_checksum = 'both'
 
+                logging.info('source RSE checksum compatibility: {}'.format(rse_attrs[source_rse_id][CHECKSUM_KEY]))
+                logging.info('destination RSE checksum compatibility: {}'.format(rse_attrs[dest_rse_id][CHECKSUM_KEY]))
                 common_checksum_names = set(rse_attrs[dest_rse_id][CHECKSUM_KEY]).intersection(rse_attrs[source_rse_id][CHECKSUM_KEY])
                 if len(common_checksum_names) == 0:
+                    logging.info('No common checksum method. Verifying destination only.')
                     verify_checksum = 'destination'
 
                 # VI - Fill the transfer dictionary including file_metadata
