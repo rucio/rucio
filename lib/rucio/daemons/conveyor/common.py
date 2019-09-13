@@ -281,6 +281,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                 if len(common_checksum_names) == 0:
                     logging.info('No common checksum method. Verifying destination only.')
                     verify_checksum = 'destination'
+                    t_file['verify_checksum'] = 'destination'
 
                 logging.info('Checksums supported by rse_id={}: {}'.format(dest_rse_id, dest_supported_checksums))
                 for checksum_name in dest_supported_checksums:
