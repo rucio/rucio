@@ -57,7 +57,7 @@ import rucio.core.account_counter
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.common import exception, utils
 from rucio.common.config import get_lfn2pfn_algorithm_default
-from rucio.common.utils import CHECKSUM_KEY, is_checksum_valid
+from rucio.common.utils import CHECKSUM_KEY, is_checksum_valid, GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RSEType
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
@@ -546,14 +546,20 @@ def get_rse_supported_checksums(rse_id=None, session=None):
     :param session: The database session in use.
 
     :returns: The list of checksums supported by the selected RSE.
+              If the list is empty (aka attribute is not set) it returns all the default checksums.
+              Use 'none' to explicitly tell the RSE does not support any checksum algorithm.
     """
+
     # each checksum is formatted as: ["[u'adler32']"]
     supported_checksum_list = str(get_rse_attribute(CHECKSUM_KEY, rse_id=rse_id, session=session)) \
         .replace('[u\'', '') \
         .replace('\']', '') \
         .split(',')
 
-    return supported_checksum_list
+    if not supported_checksum_list:
+        return GLOBALLY_SUPPORTED_CHECKSUMS
+    else:
+        return supported_checksum_list
 
 @read_session
 def get_rse_is_checksum_supported(checksum_name, rse_id=None, session=None):
