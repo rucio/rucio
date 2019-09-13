@@ -42,7 +42,7 @@ import traceback
 
 from rucio.common.config import config_get
 from rucio.common.exception import InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound, ConfigNotFound, DuplicateFileTransferSubmission
-from rucio.common.utils import chunks, PREFERRED_CHECKSUM
+from rucio.common.utils import chunks, PREFERRED_CHECKSUM, set_checksum_value
 from rucio.core import request, transfer as transfer_core
 from rucio.core.config import get
 from rucio.core.monitor import record_counter, record_timer
@@ -256,8 +256,42 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
 
     for request_id in transfers:
         transfer = transfers[request_id]
-
         verify_checksum = transfer['file_metadata'].get('verify_checksum', 'both')
+
+        dest_rse_id = transfer['file_metadata']['dest_rse_id']
+        source_rse_id = transfer['file_metadata']['src_rse_id']
+
+        dest_supported_checksums = get_rse_supported_checksums(rse_id=dest_rse_id, session=session)
+        source_supported_checksums = get_rse_supported_checksums(rse_id=source_rse_id, session=session)
+        common_checksum_names = set(source_supported_checksums).intersection(dest_supported_checksums)
+
+        logging.info('source RSE checksum compatibility: {}'.format(source_supported_checksums))
+        logging.info('destination RSE checksum compatibility: {}'.format(dest_supported_checksums))
+
+        if source_supported_checksums == ['none']:
+            if dest_supported_checksums == ['none']:
+                # both endpoints support none
+                verify_checksum = 'none'
+                logging.info('Skipping checksum verification.')
+            else:
+                # src supports none but dst does
+                verify_checksum = 'destination'
+                logging.info('Verifying checksum only at destination.')
+        else:
+            if dest_supported_checksums == ['none']:
+                # source supports some but destination does not
+                verify_checksum = 'source'
+                logging.info('Verifying checksum only at source.')
+            else:
+                if len(common_checksum_names) == 0:
+                    # source and dst support some bot none in common (dst priority)
+                    verify_checksum = 'destination'
+                    logging.info('Verifying checksum only at destination.')
+                else:
+                    # source and dst have some in common
+                    verify_checksum = 'both'
+                    logging.info('Verifying checksum at both ends.')
+
         t_file = {'sources': transfer['sources'],
                   'destinations': transfer['dest_urls'],
                   'metadata': transfer['file_metadata'],
@@ -269,43 +303,16 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                   'activity': str(transfer['file_metadata']['activity'])}
 
         if verify_checksum != 'none':
-            dest_rse_id = transfer['file_metadata']['dest_rse_id']
-            source_rse_id = transfer['file_metadata']['src_rse_id']
-            dest_supported_checksums = get_rse_supported_checksums(rse_id=dest_rse_id, session=session)
-            source_supported_checksums = get_rse_supported_checksums(rse_id=source_rse_id, session=session)
+            if verify_checksum == 'both':
+                set_checksum_value(t_file, common_checksum_names)
+            if verify_checksum == 'source':
+                set_checksum_value(t_file, source_supported_checksums)
+            if verify_checksum == 'destination':
+                set_checksum_value(t_file, dest_supported_checksums)
 
-            logging.info('source RSE checksum compatibility: {}'.format(source_supported_checksums))
-            logging.info('destination RSE checksum compatibility: {}'.format(dest_supported_checksums))
-            common_checksum_names = set(source_supported_checksums).intersection(dest_supported_checksums)
-
-            if len(common_checksum_names) == 0:
-                logging.info('No common checksum method. Verifying destination only.')
-                verify_checksum = 'destination'
-                t_file['verify_checksum'] = 'destination'
-
-                for checksum_name in dest_supported_checksums:
-                    logging.info('Trying with {}'.format(checksum_name))
-
-                    if checksum_name in t_file['metadata'].keys() and t_file['metadata'][checksum_name]:
-                        logging.info('{} is supported. Adding {}'.format(checksum_name,str(t_file['metadata'][checksum_name])))
-                        t_file['checksum'] = '%s:%s' % (checksum_name.upper(), str(t_file['metadata'][checksum_name]))
-                        logging.info('{}'.format(t_file['checksum']))
-
-                        if checksum_name == PREFERRED_CHECKSUM:
-                            logging.info('{} is the preferred algorithm. Moving on.'.format(checksum_name))
-                            break
-            else:
-                for checksum_name in common_checksum_names:
-                    logging.info('Trying with {}'.format(checksum_name))
-
-                    if checksum_name in t_file['metadata'].keys() and t_file['metadata'][checksum_name]:
-                        logging.info('{} is supported. Adding {}'.format(checksum_name,str(t_file['metadata'][checksum_name])))
-                        t_file['checksum'] = '%s:%s' % (checksum_name.upper(), str(t_file['metadata'][checksum_name]))
-                        logging.info('{}'.format(t_file['checksum']))
-
-                        if checksum_name == PREFERRED_CHECKSUM:
-                            logging.info('{} is the preferred algorithm. Moving on.'.format(checksum_name))
-                            break
+            logging.info('Checksum set to: {}'.format(t_file['checksum']))
+        else:
+            logging.info('Checksum empty since skipping checksum verification')
 
         multihop = transfer.get('multihop', False)
 
