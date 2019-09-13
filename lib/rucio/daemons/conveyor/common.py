@@ -269,47 +269,43 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                   'activity': str(transfer['file_metadata']['activity'])}
 
         if verify_checksum != 'none':
-            try:
-                dest_rse_id = transfer['file_metadata']['dest_rse_id']
-                source_rse_id = transfer['file_metadata']['src_rse_id']
-                dest_supported_checksums = get_rse_supported_checksums(rse_id=dest_rse_id, session=session)
-                source_supported_checksums = get_rse_supported_checksums(rse_id=source_rse_id, session=session)
+            dest_rse_id = transfer['file_metadata']['dest_rse_id']
+            source_rse_id = transfer['file_metadata']['src_rse_id']
+            dest_supported_checksums = get_rse_supported_checksums(rse_id=dest_rse_id, session=session)
+            source_supported_checksums = get_rse_supported_checksums(rse_id=source_rse_id, session=session)
 
-                logging.info('source RSE checksum compatibility: {}'.format(source_supported_checksums))
-                logging.info('destination RSE checksum compatibility: {}'.format(dest_supported_checksums))
-                common_checksum_names = set(source_supported_checksums).intersection(dest_supported_checksums)
+            logging.info('source RSE checksum compatibility: {}'.format(source_supported_checksums))
+            logging.info('destination RSE checksum compatibility: {}'.format(dest_supported_checksums))
+            common_checksum_names = set(source_supported_checksums).intersection(dest_supported_checksums)
 
-                if len(common_checksum_names) == 0:
-                    logging.info('No common checksum method. Verifying destination only.')
-                    verify_checksum = 'destination'
-                    t_file['verify_checksum'] = 'destination'
+            if len(common_checksum_names) == 0:
+                logging.info('No common checksum method. Verifying destination only.')
+                verify_checksum = 'destination'
+                t_file['verify_checksum'] = 'destination'
 
-                    for checksum_name in dest_supported_checksums:
-                        logging.info('Trying with {}'.format(checksum_name))
+                for checksum_name in dest_supported_checksums:
+                    logging.info('Trying with {}'.format(checksum_name))
 
-                        if checksum_name in t_file['metadata'].keys() and t_file['metadata'][checksum_name]:
-                            logging.info('{} is supported. Adding {}'.format(checksum_name,str(t_file['metadata'][checksum_name])))
-                            t_file['checksum'] = '%s:%s' % (checksum_name.upper(), str(t_file['metadata'][checksum_name]))
-                            logging.info('{}'.format(t_file['checksum']))
+                    if checksum_name in t_file['metadata'].keys() and t_file['metadata'][checksum_name]:
+                        logging.info('{} is supported. Adding {}'.format(checksum_name,str(t_file['metadata'][checksum_name])))
+                        t_file['checksum'] = '%s:%s' % (checksum_name.upper(), str(t_file['metadata'][checksum_name]))
+                        logging.info('{}'.format(t_file['checksum']))
 
-                            if checksum_name == PREFERRED_CHECKSUM:
-                                logging.info('{} is the preferred algorithm. Moving on.'.format(checksum_name))
-                                break
-                else:
-                    for checksum_name in common_checksum_names:
-                        logging.info('Trying with {}'.format(checksum_name))
+                        if checksum_name == PREFERRED_CHECKSUM:
+                            logging.info('{} is the preferred algorithm. Moving on.'.format(checksum_name))
+                            break
+            else:
+                for checksum_name in common_checksum_names:
+                    logging.info('Trying with {}'.format(checksum_name))
 
-                        if checksum_name in t_file['metadata'].keys() and t_file['metadata'][checksum_name]:
-                            logging.info('{} is supported. Adding {}'.format(checksum_name,str(t_file['metadata'][checksum_name])))
-                            t_file['checksum'] = '%s:%s' % (checksum_name.upper(), str(t_file['metadata'][checksum_name]))
-                            logging.info('{}'.format(t_file['checksum']))
+                    if checksum_name in t_file['metadata'].keys() and t_file['metadata'][checksum_name]:
+                        logging.info('{} is supported. Adding {}'.format(checksum_name,str(t_file['metadata'][checksum_name])))
+                        t_file['checksum'] = '%s:%s' % (checksum_name.upper(), str(t_file['metadata'][checksum_name]))
+                        logging.info('{}'.format(t_file['checksum']))
 
-                            if checksum_name == PREFERRED_CHECKSUM:
-                                logging.info('{} is the preferred algorithm. Moving on.'.format(checksum_name))
-                                break
-
-            except:
-                return
+                        if checksum_name == PREFERRED_CHECKSUM:
+                            logging.info('{} is the preferred algorithm. Moving on.'.format(checksum_name))
+                            break
 
         multihop = transfer.get('multihop', False)
 
