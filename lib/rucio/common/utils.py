@@ -199,6 +199,14 @@ def is_checksum_valid(checksum_name):
     return checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS
 
 
+def set_checksum_value(file, checksum_names_list):
+    for checksum_name in checksum_names_list:
+        if checksum_name in file['metadata'].keys() and file['metadata'][checksum_name]:
+            file['checksum'] = '%s:%s' % (checksum_name.upper(), str(file['metadata'][checksum_name]))
+            if checksum_name == PREFERRED_CHECKSUM:
+                break
+
+
 def adler32(file):
     """
     An Adler-32 checksum is obtained by calculating two 16-bit checksums A and B and concatenating their bits into a 32-bit integer. A is the sum of all bytes in the stream plus one, and B is the sum of the individual values of A from each step.
