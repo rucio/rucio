@@ -52,7 +52,7 @@ from rucio.rse import rsemanager as rsemgr
 
 USER_ACTIVITY = config_get('conveyor', 'user_activities', False, ['user', 'user_test'])
 USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
-
+TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)
 
 def submit_transfer(external_host, job, submitter='submitter', logging_prepend_str='', timeout=None, user_transfer_job=False):
     """
@@ -119,7 +119,7 @@ def submit_transfer(external_host, job, submitter='submitter', logging_prepend_s
         # A eid is returned if the job is properly submitted otherwise an exception is raised
         eid = transfer_core.submit_bulk_transfers(external_host,
                                                   files=job['files'],
-                                                  transfertool='fts3',
+                                                  transfertool=TRANSFER_TOOL,
                                                   job_params=job['job_params'],
                                                   timeout=timeout,
                                                   user_transfer_job=user_transfer_job)
@@ -166,7 +166,7 @@ def submit_transfer(external_host, job, submitter='submitter', logging_prepend_s
                 logging.info('%s About to submit job to %s with timeout %s', prepend_str, external_host, timeout)
                 eid = transfer_core.submit_bulk_transfers(external_host,
                                                           files=[t_file],
-                                                          transfertool='fts3',
+                                                          transfertool=TRANSFER_TOOL,
                                                           job_params=job['job_params'],
                                                           timeout=timeout,
                                                           user_transfer_job=user_transfer_job)
