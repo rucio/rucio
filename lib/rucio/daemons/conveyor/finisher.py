@@ -253,8 +253,6 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, prep
                 try:
                     if request_core.should_retry_request(req, retry_protocol_mismatches):
                         new_req = request_core.requeue_and_archive(req, retry_protocol_mismatches)
-                        # should_retry_request and requeue_and_archive are not in one session,
-                        # another process can requeue_and_archive and this one will return None.
                         record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time() - tss) * 1000)
                         logging.warn(prepend_str + 'REQUEUED DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
                                                                                                    req['name'],
@@ -265,7 +263,7 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, prep
                         # No new_req is return if should_retry_request returns False
                         logging.warn('%s EXCEEDED SUBMITTING DID %s:%s REQUEST %s in state %s', prepend_str, req['scope'], req['name'], req['request_id'], req['state'])
                         replica['state'] = ReplicaState.UNAVAILABLE
-                        replica['archived'] = False
+                        replica['archived'] = True
                         replica['error_message'] = req['err_msg'] if req['err_msg'] else request_core.get_transfer_error(req['state'])
                         replicas[req['request_type']][req['rule_id']].append(replica)
                 except RequestNotFound:
@@ -290,7 +288,7 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, prep
                         # No new_req is return if should_retry_request returns False
                         logging.warn('%s EXCEEDED SUBMITTING DID %s:%s REQUEST %s in state %s', prepend_str, req['scope'], req['name'], req['request_id'], req['state'])
                         replica['state'] = ReplicaState.UNAVAILABLE
-                        replica['archived'] = False
+                        replica['archived'] = True
                         replica['error_message'] = req['err_msg'] if req['err_msg'] else request_core.get_transfer_error(req['state'])
                         replicas[req['request_type']][req['rule_id']].append(replica)
                 except RequestNotFound:
