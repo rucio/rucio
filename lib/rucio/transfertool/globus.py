@@ -1,7 +1,7 @@
 from exceptions import NotImplementedError
-from rucio.common.config import config_get
+#from rucio.common.config import config_get
 from rucio.transfertool.transfertool import Transfertool
-from rucio.db.sqla.constants import RequestState
+#from rucio.db.sqla.constants import RequestState
 from globusLibrary import bulk_submit_xfer, submit_xfer, bulk_check_xfers, check_xfer
 import logging
 
@@ -58,7 +58,7 @@ class GlobusTransferTool(Transfertool):
         """
 
         # TODO: support passing a recursive parameter to Globus
-        task_id = bulk_submit_xfer(submitjob, recursive = False)
+        task_id = bulk_submit_xfer(submitjob, recursive=False)
 
         return task_id
 
@@ -69,9 +69,6 @@ class GlobusTransferTool(Transfertool):
         :param transfer_ids: Globus task identifiers as a list.
         :returns: Transfer status information as a dictionary.
         """
-
-        jobs = None
-
         if not isinstance(transfer_ids, list):
             transfer_ids = [transfer_ids]
 
