@@ -6,13 +6,6 @@ from rucio.transfertool.globusLibrary import send_delete_task
 from rucio.common.config import config_get
 from rucio.core.rse import get_rse_attribute
 
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
-
 try:
     # PY2
     from ConfigParser import NoOptionError, NoSectionError
@@ -32,6 +25,14 @@ if getattr(rsemanager, 'CLIENT_MODE', None):
 
 if getattr(rsemanager, 'SERVER_MODE', None):
     from rucio.core import replica
+
+logging.basicConfig(stream=sys.stdout,
+                    level=getattr(logging,
+                                  config_get('common', 'loglevel',
+                                             raise_exception=False,
+                                             default='DEBUG').upper()),
+                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
+
 
 class RSEDeterministicTranslation(object):
     """
@@ -166,6 +167,7 @@ class RSEDeterministicTranslation(object):
 
 RSEDeterministicTranslation._module_init_()  # pylint: disable=protected-access
 
+
 class GlobusRSEProtocol(RSEProtocol):
     """ This class is to support Globus as a Rucio RSE protocol.  Inherits from abstract base class RSEProtocol."""
 
@@ -179,7 +181,7 @@ class GlobusRSEProtocol(RSEProtocol):
         self.renaming = True
         self.overwrite = False
         self.rse = rse_settings
-        self.globus_endpoint_id = get_rse_attribute(key = 'globus_endpoint_id', rse_id = self.rse.get('id'))
+        self.globus_endpoint_id = get_rse_attribute(key='globus_endpoint_id', rse_id=self.rse.get('id'))
         if self.rse['deterministic']:
             self.translator = RSEDeterministicTranslation(self.rse['rse'], rse_settings, self.attributes)
             if getattr(rsemanager, 'CLIENT_MODE', None) and \
@@ -389,7 +391,7 @@ class GlobusRSEProtocol(RSEProtocol):
         logging.debug('self.rse: %s' % self.rse)
         logging.debug('self.globus_endpoint_id: %s' % self.globus_endpoint_id)
         if self.globus_endpoint_id:
-            delete_response = send_delete_task(endpoint_id = self.globus_endpoint_id[0], path = path)
+            delete_response = send_delete_task(endpoint_id=self.globus_endpoint_id[0], path=path)
         else:
             logging.error('No rse attribute found for globus endpoint id.')
         logging.debug('delete_response: %s' % delete_response)
