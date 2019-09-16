@@ -1,9 +1,8 @@
 from exceptions import NotImplementedError
-#from rucio.common.config import config_get
 from rucio.transfertool.transfertool import Transfertool
-#from rucio.db.sqla.constants import RequestState
 from globusLibrary import bulk_submit_xfer, submit_xfer, bulk_check_xfers, check_xfer
 import logging
+
 
 class GlobusTransferTool(Transfertool):
     """
@@ -107,14 +106,7 @@ class GlobusTransferTool(Transfertool):
         :param timeout:      Timeout in seconds.
         :returns:            Transfer status information as a list of dictionaries.
         """
-
-        if len(transfer_ids) > 1:
-            raise NotImplementedError('Globus Transfer Client not bulk ready. Only one task ID at a time')
-
-        transfer_id = transfer_ids[0]
-
-        status = check_xfer(transfer_id)
-
         pass
+
     def update_priority():
         pass
