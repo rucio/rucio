@@ -1,6 +1,5 @@
-from exceptions import NotImplementedError
 from rucio.transfertool.transfertool import Transfertool
-from globusLibrary import bulk_submit_xfer, submit_xfer, bulk_check_xfers, check_xfer
+from globusLibrary import bulk_submit_xfer, submit_xfer, bulk_check_xfers
 import logging
 
 

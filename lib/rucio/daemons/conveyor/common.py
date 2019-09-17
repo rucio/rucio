@@ -54,6 +54,7 @@ USER_ACTIVITY = config_get('conveyor', 'user_activities', False, ['user', 'user_
 USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
 TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)
 
+
 def submit_transfer(external_host, job, submitter='submitter', logging_prepend_str='', timeout=None, user_transfer_job=False):
     """
     Submit a transfer or staging request
