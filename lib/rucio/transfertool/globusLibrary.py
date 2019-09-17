@@ -25,7 +25,7 @@ def load_config():
         f = d
 
     if not config:
-        logging.error('Could not find config.yml in any parent directory of %s' % file)
+        logging.error('Could not find config.yml in any parent directory of %s' % f)
         raise Exception
 
     return yaml.safe_load(open(config).read())
