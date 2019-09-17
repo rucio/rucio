@@ -68,6 +68,7 @@ datetime.datetime.strptime('', '')
 
 TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)
 
+
 def poller(once=False, activities=None, sleep_time=60,
            fts_bulk=100, db_bulk=1000, older_than=60, activity_shares=None):
     """

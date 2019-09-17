@@ -67,6 +67,7 @@ USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
 TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)
 TRANSFER_TYPE = config_get('conveyor', 'transfertype', False, 'single')
 
+
 def submitter(once=False, rses=None, mock=False,
               bulk=100, group_bulk=1, group_policy='rule', source_strategy=None,
               activities=None, sleep_time=600, max_sources=4, retry_other_fts=False):
@@ -196,7 +197,7 @@ def submitter(once=False, rses=None, mock=False,
                             # pad the job with job_params; irrelevant for globus but needed for further rucio parsing
                             submitjob = {'files': [], 'job_params': grouped_jobs[''][0].get('job_params')}
                             for job in grouped_jobs[external_host]:
-                                 submitjob.get('files').append(job.get('files')[0])
+                                submitjob.get('files').append(job.get('files')[0])
                             logging.debug('submitjob: %s' % submitjob)
                             submit_transfer(external_host=external_host, job=submitjob, submitter='transfer_submitter', logging_prepend_str=prepend_str, timeout=timeout)
                     else:

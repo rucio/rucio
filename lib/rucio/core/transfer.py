@@ -58,6 +58,7 @@ REGION_SHORT = make_region().configure('dogpile.cache.memcached',
 USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
 TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)
 
+
 def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None, user_transfer_job=False):
     """
     Submit transfer request to a transfertool.
@@ -631,7 +632,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     logging.error('Destination RSE %s FTS attribute not defined - SKIP REQUEST %s' % (dest_rse_name, req_id))
                     continue
                 if TRANSFER_TOOL == 'globus' and (not dest_globus_endpoint_id or not source_globus_endpoint_id):
-                    logging.error('Destination RSE %s Globus endpoint attributes not defined - SKIP REQUEST %s' % (dest_rse, req_id))
+                    logging.error('Destination RSE %s Globus endpoint attributes not defined - SKIP REQUEST %s' % (dest_rse_name, req_id))
                     continue
                 if retry_count is None:
                     retry_count = 0

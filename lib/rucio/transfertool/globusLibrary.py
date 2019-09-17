@@ -38,7 +38,7 @@ def getTransferClient():
     auth_client = NativeAppAuthClient(client_id)
     refresh_token = cfg['globus']['apps']['SDK Tutorial App']['refresh_token']
     logging.info('authorizing token...')
-    authorizer = RefreshTokenAuthorizer(refresh_token = refresh_token, auth_client = auth_client)
+    authorizer = RefreshTokenAuthorizer(refresh_token=refresh_token, auth_client=auth_client)
     logging.info('initializing TransferClient...')
     tc = TransferClient(authorizer=authorizer)
     return tc
@@ -51,7 +51,7 @@ def getTransferData():
     refresh_token = cfg['globus']['apps']['SDK Tutorial App']['refresh_token']
     source_endpoint_id = cfg['globus']['apps']['SDK Tutorial App']['win10_endpoint_id']
     destination_endpoint_id = cfg['globus']['apps']['SDK Tutorial App']['sdccfed_endpoint_id']
-    authorizer = RefreshTokenAuthorizer(refresh_token = refresh_token, auth_client = auth_client)
+    authorizer = RefreshTokenAuthorizer(refresh_token=refresh_token, auth_client=auth_client)
     tc = TransferClient(authorizer=authorizer)
     # as both endpoints are expected to be Globus Server endpoints, send auto-activate commands for both globus endpoints
     auto_activate_endpoint(tc, source_endpoint_id)
