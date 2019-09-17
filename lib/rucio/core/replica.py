@@ -2694,14 +2694,9 @@ def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, session=Non
 
     pfns = clean_surls(pfns)
     for pfn in pfns:
-        query = session.query(models.BadPFNs).\
-            filter(models.BadPFNs.path == str(pfn)).\
-            filter(models.BadPFNs.state == rep_state)
-        if not query.first():
-            new_pfn = models.BadPFNs(path=str(pfn), account=account, state=rep_state, reason=reason, expires_at=expires_at)
-            new_pfn.save(session=session, flush=False)
-        else:
-            query.update({'reason': reason, 'account': account, 'expires_at': expires_at}, synchronize_session=False)
+        new_pfn = models.BadPFNs(path=str(pfn), account=account, state=rep_state, reason=reason, expires_at=expires_at)
+        new_pfn = session.merge(new_pfn)
+        new_pfn.save(session=session, flush=False)
 
     try:
         session.flush()
