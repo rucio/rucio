@@ -22,3 +22,4 @@ fts3-rest-API==3.7.1; python_version == '2.7'     # FTS rest API
 M2Crypto<=0.35.2                                  # Dependency of FTS rest API; Temporary fix since 0.33 does not install on CC7
 MyProxyClient==2.1.0                              # myproxy client bindings
 PyYAML==5.1.1                                     # library for globus configuration yaml file
+globus-sdk==1.8.0                                 # Globus SDK
