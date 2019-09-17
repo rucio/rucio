@@ -17,7 +17,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
@@ -445,7 +445,7 @@ def __update_replica(replica, session=None):
                                          replica['name'],
                                          replica['bytes'],
                                          pfn=replica['pfn'] if 'pfn' in replica else None,
-                                         account='root',  # it will deleted immediately, do we need to get the accurate account from rule?
+                                         account=InternalAccount('root'),  # it will deleted immediately, do we need to get the accurate account from rule?
                                          adler32=replica['adler32'],
                                          tombstone=datetime.datetime.utcnow(),
                                          session=session)
