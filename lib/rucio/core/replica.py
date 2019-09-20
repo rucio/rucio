@@ -2768,7 +2768,9 @@ def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, session=Non
     pfns = clean_surls(pfns)
     for pfn in pfns:
         new_pfn = models.BadPFNs(path=str(pfn), account=account, state=rep_state, reason=reason, expires_at=expires_at)
+        new_pfn = session.merge(new_pfn)
         new_pfn.save(session=session, flush=False)
+
     try:
         session.flush()
     except IntegrityError as error:
