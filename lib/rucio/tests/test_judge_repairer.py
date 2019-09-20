@@ -9,12 +9,14 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White, <bjwhite@fnal.gov>, 2019
 
 from dogpile.cache import make_region
 from hashlib import sha256
 
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
+from rucio.common.config import config_get
 from rucio.core.account_limit import set_account_limit
 from rucio.core.did import add_did, attach_dids
 from rucio.core.lock import successful_transfer, failed_transfer, get_replica_locks
@@ -298,7 +300,7 @@ class TestJudgeRepairer():
 
         region = make_region().configure('dogpile.cache.memcached',
                                          expiration_time=3600,
-                                         arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
+                                         arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
         region.delete(sha256(rse).hexdigest())
 
         update_rse(rse_id, {'availability_write': True})
