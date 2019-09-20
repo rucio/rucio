@@ -21,6 +21,7 @@
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -75,7 +76,7 @@ GRACEFUL_STOP = threading.Event()
 
 REGION = make_region().configure('dogpile.cache.memcached',
                                  expiration_time=600,
-                                 arguments={'url': "127.0.0.1:11211",
+                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'),
                                             'distributed_lock': True})
 
 
