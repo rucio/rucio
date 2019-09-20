@@ -14,4 +14,3 @@ futures>=3.2.0; python_version < '3.0'            # Clean single-source support 
 six>=1.12.0<1.13.0                                # Python 2 and 3 compatibility utilities
 boto3>=1.9.130,<1.10.0                            # S3 boto protocol (new version)
 pysftp>=0.2.9,<0.3                                # Used by sftp protocol
-#python3-saml>=1.6.0						  	  # Used for making SAML requests using python

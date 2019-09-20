@@ -17,8 +17,8 @@
 
 ''' add saml identity type '''
 
-from alembic import context, op
-from alembic.op import create_check_constraint, create_foreign_key, drop_constraint, execute
+from alembic import context
+from alembic.op import create_check_constraint, create_foreign_key, drop_constraint
 
 
 # Alembic revision identifiers
@@ -48,8 +48,6 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql']:
-        execute("DELETE FROM account_map WHERE identity_type='SAML'")  # pylint: disable=no-member
-        execute("DELETE FROM identities WHERE identity_type='SAML'")  # pylint: disable=no-member
 
         drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
@@ -57,23 +55,19 @@ def downgrade():
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
 
         drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check')
-
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
 
     elif context.get_context().dialect.name == 'postgresql':
-        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
-        execute("DELETE FROM " + schema + "account_map WHERE identity_type='SAML'")  # pylint: disable=no-member
-        execute("DELETE FROM " + schema + "identities WHERE identity_type='SAML'")  # pylint: disable=no-member
 
         drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
-        op.execute('ALTER TABLE ' + schema + 'identities DROP CONSTRAINT IF EXISTS "IDENTITIES_TYPE_CHK", ALTER COLUMN identity_type TYPE VARCHAR')  # pylint: disable=no-member
+        drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
 
-        op.execute('ALTER TABLE ' + schema + 'account_map DROP CONSTRAINT IF EXISTS "ACCOUNT_MAP_ID_TYPE_CHK", ALTER COLUMN identity_type TYPE VARCHAR')  # pylint: disable=no-member
+        drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check')
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")

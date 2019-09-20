@@ -14,7 +14,6 @@
 #
 # Authors:
 # - Robert Illingworth <illingwo@fnal.gov>, 2019
-# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 
 ''' postgres_use_check_constraints '''
 
@@ -46,7 +45,7 @@ def upgrade():
     did_types = ('A', 'C', 'D', 'F', 'Y', 'X', 'Z')
     types_to_drop = set()
     for table, column, constraint_name, constraint in (
-            ('account_map', 'identity_type', "ACCOUNT_MAP_ID_TYPE_CHK", ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')),
+            ('account_map', 'identity_type', "ACCOUNT_MAP_ID_TYPE_CHK", ('X509', 'GSS', 'USERPASS', 'SSH')),
             ('accounts', 'account_type', "ACCOUNTS_TYPE_CHK", ('GROUP', 'USER', 'SERVICE')),
             ('accounts', 'status', "ACCOUNTS_STATUS_CHK", ('ACTIVE', 'DELETED', 'SUSPENDED')),
             ('bad_pfns', 'state', 'BAD_PFNS_STATE_CHK', ('A', 'S', 'B', 'T')),
@@ -64,7 +63,7 @@ def upgrade():
             ('did_keys', 'key_type', "DID_KEYS_TYPE_CHK", ('ALL', 'CONTAINER', 'DERIVED', 'COLLECTION', 'DATASET', 'FILE')),
             ('dids', 'did_type', "DIDS_TYPE_CHK", did_types),
             ('dids', 'availability', "DIDS_AVAILABILITY_CHK", ('A', 'D', 'L')),
-            ('identities', 'identity_type', "IDENTITIES_TYPE_CHK", ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')),
+            ('identities', 'identity_type', "IDENTITIES_TYPE_CHK", ('X509', 'GSS', 'USERPASS', 'SSH')),
             ('lifetime_except', 'did_type', "LIFETIME_EXCEPT_TYPE_CHK", did_types),
             ('lifetime_except', 'state', "LIFETIME_EXCEPT_STATE_CHK", ('A', 'R', 'W')),
             ('locks', 'state', "LOCKS_STATE_CHK", ('S', 'R', 'O')),

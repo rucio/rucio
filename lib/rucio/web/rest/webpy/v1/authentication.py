@@ -525,7 +525,7 @@ class SAML(RucioController):
             return str()
 
         # Path to the SAML config folder
-        SAML_PATH = '/opt/rucio/lib/rucio/web/ui/common/saml/'
+        SAML_PATH = config_get('saml', 'config_path')
 
         request = ctx.env
         data = dict(param_input())
@@ -536,7 +536,7 @@ class SAML(RucioController):
         return str()
 
     def POST(self):
-        SAML_PATH = '/opt/rucio/lib/rucio/web/ui/common/saml/'
+        SAML_PATH = config_get('saml', 'config_path')
         request = ctx.env
         data = dict(param_input())
         req = prepare_webpy_request(request, data)
