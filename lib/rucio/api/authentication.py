@@ -159,6 +159,8 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None):
     if not permission.has_permission(issuer=account, action='get_auth_token_saml', kwargs=kwargs):
         raise exception.AccessDenied('User with identity %s can not log to account %s' % (saml_nameid, account))
 
+    account = InternalAccount(account)
+
     return authentication.get_auth_token_saml(account, saml_nameid, appid, ip)
 
 

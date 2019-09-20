@@ -213,3 +213,6 @@ usercert = /opt/rucio/etc/usercert_with_key.pem
 [credentials]
 gcs = /opt/rucio/etc/google-cloud-storage-test.json
 signature_lifetime = 3600
+
+[saml]
+config_path = /opt/rucio/lib/rucio/web/ui/common/saml/
