@@ -23,6 +23,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2018
 # - Tobias Wegner <twegner@cern.ch>, 2017
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2017-2018
+# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -35,6 +36,12 @@ from __future__ import print_function
 import imp
 import random
 import sys
+import traceback
+
+from logging import getLogger, StreamHandler, ERROR
+from os import environ, fdopen, path, makedirs, geteuid
+from shutil import move
+from tempfile import mkstemp
 
 from rucio.common import exception
 from rucio.common.config import config_get
@@ -44,10 +51,6 @@ from rucio.common.exception import (CannotAuthenticate, ClientProtocolNotSupport
 from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, ssh_sign
 from rucio import version
 
-from logging import getLogger, StreamHandler, ERROR
-from os import environ, fdopen, path, makedirs, geteuid
-from shutil import move
-from tempfile import mkstemp
 try:
     # Python 2
     from urlparse import urlparse
@@ -59,7 +62,7 @@ except ImportError:
 from dogpile.cache import make_region
 from requests import session
 from requests.status_codes import codes, _codes
-from requests.exceptions import ConnectionError
+from requests.exceptions import ConnectionError, RequestException
 from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
 disable_warnings()
 
@@ -152,8 +155,8 @@ class BaseClient(object):
         if auth_type is None:
             LOG.debug('no auth_type passed. Trying to get it from the environment variable RUCIO_AUTH_TYPE and config file.')
             if 'RUCIO_AUTH_TYPE' in environ:
-                if environ['RUCIO_AUTH_TYPE'] not in ('userpass', 'x509', 'x509_proxy', 'gss', 'ssh'):
-                    raise MissingClientParameter('Possible RUCIO_AUTH_TYPE values: userpass, x509, x509_proxy, gss, ssh, vs. ' + environ['RUCIO_AUTH_TYPE'])
+                if environ['RUCIO_AUTH_TYPE'] not in ('userpass', 'x509', 'x509_proxy', 'gss', 'ssh', 'oidc'):
+                    raise MissingClientParameter('Possible RUCIO_AUTH_TYPE values: userpass, x509, x509_proxy, gss, ssh, oidc vs. ' + environ['RUCIO_AUTH_TYPE'])
                 self.auth_type = environ['RUCIO_AUTH_TYPE']
             else:
                 try:
@@ -168,6 +171,10 @@ class BaseClient(object):
                 if self.auth_type == 'userpass':
                     self.creds['username'] = config_get('client', 'username')
                     self.creds['password'] = config_get('client', 'password')
+                elif self.auth_type == 'oidc':
+                    self.creds['username'] = config_get('client', 'username')
+                    self.creds['password'] = config_get('client', 'password')
+                    self.creds['scope_oidc'] = config_get('client', 'scope_oidc')
                 elif self.auth_type == 'x509':
                     self.creds['client_cert'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_cert'))))
                     self.creds['client_key'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_key'))))
@@ -220,7 +227,7 @@ class BaseClient(object):
                 try:
                     self.account = config_get('client', 'account')
                 except (NoOptionError, NoSectionError):
-                        raise MissingClientParameter('Option \'account\' cannot be found in config file and RUCIO_ACCOUNT is not set.')
+                    raise MissingClientParameter('Option \'account\' cannot be found in config file and RUCIO_ACCOUNT is not set.')
 
         token_path = self.TOKEN_PATH_PREFIX + self.account
         self.token_file = token_path + '/' + self.TOKEN_PREFIX + self.account
@@ -293,7 +300,6 @@ class BaseClient(object):
 
         if headers is not None:
             hds.update(headers)
-
         result = None
         for retry in range(self.AUTH_RETRIES + 1):
             try:
@@ -306,14 +312,13 @@ class BaseClient(object):
                 elif type == 'DEL':
                     result = self.session.delete(url, headers=hds, data=data, verify=self.ca_cert, timeout=self.timeout)
                 else:
-                    return
+                    return result
             except ConnectionError as error:
                 LOG.warning('ConnectionError: ' + str(error))
                 self.ca_cert = False
                 if retry > self.request_retries:
                     raise
                 continue
-
             if result is not None and result.status_code == codes.unauthorized:  # pylint: disable-msg=E1101
                 self.session = session()
                 self.__get_token()
@@ -341,6 +346,7 @@ class BaseClient(object):
                 result = self.session.get(url, headers=headers, verify=self.ca_cert)
                 break
             except ConnectionError as error:
+                print(traceback.format_exc())
                 LOG.warning('ConnectionError: ' + str(error))
                 self.ca_cert = False
                 if retry > self.request_retries:
@@ -357,6 +363,76 @@ class BaseClient(object):
             raise exc_cls(exc_msg)
 
         self.auth_token = result.headers['x-rucio-auth-token']
+        LOG.debug('got new token')
+        return True
+
+    def __get_token_OIDC(self):
+        """
+        First authenticates the user via a Identity Provider server
+        (with user's username & password), by specifying scope_oidc,
+        user agrees to share the relevant information with Rucio.
+        If all proceeds well, an access token is requested from the Identity Provider.
+        Access Tokens are not stored in Rucio DB.
+        Refresh Tokens are granted only in case no valid access token exists in user's
+        local storage, scope_oidc includes 'offline_access'. In such case, refresh token
+        is stored in Rucio DB.
+
+        :returns: True if the token was successfully received. False otherwise.
+        """
+        scope = self.creds['scope_oidc']
+
+        headers = {'X-Rucio-Account': self.account, 'X-Rucio-Client-Authorise-Scope': scope}
+        userpass = {'username': self.creds['username'], 'password': self.creds['password']}
+
+        for retry in range(self.AUTH_RETRIES + 1):
+            try:
+                result = None
+                request_auth_url = build_url(self.auth_host, path='auth/OIDC')
+                # requesting authorization URL specific to the user & Rucio OIDC Client
+                OIDC_auth_res = self.session.get(request_auth_url, headers=headers, verify=False)
+                # with the obtained authorization URL we will contact the Identity Provider to get to the login page
+                auth_url = OIDC_auth_res.headers['X-Rucio-OIDC-Auth-URL']
+                auth_res = self.session.get(auth_url, verify=False)
+                # getting the login URL and logging in the user
+                login_url = auth_res.url
+                result = self.session.post(login_url, data=userpass, verify=False, allow_redirects=True)
+                # if the Rucio OIDC Client configuration does not match the one registered at the Identity Provider
+                # the user will get an OAuth error
+                if 'OAuth Error' in result.text:
+                    LOG.error('Identity Provider does not allow to proceed. Could be due to misconfigured redirection server name of the Rucio OIDC Client.')
+                    return False
+                # In case Rucio Client is not authorized to request information about this user yet,
+                # it will automatically authorize itself on behalf of the user.
+                if result.url == auth_url:
+                    form_data = {}
+                    for scope_item in scope.split():
+                        form_data["scope_" + scope_item] = scope_item
+                    default_data = {"remember": "until-revoked",
+                                    "user_oauth_approval": True,
+                                    "authorize": "Authorize"}
+                    form_data.update(default_data)
+                    LOG.warning('Automatically authorising request of the following info on behalf of user: %s', str(form_data))
+                    # authorizing info request on behalf of the user until he/she revokes this authorization !
+                    result = self.session.post(result.url, data=form_data, verify=False, allow_redirects=True)
+                break
+            except RequestException:
+                LOG.warning('RequestException: %s', str(traceback.format_exc()))
+                self.ca_cert = False
+                if retry > self.request_retries:
+                    raise
+
+        if not result or 'result' not in locals():
+            LOG.error('cannot get auth_token')
+            return False
+
+        if result.status_code != codes.ok:  # pylint: disable-msg=E1101
+            exc_cls, exc_msg = self._get_exception(headers=result.headers,
+                                                   status_code=result.status_code,
+                                                   data=result.content)
+            raise exc_cls(exc_msg)
+
+        self.auth_token = result.headers['x-rucio-auth-token']
+
         LOG.debug('got new token')
         return True
 
@@ -549,6 +625,10 @@ class BaseClient(object):
                 if not self.__get_token_userpass():
                     raise CannotAuthenticate('userpass authentication failed for account=%s with identity=%s' % (self.account,
                                                                                                                  self.creds['username']))
+            elif self.auth_type == 'oidc':
+                if not self.__get_token_OIDC():
+                    raise CannotAuthenticate('OIDC authentication failed for account=%s with username=%s' % (self.account,
+                                                                                                             self.creds['username']))
             elif self.auth_type == 'x509' or self.auth_type == 'x509_proxy':
                 if not self.__get_token_x509():
                     raise CannotAuthenticate('x509 authentication failed for account=%s with identity=%s' % (self.account,
@@ -589,7 +669,6 @@ class BaseClient(object):
             print("I/O error({0}): {1}".format(error.errno, error.strerror))
         except Exception:
             raise
-
         LOG.debug('got token from file')
         return True
 
@@ -600,7 +679,6 @@ class BaseClient(object):
 
         token_path = self.TOKEN_PATH_PREFIX + self.account
         self.token_file = token_path + '/' + self.TOKEN_PREFIX + self.account
-
         # check if rucio temp directory is there. If not create it with permissions only for the current user
         if not path.isdir(token_path):
             try:
@@ -608,7 +686,6 @@ class BaseClient(object):
                 makedirs(token_path, 0o700)
             except Exception:
                 raise
-
         # if the file exists check if the stored token is valid. If not request a new one and overwrite the file. Otherwise use the one from the file
         try:
             file_d, file_n = mkstemp(dir=token_path)
@@ -628,6 +705,9 @@ class BaseClient(object):
         if self.auth_type == 'userpass':
             if self.creds['username'] is None or self.creds['password'] is None:
                 raise NoAuthInformation('No username or password passed')
+        elif self.auth_type == 'oidc':
+            if self.creds['username'] is None or self.creds['password'] is None or self.creds['scope_oidc'] is None:
+                raise NoAuthInformation('No OIDC credentials provided. OIDC username, password and scope_oidc are required.')
         elif self.auth_type == 'x509':
             if self.creds['client_cert'] is None:
                 raise NoAuthInformation('The path to the client certificate is required')

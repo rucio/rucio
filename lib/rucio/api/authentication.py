@@ -16,6 +16,7 @@
 # - Mario Lassnig <mario@lassnig.net>, 2012-2018
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
@@ -49,6 +50,47 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None):
     account = InternalAccount(account)
 
     return authentication.get_auth_token_user_pass(account, username, password, appid, ip)
+
+
+def get_auth_OIDC(account, auth_scope, auth_server_name, ip=None):
+    """
+    Assembles the authentication request of the Rucio Client for the Rucio user
+    for the user's Identity Provider (XDC IAM)/issuer.
+    Returned authorization URL (as a string) can be used by the user to grant
+    permissions to Rucio to extract his/her (auth_scope(s)), ID & tokens from the Identity Provider.
+    (for more Identity Providers if necessary in the future,
+    the 'issuer' should become another input parameter here)
+
+    :param account: Rucio Account identifier as a string.
+    :param auth_scope: space separated list of scope names. Scope parameter defines which user's
+                       info the user allows to provide to the Rucio Client via his/her Identity Provider
+    :param auth_server_name: Name of the Rucio authentication server being used.
+
+    :returns: User & Rucio OIDC Client specific Authorization URL as a string.
+    """
+    # no permission layer for the moment !
+
+    account = InternalAccount(account)
+
+    return authentication.get_auth_OIDC(account, auth_scope, auth_server_name, ip)
+
+
+def get_token_OIDC(auth_query_string, auth_server_name):
+    """
+    After Rucio User authenticated with the Identity Provider via the authorization URL,
+    and by that granted to the Rucio OIDC client an access to her/him information (auth_scope(s)),
+    the Identity Provider redirects her/him to /auth/OIDC_Token with authz code
+    and session state encoded within the URL. This URL's query string becomes the input parameter
+    for this function that eventually gets user's info and tokens from the Identity Provider.
+
+    :param auth_query_string: Identity Provider redirection URL query string
+                              containing AuthZ code and user session state parameters.
+    :param auth_server_name: Name of the Rucio authentication server being used.
+
+    :returns: Access token as a Python struct .token string .expired_at datetime .identity string
+    """
+    # no permission layer for the moment !
+    return authentication.get_token_OIDC(auth_query_string, auth_server_name)
 
 
 def get_auth_token_gss(account, gsscred, appid, ip=None):

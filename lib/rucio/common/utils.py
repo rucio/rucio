@@ -152,8 +152,8 @@ def build_url(url, path=None, params=None, doseq=False):
     separated by '&' are generated for each element of the value sequence for the key.
     """
     complete_url = url
-    complete_url += "/"
     if path is not None:
+        complete_url += "/"
         complete_url += path
     if params is not None:
         complete_url += "?"
@@ -1016,6 +1016,10 @@ def run_cmd_process(cmd, timeout=3600):
         returncode = 0
 
     return returncode, stdout
+
+
+def oidc_identity_string(sub, iss):
+    return 'SUB=' + str(sub) + ', ISS=' + str(iss)
 
 
 def api_update_return_dict(dictionary):

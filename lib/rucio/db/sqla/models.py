@@ -879,10 +879,10 @@ class ReplicationRule(BASE, ModelBase):
                    CheckConstraint('STATE IS NOT NULL', name='RULES_STATE_NN'),
                    CheckConstraint('SCOPE IS NOT NULL', name='RULES_SCOPE_NN'),
                    CheckConstraint('NAME IS NOT NULL', name='RULES_NAME_NN'),
-                   CheckConstraint('GROUPING IS NOT NULL', name='RULES_GROUPING_NN'),
                    CheckConstraint('COPIES IS NOT NULL', name='RULES_COPIES_NN'),
                    CheckConstraint('LOCKED IS NOT NULL', name='RULES_LOCKED_NN'),
                    CheckConstraint('ACCOUNT IS NOT NULL', name='RULES_ACCOUNT_NN'),
+                   CheckConstraint(grouping != None, name='RULES_GROUPING_NN'),  # noqa: E711
                    CheckConstraint('LOCKS_OK_CNT IS NOT NULL', name='RULES_LOCKS_OK_CNT_NN'),
                    CheckConstraint('LOCKS_REPLICATING_CNT IS NOT NULL', name='RULES_LOCKS_REPLICATING_CNT_NN'),
                    CheckConstraint('LOCKS_STUCK_CNT IS NOT NULL', name='RULES_LOCKS_STUCK_CNT_NN'),
@@ -1148,8 +1148,13 @@ class Subscription(BASE, ModelBase, Versioned):
 class Token(BASE, ModelBase):
     """Represents the authentication tokens and their lifetime"""
     __tablename__ = 'tokens'
-    token = Column(String(352))  # account-identity-appid-uuid -> max length: (+ 30 1 255 1 32 1 32)
+    token = Column(String(3072))  # account-identity-appid-uuid -> max length: (+ 30 1 255 1 32 1 32)
     account = Column(InternalAccountString(25))
+    refresh_token = Column(String(315), default=None)
+    refresh = Column(Boolean, default=False)
+    refresh_start = Column(DateTime, default=None)
+    refresh_expired_at = Column(DateTime, default=None)
+    scope = Column(String(150), default=None)  # scopes define the specific actions applications can be allowed to do on a user's behalf
     identity = Column(String(2048))
     expired_at = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
     ip = Column(String(39), nullable=True)
@@ -1157,6 +1162,20 @@ class Token(BASE, ModelBase):
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='TOKENS_ACCOUNT_FK'),
                    CheckConstraint('EXPIRED_AT IS NOT NULL', name='TOKENS_EXPIRED_AT_NN'),
                    Index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'account', 'expired_at'))
+
+
+class OAuthRequest(BASE, ModelBase):
+    """Represents the authentication session parameters of OAuth 2.0 requests"""
+    __tablename__ = 'oauth_requests'
+    account = Column(InternalAccountString(25))
+    state = Column(String(25))
+    nonce = Column(String(25))
+    ip = Column(String(39), nullable=True)
+    expired_at = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
+    _table_args = (PrimaryKeyConstraint('state', name='OAUTH_REQUESTS_STATE_PK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='OAUTH_REQUESTS_ACCOUNT_FK'),
+                   CheckConstraint('EXPIRED_AT IS NOT NULL', name='OAUTH_REQUESTS_EXPIRED_AT_NN'),
+                   Index('OAUTH_REQUESTS_ACCOUNT_EXPIRED_AT_IDX', 'account', 'expired_at'))
 
 
 class Message(BASE, ModelBase):
@@ -1292,6 +1311,7 @@ def register_models(engine):
               Message,
               MessageHistory,
               NamingConvention,
+              OAuthRequest,
               QuarantinedReplica,
               RSE,
               RSEAttrAssociation,
@@ -1348,6 +1368,7 @@ def unregister_models(engine):
               Message,
               MessageHistory,
               NamingConvention,
+              OAuthRequest,
               QuarantinedReplica,
               RSE,
               RSEAttrAssociation,

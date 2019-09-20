@@ -28,6 +28,7 @@
 # - Nicolo Magini, <Nicolo.Magini@cern.ch>, 2018
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis, <dimitrios.christidis@cern.ch>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -193,13 +194,14 @@ def get_client(args):
     """
     Returns a new client object.
     """
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
+    auth_type = args.auth_strategy.lower() if args.auth_strategy else args.auth_strategy
+
+    if auth_type == 'userpass' or auth_type == 'oidc':
+        creds = {'username': args.username, 'password': args.password, 'scope_oidc': args.scope_oidc}
     else:
         creds = None
 
     try:
-        auth_type = args.auth_strategy.lower() if args.auth_strategy else args.auth_strategy
         client = Client(rucio_host=args.host, auth_host=args.auth_host,
                         account=args.issuer,
                         auth_type=auth_type, creds=creds,
@@ -1127,6 +1129,10 @@ def get_parser():
     # Options for the userpass auth_strategy
     oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
     oparser.add_argument('-pwd', '--password', dest='password', default=None, help='password')
+    # Options for defining the OIDC scope
+    oparser.add_argument('-sc', '--scope-oidc', dest='scope_oidc', default=None, help='Defines which (OIDC) information user will share with Rucio. ' +
+                         'Rucio requires at least -sc="openid". To request refresh token for Rucio, scope must include "openid offline_access" and ' +
+                         'there must be no active access token saved on the side of the user.')
 
     # Options for the x509  auth_strategy
     oparser.add_argument('--certificate', dest='certificate', default=None, help='Client certificate file')
@@ -1295,9 +1301,9 @@ def get_parser():
                                                                          '::\n'
                                                                          '\n'
                                                                          '    $ rucio-admin account list-identities jdoe\n'
-                                                                         '    Identity: /C=DE/O=GermanGrid/OU=Desy/CN=Joe Doe,	type: X509\n'
-                                                                         '    Identity: jdoe@CERN.CH,	type: GSS\n'
-                                                                         '    Identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707654/CN=Joe Doe,	type: X509\n'
+                                                                         '    Identity: /C=DE/O=GermanGrid/OU=Desy/CN=Joe Doe,    type: X509\n'
+                                                                         '    Identity: jdoe@CERN.CH,    type: GSS\n'
+                                                                         '    Identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707654/CN=Joe Doe,    type: X509\n'
                                                                          '\n')
     list_account_identities_parser.set_defaults(which='list_identities')
     list_account_identities_parser.add_argument('account', action='store', help='Account name')
@@ -1416,7 +1422,7 @@ def get_parser():
                                                                '    Added new identity to account: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe-jdoe\n'
                                                                '    \n'
                                                                '    $ rucio-admin account list-identities jdoe\n'
-                                                               '    Identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe,	type: X509\n'
+                                                               '    Identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe,    type: X509\n'
                                                                '\n'
                                                                'Note: please keep the DN inside quota marks.\n'
                                                                '\n'
@@ -1426,12 +1432,12 @@ def get_parser():
                                                                '    Added new identity to account: jdoe@CERN.CH-jdoe\n'
                                                                '    \n'
                                                                '    $ rucio-admin account list-identities jdoe\n'
-                                                               '    Identity: jdoe@CERN.CH,	type: GSS\n'
-                                                               '    Identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe,	type: X509\n'
+                                                               '    Identity: jdoe@CERN.CH,    type: GSS\n'
+                                                               '    Identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe,    type: X509\n'
                                                                '\n')
     identity_add_parser.set_defaults(which='identity_add')
     identity_add_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
-    identity_add_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH'], help='Authentication type [X509|GSS|USERPASS|SSH]', required=True)
+    identity_add_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH', 'OIDC'], help='Authentication type [X509|GSS|USERPASS|SSH|OIDC]', required=True)
     identity_add_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
     identity_add_parser.add_argument('--email', dest='email', action='store', help='Email address associated with the identity', required=True)
     identity_add_parser.add_argument('--password', dest='password', action='store', help='Password if authtype is USERPASS', required=False)
@@ -1451,7 +1457,7 @@ def get_parser():
                                                                   '\n')
     identity_delete_parser.set_defaults(which='identity_delete')
     identity_delete_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
-    identity_delete_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH'], help='Authentication type [X509|GSS|USERPASS|SSH]', required=True)
+    identity_delete_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH', 'OIDC'], help='Authentication type [X509|GSS|USERPASS|SSH|OIDC]', required=True)
     identity_delete_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
 
     # The RSE subparser

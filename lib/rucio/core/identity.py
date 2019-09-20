@@ -10,6 +10,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -33,7 +34,7 @@ def add_identity(identity, type, email, password=None, session=None):
     Creates a user identity.
 
     :param identity: The identity key name. For example x509 DN, or a username.
-    :param type: The type of the authentication (x509, gss, userpass, ssh)
+    :param type: The type of the authentication (x509, gss, userpass, ssh, OIDC)
     :param email: The Email address associated with the identity.
     :param password: If type==userpass, this sets the password.
     :param session: The database session in use.
@@ -63,7 +64,7 @@ def del_identity(identity, type, session=None):
     Deletes a user identity.
 
     :param identity: The identity key name. For example x509 DN, or a username.
-    :param type: The type of the authentication (x509, gss, userpass).
+    :param type: The type of the authentication (x509, gss, userpass, OIDC).
     :param session: The database session in use.
     """
 
@@ -79,7 +80,7 @@ def add_account_identity(identity, type, account, email, default=False, password
     Adds a membership association between identity and account.
 
     :param identity: The identity key name. For example x509 DN, or a username.
-    :param type: The type of the authentication (x509, gss, userpass, ssh).
+    :param type: The type of the authentication (x509, gss, userpass, ssh, OIDC).
     :param account: The account name.
     :param email: The Email address associated with the identity.
     :param default: If True, the account should be used by default with the provided identity.
@@ -108,7 +109,7 @@ def get_default_account(identity, type, session=None):
     Retrieves the default account mapped to an identity.
 
     :param identity: The identity key name. For example, x509DN, or a username.
-    :param type: The type of the authentication (x509, gss, userpass).
+    :param type: The type of the authentication (x509, gss, userpass, OIDC).
     :param session: The database session to use.
     :returns: The default account name, None otherwise.
     """
@@ -128,7 +129,7 @@ def del_account_identity(identity, type, account, session=None):
     Removes a membership association between identity and account.
 
     :param identity: The identity key name. For example x509 DN, or a username.
-    :param type: The type of the authentication (x509, gss, userpass).
+    :param type: The type of the authentication (x509, gss, userpass, OIDC).
     :param account: The account name.
     :param session: The database session in use.
     """
@@ -162,7 +163,7 @@ def list_accounts_for_identity(identity, type, session=None):
     Returns a list of all accounts for an identity.
 
     :param identity: The identity key name. For example x509 DN, or a username.
-    :param type: The type of the authentication (x509, gss, userpass).
+    :param type: The type of the authentication (x509, gss, userpass, OIDC).
     :param session: The database session in use.
 
     returns: A list of all accounts for the identity.

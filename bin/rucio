@@ -32,6 +32,7 @@
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -241,13 +242,13 @@ def get_client(args):
     """
     Returns a new client object.
     """
-    if args.auth_strategy == 'userpass':
-        creds = {'username': args.username, 'password': args.password}
+    auth_type = args.auth_strategy.lower() if args.auth_strategy else args.auth_strategy
+
+    if auth_type == 'userpass' or auth_type == 'oidc':
+        creds = {'username': args.username, 'password': args.password, 'scope_oidc': args.scope_oidc}
     else:
         creds = None
-
     try:
-        auth_type = args.auth_strategy.lower() if args.auth_strategy else args.auth_strategy
         client = Client(rucio_host=args.host, auth_host=args.auth_host,
                         account=args.account,
                         auth_type=auth_type, creds=creds,
@@ -1634,6 +1635,10 @@ def get_parser():
     # Options for the userpass auth_strategy
     oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
     oparser.add_argument('-pwd', '--password', dest='password', default=None, help='password')
+    # Options for defining the OIDC scope
+    oparser.add_argument('-sc', '--scope-oidc', dest='scope_oidc', default=None, help='Defines which (OIDC) information user will share with Rucio. ' +
+                         'Rucio requires at least -sc="openid". To request refresh token for Rucio, scope must include "openid offline_access" and ' +
+                         'there must be no active access token saved on the side of the user.')
 
     # Options for the x509  auth_strategy
     oparser.add_argument('--certificate', dest='certificate', default=None, help='Client certificate file.')

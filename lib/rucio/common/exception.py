@@ -952,3 +952,33 @@ class DuplicateFileTransferSubmission(RucioException):
         super(DuplicateFileTransferSubmission, self).__init__(*args, **kwargs)
         self._message = 'One or more files are already submitted to the transfer tool'
         self.error_code = 90
+
+
+class CannotInitOIDCClient(RucioException):
+    """
+    Rucio OIDC Client instance could not be initialised.
+    """
+    def __init__(self, *args, **kwargs):
+        super(CannotInitOIDCClient, self).__init__(*args, **kwargs)
+        self._message = 'Could not initialize Rucio OIDC Client'
+        self.error_code = 91
+
+
+class CannotCreateAuthZRequest(RucioException):
+    """
+    Failed to assemble user & Rucio OIDC Client related authorization URL.
+    """
+    def __init__(self, *args, **kwargs):
+        super(CannotCreateAuthZRequest, self).__init__(*args, **kwargs)
+        self._message = 'Failed to assemble authorization URL'
+        self.error_code = 92
+
+
+class CannotAuthorize(RucioException):
+    """
+    Failed to authorize an operation.
+    """
+    def __init__(self, *args, **kwargs):
+        super(CannotAuthorize, self).__init__(*args, **kwargs)
+        self._message = 'Can not authorize operation.'
+        self.error_code = 92

@@ -21,6 +21,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -29,17 +30,32 @@ import datetime
 import hashlib
 import random
 import sys
+import traceback
+import json
 
 import paramiko
+
+from sqlalchemy import or_
+from sqlalchemy.sql.expression import bindparam, text
+
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 
-from rucio.common.utils import generate_uuid
+from rucio.common.exception import RucioException, CannotAuthenticate, CannotAuthorize, CannotInitOIDCClient, CannotCreateAuthZRequest
+from rucio.common.utils import generate_uuid, oidc_identity_string
 from rucio.core.account import account_exists
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
+
+from oic import rndstr
+from oic.oic import Client, Grant, Token
+from oic.utils import time_util
+from oic.utils.authn.client import CLIENT_AUTHN_METHOD
+from oic.oic.message import RegistrationResponse, AuthorizationResponse, AccessTokenResponse
+from jwkest.jws import JWS
+from jwkest.jwt import JWT
 
 
 def token_key_generator(namespace, fni, **kwargs):
@@ -57,6 +73,41 @@ TOKENREGION = make_region(
     expiration_time=3600
 )
 
+# private/protected file containing Rucio Client secrets
+# this client has to be known and configured consistently only on the side of the Identity Provider (XDC IAM)
+IAM_OIDC_client_secret_file = '/opt/rucio/etc/IAM_OIDC_client_secret.json'
+
+
+def get_rucio_OIDC_client():
+    """
+    Creates a Rucio OIDC Client instance using already pre-defined static client
+    pre-registered with the Identity Provider (XDC IAM)
+
+    :returns: Rucio OIDC Client instance if all went without troubles or raises an exception otherwise.
+    """
+    # initializing a client_id and client_secret - provided in a secret config file
+    try:
+        with open(IAM_OIDC_client_secret_file) as client_secret_file:
+            client_secret = json.load(client_secret_file)
+        issuer = client_secret["issuer"]
+        client = Client(client_authn_method=CLIENT_AUTHN_METHOD)
+        # general parameter discovery about the Identity Provider via the issuers URL
+        client.provider_config(issuer)
+    except:
+        raise CannotInitOIDCClient(traceback.format_exc())
+    try:
+        # transforming Rucio OIDC Client specific parameters into a registration form
+        client_reg = RegistrationResponse(**client_secret)
+        # storing such parameters (client_id, client_secret, etc.) into the client itself
+        client.store_registration_info(client_reg)
+    except:
+        raise CannotInitOIDCClient(traceback.format_exc())
+    return client
+
+
+# Initialising Rucio OIDC Client
+OIDC_client = get_rucio_OIDC_client()
+
 
 @read_session
 def exist_identity_account(identity, type, account, session=None):
@@ -64,7 +115,7 @@ def exist_identity_account(identity, type, account, session=None):
     Check if an identity is mapped to an account.
 
     :param identity: The user identity as string.
-    :param type: The type of identity as a string, e.g. userpass, x509, gss...
+    :param type: The type of identity as a string, e.g. userpass, x509, gss, oidc...
     :param account: The account identifier as a string.
     :param session: The database session in use.
 
@@ -124,6 +175,279 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
     session.expunge(new_token)
 
     return new_token
+
+
+@transactional_session
+def get_auth_OIDC(account, auth_scope, auth_server_name, ip=None, session=None):
+    """
+    Assembles the authentication request of the Rucio Client for the Rucio user
+    for the user's Identity Provider (XDC IAM)/issuer.
+    Returned authorization URL (as a string) can be used by the user to grant
+    permissions to Rucio to extract his/her (auth_scope(s)), ID & tokens from the Identity Provider.
+    (for more Identity Providers if necessary in the future,
+    the 'issuer' should become another input parameter here)
+
+    :param account: Rucio Account identifier as a string.
+    :param auth_scope: space separated list of scope names. Scope parameter defines which user's
+                       info the user allows to provide to the Rucio Client via his/her Identity Provider
+    :param auth_server_name: Name of the Rucio authentication server being used.
+
+    :returns: User & Rucio OIDC Client specific Authorization URL as a string.
+    """
+    # Make sure the account exists
+    if not account_exists(account, session=session):
+        return None
+
+    try:
+
+        # get the redirect URIs (they have to be included in Rucio OIDC Client configuration)
+        with open(IAM_OIDC_client_secret_file) as client_secret_file:
+            client_secret = json.load(client_secret_file)
+
+        # redirect_url needs to be one of those defined in the Rucio OIDC Client configuration
+        redirect_url = None
+        # we point the redirect to go later to the same server
+        # as the one that defined this autorization for the user
+        redirect_urls = [url for url in client_secret["redirect_uris"]
+                         if ((auth_server_name in url) and ('auth/OIDC_token') in url)]
+        if len(redirect_urls) == 1:
+            redirect_url = redirect_urls[0]
+        else:
+            raise CannotCreateAuthZRequest('%s redirect URL(s) found in the defined ' % (len(redirect_urls)) +
+                                           'Rucio OIDC Client which corresponds to the current auth server.')
+
+        # user_session_state: random string in order to keep track of
+        # responses to outstanding requests (state).
+        user_session_state = rndstr()
+        # user_session_nonce: random string in order to associate
+        # a client session with an ID Token and to mitigate replay attacks.
+        user_session_nonce = rndstr()
+        expired_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=3600)
+        oauth_session_params = models.OAuthRequest(account=account,
+                                                   state=user_session_state,
+                                                   nonce=user_session_nonce,
+                                                   expired_at=expired_at,
+                                                   ip=ip)
+        oauth_session_params.save(session=session)
+        session.expunge(oauth_session_params)
+
+        # Assembling the Rucio user related authentication URL (AuthN) to be returned to the user
+        auth_args = {"client_id": OIDC_client.client_id,
+                     "grant_types": ["authorization_code"],
+                     "response_type": "code",
+                     "scope": auth_scope,
+                     "nonce": user_session_nonce,
+                     "redirect_uri": redirect_url,
+                     "state": user_session_state}
+
+        auth_req = OIDC_client.construct_AuthorizationRequest(request_args=auth_args)
+        auth_url = auth_req.request(OIDC_client.authorization_endpoint)
+        return auth_url
+
+    except:
+        raise CannotCreateAuthZRequest(traceback.format_exc())
+
+
+@transactional_session
+def get_token_OIDC(auth_query_string, auth_server_name, session=None):
+    """
+    After Rucio User authenticated with the Identity Provider via the authorization URL,
+    and by that granted to the Rucio OIDC client an access to her/him information (auth_scope(s)),
+    the Identity Provider redirects her/him to /auth/OIDC_Token with authz code
+    and session state encoded within the URL. This URL's query string becomes the input parameter
+    for this function that eventually gets user's info and tokens from the Identity Provider.
+
+    :param auth_query_string: Identity Provider redirection URL query string
+                              containing AuthZ code and user session state parameters.
+
+    :returns: Access token as a Python struct .token string .expired_at datetime .identity string
+    """
+    try:
+        # parsing the authorization query string by the Rucio OIDC Client
+        authz_code_response = OIDC_client.parse_response(AuthorizationResponse,
+                                                         info=auth_query_string,
+                                                         sformat="urlencoded")
+        code = authz_code_response["code"]
+        user_session_state = authz_code_response["state"]
+
+        # check continuity of the requests
+        result = session.query(models.OAuthRequest).filter_by(state=user_session_state).first()
+
+        if result is None:
+            raise CannotAuthenticate("User related Rucio OIDC session could not" +
+                                     "keep track of responses from outstanding requests.")
+
+        account = result.account
+        nonce = result.nonce
+
+        # assembling requests for an access token
+        with open(IAM_OIDC_client_secret_file) as client_secret_file:
+            client_secret = json.load(client_secret_file)
+
+        # redirect_url needs to be one of those defined
+        # in the Rucio OIDC Client configuration
+        redirect_url = None
+        # we point the redirect to go later to the same
+        # server as the one that started the auth process
+        redirect_urls = [url for url in client_secret["redirect_uris"]
+                         if ((auth_server_name in url) and ('auth/OIDC_token') in url)]
+        if len(redirect_urls) == 1:
+            redirect_url = redirect_urls[0]
+        else:
+            raise CannotCreateAuthZRequest('%s redirect URL(s) found in the defined ' % (len(redirect_urls)) +
+                                           'Rucio OIDC Client which corresponds to the current auth server.')
+        # assembling parameters to request an access token
+        args = {"code": code,
+                "redirect_uri": redirect_url}
+        # exchange access code for a access token
+        oidc_tokens = OIDC_client.do_access_token_request(state=user_session_state,
+                                                          request_args=args,
+                                                          authn_method="client_secret_basic")
+        # we can request more information, e.g. getting user info ca be done with
+        # userinfo = OIDC_client.do_user_info_request(state=user_session_state)
+
+        # mitigate replay attacks
+        ID_token_nonce = oidc_tokens['id_token']['nonce']
+        if ID_token_nonce != nonce:
+            raise CannotAuthenticate("ID token could not be associated with the Rucio OIDC Client session." +
+                                     " This points to possible replay attack !")
+
+        # remove expired tokens - removes effectively also rows with nonce
+        # and state info created during autorization requests (older than 5 min)
+        session.query(models.Token).filter(models.Token.expired_at < datetime.datetime.utcnow(),
+                                           models.Token.account == account).with_for_update(skip_locked=True).delete()
+        identity_string = oidc_identity_string(oidc_tokens['id_token']['sub'], oidc_tokens['id_token']['iss'])
+
+        # check if given account has the identity registered
+        if not exist_identity_account(identity_string, IdentityType.OIDC, account):
+            raise CannotAuthenticate("OIDC identity '%s' of the '%s' account is unknown to Rucio." % (identity_string, account))
+
+        # get access token expiry timestamp
+        expired_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=oidc_tokens['expires_in'])
+
+        # In case user requested to grant Rucio an refresh token, this token will get saved in the DB
+        if 'refresh_token' in oidc_tokens:
+
+            # create new refresh token
+
+            try:
+                exp = json.loads(JWT().unpack(oidc_tokens['refresh_token']).part[1])['exp']
+                refresh_expired_at = datetime.datetime.utcfromtimestamp(exp)
+            except:
+                # 4 day expiry period by default
+                refresh_expired_at = datetime.datetime.utcnow() + datetime.timedelta(hours=96)
+
+            new_token = models.Token(account=account,
+                                     token=oidc_tokens['access_token'],
+                                     refresh_token=oidc_tokens['refresh_token'],
+                                     scope=oidc_tokens['scope'],
+                                     refresh=False,
+                                     expired_at=expired_at,
+                                     refresh_expired_at=refresh_expired_at,
+                                     identity=identity_string)
+            new_token.save(session=session)
+            session.expunge(new_token)
+
+            # remove refresh token info (not for the user)
+            new_token.refresh_token = None
+            new_token.refresh_expired_at = None
+        else:
+            # return an access token
+            new_token = models.Token(account=account,
+                                     token=oidc_tokens['access_token'],
+                                     scope=oidc_tokens['scope'],
+                                     refresh=False,
+                                     expired_at=expired_at,
+                                     identity=identity_string)
+            new_token.save(session=session)
+            session.expunge(new_token)
+
+        return new_token
+
+    except:
+        raise CannotAuthenticate(traceback.format_exc())
+
+
+@transactional_session
+def refresh_token_OIDC(token_object, maxperiod=96, session=None):
+    """
+    Requests new access and refresh tokens from the Identity Provider.
+    Assumption: The Identity Provider issues refresh tokens for one time use only and
+    with a limited lifetime. The refresh tokens are invalidated no matter which of these
+    situations happens first.
+
+    :param token_object: Rucio models.Token DB row object
+    :param maxperiod:  maximum allowed period during which a token can be refreshed repetitively
+
+    :returns: Access Token as a Python struct
+              .token string
+              .expired_at datetime
+    """
+
+    try:
+        refresh_start = datetime.datetime.utcnow()
+        if hasattr(token_object, 'refresh_start'):
+            if token_object.refresh_start:
+                refresh_start = token_object.refresh_start
+
+        if (datetime.datetime.utcnow() - refresh_start < datetime.timedelta(hours=maxperiod)):
+            # abort refresh attempts
+            session.query(models.Token).filter(models.Token.token == token_object.token).update({models.Token.refresh: False})
+            session.commit()
+            raise CannotAuthorize("Rucio aborted refresh token attempts due to exceeding max refresh limit of %i hours." % maxperiod)
+
+        # checking the expiry date of the refresh token
+        if (token_object.refresh_expired_at is None) or (not token_object.refresh_expired_at > datetime.datetime.utcnow()):
+            raise CannotAuthorize("Rucio aborted refresh token attempts due to an attempt to use expired refresh token.")
+
+        # assemble the request for the refresh token from the Identity Provider
+        refresh_session_state = rndstr()
+        OIDC_client.grant[refresh_session_state] = Grant()
+        OIDC_client.grant[refresh_session_state].grant_expiration_time = time_util.utc_time_sans_frac() + 60
+        OIDC_client.grant[refresh_session_state].code = "access_code"
+        resp = AccessTokenResponse()
+        resp["refresh_token"] = token_object.refresh_token
+        OIDC_client.grant[refresh_session_state].tokens.append(Token(resp))
+        # if request below is successful, the used refresh token is assumed to become automatically invalid on the side of IAM (Identity Provider)
+        oidc_tokens = OIDC_client.do_access_token_refresh(state=refresh_session_state)
+        if 'refresh_token' in oidc_tokens and 'access_token' in oidc_tokens:
+            # aborting refresh of the original token (keeping it in place until it expires) and setting the expiry time of the refresh token to now
+            session.query(models.Token).filter(models.Token.token == token_object.token)\
+                   .update({"refresh": False, "refresh_expired_at": datetime.datetime.utcnow()})
+            session.commit()
+
+            # get access token expiry timestamp
+            expired_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=oidc_tokens['expires_in'])
+
+            try:
+                exp = json.loads(JWT().unpack(oidc_tokens['refresh_token']).part[1])['exp']
+                refresh_expired_at = datetime.datetime.utcfromtimestamp(exp)
+            except:
+                # 4 day expiry period by default
+                refresh_expired_at = datetime.datetime.utcnow() + datetime.timedelta(hours=96)
+
+            new_token = models.Token(account=token_object.account,
+                                     token=oidc_tokens['access_token'],
+                                     refresh_token=oidc_tokens['refresh_token'],
+                                     scope=oidc_tokens['scope'],
+                                     refresh=True,
+                                     expired_at=expired_at,
+                                     refresh_expired_at=refresh_expired_at,
+                                     refresh_start=refresh_start,
+                                     identity=token_object.identity)
+            new_token.save(session=session)
+            session.expunge(new_token)
+            # remove refresh token info (not for the user)
+            new_token.refresh_token = None
+            new_token.refresh_expired_at = None
+
+        else:
+            raise CannotAuthorize("OIDC identity '%s' of the '%s' account is did not succeed requesting a new access and refresh tokens." % (token_object.identity, token_object.account))
+
+        return None
+
+    except:
+        raise CannotAuthenticate(traceback.format_exc())
 
 
 @transactional_session
@@ -301,6 +625,127 @@ def get_ssh_challenge_token(account, appid, ip=None, session=None):
     return new_challenge_token
 
 
+@transactional_session
+def delete_expired_tokens(total_workers, worker_number, limit=100, session=None):
+    """
+    Delete expired tokens.
+
+    :param total_workers:      Number of total workers.
+    :param worker_number:      id of the executing worker.
+    :param limit:              Maximum number of tokens to delete.
+    :param session:            Database session in use.
+
+    :returns: number of deleted rows
+    """
+
+    # get expired tokens
+    try:
+
+        query = session.query(models.Token.token).filter(models.Token.expired_at < datetime.datetime.utcnow())\
+                                                 .filter(or_(models.Token.refresh_expired_at is None,
+                                                             models.Token.refresh_expired_at < datetime.datetime.utcnow()))\
+                                                 .with_for_update(skip_locked=True)\
+                                                 .order_by(models.Token.expired_at)
+
+        if session.bind.dialect.name == 'oracle':
+            bindparams = [bindparam('worker_number', worker_number),
+                          bindparam('total_workers', total_workers)]
+            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
+        elif session.bind.dialect.name == 'mysql':
+            query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
+        elif session.bind.dialect.name == 'postgresql':
+            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+
+        # limiting the number of tokens deleted at once
+        filtered_tokens = query.limit(limit).subquery()
+        # remove expired tokens
+        delete_tokens_query = session.query(models.Token.token).filter(models.Token.token.in_(filtered_tokens)).delete(synchronize_session='fetch')
+
+    except Exception as error:
+        print(traceback.format_exc())
+        raise RucioException(error.args)
+
+    return delete_tokens_query
+
+
+@transactional_session
+def delete_expired_oauthparams(total_workers, worker_number, limit=100, session=None):
+    """
+    Delete expired OAuth request parameters.
+
+    :param total_workers:      Number of total workers.
+    :param worker_number:      id of the executing worker.
+    :param limit:              Maximum number of oauth request session parameters to delete.
+    :param session:            Database session in use.
+
+    :returns: number of deleted rows
+    """
+
+    try:
+        # get expired OAuth request parameters
+        query = session.query(models.OAuthRequest).filter(models.OAuthRequest.expired_at < datetime.datetime.utcnow())\
+                       .with_for_update(skip_locked=True)\
+                       .order_by(models.OAuthRequest.expired_at)
+
+        if session.bind.dialect.name == 'oracle':
+            bindparams = [bindparam('worker_number', worker_number),
+                          bindparam('total_workers', total_workers)]
+            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
+        elif session.bind.dialect.name == 'mysql':
+            query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
+        elif session.bind.dialect.name == 'postgresql':
+            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+
+        # limiting the number of tokens deleted at once
+        filtered_oauthparams = query.limit(limit).subquery()
+        # remove expired tokens
+        delete_oauthparms = session.query(models.OAuthRequest.state).filter(models.OAuthRequest.state.in_(filtered_oauthparams)).delete(synchronize_session='fetch')
+
+    except Exception as error:
+        print(traceback.format_exc())
+        raise RucioException(error.args)
+
+    return delete_oauthparms
+
+
+@read_session
+def get_tokens_for_refresh(total_workers, worker_number, refreshrate=3600, limit=100, session=None):
+    """
+    Get expired tokens.
+
+    :param total_workers:      Number of total workers.
+    :param worker_number:      id of the executing worker.
+    :param limit:              Maximum number of tokens to delete.
+    :param session:            Database session in use.
+
+    :return: filtered_tokens, list of tokens eligible for refresh
+    """
+    try:
+        # get tokens for refresh that expire in the next <refreshrate> seconds
+        since = datetime.datetime.utcnow() - datetime.timedelta(seconds=refreshrate)
+        query = session.query(models.Token).filter(models.Token.refresh is True, models.Token.expired_at > since)\
+                                           .with_for_update(skip_locked=True)\
+                                           .order_by(models.Token.expired_at)
+
+        if session.bind.dialect.name == 'oracle':
+            bindparams = [bindparam('worker_number', worker_number),
+                          bindparam('total_workers', total_workers)]
+            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
+        elif session.bind.dialect.name == 'mysql':
+            query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
+        elif session.bind.dialect.name == 'postgresql':
+            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+
+        # limiting the number of tokens for refresh
+        filtered_tokens = query.limit(limit)
+
+    except Exception as error:
+        print(traceback.format_exc())
+        raise RucioException(error.args)
+
+    return filtered_tokens
+
+
 def validate_auth_token(token):
     """
     Validate an authentication token.
@@ -308,10 +753,10 @@ def validate_auth_token(token):
     :param token: Authentication token as a variable-length string.
     :param session: The database session in use.
 
-    :returns: Tuple(account identifier, token lifetime) if successful, None otherwise.
+    :returns: Tuple(account identifier, identity, token lifetime) if successful, None otherwise.
     """
     if not token:
-        return
+        return None
 
     # Be gentle with bash variables, there can be whitespace
     token = token.strip()
@@ -320,10 +765,19 @@ def validate_auth_token(token):
     value = TOKENREGION.get(token)
     if value is NO_VALUE:  # no cached entry found
         value = query_token(token)
-        value and TOKENREGION.set(token, value)
-    elif value.get('lifetime', datetime.datetime(1970, 1, 1)) < datetime.datetime.utcnow():  # check if expired
+        if value is None:
+            # identify JWT access token and validte it (JWT access tokens are not saved in DB)
+            if len(token.split(".")) == 3:
+                value = validate_jwt(token)
+                if value is None:
+                    return None
+            else:
+                return None
+        # save token in the cache
+        TOKENREGION.set(token, value)
+    if value.get('lifetime', datetime.datetime(1970, 1, 1)) < datetime.datetime.utcnow():  # check if expired
         TOKENREGION.delete(token)
-        return
+        return None
     return value
 
 
@@ -350,3 +804,32 @@ def query_token(token, session=None):
                 'identity': ret[0][1],
                 'lifetime': ret[0][2]}
     return None
+
+
+@read_session
+def validate_jwt(json_web_token, session=None):
+    """
+    Verifies signature and validity of a JSON Web Token.
+    Gets the issuer public keys from the OIDC_client
+    and verifies the validity of the token.
+
+    :param json_web_token: the JWT string to verify
+
+    :returns: Tuple(account identifier, identity, token lifetime) if successful.
+              Throws an exception otherwise.
+
+    """
+    try:
+        issuer_keys = OIDC_client.keyjar.get_issuer_keys(OIDC_client.provider_info["issuer"])
+        jsig = JWS()
+        claim_dict = jsig.verify_compact(json_web_token, issuer_keys)
+        identity_string = oidc_identity_string(claim_dict['sub'], claim_dict['iss'])
+        expiry_date = datetime.datetime.utcfromtimestamp(claim_dict['exp'])
+        # get token account info, assuming each Rucio account has maximum 1 OIDC identity
+        account = session.query(models.Token.account).filter(models.Token.identity == identity_string).first()
+        value = {'account': account[0],
+                 'identity': identity_string,
+                 'lifetime': expiry_date}
+        return value
+    except:
+        return None
