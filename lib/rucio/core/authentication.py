@@ -35,7 +35,7 @@ import json
 
 import paramiko
 
-from sqlalchemy import or_
+from sqlalchemy import or_, and_
 from sqlalchemy.sql.expression import bindparam, text
 
 
@@ -249,7 +249,7 @@ def get_auth_OIDC(account, auth_scope, auth_server_name, ip=None, session=None):
 
 
 @transactional_session
-def get_token_OIDC(auth_query_string, auth_server_name, session=None):
+def get_token_OIDC(auth_query_string, auth_server_name, ip=None, session=None):
     """
     After Rucio User authenticated with the Identity Provider via the authorization URL,
     and by that granted to the Rucio OIDC client an access to her/him information (auth_scope(s)),
@@ -312,10 +312,6 @@ def get_token_OIDC(auth_query_string, auth_server_name, session=None):
             raise CannotAuthenticate("ID token could not be associated with the Rucio OIDC Client session." +
                                      " This points to possible replay attack !")
 
-        # remove expired tokens - removes effectively also rows with nonce
-        # and state info created during autorization requests (older than 5 min)
-        session.query(models.Token).filter(models.Token.expired_at < datetime.datetime.utcnow(),
-                                           models.Token.account == account).with_for_update(skip_locked=True).delete()
         identity_string = oidc_identity_string(oidc_tokens['id_token']['sub'], oidc_tokens['id_token']['iss'])
 
         # check if given account has the identity registered
@@ -344,7 +340,8 @@ def get_token_OIDC(auth_query_string, auth_server_name, session=None):
                                      refresh=False,
                                      expired_at=expired_at,
                                      refresh_expired_at=refresh_expired_at,
-                                     identity=identity_string)
+                                     identity=identity_string,
+                                     ip = ip)
             new_token.save(session=session)
             session.expunge(new_token)
 
@@ -358,7 +355,8 @@ def get_token_OIDC(auth_query_string, auth_server_name, session=None):
                                      scope=oidc_tokens['scope'],
                                      refresh=False,
                                      expired_at=expired_at,
-                                     identity=identity_string)
+                                     identity=identity_string,
+                                     ip = ip)
             new_token.save(session=session)
             session.expunge(new_token)
 
@@ -390,7 +388,7 @@ def refresh_token_OIDC(token_object, maxperiod=96, session=None):
             if token_object.refresh_start:
                 refresh_start = token_object.refresh_start
 
-        if (datetime.datetime.utcnow() - refresh_start < datetime.timedelta(hours=maxperiod)):
+        if (datetime.datetime.utcnow() - refresh_start > datetime.timedelta(hours=maxperiod)):
             # abort refresh attempts
             session.query(models.Token).filter(models.Token.token == token_object.token).update({models.Token.refresh: False})
             session.commit()
@@ -447,7 +445,7 @@ def refresh_token_OIDC(token_object, maxperiod=96, session=None):
         return None
 
     except:
-        raise CannotAuthenticate(traceback.format_exc())
+        raise CannotAuthorize(traceback.format_exc())
 
 
 @transactional_session
@@ -640,22 +638,22 @@ def delete_expired_tokens(total_workers, worker_number, limit=100, session=None)
 
     # get expired tokens
     try:
-
-        query = session.query(models.Token.token).filter(models.Token.expired_at < datetime.datetime.utcnow())\
-                                                 .filter(or_(models.Token.refresh_expired_at is None,
+        # delete all expired tokens except tokens which have refresh token that is still valid
+        query = session.query(models.Token.token).filter(and_(models.Token.expired_at < datetime.datetime.utcnow()))\
+                                                 .filter(or_(models.Token.refresh_expired_at == None,
                                                              models.Token.refresh_expired_at < datetime.datetime.utcnow()))\
                                                  .with_for_update(skip_locked=True)\
                                                  .order_by(models.Token.expired_at)
 
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number),
-                          bindparam('total_workers', total_workers)]
-            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
 
+        if worker_number and total_workers and total_workers - 1 > 0:
+            if session.bind.dialect.name == 'oracle':
+                bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
+                query = query.filter(text('ORA_HASH(token, :total_workers) = :worker_number', bindparams=bindparams))
+            elif session.bind.dialect.name == 'mysql':
+                query = query.filter(text('mod(md5(token), %s) = %s' % (total_workers - 1, worker_number - 1)))
+            elif session.bind.dialect.name == 'postgresql':
+                query = query.filter(text('mod(abs((\'x\'||md5(token))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1)))
         # limiting the number of tokens deleted at once
         filtered_tokens = query.limit(limit).subquery()
         # remove expired tokens
@@ -669,7 +667,7 @@ def delete_expired_tokens(total_workers, worker_number, limit=100, session=None)
 
 
 @transactional_session
-def delete_expired_oauthparams(total_workers, worker_number, limit=100, session=None):
+def delete_expired_oauthreqests(total_workers, worker_number, limit=100, session=None):
     """
     Delete expired OAuth request parameters.
 
@@ -683,19 +681,17 @@ def delete_expired_oauthparams(total_workers, worker_number, limit=100, session=
 
     try:
         # get expired OAuth request parameters
-        query = session.query(models.OAuthRequest).filter(models.OAuthRequest.expired_at < datetime.datetime.utcnow())\
+        query = session.query(models.OAuthRequest.state).filter(models.OAuthRequest.expired_at < datetime.datetime.utcnow())\
                        .with_for_update(skip_locked=True)\
                        .order_by(models.OAuthRequest.expired_at)
-
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number),
-                          bindparam('total_workers', total_workers)]
-            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
-
+        if worker_number and total_workers and total_workers - 1 > 0:
+            if session.bind.dialect.name == 'oracle':
+                bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
+                query = query.filter(text('ORA_HASH(state, :total_workers) = :worker_number', bindparams=bindparams))
+            elif session.bind.dialect.name == 'mysql':
+                query = query.filter(text('mod(md5(state), %s) = %s' % (total_workers - 1, worker_number - 1)))
+            elif session.bind.dialect.name == 'postgresql':
+                query = query.filter(text('mod(abs((\'x\'||md5(state))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1)))
         # limiting the number of tokens deleted at once
         filtered_oauthparams = query.limit(limit).subquery()
         # remove expired tokens
@@ -723,21 +719,20 @@ def get_tokens_for_refresh(total_workers, worker_number, refreshrate=3600, limit
     try:
         # get tokens for refresh that expire in the next <refreshrate> seconds
         since = datetime.datetime.utcnow() - datetime.timedelta(seconds=refreshrate)
-        query = session.query(models.Token).filter(models.Token.refresh is True, models.Token.expired_at > since)\
+        query = session.query(models.Token).filter(models.Token.refresh == True, models.Token.expired_at > since)\
                                            .with_for_update(skip_locked=True)\
                                            .order_by(models.Token.expired_at)
-
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number),
-                          bindparam('total_workers', total_workers)]
-            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+        if worker_number and total_workers and total_workers - 1 > 0:
+            if session.bind.dialect.name == 'oracle':
+                bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
+                query = query.filter(text('ORA_HASH(token, :total_workers) = :worker_number', bindparams=bindparams))
+            elif session.bind.dialect.name == 'mysql':
+                query = query.filter(text('mod(md5(token), %s) = %s' % (total_workers - 1, worker_number - 1)))
+            elif session.bind.dialect.name == 'postgresql':
+                query = query.filter(text('mod(abs((\'x\'||md5(token))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1)))
 
         # limiting the number of tokens for refresh
-        filtered_tokens = query.limit(limit)
+        filtered_tokens = query.limit(limit).all()
 
     except Exception as error:
         print(traceback.format_exc())

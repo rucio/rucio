@@ -65,6 +65,7 @@ def get_auth_OIDC(account, auth_scope, auth_server_name, ip=None):
     :param auth_scope: space separated list of scope names. Scope parameter defines which user's
                        info the user allows to provide to the Rucio Client via his/her Identity Provider
     :param auth_server_name: Name of the Rucio authentication server being used.
+    :param ip: IP address of the client as a string.
 
     :returns: User & Rucio OIDC Client specific Authorization URL as a string.
     """
@@ -75,7 +76,7 @@ def get_auth_OIDC(account, auth_scope, auth_server_name, ip=None):
     return authentication.get_auth_OIDC(account, auth_scope, auth_server_name, ip)
 
 
-def get_token_OIDC(auth_query_string, auth_server_name):
+def get_token_OIDC(auth_query_string, auth_server_name, ip=None):
     """
     After Rucio User authenticated with the Identity Provider via the authorization URL,
     and by that granted to the Rucio OIDC client an access to her/him information (auth_scope(s)),
@@ -86,11 +87,12 @@ def get_token_OIDC(auth_query_string, auth_server_name):
     :param auth_query_string: Identity Provider redirection URL query string
                               containing AuthZ code and user session state parameters.
     :param auth_server_name: Name of the Rucio authentication server being used.
+    :param ip: IP address of the client as a string.
 
     :returns: Access token as a Python struct .token string .expired_at datetime .identity string
     """
     # no permission layer for the moment !
-    return authentication.get_token_OIDC(auth_query_string, auth_server_name)
+    return authentication.get_token_OIDC(auth_query_string, auth_server_name, ip)
 
 
 def get_auth_token_gss(account, gsscred, appid, ip=None):
