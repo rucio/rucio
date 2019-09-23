@@ -23,7 +23,7 @@ from paste.fixture import TestApp
 
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, parse_response
-from rucio.core.config import set
+from rucio.core.config import set as config_set
 from rucio.core.did import attach_dids, add_did
 from rucio.core.distance import add_distance
 from rucio.core.replica import add_replica
@@ -65,6 +65,77 @@ class TestRequestCoreQueue(object):
     def tearDown(self):
         self.db_session.commit()
 
+    def test_queue_requests_state_no_throttler(self):
+        """ REQUEST (CORE): queue requests with default throttler mode (None). """
+        name = generate_uuid()
+        name2 = generate_uuid()
+        name3 = generate_uuid()
+        add_replica(self.source_rse_id, self.scope, name, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id2, self.scope, name2, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id, self.scope, name3, 1, self.account, session=self.db_session)
+
+        set_rse_transfer_limits(self.dest_rse_id, self.user_activity, max_transfers=1, session=self.db_session)
+        set_rse_transfer_limits(self.dest_rse_id2, self.user_activity, max_transfers=1, session=self.db_session)
+        set_rse_transfer_limits(self.source_rse_id, self.user_activity, max_transfers=1, session=self.db_session)
+        set_rse_transfer_limits(self.source_rse_id2, self.user_activity, max_transfers=1, session=self.db_session)
+
+        requests = [{
+            'dest_rse_id': self.dest_rse_id,
+            'src_rse_id': self.source_rse_id,
+            'request_type': constants.RequestType.TRANSFER,
+            'request_id': generate_uuid(),
+            'name': name,
+            'scope': self.scope,
+            'rule_id': generate_uuid(),
+            'retry_count': 1,
+            'requested_at': datetime.now().replace(year=2015),
+            'attributes': {
+                'activity': self.user_activity,
+                'bytes': 10,
+                'md5': '',
+                'adler32': ''
+            }
+        }, {
+            'dest_rse_id': self.dest_rse_id,
+            'src_rse_id': self.source_rse_id2,
+            'request_type': constants.RequestType.TRANSFER,
+            'request_id': generate_uuid(),
+            'name': name2,
+            'scope': self.scope,
+            'rule_id': generate_uuid(),
+            'retry_count': 1,
+            'requested_at': datetime.now().replace(year=2015),
+            'attributes': {
+                'activity': 'unknown',
+                'bytes': 10,
+                'md5': '',
+                'adler32': ''
+            }
+        }, {
+            'dest_rse_id': self.dest_rse_id2,
+            'src_rse_id': self.source_rse_id,
+            'request_type': constants.RequestType.TRANSFER,
+            'request_id': generate_uuid(),
+            'name': name3,
+            'scope': self.scope,
+            'rule_id': generate_uuid(),
+            'retry_count': 1,
+            'requested_at': datetime.now().replace(year=2015),
+            'attributes': {
+                'activity': self.user_activity,
+                'bytes': 10,
+                'md5': '',
+                'adler32': ''
+            }
+        }]
+        queue_requests(requests, session=self.db_session)
+        request = get_request_by_did(self.scope, name, self.dest_rse_id, session=self.db_session)
+        assert_equal(request['state'], constants.RequestState.QUEUED)
+        request = get_request_by_did(self.scope, name2, self.dest_rse_id, session=self.db_session)
+        assert_equal(request['state'], constants.RequestState.QUEUED)
+        request = get_request_by_did(self.scope, name3, self.dest_rse_id2, session=self.db_session)
+        assert_equal(request['state'], constants.RequestState.QUEUED)
+
     def test_queue_requests_source_rse(self):
         """ REQUEST (CORE): queue requests and select correct source RSE. """
         # test correct selection of source RSE
@@ -101,7 +172,7 @@ class TestRequestCoreQueue(object):
     def test_queue_requests_state_1(self):
         """ REQUEST (CORE): queue requests and set correct request state. """
         # test correct request state depending on throttler mode
-        set('throttler', 'mode', 'DEST_PER_ACT', session=self.db_session)
+        config_set('throttler', 'mode', 'DEST_PER_ACT', session=self.db_session)
         set_rse_transfer_limits(self.dest_rse_id, self.user_activity, max_transfers=1, session=self.db_session)
         size = 1
         name = generate_uuid()
@@ -149,7 +220,7 @@ class TestRequestCoreQueue(object):
 
     def test_queue_requests_state_2(self):
         """ REQUEST (CORE): queue requests and set correct request state. """
-        set('throttler', 'mode', 'SRC_PER_ACT', session=self.db_session)
+        config_set('throttler', 'mode', 'SRC_PER_ACT', session=self.db_session)
         size = 1
         name = generate_uuid()
         add_replica(self.source_rse_id2, self.scope, name, size, self.account, session=self.db_session)
@@ -203,7 +274,7 @@ class TestRequestCoreRelease(object):
         set_rse_transfer_limits(self.dest_rse_id, self.user_activity, max_transfers=1, session=self.db_session)
         set_rse_transfer_limits(self.dest_rse_id, self.all_activities, max_transfers=1, session=self.db_session)
         set_rse_transfer_limits(self.dest_rse_id, 'ignore', max_transfers=1, session=self.db_session)
-        set('throttler', 'mode', 'DEST_PER_ACT', session=self.db_session)
+        config_set('throttler', 'mode', 'DEST_PER_ACT', session=self.db_session)
         self.db_session.commit()
 
     def tearDown(self):
@@ -1026,23 +1097,6 @@ class TestRequestCoreRelease(object):
         request = get_request_by_did(self.scope, name2, self.dest_rse_id, session=self.db_session)
         assert_equal(request['state'], constants.RequestState.QUEUED)
 
-    def test_list_requests(self):
-        """ REQUEST (CORE): list requests """
-        models.Request(state=constants.RequestState.WAITING, source_rse_id=self.source_rse_id, dest_rse_id=self.dest_rse_id).save(session=self.db_session)
-        models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id2, dest_rse_id=self.dest_rse_id).save(session=self.db_session)
-        models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id, dest_rse_id=self.dest_rse_id2).save(session=self.db_session)
-        models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id, dest_rse_id=self.dest_rse_id).save(session=self.db_session)
-        models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id, dest_rse_id=self.dest_rse_id).save(session=self.db_session)
-
-        requests = [request for request in list_requests([self.source_rse_id], [self.dest_rse_id], [constants.RequestState.SUBMITTED], session=self.db_session)]
-        assert_equal(len(requests), 2)
-
-        requests = [request for request in list_requests([self.source_rse_id, self.source_rse_id2], [self.dest_rse_id], [constants.RequestState.SUBMITTED], session=self.db_session)]
-        assert_equal(len(requests), 3)
-
-        requests = [request for request in list_requests([self.source_rse_id], [self.dest_rse_id], [constants.RequestState.QUEUED], session=self.db_session)]
-        assert_equal(len(requests), 0)
-
     def test_release_waiting_requests_per_deadline(self):
         """ REQUEST (CORE): release grouped waiting requests that exceeded waiting time."""
         # a request that exceeded the maximal waiting time to be released (1 hour) -> release one request -> only the exceeded request should be released
@@ -1162,6 +1216,48 @@ class TestRequestCoreRelease(object):
         request = get_request_by_did(self.scope, name3, self.dest_rse_id, session=self.db_session)
         assert_equal(request['state'], constants.RequestState.WAITING)
 
+
+class TestRequestCoreList(object):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.db_session = session.get_session()
+        cls.dest_rse = 'MOCK'
+        cls.dest_rse2 = 'MOCK2'
+        cls.source_rse = 'MOCK4'
+        cls.source_rse2 = 'MOCK5'
+        cls.dest_rse_id = get_rse_id(cls.dest_rse)
+        cls.dest_rse_id2 = get_rse_id(cls.dest_rse2)
+        cls.source_rse_id = get_rse_id(cls.source_rse)
+        cls.source_rse_id2 = get_rse_id(cls.source_rse2)
+
+    def setUp(self):
+        self.db_session.query(models.Source).delete()
+        self.db_session.query(models.Request).delete()
+        self.db_session.query(models.RSETransferLimit).delete()
+        self.db_session.query(models.Distance).delete()
+        self.db_session.query(models.Config).delete()
+        self.db_session.commit()
+
+    def tearDown(self):
+        self.db_session.commit()
+
+    def test_list_requests(self):
+        """ REQUEST (CORE): list requests """
+        models.Request(state=constants.RequestState.WAITING, source_rse_id=self.source_rse_id, dest_rse_id=self.dest_rse_id).save(session=self.db_session)
+        models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id2, dest_rse_id=self.dest_rse_id).save(session=self.db_session)
+        models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id, dest_rse_id=self.dest_rse_id2).save(session=self.db_session)
+        models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id, dest_rse_id=self.dest_rse_id).save(session=self.db_session)
+        models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id, dest_rse_id=self.dest_rse_id).save(session=self.db_session)
+
+        requests = [request for request in list_requests([self.source_rse_id], [self.dest_rse_id], [constants.RequestState.SUBMITTED], session=self.db_session)]
+        assert_equal(len(requests), 2)
+
+        requests = [request for request in list_requests([self.source_rse_id, self.source_rse_id2], [self.dest_rse_id], [constants.RequestState.SUBMITTED], session=self.db_session)]
+        assert_equal(len(requests), 3)
+
+        requests = [request for request in list_requests([self.source_rse_id], [self.dest_rse_id], [constants.RequestState.QUEUED], session=self.db_session)]
+        assert_equal(len(requests), 0)
 
 
 class TestRequestREST():

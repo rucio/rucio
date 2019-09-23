@@ -31,7 +31,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql import tuple_
 from sqlalchemy.sql.expression import asc, bindparam, text, false, true
 
-from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation
+from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation, ConfigNotFound
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, chunks, get_parsed_throttler_mode
 from rucio.core.config import get
@@ -156,29 +156,33 @@ def queue_requests(requests, session=None):
             for request in query_existing_requests:
                 existing_requests.append(request)
 
-    request_scopes_names = [(request['scope'], request['name']) for request in requests]
-    results = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id, models.Distance.dest_rse_id, models.Distance.ranking)\
-                     .filter(tuple_(models.RSEFileAssociation.scope, models.RSEFileAssociation.name).in_(request_scopes_names))\
-                     .join(models.Distance, models.Distance.src_rse_id == models.RSEFileAssociation.rse_id)\
-                     .all()
     source_rses = {}
-    for result in results:
-        scope = result[0]
-        name = result[1]
-        src_rse_id = result[2]
-        dest_rse_id = result[3]
-        distance = result[4]
-        if scope not in source_rses:
-            source_rses[scope] = {}
-        if name not in source_rses[scope]:
-            source_rses[scope][name] = {}
-        if dest_rse_id not in source_rses[scope][name]:
-            source_rses[scope][name][dest_rse_id] = {}
-        if src_rse_id not in source_rses[scope][name][dest_rse_id]:
-            source_rses[scope][name][dest_rse_id][src_rse_id] = distance
+    request_scopes_names = [(request['scope'], request['name']) for request in requests]
+    for chunked_requests in chunks(request_scopes_names, 50):
+        results = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id, models.Distance.dest_rse_id, models.Distance.ranking)\
+                         .filter(tuple_(models.RSEFileAssociation.scope, models.RSEFileAssociation.name).in_(chunked_requests))\
+                         .join(models.Distance, models.Distance.src_rse_id == models.RSEFileAssociation.rse_id)\
+                         .all()
+        for result in results:
+            scope = result[0]
+            name = result[1]
+            src_rse_id = result[2]
+            dest_rse_id = result[3]
+            distance = result[4]
+            if scope not in source_rses:
+                source_rses[scope] = {}
+            if name not in source_rses[scope]:
+                source_rses[scope][name] = {}
+            if dest_rse_id not in source_rses[scope][name]:
+                source_rses[scope][name][dest_rse_id] = {}
+            if src_rse_id not in source_rses[scope][name][dest_rse_id]:
+                source_rses[scope][name][dest_rse_id][src_rse_id] = distance
 
-    throttler_mode = get('throttler', 'mode', default='DEST_PER_ACT', use_cache=False)
-    direction, all_activities = get_parsed_throttler_mode(throttler_mode)
+    try:
+        throttler_mode = get('throttler', 'mode', default=None, use_cache=False, session=session)
+        direction, all_activities = get_parsed_throttler_mode(throttler_mode)
+    except ConfigNotFound:
+        throttler_mode = None
 
     new_requests, sources, messages = [], [], []
     for request in requests:
@@ -205,20 +209,21 @@ def queue_requests(requests, session=None):
         activity_limit = transfer_limits.get(request['attributes']['activity'], {})
         all_activities_limit = transfer_limits.get('all_activities', {})
         limit_found = False
-        if direction == 'source':
-            if all_activities:
-                if all_activities_limit.get(source_rse_id):
-                    limit_found = True
-            else:
-                if activity_limit.get(source_rse_id):
-                    limit_found = True
-        elif direction == 'destination':
-            if all_activities:
-                if all_activities_limit.get(request['dest_rse_id']):
-                    limit_found = True
-            else:
-                if activity_limit.get(request['dest_rse_id']):
-                    limit_found = True
+        if throttler_mode:
+            if direction == 'source':
+                if all_activities:
+                    if all_activities_limit.get(source_rse_id):
+                        limit_found = True
+                else:
+                    if activity_limit.get(source_rse_id):
+                        limit_found = True
+            elif direction == 'destination':
+                if all_activities:
+                    if all_activities_limit.get(request['dest_rse_id']):
+                        limit_found = True
+                else:
+                    if activity_limit.get(request['dest_rse_id']):
+                        limit_found = True
         request['state'] = RequestState.WAITING if limit_found else RequestState.QUEUED
 
         new_request = {'request_type': request['request_type'],
@@ -962,7 +967,7 @@ def release_waiting_requests_per_deadline(rse_id=None, deadline=1, session=None)
     Release waiting requests that were waiting too long and exceeded the maximum waiting time to be released.
     If the DID of a request is attached to a dataset, the oldest requested_at date of all requests related to the dataset will be used for checking and all requests of this dataset will be released.
     :param rse_id:           The source RSE id.
-    :param deadline:         Maximal waiting time until a dataset gets released.
+    :param deadline:         Maximal waiting time in hours until a dataset gets released.
     :param session:          The database session.
     """
     amount_released_requests = 0
@@ -1113,6 +1118,7 @@ def release_waiting_requests_fifo(rse_id, activity=None, count=None, account=Non
     :param activity:         The activity.
     :param count:            The count to be released.
     :param account:          The account name whose requests to release.
+    :param direction:        Direction if requests are grouped by source RSE or destination RSE.
     :param session:          The database session.
     """
 
@@ -1172,6 +1178,9 @@ def release_waiting_requests_grouped_fifo(rse_id, count=None, direction='destina
 
     :param rse_id:           The RSE id.
     :param count:            The count to be released. If None, release all waiting requests.
+    :param direction:        Direction if requests are grouped by source RSE or destination RSE.
+    :param deadline:         Maximal waiting time in hours until a dataset gets released.
+    :param volume:           The maximum volume in bytes that should be transfered.
     :param session:          The database session.
     """
 
@@ -1218,6 +1227,7 @@ def release_all_waiting_requests(rse_id, activity=None, account=None, direction=
     :param rse_id:           The RSE id.
     :param activity:         The activity.
     :param account:          The account name whose requests to release.
+    :param direction:        Direction if requests are grouped by source RSE or destination RSE.
     :param session:          The database session.
     """
     try:

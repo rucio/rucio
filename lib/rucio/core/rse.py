@@ -666,7 +666,7 @@ def set_rse_transfer_limits(rse_id, activity, rse_expression=None, max_transfers
     :param transfers: Current number of tranfers.
     :param waitings: Current number of waitings.
     :param volume: Maximum transfer volume in bytes.
-    :param deadline: Maximum waiting time until a datasets gets released.
+    :param deadline: Maximum waiting time in hours until a datasets gets released.
     :param strategy: Stragey to handle datasets `fifo` or `grouped_fifo`.
     :param session: The database session in use.
 
