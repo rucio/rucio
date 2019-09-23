@@ -41,9 +41,13 @@ Finally, you can jump into the container with::
 
     docker exec -it dev_rucio_1 bin/bash
 
-To verify that everything is in order, you can now run the unit tests. So again, inside the container, either run the full testing suite (which takes ~10 minutes)::
+To verify that everything is in order, you can now run the full unit tests. So again, inside the container, either run the full testing suite (which takes ~10 minutes)::
 
     tools/run_tests_docker.sh
+
+Another option is to simply set up the database and create initial testing data. This is useful when developing functionality that is related to storage interaction, or transferring files with third party copy::
+
+    tools/run_tests_docker.sh -ir
 
 Or alternatively, just bootstrap the test environment once and then selectively run test case modules, test case groups, or even single test cases, for example::
 
@@ -73,6 +77,11 @@ Terminal 1 can now be left open, and then from your host go into a new Terminal 
     rucio whoami
 
 The command will output in Terminal 2, and at the same time the server debug output will be shown in Terminal 1.
+
+The same `logshow` is also available in the FTS container::
+
+    docker exec -it dev_fts_1 /bin/bash
+    logshow
 
 Development tricks
 ------------------
