@@ -18,6 +18,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2017-2019
 # - James Perry, <j.perry@epcc.ed.ac.uk>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White, <bjwhite@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -101,5 +102,5 @@ if rsemanager.SERVER_MODE:   # pylint:disable=no-member
     RSE_REGION = make_region(function_key_generator=rse_key_generator).configure(
         'dogpile.cache.memcached',
         expiration_time=3600,
-        arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
+        arguments={'url': config.config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
     setattr(rsemanager, 'RSE_REGION', RSE_REGION)

@@ -39,7 +39,7 @@ from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_name, get_rse_transfer_limits
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RequestState, RequestType, FTSState, ReplicaState, LockState, RequestErrMsg
-from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.session import read_session, transactional_session, stream_session
 from rucio.transfertool.fts3 import FTS3Transfertool
 
 """
@@ -1402,3 +1402,20 @@ def __get_source_rse(request_id, src_url, session=None):
     except Exception:
         logging.error('Cannot get correct RSE for source url: %s(%s)' % (src_url, traceback.format_exc()))
         return None, None
+
+
+@stream_session
+def list_requests(src_rse_ids, dst_rse_ids, states=[RequestState.WAITING], session=None):
+    """
+    List all requests in a specific state from a source RSE to a destination RSE.
+
+    :param src_rse_ids: source RSE ids.
+    :param dst_rse_ids: destination RSE ids.
+    :param states: list of request states.
+    :param session: The database session in use.
+    """
+    query = session.query(models.Request).filter(models.Request.state.in_(states),
+                                                 models.Request.source_rse_id.in_(src_rse_ids),
+                                                 models.Request.dest_rse_id.in_(dst_rse_ids))
+    for request in query.yield_per(500):
+        yield request

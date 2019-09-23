@@ -12,6 +12,7 @@
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 # - Robert Illingworth, <illingwo@fnal.gov>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White, <bjwhite@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -53,7 +54,7 @@ Requests accessed by request_id  are covered in the core request.py
 
 REGION_SHORT = make_region().configure('dogpile.cache.memcached',
                                        expiration_time=600,
-                                       arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
+                                       arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
 USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
 
 

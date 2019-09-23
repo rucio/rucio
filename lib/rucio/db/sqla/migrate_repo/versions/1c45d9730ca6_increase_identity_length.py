@@ -27,8 +27,6 @@ from alembic.op import alter_column, create_check_constraint, create_foreign_key
 revision = '1c45d9730ca6'
 down_revision = 'b4293a99f344'
 
-schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-
 
 def upgrade():
     '''
@@ -36,6 +34,7 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'postgresql']:
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
         alter_column('identities', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
         alter_column('account_map', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
@@ -97,6 +96,8 @@ def downgrade():
         alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
 
     elif context.get_context().dialect.name == 'postgresql':
+        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+
         execute("DELETE FROM " + schema + "account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
         execute("DELETE FROM " + schema + "identities WHERE identity_type='SSH'")  # pylint: disable=no-member
 
