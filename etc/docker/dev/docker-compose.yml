@@ -13,6 +13,7 @@ services:
       - xrd1:xrd1
       - xrd2:xrd2
       - xrd3:xrd3
+      - minio:minio
     volumes:
       - ../../../tools:/opt/rucio/tools
       - ../../../bin:/opt/rucio/bin
@@ -57,8 +58,8 @@ services:
     ports:
       - "1094:1094"
     volumes:
-      - ../../certs/hostcert_xrd1.pem:/etc/grid-security/xrd/xrdcert.pem
-      - ../../certs/hostcert_xrd1.key.pem:/etc/grid-security/xrd/xrdkey.pem
+      - ../../certs/hostcert_xrd1.pem:/tmp/xrdcert.pem
+      - ../../certs/hostcert_xrd1.key.pem:/tmp/xrdkey.pem
   xrd2:
     image: rucio/xrootd
     hostname: xrd2
@@ -67,8 +68,8 @@ services:
     ports:
       - "1095:1095"
     volumes:
-      - ../../certs/hostcert_xrd2.pem:/etc/grid-security/xrd/xrdcert.pem
-      - ../../certs/hostcert_xrd2.key.pem:/etc/grid-security/xrd/xrdkey.pem
+      - ../../certs/hostcert_xrd2.pem:/tmp/xrdcert.pem
+      - ../../certs/hostcert_xrd2.key.pem:/tmp/xrdkey.pem
   xrd3:
     image: rucio/xrootd
     hostname: xrd3
@@ -77,5 +78,17 @@ services:
     ports:
       - "1096:1096"
     volumes:
-      - ../../certs/hostcert_xrd3.pem:/etc/grid-security/xrd/xrdcert.pem
-      - ../../certs/hostcert_xrd3.key.pem:/etc/grid-security/xrd/xrdkey.pem
+      - ../../certs/hostcert_xrd3.pem:/tmp/xrdcert.pem
+      - ../../certs/hostcert_xrd3.key.pem:/tmp/xrdkey.pem
+  minio:
+    image: minio/minio
+    hostname: minio
+    environment:
+      - MINIO_ACCESS_KEY=admin
+      - MINIO_SECRET_KEY=password
+    ports:
+      - "9000:9000"
+    volumes:
+      - ../../certs/hostcert_minio.pem:/root/.minio/certs/public.crt
+      - ../../certs/hostcert_minio.key.pem:/root/.minio/certs/private.key
+    command: ["server", "/data"]

@@ -16,7 +16,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2013
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015
@@ -547,16 +547,20 @@ class BaseClient(object):
         for retry in range(self.AUTH_RETRIES + 1):
             if self.auth_type == 'userpass':
                 if not self.__get_token_userpass():
-                    raise CannotAuthenticate('userpass authentication failed')
+                    raise CannotAuthenticate('userpass authentication failed for account=%s with identity=%s' % (self.account,
+                                                                                                                 self.creds['username']))
             elif self.auth_type == 'x509' or self.auth_type == 'x509_proxy':
                 if not self.__get_token_x509():
-                    raise CannotAuthenticate('x509 authentication failed')
+                    raise CannotAuthenticate('x509 authentication failed for account=%s with identity=%s' % (self.account,
+                                                                                                             self.creds))
             elif self.auth_type == 'gss':
                 if not self.__get_token_gss():
-                    raise CannotAuthenticate('kerberos authentication failed')
+                    raise CannotAuthenticate('kerberos authentication failed for account=%s with identity=%s' % (self.account,
+                                                                                                                 self.creds))
             elif self.auth_type == 'ssh':
                 if not self.__get_token_ssh():
-                    raise CannotAuthenticate('ssh authentication failed')
+                    raise CannotAuthenticate('ssh authentication failed for account=%s with identity=%s' % (self.account,
+                                                                                                            self.creds))
             else:
                 raise CannotAuthenticate('auth type \'%s\' not supported' % self.auth_type)
 

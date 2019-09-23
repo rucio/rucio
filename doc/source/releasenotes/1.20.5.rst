@@ -1,0 +1,48 @@
+======
+1.20.5
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Core & Internals: add user data import  `#2730 <https://github.com/rucio/rucio/issues/2730>`_
+- Core & Internals: Minos-temporary-expiration does for update without nowait `#2763 <https://github.com/rucio/rucio/issues/2763>`_
+- Core & Internals: Request listing interface `#2878 <https://github.com/rucio/rucio/issues/2878>`_
+- Testing: Development docker updates + documentation fixes `#2777 <https://github.com/rucio/rucio/issues/2777>`_
+
+****
+Bugs
+****
+
+- Core & Internals: Distance exporter fails `#2841 <https://github.com/rucio/rucio/issues/2841>`_
+- RSE Manager: protocol_stat_retries in rsemanager is loaded as string instead of int `#2874 <https://github.com/rucio/rucio/issues/2874>`_
+- Rules: delete_rule for rule_deleters does not work `#2886 <https://github.com/rucio/rucio/issues/2886>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Move rucio-admin replicas declare-bad to the new API `#2277 <https://github.com/rucio/rucio/issues/2277>`_
+- Clients: CLI to declare replicas temporary unavailable `#2671 <https://github.com/rucio/rucio/issues/2671>`_
+- Deletion: Revert reaper executable autogeneration `#2772 <https://github.com/rucio/rucio/issues/2772>`_
+- Subscriptions: Mark --retroactive mode as NotImplemented `#2736 <https://github.com/rucio/rucio/issues/2736>`_
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- Accounting & Dumps: RSE disk dumps and other output `#1173 <https://github.com/rucio/rucio/issues/1173>`_
+- WebUI: p12 client certificate bundle missing for dev webui `#2835 <https://github.com/rucio/rucio/issues/2835>`_

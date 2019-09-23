@@ -132,7 +132,9 @@ def get_signed_url(rse_id, service, operation, url, lifetime=600):
 
         # remove port number from host if present
         colon = host.find(':')
+        port = '443'
         if colon >= 0:
+            port = host[colon + 1:]
             host = host[:colon]
 
         # look up in RSE account configuration by RSE ID
@@ -155,7 +157,7 @@ def get_signed_url(rse_id, service, operation, url, lifetime=600):
             s3op = 'delete_object'
 
         with record_timer_block('credential.signs3'):
-            s3 = boto3.client('s3', endpoint_url='https://' + host, aws_access_key_id=access_key, aws_secret_access_key=secret_key, config=Config(signature_version=signature_version, region_name=region_name))
+            s3 = boto3.client('s3', endpoint_url='https://' + host + ':' + port, aws_access_key_id=access_key, aws_secret_access_key=secret_key, config=Config(signature_version=signature_version, region_name=region_name))
 
             signed_url = s3.generate_presigned_url(s3op, Params={'Bucket': bucket, 'Key': key}, ExpiresIn=lifetime)
 

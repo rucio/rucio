@@ -1,0 +1,14 @@
+============
+1.20.4.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Core & Internals: list_datasets_per_rse error with filters dictionary `#2866 <https://github.com/rucio/rucio/issues/2866>`_
+- Transfers: Rules in state REPLICATING with no requests `#2865 <https://github.com/rucio/rucio/issues/2865>`_
