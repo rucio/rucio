@@ -19,9 +19,9 @@
 
 from rucio.api import permission
 from rucio.common import exception
+from rucio.common.types import InternalAccount
 from rucio.core import credential
 from rucio.core.rse import get_rse_id
-from rucio.common.types import InternalAccount
 
 
 def get_signed_url(account, appid, ip, rse, service, operation, url, lifetime):
