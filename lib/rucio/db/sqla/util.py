@@ -22,11 +22,16 @@
 # PY3K COMPATIBLE
 
 from __future__ import print_function
+from base64 import b64encode
 from datetime import datetime
+from hashlib import sha256
+from os import urandom
 from traceback import format_exc
 
 from alembic import command
 from alembic.config import Config
+
+from six import PY3
 
 from sqlalchemy import func
 from sqlalchemy.engine import reflection
@@ -124,7 +129,7 @@ def create_root_account():
     """ Inserts the default root account to an existing database. Make sure to change the default password later. """
 
     up_id = 'ddmlab'
-    up_pwd = '2ccee6f6dd1bc2269cddd7cd5e47578e98e430539807c36df23fab7dd13e7583'
+    up_pwd = 'secret'
     up_email = 'ph-adp-ddm-lab@cern.ch'
     x509_id = '/C=CH/ST=Geneva/O=CERN/OU=PH-ADP-CO/CN=DDMLAB Client Certificate/emailAddress=ph-adp-ddm-lab@cern.ch'
     x509_email = 'ph-adp-ddm-lab@cern.ch'
@@ -155,7 +160,14 @@ def create_root_account():
 
     account = models.Account(account=InternalAccount('root'), account_type=AccountType.SERVICE, status=AccountStatus.ACTIVE)
 
-    identity1 = models.Identity(identity=up_id, identity_type=IdentityType.USERPASS, password=up_pwd, salt='0', email=up_email)
+    salt = urandom(255)
+    if PY3:
+        decoded_salt = b64encode(salt).decode()
+        salted_password = ('%s%s' % (decoded_salt, up_pwd)).encode()
+    else:
+        salted_password = '%s%s' % (salt, str(up_pwd))
+    hashed_password = sha256(salted_password).hexdigest()
+    identity1 = models.Identity(identity=up_id, identity_type=IdentityType.USERPASS, password=hashed_password, salt=salt, email=up_email)
     iaa1 = models.IdentityAccountAssociation(identity=identity1.identity, identity_type=identity1.identity_type, account=account.account, is_default=True)
 
     # X509 authentication

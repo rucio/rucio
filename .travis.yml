@@ -82,13 +82,11 @@ matrix:
   - python: 3.5
     env:  SUITE=all RDBMS=oracle
   - python: 3.5
-    env:  SUITE=all RDBMS=mysql
-  - python: 3.5
     env:  SUITE=all RDBMS=sqlite
   - python: 3.5
     env:  SUITE=all RDBMS=oracle
   - python: 3.5
-    env:  SUITE=all RDBMS=mysql
+    env:  SUITE=all RDBMS=postgres
   - python: 3.5
     env:  SUITE=all RDBMS=sqlite
   - python: 3.6
@@ -98,7 +96,7 @@ matrix:
   - python: 3.6
     env:  SUITE=all RDBMS=oracle
   - python: 3.6
-    env:  SUITE=all RDBMS=mysql
+    env:  SUITE=all RDBMS=postgres
   - python: 3.6
     env:  SUITE=all RDBMS=sqlite
   allow_failures:
@@ -107,9 +105,9 @@ matrix:
   - python: 3.6
     env: SUITE=client RDBMS=sqlite RUCIO_HOME=`pwd`
   - python: 3.5
-    env:  SUITE=all RDBMS=postgres
+    env:  SUITE=all RDBMS=mysql
   - python: 3.6
-    env:  SUITE=all RDBMS=postgres
+    env:  SUITE=all RDBMS=mysql
 
 notifications:
   slack:

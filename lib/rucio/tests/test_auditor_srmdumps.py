@@ -21,6 +21,8 @@
 #
 # PY3K
 
+import mock
+
 try:
     # PY2
     from ConfigParser import ConfigParser
@@ -31,7 +33,6 @@ from datetime import datetime
 from nose.tools import eq_
 from nose.tools import raises
 from rucio.daemons.auditor import srmdumps
-from rucio.tests.common import stubbed
 
 
 def test_patterns_on_file_names():
@@ -114,11 +115,12 @@ def test_fails_on_unknown_protocol():
     srmdumps.protocol('fake://some/example')
 
 
-def test_sites_no_configuration_file():
+@mock.patch('rucio.daemons.auditor.srmdumps.ddmendpoint_url')
+def test_sites_no_configuration_file(mock_ddmendpoint):
     """ test_generate_url_returns_standard_url_for_sites_with_no_configuration_file"""
     config = ConfigParser()
-    with stubbed(srmdumps.ddmendpoint_url, lambda _: 'srm://example.com/atlasdatadisk/'):
-        base_url, pattern = srmdumps.generate_url('SITE_DATADISK', config)
+    mock_ddmendpoint.return_value = 'srm://example.com/atlasdatadisk/'
+    base_url, pattern = srmdumps.generate_url('SITE_DATADISK', config)
     eq_(base_url, 'srm://example.com/atlasdatadisk/dumps')
     eq_(pattern, 'dump_%Y%m%d')
 
@@ -127,7 +129,7 @@ def test_with_configuration_file():
     """ test_generate_url_returns_custom_url_for_sites_with_configuration_file"""
     config = ConfigParser()
     config.add_section('SITE')
-    config.set('SITE', 'SITE_DATADISK', 'http://example.com/pattern-%Y-%m-%d/dumps')
+    config.set('SITE', 'SITE_DATADISK', 'http://example.com/pattern-%%Y-%%m-%%d/dumps')
     base_url, pattern = srmdumps.generate_url('SITE_DATADISK', config)
     eq_(base_url, 'http://example.com')
     eq_(pattern, 'pattern-%Y-%m-%d/dumps')

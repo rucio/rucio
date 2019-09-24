@@ -190,7 +190,7 @@ class TestSubscriptionRestApi():
         res2 = TestApp(subs_app.wsgifunc(*mw)).post('/root/%s' % (subscription_name), headers=headers2, params=data, expect_errors=True)
         assert_equal(res2.status, 201)
 
-        subscription_id = res2.body
+        subscription_id = res2.body.decode()
         res3 = TestApp(subs_app.wsgifunc(*mw)).get('/Id/%s' % (subscription_id), headers=headers2, expect_errors=True)
         assert_equal(res3.status, 200)
         assert_equal(loads(loads(res3.body)['filter'])['project'][0], 'data12_900GeV')
@@ -273,7 +273,7 @@ class TestSubscriptionRestApi():
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         res2 = TestApp(subs_app.wsgifunc(*mw)).get('/%s/%s/Rules/States' % ('root', subscription_name), headers=headers2, expect_errors=True)
 
-        for line in res2.body.split('\n'):
+        for line in res2.body.decode().split('\n'):
             print(line)
             rs = loads(line)
             if rs[1] == subscription_name:
