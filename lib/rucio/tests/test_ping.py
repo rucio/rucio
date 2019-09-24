@@ -27,7 +27,7 @@ class TestPing(object):
         options = []
         result = TestApp(ping_app.wsgifunc(*options)).get('/', expect_errors=True)
         assert_equal(result.status, 200)
-        ret = json.loads(result.body)
+        ret = json.loads(result.body.decode())
         assert_true('version' in ret)
         assert_is_instance(ret, dict)
 

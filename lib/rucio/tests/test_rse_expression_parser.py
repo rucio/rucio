@@ -101,7 +101,7 @@ class TestRSEExpressionParserCore(object):
     def test_all_rse(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test reference on all RSE """
         all_rses = rse.list_rses()
-        assert_equal(sorted(rse_expression_parser.parse_expression("*")), sorted(all_rses))
+        assert_equal(sorted(rse_expression_parser.parse_expression("*"), key=lambda rse: rse['rse']), sorted(all_rses, key=lambda rse: rse['rse']))
 
     def test_tag_reference(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test simple RSE tag reference """
