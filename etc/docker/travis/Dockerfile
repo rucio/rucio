@@ -1,4 +1,4 @@
-# Copyright 2017-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2017-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -74,12 +74,12 @@ RUN if [ "$python" == "3.6" ] ; then pip3.6 install .[oracle,postgresql,mysql,ke
 RUN cp etc/docker/travis/aliases-py27.conf etc/web/aliases-py27.conf
 RUN cp etc/docker/travis/google-cloud-storage-test.json etc/google-cloud-storage-test.json
 
-RUN mkdir /var/log/rucio
-RUN mkdir /var/log/rucio/trace
-RUN chmod 777 /var/log/rucio
+RUN mkdir -p /var/log/rucio/trace
+RUN chmod -R 777 /var/log/rucio
 
 RUN cp etc/docker/travis/httpd.conf /etc/httpd/conf/httpd.conf
 RUN cp etc/docker/travis/rucio.conf /etc/httpd/conf.d/rucio.conf
+RUN cp etc/docker/travis/00-mpm.conf /etc/httpd/conf.modules.d/00-mpm.conf
 
 RUN cp etc/docker/travis/certs/ca.pem /opt/rucio/etc/web/CERN-bundle.pem
 RUN cp etc/docker/travis/certs/ca.pem /opt/rucio/etc/web/ca.crt
@@ -89,6 +89,6 @@ RUN cp etc/docker/travis/certs/server.crt /etc/grid-security/hostcert.pem
 RUN cp etc/docker/travis/certs/server.key /etc/grid-security/hostkey.pem
 RUN chmod 400 /etc/grid-security/hostkey.pem
 
-RUN rm /etc/httpd/conf.d/ssl.conf /etc/httpd/conf.d/autoindex.conf /etc/httpd/conf.d/userdir.conf /etc/httpd/conf.d/welcome.conf
+RUN rm /etc/httpd/conf.d/ssl.conf /etc/httpd/conf.d/autoindex.conf /etc/httpd/conf.d/userdir.conf /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/zgridsite.conf
 
 CMD ["httpd","-D","FOREGROUND"]
