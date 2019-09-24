@@ -542,6 +542,8 @@ def add_did_to_followed(scope, name, account, session=None):
     :param account: The account owner.
     :param session: The database session in use.
     """
+    scope = InternalScope(scope)
+    account = InternalAccount(account)
     return did.add_did_to_followed(scope=scope, name=name, account=account, session=session)
 
 
@@ -553,6 +555,7 @@ def add_dids_to_followed(dids, account, session=None):
     :param account: The account owner.
     :param session: The database session in use.
     """
+    account = InternalAccount(account)
     return did.add_dids_to_followed(dids=dids, account=account, session=session)
 
 
@@ -564,6 +567,7 @@ def get_users_following_did(name, scope, session=None):
     :param name: The data identifier name.
     :param session: The database session in use.
     """
+    scope = InternalScope(scope)
     return did.get_users_following_did(name=name, scope=scope, session=session)
 
 
@@ -580,6 +584,9 @@ def remove_did_from_followed(scope, name, account, issuer, session=None):
     kwargs = {'scope': scope, 'issuer': issuer}
     if not rucio.api.permission.has_permission(issuer=issuer, action='remove_did_from_followed', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not remove data identifiers from followed table' % (issuer))
+
+    scope = InternalScope(scope)
+    account = InternalAccount(account)
     return did.remove_did_from_followed(scope=scope, name=name, account=account, session=session)
 
 
@@ -594,4 +601,6 @@ def remove_dids_from_followed(dids, account, issuer, session=None):
     kwargs = {'dids': dids, 'issuer': issuer}
     if not rucio.api.permission.has_permission(issuer=issuer, action='remove_dids_from_followed', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not bulk remove data identifiers from followed table' % (issuer))
+
+    account = InternalAccount(account)
     return did.remove_dids_from_followed(dids=dids, account=account, session=session)
