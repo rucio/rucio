@@ -979,7 +979,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                                         rse_id=rse_id,
                                                         session=session)
                             if service and isinstance(service, list):
-                                pfn = get_signed_url(service=service[0], operation='read', url=pfn, lifetime=signature_lifetime)
+                                pfn = get_signed_url(rse_id=rse_id, service=service[0], operation='read', url=pfn, lifetime=signature_lifetime)
 
                         # PFNs don't have concepts, therefore quickly encapsulate in a tuple
                         # ('pfn', 'domain', 'priority', 'client_extract')

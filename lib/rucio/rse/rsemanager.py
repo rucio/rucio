@@ -335,7 +335,7 @@ def exists(rse_settings, files):
                 raise pfn
             # deal with URL signing if required
             if rse_settings['sign_url'] is not None and pfn[:5] == 'https':
-                pfn = __get_signed_url(rse_settings['sign_url'], 'read', pfn)    # NOQA pylint: disable=undefined-variable
+                pfn = __get_signed_url(rse_settings['rse'], rse_settings['sign_url'], 'read', pfn)    # NOQA pylint: disable=undefined-variable
             exists = protocol.exists(pfn)
             ret[f['scope'] + ':' + f['name']] = exists
         else:
@@ -408,8 +408,8 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
             readpfn = pfn
             if sign_service is not None:
                 # need a separate signed URL for read operations (exists and stat)
-                readpfn = __get_signed_url(sign_service, 'read', pfn)    # NOQA pylint: disable=undefined-variable
-                pfn = __get_signed_url(sign_service, 'write', pfn)       # NOQA pylint: disable=undefined-variable
+                readpfn = __get_signed_url(rse_settings['rse'], sign_service, 'read', pfn)    # NOQA pylint: disable=undefined-variable
+                pfn = __get_signed_url(rse_settings['rse'], sign_service, 'write', pfn)       # NOQA pylint: disable=undefined-variable
 
         # First check if renaming operation is supported
         if protocol.renaming:

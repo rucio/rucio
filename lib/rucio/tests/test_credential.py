@@ -80,15 +80,15 @@ class TestCredential(object):
     def test_sign_url_gcs(self):
         """ CREDENTIAL: Sign a URL for Google Cloud Storage """
 
-        assert_raises(UnsupportedOperation, get_signed_url, 'fake-service', 'read', 'http://dummy')
+        assert_raises(UnsupportedOperation, get_signed_url, self.rse1_id, 'fake-service', 'read', 'http://dummy')
 
-        assert_raises(UnsupportedOperation, get_signed_url, 'gcs', 'transmogrify', 'http://dummy')
+        assert_raises(UnsupportedOperation, get_signed_url, self.rse1_id, 'gcs', 'transmogrify', 'http://dummy')
 
-        assert_raises(UnsupportedOperation, get_signed_url, 'gcs', 'read', None)
+        assert_raises(UnsupportedOperation, get_signed_url, self.rse1_id, 'gcs', 'read', None)
 
-        assert_raises(UnsupportedOperation, get_signed_url, 'gcs', 'read', '')
+        assert_raises(UnsupportedOperation, get_signed_url, self.rse1_id, 'gcs', 'read', '')
 
-        assert_equal(get_signed_url('gcs', 'read', 'http://storage/directory/file', lifetime=None),
+        assert_equal(get_signed_url(self.rse1_id, 'gcs', 'read', 'http://storage/directory/file', lifetime=None),
                      'https://storage.googleapis.com/directory/file?GoogleAccessId=rucio-test@rucio-test'
                      '.iam.gserviceaccount.com&Expires=0&Signature=u9cBWowYX22sAyApH5YySD9h0m%2FbIPLHLgY'
                      '0Db%2BQ4a0wICQ2PZzUfTuHXQF8dUbMJG04VH90U5EMzYg3qSUGyfnp6Jptnvgivf7iSHepJsYhyAYSBGs'
@@ -96,7 +96,7 @@ class TestCredential(object):
                      'Ydgf0WCQjUcVKRv8zY65HJS6ZKoCjhOqNBJNlpI6uR54MhmLN2CJWch1MnLIdO6bKfDup%2Bzkt8e9Xe9S'
                      '8pTeva5cN8ZFlMkeCz7JvNkVJb1KPhI1XHPWyfuPUa2ALHh9wAD2yFSOU3cDiORFE6A%3D%3D')
 
-        assert_equal(get_signed_url('gcs', 'write', 'http://storage/directory/file', lifetime=None),
+        assert_equal(get_signed_url(self.rse1_id, 'gcs', 'write', 'http://storage/directory/file', lifetime=None),
                      'https://storage.googleapis.com/directory/file?GoogleAccessId=rucio-test@rucio-test'
                      '.iam.gserviceaccount.com&Expires=0&Signature=Gn%2FL0%2FjGkBIdpHZ9bKw7tvqRCdslC11gt'
                      'jbLk5AG2jA4Ywd6mTvOinUB%2BZxHY2I3XzEuMfyMnFj0vfXSemN6XmmcQkiQBhl6P3zr0GrOuO4y0xjKT'
@@ -104,7 +104,7 @@ class TestCredential(object):
                      '6EH9bW5tAEs70vOwNNPPUm%2FbcNKnR4z6jqThXw2mn375L02SRPx1qQ853sZKHng6O4ydm%2BSW8i7rb1'
                      '%2BnqImWDOdvmcLIZzc6x9l6b7ETOqSL2OqOCStpBHPzpQU0spgJS96IB09uGRQum1Ej2ui5g%3D%3D')
 
-        assert_equal(get_signed_url('gcs', 'delete', 'http://storage/directory/file', lifetime=None),
+        assert_equal(get_signed_url(self.rse1_id, 'gcs', 'delete', 'http://storage/directory/file', lifetime=None),
                      'https://storage.googleapis.com/directory/file?GoogleAccessId=rucio-test@rucio-test'
                      '.iam.gserviceaccount.com&Expires=0&Signature=FVDNroX1epdTCv%2BC74o%2B8uWyvJXrqiIWg'
                      'kdcedaOoryhRMjuv%2FVdKecnhViY%2BGOP%2B0CoI1uFOHBz%2B%2Bm10U9A3i%2B1v7AZRN5L6nbbS%2'
