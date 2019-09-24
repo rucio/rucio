@@ -28,7 +28,7 @@ from rucio.common.config import config_get
 from rucio.common.exception import AccountNotFound, Duplicate, InvalidObject
 from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid as uuid
-from rucio.core.account import list_identities
+from rucio.core.account import list_identities, add_account_attribute, list_account_attributes
 from rucio.core.identity import add_account_identity, add_identity
 from rucio.db.sqla.constants import AccountStatus, IdentityType
 from rucio.tests.common import account_name_generator
@@ -70,6 +70,16 @@ class TestAccountCoreApi():
         add_account_identity(identity, identity_type, account, email, password='secret')
         identities = list_identities(account)
         assert_in({'type': identity_type, 'identity': identity, 'email': email}, identities)
+
+    def test_add_account_attribute(self):
+        """ ACCOUNT (CORE): Test adding attribute to account """
+        account = InternalAccount('root')
+        key = account_name_generator()
+        value = True
+        add_account_attribute(account, key, value)
+        assert_in({'key': key, 'value': True}, list_account_attributes(account))
+        with assert_raises(Duplicate):
+            add_account_attribute(account, key, value)
 
 
 class TestAccountRestApi():
@@ -120,7 +130,7 @@ class TestAccountRestApi():
         ret = TestApp(account_app.wsgifunc(*mw)).post('/testuser', headers=headers, params=data, expect_errors=True)
 
         assert_equal(ret.header('ExceptionClass'), 'ValueError')
-        assert_equal(ret.normal_body, '{"ExceptionMessage": "cannot decode json parameter dictionary", "ExceptionClass": "ValueError"}')
+        assert_equal(loads(ret.normal_body.decode()), {"ExceptionMessage": "cannot decode json parameter dictionary", "ExceptionClass": "ValueError"})
         assert_equal(ret.status, 400)
 
     def test_create_user_missing_parameter(self):
@@ -136,7 +146,7 @@ class TestAccountRestApi():
         ret = TestApp(account_app.wsgifunc(*mw)).post('/account', headers=headers, params=data, expect_errors=True)
 
         assert_equal(ret.header('ExceptionClass'), 'KeyError')
-        assert_equal(ret.normal_body, '{"ExceptionMessage": "\'type\' not defined", "ExceptionClass": "KeyError"}')
+        assert_equal(loads(ret.normal_body.decode()), {"ExceptionMessage": "\'type\' not defined", "ExceptionClass": "KeyError"})
         assert_equal(ret.status, 400)
 
     def test_create_user_not_json_dict(self):
@@ -152,7 +162,7 @@ class TestAccountRestApi():
         res = TestApp(account_app.wsgifunc(*mw)).post('/testaccount', headers=headers, params=data, expect_errors=True)
 
         assert_equal(res.header('ExceptionClass'), 'TypeError')
-        assert_equal(res.normal_body, '{"ExceptionMessage": "body must be a json dictionary", "ExceptionClass": "TypeError"}')
+        assert_equal(loads(res.normal_body.decode()), {"ExceptionMessage": "body must be a json dictionary", "ExceptionClass": "TypeError"})
         assert_equal(res.status, 400)
 
     def test_get_user_success(self):
@@ -172,7 +182,7 @@ class TestAccountRestApi():
 
         headers3 = {'X-Rucio-Auth-Token': str(token)}
         res3 = TestApp(account_app.wsgifunc(*mw)).get('/' + acntusr, headers=headers3, expect_errors=True)
-        body = loads(res3.body)
+        body = loads(res3.body.decode())
         assert_equal(body['account'], acntusr)
         assert_equal(res3.status, 200)
 
@@ -210,7 +220,7 @@ class TestAccountRestApi():
 
         headers4 = {'X-Rucio-Auth-Token': str(token)}
         res4 = TestApp(account_app.wsgifunc(*mw)).get('/' + acntusr, headers=headers4, expect_errors=True)
-        body = loads(res4.body)
+        body = loads(res4.body.decode())
         assert_true(body['status'] == AccountStatus.DELETED.description)  # pylint: disable=no-member
         assert_equal(res3.status, 200)
 
@@ -291,7 +301,7 @@ class TestAccountRestApi():
 
         headers4 = {'X-Rucio-Auth-Token': str(token)}
         res4 = TestApp(account_app.wsgifunc(*mw)).get('/' + acntusr, headers=headers4, expect_errors=True)
-        body = loads(res4.body)
+        body = loads(res4.body.decode())
         assert_equal(body['status'], 'SUSPENDED')
         assert_equal(body['email'], 'test')
         assert_equal(res4.status, 200)

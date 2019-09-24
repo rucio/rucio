@@ -878,7 +878,7 @@ class TestRequestREST():
         r = TestApp(request_app.wsgifunc(*self.mw)).get('/list', params=params, headers=headers, expect_errors=True)
         assert_equal(r.status, 200)
         requests = set()
-        for request in r.body.split('\n')[:-1]:
+        for request in r.body.decode().split('\n')[:-1]:
             request = parse_response(request)
             requests.add((request['state'], request['source_rse_id'], request['dest_rse_id'], request['name']))
         assert_equal(requests, expected_requests)
@@ -886,7 +886,7 @@ class TestRequestREST():
     def check_error_api(self, params, exception_class, exception_message, code):
         headers = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(self.token)}
         r = TestApp(request_app.wsgifunc(*self.mw)).get('/list', params=params, headers=headers, expect_errors=True)
-        body = parse_response(r.body)
+        body = parse_response(r.body.decode())
         assert_equal(r.status, code)
         assert_equal(body['ExceptionClass'], exception_class)
         assert_equal(body['ExceptionMessage'], exception_message)

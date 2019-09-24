@@ -57,7 +57,7 @@ def parse_expression(expression, filter=None, session=None):
     :returns:             A list of rse dictionaries.
     :raises:              InvalidRSEExpression, RSENotFound, RSEBlacklisted
     """
-    result = REGION.get(sha256(expression).hexdigest())
+    result = REGION.get(sha256(expression.encode()).hexdigest())
     if type(result) is NoValue:
         # Evaluate the correctness of the parentheses
         parantheses_open_count = 0
@@ -84,7 +84,7 @@ def parse_expression(expression, filter=None, session=None):
         result = []
         for rse in list(result_tuple[0]):
             result.append(result_tuple[1][rse])
-        REGION.set(sha256(expression).hexdigest(), result)
+        REGION.set(sha256(expression.encode()).hexdigest(), result)
 
     if not result:
         raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
@@ -385,7 +385,7 @@ class ComplementOperator(BaseRSEOperator):
         """
         left_term_tuple = self.left_term.resolve_elements(session=session)
         right_term_tuple = self.right_term.resolve_elements(session=session)
-        return (left_term_tuple[0] - right_term_tuple[0], dict(left_term_tuple[1].items() + right_term_tuple[1].items()))
+        return (left_term_tuple[0] - right_term_tuple[0], dict(list(left_term_tuple[1].items()) + list(right_term_tuple[1].items())))
 
 
 class UnionOperator(BaseRSEOperator):
@@ -419,7 +419,7 @@ class UnionOperator(BaseRSEOperator):
         """
         left_term_tuple = self.left_term.resolve_elements(session=session)
         right_term_tuple = self.right_term.resolve_elements(session=session)
-        return (left_term_tuple[0] | right_term_tuple[0], dict(left_term_tuple[1].items() + right_term_tuple[1].items()))
+        return (left_term_tuple[0] | right_term_tuple[0], dict(list(left_term_tuple[1].items()) + list(right_term_tuple[1].items())))
 
 
 class IntersectOperator(BaseRSEOperator):
@@ -453,4 +453,4 @@ class IntersectOperator(BaseRSEOperator):
         """
         left_term_tuple = self.left_term.resolve_elements(session=session)
         right_term_tuple = self.right_term.resolve_elements(session=session)
-        return (left_term_tuple[0] & right_term_tuple[0], dict(left_term_tuple[1].items() + right_term_tuple[1].items()))
+        return (left_term_tuple[0] & right_term_tuple[0], dict(list(left_term_tuple[1].items()) + list(right_term_tuple[1].items())))
