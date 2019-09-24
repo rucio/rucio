@@ -43,12 +43,14 @@ def add_scope(scope, account, session=None):
         new_scope.save(session=session)
     except IntegrityError as e:
         if match('.*IntegrityError.*ORA-00001: unique constraint.*SCOPES_PK.*violated.*', e.args[0]) \
-           or match('.*IntegrityError.*1062, "Duplicate entry.*for key.*', e.args[0]) \
+           or match('.*IntegrityError.*Duplicate entry.*for key.*', e.args[0]) \
            or match('.*IntegrityError.*UNIQUE constraint failed: scopes.scope.*', e.args[0]) \
            or match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0]) \
            or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', e.args[0]) \
            or match('.*sqlite3.IntegrityError.*is not unique.*', e.args[0]):
             raise Duplicate('Scope \'%s\' already exists!' % scope)
+        else:
+            raise RucioException(e)
     except:
         raise RucioException(str(format_exc()))
 

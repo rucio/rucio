@@ -124,7 +124,7 @@ class RSE(RucioController):
             500 Internal Error
 
         """
-        json_data = data()
+        json_data = data().decode()
         kwargs = {'deterministic': True,
                   'volatile': False, 'city': None, 'staging_area': False,
                   'region_code': None, 'country_name': None,
@@ -270,7 +270,7 @@ class Attributes(RucioController):
         :param key: Key attribute.
 
         """
-        json_data = data()
+        json_data = data().decode()
         try:
             parameter = loads(json_data)
         except ValueError:
@@ -471,7 +471,7 @@ class Protocol(RucioController):
             500 Internal Error
 
         """
-        json_data = data()
+        json_data = data().decode()
         try:
             parameters = loads(json_data)
         except ValueError:
@@ -547,7 +547,7 @@ class Protocol(RucioController):
             409 Conflict
             500 InternalError
         """
-        json_data = data()
+        json_data = data().decode()
         try:
             parameter = loads(json_data)
         except ValueError:
@@ -651,7 +651,7 @@ class Usage(RucioController):
 
         :param rse: The RSE name.
         """
-        json_data = data()
+        json_data = data().decode()
         try:
             parameter = loads(json_data)
         except ValueError:
@@ -739,7 +739,7 @@ class Limits(RucioController):
         :param rse: The RSE name.
         """
         header('Content-Type', 'application/json')
-        json_data = data()
+        json_data = data().decode()
         try:
             parameter = loads(json_data)
         except ValueError:
@@ -823,7 +823,7 @@ class Distance(RucioController):
         :param rse: The RSE name.
         """
         header('Content-Type', 'application/json')
-        json_data = data()
+        json_data = data().decode()
         try:
             parameter = loads(json_data)
         except ValueError:
@@ -860,7 +860,7 @@ class Distance(RucioController):
         :param rse: The RSE name.
         """
         header('Content-Type', 'application/json')
-        json_data = data()
+        json_data = data().decode()
         try:
             parameters = loads(json_data)
         except ValueError:

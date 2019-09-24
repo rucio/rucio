@@ -151,7 +151,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
     executable = ' '.join(sys.argv)
     # Generate a hash just for the subset of RSEs
     rse_names = [rse['rse'] for rse in rses]
-    hash_executable = hashlib.sha256(sys.argv[0] + ''.join(rse_names)).hexdigest()
+    hash_executable = hashlib.sha256((sys.argv[0] + ''.join(rse_names)).encode()).hexdigest()
     sanity_check(executable=None, hostname=hostname)
 
     nothing_to_do = {}
@@ -221,12 +221,12 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                     for files in chunks(replicas, chunk_size):
                         logging.debug('Reaper %s-%s: Running on : %s', worker_number, child_number, str(files))
                         try:
-                            update_replicas_states(replicas=[dict(replica.items() + [('state', ReplicaState.BEING_DELETED), ('rse_id', rse['id'])]) for replica in files], nowait=True)
+                            update_replicas_states(replicas=[dict(list(replica.items()) + [('state', ReplicaState.BEING_DELETED), ('rse_id', rse['id'])]) for replica in files], nowait=True)
                             for replica in files:
                                 try:
-                                    replica['pfn'] = str(rsemgr.lfns2pfns(rse_settings=rse_info,
-                                                                          lfns=[{'scope': replica['scope'].external, 'name': replica['name'], 'path': replica['path']}],
-                                                                          operation='delete', scheme=scheme).values()[0])
+                                    replica['pfn'] = str(list(rsemgr.lfns2pfns(rse_settings=rse_info,
+                                                                               lfns=[{'scope': replica['scope'].external, 'name': replica['name'], 'path': replica['path']}],
+                                                                               operation='delete', scheme=scheme).values())[0])
                                 except (ReplicaUnAvailable, ReplicaNotFound) as error:
                                     err_msg = 'Failed to get pfn UNAVAILABLE replica %s:%s on %s with error %s' % (replica['scope'], replica['name'], rse['rse'], str(error))
                                     logging.warning('Reaper %s-%s: %s', worker_number, child_number, err_msg)
