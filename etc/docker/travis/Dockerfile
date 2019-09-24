@@ -72,7 +72,7 @@ RUN if [ "$python" == "3.6" ] ; then pip3.6 install --upgrade pip ; elif [ "$pyt
 RUN if [ "$python" == "3.6" ] ; then pip3.6 install --upgrade setuptools ; elif [ "$python" == "3.5" ] ; then pip3.5 install --upgrade setuptools ; else pip install --upgrade setuptools ; fi
 
 # Install Rucio + dependencies
-RUN if [ "$python" == "3.6" ] ; then pip3.6 install .[oracle,postgresql,mysql,kerberos,dev] ; elif [ "$python" == "3.5" ] ; then pip3.5 install .[oracle,postgresql,mysql,kerberos,dev] ; else pip install .[oracle,postgresql,mysql,kerberos,dev] ; fi
+RUN if [ "$python" == "3.6" ] ; then pip3.6 install .[oracle,postgresql,mysql,kerberos,dev,saml] ; elif [ "$python" == "3.5" ] ; then pip3.5 install .[oracle,postgresql,mysql,kerberos,dev,saml] ; else pip install .[oracle,postgresql,mysql,kerberos,dev,saml] ; fi
 
 RUN cp etc/docker/travis/aliases-py27.conf etc/web/aliases-py27.conf
 RUN cp etc/docker/travis/google-cloud-storage-test.json etc/google-cloud-storage-test.json

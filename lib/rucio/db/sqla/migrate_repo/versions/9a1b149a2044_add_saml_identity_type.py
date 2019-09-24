@@ -23,7 +23,7 @@ from alembic.op import create_check_constraint, create_foreign_key, drop_constra
 
 # Alembic revision identifiers
 revision = '9a1b149a2044'
-down_revision = '2cbee484dcf9'
+down_revision = '53b479c3cb0f'
 
 
 def upgrade():
