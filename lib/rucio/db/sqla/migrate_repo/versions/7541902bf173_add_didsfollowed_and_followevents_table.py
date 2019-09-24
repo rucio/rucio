@@ -18,6 +18,7 @@
 ''' add DidsFollowed and FollowEvents table '''
 
 import sqlalchemy as sa
+import datetime
 
 from alembic import context
 from alembic.op import (create_table, create_primary_key, create_check_constraint,
@@ -40,7 +41,9 @@ def upgrade():
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
                      sa.Column('account', sa.String(25)),
-                     sa.Column('did_type', DIDType.db_type()))
+                     sa.Column('did_type', DIDType.db_type()),
+                     sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
+                     sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow))
 
         create_primary_key('DIDS_FOLLOWED_PK', 'dids_followed', ['scope', 'name', 'account'])
         create_check_constraint('DIDS_FOLLOWED_SCOPE_NN', 'dids_followed', 'scope is not null')
@@ -57,7 +60,9 @@ def upgrade():
                      sa.Column('account', sa.String(25)),
                      sa.Column('did_type', DIDType.db_type()),
                      sa.Column('event_type', sa.String(1024)),
-                     sa.Column('payload', sa.Text))
+                     sa.Column('payload', sa.Text),
+                     sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
+                     sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow))
 
         create_primary_key('FOLLOW_EVENTS_PK', 'follow_events', ['scope', 'name', 'account'])
         create_check_constraint('FOLLOW_EVENTS_SCOPE_NN', 'follow_events', 'scope is not null')
