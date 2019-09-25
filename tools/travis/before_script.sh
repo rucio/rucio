@@ -21,24 +21,20 @@
 
 if [[ $RDBMS == "oracle" ]]; then
     docker run -d -p 8080:8080 -p 1521:1521 --name=oracle -e processes=1000 -e sessions=1105 -e transactions=1215 -e ORACLE_ALLOW_REMOTE=true -e ORACLE_DISABLE_ASYNCH_IO=true rucio/oraclexe
-    ping -c 3 oracle
     docker run --name=activemq -d webcenter/activemq:latest
-    sleep 100
+    docker run -d --link oracle:oracle --link activemq:activemq --name=rucio rucio/rucio
+    tools/wait-for-it.sh -h oracle -p 1521 -t 100
     docker cp tools/travis/oracle_setup.sh oracle:/
     docker exec -it oracle /bin/bash -c "/oracle_setup.sh"
-    docker run -d --link oracle:oracle --link activemq:activemq --name=rucio rucio/rucio
-    ping -c 3 oracle
     docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_oracle.cfg /opt/rucio/etc/rucio.cfg
     docker exec -it rucio cp /opt/rucio/etc/docker/travis/alembic_oracle.ini /opt/rucio/etc/alembic.ini
     docker exec -it rucio httpd -k restart
 
 elif [[ $RDBMS == "mysql" ]]; then
     docker run --name=mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% -d mysql/mysql-server:5.7
-    ping -c 3 mysql
     docker run --name=activemq -d webcenter/activemq:latest
     docker run -d --link mysql:mysql --link activemq:activemq --name=rucio rucio/rucio
-    ping -c 3 mysql
-    sleep 100
+    tools/wait-for-it.sh -h mysql -p 3306 -t 100
     docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_mysql.cfg /opt/rucio/etc/rucio.cfg
     docker exec -it rucio cp /opt/rucio/etc/docker/travis/alembic_mysql.ini /opt/rucio/etc/alembic.ini
     docker exec -it rucio httpd -k restart
@@ -46,11 +42,9 @@ elif [[ $RDBMS == "mysql" ]]; then
 
 elif [[ $RDBMS == "postgres" ]]; then
     docker run --name=postgres -p 5432:5432 -e POSTGRES_PASSWORD=secret -d postgres -c 'max_connections=300'
-    ping -c 3 postgres
     docker run --name=activemq -d webcenter/activemq:latest
-    sleep 100
     docker run -d --link postgres:postgres --link activemq:activemq --name=rucio rucio/rucio
-    ping -c 3 postgres
+    tools/wait-for-it.sh -h postgres -p 5432 -t 100
     docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_postgres.cfg /opt/rucio/etc/rucio.cfg
     docker exec -it rucio cp /opt/rucio/etc/docker/travis/alembic_postgres.ini /opt/rucio/etc/alembic.ini
     docker exec -it rucio httpd -k restart
