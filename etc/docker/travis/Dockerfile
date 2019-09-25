@@ -31,12 +31,12 @@ RUN yum clean all
 
 RUN rm -rf /usr/lib/python2.7/site-packages/ipaddress*
 
-# Install sqlite3 version 3.28
-RUN curl https://www.sqlite.org/2019/sqlite-autoconf-3280000.tar.gz > sqlite.tar.gz
+# Install sqlite3 because CentOS ships with an old version without window functions
+RUN curl https://www.sqlite.org/2019/sqlite-autoconf-3290000.tar.gz > sqlite.tar.gz
 RUN tar xvfz sqlite.tar.gz
-WORKDIR ./sqlite-autoconf-3280000
+WORKDIR ./sqlite-autoconf-3290000
 RUN ./configure --prefix=/usr/local
-RUN make
+RUN make -j
 RUN make install
 WORKDIR /usr/local
 RUN mv lib/libsqlite3.so /lib64
