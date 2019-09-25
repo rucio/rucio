@@ -31,7 +31,7 @@ if [[ $RDBMS == "oracle" ]]; then
     docker exec -it rucio httpd -k restart
 
 elif [[ $RDBMS == "mysql" ]]; then
-    docker run --name=mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% -d mysql/mysql-server:5.7
+    docker run --name=mysql -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% -d mysql/mysql-server:5.7
     docker run --name=activemq -d webcenter/activemq:latest
     docker run -d --link mysql:mysql --link activemq:activemq --name=rucio rucio/rucio
     tools/wait-for-it.sh -h mysql -p 3306 -t 100
@@ -41,7 +41,7 @@ elif [[ $RDBMS == "mysql" ]]; then
 
 
 elif [[ $RDBMS == "postgres" ]]; then
-    docker run --name=postgres -p 5432:5432 -e POSTGRES_PASSWORD=secret -d postgres -c 'max_connections=300'
+    docker run --name=postgres -e POSTGRES_PASSWORD=secret -d postgres -c 'max_connections=300'
     docker run --name=activemq -d webcenter/activemq:latest
     docker run -d --link postgres:postgres --link activemq:activemq --name=rucio rucio/rucio
     tools/wait-for-it.sh -h postgres -p 5432 -t 100
