@@ -86,12 +86,10 @@ class UploadClient:
             guid                  - Optional: guid of the file
         :param summary_file_path: Optional: a path where a summary in form of a json file will be stored
 
-        :returns: 0 on success
+        :returns: A list of file dictionaries containing the status of the upload
 
         :raises InputValidationError: if any input arguments are in a wrong format
         :raises RSEBlacklisted: if a given RSE is not available for writing
-        :raises NoFilesUploaded: if no files were successfully uploaded
-        :raises NotAllFilesUploaded: if not all files were successfully uploaded
         """
         logger = self.logger
 
@@ -155,6 +153,8 @@ class UploadClient:
             is_deterministic = rse_settings.get('deterministic', True)
             if not is_deterministic and not pfn:
                 logger.error('PFN has to be defined for NON-DETERMINISTIC RSE.')
+                file['upload_result'] = {'success': False}
+                file['upload_error'] = "PFN has to be defined for NON-DETERMINISTIC RSE."
                 continue
             if pfn and is_deterministic:
                 logger.warning('Upload with given pfn implies that no_register is True, except non-deterministic RSEs')
@@ -177,13 +177,19 @@ class UploadClient:
             elif not is_deterministic and not no_register:
                 if rsemgr.exists(rse_settings, pfn):
                     logger.info('File already exists on RSE with given pfn. Skipping upload. Existing replica has to be removed first.')
+                    file['upload_result'] = {'success': False}
+                    file['upload_error'] = "File already exists"
                     continue
                 elif rsemgr.exists(rse_settings, file_did):
                     logger.info('File already exists on RSE with different pfn. Skipping upload.')
+                    file['upload_result'] = {'success': False}
+                    file['upload_error'] = "File already exists"
                     continue
             else:
                 if rsemgr.exists(rse_settings, pfn if pfn else file_did):
                     logger.info('File already exists on RSE. Skipping upload')
+                    file['upload_result'] = {'success': False}
+                    file['upload_error'] = "File already exists"
                     continue
             protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=force_scheme)
             protocols.reverse()
@@ -220,6 +226,7 @@ class UploadClient:
                 except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:
                     logger.warning('Upload attempt failed')
                     logger.debug('Exception: %s' % str(error))
+                    file['upload_error'] = error.get_last_error()
                     state_reason = str(error)
 
             if success:
@@ -270,11 +277,7 @@ class UploadClient:
             with open(summary_file_path, 'wb') as summary_file:
                 json.dump(final_summary, summary_file, sort_keys=True, indent=1)
 
-        if num_succeeded == 0:
-            raise NoFilesUploaded()
-        elif num_succeeded != len(files):
-            raise NotAllFilesUploaded()
-        return 0
+        return files
 
     def _register_file(self, file, registered_dataset_dids):
         """
