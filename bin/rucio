@@ -66,7 +66,7 @@ from rucio.common.config import config_get
 from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject,
                                     RSENotFound, InvalidRSEExpression, InputValidationError, DuplicateContent,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation,
-                                    RucioException, DuplicateRule, InvalidType)
+                                    RucioException, DuplicateRule, InvalidType, NoFilesDownloaded)
 from rucio.common.utils import sizefmt, Color, detect_client_location, chunks, parse_did_filter_from_string
 
 SUCCESS = 0
@@ -988,7 +988,7 @@ def download(args):
         result = download_client.download_pfns([item_defaults], 1, trace_pattern)
 
     if not result:
-        raise RucioException('Download API failed')
+        raise NoFilesDownloaded()
 
     summary = {}
     for item in result:
