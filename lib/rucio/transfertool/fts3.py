@@ -218,7 +218,7 @@ class FTS3Transfertool(Transfertool):
             record_counter('transfertool.fts3.%s.submission.failure' % self.__extract_host(self.external_host), len(files))
 
         if not transfer_id:
-            raise('No transfer id returned by %s' % self.external_host)
+            raise TransferToolWrongAnswer('No transfer id returned by %s' % self.external_host)
         return transfer_id
 
     def cancel(self, transfer_ids, timeout=None):
