@@ -35,7 +35,7 @@ elif [[ $RDBMS == "mysql" ]]; then
     docker run --name=activemq -d webcenter/activemq:latest
     docker run -d --link mysql:mysql --link activemq:activemq --name=rucio rucio/rucio
     date
-    while ! docker exec mysql mysql --user=root --password=secret --host=mysql -e "SELECT 1" 2>&1; do
+    while ! docker exec mysql mysql --user=root --password=secret -e "SELECT 1" 2>&1; do
         sleep 1
     done
     date
