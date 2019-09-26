@@ -35,7 +35,7 @@ elif [[ $RDBMS == "mysql" ]]; then
     docker run --name=activemq -d webcenter/activemq:latest
     docker run -d --link mysql:mysql --link activemq:activemq --name=rucio rucio/rucio
     date
-    while ! docker exec mysql mysql --user=root --password=secret -e "SELECT 1" 2>&1; do
+    while ! docker exec mysql mysqladmin --user=root --password=secret ping 2>&1; do
         sleep 1
     done
     date
@@ -48,7 +48,11 @@ elif [[ $RDBMS == "postgres" ]]; then
     docker run --name=postgres -e POSTGRES_PASSWORD=secret -d postgres -c 'max_connections=300'
     docker run --name=activemq -d webcenter/activemq:latest
     docker run -d --link postgres:postgres --link activemq:activemq --name=rucio rucio/rucio
-    sleep 100
+    date
+    while ! docker exec postgres pg_isready 2>&1; do
+        sleep 1
+    done
+    date
     docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_postgres.cfg /opt/rucio/etc/rucio.cfg
     docker exec -it rucio cp /opt/rucio/etc/docker/travis/alembic_postgres.ini /opt/rucio/etc/alembic.ini
     docker exec -it rucio httpd -k restart
