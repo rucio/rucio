@@ -186,6 +186,8 @@ class DownloadClient:
                   clientState can be one of the following: ALREADY_DONE, DONE, FILE_NOT_FOUND, FAIL_VALIDATE, FAILED
 
         :raises InputValidationError: if one of the input items is in the wrong format
+        :raises NoFilesDownloaded: if no files could be downloaded
+        :raises NotAllFilesDownloaded: if not all files could be downloaded
         :raises RucioException: if something unexpected went wrong during the download
         """
         logger = self.logger
@@ -232,7 +234,7 @@ class DownloadClient:
         if num_files_in != num_files_out:
             raise RucioException('%d items were in the input queue but only %d are in the output queue' % (num_files_in, num_files_out))
 
-        return output_items
+        return self._check_output(output_items)
 
     def download_dids(self, items, num_threads=2, trace_custom_fields={}, traces_copy_out=None):
         """
@@ -257,6 +259,8 @@ class DownloadClient:
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
 
         :raises InputValidationError: if one of the input items is in the wrong format
+        :raises NoFilesDownloaded: if no files could be downloaded
+        :raises NotAllFilesDownloaded: if not all files could be downloaded
         :raises RucioException: if something unexpected went wrong during the download
         """
         logger = self.logger
@@ -282,7 +286,7 @@ class DownloadClient:
         if num_files_in != num_files_out:
             raise RucioException('%d items were in the input queue but only %d are in the output queue' % (num_files_in, num_files_out))
 
-        return output_items
+        return self._check_output(output_items)
 
     def download_from_metalink_file(self, item, metalink_file_path, num_threads=2, trace_custom_fields={}, traces_copy_out=None):
         """
@@ -300,6 +304,8 @@ class DownloadClient:
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
 
         :raises InputValidationError: if one of the input items is in the wrong format
+        :raises NoFilesDownloaded: if no files could be downloaded
+        :raises NotAllFilesDownloaded: if not all files could be downloaded
         :raises RucioException: if something unexpected went wrong during the download
         """
         logger = self.logger
@@ -324,7 +330,7 @@ class DownloadClient:
         if num_files_in != num_files_out:
             raise RucioException('%d items were in the input queue but only %d are in the output queue' % (num_files_in, num_files_out))
 
-        return output_items
+        return self._check_output(output_items)
 
     def _download_multithreaded(self, input_items, num_threads, trace_custom_fields={}, traces_copy_out=None):
         """
@@ -510,7 +516,6 @@ class DownloadClient:
         # try different PFNs until one succeeded
         temp_file_path = item['temp_file_path']
         success = False
-        errstring = None
         i = 0
         while not success and i < len(sources):
             source = sources[i]
@@ -555,9 +560,8 @@ class DownloadClient:
                 try:
                     protocol.get(pfn, temp_file_path, transfer_timeout=item.get('merged_options', {}).get('transfer_timeout'))
                     success = True
-                except RucioException as error:
-                    logger.debug(error.args)
-                    errstring = error.get_last_error()
+                except Exception as error:
+                    logger.debug(error)
                     trace['clientState'] = str(type(error).__name__)
 
                 end_time = time.time()
@@ -589,7 +593,6 @@ class DownloadClient:
         if not success:
             logger.error('%sFailed to download file %s' % (log_prefix, did_str))
             item['clientState'] = 'FAILED'
-            item['clientError'] = errstring
             return item
 
         dest_file_path_iter = iter(dest_file_paths)
@@ -712,7 +715,7 @@ class DownloadClient:
             finally:
                 rpcproc.terminate()
 
-        return output_items
+        return self._check_output(output_items)
 
     def _start_aria2c_rpc(self, rpc_secret):
         """
@@ -1392,6 +1395,36 @@ class DownloadClient:
             os.makedirs(dest_dir_path)
 
         return dest_dir_path
+
+    def _check_output(self, output_items):
+        """
+        Checks if all files were successfully downloaded
+        (This function is meant to be used as class internal only)
+
+        :param output_items: list of dictionaries describing the downloaded files
+
+        :returns: output_items list
+
+        :raises NoFilesDownloaded:
+        :raises NotAllFilesDownloaded:
+        """
+        success_states = ['ALREADY_DONE', 'DONE', 'FOUND_IN_PCACHE']
+        # failure_states = ['FILE_NOT_FOUND', 'FAIL_VALIDATE', 'FAILED']
+        num_successful = 0
+        num_failed = 0
+        for item in output_items:
+            clientState = item.get('clientState', 'FAILED')
+            if clientState in success_states:
+                num_successful += 1
+            else:
+                num_failed += 1
+
+        if num_successful == 0:
+            raise NoFilesDownloaded()
+        elif num_failed > 0:
+            raise NotAllFilesDownloaded()
+
+        return output_items
 
     def _send_trace(self, trace):
         """
