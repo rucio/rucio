@@ -516,6 +516,7 @@ class DownloadClient:
         # try different PFNs until one succeeded
         temp_file_path = item['temp_file_path']
         success = False
+        state_reason = ''
         i = 0
         while not success and i < len(sources):
             source = sources[i]
@@ -526,8 +527,9 @@ class DownloadClient:
 
             try:
                 rse = rsemgr.get_rse_info(rse_name)
-            except RSENotFound:
-                logger.warning('%sCould not get info of RSE %s' % (log_prefix, rse_name))
+            except RucioException as error:
+                logger.warning('%sCould not get info of RSE %s: %s' % (log_prefix, rse_name, error))
+                trace['stateReason'] = str(error)
                 continue
 
             trace['remoteSite'] = rse_name
@@ -542,6 +544,7 @@ class DownloadClient:
             except Exception as error:
                 logger.warning('%sFailed to create protocol for PFN: %s' % (log_prefix, pfn))
                 logger.debug('scheme: %s, exception: %s' % (scheme, error))
+                trace['stateReason'] = str(error)
                 continue
 
             attempt = 0
@@ -563,6 +566,7 @@ class DownloadClient:
                 except Exception as error:
                     logger.debug(error)
                     trace['clientState'] = str(type(error).__name__)
+                    trace['stateReason'] = str(error)
 
                 end_time = time.time()
 
@@ -616,6 +620,7 @@ class DownloadClient:
         trace['transferStart'] = start_time
         trace['transferEnd'] = end_time
         trace['clientState'] = 'DONE'
+        trace['stateReason'] = 'OK'
         item['clientState'] = 'DONE'
         self._send_trace(trace)
 
