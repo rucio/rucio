@@ -67,10 +67,6 @@ class RucioException(Exception):
             self._error_string = (self._error_string + "\nDetails: %s" % '\n'.join(args))
         return self._error_string.strip()
 
-    def get_last_error(self):
-        if self.args:
-            return str(self.args[-1])
-        return self._message
 
 # Please insert new exceptions sorted by error_code, not alphabetically.
 
