@@ -964,16 +964,6 @@ class CannotInitOIDCClient(RucioException):
         self.error_code = 91
 
 
-class CannotCreateAuthZRequest(RucioException):
-    """
-    Failed to assemble user & Rucio OIDC Client related authorization URL.
-    """
-    def __init__(self, *args, **kwargs):
-        super(CannotCreateAuthZRequest, self).__init__(*args, **kwargs)
-        self._message = 'Failed to assemble authorization URL'
-        self.error_code = 92
-
-
 class CannotAuthorize(RucioException):
     """
     Failed to authorize an operation.

@@ -126,7 +126,7 @@ def OAuthManager(once=False, looprate=300, maxrows=100):
             logging.info('oauth_manager[%i/%i]: ----- END ----- DELETION OF EXPIRED OAUTH SESSION REQUESTS ----- ', worker_number, total_workers)
             record_counter(counters='oauth_manager.oauthreq.deleted', delta=ndeletedreq)
             tottime = time.time() - start
-            logging.info('oauth_manager[%i/%i]: took %f seconds to delete %i tokens, %i session parameters and refresh %i tokens' % (worker_number, total_workers, tottime, ndeleted, ndeletedreq, nrefreshed))
+            logging.info('oauth_manager[%i/%i]: took %f seconds to delete %i tokens, %i session parameters and refreshed %i tokens' % (worker_number, total_workers, tottime, ndeleted, ndeletedreq, nrefreshed))
             record_timer(stat='oauth_manager.duration', time=1000 * tottime)
 
         except (DatabaseException, DatabaseError) as err:

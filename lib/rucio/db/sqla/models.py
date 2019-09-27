@@ -1154,8 +1154,9 @@ class Token(BASE, ModelBase):
     refresh = Column(Boolean, default=False)
     refresh_start = Column(DateTime, default=None)
     refresh_expired_at = Column(DateTime, default=None)
-    scope = Column(String(150), default=None)  # scopes define the specific actions applications can be allowed to do on a user's behalf
+    scope = Column(String(2048), default=None)  # scopes define the specific actions applications can be allowed to do on a user's behalf
     identity = Column(String(2048))
+    audience = Column(String(315), default=None)
     expired_at = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
     ip = Column(String(39), nullable=True)
     _table_args = (PrimaryKeyConstraint('token', name='TOKENS_TOKEN_PK'),  # not supported for primary key constraint mysql_length=255
@@ -1168,10 +1169,12 @@ class OAuthRequest(BASE, ModelBase):
     """Represents the authentication session parameters of OAuth 2.0 requests"""
     __tablename__ = 'oauth_requests'
     account = Column(InternalAccountString(25))
-    state = Column(String(25))
-    nonce = Column(String(25))
+    state = Column(String(50))
+    nonce = Column(String(50))
+    redirect_code = Column(String(50))
+    redirect_msg = Column(String(2048))
     ip = Column(String(39), nullable=True)
-    expired_at = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
+    expired_at = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=600))  # 10 min lifetime by default
     _table_args = (PrimaryKeyConstraint('state', name='OAUTH_REQUESTS_STATE_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='OAUTH_REQUESTS_ACCOUNT_FK'),
                    CheckConstraint('EXPIRED_AT IS NOT NULL', name='OAUTH_REQUESTS_EXPIRED_AT_NN'),

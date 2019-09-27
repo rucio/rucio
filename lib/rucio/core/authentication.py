@@ -32,19 +32,20 @@ import random
 import sys
 import traceback
 import json
+import time
 
 import paramiko
 
 from sqlalchemy import or_, and_
-from sqlalchemy.sql.expression import bindparam, text
-
+from sqlalchemy.sql.expression import bindparam, text, true
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 
-from rucio.common.exception import RucioException, CannotAuthenticate, CannotAuthorize, CannotInitOIDCClient, CannotCreateAuthZRequest
-from rucio.common.utils import generate_uuid, oidc_identity_string
+from rucio.common.exception import RucioException, CannotAuthenticate, CannotAuthorize, CannotInitOIDCClient
+from rucio.common.utils import generate_uuid, oidc_identity_string, build_url
 from rucio.core.account import account_exists
+from rucio.core.monitor import record_counter, record_timer
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
@@ -56,6 +57,18 @@ from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 from oic.oic.message import RegistrationResponse, AuthorizationResponse, AccessTokenResponse
 from jwkest.jws import JWS
 from jwkest.jwt import JWT
+
+from requests import session as web_session
+from requests.status_codes import codes
+from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
+disable_warnings()
+
+try:
+    # Python 2
+    from urlparse import urlparse
+except ImportError:
+    # Python 3
+    from urllib.parse import urlparse
 
 
 def token_key_generator(namespace, fni, **kwargs):
@@ -177,8 +190,46 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
     return new_token
 
 
+@read_session
+def redirect_auth_OIDC(auth_code, fetchtoken=False, session=None):
+    """
+    Finds the Authentication URL in the Rucio DB and redirects user's browser to this URL.
+
+    :param auth_code: Rucio assigned code to redirect authorization securely to IdP via a browser
+    :param session: The database session in use.
+
+    :returns: result of the query (authorization URL first or a token if a user asks with the correct code) if everything goes well, exception otherwise.
+    """
+    try:
+        #redirect_code = urlparse.parse_qs(urlparse.urlparse(s).query)['redirect_code']
+        redirect_result = session.query(models.OAuthRequest.redirect_msg).filter_by(redirect_code=auth_code).first()
+        print("I AM IN REDIRECT ! ", redirect_result)
+
+        if isinstance(redirect_result, tuple):
+            if 'http' not in redirect_result[0] and fetchtoken:
+                # in this case the function check if the value is a valid token
+                v = validate_auth_token(redirect_result[0])
+                if not v:
+                    print("returning no token:", None)
+                    return None
+                else:
+                    print("returning token:", redirect_result[0])
+                    return redirect_result[0]
+            elif 'http' in redirect_result[0] and not fetchtoken:
+                #return redirection URL
+                print("returning url:", redirect_result[0])
+                return redirect_result[0]
+            else:
+                print("returning nothing:", None)
+                return None
+        print("returning NOTHING:", None)
+        return None
+    except:
+        raise CannotAuthenticate(traceback.format_exc())
+
+
 @transactional_session
-def get_auth_OIDC(account, auth_scope, auth_server_name, ip=None, session=None):
+def get_auth_OIDC(account, auth_scope, auth_server_name, audience, auto=False, polling=False, ip=None, session=None):
     """
     Assembles the authentication request of the Rucio Client for the Rucio user
     for the user's Identity Provider (XDC IAM)/issuer.
@@ -191,6 +242,13 @@ def get_auth_OIDC(account, auth_scope, auth_server_name, ip=None, session=None):
     :param auth_scope: space separated list of scope names. Scope parameter defines which user's
                        info the user allows to provide to the Rucio Client via his/her Identity Provider
     :param auth_server_name: Name of the Rucio authentication server being used.
+    :param audience: audience for which tokens are requested
+    :auto: If True, the function will return authentication URL to the Rucio Client
+           which will log-in user with his IdP credentials automatically
+           If False, the function will return a URL to be used by the user
+           in his/her browser in order to authenticate via IdP.
+    :param ip: IP address of the client as a string.
+    :param session: The database session in use.
 
     :returns: User & Rucio OIDC Client specific Authorization URL as a string.
     """
@@ -199,7 +257,7 @@ def get_auth_OIDC(account, auth_scope, auth_server_name, ip=None, session=None):
         return None
 
     try:
-
+        start = time.time()
         # get the redirect URIs (they have to be included in Rucio OIDC Client configuration)
         with open(IAM_OIDC_client_secret_file) as client_secret_file:
             client_secret = json.load(client_secret_file)
@@ -213,39 +271,56 @@ def get_auth_OIDC(account, auth_scope, auth_server_name, ip=None, session=None):
         if len(redirect_urls) == 1:
             redirect_url = redirect_urls[0]
         else:
-            raise CannotCreateAuthZRequest('%s redirect URL(s) found in the defined ' % (len(redirect_urls)) +
-                                           'Rucio OIDC Client which corresponds to the current auth server.')
-
+            raise CannotAuthenticate('%s redirect URL(s) found in the defined ' % (len(redirect_urls)) +
+                                     'Rucio OIDC Client which corresponds to the current auth server.')
         # user_session_state: random string in order to keep track of
         # responses to outstanding requests (state).
-        user_session_state = rndstr()
+        user_session_state = rndstr(50)
         # user_session_nonce: random string in order to associate
         # a client session with an ID Token and to mitigate replay attacks.
-        user_session_nonce = rndstr()
-        expired_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=3600)
-        oauth_session_params = models.OAuthRequest(account=account,
-                                                   state=user_session_state,
-                                                   nonce=user_session_nonce,
-                                                   expired_at=expired_at,
-                                                   ip=ip)
-        oauth_session_params.save(session=session)
-        session.expunge(oauth_session_params)
-
+        user_session_nonce = rndstr(50)
         # Assembling the Rucio user related authentication URL (AuthN) to be returned to the user
         auth_args = {"client_id": OIDC_client.client_id,
                      "grant_types": ["authorization_code"],
                      "response_type": "code",
                      "scope": auth_scope,
                      "nonce": user_session_nonce,
+                     "audience": audience,
                      "redirect_uri": redirect_url,
                      "state": user_session_state}
 
         auth_req = OIDC_client.construct_AuthorizationRequest(request_args=auth_args)
+        print("CONSTRUCTED REQUEST:", auth_req)
         auth_url = auth_req.request(OIDC_client.authorization_endpoint)
+        print("CONSTRUCTED URL:", auth_url)
+        redirect_code = None
+        if not auto:
+            redirect_code = rndstr(23)
+            if polling:
+                redirect_code+='_polling'
+        print("AUTO IS ", auto)
+        # 10 min lifetime for the session (maximum to ensure that if token is
+        # temporarily placed here it will be removed soon)
+        expired_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=600)
+        oauth_session_params = models.OAuthRequest(account=account,
+                                                   state=user_session_state,
+                                                   nonce=user_session_nonce,
+                                                   redirect_code=redirect_code,
+                                                   redirect_msg=auth_url,
+                                                   expired_at=expired_at,
+                                                   ip=ip)
+        oauth_session_params.save(session=session)
+        session.expunge(oauth_session_params)
+        if not auto:
+            auth_url = build_url('https://' + auth_server_name, path='auth/OIDC_redirect', params=redirect_code)
+
+        print("RESPONDING WITH", auth_url)
+        record_counter(counters='IdP_authentication.request')
+        record_timer(stat='IdP_authentication.request', time=time.time() - start)
         return auth_url
 
     except:
-        raise CannotCreateAuthZRequest(traceback.format_exc())
+        raise CannotAuthenticate(traceback.format_exc())
 
 
 @transactional_session
@@ -259,10 +334,16 @@ def get_token_OIDC(auth_query_string, auth_server_name, ip=None, session=None):
 
     :param auth_query_string: Identity Provider redirection URL query string
                               containing AuthZ code and user session state parameters.
+    :param auth_server_name: Name of the Rucio authentication server being used.
+    :param ip: IP address of the client as a string.
+    :param session: The database session in use.
 
-    :returns: Access token as a Python struct .token string .expired_at datetime .identity string
+    :returns: tuple ("fetchcode", <code>) or ("token", <token>) depending on
+    the way authentication was obtained (via browser or if Rucio was trusted with users IdP credentials)
     """
     try:
+        traceback.format_exc()
+        start = time.time()
         # parsing the authorization query string by the Rucio OIDC Client
         authz_code_response = OIDC_client.parse_response(AuthorizationResponse,
                                                          info=auth_query_string,
@@ -279,6 +360,9 @@ def get_token_OIDC(auth_query_string, auth_server_name, ip=None, session=None):
 
         account = result.account
         nonce = result.nonce
+        redirect_code = result.redirect_code
+
+        record_counter(counters='IdP_authentication.code_granted')
 
         # assembling requests for an access token
         with open(IAM_OIDC_client_secret_file) as client_secret_file:
@@ -294,8 +378,8 @@ def get_token_OIDC(auth_query_string, auth_server_name, ip=None, session=None):
         if len(redirect_urls) == 1:
             redirect_url = redirect_urls[0]
         else:
-            raise CannotCreateAuthZRequest('%s redirect URL(s) found in the defined ' % (len(redirect_urls)) +
-                                           'Rucio OIDC Client which corresponds to the current auth server.')
+            raise CannotAuthenticate('%s redirect URL(s) found in the defined ' % (len(redirect_urls)) +
+                                     'Rucio OIDC Client which corresponds to the current auth server.')
         # assembling parameters to request an access token
         args = {"code": code,
                 "redirect_uri": redirect_url}
@@ -318,9 +402,12 @@ def get_token_OIDC(auth_query_string, auth_server_name, ip=None, session=None):
         if not exist_identity_account(identity_string, IdentityType.OIDC, account):
             raise CannotAuthenticate("OIDC identity '%s' of the '%s' account is unknown to Rucio." % (identity_string, account))
 
+        record_counter(counters='IdP_authentication.success')
         # get access token expiry timestamp
         expired_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=oidc_tokens['expires_in'])
-
+        audience = None
+        if 'audience' in oidc_tokens:
+            audience = oidc_tokens['audience']
         # In case user requested to grant Rucio an refresh token, this token will get saved in the DB
         if 'refresh_token' in oidc_tokens:
 
@@ -338,16 +425,19 @@ def get_token_OIDC(auth_query_string, auth_server_name, ip=None, session=None):
                                      refresh_token=oidc_tokens['refresh_token'],
                                      scope=oidc_tokens['scope'],
                                      refresh=False,
+                                     audience=audience,
                                      expired_at=expired_at,
                                      refresh_expired_at=refresh_expired_at,
                                      identity=identity_string,
-                                     ip = ip)
+                                     ip=ip)
             new_token.save(session=session)
             session.expunge(new_token)
-
+            record_counter(counters='IdP_authorization.access_token.saved')
+            record_counter(counters='IdP_authorization.refresh_token.saved')
             # remove refresh token info (not for the user)
             new_token.refresh_token = None
             new_token.refresh_expired_at = None
+
         else:
             # return an access token
             new_token = models.Token(account=account,
@@ -355,14 +445,36 @@ def get_token_OIDC(auth_query_string, auth_server_name, ip=None, session=None):
                                      scope=oidc_tokens['scope'],
                                      refresh=False,
                                      expired_at=expired_at,
+                                     audience=audience,
                                      identity=identity_string,
-                                     ip = ip)
+                                     ip=ip)
             new_token.save(session=session)
             session.expunge(new_token)
-
-        return new_token
+            record_counter(counters='IdP_authorization.access_token.saved')
+        # in case authentication via browser was requested, we save the token under a fetchcode
+        # so that the Rucio Client can temporarily get it from the oauth_requests table
+        if redirect_code:
+            # temporarily save token also in the OAuth Request table
+            if '_polling' not in redirect_code:
+                fetchcode = rndstr(50)
+                session.query(models.OAuthRequest).filter(models.OAuthRequest.state == user_session_state)\
+                       .update({models.OAuthRequest.redirect_code: fetchcode,
+                                models.OAuthRequest.redirect_msg: new_token.token})
+            else:
+                session.query(models.OAuthRequest).filter(models.OAuthRequest.state == user_session_state)\
+                       .update({models.OAuthRequest.redirect_code: redirect_code,
+                                models.OAuthRequest.redirect_msg: new_token.token})
+            session.commit()
+            if '_polling' in redirect_code:
+                return ('polling', True)
+            else:
+                return ('fetchcode', fetchcode)
+        else:
+            return ('token', new_token)
+        record_timer(stat='IdP_authorization', time=time.time() - start)
 
     except:
+        record_counter(counters='IdP_authorization.access_token.exception')
         raise CannotAuthenticate(traceback.format_exc())
 
 
@@ -383,7 +495,9 @@ def refresh_token_OIDC(token_object, maxperiod=96, session=None):
     """
 
     try:
+        start = time.time()
         refresh_start = datetime.datetime.utcnow()
+        record_counter(counters='IdP_authorization.refresh_token.request')
         if hasattr(token_object, 'refresh_start'):
             if token_object.refresh_start:
                 refresh_start = token_object.refresh_start
@@ -399,7 +513,7 @@ def refresh_token_OIDC(token_object, maxperiod=96, session=None):
             raise CannotAuthorize("Rucio aborted refresh token attempts due to an attempt to use expired refresh token.")
 
         # assemble the request for the refresh token from the Identity Provider
-        refresh_session_state = rndstr()
+        refresh_session_state = rndstr(50)
         OIDC_client.grant[refresh_session_state] = Grant()
         OIDC_client.grant[refresh_session_state].grant_expiration_time = time_util.utc_time_sans_frac() + 60
         OIDC_client.grant[refresh_session_state].code = "access_code"
@@ -408,6 +522,10 @@ def refresh_token_OIDC(token_object, maxperiod=96, session=None):
         OIDC_client.grant[refresh_session_state].tokens.append(Token(resp))
         # if request below is successful, the used refresh token is assumed to become automatically invalid on the side of IAM (Identity Provider)
         oidc_tokens = OIDC_client.do_access_token_refresh(state=refresh_session_state)
+        record_counter(counters='IdP_authorization.refresh_token.refreshed')
+        audience = None
+        if 'audience' in oidc_tokens:
+            audience = oidc_tokens['audience']
         if 'refresh_token' in oidc_tokens and 'access_token' in oidc_tokens:
             # aborting refresh of the original token (keeping it in place until it expires) and setting the expiry time of the refresh token to now
             session.query(models.Token).filter(models.Token.token == token_object.token)\
@@ -428,6 +546,7 @@ def refresh_token_OIDC(token_object, maxperiod=96, session=None):
                                      token=oidc_tokens['access_token'],
                                      refresh_token=oidc_tokens['refresh_token'],
                                      scope=oidc_tokens['scope'],
+                                     audience=audience,
                                      refresh=True,
                                      expired_at=expired_at,
                                      refresh_expired_at=refresh_expired_at,
@@ -435,16 +554,19 @@ def refresh_token_OIDC(token_object, maxperiod=96, session=None):
                                      identity=token_object.identity)
             new_token.save(session=session)
             session.expunge(new_token)
+            record_counter(counters='IdP_authorization.access_token.saved')
+            record_counter(counters='IdP_authorization.refresh_token.saved')
             # remove refresh token info (not for the user)
             new_token.refresh_token = None
             new_token.refresh_expired_at = None
 
         else:
             raise CannotAuthorize("OIDC identity '%s' of the '%s' account is did not succeed requesting a new access and refresh tokens." % (token_object.identity, token_object.account))
-
+        record_timer(stat='IdP_authorization.refresh_token', time=time.time() - start)
         return None
 
     except:
+        record_counter(counters='IdP_authorization.refresh_token.exception')
         raise CannotAuthorize(traceback.format_exc())
 
 
@@ -640,11 +762,10 @@ def delete_expired_tokens(total_workers, worker_number, limit=100, session=None)
     try:
         # delete all expired tokens except tokens which have refresh token that is still valid
         query = session.query(models.Token.token).filter(and_(models.Token.expired_at < datetime.datetime.utcnow()))\
-                                                 .filter(or_(models.Token.refresh_expired_at == None,
+                                                 .filter(or_(models.Token.refresh_expired_at.is_(None),
                                                              models.Token.refresh_expired_at < datetime.datetime.utcnow()))\
                                                  .with_for_update(skip_locked=True)\
                                                  .order_by(models.Token.expired_at)
-
 
         if worker_number and total_workers and total_workers - 1 > 0:
             if session.bind.dialect.name == 'oracle':
@@ -707,19 +828,22 @@ def delete_expired_oauthreqests(total_workers, worker_number, limit=100, session
 @read_session
 def get_tokens_for_refresh(total_workers, worker_number, refreshrate=3600, limit=100, session=None):
     """
-    Get expired tokens.
+    Get tokens which expired or will expire before (now + refreshrate)
+    next run of this function and which have valid refresh token.
 
     :param total_workers:      Number of total workers.
     :param worker_number:      id of the executing worker.
-    :param limit:              Maximum number of tokens to delete.
+    :param limit:              Maximum number of tokens to refresh per call.
     :param session:            Database session in use.
 
     :return: filtered_tokens, list of tokens eligible for refresh
     """
     try:
         # get tokens for refresh that expire in the next <refreshrate> seconds
-        since = datetime.datetime.utcnow() - datetime.timedelta(seconds=refreshrate)
-        query = session.query(models.Token).filter(models.Token.refresh == True, models.Token.expired_at > since)\
+        expiration_future = datetime.datetime.utcnow() + datetime.timedelta(seconds=refreshrate)
+        query = session.query(models.Token).filter(and_(models.Token.refresh == true(),
+                                                        models.Token.refresh_expired_at > datetime.datetime.utcnow(),
+                                                        models.Token.expired_at < expiration_future))\
                                            .with_for_update(skip_locked=True)\
                                            .order_by(models.Token.expired_at)
         if worker_number and total_workers and total_workers - 1 > 0:
@@ -748,7 +872,8 @@ def validate_auth_token(token):
     :param token: Authentication token as a variable-length string.
     :param session: The database session in use.
 
-    :returns: Tuple(account identifier, identity, token lifetime) if successful, None otherwise.
+    :returns: dictionary { account: <account name>, identity: <identity>, lifetime: <token lifetime> }
+              if successful, None otherwise.
     """
     if not token:
         return None
@@ -785,7 +910,8 @@ def query_token(token, session=None):
     :param token: Authentication token as a variable-length string.
     :param session: The database session in use.
 
-    :returns: Tuple(account identifier, token lifetime) if successful, None otherwise.
+    :returns: dictionary { account: <account name>, identity: <identity>, lifetime: <token lifetime> }
+              if successful, None otherwise.
     """
     # Query the DB to validate token
     ret = session.query(models.Token.account,
@@ -810,9 +936,8 @@ def validate_jwt(json_web_token, session=None):
 
     :param json_web_token: the JWT string to verify
 
-    :returns: Tuple(account identifier, identity, token lifetime) if successful.
-              Throws an exception otherwise.
-
+    :returns: dictionary { account: <account name>, identity: <identity>, lifetime: <token lifetime> }
+              if successful, None otherwise.
     """
     try:
         issuer_keys = OIDC_client.keyjar.get_issuer_keys(OIDC_client.provider_info["issuer"])
@@ -825,6 +950,8 @@ def validate_jwt(json_web_token, session=None):
         value = {'account': account[0],
                  'identity': identity_string,
                  'lifetime': expiry_date}
+        record_counter(counters='JSONWebToken.valid')
         return value
     except:
+        record_counter(counters='JSONWebToken.invalid')
         return None

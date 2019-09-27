@@ -244,8 +244,13 @@ def get_client(args):
     """
     auth_type = args.auth_strategy.lower() if args.auth_strategy else args.auth_strategy
 
-    if auth_type == 'userpass' or auth_type == 'oidc':
-        creds = {'username': args.username, 'password': args.password, 'scope_oidc': args.scope_oidc}
+    if auth_type == 'userpass':
+        creds = {'username': args.username, 'password': args.password}
+    elif auth_type == 'oidc':
+        if args.auto:
+            creds = {'username': args.username, 'password': args.password, 'scope_oidc': args.scope_oidc, 'auto': args.auto, 'audience': args.audience}
+        else:
+            creds = {'auto': args.auto, 'scope_oidc': args.scope_oidc, 'audience': args.audience, 'polling': args.polling}
     else:
         creds = None
     try:
@@ -1632,13 +1637,18 @@ def get_parser():
     oparser.add_argument('--robot', '-R', dest="human", default=True, action='store_false', help="All output in bytes and without the units. This output format is preferred by parsers and scripts.")
     oparser.add_argument('--user-agent', '-U', dest="user_agent", default='rucio-clients', action='store', help="Rucio User Agent")
 
-    # Options for the userpass auth_strategy
+    # Options for the userpass or OIDC auth_strategy
     oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
     oparser.add_argument('-pwd', '--password', dest='password', default=None, help='password')
-    # Options for defining the OIDC scope
+    # Options for defining remaining OIDC parameters
     oparser.add_argument('-sc', '--scope-oidc', dest='scope_oidc', default=None, help='Defines which (OIDC) information user will share with Rucio. ' +
                          'Rucio requires at least -sc="openid". To request refresh token for Rucio, scope must include "openid offline_access" and ' +
                          'there must be no active access token saved on the side of the user.')
+    oparser.add_argument('-aud', '--audience', dest='audience', default='Rucio', help='Defines which audience are tokens requested for.')
+    oparser.add_argument('--auto', dest='auto', default=False, action='store_true', help='If not specified, username and password credentials are not required and user will be given a URL ' +
+                         'to use in his/her browser. If specified, the user is requested to trust Rucio with his IdP credentials.')
+    oparser.add_argument('--polling', dest='polling', default=False, action='store_true', help='If not specified, user will be asked to enter a code returned by the browser to the command line. '+
+                         'If --polling is set, Rucio Client should get the token without any further interaction of the user. This option is active only if --auto is *not* specified.')
 
     # Options for the x509  auth_strategy
     oparser.add_argument('--certificate', dest='certificate', default=None, help='Client certificate file.')

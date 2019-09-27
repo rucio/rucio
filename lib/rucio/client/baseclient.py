@@ -37,6 +37,7 @@ import imp
 import random
 import sys
 import traceback
+import time
 
 from logging import getLogger, StreamHandler, ERROR
 from os import environ, fdopen, path, makedirs, geteuid
@@ -50,6 +51,7 @@ from rucio.common.exception import (CannotAuthenticate, ClientProtocolNotSupport
                                     MissingModuleException, ServerConnectionException)
 from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, ssh_sign
 from rucio import version
+from rucio.core.monitor import record_counter, record_timer
 
 try:
     # Python 2
@@ -172,9 +174,13 @@ class BaseClient(object):
                     self.creds['username'] = config_get('client', 'username')
                     self.creds['password'] = config_get('client', 'password')
                 elif self.auth_type == 'oidc':
-                    self.creds['username'] = config_get('client', 'username')
-                    self.creds['password'] = config_get('client', 'password')
+                    self.creds['auto'] = config_get('client', 'auto')
                     self.creds['scope_oidc'] = config_get('client', 'scope_oidc')
+                    self.creds['audience'] = config_get('client', 'audience')
+                    self.creds['polling'] = config_get('client', 'polling')
+                    if self.creds['auto']:
+                        self.creds['username'] = config_get('client', 'username')
+                        self.creds['password'] = config_get('client', 'password')
                 elif self.auth_type == 'x509':
                     self.creds['client_cert'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_cert'))))
                     self.creds['client_key'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_key'))))
@@ -239,6 +245,7 @@ class BaseClient(object):
             LOG.debug('request_retries not specified in config file. Taking default.')
         except ValueError:
             LOG.debug('request_retries must be an integer. Taking default.')
+        print("A token has been received and saved locally on your disk.")
 
     def _get_exception(self, headers, status_code=None, data=None):
         """
@@ -380,47 +387,94 @@ class BaseClient(object):
         :returns: True if the token was successfully received. False otherwise.
         """
         scope = self.creds['scope_oidc']
-
-        headers = {'X-Rucio-Account': self.account, 'X-Rucio-Client-Authorise-Scope': scope}
-        userpass = {'username': self.creds['username'], 'password': self.creds['password']}
-
+        headers = {'X-Rucio-Account': self.account,
+                   'X-Rucio-Client-Authorize-Scope': scope,
+                   'X-Rucio-Client-Authorize-Audience': self.creds['audience'],
+                   'X-Rucio-Client-Authorize-Auto': str(self.creds['auto'])}
+        print(headers)
+        if self.creds['auto']:
+            userpass = {'username': self.creds['username'], 'password': self.creds['password']}
+            print(userpass)
         for retry in range(self.AUTH_RETRIES + 1):
             try:
+                record_counter(counters='IdP_login.count', delta=1)
+                start = time.time()
+
                 result = None
                 request_auth_url = build_url(self.auth_host, path='auth/OIDC')
                 # requesting authorization URL specific to the user & Rucio OIDC Client
+                print(request_auth_url)
                 OIDC_auth_res = self.session.get(request_auth_url, headers=headers, verify=False)
                 # with the obtained authorization URL we will contact the Identity Provider to get to the login page
                 auth_url = OIDC_auth_res.headers['X-Rucio-OIDC-Auth-URL']
-                auth_res = self.session.get(auth_url, verify=False)
-                # getting the login URL and logging in the user
-                login_url = auth_res.url
-                result = self.session.post(login_url, data=userpass, verify=False, allow_redirects=True)
-                # if the Rucio OIDC Client configuration does not match the one registered at the Identity Provider
-                # the user will get an OAuth error
-                if 'OAuth Error' in result.text:
-                    LOG.error('Identity Provider does not allow to proceed. Could be due to misconfigured redirection server name of the Rucio OIDC Client.')
-                    return False
-                # In case Rucio Client is not authorized to request information about this user yet,
-                # it will automatically authorize itself on behalf of the user.
-                if result.url == auth_url:
-                    form_data = {}
-                    for scope_item in scope.split():
-                        form_data["scope_" + scope_item] = scope_item
-                    default_data = {"remember": "until-revoked",
-                                    "user_oauth_approval": True,
-                                    "authorize": "Authorize"}
-                    form_data.update(default_data)
-                    LOG.warning('Automatically authorising request of the following info on behalf of user: %s', str(form_data))
-                    # authorizing info request on behalf of the user until he/she revokes this authorization !
-                    result = self.session.post(result.url, data=form_data, verify=False, allow_redirects=True)
-                break
+                print(auth_url)
+                if not self.creds['auto']:
+                    print("\nYou chose to authenticate using your internet browser.\n" +\
+                          "You can also use --auto option and trust Rucio Client \n" +\
+                          "with your IdP credentials to proceed for \n" +\
+                          "automatic IdP log-in from CLI.\n")
+                    print("--------------------------------------------------")
+                    print("Please use your preferred internet browser, go to:")
+                    print("\n    " + auth_url + "    \n")
+                    print("and authenticate with your Identity Provider.")
+
+                    headers['X-Rucio-Client-Fetch-Token']='True'
+                    if self.creds['polling']:
+                        timeout = 180
+                        start = time.time()
+                        print("3 minutes from now, the authentication attempt will time out.")
+                        while time.time() - start < timeout:
+                            result = self.session.get(auth_url, headers=headers, verify=False)
+                            if 'X-Rucio-Auth-Token' in result.headers and result.status_code == codes.ok:
+                                break
+                            time.sleep(2)
+                    else:
+                        print("Copy paste the code from the browser to the terminal and press enter:")
+                        count = 0
+                        while count < 3:
+                            fetchcode=raw_input()
+                            fetch_url = build_url(self.auth_host, path='auth/OIDC_redirect', params=fetchcode)
+                            result = self.session.get(fetch_url, headers=headers, verify=False)
+                            if 'X-Rucio-Auth-Token' in result.headers and result.status_code == codes.ok:
+                                break
+                            else:
+                                print("The Rucio Auth Server did not respond as expected. Please, " +\
+                                      "try again and make sure you typed the correct code.")
+                                count+=1
+                    print(result, result.text, result.headers, result.url)
+                else:
+                    auth_res = self.session.get(auth_url, verify=False)
+                    # getting the login URL and logging in the user
+                    login_url = auth_res.url
+                    start = time.time()
+                    result = self.session.post(login_url, data=userpass, verify=False, allow_redirects=True)
+                    print(result, result.text, result.url, result.headers)
+                    # if the Rucio OIDC Client configuration does not match the one registered at the Identity Provider
+                    # the user will get an OAuth error
+                    if 'OAuth Error' in result.text:
+                        LOG.error('Identity Provider does not allow to proceed. Could be due to misconfigured redirection server name of the Rucio OIDC Client.')
+                        return False
+                    # In case Rucio Client is not authorized to request information about this user yet,
+                    # it will automatically authorize itself on behalf of the user.
+                    record_timer(stat='IdP_login', time=time.time() - start)
+                    if result.url == auth_url:
+                        form_data = {}
+                        for scope_item in scope.split():
+                            form_data["scope_" + scope_item] = scope_item
+                        default_data = {"remember": "until-revoked",
+                                        "user_oauth_approval": True,
+                                        "authorize": "Authorize"}
+                        form_data.update(default_data)
+                        LOG.warning('Automatically authorising request of the following info on behalf of user: %s', str(form_data))
+                        # authorizing info request on behalf of the user until he/she revokes this authorization !
+                        result = self.session.post(result.url, data=form_data, verify=False, allow_redirects=True)
             except RequestException:
                 LOG.warning('RequestException: %s', str(traceback.format_exc()))
+                print(traceback.format_exc())
                 self.ca_cert = False
                 if retry > self.request_retries:
                     raise
-
+            break
         if not result or 'result' not in locals():
             LOG.error('cannot get auth_token')
             return False
@@ -627,8 +681,7 @@ class BaseClient(object):
                                                                                                                  self.creds['username']))
             elif self.auth_type == 'oidc':
                 if not self.__get_token_OIDC():
-                    raise CannotAuthenticate('OIDC authentication failed for account=%s with username=%s' % (self.account,
-                                                                                                             self.creds['username']))
+                    raise CannotAuthenticate('OIDC authentication failed for account=%s' % self.account)
             elif self.auth_type == 'x509' or self.auth_type == 'x509_proxy':
                 if not self.__get_token_x509():
                     raise CannotAuthenticate('x509 authentication failed for account=%s with identity=%s' % (self.account,
@@ -697,6 +750,7 @@ class BaseClient(object):
         except Exception:
             raise
 
+
     def __authenticate(self):
         """
         Main method for authentication. It first tries to read a locally saved token. If not available it requests a new one.
@@ -706,8 +760,10 @@ class BaseClient(object):
             if self.creds['username'] is None or self.creds['password'] is None:
                 raise NoAuthInformation('No username or password passed')
         elif self.auth_type == 'oidc':
-            if self.creds['username'] is None or self.creds['password'] is None or self.creds['scope_oidc'] is None:
-                raise NoAuthInformation('No OIDC credentials provided. OIDC username, password and scope_oidc are required.')
+            if self.creds['auto'] and (self.creds['username'] is None or self.creds['password'] is None or self.creds['scope_oidc'] is None):
+                raise NoAuthInformation('For automatic OIDC log-in with your Identity Provider, username, password and scope are required.')
+            if not self.creds['auto'] and self.creds['scope_oidc'] is None:
+                raise NoAuthInformation('To get the authentication URL to be used in your browser, please provide a OIDC scope parameter (minimum scope=\'openid\').')
         elif self.auth_type == 'x509':
             if self.creds['client_cert'] is None:
                 raise NoAuthInformation('The path to the client certificate is required')
@@ -724,3 +780,4 @@ class BaseClient(object):
 
         if not self.__read_token():
             self.__get_token()
+

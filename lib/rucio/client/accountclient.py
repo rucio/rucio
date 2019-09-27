@@ -180,7 +180,7 @@ class AccountClient(BaseClient):
         url = build_url(choice(self.list_hosts), path=path)
 
         res = self._send_request(url, type='POST', data=data)
-
+        print(res.text, res.headers, res.url)
         if res.status_code == codes.created:
             return True
         else:

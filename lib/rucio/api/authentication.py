@@ -52,7 +52,19 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None):
     return authentication.get_auth_token_user_pass(account, username, password, appid, ip)
 
 
-def get_auth_OIDC(account, auth_scope, auth_server_name, ip=None):
+def redirect_auth_OIDC(authn_code, fetchtoken=False):
+    """
+    Finds the Authentication URL in the Rucio DB and redirects user's browser to this URL.
+
+    :param authn_code: Rucio assigned code to redirect authorization securely to IdP via a browser
+    :param fetchtoken: Tells Rucio server what to expect as a resul of the query
+
+    :returns: None if everything goes well, exception otherwise.
+    """
+    return authentication.redirect_auth_OIDC(authn_code, fetchtoken)
+
+
+def get_auth_OIDC(account, auth_scope, auth_server_name, audience, auto=False, polling=False, ip=None):
     """
     Assembles the authentication request of the Rucio Client for the Rucio user
     for the user's Identity Provider (XDC IAM)/issuer.
@@ -65,6 +77,12 @@ def get_auth_OIDC(account, auth_scope, auth_server_name, ip=None):
     :param auth_scope: space separated list of scope names. Scope parameter defines which user's
                        info the user allows to provide to the Rucio Client via his/her Identity Provider
     :param auth_server_name: Name of the Rucio authentication server being used.
+    :param audience: audience for which tokens are requested
+    :auto: If True, the function will return authentication URL to the Rucio Client
+           which will log-in user with his IdP credentials automatically
+           If False, the function will return a URL to be used by the user
+           in his/her browser in order to authenticate via IdP.
+
     :param ip: IP address of the client as a string.
 
     :returns: User & Rucio OIDC Client specific Authorization URL as a string.
@@ -72,8 +90,7 @@ def get_auth_OIDC(account, auth_scope, auth_server_name, ip=None):
     # no permission layer for the moment !
 
     account = InternalAccount(account)
-
-    return authentication.get_auth_OIDC(account, auth_scope, auth_server_name, ip)
+    return authentication.get_auth_OIDC(account, auth_scope, auth_server_name, audience, auto, polling, ip)
 
 
 def get_token_OIDC(auth_query_string, auth_server_name, ip=None):
@@ -89,7 +106,8 @@ def get_token_OIDC(auth_query_string, auth_server_name, ip=None):
     :param auth_server_name: Name of the Rucio authentication server being used.
     :param ip: IP address of the client as a string.
 
-    :returns: Access token as a Python struct .token string .expired_at datetime .identity string
+    :returns: tuple ("fetchcode", <code>) or ("token", <token>) depending on
+    the way authentication was obtained (via browser or if Rucio was trusted with users IdP credentials)
     """
     # no permission layer for the moment !
     return authentication.get_token_OIDC(auth_query_string, auth_server_name, ip)
