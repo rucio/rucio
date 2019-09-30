@@ -471,8 +471,8 @@ class DownloadClient:
         if not sources or not len(sources):
             logger.warning('%sNo available source found for file: %s' % (log_prefix, did_str))
             item['clientState'] = 'FILE_NOT_FOUND'
-
             trace['clientState'] = 'FILE_NOT_FOUND'
+            trace['stateReason'] = 'No available sources'
             self._send_trace(trace)
             return item
 
@@ -516,7 +516,6 @@ class DownloadClient:
         # try different PFNs until one succeeded
         temp_file_path = item['temp_file_path']
         success = False
-        state_reason = ''
         i = 0
         while not success and i < len(sources):
             source = sources[i]
@@ -588,6 +587,7 @@ class DownloadClient:
                         logger.warning('%sChecksum validation failed for file: %s' % (log_prefix, did_str))
                         logger.debug('Local checksum: %s, Rucio checksum: %s' % (local_checksum, rucio_checksum))
                         trace['clientState'] = 'FAIL_VALIDATE'
+                        trace['stateReason'] = 'Checksum validation failed: Local checksum: %s, Rucio checksum: %s' % (local_checksum, rucio_checksum)
                 if not success:
                     logger.warning('%sDownload attempt failed. Try %s/%s' % (log_prefix, attempt, retries))
                     self._send_trace(trace)
