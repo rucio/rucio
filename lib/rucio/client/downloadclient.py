@@ -27,7 +27,6 @@ from __future__ import division
 import copy
 import logging
 import os
-import os.path
 import random
 import shutil
 import signal
@@ -40,7 +39,7 @@ except ImportError:
 from threading import Thread
 
 from rucio.client.client import Client
-from rucio.common.exception import (InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RSENotFound, RucioException)
+from rucio.common.exception import (InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RucioException)
 from rucio.common.pcache import Pcache
 from rucio.common.utils import adler32, md5, detect_client_location, generate_uuid, parse_replicas_from_string, send_trace, sizefmt, execute, parse_replicas_from_file
 from rucio.rse import rsemanager as rsemgr
