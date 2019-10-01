@@ -838,6 +838,8 @@ def parse_did_filter_from_string(input_string):
                     key = 'length.lt'
             elif '=' in option:
                 key, value = option.split('=')
+                if key == 'created_after' or key == 'created_before':
+                    value = datetime.datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%fZ')
 
             if key == 'type':
                 if value.upper() in ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']:
@@ -851,12 +853,15 @@ def parse_did_filter_from_string(input_string):
                 except ValueError:
                     raise ValueError('Length has to be an integer value.')
                 filters[key] = value
-            else:
+            elif isinstance(value, string_types):
                 if value.lower() == 'true':
                     value = '1'
                 elif value.lower() == 'false':
                     value = '0'
                 filters[key] = value
+            else:
+                filters[key] = value
+
     return filters, type
 
 
