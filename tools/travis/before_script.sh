@@ -23,8 +23,13 @@ if [[ $RDBMS == "oracle" ]]; then
     docker run -d -p 8080:8080 -p 1521:1521 --name=oracle -e processes=1000 -e sessions=1105 -e transactions=1215 -e ORACLE_ALLOW_REMOTE=true -e ORACLE_DISABLE_ASYNCH_IO=true rucio/oraclexe
     docker run --name=activemq -d webcenter/activemq:latest
     docker run -d --link oracle:oracle --link activemq:activemq --name=rucio rucio/rucio
-    sleep 100
+    docker cp tools/travis/oracle_wait.sh oracle:/
     docker cp tools/travis/oracle_setup.sh oracle:/
+    date
+    while ! docker exec -it oracle /bin/bash -c "/oracle_wait.sh" 2>&1; do
+        sleep 1
+    done
+    date
     docker exec -it oracle /bin/bash -c "/oracle_setup.sh"
     docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_oracle.cfg /opt/rucio/etc/rucio.cfg
     docker exec -it rucio cp /opt/rucio/etc/docker/travis/alembic_oracle.ini /opt/rucio/etc/alembic.ini
