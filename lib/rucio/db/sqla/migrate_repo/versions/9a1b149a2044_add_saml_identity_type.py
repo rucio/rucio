@@ -18,7 +18,7 @@
 ''' add saml identity type '''
 
 from alembic import context
-from alembic.op import create_check_constraint, create_foreign_key, drop_constraint
+from alembic.op import create_check_constraint, drop_constraint, execute  # create_foreign_key,
 
 
 # Alembic revision identifiers
@@ -31,12 +31,30 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'postgresql', 'mysql']:
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+    if context.get_context().dialect.name in ['oracle', 'postgresql']:
         drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
         drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check')
+        create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
+                                table_name='account_map',
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
+        create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
+                                table_name='identities',
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
+        create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
+                                table_name='account_map',
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
+
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
+        execute('ALTER TABLE ' + schema + 'identities DROP CHECK IDENTITIES_TYPE_CHK')  # pylint: disable=no-member
+        create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
+                                table_name='identities',
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
+        execute('ALTER TABLE ' + schema + 'account_map DROP CHECK ACCOUNT_MAP_ID_TYPE_CHK')  # pylint: disable=no-member
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
@@ -47,21 +65,40 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
-
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+    if context.get_context().dialect.name in ['oracle']:
         drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
 
         drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check')
+        create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
+                                table_name='account_map',
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
+
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
+        create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
+                                table_name='identities',
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
+
+        create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
+                                table_name='account_map',
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
+
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
+        execute('ALTER TABLE ' + schema + 'identities DROP CHECK IDENTITIES_TYPE_CHK')  # pylint: disable=no-member
+        create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
+                                table_name='identities',
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
+
+        execute('ALTER TABLE ' + schema + 'account_map DROP CHECK ACCOUNT_MAP_ID_TYPE_CHK')  # pylint: disable=no-member
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
 
     elif context.get_context().dialect.name == 'postgresql':
 
-        drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
         drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
@@ -71,4 +108,5 @@ def downgrade():
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
-        create_foreign_key('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', 'identities', ['identity', 'identity_type'], ['identity', 'identity_type'])
+        # drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
+        # create_foreign_key('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', 'identities', ['identity', 'identity_type'], ['identity', 'identity_type'])

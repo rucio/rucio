@@ -193,7 +193,7 @@ def get_parser():
 
             # Check all Tier 2 DATADISKs, except "BLUE_DATADISK" and "RED_DATADISK"
             %(prog)s --rses "tier=1&type=DATADISK\(BLUE_DATADISK|RED_DATADISK)"
-    ''')
+    ''')  # NOQA: W605
     return parser
 
 

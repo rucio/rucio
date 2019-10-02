@@ -2511,13 +2511,13 @@ def get_cleaned_updated_collection_replicas(total_workers, worker_number, sessio
     replica_update_requests.filter(models.UpdatedCollectionReplica.id.in_(duplicate_request_ids)).delete(synchronize_session=False)
 
     # Delete update requests which do not have collection_replicas
-    session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.rse_id.is_(None) &
-                                                          ~exists().where(and_(models.CollectionReplica.name == models.UpdatedCollectionReplica.name,
-                                                                               models.CollectionReplica.scope == models.UpdatedCollectionReplica.scope))).delete(synchronize_session=False)
-    session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.rse_id.isnot(None) &
-                                                          ~exists().where(and_(models.CollectionReplica.name == models.UpdatedCollectionReplica.name,
-                                                                               models.CollectionReplica.scope == models.UpdatedCollectionReplica.scope,
-                                                                               models.CollectionReplica.rse_id == models.UpdatedCollectionReplica.rse_id))).delete(synchronize_session=False)
+    session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.rse_id.is_(None)
+                                                          & ~exists().where(and_(models.CollectionReplica.name == models.UpdatedCollectionReplica.name,  # NOQA: W503
+                                                                                 models.CollectionReplica.scope == models.UpdatedCollectionReplica.scope))).delete(synchronize_session=False)
+    session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.rse_id.isnot(None)
+                                                          & ~exists().where(and_(models.CollectionReplica.name == models.UpdatedCollectionReplica.name,  # NOQA: W503
+                                                                                 models.CollectionReplica.scope == models.UpdatedCollectionReplica.scope,
+                                                                                 models.CollectionReplica.rse_id == models.UpdatedCollectionReplica.rse_id))).delete(synchronize_session=False)
 
     query = session.query(models.UpdatedCollectionReplica)
     return [update_request.to_dict() for update_request in query.all()]

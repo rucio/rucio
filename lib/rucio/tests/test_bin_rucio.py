@@ -318,7 +318,7 @@ class TestBinRucio():
         print(out)
         print(err)
         # get the rule for the file
-        cmd = "rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1_name)
+        cmd = "rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1_name)  # NOQA: W605
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -720,7 +720,7 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print(out, err)
 
-        report = 'Local\ checksum\:\ {0},\ Rucio\ checksum\:\ 0123456789abcdef0123456789abcdef'.format(file_md5)
+        report = 'Local\ checksum\:\ {0},\ Rucio\ checksum\:\ 0123456789abcdef0123456789abcdef'.format(file_md5)  # NOQA: W605
         print('searching', report, 'in', err)
         nose.tools.assert_not_equal(re.search(report, err), None)
 
@@ -854,7 +854,7 @@ class TestBinRucio():
         print(err)
         print(out)
         # get the rules for the file
-        cmd = "rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])
+        cmd = "rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])  # NOQA: W605
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -896,7 +896,7 @@ class TestBinRucio():
         exitcode, out, err = execute(cmd)
         print(out, err)
         # get the rule for the file
-        cmd = "rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])
+        cmd = "rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])  # NOQA: W605
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
