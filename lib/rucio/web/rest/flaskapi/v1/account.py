@@ -17,7 +17,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
-# - Martin Barisits <martin.barisits@cern.ch>, 2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2019
 # - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
 # - Joaquin Bogado <joaquin.bogado@cern.ch>, 2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
@@ -444,7 +444,7 @@ class Identities(MethodView):
             if error.args[0] == 'authtype' or error.args[0] == 'identity' or error.args[0] == 'email':
                 return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(error))
         except TypeError:
-                return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
+            return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
 
         try:
             add_account_identity(identity_key=identity, id_type=authtype, account=account, email=email, password=password, issuer=request.environ.get('issuer'))

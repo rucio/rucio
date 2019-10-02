@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2018
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017-2018
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2019
 # - Eric Vaandering, <ewv@fnal.gov>, 2018
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
@@ -359,10 +359,10 @@ def perm_add_did(issuer, kwargs):
             if rule['account'] != issuer:
                 return False
 
-    return (_is_root(issuer) or
-            has_account_attribute(account=issuer, key='admin') or
-            rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer) or
-            kwargs['scope'] == u'mock')
+    return (_is_root(issuer)
+            or has_account_attribute(account=issuer, key='admin')  # NOQA: W503
+            or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)  # NOQA: W503
+            or kwargs['scope'] == u'mock')  # NOQA: W503
 
 
 def perm_add_dids(issuer, kwargs):
@@ -391,10 +391,10 @@ def perm_attach_dids(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return (_is_root(issuer) or
-            has_account_attribute(account=issuer, key='admin') or
-            rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer) or
-            kwargs['scope'] == 'mock')
+    return (_is_root(issuer)
+            or has_account_attribute(account=issuer, key='admin')  # NOQA: W503
+            or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)  # NOQA: W503
+            or kwargs['scope'] == 'mock')  # NOQA: W503
 
 
 def perm_attach_dids_to_dids(issuer, kwargs):
@@ -425,10 +425,10 @@ def perm_create_did_sample(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return issuer == ('root' or
-                      has_account_attribute(account=issuer, key='admin') or
-                      rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer) or
-                      kwargs['scope'] == 'mock')
+    return issuer == ('root'
+                      or has_account_attribute(account=issuer, key='admin')  # NOQA: W503
+                      or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)  # NOQA: W503
+                      or kwargs['scope'] == 'mock')  # NOQA: W503
 
 
 def perm_del_rule(issuer, kwargs):
@@ -532,8 +532,8 @@ def perm_set_metadata(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return (_is_root(issuer) or has_account_attribute(account=issuer, key='admin') or
-            rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer))
+    return (_is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+            or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer))  # NOQA: W503
 
 
 def perm_set_status(issuer, kwargs):
@@ -548,8 +548,8 @@ def perm_set_status(issuer, kwargs):
         if issuer != 'root' and not has_account_attribute(account=issuer, key='admin'):
             return False
 
-    return (_is_root(issuer) or has_account_attribute(account=issuer, key='admin') or
-            rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer))
+    return (_is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+            or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer))  # NOQA: W503
 
 
 def perm_add_protocol(issuer, kwargs):

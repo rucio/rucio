@@ -9,7 +9,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015, 2017
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2018
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2019
 # - Eric Vaandering, <ewv@fnal.gov>, 2018
 # - Diego Ciangottini <diego.ciangottini@pg.infn.it>, 2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
@@ -684,8 +684,8 @@ class FTS3Transfertool(Transfertool):
         if fts_files_response[last_src_file]['start_time'] is None or fts_files_response[last_src_file]['finish_time'] is None:
             duration = 0
         else:
-            duration = (datetime.datetime.strptime(fts_files_response[last_src_file]['finish_time'], '%Y-%m-%dT%H:%M:%S') -
-                        datetime.datetime.strptime(fts_files_response[last_src_file]['start_time'], '%Y-%m-%dT%H:%M:%S')).seconds
+            duration = (datetime.datetime.strptime(fts_files_response[last_src_file]['finish_time'], '%Y-%m-%dT%H:%M:%S')
+                        - datetime.datetime.strptime(fts_files_response[last_src_file]['start_time'], '%Y-%m-%dT%H:%M:%S')).seconds  # NOQA: W503
 
         response = {'new_state': None,
                     'transfer_id': fts_job_response.get('job_id'),
@@ -746,8 +746,8 @@ class FTS3Transfertool(Transfertool):
                 if file_resp['start_time'] is None or file_resp['finish_time'] is None:
                     duration = 0
                 else:
-                    duration = (datetime.datetime.strptime(file_resp['finish_time'], '%Y-%m-%dT%H:%M:%S') -
-                                datetime.datetime.strptime(file_resp['start_time'], '%Y-%m-%dT%H:%M:%S')).seconds
+                    duration = (datetime.datetime.strptime(file_resp['finish_time'], '%Y-%m-%dT%H:%M:%S')
+                                - datetime.datetime.strptime(file_resp['start_time'], '%Y-%m-%dT%H:%M:%S')).seconds  # NOQA: W503
 
                 request_id = file_resp['file_metadata']['request_id']
                 resps[request_id] = {'new_state': None,

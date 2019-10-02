@@ -3,7 +3,7 @@ Individual contributors to the source code
 - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2019
 - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
-- Martin Barisits <martin.barisits@cern.ch>, 2012-2018
+- Martin Barisits <martin.barisits@cern.ch>, 2012-2019
 - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
 - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2016
 - Graeme Stewart <graeme.andrew.stewart@cern.ch>, 2012
