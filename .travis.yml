@@ -102,12 +102,8 @@ matrix:
   allow_failures:
   - python: 3.6
     env: SUITE=syntax
-  - python: 3.6
-    env: SUITE=client RDBMS=sqlite RUCIO_HOME=`pwd`
   - python: 3.5
     env:  SUITE=all RDBMS=mysql
-  - python: 3.5
-    env: SUITE=client RDBMS=sqlite RUCIO_HOME=`pwd`
   - python: 3.6
     env:  SUITE=all RDBMS=mysql
 
