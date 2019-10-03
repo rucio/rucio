@@ -81,12 +81,11 @@ RUN cp etc/docker/travis/httpd.conf /etc/httpd/conf/httpd.conf
 RUN cp etc/docker/travis/rucio.conf /etc/httpd/conf.d/rucio.conf
 RUN cp etc/docker/travis/00-mpm.conf /etc/httpd/conf.modules.d/00-mpm.conf
 
-RUN cp etc/docker/travis/certs/ca.pem /opt/rucio/etc/web/CERN-bundle.pem
-RUN cp etc/docker/travis/certs/ca.pem /opt/rucio/etc/web/ca.crt
-RUN cp etc/docker/travis/certs/usercert.pem /opt/rucio/etc/web/usercert.pem
+RUN cp etc/certs/rucio_ca.pem /opt/rucio/etc/rucio_ca.pem
+RUN cp etc/certs/ruciouser.pem /opt/rucio/etc/ruciouser.pem
 
-RUN cp etc/docker/travis/certs/server.crt /etc/grid-security/hostcert.pem
-RUN cp etc/docker/travis/certs/server.key /etc/grid-security/hostkey.pem
+RUN cp etc/certs/hostcert_rucio.pem /etc/grid-security/hostcert.pem
+RUN cp etc/certs/hostcert_rucio.key.pem /etc/grid-security/hostkey.pem
 RUN chmod 400 /etc/grid-security/hostkey.pem
 
 RUN rm /etc/httpd/conf.d/ssl.conf /etc/httpd/conf.d/autoindex.conf /etc/httpd/conf.d/userdir.conf /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/zgridsite.conf
