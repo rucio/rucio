@@ -84,8 +84,7 @@ Rucio Tutorial
 .. toctree::
     :maxdepth: 1
 
-    installing_demo
-    rucio_demo
+    demo_environment
     cli_examples
     cli_admin_examples
 
