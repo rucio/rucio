@@ -1,4 +1,4 @@
-# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2014-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2016-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2016-2019
 # - Tobias Wegner <twegner@cern.ch>, 2017
 # - Nicolo Magini <Nicolo.Magini@cern.ch>, 2018-2019
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
@@ -182,10 +182,9 @@ class Default(protocol.RSEProtocol):
         """
 
         self.__ctx = gfal2.creat_context()  # pylint: disable=no-member
-        # self.__ctx.set_opt_string("X509", "CERT", proxy)
-        # self.__ctx.set_opt_string("X509", "KEY", proxy)
         self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
         self.__ctx.set_opt_string("XROOTD PLUGIN", "XRD.WANTPROT", "gsi,unix")
+        self.__ctx.set_opt_boolean("XROOTD PLUGIN", "NORMALIZE_PATH", False)
 
     def get(self, path, dest, transfer_timeout=None):
         """
