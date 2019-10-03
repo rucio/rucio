@@ -35,6 +35,7 @@ along with some of the default methods for LFN2PFN translations.
 """
 
 import hashlib
+import re
 
 try:
     # PY2
@@ -151,7 +152,8 @@ class RSEDeterministicTranslation(object):
         del protocol_attrs
         if scope.startswith('user') or scope.startswith('group'):
             scope = scope.replace('.', '/')
-        return '%s/%s' % (scope, name)
+        pfn = '%s/%s' % (scope, name)
+        return re.sub('/+', '/', pfn)  # Remove unnecessary double slashes
 
     @staticmethod
     def __ligo(scope, name, rse, rse_attrs, protocol_attrs):
