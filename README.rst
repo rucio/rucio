@@ -11,12 +11,12 @@ General information and latest documentation about Rucio can be found at `readth
 Try it out
 ----------
 
-We provide a `dockerized environment <https://github.com/rucio/rucio/tree/master/etc/docker/dev>_` which serves both as a demo environment and a development environment. It includes all the necessary preconfigured components for multiple storage and transfers developments.
+We provide a `dockerized environment <https://github.com/rucio/rucio/tree/master/etc/docker/dev>`_ which serves both as a demo environment and a development environment. It includes all the necessary preconfigured components for multiple storage and transfers developments.
 
 Developers
 ----------
 
-For information on how to contribute to Rucio, please refer and follow our `CONTRIBUTING <CONTRIBUTING.rst>`_ guidelines. We strongly recommend to use the `dockerized environment <https://github.com/rucio/rucio/tree/master/etc/docker/dev>_` for development.
+For information on how to contribute to Rucio, please refer and follow our `CONTRIBUTING <CONTRIBUTING.rst>`_ guidelines. We strongly recommend to use the `dockerized environment <https://github.com/rucio/rucio/tree/master/etc/docker/dev>`_ for development.
 
 Operators
 ----------
