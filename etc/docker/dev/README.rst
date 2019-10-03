@@ -41,15 +41,15 @@ Finally, you can jump into the container with::
 
     docker exec -it dev_rucio_1 bin/bash
 
-To verify that everything is in order, you can now run the full unit tests. So again, inside the container, either run the full testing suite (which takes ~10 minutes)::
+To verify that everything is in order, you can now either run the full unit tests or only set up the database with initial testing data. So again, inside the container, either run the full testing suite (which takes ~10 minutes)::
 
     tools/run_tests_docker.sh
 
-Another option is to simply set up the database and create initial testing data. This is useful when developing functionality that is related to storage interaction, or transferring files with third party copy::
+Or set up the database and create initial testing data, for either demo purposes or when developing functionality that is related to storage interaction and file transfers::
 
     tools/run_tests_docker.sh -ir
 
-Or alternatively, just bootstrap the test environment once and then selectively run test case modules, test case groups, or even single test cases, for example::
+Alternatively, you can bootstrap the test environment once and then selectively run test case modules, test case groups, or even single test cases, for example::
 
     tools/run_tests_docker.sh -i
     nosetests -v lib/rucio/tests/test_replica.py
