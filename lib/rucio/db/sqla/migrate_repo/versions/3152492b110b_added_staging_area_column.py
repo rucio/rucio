@@ -35,6 +35,8 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
+    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+
     if context.get_context().dialect.name == 'oracle':
         add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK'), default=False))
         drop_constraint('REQUESTS_TYPE_CHK', 'requests', type_='check')
@@ -42,14 +44,13 @@ def upgrade():
                                 condition="request_type in ('U', 'D', 'T', 'I', '0')")
 
     elif context.get_context().dialect.name == 'postgresql':
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK'), default=False), schema=schema)
         drop_constraint('REQUESTS_TYPE_CHK', 'requests', type_='check')
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T', 'I', '0')")
 
     elif context.get_context().dialect.name == 'mysql':
-        add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK'), default=False))
+        add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK'), default=False), schema=schema)
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T', 'I', '0')")
 
@@ -59,6 +60,8 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+
     if context.get_context().dialect.name == 'oracle':
         drop_constraint('RSE_STAGING_AREA_CHK', 'rses', type_='check')
         drop_constraint('REQUESTS_TYPE_CHK', 'requests', type_='check')
@@ -67,7 +70,6 @@ def downgrade():
         drop_column('rses', 'staging_area')
 
     elif context.get_context().dialect.name == 'postgresql':
-        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
         op.execute('ALTER TABLE ' + schema + 'requests DROP CONSTRAINT IF EXISTS "REQUESTS_TYPE_CHK", ALTER COLUMN request_type TYPE CHAR')  # pylint: disable=no-member
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T')")
@@ -76,4 +78,4 @@ def downgrade():
     elif context.get_context().dialect.name == 'mysql':
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T')")
-        drop_column('rses', 'staging_area')
+        drop_column('rses', 'staging_area', schema=schema[:-1])
