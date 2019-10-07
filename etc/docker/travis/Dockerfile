@@ -83,6 +83,7 @@ RUN cp etc/docker/travis/00-mpm.conf /etc/httpd/conf.modules.d/00-mpm.conf
 
 RUN cp etc/certs/rucio_ca.pem /opt/rucio/etc/rucio_ca.pem
 RUN cp etc/certs/ruciouser.pem /opt/rucio/etc/ruciouser.pem
+RUN cp etc/certs/ruciouser.key.pem /opt/rucio/etc/ruciouser.key.pem
 
 RUN cp etc/certs/hostcert_rucio.pem /etc/grid-security/hostcert.pem
 RUN cp etc/certs/hostcert_rucio.key.pem /etc/grid-security/hostkey.pem
