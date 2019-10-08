@@ -73,8 +73,9 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
+    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+
     if context.get_context().dialect.name in ['oracle', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         drop_column('dids', 'purge_replicas', schema=schema)
         drop_column('dids', 'eol_at', schema=schema)
 
@@ -100,27 +101,27 @@ def downgrade():
         drop_column('distances', 'transfer_speed', schema=schema)
 
     elif context.get_context().dialect.name == 'mysql':
-        drop_column('dids', 'purge_replicas')
-        drop_column('dids', 'eol_at')
+        drop_column('dids', 'purge_replicas', schema=schema)
+        drop_column('dids', 'eol_at', schema=schema)
 
-        drop_column('deleted_dids', 'purge_replicas')
-        drop_column('deleted_dids', 'eol_at')
+        drop_column('deleted_dids', 'purge_replicas', schema=schema)
+        drop_column('deleted_dids', 'eol_at', schema=schema)
 
         drop_constraint(constraint_name='REQUESTS_ACCOUNT_FK', table_name='requests', type_='foreignkey')
-        drop_column('requests', 'account')
-        drop_column('requests', 'requested_at')
-        drop_column('requests', 'priority')
+        drop_column('requests', 'account', schema=schema)
+        drop_column('requests', 'requested_at', schema=schema)
+        drop_column('requests', 'priority', schema=schema)
 
-        drop_column('requests_history', 'account')
-        drop_column('requests_history', 'requested_at')
-        drop_column('requests_history', 'priority')
+        drop_column('requests_history', 'account', schema=schema)
+        drop_column('requests_history', 'requested_at', schema=schema)
+        drop_column('requests_history', 'priority', schema=schema)
 
-        drop_column('rules', 'priority')
-        drop_column('rules_hist_recent', 'priority')
-        drop_column('rules_history', 'priority')
+        drop_column('rules', 'priority', schema=schema)
+        drop_column('rules_hist_recent', 'priority', schema=schema)
+        drop_column('rules_history', 'priority', schema=schema)
 
-        drop_column('distances', 'active')
-        drop_column('distances', 'submitted')
-        drop_column('distances', 'finished')
-        drop_column('distances', 'failed')
-        drop_column('distances', 'transfer_speed')
+        drop_column('distances', 'active', schema=schema)
+        drop_column('distances', 'submitted', schema=schema)
+        drop_column('distances', 'finished', schema=schema)
+        drop_column('distances', 'failed', schema=schema)
+        drop_column('distances', 'transfer_speed', schema=schema)
