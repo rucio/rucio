@@ -601,12 +601,9 @@ def perm_add_replicas(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return (_is_root(issuer) or
-            str(kwargs.get('rse', '')).endswith('SCRATCHDISK') or
-            str(kwargs.get('rse', '')).endswith('USERDISK') or
-            str(kwargs.get('rse', '')).endswith('MOCK') or
-            str(kwargs.get('rse', '')).endswith('LOCALGROUPDISK') or
-            has_account_attribute(account=issuer, key='admin'))
+    return (_is_root(issuer)
+            or str(kwargs.get('rse', '')).endswith('_Temp')
+            or has_account_attribute(account=issuer, key='admin'))
 
 
 def perm_skip_availability_check(issuer, kwargs):
