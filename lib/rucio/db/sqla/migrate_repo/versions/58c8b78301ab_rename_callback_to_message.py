@@ -35,7 +35,7 @@ def upgrade():
     '''
     schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name == 'oracle':
         drop_constraint('callbacks_pk', 'callbacks', type_='primary')
         rename_table('callbacks', 'messages')
         create_primary_key('messages_pk', 'messages', ['id'])
@@ -53,6 +53,15 @@ def upgrade():
         create_check_constraint('messages_created_nn', 'messages', 'created_at is not null')
         create_check_constraint('messages_updated_nn', 'messages', 'updated_at is not null')
 
+    elif context.get_context().dialect.name == 'mysql':
+        drop_constraint('callbacks_pk', 'callbacks', type_='primary')
+        rename_table('callbacks', 'messages', schema=schema)
+        create_primary_key('messages_pk', 'messages', ['id'])
+        create_check_constraint('messages_event_type_nn', 'messages', 'event_type is not null')
+        create_check_constraint('messages_payload_nn', 'messages', 'payload is not null')
+        create_check_constraint('messages_created_nn', 'messages', 'created_at is not null')
+        create_check_constraint('messages_updated_nn', 'messages', 'updated_at is not null')
+
 
 def downgrade():
     '''
@@ -60,7 +69,7 @@ def downgrade():
     '''
     schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name == 'oracle':
         drop_constraint('MESSAGES_EVENT_TYPE_NN', 'messages', type_='check')
         drop_constraint('MESSAGES_PAYLOAD_NN', 'messages', type_='check')
         drop_constraint('MESSAGES_CREATED_NN', 'messages', type_='check')
@@ -85,3 +94,12 @@ def downgrade():
         create_check_constraint('CALLBACKS_PAYLOAD_NN', 'callbacks', 'payload is not null')
         create_check_constraint('CALLBACKS_CREATED_NN', 'callbacks', 'created_at is not null')
         create_check_constraint('CALLBACKS_UPDATED_NN', 'callbacks', 'updated_at is not null')
+
+    elif context.get_context().dialect.name == 'mysql':
+        drop_constraint('messages_pk', 'messages', type_='primary')
+        rename_table('messages', 'callbacks', schema=schema)
+        create_primary_key('callbacks_pk', 'callbacks', ['id'])
+        create_check_constraint('callbacks_event_type_nn', 'callbacks', 'event_type is not null')
+        create_check_constraint('callbacks_payload_nn', 'callbacks', 'payload is not null')
+        create_check_constraint('callbacks_created_nn', 'callbacks', 'created_at is not null')
+        create_check_constraint('callbacks_updated_nn', 'callbacks', 'updated_at is not null')

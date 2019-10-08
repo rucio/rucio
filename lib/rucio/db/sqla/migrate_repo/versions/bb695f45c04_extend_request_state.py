@@ -38,8 +38,14 @@ def upgrade():
     '''
     schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
 
-    if context.get_context().dialect.name in ['oracle', 'postgresql', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'postgresql']:
         drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
+        create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
+                                condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U')")
+        add_column('requests', sa.Column('submitter_id', sa.Integer()), schema=schema)
+        add_column('sources', sa.Column('is_using', sa.Boolean()), schema=schema)
+
+    elif context.get_context().dialect.name == 'mysql':
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U')")
         add_column('requests', sa.Column('submitter_id', sa.Integer()), schema=schema)
@@ -52,8 +58,21 @@ def downgrade():
     '''
     schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if context.get_context().dialect.name == 'oracle':
         drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
+        create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
+                                condition="state in ('Q', 'G', 'S', 'D', 'F', 'L')")
+        drop_column('requests', 'submitter_id')
+        drop_column('sources', 'is_using')
+
+    elif context.get_context().dialect.name == 'postgresql':
+        drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
+        create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
+                                condition="state in ('Q', 'G', 'S', 'D', 'F', 'L')")
+        drop_column('requests', 'submitter_id', schema=schema)
+        drop_column('sources', 'is_using', schema=schema)
+
+    elif context.get_context().dialect.name == 'mysql':
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L')")
         drop_column('requests', 'submitter_id', schema=schema)

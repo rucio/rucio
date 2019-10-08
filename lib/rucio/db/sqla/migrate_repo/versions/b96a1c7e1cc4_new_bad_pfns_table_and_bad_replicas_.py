@@ -42,8 +42,9 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'postgresql', 'mysql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+
+    if context.get_context().dialect.name in ['oracle', 'postgresql']:
         # Create new bad_pfns table
         create_table('bad_pfns',
                      sa.Column('path', sa.String(2048)),
@@ -71,13 +72,42 @@ def upgrade():
         # Add new Index to Table
         create_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas', ['expires_at'])
 
+    elif context.get_context().dialect.name == 'mysql':
+        # Create new bad_pfns table
+        create_table('bad_pfns',
+                     sa.Column('path', sa.String(2048)),
+                     sa.Column('state', BadPFNStatus.db_type(), default=BadPFNStatus.SUSPICIOUS),
+                     sa.Column('reason', sa.String(255)),
+                     sa.Column('account', sa.String(25)),
+                     sa.Column('expires_at', sa.DateTime),
+                     sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
+                     sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
+
+        create_primary_key('BAD_PFNS_PK', 'bad_pfns', ['path', 'state'])
+        create_foreign_key('BAD_PFNS_ACCOUNT_FK', 'bad_pfns', 'accounts', ['account'], ['account'])
+
+        create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
+                                condition="state in ('B', 'D', 'L', 'R', 'S', 'T')")
+
+        # Add new column to bad_replicas table
+        add_column('bad_replicas', sa.Column('expires_at', sa.DateTime()), schema=schema)
+
+        # Change PK
+        drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
+        create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'state', 'created_at'])
+
+        # Add new Index to Table
+        create_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas', ['expires_at'])
+
 
 def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+
+    if context.get_context().dialect.name == 'oracle':
         drop_table('bad_pfns')
         drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
 
@@ -90,7 +120,16 @@ def downgrade():
         create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'created_at'])
 
     elif context.get_context().dialect.name == 'postgresql':
-        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+        drop_table('bad_pfns')
+        drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
+
+        op.execute('ALTER TABLE ' + schema + 'bad_replicas DROP CONSTRAINT IF EXISTS "BAD_REPLICAS_STATE_CHK", ALTER COLUMN state TYPE CHAR')  # pylint: disable=no-member
+        create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
+                                condition="state in ('B', 'D', 'L', 'R', 'S')")
+
+        drop_column('bad_replicas', 'expires_at', schema=schema[:-1])
+        drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
+        create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'created_at'])
 
         drop_table('bad_pfns')
         drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
