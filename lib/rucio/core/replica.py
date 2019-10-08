@@ -951,9 +951,10 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                                             'path': path}).values())[0]
 
                         # server side root proxy handling if location is set.
+                        # supports root and http destinations
                         # cannot be pushed into protocols because we need to lookup rse attributes.
                         # ultra-conservative implementation.
-                        if domain == 'wan' and protocol.attributes['scheme'] == 'root' and client_location:
+                        if domain == 'wan' and protocol.attributes['scheme'] in ['root', 'http', 'https'] and client_location:
 
                             if 'site' in client_location and client_location['site']:
 
@@ -971,7 +972,8 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                                                      default='',               # empty string to circumvent exception
                                                                      session=session)
                                     if root_proxy_internal:
-                                        pfn = 'root://' + root_proxy_internal + '//' + pfn
+                                        # don't forget to mangle gfal-style davs URL into generic https URL
+                                        pfn = 'root://' + root_proxy_internal + '//' + pfn.replace('davs://', 'https://')
 
                         # do we need to sign the URLs?
                         if sign_urls and protocol.attributes['scheme'] == 'https':
