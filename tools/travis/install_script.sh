@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2018-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,13 +15,19 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Thomas Beermann, <thomas.beermann@cern.ch> 2019>
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2019
+
+# Force compile against OpenSSL, otherwise Travis will try to use GnuTLS
+# which is not installed by default.
+export PYCURL_SSL_LIBRARY=openssl
 
 if [[ $SUITE == "client" ]]; then
 
- if [[ "$TRAVIS_PYTHON_VERSION" !=  "2.6" ]]; then pip install -r tools/pip-requires; fi
+    if [[ "$TRAVIS_PYTHON_VERSION" !=  "2.6" ]]; then
+	pip install -r tools/pip-requires;
+    fi
     pip install setuptools_scm
     pip install -r tools/pip-requires-test
     python setup_rucio_client.py install
@@ -47,7 +53,7 @@ elif [[ $SUITE == "all" ]]; then
         cd ..
     fi
 
-elif [[ $SUITE == 'python3' ]]; then 
+elif [[ $SUITE == 'python3' ]]; then
     pip install -r tools/pip-requires-test
 
 fi
