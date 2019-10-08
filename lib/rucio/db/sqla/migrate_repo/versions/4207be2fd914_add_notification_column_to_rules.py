@@ -48,10 +48,11 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
+    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+
     if context.get_context().dialect.name in ['oracle', 'postgresql']:
         drop_constraint('RULES_NOTIFICATION_CHK', 'rules', type_='check')
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         drop_column('rules', 'notification', schema=schema)
 
     elif context.get_context().dialect.name == 'mysql':
-        drop_column('rules', 'notification')
+        drop_column('rules', 'notification', schema=schema)

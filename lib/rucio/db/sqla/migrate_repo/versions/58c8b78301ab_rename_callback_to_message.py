@@ -33,6 +33,8 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
+    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+
     if context.get_context().dialect.name == 'oracle':
         drop_constraint('callbacks_pk', 'callbacks', type_='primary')
         rename_table('callbacks', 'messages')
@@ -44,7 +46,6 @@ def upgrade():
 
     elif context.get_context().dialect.name == 'postgresql':
         drop_constraint('callbacks_pk', 'callbacks', type_='primary')
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         rename_table('callbacks', 'messages', schema=schema)
         create_primary_key('messages_pk', 'messages', ['id'])
         create_check_constraint('messages_event_type_nn', 'messages', 'event_type is not null')
@@ -54,7 +55,7 @@ def upgrade():
 
     elif context.get_context().dialect.name == 'mysql':
         drop_constraint('callbacks_pk', 'callbacks', type_='primary')
-        rename_table('callbacks', 'messages')
+        rename_table('callbacks', 'messages', schema=schema)
         create_primary_key('messages_pk', 'messages', ['id'])
         create_check_constraint('messages_event_type_nn', 'messages', 'event_type is not null')
         create_check_constraint('messages_payload_nn', 'messages', 'payload is not null')
@@ -67,6 +68,8 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
+    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+
     if context.get_context().dialect.name == 'oracle':
         drop_constraint('MESSAGES_EVENT_TYPE_NN', 'messages', type_='check')
         drop_constraint('MESSAGES_PAYLOAD_NN', 'messages', type_='check')
@@ -86,7 +89,6 @@ def downgrade():
         drop_constraint('MESSAGES_CREATED_NN', 'messages', type_='check')
         drop_constraint('MESSAGES_UPDATED_NN', 'messages', type_='check')
         drop_constraint('MESSAGES_PK', 'messages', type_='primary')
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         rename_table('messages', 'callbacks', schema=schema)
         create_primary_key('CALLBACKS_PK', 'callbacks', ['id'])
         create_check_constraint('CALLBACKS_EVENT_TYPE_NN', 'callbacks', 'event_type is not null')
@@ -96,7 +98,7 @@ def downgrade():
 
     elif context.get_context().dialect.name == 'mysql':
         drop_constraint('messages_pk', 'messages', type_='primary')
-        rename_table('messages', 'callbacks')
+        rename_table('messages', 'callbacks', schema=schema)
         create_primary_key('callbacks_pk', 'callbacks', ['id'])
         create_check_constraint('callbacks_event_type_nn', 'callbacks', 'event_type is not null')
         create_check_constraint('callbacks_payload_nn', 'callbacks', 'payload is not null')

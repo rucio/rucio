@@ -41,6 +41,8 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
+    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+
     if context.get_context().dialect.name in ['oracle', 'postgresql']:
         # Create new bad_pfns table
         create_table('bad_pfns',
@@ -60,7 +62,6 @@ def upgrade():
                                 condition="state in ('B', 'D', 'L', 'R', 'S', 'T')")
 
         # Add new column to bad_replicas table
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         add_column('bad_replicas', sa.Column('expires_at', sa.DateTime()), schema=schema)
 
         # Change PK
@@ -88,7 +89,7 @@ def upgrade():
                                 condition="state in ('B', 'D', 'L', 'R', 'S', 'T')")
 
         # Add new column to bad_replicas table
-        add_column('bad_replicas', sa.Column('expires_at', sa.DateTime()))
+        add_column('bad_replicas', sa.Column('expires_at', sa.DateTime()), schema=schema)
 
         # Change PK
         drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
@@ -102,6 +103,8 @@ def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
+
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name == 'oracle':
         drop_table('bad_pfns')
@@ -119,7 +122,6 @@ def downgrade():
         drop_table('bad_pfns')
         drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
 
-        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
         op.execute('ALTER TABLE ' + schema + 'bad_replicas DROP CONSTRAINT IF EXISTS "BAD_REPLICAS_STATE_CHK", ALTER COLUMN state TYPE CHAR')  # pylint: disable=no-member
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
                                 condition="state in ('B', 'D', 'L', 'R', 'S')")
@@ -135,6 +137,6 @@ def downgrade():
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
                                 condition="state in ('B', 'D', 'L', 'R', 'S')")
 
-        drop_column('bad_replicas', 'expires_at')
+        drop_column('bad_replicas', 'expires_at', schema=schema[:-1])
         drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
         create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'created_at'])
