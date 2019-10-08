@@ -33,8 +33,9 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
+    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+
     if context.get_context().dialect.name in ['oracle', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
         alter_column('identities', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
         alter_column('account_map', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
@@ -49,13 +50,13 @@ def upgrade():
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
 
     elif context.get_context().dialect.name == 'mysql':
-        alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048))
+        alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
 
         # MySQL does not allow altering a column referenced by a ForeignKey
         # so we need to drop that one first
         drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
-        alter_column('identities', 'identity', existing_type=sa.String(255), type_=sa.String(2048), nullable=False)
-        alter_column('account_map', 'identity', existing_type=sa.String(255), type_=sa.String(2048), nullable=False)
+        alter_column('identities', 'identity', existing_type=sa.String(255), type_=sa.String(2048), nullable=False, schema=schema)
+        alter_column('account_map', 'identity', existing_type=sa.String(255), type_=sa.String(2048), nullable=False, schema=schema)
         create_foreign_key('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', 'identities', ['identity', 'identity_type'], ['identity', 'identity_type'])
 
         drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check')
@@ -75,6 +76,8 @@ def downgrade():
 
     # Attention!
     # This automatically removes all SSH keys to accommodate the column size and check constraint.
+
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name == 'oracle':
         execute("DELETE FROM account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
@@ -96,8 +99,6 @@ def downgrade():
         alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
 
     elif context.get_context().dialect.name == 'postgresql':
-        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
-
         execute("DELETE FROM " + schema + "account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
         execute("DELETE FROM " + schema + "identities WHERE identity_type='SSH'")  # pylint: disable=no-member
 
@@ -118,8 +119,8 @@ def downgrade():
         alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema[:-1])
 
     elif context.get_context().dialect.name == 'mysql':
-        execute("DELETE FROM account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
-        execute("DELETE FROM identities WHERE identity_type='SSH'")  # pylint: disable=no-member
+        execute("DELETE FROM " + schema + "account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
+        execute("DELETE FROM " + schema + "identities WHERE identity_type='SSH'")  # pylint: disable=no-member
 
         drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check')
         drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
@@ -131,11 +132,11 @@ def downgrade():
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS')")
 
-        alter_column('tokens', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
+        alter_column('tokens', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema[:-1])
 
         # MySQL does not allow altering a column referenced by a ForeignKey
         # so we need to drop that one first
         drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
-        alter_column('account_map', 'identity', existing_type=sa.String(2048), type_=sa.String(255), nullable=False)
-        alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255), nullable=False)
+        alter_column('account_map', 'identity', existing_type=sa.String(2048), type_=sa.String(255), nullable=False, schema=schema[:-1])
+        alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255), nullable=False, schema=schema[:-1])
         create_foreign_key('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', 'identities', ['identity', 'identity_type'], ['identity', 'identity_type'])
