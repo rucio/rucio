@@ -602,8 +602,8 @@ def perm_add_replicas(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     return (_is_root(issuer)
-            or str(kwargs.get('rse', '')).endswith('_Temp')
-            or has_account_attribute(account=issuer, key='admin'))
+            or str(kwargs.get('rse', '')).endswith('_Temp')  # NOQA: W503
+            or has_account_attribute(account=issuer, key='admin'))  # NOQA: W503
 
 
 def perm_skip_availability_check(issuer, kwargs):
