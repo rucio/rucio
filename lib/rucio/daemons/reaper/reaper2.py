@@ -124,7 +124,7 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, prepend_str):
 
             except SourceNotFound:
                 err_msg = 'Deletion NOTFOUND of %s:%s as %s on %s' % (replica['scope'], replica['name'], replica['pfn'], rse_name)
-                logging.warning('%s %s', prepend_str,  err_msg)
+                logging.warning('%s %s', prepend_str, err_msg)
                 deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
                 if replica['state'] == ReplicaState.AVAILABLE:
                     deletion_dict['reason'] = str(err_msg)
