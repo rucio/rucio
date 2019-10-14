@@ -49,7 +49,7 @@ elif [[ $RDBMS == "mysql5" ]]; then
     docker exec -it rucio httpd -k restart
 
 elif [[ $RDBMS == "mysql8" ]]; then
-    docker run --name=mysql8 -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% -d mysql/mysql-server:8.0
+    docker run --name=mysql8 -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% -d mysql/mysql-server:8.0 --default-authentication-plugin=mysql_native_password
     docker run --name=activemq -d webcenter/activemq:latest
     docker run -d --link mysql8:mysql8 --link activemq:activemq --name=rucio rucio/rucio
     date

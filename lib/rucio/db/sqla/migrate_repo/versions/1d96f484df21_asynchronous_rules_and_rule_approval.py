@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+
 
 ''' asynchronous rules and rule approval '''
 
@@ -40,7 +40,7 @@ def upgrade():
 
     if context.get_context().dialect.name == 'oracle':
         add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False))
-        drop_constraint('RULES_STATE_CHK', 'rules', type_='check')
+        drop_constraint('RULES_STATE_CHK', 'rules')
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O', 'W', 'I')")
 
     elif context.get_context().dialect.name == 'postgresql':
@@ -62,7 +62,7 @@ def downgrade():
 
     if context.get_context().dialect.name == 'oracle':
         drop_column('rules', 'ignore_account_limit')
-        drop_constraint('RULES_STATE_CHK', 'rules', type_='check')
+        drop_constraint('RULES_STATE_CHK', 'rules')
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O')")
 
     elif context.get_context().dialect.name == 'postgresql':
