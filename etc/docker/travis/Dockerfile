@@ -27,11 +27,11 @@ RUN yum install -y epel-release.noarch
 RUN yum -y update
 RUN yum install -y gcc httpd python-pip gmp-devel krb5-devel httpd mod_ssl mod_auth_kerb git python-devel.x86_64 openssl-devel.x86_64 gridsite which libaio memcached
 RUN yum -y install https://centos7.iuscommunity.org/ius-release.rpm
-RUN yum -y install python36u python36u-devel python36u-pip python35u python35u-devel python35u-pip
+RUN yum -y install python36u python36u-devel python36u-pip
 RUN yum clean all
 
 RUN rm -rf /usr/lib/python2.7/site-packages/ipaddress*
-RUN if [ "$python" == "3.6" ] ; then yum -y install python36u-mod_wsgi ; elif [ "$python" == "3.5" ] ; then yum -y install python35u-mod_wsgi ; else yum -y install mod_wsgi ; fi
+RUN if [ "$python" == "3.6" ] ; then yum -y install python36u-mod_wsgi ; else yum -y install mod_wsgi ; fi
 
 
 # Install sqlite3 because CentOS ships with an old version without window functions
@@ -59,18 +59,17 @@ RUN rpm -i /opt/rucio/etc/docker/travis/oic.rpm; \
     echo "/usr/lib/oracle/12.2/client64/lib" >/etc/ld.so.conf.d/oracle.conf; \
     ldconfig
 
-RUN if [ "$python" == "3.6" ] ; then rm -r -f /usr/bin/python & ln -s /usr/bin/python3.6 /usr/bin/python ; elif [ "$python" == "3.5" ] ; then rm -r -f /usr/bin/python -f & ln -s /usr/bin/python3.5 /usr/bin/python ; fi
-RUN if [ "$python" == "3.6" ] ; then echo "alias python=python3.6" >> ~/.bashrc ; elif [ "$python" == "3.5" ] ; then echo "alias python=python3.5" >> ~/.bashrc ; fi
-
-RUN if [ "$python" == "3.6" ] ; then pip3.6 install --upgrade pip ; elif [ "$python" == "3.5" ] ; then pip3.5 install --upgrade pip ; else pip install --upgrade pip ; fi
+RUN if [ "$python" == "3.6" ] ; then rm -r -f /usr/bin/python & ln -s /usr/bin/python3.6 /usr/bin/python ; fi
+RUN if [ "$python" == "3.6" ] ; then echo "alias python=python3.6" >> ~/.bashrc ; fi
+RUN if [ "$python" == "3.6" ] ; then pip3.6 install --upgrade pip ; else pip install --upgrade pip ; fi
 
 # Get the latest setuptools version
 # to fix the setup.py error:
 # install fails with: `install_requires` must be a string or list of strings
-RUN if [ "$python" == "3.6" ] ; then pip3.6 install --upgrade setuptools ; elif [ "$python" == "3.5" ] ; then pip3.5 install --upgrade setuptools ; else pip install --upgrade setuptools ; fi
+RUN if [ "$python" == "3.6" ] ; then pip3.6 install --upgrade setuptools ; else pip install --upgrade setuptools ; fi
 
 # Install Rucio + dependencies
-RUN if [ "$python" == "3.6" ] ; then pip3.6 install .[oracle,postgresql,mysql,kerberos,dev] ; elif [ "$python" == "3.5" ] ; then pip3.5 install .[oracle,postgresql,mysql,kerberos,dev] ; else pip install .[oracle,postgresql,mysql,kerberos,dev] ; fi
+RUN if [ "$python" == "3.6" ] ; then pip3.6 install .[oracle,postgresql,mysql,kerberos,dev] ; else pip install .[oracle,postgresql,mysql,kerberos,dev] ; fi
 
 RUN cp etc/docker/travis/aliases-py27.conf etc/web/aliases-py27.conf
 RUN cp etc/docker/travis/google-cloud-storage-test.json etc/google-cloud-storage-test.json
