@@ -15,7 +15,6 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2019
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 
 ''' rename callback to message '''
 
@@ -33,6 +32,7 @@ def upgrade():
     '''
     Upgrade the database to this revision
     '''
+
     schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name == 'oracle':
@@ -67,6 +67,7 @@ def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
+
     schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name == 'oracle':

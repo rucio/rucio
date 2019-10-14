@@ -15,12 +15,11 @@
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 
 ''' add new rule notification state progress '''
 
-from alembic import context
-from alembic.op import create_check_constraint, drop_constraint, execute
+from alembic import context, op
+from alembic.op import create_check_constraint, drop_constraint
 
 
 # Alembic revision identifiers
@@ -32,15 +31,19 @@ def upgrade():
     '''
     Upgrade the database to this revision
     '''
-    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name == 'oracle':
         drop_constraint('RULES_NOTIFICATION_CHK', 'rules', type_='check')
         create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
                                 condition="notification in ('Y', 'N', 'C', 'P')")
 
     elif context.get_context().dialect.name == 'postgresql':
-        execute('ALTER TABLE ' + schema + 'rules DROP CONSTRAINT IF EXISTS "RULES_NOTIFICATION_CHK", ALTER COLUMN notification TYPE CHAR')  # pylint: disable=no-member
+        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+        op.execute('ALTER TABLE ' + schema + 'rules DROP CONSTRAINT IF EXISTS "RULES_NOTIFICATION_CHK", ALTER COLUMN notification TYPE CHAR')  # pylint: disable=no-member
+        create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
+                                condition="notification in ('Y', 'N', 'C', 'P')")
+
+    elif context.get_context().dialect.name == 'mysql':
         create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
                                 condition="notification in ('Y', 'N', 'C', 'P')")
 
@@ -49,9 +52,8 @@ def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
-    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if context.get_context().dialect.name == 'oracle':
         drop_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules', type_='check')
         create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
                                 condition="notification in ('Y', 'N', 'C')")
@@ -59,6 +61,11 @@ def downgrade():
     elif context.get_context().dialect.name == 'postgresql':
         # PostgreSQL does not support reducing check types, so we must work around
         # by changing it to the internal string type
-        execute('ALTER TABLE ' + schema + 'rules DROP CONSTRAINT IF EXISTS "RULES_NOTIFICATION_CHK", ALTER COLUMN notification TYPE CHAR')  # pylint: disable=no-member
+        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+        op.execute('ALTER TABLE ' + schema + 'rules DROP CONSTRAINT IF EXISTS "RULES_NOTIFICATION_CHK", ALTER COLUMN notification TYPE CHAR')  # pylint: disable=no-member
+        create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
+                                condition="notification in ('Y', 'N', 'C')")
+
+    elif context.get_context().dialect.name == 'mysql':
         create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
                                 condition="notification in ('Y', 'N', 'C')")
