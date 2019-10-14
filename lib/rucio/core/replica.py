@@ -1378,7 +1378,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable'
                                                      'for deleting' % replica_rse.rse)
 
-    replica_condition, parent_condition, did_condition = [], [], []
+    replica_condition, parent_condition, did_condition, src_condition = [], [], [], []
     clt_replica_condition, dst_replica_condition = [], []
     incomplete_condition, messages, archive_contents_condition = [], [], []
     for file in files:
@@ -1411,7 +1411,18 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
                                                                                                                                            models.DataIdentifier.availability == DIDAvailability.LOST)),
                                                ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))))
 
+        src_condition.append(and_(models.Source.scope == file['scope'],
+                                  models.Source.name == file['name'],
+                                  models.Source.rse_id == rse_id))
+
     delta, bytes, rowcount = 0, 0, 0
+
+    # WARNING : This should not be necessary since that would mean the replica is used as a source.
+    for chunk in chunks(src_condition, 10):
+        rowcount = session.query(models.Source).\
+            filter(or_(*chunk)).\
+            delete(synchronize_session=False)
+
     for chunk in chunks(replica_condition, 10):
         for (scope, name, rid, replica_bytes) in session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id, models.RSEFileAssociation.bytes).\
                 with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle').filter(models.RSEFileAssociation.rse_id == rse_id).filter(or_(*chunk)):
@@ -1654,42 +1665,31 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
     """
 
     none_value = None  # Hack to get pep8 happy...
-    subquery = session.query(models.RSEFileAssociation.scope,
-                             models.RSEFileAssociation.name,
-                             models.RSEFileAssociation.path,
-                             models.RSEFileAssociation.bytes,
-                             models.RSEFileAssociation.tombstone,
-                             models.RSEFileAssociation.state,
-                             models.RSEFileAssociation.rse_id).\
+    query = session.query(models.RSEFileAssociation.scope,
+                          models.RSEFileAssociation.name,
+                          models.RSEFileAssociation.path,
+                          models.RSEFileAssociation.bytes,
+                          models.RSEFileAssociation.tombstone,
+                          models.RSEFileAssociation.state).\
         with_hint(models.RSEFileAssociation, "INDEX_RS_ASC(replicas REPLICAS_TOMBSTONE_IDX)  NO_INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle').\
-        with_for_update(skip_locked=True).\
         filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
         filter(models.RSEFileAssociation.lock_cnt == 0).\
         filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
         filter(or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)),
                    and_(models.RSEFileAssociation.state == ReplicaState.BEING_DELETED, models.RSEFileAssociation.updated_at < datetime.utcnow() - timedelta(seconds=delay_seconds)))).\
-        order_by(models.RSEFileAssociation.tombstone).subquery()
-    query = session.query(subquery.c.scope,
-                          subquery.c.name,
-                          subquery.c.path,
-                          subquery.c.bytes,
-                          subquery.c.tombstone,
-                          subquery.c.state,
-                          func.count(models.RSEFileAssociation.scope)).\
-        join(models.RSEFileAssociation, and_(models.RSEFileAssociation.scope == subquery.c.scope,
-                                             models.RSEFileAssociation.name == subquery.c.name,
-                                             models.RSEFileAssociation.rse_id != subquery.c.rse_id,
-                                             models.RSEFileAssociation.state == ReplicaState.AVAILABLE)).\
-        group_by(subquery.c.scope, subquery.c.name, subquery.c.path, subquery.c.bytes, subquery.c.tombstone, subquery.c.state).\
-        order_by(subquery.c.tombstone)
+        with_for_update(skip_locked=True).\
+        order_by(models.RSEFileAssociation.tombstone)
 
     needed_space = bytes
     total_bytes, total_files = 0, 0
     rows = []
     replica_clause = []
-    for (scope, name, path, bytes, tombstone, state, cnt) in query.yield_per(1000):
+    for (scope, name, path, bytes, tombstone, state) in query.yield_per(1000):
         # Check if more than one replica is available
-        if cnt > 1:
+        replica_cnt = session.query(func.count(models.RSEFileAssociation.scope)).\
+            filter(and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id != rse_id)).one()
+
+        if replica_cnt[0] > 1:
             if state != ReplicaState.UNAVAILABLE:
                 total_bytes += bytes
                 if tombstone != OBSOLETE and needed_space is not None and total_bytes > needed_space:
