@@ -1,10 +1,43 @@
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Matt Snyder <msnyder@rcf.rhic.bnl.gov>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
+
+import imp
 import logging
 import os
 import sys
-import yaml
-from globus_sdk import NativeAppAuthClient, RefreshTokenAuthorizer, TransferClient, TransferData, DeleteData
+
 from rucio.common.config import config_get
 from datetime import datetime
+
+# Extra modules: Only imported if available
+EXTRA_MODULES = {'globus_sdk': False}
+
+for extra_module in EXTRA_MODULES:
+    try:
+        imp.find_module(extra_module)
+        EXTRA_MODULES[extra_module] = True
+    except ImportError:
+        EXTRA_MODULES[extra_module] = False
+
+if EXTRA_MODULES['globus_sdk']:
+    from globus_sdk import NativeAppAuthClient, RefreshTokenAuthorizer, TransferClient, TransferData, DeleteData  # pylint: disable=import-error
+    import yaml  # pylint: disable=import-error
+
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging,
@@ -61,7 +94,10 @@ def getTransferData():
     x = datetime.now()
     job_label = x.strftime('%Y%m%d%H%M%s')
 
-    # from Globus... sync_level=checksum means that before files are transferred, Globus will compute checksums on the source and destination files, and only transfer files that have different checksums are transferred. verify_checksum=True means that after a file is transferred, Globus will compute checksums on the source and destination files to verify that the file was transferred correctly.  If the checksums do not match, it will redo the transfer of that file.
+    # from Globus... sync_level=checksum means that before files are transferred, Globus will compute checksums on the source and destination files,
+    # and only transfer files that have different checksums are transferred. verify_checksum=True means that after a file is transferred, Globus will
+    # compute checksums on the source and destination files to verify that the file was transferred correctly.  If the checksums do not match, it will
+    # redo the transfer of that file.
     tdata = TransferData(tc, source_endpoint_id, destination_endpoint_id, label=job_label, sync_level="checksum", verify_checksum=True)
 
     return tdata
@@ -88,7 +124,10 @@ def submit_xfer(source_endpoint_id, destination_endpoint_id, source_path, dest_p
     auto_activate_endpoint(tc, source_endpoint_id)
     auto_activate_endpoint(tc, destination_endpoint_id)
 
-    # from Globus... sync_level=checksum means that before files are transferred, Globus will compute checksums on the source and destination files, and only transfer files that have different checksums are transferred. verify_checksum=True means that after a file is transferred, Globus will compute checksums on the source and destination files to verify that the file was transferred correctly.  If the checksums do not match, it will redo the transfer of that file.
+    # from Globus... sync_level=checksum means that before files are transferred, Globus will compute checksums on the source and
+    # destination files, and only transfer files that have different checksums are transferred. verify_checksum=True means that after
+    # a file is transferred, Globus will compute checksums on the source and destination files to verify that the file was transferred
+    # correctly.  If the checksums do not match, it will redo the transfer of that file.
     tdata = TransferData(tc, source_endpoint_id, destination_endpoint_id, label=job_label, sync_level="checksum", verify_checksum=True)
     tdata.add_item(source_path, dest_path, recursive=recursive)
 
@@ -123,7 +162,10 @@ def bulk_submit_xfer(submitjob, recursive=False):
     x = datetime.now()
     job_label = x.strftime('%Y%m%d%H%M%s')
 
-    # from Globus... sync_level=checksum means that before files are transferred, Globus will compute checksums on the source and destination files, and only transfer files that have different checksums are transferred. verify_checksum=True means that after a file is transferred, Globus will compute checksums on the source and destination files to verify that the file was transferred correctly.  If the checksums do not match, it will redo the transfer of that file.
+    # from Globus... sync_level=checksum means that before files are transferred, Globus will compute checksums on the source
+    # and destination files, and only transfer files that have different checksums are transferred. verify_checksum=True means
+    # that after a file is transferred, Globus will compute checksums on the source and destination files to verify that the
+    # file was transferred correctly.  If the checksums do not match, it will redo the transfer of that file.
     tdata = TransferData(tc, source_endpoint_id, destination_endpoint_id, label=job_label, sync_level="checksum")
 
     for file in submitjob:

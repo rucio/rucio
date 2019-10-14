@@ -1,3 +1,21 @@
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Matt Snyder <msnyder@rcf.rhic.bnl.gov>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
+
 from rucio.transfertool.transfertool import Transfertool
 from globusLibrary import bulk_submit_xfer, submit_xfer, bulk_check_xfers
 import logging
@@ -74,7 +92,7 @@ class GlobusTransferTool(Transfertool):
 
         return job_responses
 
-    def bulk_update(resps, request_ids):
+    def bulk_update(self, resps, request_ids):
         """
         bulk update request_state for globus transfers
 
@@ -92,8 +110,9 @@ class GlobusTransferTool(Transfertool):
 
         return counter
         """
+        pass
 
-    def cancel():
+    def cancel(self):
         pass
 
     def query(self, transfer_ids, details=False, timeout=None):
@@ -107,5 +126,5 @@ class GlobusTransferTool(Transfertool):
         """
         pass
 
-    def update_priority():
+    def update_priority(self):
         pass
