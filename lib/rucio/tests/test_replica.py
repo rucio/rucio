@@ -27,6 +27,7 @@ from __future__ import print_function
 from datetime import datetime, timedelta
 from json import dumps, loads
 
+import hashlib
 import xmltodict
 
 from nose.tools import assert_equal, assert_in, assert_raises
@@ -434,6 +435,48 @@ class TestReplicaCore:
         replicas = [r for r in rc.list_replicas(dids=[{'scope': 'mock', 'name': f['name']} for f in files],
                                                 client_location={'site': 'SOMEWHERE'})]
         assert_in('root://', list(replicas[0]['pfns'].keys())[0])
+
+    def test_replica_mixed_protocols(self):
+        """ REPLICA (CORE): Test adding replicas with mixed protocol """
+
+        rc = ReplicaClient()
+
+        rse = 'APERTURE_%s' % rse_name_generator()
+        rse_id = add_rse(rse)
+
+        add_protocol(rse_id, {'scheme': 'root',
+                              'hostname': 'root.aperture.com',
+                              'port': 1409,
+                              'prefix': '//test/chamber/',
+                              'impl': 'rucio.rse.protocols.xrootd.Default',
+                              'domains': {
+                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+        add_protocol(rse_id, {'scheme': 'http',
+                              'hostname': 'root.aperture.com',
+                              'port': 1409,
+                              'prefix': '//test/chamber/',
+                              'impl': 'rucio.rse.protocols.xrootd.Default',
+                              'domains': {
+                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+
+        tmp_scope = InternalScope('mock')
+        root = InternalAccount('root')
+
+        files = []
+
+        name = 'element_%s' % generate_uuid()
+        hstr = hashlib.md5(('%s:%s' % (tmp_scope, name)).encode('utf-8')).hexdigest()
+        pfn = 'root://root.aperture.com:1409//test/chamber/mock/%s/%s/%s' % (hstr[0:2], hstr[2:4], name)
+        files.append({'scope': tmp_scope, 'name': name,'bytes': 1234, 'adler32': 'deadbeef', 'pfn': pfn})
+
+        name = 'element_%s' % generate_uuid()
+        hstr = hashlib.md5(('%s:%s' % (tmp_scope, name)).encode('utf-8')).hexdigest()
+        pfn = 'http://root.aperture.com:1409//test/chamber/mock/%s/%s/%s' % (hstr[0:2], hstr[2:4], name)
+        files.append({'scope': tmp_scope, 'name': name,'bytes': 1234, 'adler32': 'deadbeef', 'pfn': pfn})
+
+        add_replicas(rse_id=rse_id, files=files, account=root)
 
     def test_set_tombstone(self):
         """ REPLICA (CORE): set tombstone on replica """
