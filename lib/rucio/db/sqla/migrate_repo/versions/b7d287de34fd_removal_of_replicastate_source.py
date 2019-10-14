@@ -31,11 +31,17 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'postgresql', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'postgresql']:
         drop_constraint('REPLICAS_STATE_CHK', 'replicas', type_='check')
         create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'T')")
         drop_constraint('COLLECTION_REPLICAS_STATE_CHK', 'collection_replicas', type_='check')
+        create_check_constraint(constraint_name='COLLECTION_REPLICAS_STATE_CHK', table_name='collection_replicas',
+                                condition="state in ('A', 'U', 'C', 'B', 'D', 'T')")
+
+    elif context.get_context().dialect.name == 'mysql':
+        create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
+                                condition="state in ('A', 'U', 'C', 'B', 'D', 'T')")
         create_check_constraint(constraint_name='COLLECTION_REPLICAS_STATE_CHK', table_name='collection_replicas',
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'T')")
 
@@ -45,10 +51,16 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'postgresql', 'mysql']:
+    if context.get_context().dialect.name in ['oracle', 'postgresql']:
         drop_constraint('REPLICAS_STATE_CHK', 'replicas', type_='check')
         create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'S', 'T')")
         drop_constraint('COLLECTION_REPLICAS_STATE_CHK', 'collection_replicas', type_='check')
+        create_check_constraint(constraint_name='COLLECTION_REPLICAS_STATE_CHK', table_name='collection_replicas',
+                                condition="state in ('A', 'U', 'C', 'B', 'D', 'S', 'T')")
+
+    elif context.get_context().dialect.name == 'mysql':
+        create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
+                                condition="state in ('A', 'U', 'C', 'B', 'D', 'S', 'T')")
         create_check_constraint(constraint_name='COLLECTION_REPLICAS_STATE_CHK', table_name='collection_replicas',
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'S', 'T')")
