@@ -123,8 +123,8 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, prepend_str):
                 logging.info('%s Deletion SUCCESS of %s:%s as %s on %s in %s seconds', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name, duration)
 
             except SourceNotFound:
-                err_msg = '%s Deletion NOTFOUND of %s:%s as %s on %s' % (prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name)
-                logging.warning(err_msg)
+                err_msg = 'Deletion NOTFOUND of %s:%s as %s on %s' % (replica['scope'], replica['name'], replica['pfn'], rse_name)
+                logging.warning('%s %s', prepend_str, err_msg)
                 deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
                 if replica['state'] == ReplicaState.AVAILABLE:
                     deletion_dict['reason'] = str(err_msg)
@@ -297,7 +297,7 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
     prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
     logging.info('%s Reaper starting', prepend_str)
 
-    time.sleep(10)  # To prevent running on the same partition if all the reapers restart at the same time
+    time.sleep(15)  # To prevent running on the same partition if all the reapers restart at the same time
     heart_beat = live(executable, hostname, pid, hb_thread)
     prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
     logging.info('%s Reaper started', prepend_str)
@@ -408,7 +408,6 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
                                 replica['pfn'] = str(rsemgr.lfns2pfns(rse_settings=rse_info,
                                                                       lfns=[{'scope': replica['scope'], 'name': replica['name'], 'path': replica['path']}],
                                                                       operation='delete', scheme=scheme).values()[0])
-                                time.sleep(random.uniform(0, 0.01))
                             except (ReplicaUnAvailable, ReplicaNotFound) as error:
                                 logging.warning('%s Failed get pfn UNAVAILABLE replica %s:%s on %s with error %s', prepend_str, replica['scope'], replica['name'], rse_name, str(error))
                                 replica['pfn'] = None
