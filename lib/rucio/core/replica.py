@@ -16,7 +16,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2019
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2019
 # - David Cameron <d.g.cameron@gmail.com>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
@@ -1303,31 +1303,33 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
                                     dataset_meta=dataset_meta,
                                     session=session)
 
-    pfns, scheme = [], None
+    pfns, scheme = {}, None  # {scheme: [pfns], scheme: [pfns]}
     for file in files:
         if 'pfn' not in file:
             if not replica_rse.deterministic:
                 raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %s ' % (replica_rse.rse))
         else:
             scheme = file['pfn'].split(':')[0]
-            pfns.append(file['pfn'])
+            pfns.setdefault(scheme, []).append(file['pfn'])
 
     if pfns:
-        p = rsemgr.create_protocol(rse_settings=rsemgr.get_rse_info(rse=replica_rse['rse'], session=session), operation='write', scheme=scheme)
-        if not replica_rse.deterministic:
-            pfns = p.parse_pfns(pfns=pfns)
-            for file in files:
-                tmp = pfns[file['pfn']]
-                file['path'] = ''.join([tmp['path'], tmp['name']])
-        else:
-            # Check that the pfns match to the expected pfns
-            lfns = [{'scope': i['scope'], 'name': i['name']} for i in files]
-            expected_pfns = p.lfns2pfns(lfns)
-            expected_pfns = clean_surls(expected_pfns.values())
-            pfns = clean_surls(pfns)
-            if pfns != expected_pfns:
-                print('ALERT: One of the PFNs provided does not match the Rucio expected PFN : got %s, expected %s (%s)' % (str(pfns), str(expected_pfns), str(lfns)))
-                raise exception.InvalidPath('One of the PFNs provided does not match the Rucio expected PFN : got %s, expected %s (%s)' % (str(pfns), str(expected_pfns), str(lfns)))
+        for scheme in pfns.keys():
+            p = rsemgr.create_protocol(rse_settings=rsemgr.get_rse_info(rse=replica_rse['rse'], session=session), operation='write', scheme=scheme)
+            if not replica_rse.deterministic:
+                pfns[scheme] = p.parse_pfns(pfns=pfns[scheme])
+                for file in files:
+                    if file['pfn'].startswith(scheme):
+                        tmp = pfns[scheme][file['pfn']]
+                        file['path'] = ''.join([tmp['path'], tmp['name']])
+            else:
+                # Check that the pfns match to the expected pfns
+                lfns = [{'scope': i['scope'], 'name': i['name']} for i in files if i['pfn'].startswith(scheme)]
+                expected_pfns = p.lfns2pfns(lfns)
+                expected_pfns = clean_surls(expected_pfns.values())
+                pfns[scheme] = clean_surls(pfns[scheme])
+                if pfns[scheme] != expected_pfns:
+                    print('ALERT: One of the PFNs provided does not match the Rucio expected PFN : got %s, expected %s (%s)' % (str(pfns), str(expected_pfns), str(lfns)))
+                    raise exception.InvalidPath('One of the PFNs provided does not match the Rucio expected PFN : got %s, expected %s (%s)' % (str(pfns), str(expected_pfns), str(lfns)))
 
     nbfiles, bytes = __bulk_add_replicas(rse_id=rse_id, files=files, account=account, session=session)
     increase(rse_id=rse_id, files=nbfiles, bytes=bytes, session=session)
