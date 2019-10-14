@@ -15,7 +15,6 @@
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2018-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 
 ''' new bad_pfns table and bad_replicas changes '''
 
@@ -131,10 +130,10 @@ def downgrade():
         drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
         create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'created_at'])
 
+    elif context.get_context().dialect.name == 'mysql':
         drop_table('bad_pfns')
         drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
 
-        op.execute('ALTER TABLE ' + schema + 'bad_replicas DROP CONSTRAINT IF EXISTS "BAD_REPLICAS_STATE_CHK", ALTER COLUMN state TYPE CHAR')  # pylint: disable=no-member
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
                                 condition="state in ('B', 'D', 'L', 'R', 'S')")
 

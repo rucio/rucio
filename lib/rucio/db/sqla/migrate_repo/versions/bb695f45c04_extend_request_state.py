@@ -16,7 +16,6 @@
 # - Wen Guan <wen.guan@cern.ch>, 2015
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 
 ''' extend request state '''
 
@@ -36,6 +35,7 @@ def upgrade():
     '''
     Upgrade the database to this revision
     '''
+
     schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name in ['oracle', 'postgresql']:
@@ -56,6 +56,7 @@ def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
+
     schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name == 'oracle':
