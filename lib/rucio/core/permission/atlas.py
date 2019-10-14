@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2016
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -115,7 +115,7 @@ def has_permission(issuer, action, kwargs):
 
 
 def _is_root(issuer):
-    return issuer.external == 'root'
+    return issuer.external == 'root' or issuer.external == 'ddmadmin'
 
 
 def perm_default(issuer, kwargs):
@@ -448,7 +448,7 @@ def perm_del_rule(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    if _is_root(issuer) or issuer == 'ddmadmin':
+    if _is_root(issuer):
         return True
     if get_rule(kwargs['rule_id'])['account'] == issuer:
         return True
