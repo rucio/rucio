@@ -1416,6 +1416,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
 
     delta, bytes, rowcount = 0, 0, 0
 
+    # WARNING : This should not be necessary since that would mean the replica is used as a source.
     for chunk in chunks(src_condition, 10):
         rowcount = session.query(models.Source).\
             filter(or_(*chunk)).\
