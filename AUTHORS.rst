@@ -39,6 +39,7 @@ Individual contributors to the source code
 - Kaustubh Hiware <hiwarekaustubh@gmail.com>, 2019
 - Florido Paganelli <florido.paganelli@hep.lu.se>, 2019
 - Boris Bauermeister <Boris.Bauermeister@gmail.com> 2019
+- Ruturaj Gujar <ruturaj.gujar23@gmail.com> 2019
 - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 
 Organisations employing contributors
@@ -60,4 +61,5 @@ Organisations employing contributors
 - Birla Institute of Technology, Mesra (India)
 - Indian Institute of Technology, Kharagpur (India)
 - Stockholm University, Stockholm (Sweden)
+- Dwarkadas J. Sanghvi College of Engineering (India)
 - Science and Technology Facilities Council (UK)

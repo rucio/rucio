@@ -65,9 +65,6 @@ class TestRequestCore(object):
 
     def test_release_waiting_requests_per_free_volume(self):
         """ REQUEST (CORE): release waiting requests that fit grouped in available volume."""
-        if self.dialect == 'mysql':
-            return True
-
         # release unattached requests that fit in available volume with respect to already submitted transfers
         name1 = generate_uuid()
         add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
@@ -263,9 +260,6 @@ class TestRequestCore(object):
 
     def test_release_waiting_requests_grouped_fifo(self):
         """ REQUEST (CORE): release waiting requests based on grouped FIFO. """
-        if self.dialect == 'mysql':
-            return True
-
         # set max_volume to 0 to check first without releasing extra requests
         set_rse_transfer_limits(self.dest_rse_id, self.all_activities, volume=0, max_transfers=1, session=self.db_session)
 
@@ -884,7 +878,7 @@ class TestRequestREST():
         r = TestApp(request_app.wsgifunc(*self.mw)).get('/list', params=params, headers=headers, expect_errors=True)
         assert_equal(r.status, 200)
         requests = set()
-        for request in r.body.split('\n')[:-1]:
+        for request in r.body.decode().split('\n')[:-1]:
             request = parse_response(request)
             requests.add((request['state'], request['source_rse_id'], request['dest_rse_id'], request['name']))
         assert_equal(requests, expected_requests)
@@ -892,7 +886,7 @@ class TestRequestREST():
     def check_error_api(self, params, exception_class, exception_message, code):
         headers = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(self.token)}
         r = TestApp(request_app.wsgifunc(*self.mw)).get('/list', params=params, headers=headers, expect_errors=True)
-        body = parse_response(r.body)
+        body = parse_response(r.body.decode())
         assert_equal(r.status, code)
         assert_equal(body['ExceptionClass'], exception_class)
         assert_equal(body['ExceptionMessage'], exception_message)

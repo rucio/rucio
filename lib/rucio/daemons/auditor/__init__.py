@@ -121,7 +121,7 @@ def bz2_compress_file(source, chunk_size=65000):
             chunk = plain.read(chunk_size)
             if not chunk:
                 break
-            compressed.write(chunk)
+            compressed.write(chunk.encode())
     os.remove(source)
     return destination
 
@@ -230,7 +230,6 @@ def check(queue, retry, terminate, logpipe, cache_dir, results_dir, keep_dumps, 
             rse, attemps = queue.get(timeout=30)
         except Queue.Empty:
             continue
-
         start = datetime.now()
         try:
             logger.debug('Checking "%s"', rse)
@@ -240,6 +239,7 @@ def check(queue, retry, terminate, logpipe, cache_dir, results_dir, keep_dumps, 
                 process_output(output)
         except:
             success = False
+            class_, desc = sys.exc_info()[0:2]
         else:
             success = True
         finally:
@@ -247,7 +247,6 @@ def check(queue, retry, terminate, logpipe, cache_dir, results_dir, keep_dumps, 
             if success:
                 logger.info('SUCCESS checking "%s" in %d minutes', rse, elapsed)
             else:
-                class_, desc = sys.exc_info()[0:2]
                 logger.error('Check of "%s" failed in %d minutes, %d remaining attemps: (%s: %s)', rse, elapsed, attemps, class_.__name__, desc)
 
         if not keep_dumps:

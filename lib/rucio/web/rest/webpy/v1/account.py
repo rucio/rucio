@@ -113,7 +113,7 @@ class Attributes(RucioController):
 
         :param account: Account identifier.
         """
-        json_data = data()
+        json_data = data().decode()
         try:
             parameter = loads(json_data)
         except ValueError:
@@ -300,7 +300,7 @@ class AccountParameter(RucioController):
             500 InternalError
 
         """
-        json_data = data()
+        json_data = data().decode()
         try:
             parameter = loads(json_data)
         except ValueError:
@@ -335,7 +335,7 @@ class AccountParameter(RucioController):
         :param Rucio-Auth-Token: as an 32 character hex string.
         :params Rucio-Type: the type of the new account.
         """
-        json_data = data()
+        json_data = data().decode()
         try:
             parameter = loads(json_data)
         except ValueError:
@@ -485,7 +485,7 @@ class Identities(RucioController):
 
         :param account: Account identifier.
         """
-        json_data = data()
+        json_data = data().decode()
         try:
             parameter = loads(json_data)
         except ValueError:
@@ -547,7 +547,7 @@ class Identities(RucioController):
             500 Internal Error
         :param account: Account identifier.
         """
-        json_data = data()
+        json_data = data().decode()
         try:
             parameter = loads(json_data)
         except ValueError:

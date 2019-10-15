@@ -76,7 +76,7 @@ class TestBinRucio():
         """CLIENT(USER): Rucio version"""
         cmd = 'bin/rucio --version'
         exitcode, out, err = execute(cmd)
-        nose.tools.assert_true('rucio' in err)
+        nose.tools.assert_true('rucio' in out or 'rucio' in err)
 
     def test_rucio_ping(self):
         """CLIENT(USER): Rucio ping"""
@@ -675,7 +675,7 @@ class TestBinRucio():
         rse_settings = rsemgr.get_rse_info(rse=self.def_rse)
         protocol = rsemgr.create_protocol(rse_settings, 'write')
         protocol.connect()
-        pfn = protocol.lfns2pfns(lfn).values()[0]
+        pfn = list(protocol.lfns2pfns(lfn).values())[0]
         protocol.put(filename[5:], pfn, filename[:5])
         protocol.close()
         remove(filename)
@@ -709,7 +709,7 @@ class TestBinRucio():
         rse_settings = rsemgr.get_rse_info(rse=self.def_rse)
         protocol = rsemgr.create_protocol(rse_settings, 'write')
         protocol.connect()
-        pfn = protocol.lfns2pfns(lfn).values()[0]
+        pfn = list(protocol.lfns2pfns(lfn).values())[0]
         protocol.put(filename[5:], pfn, filename[:5])
         protocol.close()
         remove(filename)

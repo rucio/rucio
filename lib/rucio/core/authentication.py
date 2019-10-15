@@ -31,6 +31,9 @@ import random
 import sys
 
 import paramiko
+import six
+
+from base64 import b64encode
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
@@ -103,7 +106,14 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
 
     db_salt = result['salt']
     db_password = result['password']
-    if db_password != hashlib.sha256('%s%s' % (db_salt, password)).hexdigest():
+
+    if six.PY3:
+        db_salt = b64encode(db_salt).decode()
+        salted_password = ('%s%s' % (db_salt, password)).encode()
+    else:
+        salted_password = '%s%s' % (db_salt, password)
+
+    if db_password != hashlib.sha256(salted_password).hexdigest():
         return None
 
     # get account identifier
@@ -215,6 +225,8 @@ def get_auth_token_ssh(account, signature, appid, ip=None, session=None):
               .token string
               .expired_at datetime
     """
+    if not isinstance(signature, bytes):
+        signature = signature.encode()
 
     # Make sure the account exists
     if not account_exists(account, session=session):
@@ -238,7 +250,7 @@ def get_auth_token_ssh(account, signature, appid, ip=None, session=None):
     for identity in identities:
         pub_k = paramiko.RSAKey(data=base64.b64decode(identity['identity'].split()[1]))
         for challenge_token in active_challenge_tokens:
-            if pub_k.verify_ssh_sig(str(challenge_token['token']),
+            if pub_k.verify_ssh_sig(str(challenge_token['token']).encode(),
                                     paramiko.Message(signature)):
                 match = True
                 break

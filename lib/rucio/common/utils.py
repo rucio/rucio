@@ -50,7 +50,7 @@ from getpass import getuser
 from logging import getLogger, Formatter
 from logging.handlers import RotatingFileHandler
 from uuid import uuid4 as uuid
-from six import string_types
+from six import string_types, PY3
 from xml.etree import ElementTree
 
 try:
@@ -706,6 +706,8 @@ def ssh_sign(private_key, message):
     :param message: The message to sign as a string.
     :return: Base64 encoded signature as a string.
     """
+    if PY3 and isinstance(message, str):
+        message = message.encode()
     if not EXTRA_MODULES['paramiko']:
         raise MissingModuleException('The paramiko module is not installed or faulty.')
     sio_private_key = StringIO(private_key)
@@ -713,7 +715,10 @@ def ssh_sign(private_key, message):
     sio_private_key.close()
     signature_stream = priv_k.sign_ssh_data(message)
     signature_stream.rewind()
-    return base64.b64encode(signature_stream.get_remainder())
+    base64_encoded = base64.b64encode(signature_stream.get_remainder())
+    if PY3:
+        base64_encoded = base64_encoded.decode()
+    return base64_encoded
 
 
 def make_valid_did(lfn_dict):

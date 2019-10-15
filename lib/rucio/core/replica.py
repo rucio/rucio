@@ -946,10 +946,9 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                             pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope.internal, name)] = path
 
                     try:
-                        pfn = protocol.lfns2pfns(lfns={'scope': scope,
-                                                       'name': name,
-                                                       'path': path}).\
-                            values()[0]
+                        pfn = list(protocol.lfns2pfns(lfns={'scope': scope,
+                                                            'name': name,
+                                                            'path': path}).values())[0]
 
                         # server side root proxy handling if location is set.
                         # supports root and http destinations
@@ -982,7 +981,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                                         rse_id=rse_id,
                                                         session=session)
                             if service and isinstance(service, list):
-                                pfn = get_signed_url(service=service[0], operation='read', url=pfn, lifetime=signature_lifetime)
+                                pfn = get_signed_url(rse_id=rse_id, service=service[0], operation='read', url=pfn, lifetime=signature_lifetime)
 
                         # PFNs don't have concepts, therefore quickly encapsulate in a tuple
                         # ('pfn', 'domain', 'priority', 'client_extract')
@@ -2532,12 +2531,12 @@ def update_collection_replica(update_request, session=None):
     """
     if update_request['rse_id'] is not None:
         # Check one specific dataset replica
-        ds_length = None
-        old_available_replicas = None
-        ds_bytes = None
+        ds_length = 0
+        old_available_replicas = 0
+        ds_bytes = 0
         ds_replica_state = None
-        ds_available_bytes = None
-        available_replicas = None
+        ds_available_bytes = 0
+        available_replicas = 0
 
         try:
             collection_replica = session.query(models.CollectionReplica)\

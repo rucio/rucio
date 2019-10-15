@@ -879,10 +879,10 @@ class ReplicationRule(BASE, ModelBase):
                    CheckConstraint('STATE IS NOT NULL', name='RULES_STATE_NN'),
                    CheckConstraint('SCOPE IS NOT NULL', name='RULES_SCOPE_NN'),
                    CheckConstraint('NAME IS NOT NULL', name='RULES_NAME_NN'),
-                   CheckConstraint('GROUPING IS NOT NULL', name='RULES_GROUPING_NN'),
                    CheckConstraint('COPIES IS NOT NULL', name='RULES_COPIES_NN'),
                    CheckConstraint('LOCKED IS NOT NULL', name='RULES_LOCKED_NN'),
                    CheckConstraint('ACCOUNT IS NOT NULL', name='RULES_ACCOUNT_NN'),
+                   CheckConstraint(grouping != None, name='RULES_GROUPING_NN'),  # noqa: E711
                    CheckConstraint('LOCKS_OK_CNT IS NOT NULL', name='RULES_LOCKS_OK_CNT_NN'),
                    CheckConstraint('LOCKS_REPLICATING_CNT IS NOT NULL', name='RULES_LOCKS_REPLICATING_CNT_NN'),
                    CheckConstraint('LOCKS_STUCK_CNT IS NOT NULL', name='RULES_LOCKS_STUCK_CNT_NN'),
