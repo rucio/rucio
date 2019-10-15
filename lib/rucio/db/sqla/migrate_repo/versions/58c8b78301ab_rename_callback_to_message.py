@@ -15,7 +15,6 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2019
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 
 ''' rename callback to message '''
 
@@ -28,15 +27,15 @@ from alembic.op import (create_primary_key, create_check_constraint,
 revision = '58c8b78301ab'
 down_revision = '2b8e7bcb4783'
 
-schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-
 
 def upgrade():
     '''
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+
+    if context.get_context().dialect.name == 'oracle':
         drop_constraint('callbacks_pk', 'callbacks', type_='primary')
         rename_table('callbacks', 'messages')
         create_primary_key('messages_pk', 'messages', ['id'])
@@ -54,13 +53,24 @@ def upgrade():
         create_check_constraint('messages_created_nn', 'messages', 'created_at is not null')
         create_check_constraint('messages_updated_nn', 'messages', 'updated_at is not null')
 
+    elif context.get_context().dialect.name == 'mysql':
+        drop_constraint('callbacks_pk', 'callbacks', type_='primary')
+        rename_table('callbacks', 'messages', schema=schema)
+        create_primary_key('messages_pk', 'messages', ['id'])
+        create_check_constraint('messages_event_type_nn', 'messages', 'event_type is not null')
+        create_check_constraint('messages_payload_nn', 'messages', 'payload is not null')
+        create_check_constraint('messages_created_nn', 'messages', 'created_at is not null')
+        create_check_constraint('messages_updated_nn', 'messages', 'updated_at is not null')
+
 
 def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+
+    if context.get_context().dialect.name == 'oracle':
         drop_constraint('MESSAGES_EVENT_TYPE_NN', 'messages', type_='check')
         drop_constraint('MESSAGES_PAYLOAD_NN', 'messages', type_='check')
         drop_constraint('MESSAGES_CREATED_NN', 'messages', type_='check')
@@ -85,3 +95,12 @@ def downgrade():
         create_check_constraint('CALLBACKS_PAYLOAD_NN', 'callbacks', 'payload is not null')
         create_check_constraint('CALLBACKS_CREATED_NN', 'callbacks', 'created_at is not null')
         create_check_constraint('CALLBACKS_UPDATED_NN', 'callbacks', 'updated_at is not null')
+
+    elif context.get_context().dialect.name == 'mysql':
+        drop_constraint('messages_pk', 'messages', type_='primary')
+        rename_table('messages', 'callbacks', schema=schema)
+        create_primary_key('callbacks_pk', 'callbacks', ['id'])
+        create_check_constraint('callbacks_event_type_nn', 'callbacks', 'event_type is not null')
+        create_check_constraint('callbacks_payload_nn', 'callbacks', 'payload is not null')
+        create_check_constraint('callbacks_created_nn', 'callbacks', 'created_at is not null')
+        create_check_constraint('callbacks_updated_nn', 'callbacks', 'updated_at is not null')

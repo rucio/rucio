@@ -21,6 +21,7 @@
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -75,7 +76,7 @@ GRACEFUL_STOP = threading.Event()
 
 REGION = make_region().configure('dogpile.cache.memcached',
                                  expiration_time=600,
-                                 arguments={'url': "127.0.0.1:11211",
+                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'),
                                             'distributed_lock': True})
 
 
@@ -107,7 +108,7 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, prepend_str):
                     pfn = replica['pfn']
                     # sign the URL if necessary
                     if prot.attributes['scheme'] == 'https' and rse_info['sign_url'] is not None:
-                        pfn = get_signed_url(rse_info['sign_url'], 'delete', pfn)
+                        pfn = get_signed_url(rse_id, rse_info['sign_url'], 'delete', pfn)
                     prot.delete(pfn)
                 else:
                     logging.warning('%s Deletion UNAVAILABLE of %s:%s as %s on %s', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name)
@@ -122,8 +123,8 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, prepend_str):
                 logging.info('%s Deletion SUCCESS of %s:%s as %s on %s in %s seconds', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name, duration)
 
             except SourceNotFound:
-                err_msg = '%s Deletion NOTFOUND of %s:%s as %s on %s' % (prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name)
-                logging.warning(err_msg)
+                err_msg = 'Deletion NOTFOUND of %s:%s as %s on %s' % (replica['scope'], replica['name'], replica['pfn'], rse_name)
+                logging.warning('%s %s', prepend_str, err_msg)
                 deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
                 if replica['state'] == ReplicaState.AVAILABLE:
                     deletion_dict['reason'] = str(err_msg)
@@ -195,6 +196,14 @@ def __check_rse_usage(rse, rse_id, prepend_str):
     if result is NO_VALUE:
         max_being_deleted_files, needed_free_space, used, free, obsolete = None, None, None, None, None
 
+        # First of all check if greedy mode is enabled for this RSE
+        attributes = list_rse_attributes(rse_id=rse_id)
+        greedy = attributes.get('greedyDeletion', False)
+        if greedy:
+            result = (max_being_deleted_files, 1000000000000, used, free)
+            REGION.set('rse_usage_%s' % rse_id, result)
+            return result
+
         # Get RSE limits
         limits = get_rse_limits(rse_id=rse_id)
         if not limits and 'MinFreeSpace' not in limits and 'MaxBeingDeletedFiles' not in limits:
@@ -207,19 +216,11 @@ def __check_rse_usage(rse, rse_id, prepend_str):
 
         # Check from which sources to get used and total spaces
         # Default is storage
-        attributes = list_rse_attributes(rse_id=rse_id)
         source_for_total_space = attributes.get('sourceForTotalSpace', 'storage')
         source_for_used_space = attributes.get('sourceForUsedSpace', 'storage')
-        greedy = attributes.get('greedyDeletion', False)
 
         logging.debug('%s RSE: %s, source_for_total_space: %s, source_for_used_space: %s',
                       prepend_str, rse, source_for_total_space, source_for_used_space)
-
-        # First of all check if greedy mode is enabled for this RSE
-        if greedy:
-            result = (max_being_deleted_files, 1000000000000, used, free)
-            REGION.set('rse_usage_%s' % rse_id, result)
-            return result
 
         # Get total, used and obsolete space
         rse_usage = get_rse_usage(rse_id=rse_id)
@@ -296,7 +297,7 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
     prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
     logging.info('%s Reaper starting', prepend_str)
 
-    time.sleep(10)  # To prevent running on the same partition if all the reapers restart at the same time
+    time.sleep(15)  # To prevent running on the same partition if all the reapers restart at the same time
     heart_beat = live(executable, hostname, pid, hb_thread)
     prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
     logging.info('%s Reaper started', prepend_str)
@@ -407,7 +408,6 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
                                 replica['pfn'] = str(rsemgr.lfns2pfns(rse_settings=rse_info,
                                                                       lfns=[{'scope': replica['scope'], 'name': replica['name'], 'path': replica['path']}],
                                                                       operation='delete', scheme=scheme).values()[0])
-                                time.sleep(random.uniform(0, 0.01))
                             except (ReplicaUnAvailable, ReplicaNotFound) as error:
                                 logging.warning('%s Failed get pfn UNAVAILABLE replica %s:%s on %s with error %s', prepend_str, replica['scope'], replica['name'], rse_name, str(error))
                                 replica['pfn'] = None

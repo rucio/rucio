@@ -19,6 +19,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -308,7 +309,7 @@ def list_dataset_replicas_vp(scope, name, deep=False):
         yield api_update_return_dict(r)
 
 
-def list_datasets_per_rse(rse, filters=None, limit=None):
+def list_datasets_per_rse(rse, filters={}, limit=None):
     """
     :param scope: The scope of the dataset.
     :param name: The name of the dataset.

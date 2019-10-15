@@ -1,6 +1,6 @@
 Individual contributors to the source code
 ------------------------------------------
-- Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
+- Mario Lassnig <mario.lassnig@cern.ch>, 2012-2019
 - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
 - Martin Barisits <martin.barisits@cern.ch>, 2012-2018

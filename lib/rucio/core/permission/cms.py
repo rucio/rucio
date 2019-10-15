@@ -326,7 +326,7 @@ def perm_del_identity(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
 
-    return _is_root(issuer) or issuer in kwargs.get('accounts')
+    return _is_root(issuer) or issuer.external in kwargs.get('accounts')
 
 
 def perm_add_did(issuer, kwargs):
@@ -601,12 +601,12 @@ def perm_add_replicas(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return (_is_root(issuer) or
-            str(kwargs.get('rse', '')).endswith('SCRATCHDISK') or
-            str(kwargs.get('rse', '')).endswith('USERDISK') or
-            str(kwargs.get('rse', '')).endswith('MOCK') or
-            str(kwargs.get('rse', '')).endswith('LOCALGROUPDISK') or
-            has_account_attribute(account=issuer, key='admin'))
+
+    is_root = _is_root(issuer)
+    is_temp = str(kwargs.get('rse', '')).endswith('_Temp')
+    is_admin = has_account_attribute(account=issuer, key='admin')
+
+    return is_root or is_temp or is_admin
 
 
 def perm_skip_availability_check(issuer, kwargs):

@@ -151,7 +151,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
     executable = ' '.join(sys.argv)
     # Generate a hash just for the subset of RSEs
     rse_names = [rse['rse'] for rse in rses]
-    hash_executable = hashlib.sha256(sys.argv[0] + ''.join(rse_names)).hexdigest()
+    hash_executable = hashlib.sha256((sys.argv[0] + ''.join(rse_names)).encode()).hexdigest()
     sanity_check(executable=None, hostname=hostname)
 
     nothing_to_do = {}
@@ -221,12 +221,12 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                     for files in chunks(replicas, chunk_size):
                         logging.debug('Reaper %s-%s: Running on : %s', worker_number, child_number, str(files))
                         try:
-                            update_replicas_states(replicas=[dict(replica.items() + [('state', ReplicaState.BEING_DELETED), ('rse_id', rse['id'])]) for replica in files], nowait=True)
+                            update_replicas_states(replicas=[dict(list(replica.items()) + [('state', ReplicaState.BEING_DELETED), ('rse_id', rse['id'])]) for replica in files], nowait=True)
                             for replica in files:
                                 try:
-                                    replica['pfn'] = str(rsemgr.lfns2pfns(rse_settings=rse_info,
-                                                                          lfns=[{'scope': replica['scope'].external, 'name': replica['name'], 'path': replica['path']}],
-                                                                          operation='delete', scheme=scheme).values()[0])
+                                    replica['pfn'] = str(list(rsemgr.lfns2pfns(rse_settings=rse_info,
+                                                                               lfns=[{'scope': replica['scope'].external, 'name': replica['name'], 'path': replica['path']}],
+                                                                               operation='delete', scheme=scheme).values())[0])
                                 except (ReplicaUnAvailable, ReplicaNotFound) as error:
                                     err_msg = 'Failed to get pfn UNAVAILABLE replica %s:%s on %s with error %s' % (replica['scope'], replica['name'], rse['rse'], str(error))
                                     logging.warning('Reaper %s-%s: %s', worker_number, child_number, err_msg)
@@ -249,7 +249,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                 pfn = replica['pfn']
                                                 # sign the URL if necessary
                                                 if prot.attributes['scheme'] == 'https' and rse_info['sign_url'] is not None:
-                                                    pfn = get_signed_url(rse_info['sign_url'], 'delete', pfn)
+                                                    pfn = get_signed_url(rse['id'], rse_info['sign_url'], 'delete', pfn)
                                                 prot.delete(pfn)
                                             else:
                                                 logging.warning('Reaper %s-%s: Deletion UNAVAILABLE of %s:%s as %s on %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'])
