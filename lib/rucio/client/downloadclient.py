@@ -175,7 +175,8 @@ class DownloadClient:
             rse                 - rse name (e.g. 'CERN-PROD_DATADISK'). RSE Expressions are not allowed
             base_dir            - Optional: Base directory where the downloaded files will be stored. (Default: '.')
             no_subdir           - Optional: If true, files are written directly into base_dir and existing files are overwritten. (Default: False)
-            ignore_checksum     - Optional: If true, the checksum validation is skipped (for pfn downloads the checksum must be given explicitly). (Default: True)
+            adler32             - Optional: The adler32 checmsum to compare the downloaded files adler32 checksum with
+            md5                 - Optional: The md5 checksum to compare the downloaded files md5 checksum with
             transfer_timeout    - Optional: Timeout time for the download protocols. (Default: None)
         :param num_threads: Suggestion of number of threads to use for the download. It will be lowered if it's too high.
         :param trace_custom_fields: Custom key value pairs to send with the traces
@@ -221,7 +222,7 @@ class DownloadClient:
             item['dest_file_paths'] = [dest_file_path]
             item['temp_file_path'] = '%s.part' % dest_file_path
             options = item.setdefault('merged_options', {})
-            options.setdefault('ignore_checksum', item.pop('ignore_checksum', True))
+            options['ignore_checksum'] = 'adler32' not in item and 'md5' not in item
             options.setdefault('transfer_timeout', item.pop('transfer_timeout', None))
 
             input_items.append(item)
@@ -1081,7 +1082,19 @@ class DownloadClient:
                                                      resolve_parents=True,
                                                      metalink=True)
             file_items = parse_replicas_from_string(metalink_str)
+
             logger.debug('num resolved files: %s' % len(file_items))
+
+            for input_did in item['dids']:
+                input_did_str = '%s:%s' % (input_did['scope'], input_did['name'])
+                did_exists = False
+                for file_item in file_items:
+                    if input_did_str == file_item['did'] or input_did_str in file_item['parent_dids']:
+                        did_exists = True
+                        break
+                if not did_exists:
+                    logger.error('No replicas found for DIDs: %s' % input_did_str)
+                    file_items.append({'did': input_did_str, 'adler32': None, 'md5': None, 'sources': []})
 
             nrandom = item.get('nrandom')
             if nrandom:
@@ -1091,6 +1104,7 @@ class DownloadClient:
                 merged_items_with_sources.append(file_items)
             else:
                 merged_items_with_sources.append(file_items)
+
         return merged_items_with_sources
 
     def _prepare_items_for_download(self, did_to_options, merged_items_with_sources, resolve_archives=True):
@@ -1130,7 +1144,6 @@ class DownloadClient:
         all_dest_file_paths = set()
 
         # get replicas for every file of the given dids
-        logger.debug('num list_replicas calls: %d' % len(merged_items_with_sources))
         for file_items in merged_items_with_sources:
             all_file_items.extend(file_items)
             for file_item in file_items:
