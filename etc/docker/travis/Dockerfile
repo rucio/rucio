@@ -25,14 +25,13 @@ ARG python
 
 RUN yum install -y epel-release.noarch
 RUN yum -y update
-RUN yum install -y gcc httpd python-pip gmp-devel krb5-devel httpd mod_ssl mod_auth_kerb git python-devel.x86_64 openssl-devel.x86_64 gridsite which libaio memcached ffi-devel
+RUN yum install -y gcc httpd python-pip gmp-devel krb5-devel httpd mod_ssl mod_auth_kerb git python-devel.x86_64 openssl-devel.x86_64 gridsite which libaio memcached MySQL-python ffi-devel
 RUN yum -y install https://centos7.iuscommunity.org/ius-release.rpm
 RUN yum -y install python36u python36u-devel python36u-pip
 RUN yum clean all
 
 RUN rm -rf /usr/lib/python2.7/site-packages/ipaddress*
 RUN if [ "$python" == "3.6" ] ; then yum -y install python36u-mod_wsgi ; else yum -y install mod_wsgi ; fi
-
 
 # Install sqlite3 because CentOS ships with an old version without window functions
 RUN curl https://www.sqlite.org/2019/sqlite-autoconf-3290000.tar.gz > sqlite.tar.gz
