@@ -1,0 +1,41 @@
+======
+1.20.7
+======
+
+-------
+General
+-------
+
+********
+Features
+********
+
+- Core & Internals: Prefer root protocol if local site has xCache `#2769 <https://github.com/rucio/rucio/issues/2769>`_
+
+************
+Enhancements
+************
+
+- Testing: New dev docker (finally) `#2805 <https://github.com/rucio/rucio/issues/2805>`_
+- Testing: reactivate test_bin_rucio for client tests `#2916 <https://github.com/rucio/rucio/issues/2916>`_
+
+****
+Bugs
+****
+
+- Core & Internals: PFN checking should accept mixed protocols `#2917 <https://github.com/rucio/rucio/issues/2917>`_
+- Core & Internals: Permission check for ddmadmin done wrong `#2954 <https://github.com/rucio/rucio/issues/2954>`_
+- Deletion: Reaper 2.0 is creating error traces for SourceNotFound `#2969 <https://github.com/rucio/rucio/issues/2969>`_
+- Deletion: Reaper 2.0 traceback `#2970 <https://github.com/rucio/rucio/issues/2970>`_
+- Transfers: Improperly Raising Exception in FTS3 Transfertool `#2931 <https://github.com/rucio/rucio/issues/2931>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Better error propagation for download and upload client `#2925 <https://github.com/rucio/rucio/issues/2925>`_
+- Clients: Do not mangle URLs when using GFAL library `#2947 <https://github.com/rucio/rucio/issues/2947>`_

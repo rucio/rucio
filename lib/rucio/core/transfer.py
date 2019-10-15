@@ -12,6 +12,7 @@
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 # - Robert Illingworth, <illingwo@fnal.gov>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White, <bjwhite@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -44,6 +45,7 @@ from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.fts3_myproxy import FTS3MyProxyTransfertool
+from rucio.transfertool.globus import GlobusTransferTool
 from rucio.common.config import config_get
 """
 The core transfer.py is specifically for handling transfer-requests, thus requests
@@ -53,8 +55,9 @@ Requests accessed by request_id  are covered in the core request.py
 
 REGION_SHORT = make_region().configure('dogpile.cache.memcached',
                                        expiration_time=600,
-                                       arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
+                                       arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
 USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
+TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)
 
 
 def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None, user_transfer_job=False):
@@ -94,6 +97,22 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
             # if no valid USER TRANSFER cases --> go with std submission
             transfer_id = FTS3Transfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
         record_timer('core.request.submit_transfers_fts3', (time.time() - start_time) * 1000 / len(files))
+    elif transfertool == 'globus':
+        logging.debug('... Starting globus xfer ...')
+        job_files = []
+        for file in files:
+            job_file = {}
+            for key in file:
+                if key == 'sources':
+                    # convert sources from (src_rse, url, src_rse_id, rank) to url
+                    job_file[key] = []
+                    for source in file[key]:
+                        job_file[key].append(source[1])
+                else:
+                    job_file[key] = file[key]
+            job_files.append(job_file)
+        logging.debug('job_files: %s' % job_files)
+        transfer_id = GlobusTransferTool(external_host=None).bulk_submit(submitjob=job_files, timeout=timeout)
     return transfer_id
 
 
@@ -228,6 +247,23 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeou
                     elif fts_resps[transfer_id][request_id]['file_state'] in str(FTSState.FINISHED):
                         fts_resps[transfer_id][request_id]['new_state'] = RequestState.DONE
         return fts_resps
+    elif transfertool == 'globus':
+        try:
+            start_time = time.time()
+            logging.debug('transfer_ids: %s' % transfer_ids)
+            responses = GlobusTransferTool(external_host=None).bulk_query(transfer_ids=transfer_ids, timeout=timeout)
+            record_timer('core.request.bulk_query_transfers', (time.time() - start_time) * 1000 / len(transfer_ids))
+        except Exception:
+            raise
+
+        for k, v in responses.items():
+            if v == 'FAILED':
+                responses[k] = RequestState.FAILED
+            elif v == 'SUCCEEDED':
+                responses[k] = RequestState.DONE
+            else:
+                responses[k] = RequestState.SUBMITTED
+        return responses
     else:
         raise NotImplementedError
 
@@ -590,12 +626,19 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 # get external_host
                 fts_hosts = rse_attrs[dest_rse_id].get('fts', None)
-                if not fts_hosts:
+                source_globus_endpoint_id = rse_attrs[source_rse_id].get('globus_endpoint_id', None)
+                dest_globus_endpoint_id = rse_attrs[dest_rse_id].get('globus_endpoint_id', None)
+
+                if TRANSFER_TOOL == 'fts3' and not fts_hosts:
                     logging.error('Destination RSE %s FTS attribute not defined - SKIP REQUEST %s' % (dest_rse_name, req_id))
+                    continue
+                if TRANSFER_TOOL == 'globus' and (not dest_globus_endpoint_id or not source_globus_endpoint_id):
+                    logging.error('Destination RSE %s Globus endpoint attributes not defined - SKIP REQUEST %s' % (dest_rse_name, req_id))
                     continue
                 if retry_count is None:
                     retry_count = 0
-                fts_list = fts_hosts.split(",")
+                if fts_hosts:
+                    fts_list = fts_hosts.split(",")
 
                 verify_checksum = 'both'
                 if not rse_attrs[dest_rse_id].get('verify_checksum', True):
@@ -627,7 +670,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                  'filesize': bytes,
                                  'md5': md5,
                                  'adler32': adler32,
-                                 'verify_checksum': verify_checksum}
+                                 'verify_checksum': verify_checksum,
+                                 'source_globus_endpoint_id': source_globus_endpoint_id,
+                                 'dest_globus_endpoint_id': dest_globus_endpoint_id}
 
                 if previous_attempt_id:
                     file_metadata['previous_attempt_id'] = previous_attempt_id

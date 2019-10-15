@@ -16,7 +16,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2019
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2019
 # - David Cameron <d.g.cameron@gmail.com>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
@@ -946,15 +946,15 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                             pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope.internal, name)] = path
 
                     try:
-                        pfn = protocol.lfns2pfns(lfns={'scope': scope,
-                                                       'name': name,
-                                                       'path': path}).\
-                            values()[0]
+                        pfn = list(protocol.lfns2pfns(lfns={'scope': scope,
+                                                            'name': name,
+                                                            'path': path}).values())[0]
 
                         # server side root proxy handling if location is set.
+                        # supports root and http destinations
                         # cannot be pushed into protocols because we need to lookup rse attributes.
                         # ultra-conservative implementation.
-                        if domain == 'wan' and protocol.attributes['scheme'] == 'root' and client_location:
+                        if domain == 'wan' and protocol.attributes['scheme'] in ['root', 'http', 'https'] and client_location:
 
                             if 'site' in client_location and client_location['site']:
 
@@ -972,7 +972,8 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                                                      default='',               # empty string to circumvent exception
                                                                      session=session)
                                     if root_proxy_internal:
-                                        pfn = 'root://' + root_proxy_internal + '//' + pfn
+                                        # don't forget to mangle gfal-style davs URL into generic https URL
+                                        pfn = 'root://' + root_proxy_internal + '//' + pfn.replace('davs://', 'https://')
 
                         # do we need to sign the URLs?
                         if sign_urls and protocol.attributes['scheme'] == 'https':
@@ -980,7 +981,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                                         rse_id=rse_id,
                                                         session=session)
                             if service and isinstance(service, list):
-                                pfn = get_signed_url(service=service[0], operation='read', url=pfn, lifetime=signature_lifetime)
+                                pfn = get_signed_url(rse_id=rse_id, service=service[0], operation='read', url=pfn, lifetime=signature_lifetime)
 
                         # PFNs don't have concepts, therefore quickly encapsulate in a tuple
                         # ('pfn', 'domain', 'priority', 'client_extract')
@@ -1302,31 +1303,33 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
                                     dataset_meta=dataset_meta,
                                     session=session)
 
-    pfns, scheme = [], None
+    pfns, scheme = {}, None  # {scheme: [pfns], scheme: [pfns]}
     for file in files:
         if 'pfn' not in file:
             if not replica_rse.deterministic:
                 raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %s ' % (replica_rse.rse))
         else:
             scheme = file['pfn'].split(':')[0]
-            pfns.append(file['pfn'])
+            pfns.setdefault(scheme, []).append(file['pfn'])
 
     if pfns:
-        p = rsemgr.create_protocol(rse_settings=rsemgr.get_rse_info(rse=replica_rse['rse'], session=session), operation='write', scheme=scheme)
-        if not replica_rse.deterministic:
-            pfns = p.parse_pfns(pfns=pfns)
-            for file in files:
-                tmp = pfns[file['pfn']]
-                file['path'] = ''.join([tmp['path'], tmp['name']])
-        else:
-            # Check that the pfns match to the expected pfns
-            lfns = [{'scope': i['scope'], 'name': i['name']} for i in files]
-            expected_pfns = p.lfns2pfns(lfns)
-            expected_pfns = clean_surls(expected_pfns.values())
-            pfns = clean_surls(pfns)
-            if pfns != expected_pfns:
-                print('ALERT: One of the PFNs provided does not match the Rucio expected PFN : got %s, expected %s (%s)' % (str(pfns), str(expected_pfns), str(lfns)))
-                raise exception.InvalidPath('One of the PFNs provided does not match the Rucio expected PFN : got %s, expected %s (%s)' % (str(pfns), str(expected_pfns), str(lfns)))
+        for scheme in pfns.keys():
+            p = rsemgr.create_protocol(rse_settings=rsemgr.get_rse_info(rse=replica_rse['rse'], session=session), operation='write', scheme=scheme)
+            if not replica_rse.deterministic:
+                pfns[scheme] = p.parse_pfns(pfns=pfns[scheme])
+                for file in files:
+                    if file['pfn'].startswith(scheme):
+                        tmp = pfns[scheme][file['pfn']]
+                        file['path'] = ''.join([tmp['path'], tmp['name']])
+            else:
+                # Check that the pfns match to the expected pfns
+                lfns = [{'scope': i['scope'], 'name': i['name']} for i in files if i['pfn'].startswith(scheme)]
+                expected_pfns = p.lfns2pfns(lfns)
+                expected_pfns = clean_surls(expected_pfns.values())
+                pfns[scheme] = clean_surls(pfns[scheme])
+                if pfns[scheme] != expected_pfns:
+                    print('ALERT: One of the PFNs provided does not match the Rucio expected PFN : got %s, expected %s (%s)' % (str(pfns), str(expected_pfns), str(lfns)))
+                    raise exception.InvalidPath('One of the PFNs provided does not match the Rucio expected PFN : got %s, expected %s (%s)' % (str(pfns), str(expected_pfns), str(lfns)))
 
     nbfiles, bytes = __bulk_add_replicas(rse_id=rse_id, files=files, account=account, session=session)
     increase(rse_id=rse_id, files=nbfiles, bytes=bytes, session=session)
@@ -1375,7 +1378,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable'
                                                      'for deleting' % replica_rse.rse)
 
-    replica_condition, parent_condition, did_condition = [], [], []
+    replica_condition, parent_condition, did_condition, src_condition = [], [], [], []
     clt_replica_condition, dst_replica_condition = [], []
     incomplete_condition, messages, archive_contents_condition = [], [], []
     for file in files:
@@ -1408,7 +1411,18 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
                                                                                                                                            models.DataIdentifier.availability == DIDAvailability.LOST)),
                                                ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(and_(models.RSEFileAssociation.scope == file['scope'], models.RSEFileAssociation.name == file['name']))))
 
+        src_condition.append(and_(models.Source.scope == file['scope'],
+                                  models.Source.name == file['name'],
+                                  models.Source.rse_id == rse_id))
+
     delta, bytes, rowcount = 0, 0, 0
+
+    # WARNING : This should not be necessary since that would mean the replica is used as a source.
+    for chunk in chunks(src_condition, 10):
+        rowcount = session.query(models.Source).\
+            filter(or_(*chunk)).\
+            delete(synchronize_session=False)
+
     for chunk in chunks(replica_condition, 10):
         for (scope, name, rid, replica_bytes) in session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id, models.RSEFileAssociation.bytes).\
                 with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle').filter(models.RSEFileAssociation.rse_id == rse_id).filter(or_(*chunk)):
@@ -1651,42 +1665,31 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
     """
 
     none_value = None  # Hack to get pep8 happy...
-    subquery = session.query(models.RSEFileAssociation.scope,
-                             models.RSEFileAssociation.name,
-                             models.RSEFileAssociation.path,
-                             models.RSEFileAssociation.bytes,
-                             models.RSEFileAssociation.tombstone,
-                             models.RSEFileAssociation.state,
-                             models.RSEFileAssociation.rse_id).\
+    query = session.query(models.RSEFileAssociation.scope,
+                          models.RSEFileAssociation.name,
+                          models.RSEFileAssociation.path,
+                          models.RSEFileAssociation.bytes,
+                          models.RSEFileAssociation.tombstone,
+                          models.RSEFileAssociation.state).\
         with_hint(models.RSEFileAssociation, "INDEX_RS_ASC(replicas REPLICAS_TOMBSTONE_IDX)  NO_INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle').\
-        with_for_update(skip_locked=True).\
         filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
         filter(models.RSEFileAssociation.lock_cnt == 0).\
         filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
         filter(or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)),
                    and_(models.RSEFileAssociation.state == ReplicaState.BEING_DELETED, models.RSEFileAssociation.updated_at < datetime.utcnow() - timedelta(seconds=delay_seconds)))).\
-        order_by(models.RSEFileAssociation.tombstone).subquery()
-    query = session.query(subquery.c.scope,
-                          subquery.c.name,
-                          subquery.c.path,
-                          subquery.c.bytes,
-                          subquery.c.tombstone,
-                          subquery.c.state,
-                          func.count(models.RSEFileAssociation.scope)).\
-        join(models.RSEFileAssociation, and_(models.RSEFileAssociation.scope == subquery.c.scope,
-                                             models.RSEFileAssociation.name == subquery.c.name,
-                                             models.RSEFileAssociation.rse_id != subquery.c.rse_id,
-                                             models.RSEFileAssociation.state == ReplicaState.AVAILABLE)).\
-        group_by(subquery.c.scope, subquery.c.name, subquery.c.path, subquery.c.bytes, subquery.c.tombstone, subquery.c.state).\
-        order_by(subquery.c.tombstone)
+        with_for_update(skip_locked=True).\
+        order_by(models.RSEFileAssociation.tombstone)
 
     needed_space = bytes
     total_bytes, total_files = 0, 0
     rows = []
     replica_clause = []
-    for (scope, name, path, bytes, tombstone, state, cnt) in query.yield_per(1000):
+    for (scope, name, path, bytes, tombstone, state) in query.yield_per(1000):
         # Check if more than one replica is available
-        if cnt > 1:
+        replica_cnt = session.query(func.count(models.RSEFileAssociation.scope)).\
+            filter(and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id != rse_id)).one()
+
+        if replica_cnt[0] > 1:
             if state != ReplicaState.UNAVAILABLE:
                 total_bytes += bytes
                 if tombstone != OBSOLETE and needed_space is not None and total_bytes > needed_space:
@@ -2528,12 +2531,12 @@ def update_collection_replica(update_request, session=None):
     """
     if update_request['rse_id'] is not None:
         # Check one specific dataset replica
-        ds_length = None
-        old_available_replicas = None
-        ds_bytes = None
+        ds_length = 0
+        old_available_replicas = 0
+        ds_bytes = 0
         ds_replica_state = None
-        ds_available_bytes = None
-        available_replicas = None
+        ds_available_bytes = 0
+        available_replicas = 0
 
         try:
             collection_replica = session.query(models.CollectionReplica)\
@@ -2768,7 +2771,9 @@ def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, session=Non
     pfns = clean_surls(pfns)
     for pfn in pfns:
         new_pfn = models.BadPFNs(path=str(pfn), account=account, state=rep_state, reason=reason, expires_at=expires_at)
+        new_pfn = session.merge(new_pfn)
         new_pfn.save(session=session, flush=False)
+
     try:
         session.flush()
     except IntegrityError as error:

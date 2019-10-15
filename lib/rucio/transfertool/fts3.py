@@ -14,6 +14,7 @@
 # - Diego Ciangottini <diego.ciangottini@pg.infn.it>, 2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -48,6 +49,7 @@ except ImportError:
     pass
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer
+from rucio.common.utils import APIEncoder
 from rucio.core.monitor import record_counter, record_timer
 from rucio.db.sqla.constants import FTSState
 from rucio.transfertool.transfertool import Transfertool
@@ -182,7 +184,7 @@ class FTS3Transfertool(Transfertool):
 
         # bulk submission
         params_dict = {'files': files, 'params': job_params}
-        params_str = json.dumps(params_dict)
+        params_str = json.dumps(params_dict, cls=APIEncoder)
 
         post_result = None
         try:
@@ -216,7 +218,7 @@ class FTS3Transfertool(Transfertool):
             record_counter('transfertool.fts3.%s.submission.failure' % self.__extract_host(self.external_host), len(files))
 
         if not transfer_id:
-            raise('No transfer id returned by %s' % self.external_host)
+            raise TransferToolWrongAnswer('No transfer id returned by %s' % self.external_host)
         return transfer_id
 
     def cancel(self, transfer_ids, timeout=None):
@@ -259,7 +261,7 @@ class FTS3Transfertool(Transfertool):
 
         job = None
         params_dict = {"params": {"priority": priority}}
-        params_str = json.dumps(params_dict)
+        params_str = json.dumps(params_dict, cls=APIEncoder)
 
         job = requests.post('%s/jobs/%s' % (self.external_host, transfer_id),
                             verify=self.verify,
@@ -524,7 +526,7 @@ class FTS3Transfertool(Transfertool):
             except KeyError:
                 params_dict[storage_element]['se_info'] = {'outbound_max_throughput': outbound_max_throughput}
 
-        params_str = json.dumps(params_dict)
+        params_str = json.dumps(params_dict, cls=APIEncoder)
 
         try:
             result = requests.post('%s/config/se' % (self.external_host),
@@ -561,7 +563,7 @@ class FTS3Transfertool(Transfertool):
             params_dict['timeout'] = timeout
             status = 'WAIT'
         params_dict['status'] = status
-        params_str = json.dumps(params_dict)
+        params_str = json.dumps(params_dict, cls=APIEncoder)
 
         result = None
         if ban:

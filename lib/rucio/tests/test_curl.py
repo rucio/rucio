@@ -1,18 +1,23 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2014
-  - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2018
-
-  How to generate test outputs/Test the API via CURL:
-    nosetests --verbose --with-outputsave --save-directory=doc/source/example_outputs/ lib/rucio/tests/test_curl.py
-'''
+# Copyright 2012-2019 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2019
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2013
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2017
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 
 from __future__ import print_function
 
@@ -35,6 +40,7 @@ class TestCurlRucio(object):
         '''
         self.cacert = config_get('test', 'cacert')
         self.usercert = config_get('test', 'usercert')
+        self.userkey = config_get('test', 'userkey')
         self.host = config_get('client', 'rucio_host')
         self.auth_host = config_get('client', 'auth_host')
         self.marker = '$> '
@@ -59,7 +65,7 @@ class TestCurlRucio(object):
 
     def test_get_auth_x509(self):
         """AUTH (CURL): Test auth token retrieval with via x509"""
-        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" -E %s -X GET %s/auth/x509' % (self.cacert, self.usercert, self.auth_host)
+        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" -cert %s --key %s -X GET %s/auth/x509' % (self.cacert, self.usercert, self.userkey, self.auth_host)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, )
@@ -67,7 +73,7 @@ class TestCurlRucio(object):
 
     def test_get_auth_GSS(self):
         """AUTH (CURL): Test auth token retrieval with via gss"""
-        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" -E %s -X GET %s/auth/x509 | tr -d \'\r\' | grep X-Rucio-Auth-Token' % (self.cacert, self.usercert, self.auth_host)
+        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" --cert %s --key %s -X GET %s/auth/x509 | tr -d \'\r\' | grep X-Rucio-Auth-Token' % (self.cacert, self.usercert, self.userkey, self.auth_host)
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('X-Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('X-Rucio-Auth-Token: '):].rstrip()
@@ -79,7 +85,7 @@ class TestCurlRucio(object):
 
     def test_get_auth_x509_proxy(self):
         """AUTH (CURL): Test auth token retrieval with via proxy"""
-        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" -E %s -X GET %s/auth/x509 | tr -d \'\r\' | grep X-Rucio-Auth-Token' % (self.cacert, self.usercert, self.auth_host)
+        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" --cert %s --key %s -X GET %s/auth/x509 | tr -d \'\r\' | grep X-Rucio-Auth-Token' % (self.cacert, self.usercert, self.userkey, self.auth_host)
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('X-Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('X-Rucio-Auth-Token: '):].rstrip()
@@ -91,7 +97,7 @@ class TestCurlRucio(object):
 
     def test_get_auth_validate(self):
         """AUTH (CURL): Test if token is valid"""
-        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" -E %s -X GET %s/auth/x509 | tr -d \'\r\' | grep X-Rucio-Auth-Token:' % (self.cacert, self.usercert, self.auth_host)
+        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" --cert %s --key %s -X GET %s/auth/x509 | tr -d \'\r\' | grep X-Rucio-Auth-Token:' % (self.cacert, self.usercert, self.userkey, self.auth_host)
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('X-Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('X-Rucio-Auth-Token: '):].rstrip()
@@ -103,7 +109,7 @@ class TestCurlRucio(object):
 
     def test_post_account(self):
         """ACCOUNT (CURL): add account"""
-        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" -E %s -X GET %s/auth/x509 | tr -d \'\r\' | grep X-Rucio-Auth-Token:' % (self.cacert, self.usercert, self.auth_host)
+        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" --cert %s --key %s -X GET %s/auth/x509 | tr -d \'\r\' | grep X-Rucio-Auth-Token:' % (self.cacert, self.usercert, self.userkey, self.auth_host)
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('X-Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('X-Rucio-Auth-Token: '):].rstrip()
@@ -115,7 +121,7 @@ class TestCurlRucio(object):
 
     def test_get_accounts_whoami(self):
         """ACCOUNT (CURL): Test whoami method"""
-        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" -E %s -X GET %s/auth/x509 | tr -d \'\r\' | grep X-Rucio-Auth-Token:' % (self.cacert, self.usercert, self.auth_host)
+        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" --cert %s --key %s -X GET %s/auth/x509 | tr -d \'\r\' | grep X-Rucio-Auth-Token:' % (self.cacert, self.usercert, self.userkey, self.auth_host)
         print(cmd)
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('X-Rucio-Auth-Token', out)
@@ -128,7 +134,7 @@ class TestCurlRucio(object):
 
     def test_post_rse(self):
         """RSE (CURL): add RSE"""
-        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" -E %s -X GET %s/auth/x509 | tr -d \'\r\' | grep X-Rucio-Auth-Token:' % (self.cacert, self.usercert, self.auth_host)
+        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" --cert %s --key %s -X GET %s/auth/x509 | tr -d \'\r\' | grep X-Rucio-Auth-Token:' % (self.cacert, self.usercert, self.userkey, self.auth_host)
         exitcode, out, err = execute(cmd)
         nose.tools.assert_in('X-Rucio-Auth-Token', out)
         os.environ['RUCIO_TOKEN'] = out[len('X-Rucio-Auth-Token: '):].rstrip()

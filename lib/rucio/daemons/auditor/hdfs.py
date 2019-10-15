@@ -54,7 +54,7 @@ class ReplicaFromHDFS(Replica):
             cls.__name__.lower(),
             rse,
             date.strftime('%d-%m-%Y'),
-            hashlib.sha1(url).hexdigest()
+            hashlib.sha1(url.encode()).hexdigest()
         )
         filename = re.sub(r'\W', '-', filename)
         path = os.path.join(cache_dir, filename)

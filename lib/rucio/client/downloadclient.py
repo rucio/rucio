@@ -27,7 +27,6 @@ from __future__ import division
 import copy
 import logging
 import os
-import os.path
 import random
 import shutil
 import signal
@@ -40,7 +39,7 @@ except ImportError:
 from threading import Thread
 
 from rucio.client.client import Client
-from rucio.common.exception import (InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RSENotFound, RucioException)
+from rucio.common.exception import (InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RucioException)
 from rucio.common.pcache import Pcache
 from rucio.common.utils import adler32, md5, detect_client_location, generate_uuid, parse_replicas_from_string, send_trace, sizefmt, execute, parse_replicas_from_file
 from rucio.rse import rsemanager as rsemgr
@@ -471,8 +470,8 @@ class DownloadClient:
         if not sources or not len(sources):
             logger.warning('%sNo available source found for file: %s' % (log_prefix, did_str))
             item['clientState'] = 'FILE_NOT_FOUND'
-
             trace['clientState'] = 'FILE_NOT_FOUND'
+            trace['stateReason'] = 'No available sources'
             self._send_trace(trace)
             return item
 
@@ -526,8 +525,9 @@ class DownloadClient:
 
             try:
                 rse = rsemgr.get_rse_info(rse_name)
-            except RSENotFound:
-                logger.warning('%sCould not get info of RSE %s' % (log_prefix, rse_name))
+            except RucioException as error:
+                logger.warning('%sCould not get info of RSE %s: %s' % (log_prefix, rse_name, error))
+                trace['stateReason'] = str(error)
                 continue
 
             trace['remoteSite'] = rse_name
@@ -542,6 +542,7 @@ class DownloadClient:
             except Exception as error:
                 logger.warning('%sFailed to create protocol for PFN: %s' % (log_prefix, pfn))
                 logger.debug('scheme: %s, exception: %s' % (scheme, error))
+                trace['stateReason'] = str(error)
                 continue
 
             attempt = 0
@@ -563,6 +564,7 @@ class DownloadClient:
                 except Exception as error:
                     logger.debug(error)
                     trace['clientState'] = str(type(error).__name__)
+                    trace['stateReason'] = str(error)
 
                 end_time = time.time()
 
@@ -584,6 +586,7 @@ class DownloadClient:
                         logger.warning('%sChecksum validation failed for file: %s' % (log_prefix, did_str))
                         logger.debug('Local checksum: %s, Rucio checksum: %s' % (local_checksum, rucio_checksum))
                         trace['clientState'] = 'FAIL_VALIDATE'
+                        trace['stateReason'] = 'Checksum validation failed: Local checksum: %s, Rucio checksum: %s' % (local_checksum, rucio_checksum)
                 if not success:
                     logger.warning('%sDownload attempt failed. Try %s/%s' % (log_prefix, attempt, retries))
                     self._send_trace(trace)
@@ -616,6 +619,7 @@ class DownloadClient:
         trace['transferStart'] = start_time
         trace['transferEnd'] = end_time
         trace['clientState'] = 'DONE'
+        trace['stateReason'] = 'OK'
         item['clientState'] = 'DONE'
         self._send_trace(trace)
 

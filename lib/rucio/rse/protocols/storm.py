@@ -1,13 +1,20 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2014-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Tomas Javor Javurek, <tomas.javurek@cern.ch>, 2019
-
+# - Tomas Javor Javurek <tomas.javurek@cern.ch>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
 import os
 
@@ -31,35 +38,27 @@ class Default(protocol.RSEProtocol):
         self.attributes.pop('determinism_type', None)
         self.files = []
 
-    def _get_path(self, scope, name):
-        """ Transforms the physical file name into the local URI in the referred RSE.
-            Suitable for sites implementoing the RUCIO naming convention.
-
-            :param name: filename
-            :param scope: scope
-
-            :returns: RSE specific URI of the physical file
-        """
-        return '%s/%s' % (scope, name)
-
     def lfns2pfns(self, lfns):
-        """ In this case, just returns back lfn with external scope. """
-        if type(lfns) == dict:
-            val = lfns.copy()
-            if 'scope' in val and val['scope'] is not None:
-                val['scope'] = val['scope'].external
+        """ Create fake storm:// path. Will be resolved at the get() stage later. """
+        pfns = {}
 
-        elif type(lfns) == list:
-            val = []
-            for l in lfns:
-                v = l.copy()
-                if 'scope' in v and v['scope'] is not None:
-                    v['scope'] = v['scope'].external
-                val.append(v)
+        hostname = self.attributes['hostname']
+        if '://' in hostname:
+            hostname = hostname.split("://")[1]
 
-        else:
-            val = lfns
-        return val
+        prefix = self.attributes['prefix']
+        if not prefix.startswith('/'):
+            prefix = ''.join(['/', prefix])
+        if not prefix.endswith('/'):
+            prefix = ''.join([prefix, '/'])
+
+        lfns = [lfns] if isinstance(lfns, dict) else lfns
+        for lfn in lfns:
+            path = lfn['path'] if 'path' in lfn and lfn['path'] else self._get_path(scope=lfn['scope'].external,
+                                                                                    name=lfn['name'])
+            pfns['%s:%s' % (lfn['scope'], lfn['name'])] = ''.join(['storm://', hostname, ':', str(self.attributes['port']), prefix, path])
+
+        return pfns
 
     def path2pfn(self, path):
         """

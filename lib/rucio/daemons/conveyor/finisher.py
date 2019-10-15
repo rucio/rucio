@@ -16,8 +16,8 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2015-2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2017
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
@@ -49,6 +49,7 @@ from dogpile.cache.api import NoValue
 from sqlalchemy.exc import DatabaseError
 
 from rucio.common.config import config_get
+from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks
 from rucio.common.exception import DatabaseException, ConfigNotFound, UnsupportedOperation, ReplicaNotFound, RequestNotFound
 from rucio.core import request as request_core, heartbeat, replica as replica_core
@@ -251,8 +252,8 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, prep
                 __check_suspicious_files(req, suspicious_patterns)
                 tss = time.time()
                 try:
-                    new_req = request_core.requeue_and_archive(req, retry_protocol_mismatches)
-                    if new_req:
+                    if request_core.should_retry_request(req, retry_protocol_mismatches):
+                        new_req = request_core.requeue_and_archive(req, retry_protocol_mismatches)
                         # should_retry_request and requeue_and_archive are not in one session,
                         # another process can requeue_and_archive and this one will return None.
                         record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time() - tss) * 1000)
@@ -278,8 +279,8 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, prep
                     continue
                 try:
                     tss = time.time()
-                    new_req = request_core.requeue_and_archive(req, retry_protocol_mismatches)
-                    if new_req:
+                    if request_core.should_retry_request(req, retry_protocol_mismatches):
+                        new_req = request_core.requeue_and_archive(req, retry_protocol_mismatches)
                         record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time() - tss) * 1000)
                         logging.warn(prepend_str + 'REQUEUED SUBMITTING DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
                                                                                                               req['name'],
@@ -351,7 +352,7 @@ def __check_suspicious_files(req, suspicious_patterns):
                     pfns.append(url['url'])
                 if pfns:
                     logging.debug("Found suspicious urls: %s", str(pfns))
-                    replica_core.declare_bad_file_replicas(pfns, reason=reason, issuer='root', status=BadFilesStatus.SUSPICIOUS)
+                    replica_core.declare_bad_file_replicas(pfns, reason=reason, issuer=InternalAccount('root'), status=BadFilesStatus.SUSPICIOUS)
     except Exception as error:
         logging.warning("Failed to check suspicious file with request: %s - %s", req['request_id'], str(error))
     return is_suspicious
@@ -444,7 +445,7 @@ def __update_replica(replica, session=None):
                                          replica['name'],
                                          replica['bytes'],
                                          pfn=replica['pfn'] if 'pfn' in replica else None,
-                                         account='root',  # it will deleted immediately, do we need to get the accurate account from rule?
+                                         account=InternalAccount('root'),  # it will deleted immediately, do we need to get the accurate account from rule?
                                          adler32=replica['adler32'],
                                          tombstone=datetime.datetime.utcnow(),
                                          session=session)
