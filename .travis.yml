@@ -72,7 +72,6 @@ matrix:
     env: SUITE=python3
   - python: 3.6
     env: SUITE=all
-  allow_failures:
   - python: 3.6
     env: SUITE=syntax
   - python: 3.6
@@ -89,6 +88,9 @@ matrix:
     env:  SUITE=all RDBMS=sqlite
   - python: 3.6
     env: SUITE=client RDBMS=sqlite RUCIO_HOME=`pwd`
+  allow_failures:
+  - python: 2.7
+    env:  SUITE=all RDBMS=mysql8
 
 notifications:
   slack:
