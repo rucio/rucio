@@ -73,8 +73,6 @@ matrix:
   - python: 3.6
     env: SUITE=all
   allow_failures:
-  - python: 2.7
-    env:  SUITE=all RDBMS=mysql8
   - python: 3.6
     env: SUITE=syntax
   - python: 3.6
