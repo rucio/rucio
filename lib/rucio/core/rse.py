@@ -56,7 +56,7 @@ import rucio.core.account_counter
 
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.common import exception, utils
-from rucio.common.config import get_lfn2pfn_algorithm_default
+from rucio.common.config import get_lfn2pfn_algorithm_default, config_get
 from rucio.common.utils import CHECKSUM_KEY, is_checksum_valid, GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RSEType
@@ -380,7 +380,7 @@ def add_rse_attribute(rse_id, key, value, session=None):
 
 
 @transactional_session
-def del_rse_attribute(rse, key, session=None):
+def del_rse_attribute(rse_id, key, session=None):
     """
     Delete a RSE attribute.
 
@@ -560,6 +560,7 @@ def get_rse_supported_checksums(rse_id=None, session=None):
         return GLOBALLY_SUPPORTED_CHECKSUMS
     else:
         return supported_checksum_list
+
 
 @read_session
 def get_rse_is_checksum_supported(checksum_name, rse_id=None, session=None):

@@ -280,9 +280,9 @@ def crc32(file):
     :returns: string of 32 hexadecimal digits
     """
     prev = 0
-    for eachLine in open(file,"rb"):
+    for eachLine in open(file, "rb"):
         prev = zlib.crc32(eachLine, prev)
-    return "%X"%(prev & 0xFFFFFFFF)
+    return "%X" % (prev & 0xFFFFFFFF)
 
 
 CHECKSUM_ALGO_DICT['crc32'] = crc32

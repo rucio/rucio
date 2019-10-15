@@ -42,11 +42,11 @@ import traceback
 
 from rucio.common.config import config_get
 from rucio.common.exception import InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound, ConfigNotFound, DuplicateFileTransferSubmission
-from rucio.common.utils import chunks, PREFERRED_CHECKSUM, set_checksum_value
+from rucio.common.utils import chunks, set_checksum_value
 from rucio.core import request, transfer as transfer_core
 from rucio.core.config import get
 from rucio.core.monitor import record_counter, record_timer
-from rucio.core.rse import list_rses, get_rse_supported_checksums, get_rse_id
+from rucio.core.rse import list_rses, get_rse_supported_checksums
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla.session import read_session
 from rucio.db.sqla.constants import RequestState
