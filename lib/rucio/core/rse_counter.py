@@ -1,16 +1,25 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# -*- coding: utf-8 -*-
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2016
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Brandon White, <bjwhite@fnal.gov>, 2019
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2016
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2021
+# - Robert Illingworth <illingwo@fnal.gov>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
 
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -145,6 +154,6 @@ def fill_rse_counter_history_table(session=None):
 
     :param session: Database session in use.
     """
-    RSEUsageHistory = models.RSEUsage.__history_mapper__.class_
+    RSEUsageHistory = models.RSEUsageHistory
     for usage in session.query(models.RSEUsage).all():
         RSEUsageHistory(rse_id=usage['rse_id'], used=usage['used'], files=usage['files'], source=usage['source']).save(session=session)
