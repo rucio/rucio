@@ -1,4 +1,5 @@
-# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,16 +14,15 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Martin Barisits, <martin.barisits@cern.ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2021
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Martin Barisits <martin.barisits@cern.ch>, 2021
 
 import datetime
 import logging
@@ -75,7 +75,7 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
     except ConfigNotFound:
         keep_history = False
 
-    SubscriptionHistory = models.Subscription.__history_mapper__.class_
+    SubscriptionHistory = models.SubscriptionHistory
     retroactive = bool(retroactive)  # Force boolean type, necessary for strict SQL
     state = SubscriptionState.ACTIVE
     lifetime = None
@@ -159,7 +159,7 @@ def update_subscription(name, account, metadata=None, session=None):
         values['state'] = SubscriptionState.INACTIVE
         values['expired_at'] = datetime.datetime.utcnow()
 
-    SubscriptionHistory = models.Subscription.__history_mapper__.class_
+    SubscriptionHistory = models.SubscriptionHistory
     try:
         subscription = session.query(models.Subscription).filter_by(account=account, name=name).one()
         subscription.update(values)

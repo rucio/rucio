@@ -16,7 +16,7 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013
-# - Martin Barisits <martin.barisits@cern.ch>, 2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2021
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2019
@@ -98,10 +98,10 @@ class TestCoreRSECounter(unittest.TestCase):
     def test_fill_counter_history(self):
         """RSE COUNTER (CORE): Fill the usage history with the current value."""
         db_session = session.get_session()
-        db_session.query(models.RSEUsage.__history_mapper__.class_).delete()
+        db_session.query(models.RSEUsageHistory).delete()
         db_session.commit()
         rse_counter.fill_rse_counter_history_table()
-        history_usage = [(usage['rse_id'], usage['files'], usage['source'], usage['used']) for usage in db_session.query(models.RSEUsage.__history_mapper__.class_)]
+        history_usage = [(usage['rse_id'], usage['files'], usage['source'], usage['used']) for usage in db_session.query(models.RSEUsageHistory)]
         current_usage = [(usage['rse_id'], usage['files'], usage['source'], usage['used']) for usage in db_session.query(models.RSEUsage)]
         for usage in history_usage:
             assert usage in current_usage
@@ -166,10 +166,10 @@ class TestCoreAccountCounter(unittest.TestCase):
     def test_fill_counter_history(self):
         """ACCOUNT COUNTER (CORE): Fill the usage history with the current value."""
         db_session = session.get_session()
-        db_session.query(models.AccountUsage.__history_mapper__.class_).delete()
+        db_session.query(models.AccountUsageHistory).delete()
         db_session.commit()
         account_counter.fill_account_counter_history_table()
-        history_usage = [(usage['rse_id'], usage['files'], usage['account'], usage['bytes']) for usage in db_session.query(models.AccountUsage.__history_mapper__.class_)]
+        history_usage = [(usage['rse_id'], usage['files'], usage['account'], usage['bytes']) for usage in db_session.query(models.AccountUsageHistory)]
         current_usage = [(usage['rse_id'], usage['files'], usage['account'], usage['bytes']) for usage in db_session.query(models.AccountUsage)]
         for usage in history_usage:
             assert usage in current_usage

@@ -2248,7 +2248,7 @@ def examine_rule(rule_id, session=None):
             stuck_locks = session.query(models.ReplicaLock).filter_by(rule_id=rule_id, state=LockState.STUCK).all()
             for lock in stuck_locks:
                 # Get the count of requests in the request_history for each lock
-                transfers = session.query(models.Request.__history_mapper__.class_).filter_by(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id).order_by(models.Request.__history_mapper__.class_.created_at.desc()).all()
+                transfers = session.query(models.RequestHistory).filter_by(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id).order_by(models.RequestHistory.created_at.desc()).all()  # pylint: disable=no-member
                 transfer_cnt = len(transfers)
                 # Get the error of the last request that has been tried and also the SOURCE used for the last request
                 last_error, last_source, last_time, sources = None, None, None, []
