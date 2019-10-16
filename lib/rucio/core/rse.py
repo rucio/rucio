@@ -183,6 +183,25 @@ def del_rse(rse_id, session=None):
         pass
 
 
+@transactional_session
+def restore_rse(rse_id, session=None):
+    """
+    Restore a rse with the given rse id.
+
+    :param rse_id: the rse id.
+    :param session: The database session in use.
+    """
+
+    old_rse = None
+    try:
+        old_rse = session.query(models.RSE).filter_by(id=rse_id, deleted=True).one()
+    except sqlalchemy.orm.exc.NoResultFound:
+        raise exception.RSENotFound('RSE with id \'%s\' cannot be found' % rse_id)
+    rse = old_rse.rse
+    old_rse.restore(session=session)
+    add_rse_attribute(rse_id=rse_id, key=rse, value=True, session=session)
+
+
 @read_session
 def rse_is_empty(rse_id, session=None):
     """
