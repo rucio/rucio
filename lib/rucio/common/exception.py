@@ -952,3 +952,14 @@ class DuplicateFileTransferSubmission(RucioException):
         super(DuplicateFileTransferSubmission, self).__init__(*args, **kwargs)
         self._message = 'One or more files are already submitted to the transfer tool'
         self.error_code = 90
+
+
+class PolicyPackageNotFound(RucioException):
+    """
+    The policy package specified in the config file cannot be loaded.
+    """
+    def __init__(self, *args, **kwargs):
+        super(PolicyPackageNotFound, self).__init__(*args, **kwargs)
+        self._message = 'The specified policy package cannot be loaded'
+        self.error_code = 91
+

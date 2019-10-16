@@ -18,7 +18,7 @@ try:
     from ConfigParser import NoOptionError, NoSectionError
 except ImportError:
     from configparser import NoOptionError, NoSectionError
-from rucio.common import config
+from rucio.common import config, exception
 
 import importlib
 
@@ -33,7 +33,7 @@ else:
 try:
     module = importlib.import_module(POLICY)
 except (ImportError) as error:
-    module = importlib.import_module('rucio.core.permission.generic')
+    raise exception.PolicyPackageNotFound('Module ' + POLICY + ' not found')
 
 for i in dir(module):
     if i[:1] != '_' or i == '_is_root':
