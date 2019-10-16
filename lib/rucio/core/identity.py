@@ -20,6 +20,7 @@ import os
 from re import match
 
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import asc
 
 from rucio.common import exception
 from rucio.core.account import account_exists
@@ -104,7 +105,7 @@ def add_account_identity(identity, type, account, email, default=False, password
 
 
 @read_session
-def get_default_account(identity, type, session=None):
+def get_default_account(identity, type, oldestifnone=False, session=None):
     """
     Retrieves the default account mapped to an identity.
 
@@ -118,7 +119,14 @@ def get_default_account(identity, type, session=None):
                                                                      identity_type=type,
                                                                      is_default=True).first()
     if tmp is None:
-        raise exception.IdentityError('There is no default account for identity (%s, %s)' % (identity, type))
+        if oldestifnone:
+            tmp = session.query(models.IdentityAccountAssociation)\
+                         .filter_by(identity=identity, identity_type=type)\
+                         .order_by(asc(models.IdentityAccountAssociation.created_at)).first()
+            if tmp is None:
+                raise exception.IdentityError('There is no account for identity (%s, %s)' % (identity, type))
+        else:
+            raise exception.IdentityError('There is no default account for identity (%s, %s)' % (identity, type))
 
     return tmp.account
 

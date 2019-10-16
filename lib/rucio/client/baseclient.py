@@ -178,6 +178,8 @@ class BaseClient(object):
                     self.creds['scope_oidc'] = config_get('client', 'scope_oidc')
                     self.creds['audience'] = config_get('client', 'audience')
                     self.creds['polling'] = config_get('client', 'polling')
+                    self.creds['refresh_lifetime'] = config_get('client', 'refresh_lifetime')
+                    self.creds['issuer'] = config_get('client', 'issuer')
                     if self.creds['auto']:
                         self.creds['username'] = config_get('client', 'username')
                         self.creds['password'] = config_get('client', 'password')
@@ -245,7 +247,6 @@ class BaseClient(object):
             LOG.debug('request_retries not specified in config file. Taking default.')
         except ValueError:
             LOG.debug('request_retries must be an integer. Taking default.')
-        print("A token has been received and saved locally on your disk.")
 
     def _get_exception(self, headers, status_code=None, data=None):
         """
@@ -390,39 +391,37 @@ class BaseClient(object):
         headers = {'X-Rucio-Account': self.account,
                    'X-Rucio-Client-Authorize-Scope': scope,
                    'X-Rucio-Client-Authorize-Audience': self.creds['audience'],
-                   'X-Rucio-Client-Authorize-Auto': str(self.creds['auto'])}
-        print(headers)
+                   'X-Rucio-Client-Authorize-Auto': str(self.creds['auto']),
+                   'X-Rucio-Client-Authorize-Issuer': str(self.creds['issuer']),
+                   'X-Rucio-Client-Authorize-Polling': str(self.creds['polling']),
+                   'X-Rucio-Client-Authorize-Refresh-Lifetime': str(self.creds['refresh_lifetime'])}
         if self.creds['auto']:
             userpass = {'username': self.creds['username'], 'password': self.creds['password']}
-            print(userpass)
         for retry in range(self.AUTH_RETRIES + 1):
             try:
                 record_counter(counters='IdP_login.count', delta=1)
                 start = time.time()
-
                 result = None
                 request_auth_url = build_url(self.auth_host, path='auth/OIDC')
                 # requesting authorization URL specific to the user & Rucio OIDC Client
-                print(request_auth_url)
                 OIDC_auth_res = self.session.get(request_auth_url, headers=headers, verify=False)
                 # with the obtained authorization URL we will contact the Identity Provider to get to the login page
                 auth_url = OIDC_auth_res.headers['X-Rucio-OIDC-Auth-URL']
-                print(auth_url)
                 if not self.creds['auto']:
-                    print("\nYou chose to authenticate using your internet browser.\n" +\
-                          "You can also use --auto option and trust Rucio Client \n" +\
-                          "with your IdP credentials to proceed for \n" +\
+                    print("\nYou chose to authenticate using your internet browser.\n" +
+                          "You can also use --auto option and trust Rucio Client \n" +
+                          "with your IdP credentials to proceed for \n" +
                           "automatic IdP log-in from CLI.\n")
                     print("--------------------------------------------------")
-                    print("Please use your preferred internet browser, go to:")
+                    print("Please use your internet browser, go to:")
                     print("\n    " + auth_url + "    \n")
                     print("and authenticate with your Identity Provider.")
 
-                    headers['X-Rucio-Client-Fetch-Token']='True'
+                    headers['X-Rucio-Client-Fetch-Token'] = 'True'
                     if self.creds['polling']:
                         timeout = 180
                         start = time.time()
-                        print("3 minutes from now, the authentication attempt will time out.")
+                        print("3 minutes from now the authentication attempt will time out.")
                         while time.time() - start < timeout:
                             result = self.session.get(auth_url, headers=headers, verify=False)
                             if 'X-Rucio-Auth-Token' in result.headers and result.status_code == codes.ok:
@@ -432,23 +431,21 @@ class BaseClient(object):
                         print("Copy paste the code from the browser to the terminal and press enter:")
                         count = 0
                         while count < 3:
-                            fetchcode=raw_input()
+                            fetchcode = raw_input()
                             fetch_url = build_url(self.auth_host, path='auth/OIDC_redirect', params=fetchcode)
                             result = self.session.get(fetch_url, headers=headers, verify=False)
                             if 'X-Rucio-Auth-Token' in result.headers and result.status_code == codes.ok:
                                 break
                             else:
-                                print("The Rucio Auth Server did not respond as expected. Please, " +\
+                                print("The Rucio Auth Server did not respond as expected. Please, " +
                                       "try again and make sure you typed the correct code.")
-                                count+=1
-                    print(result, result.text, result.headers, result.url)
+                                count += 1
                 else:
                     auth_res = self.session.get(auth_url, verify=False)
                     # getting the login URL and logging in the user
                     login_url = auth_res.url
                     start = time.time()
                     result = self.session.post(login_url, data=userpass, verify=False, allow_redirects=True)
-                    print(result, result.text, result.url, result.headers)
                     # if the Rucio OIDC Client configuration does not match the one registered at the Identity Provider
                     # the user will get an OAuth error
                     if 'OAuth Error' in result.text:
@@ -750,7 +747,6 @@ class BaseClient(object):
         except Exception:
             raise
 
-
     def __authenticate(self):
         """
         Main method for authentication. It first tries to read a locally saved token. If not available it requests a new one.
@@ -780,4 +776,3 @@ class BaseClient(object):
 
         if not self.__read_token():
             self.__get_token()
-

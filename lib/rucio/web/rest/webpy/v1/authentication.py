@@ -28,12 +28,12 @@
 
 from __future__ import print_function
 import base64
+from os.path import dirname, join
 
 from re import search
 from traceback import format_exc
 
-import web
-from web import application, ctx, OK, BadRequest, header, InternalError, seeother, form
+from web import application, ctx, OK, BadRequest, header, InternalError, seeother, template
 
 from rucio.api.authentication import (get_auth_token_user_pass,
                                       get_auth_token_gss,
@@ -59,12 +59,10 @@ URLS = (
     '/validate', 'Validate',
     '/OIDC', 'OIDC',
     '/OIDC_token', 'OIDC_token',
+    '/OIDC_code', 'OIDC_code',
     '/OIDC_redirect', 'OIDC_redirect'
 )
 
-authentication_form = form.Form(
-    form.Textbox(name="AuthResponse", id="", value="N/A", description="Temp:")
-)
 
 class UserPass(RucioController):
     """
@@ -188,18 +186,25 @@ class OIDC(RucioController):
         auth_scope = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_SCOPE')
         audience = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_AUDIENCE')
         auto = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_AUTO')
-        if auto == 'True':
-            auto = True
-        else:
-            auto = False
-        server_name = ctx.env.get('HTTP_HOST')
-        if not server_name:
-            server_name = ctx.env.get('SERVER_NAME')
+        issuer = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_ISSUER')
+        polling = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_POLLING')
+        refresh_lifetime = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_REFRESH_LIFETIME')
+        auto = (auto == 'True')
+        polling = (polling == 'True')
+        if refresh_lifetime == 'None':
+            refresh_lifetime = None
         ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
         if ip is None:
             ip = ctx.ip
         try:
-            result = get_auth_OIDC(account, auth_scope, server_name, audience, auto, ip)
+            kwargs = {'auth_scope': auth_scope,
+                      'audience': audience,
+                      'issuer': issuer,
+                      'auto': auto,
+                      'polling': polling,
+                      'refresh_lifetime': refresh_lifetime,
+                      'ip': ip}
+            result = get_auth_OIDC(account, **kwargs)
         except AccessDenied:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot get authentication URL from Rucio Authentication Server for account %(account)s' % locals())
         except RucioException as error:
@@ -217,9 +222,8 @@ class OIDC(RucioController):
 
 class OIDC_redirect(RucioController):
     """
-    Authenticate a Rucio account temporarily via ID,
-    access (eventually save new refresh token)
-    received from an Identity Provider (XDC IAM as of June 2019).
+    Authenticate a Rucio account via
+    an Identity Provider (XDC IAM as of June 2019).
     """
 
     def OPTIONS(self):
@@ -236,7 +240,7 @@ class OIDC_redirect(RucioController):
         header('Access-Control-Allow-Credentials', 'true')
         raise OK
 
-    @check_accept_header_wrapper(['application/octet-stream'])
+    @check_accept_header_wrapper(['application/octet-stream', 'text/html'])
     def GET(self):
         """
         HTTP Success:
@@ -255,44 +259,139 @@ class OIDC_redirect(RucioController):
         header('Access-Control-Allow-Methods', '*')
         header('Access-Control-Allow-Credentials', 'true')
 
-        header('Content-Type', 'application/octet-stream')
+        # interaction with web browser - display response in html format
+        header('Content-Type', 'text/html')
         header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
 
         query_string = ctx.env.get('QUERY_STRING')
-        server_name = ctx.env.get('HTTP_HOST')
-        if not server_name:
-            server_name = ctx.env.get('SERVER_NAME')
         try:
             fetchtoken = ctx.env.get('HTTP_X_RUCIO_CLIENT_FETCH_TOKEN')
-            if fetchtoken == 'True':
-                fetchtoken=True
-            else:
-                fetchtoken=False
+            fetchtoken = (fetchtoken == 'True')
             result = redirect_auth_OIDC(query_string, fetchtoken)
+
         except AccessDenied:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot redirect to the Identity Provider.')
+            render = template.render(join(dirname(__file__), 'templates/'))
+            return render.auth_crash('contact')
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot contact the Rucio Authentication Server.')
+
         except RucioException as error:
+            render = template.render(join(dirname(__file__), 'templates/'))
+            return render.auth_crash('internal_error')
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
+
         except Exception as error:
             print(format_exc())
+            render = template.render(join(dirname(__file__), 'templates/'))
+            return render.auth_crash('internal_error')
             raise InternalError(error)
 
         if not result:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot redirect to the Identity Provider.')
+            render = template.render(join(dirname(__file__), 'templates/'))
+            return render.auth_crash('no_token')
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot contact the Rucio Authentication Server.')
         if fetchtoken:
+            # this is only a case of returning the final token to the Rucio Client polling
+            # or requesting token after copy-pasting the Rucio code from the web page page
+            header('Content-Type', 'application/octet-stream')
             header('X-Rucio-Auth-Token', result)
             return str()
         else:
             raise seeother(result)
 
 
+class OIDC_code(RucioController):
+    """
+    IdP redirects to this endpoing with the AuthZ code
+    Rucio Auth server will request new token. This endpoint should be reached
+    only if the request/ IdP login has been made through web browser. Then the response
+    content will be in html (including the potential errors displayed).
+    The token will be saved in the Rucio DB, but only Rucio code will
+    be returned on the web page, or, in case of polling is True, successful
+    operation is confirmed waiting for the Rucio client to get the token automatically.
+    """
+
+    def OPTIONS(self):
+        """
+        HTTP Success:
+            200 OK
+
+        Allow cross-site scripting. Explicit for Authentication.
+        """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+        raise OK
+
+    @check_accept_header_wrapper(['application/octet-stream', 'text/html'])
+    def GET(self):
+        """
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+
+        :param QUERY_STRING: the URL query string itself
+
+        :returns: "Rucio-Auth-Token" as a variable-length string header.
+        """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+
+        header('Content-Type', 'text/html')
+        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        header('Cache-Control', 'post-check=0, pre-check=0', False)
+        header('Pragma', 'no-cache')
+
+        query_string = ctx.env.get('QUERY_STRING')
+        ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
+        if ip is None:
+            ip = ctx.ip
+
+        try:
+            result = get_token_OIDC(query_string, ip)
+
+        except AccessDenied:
+            render = template.render(join(dirname(__file__), 'templates/'))
+            return render.auth_crash('contact')
+            raise generate_http_error(401, 'CannotAuthorize', 'Cannot authorize token request.')
+        except RucioException as error:
+            render = template.render(join(dirname(__file__), 'templates/'))
+            return render.auth_crash('internal_error')
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            render = template.render(join(dirname(__file__), 'templates/'))
+            return render.auth_crash('internal_error')
+            raise InternalError(error)
+
+        render = template.render(join(dirname(__file__), 'templates/'))
+        if not result:
+            return render.auth_crash('no_result')
+            raise generate_http_error(401, 'CannotAuthorize', 'Cannot authorize token request.')
+        if result[0] == 'fetchcode':
+            authcode = result[1]
+            return render.auth_granted(authcode)
+        elif result[0] == 'polling':
+            authcode = "allok"
+            return render.auth_granted(authcode)
+        else:
+            return render.auth_crash('bad_request')
+            raise BadRequest()
+
+
 class OIDC_token(RucioController):
     """
     Authenticate a Rucio account temporarily via ID,
     access (eventually save new refresh token)
-    received from an Identity Provider (XDC IAM as of June 2019).
+    received from an Identity Provider.
     """
 
     def OPTIONS(self):
@@ -334,14 +433,13 @@ class OIDC_token(RucioController):
         header('Pragma', 'no-cache')
 
         query_string = ctx.env.get('QUERY_STRING')
-        server_name = ctx.env.get('HTTP_HOST')
-        if not server_name:
-            server_name = ctx.env.get('SERVER_NAME')
         ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
         if ip is None:
             ip = ctx.ip
+
         try:
-            result = get_token_OIDC(query_string, server_name, ip)
+            result = get_token_OIDC(query_string, ip)
+
         except AccessDenied:
             raise generate_http_error(401, 'CannotAuthorize', 'Cannot authorize token request.')
         except RucioException as error:
@@ -352,17 +450,10 @@ class OIDC_token(RucioController):
 
         if not result:
             raise generate_http_error(401, 'CannotAuthorize', 'Cannot authorize token request.')
-        authform = authentication_form()
-        if result[0]=='token':
-            print("tokenizing !!!!!!!!!!!!!!!!!")
+        if result[0] == 'token':
             header('X-Rucio-Auth-Token', result[1].token)
             header('X-Rucio-Auth-Token-Expires', date_to_str(result[1].expired_at))
             return str()
-        elif result[0]=='fetchcode':
-            return result[1]
-        elif result[0]=='polling':
-            authform["AuthResponse"].value = "All went fine !"
-            return authform.render()
         else:
             raise BadRequest()
 

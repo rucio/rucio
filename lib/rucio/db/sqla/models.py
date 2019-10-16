@@ -1154,6 +1154,7 @@ class Token(BASE, ModelBase):
     refresh = Column(Boolean, default=False)
     refresh_start = Column(DateTime, default=None)
     refresh_expired_at = Column(DateTime, default=None)
+    refresh_lifetime = Column(Integer())
     scope = Column(String(2048), default=None)  # scopes define the specific actions applications can be allowed to do on a user's behalf
     identity = Column(String(2048))
     audience = Column(String(315), default=None)
@@ -1173,6 +1174,7 @@ class OAuthRequest(BASE, ModelBase):
     nonce = Column(String(50))
     redirect_code = Column(String(50))
     redirect_msg = Column(String(2048))
+    refresh_lifetime = Column(Integer())
     ip = Column(String(39), nullable=True)
     expired_at = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=600))  # 10 min lifetime by default
     _table_args = (PrimaryKeyConstraint('state', name='OAUTH_REQUESTS_STATE_PK'),
