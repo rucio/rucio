@@ -105,9 +105,9 @@ You can reclaim this with::
 
     docker system prune -f --volumes
 
-Unleash the demons
+Unleash the daemons
 ~~~~~~~~~~~~~~~~~~~
-Demons are not running in the docker environment, but all demons support the --run-once arguemnt. E.g., after do the initialization with::
+Daemons are not running in the docker environment, but all daemons support the --run-once arguemnt. E.g., after do the initialization with::
 
    tools/run_tests_docker.sh -ir
 
