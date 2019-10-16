@@ -173,6 +173,9 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
         logging.fatal('No brokers resolved.')
         return
 
+    if not broker_timeout:  # Allow zero in config
+        broker_timeout = None
+
     logging.info('[broker] checking authentication method')
     use_ssl = True
     try:
