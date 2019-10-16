@@ -32,7 +32,6 @@
 from __future__ import print_function
 
 import copy
-import os
 import random
 from time import sleep
 
@@ -216,92 +215,6 @@ def parse_pfns(rse_settings, pfns, operation='read', domain='wan'):
     if len(set([urlparse(pfn).scheme for pfn in pfns])) != 1:
         raise ValueError('All PFNs must provide the same protocol scheme')
     return create_protocol(rse_settings, operation, urlparse(pfns[0]).scheme, domain).parse_pfns(pfns)
-
-
-def download(rse_settings, files, dest_dir=None, force_scheme=None, ignore_checksum=False, printstatements=False, domain='wan', transfer_timeout=None):
-    """
-        Copy a file from the connected storage to the local file system.
-        Providing a list indicates the bulk mode.
-
-
-        :param rse_settings:    RSE to use
-        :param files:           a single dict or a list with dicts containing 'scope' and 'name'
-                                if LFNs are provided and additional 'pfn' if PFNs are provided.
-                                Examples:
-                                [
-                                {'name': '2_rse_remote_get.raw', 'scope': 'user.jdoe'},
-                                {'name':'3_rse_remote_get.raw', 'scope': 'user.jdoe', 'pfn': 'user/jdoe/5a/98/3_rse_remote_get.raw'}
-                                ]
-        :param dest_dir:        path to the directory where the downloaded files will be stored. If not given, each scope is represented by its own directory.
-        :param force_scheme:    normally the scheme is dictated by the RSE object, when specifying the PFN it must be forced to the one specified in the PFN, overruling the RSE description.
-        :param ignore_checksum: do not verify the checksum - caution: should only be used for rucio download --pfn
-        :param transfer_timeout: set this timeout (in seconds) for the transfers, for protocols that support it
-
-        :returns: True/False for a single file or a dict object with 'scope:name' for LFNs or 'name' for PFNs as keys and True or the exception as value for each file in bulk mode
-
-        :raises SourceNotFound: remote source file can not be found on storage
-        :raises DestinationNotAccessible: local destination directory is not accessible
-        :raises FileConsistencyMismatch: the checksum of the downloaded file does not match the provided one
-        :raises ServiceUnavailable: for any other reason
-
-    """
-    ret = {}
-    gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
-
-    protocol = create_protocol(rse_settings, 'read', scheme=force_scheme, domain=domain)
-    protocol.connect()
-
-    files = [files] if not type(files) is list else files
-    for f in files:
-        pfn = f['pfn'] if 'pfn' in f else list(protocol.lfns2pfns(f).values())[0]
-        target_dir = "./%s" % f['scope'] if dest_dir is None else dest_dir
-        try:
-            if not os.path.exists(target_dir):
-                os.makedirs(target_dir)
-            # Each scope is stored into a separate folder
-            finalfile = '%s/%s' % (target_dir, f['name'])
-            # Check if the file already exists, if not download and validate it
-            if not os.path.isfile(finalfile):
-                if 'adler32' in f:
-                    tempfile = '%s/%s.part' % (target_dir, f['name'])
-                    if os.path.isfile(tempfile):
-                        if printstatements:
-                            print('%s already exists, probably from a failed attempt. Will remove it' % (tempfile))
-                        os.unlink(tempfile)
-                    protocol.get(pfn, tempfile, transfer_timeout=transfer_timeout)
-                    if printstatements:
-                        print('File downloaded. Will be validated')
-
-                    if ignore_checksum:
-                        if printstatements:
-                            print('Skipping checksum validation')
-                    else:
-                        ruciochecksum = f['adler32'] if f['adler32'] else f['md5']
-                        localchecksum = utils.adler32(tempfile) if f['adler32'] else utils.md5(tempfile)
-                        if localchecksum == ruciochecksum:
-                            if printstatements:
-                                print('File validated')
-                        else:
-                            os.unlink(tempfile)
-                            raise exception.FileConsistencyMismatch('Checksum mismatch : local %s vs recorded %s' % (str(localchecksum), str(ruciochecksum)))
-                    os.rename(tempfile, finalfile)
-                else:
-                    protocol.get(pfn, '%s/%s' % (target_dir, f['name']), transfer_timeout=transfer_timeout)
-                ret['%s:%s' % (f['scope'], f['name'])] = True
-            else:
-                ret['%s:%s' % (f['scope'], f['name'])] = True
-        except Exception as e:
-            gs = False
-            ret['%s:%s' % (f['scope'], f['name'])] = e
-
-    protocol.close()
-    if len(ret) == 1:
-        for x in ret:
-            if isinstance(ret[x], Exception):
-                raise ret[x]
-            else:
-                return ret[x]
-    return [gs, ret]
 
 
 def exists(rse_settings, files):
