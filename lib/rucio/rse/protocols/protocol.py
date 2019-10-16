@@ -203,6 +203,9 @@ class RSEDeterministicTranslation(object):
 
             :returns: RSE specific URI of the physical file
         """
+        # ensure that policy package is loaded in case it registers algorithms
+        import rucio.common.schema
+
         algorithm = self.rse_attributes.get('lfn2pfn_algorithm', 'default')
         if algorithm == 'default':
             algorithm = RSEDeterministicTranslation._DEFAULT_LFN2PFN
