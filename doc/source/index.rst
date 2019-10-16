@@ -76,6 +76,7 @@ Operator Documentation
     installing_daemons
     man/daemons
     monitoring
+    policy_packages
 
 
 Rucio Tutorial
