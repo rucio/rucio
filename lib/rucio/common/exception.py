@@ -962,4 +962,3 @@ class PolicyPackageNotFound(RucioException):
         super(PolicyPackageNotFound, self).__init__(*args, **kwargs)
         self._message = 'The specified policy package cannot be loaded'
         self.error_code = 91
-

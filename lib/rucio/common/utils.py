@@ -509,7 +509,7 @@ register_surl_algorithm(construct_surl_BelleII, 'BelleII')
 
 def construct_surl(dsn, filename, naming_convention=None):
     # ensure that policy package is loaded in case it registers its own algorithms
-    import rucio.common.schema
+    import rucio.common.schema  # noqa: F401
 
     if naming_convention is None or naming_convention not in _SURL_ALGORITHMS:
         naming_convention = _DEFAULT_SURL
