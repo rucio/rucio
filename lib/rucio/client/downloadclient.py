@@ -42,7 +42,7 @@ from threading import Thread
 from rucio.client.client import Client
 from rucio.common.exception import (InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RucioException)
 from rucio.common.pcache import Pcache
-from rucio.common.utils import adler32, md5, detect_client_location, generate_uuid, parse_replicas_from_string, \
+from rucio.common.utils import adler32, detect_client_location, generate_uuid, parse_replicas_from_string, \
     send_trace, sizefmt, execute, parse_replicas_from_file
 from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, CHECKSUM_ALGO_DICT, PREFERRED_CHECKSUM
 from rucio.rse import rsemanager as rsemgr
