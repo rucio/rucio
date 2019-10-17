@@ -34,5 +34,6 @@ Daemons CLIs
     rucio-minos-temporary-expiration
     rucio-necromancer
     rucio-reaper
+    rucio-replica-recoverer
     rucio-transmogrifier
     rucio-undertaker
