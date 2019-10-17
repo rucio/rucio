@@ -7,6 +7,7 @@ Daemons CLIs
 
     rucio-abacus-account
     rucio-abacus-rse
+    rucio-auditor
     rucio-atropos
     rucio-automatix
     rucio-bb8
