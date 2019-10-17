@@ -511,7 +511,7 @@ def construct_surl(dsn, filename, naming_convention=None):
     # ensure that policy package is loaded in case it registers its own algorithms
     import rucio.common.schema
 
-    if naming_convention is None or not naming_convention in _SURL_ALGORITHMS:
+    if naming_convention is None or naming_convention not in _SURL_ALGORITHMS:
         naming_convention = _DEFAULT_SURL
     return _SURL_ALGORITHMS[naming_convention](dsn, filename)
 
