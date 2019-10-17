@@ -19,6 +19,7 @@ Daemons CLIs
     rucio-conveyor-submitter
     rucio-conveyor-throttler
     rucio-dark-reaper
+    rucio-dumper
     rucio-hermes
     rucio-judge-cleaner
     rucio-judge-evaluator
