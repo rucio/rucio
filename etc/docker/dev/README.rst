@@ -27,7 +27,12 @@ The first step is to fork the `main Rucio repository on GitHub <https://github.c
 
 Now, ensure that the `.git/config` is proper, i.e., mentioning your full name and email address, and that the `.githubtoken` is correctly set. Optionally, you can also replace the `~/dev/rucio/tools/pre-commit` hook with the one provided `here <https://raw.githubusercontent.com/rucio/containers/master/dev/pre-commit>`_ so that `pylint` run in the container rather then in the local system.
 
-Next, setup and configure the Rucio development environment (again might need `sudo`)::
+Next, setup and configure the Rucio development environment. There are three different types. A simple one to just run the nosetests. One including an FTS server and three xrootd endpoints to test actual transfers. And a third one adding a full monitoring stack with Logstash, Elasticsearch, Kibana and Grafana.
+
+Using the simple environment
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Run the containers using docker-compose (again might need `sudo`)::
 
     docker-compose --file etc/docker/dev/docker-compose.yml up -d
 
@@ -35,7 +40,7 @@ And verify that it is running properly::
 
     docker ps
 
-This should show you a few running containers: the Rucio server, the PostgreSQL database, FTS and its associated MySQL database, the Graphite monitoring, and three XrootD storage servers.
+This should show you a few running containers: the Rucio server, the PostgreSQL database and the Graphite monitoring.
 
 Finally, you can jump into the container with::
 
@@ -45,16 +50,54 @@ To verify that everything is in order, you can now either run the full unit test
 
     tools/run_tests_docker.sh
 
-Or set up the database and create initial testing data, for either demo purposes or when developing functionality that is related to storage interaction and file transfers::
-
-    tools/run_tests_docker.sh -ir
-
 Alternatively, you can bootstrap the test environment once and then selectively run test case modules, test case groups, or even single test cases, for example::
 
     tools/run_tests_docker.sh -i
     nosetests -v lib/rucio/tests/test_replica.py
     nosetests -v lib/rucio/tests/test_replica.py:TestReplicaCore
     nosetests -v lib/rucio/tests/test_replica.py:TestReplicaCore.test_delete_replicas_from_datasets
+
+Using the environment including storage
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Again run the containers using docker-compose (again might need `sudo`)::
+
+    docker-compose --file etc/docker/dev/docker-compose-storage.yml up -d
+
+This should show you a few more running containers: the Rucio server, the PostgreSQL database, FTS and its associated MySQL database, the Graphite monitoring, and three XrootD storage servers.
+
+With this container you can upload testing data to the storage and submit transfers to FTS. For either demo purposes or when developing functionality that is related to storage interaction and file transfers::
+
+    tools/run_tests_docker.sh -ir
+
+Using the environment including monitoring
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Again run the containers using docker-compose (again might need `sudo`)::
+
+    docker-compose --file etc/docker/dev/docker-compose-storage-monit.yml up -d
+
+Now you will have the same containers as before plus a full monitoring stack with Logstash, Elasticsearch, Kibana and Grafana.
+
+To create some events and write them to Elasticsearch first run again the tests::
+
+    tools/run_tests_docker.sh -ir
+
+Then you will have to run the conveyors and hermes to send the events to ActiveMQ. There a script for that::
+
+    tools/run_daemons.sh
+
+When all the daemons ran you will be able to find the events in Kibana. If you run the docker environment on you local machine you can access Kibana at http://localhost:5601. Then add an index pattern for `rucio-events-*` and you will be able to see all events in Discover. If it it running on remote machine you can just forward it::
+
+    ssh -L 5601:127.0.0.1:5601 <hostname>
+
+If you would like to continously create some transfers and events there are scripts available for that. Open two different shells and in one run::
+
+    tools/create_monit_data.sh
+
+And in the other run::
+
+    tools/run_daemons.sh
 
 Development
 -----------
