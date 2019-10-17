@@ -1764,9 +1764,13 @@ def update_replicas_states(replicas, nowait=False, session=None):
 
     for replica in replicas:
         query = session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'])
+        lock_cnt = 0
         try:
             if nowait:
-                query.with_for_update(nowait=True).one()
+                rep = query.with_for_update(nowait=True).one()
+            else:
+                rep = query.one()
+            lock_cnt = rep.lock_cnt
         except NoResultFound:
             # remember scope, name and rse
             raise exception.ReplicaNotFound("No row found for scope: %s name: %s rse: %s" % (replica['scope'], replica['name'], get_rse_name(replica['rse_id'], session=session)))
@@ -1785,12 +1789,19 @@ def update_replicas_states(replicas, nowait=False, session=None):
             values['tombstone'] = OBSOLETE
         elif replica['state'] == ReplicaState.AVAILABLE:
             rucio.core.lock.successful_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
+            # If No locks we set a tombstone in the future
+            if lock_cnt == 0:
+                set_tombstone(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'], tombstone=datetime.utcnow() + timedelta(hours=2), session=session)
+
         elif replica['state'] == ReplicaState.UNAVAILABLE:
             rucio.core.lock.failed_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'],
                                             error_message=replica.get('error_message', None),
                                             broken_rule_id=replica.get('broken_rule_id', None),
                                             broken_message=replica.get('broken_message', None),
                                             nowait=nowait, session=session)
+            # If No locks we set a tombstone in the future
+            if lock_cnt == 0:
+                set_tombstone(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'], tombstone=datetime.utcnow() + timedelta(hours=2), session=session)
         elif replica['state'] == ReplicaState.TEMPORARY_UNAVAILABLE:
             query = query.filter(or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE, models.RSEFileAssociation.state == ReplicaState.TEMPORARY_UNAVAILABLE))
 
@@ -2934,19 +2945,20 @@ def get_suspicious_files(rse_expression, **kwargs):
 
 
 @transactional_session
-def set_tombstone(rse_id, scope, name, session=None):
+def set_tombstone(rse_id, scope, name, tombstone=OBSOLETE, session=None):
     """
     Sets a tombstone on a replica.
 
     :param rse_id: ID of RSE.
     :param scope: scope of the replica DID.
     :param name: name of the replica DID.
+    :param tombstone: the tombstone to set. Default is OBSOLETE
     :param session: database session in use.
     """
     conn = get_engine().connect()
     stmt = update(models.RSEFileAssociation).where(and_(models.RSEFileAssociation.rse_id == rse_id, models.RSEFileAssociation.name == name, models.RSEFileAssociation.scope == scope,
                                                         ~session.query(models.ReplicaLock).filter_by(scope=scope, name=name, rse_id=rse_id).exists()))\
-                                            .values(tombstone=OBSOLETE)
+                                            .values(tombstone=tombstone)
     result = conn.execute(stmt)
     if not result.rowcount:
         try:
