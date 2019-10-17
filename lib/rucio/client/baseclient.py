@@ -57,7 +57,7 @@ except ImportError:
     from urllib.parse import urlparse
     from configparser import NoOptionError, NoSectionError
 from dogpile.cache import make_region
-from requests import session
+from requests import Session
 from requests.status_codes import codes, _codes
 from requests.exceptions import ConnectionError
 from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
@@ -126,7 +126,7 @@ class BaseClient(object):
         self.host = rucio_host
         self.list_hosts = []
         self.auth_host = auth_host
-        self.session = session()
+        self.session = Session()
         self.user_agent = "%s/%s" % (user_agent, version.version_string())  # e.g. "rucio-clients/0.2.13"
         sys.argv[0] = sys.argv[0].split('/')[-1]
         self.script_id = '::'.join(sys.argv[0:2])
