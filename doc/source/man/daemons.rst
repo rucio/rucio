@@ -6,6 +6,7 @@ Daemons CLIs
     :maxdepth: 1
 
     rucio-abacus-account
+    rucio-abacus-collection-replica
     rucio-abacus-rse
     rucio-auditor
     rucio-atropos
