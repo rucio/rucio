@@ -19,6 +19,7 @@
 from __future__ import division
 
 import datetime
+import imp
 import json
 import logging
 import time
@@ -45,8 +46,22 @@ from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.fts3_myproxy import FTS3MyProxyTransfertool
-from rucio.transfertool.globus import GlobusTransferTool
 from rucio.common.config import config_get
+
+# Extra modules: Only imported if available
+EXTRA_MODULES = {'globus_sdk': False}
+
+for extra_module in EXTRA_MODULES:
+    try:
+        imp.find_module(extra_module)
+        EXTRA_MODULES[extra_module] = True
+    except ImportError:
+        EXTRA_MODULES[extra_module] = False
+
+if EXTRA_MODULES['globus_sdk']:
+    from rucio.transfertool.globus import GlobusTransferTool  # pylint: disable=import-error
+
+
 """
 The core transfer.py is specifically for handling transfer-requests, thus requests
 where the external_id is already known.
