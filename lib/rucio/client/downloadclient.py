@@ -42,7 +42,9 @@ from threading import Thread
 from rucio.client.client import Client
 from rucio.common.exception import (InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RucioException)
 from rucio.common.pcache import Pcache
-from rucio.common.utils import adler32, md5, detect_client_location, generate_uuid, parse_replicas_from_string, send_trace, sizefmt, execute, parse_replicas_from_file
+from rucio.common.utils import adler32, md5, detect_client_location, generate_uuid, parse_replicas_from_string, \
+    send_trace, sizefmt, execute, parse_replicas_from_file
+from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, CHECKSUM_ALGO_DICT, PREFERRED_CHECKSUM
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
 
@@ -571,16 +573,16 @@ class DownloadClient:
                 end_time = time.time()
 
                 if success and not item.get('merged_options', {}).get('ignore_checksum', False):
-                    rucio_checksum = item.get('adler32')
-                    local_checksum = None
-                    if rucio_checksum is None:
-                        rucio_checksum = item.get('md5')
-                        if rucio_checksum is None:
-                            logger.warning('%sNo remote checksum available. Skipping validation.' % log_prefix)
-                        else:
-                            local_checksum = md5(temp_file_path)
-                    else:
-                        local_checksum = adler32(temp_file_path)
+                    rucio_checksum = 'rucio_checksum'
+                    local_checksum = 'local_checksum'
+
+                    for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
+                        rucio_checksum = item.get(checksum_name)
+                        if checksum_name is not None:
+                            if checksum_name in CHECKSUM_ALGO_DICT:
+                                local_checksum = CHECKSUM_ALGO_DICT[checksum_name](temp_file_path)
+                                if checksum_name == PREFERRED_CHECKSUM:
+                                    break
 
                     if rucio_checksum != local_checksum:
                         success = False
