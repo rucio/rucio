@@ -13,6 +13,7 @@ Daemons CLIs
     rucio-automatix
     rucio-bb8
     rucio-c3po
+    rucio-cache-client
     rucio-cache-consumer
     rucio-conveyor-finisher
     rucio-conveyor-poller
