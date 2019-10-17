@@ -294,12 +294,12 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
     hb_thread = threading.current_thread()
     sanity_check(executable=executable, hostname=hostname)
     heart_beat = live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info('%s Reaper starting', prepend_str)
 
     time.sleep(15)  # To prevent running on the same partition if all the reapers restart at the same time
     heart_beat = live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info('%s Reaper started', prepend_str)
 
     while not GRACEFUL_STOP.is_set():
@@ -309,7 +309,7 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
             staging_areas = []
             dict_rses = {}
             heart_beat = live(executable, hostname, pid, hb_thread, older_than=3600)
-            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
             tot_needed_free_space = 0
             for rse in rses:
                 # Check if the RSE is a staging area

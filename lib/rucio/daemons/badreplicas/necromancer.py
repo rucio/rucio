@@ -18,6 +18,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -75,7 +76,7 @@ def necromancer(thread=0, bulk=5, once=False):
     while not graceful_stop.is_set():
 
         heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-        prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+        prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
 
         stime = time.time()
         replicas = []

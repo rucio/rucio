@@ -26,6 +26,7 @@
 # - Robert Illingworth, <illingwo@fnal.gov>, 2019
 # - Jaroslav Guenther, <jaroslav.guenther@gmail.com>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White, <bjwhite@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -44,7 +45,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql import label
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError, NoResultFound
-from sqlalchemy.sql.expression import case, bindparam, select, text, false, true
+from sqlalchemy.sql.expression import case, select, text, false, true
 
 import rucio.core.did
 import rucio.core.lock
@@ -62,6 +63,7 @@ from rucio.db.sqla.constants import (DIDType, ReplicaState, OBSOLETE, DIDAvailab
                                      BadFilesStatus, RuleState, BadPFNStatus)
 from rucio.db.sqla.session import (read_session, stream_session, transactional_session,
                                    DEFAULT_SCHEMA_NAME, get_engine)
+from rucio.db.sqla import filter_thread_work
 from rucio.rse import rsemanager as rsemgr
 
 
@@ -208,14 +210,7 @@ def list_bad_replicas_history(limit=10000, thread=None, total_threads=None, sess
     query = session.query(models.BadReplicas.scope, models.BadReplicas.name, models.BadReplicas.rse_id).\
         filter(models.BadReplicas.state == BadFilesStatus.BAD)
 
-    if total_threads and (total_threads - 1) > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
-            query = query.filter(text('ORA_HASH(name, :total_threads) = :thread_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(name), %s) = %s' % (total_threads - 1, thread)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
+    query = filter_thread_work(session, query, total_threads, thread)
 
     query = query.limit(limit)
 
@@ -497,14 +492,7 @@ def list_bad_replicas(limit=10000, thread=None, total_threads=None, session=None
                               models.RSEFileAssociation.rse_id).\
             filter(models.RSEFileAssociation.state == ReplicaState.BAD)
 
-    if total_threads and (total_threads - 1) > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
-            query = query.filter(text('ORA_HASH(name, :total_threads) = :thread_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(name), %s) = %s' % (total_threads - 1, thread)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
+    query = filter_thread_work(session, query, total_threads, thread)
 
     query = query.join(models.DataIdentifier,
                        and_(models.DataIdentifier.scope == models.RSEFileAssociation.scope,
@@ -1622,14 +1610,7 @@ def list_unlocked_replicas(rse_id, limit, bytes=None, worker_number=None, total_
                    models.RSEFileAssociation.name == models.Request.name))
     query = query.filter(not_(stmt))
 
-    if worker_number and total_workers and total_workers - 1 > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
-            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1)))
+    query = filter_thread_work(session, query, total_workers, worker_number)
 
     needed_space = bytes
     total_bytes, total_files = 0, 0
@@ -2654,14 +2635,7 @@ def get_bad_pfns(limit=10000, thread=None, total_threads=None, session=None):
     result = []
     query = session.query(models.BadPFNs.path, models.BadPFNs.state, models.BadPFNs.reason, models.BadPFNs.account, models.BadPFNs.expires_at)
 
-    if total_threads and (total_threads - 1) > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
-            query = query.filter(text('ORA_HASH(path, :total_threads) = :thread_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(path), %s) = %s' % (total_threads - 1, thread)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(path))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
+    query = filter_thread_work(session, query, total_threads, thread)
 
     query.order_by(models.BadPFNs.created_at)
     query = query.limit(limit)
@@ -2805,14 +2779,7 @@ def list_expired_temporary_unavailable_replicas(total_workers, worker_number, li
         with_hint(models.ReplicationRule, "index(bad_replicas BAD_REPLICAS_EXPIRES_AT_IDX)", 'oracle').\
         order_by(models.BadReplicas.expires_at)
 
-    if session.bind.dialect.name == 'oracle':
-        bindparams = [bindparam('worker_number', worker_number),
-                      bindparam('total_workers', total_workers)]
-        query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-    elif session.bind.dialect.name == 'mysql':
-        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
-    elif session.bind.dialect.name == 'postgresql':
-        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    query = filter_thread_work(session, query, total_workers, worker_number)
 
     query = query.limit(limit)
 

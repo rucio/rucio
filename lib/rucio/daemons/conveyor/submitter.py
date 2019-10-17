@@ -22,6 +22,7 @@
 # - Tomas Kouba <tomas.kouba@cern.ch>, 2014
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2016
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Brandon White <bjwhite@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -117,19 +118,19 @@ def submitter(once=False, rses=None, mock=False,
     hb_thread = threading.current_thread()
     heartbeat.sanity_check(executable=executable, hostname=hostname)
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info('%s Submitter starting with timeout %s', prepend_str, timeout)
 
     time.sleep(10)  # To prevent running on the same partition if all the poller restart at the same time
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info('%s Transfer submitter started', prepend_str)
 
     while not graceful_stop.is_set():
 
         try:
             heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
-            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
 
             if activities is None:
                 activities = [None]
@@ -150,7 +151,7 @@ def submitter(once=False, rses=None, mock=False,
 
                 logging.info('%s Starting to get transfer transfers for %s', prepend_str, activity)
                 start_time = time.time()
-                transfers = __get_transfers(total_workers=heart_beat['nr_threads'] - 1,
+                transfers = __get_transfers(total_workers=heart_beat['nr_threads'],
                                             worker_number=heart_beat['assign_thread'],
                                             failover_schemes=failover_scheme,
                                             limit=bulk,

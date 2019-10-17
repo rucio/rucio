@@ -21,6 +21,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -169,7 +170,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
 
         dids, subscriptions = [], []
         tottime = 0
-        prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+        prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
 
         try:
             #  Get the new DIDs based on the is_new flag

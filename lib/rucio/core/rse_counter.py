@@ -10,13 +10,14 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Brandon White, <bjwhite@fnal.gov>, 2019
 
 from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy.sql.expression import bindparam, text
 
 from rucio.common.exception import CounterNotFound
 from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla import filter_thread_work
 
 
 @transactional_session
@@ -106,15 +107,7 @@ def get_updated_rse_counters(total_workers, worker_number, session=None):
     query = session.query(models.UpdatedRSECounter.rse_id).\
         distinct(models.UpdatedRSECounter.rse_id)
 
-    if total_workers > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number),
-                          bindparam('total_workers', total_workers)]
-            query = query.filter(text('ORA_HASH(rse_id, :total_workers) = :worker_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(rse_id), %s) = %s' % (total_workers + 1, worker_number)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(rse_id::text))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    query = filter_thread_work(session, query, total_workers, worker_number)
 
     results = query.all()
     return [result.rse_id for result in results]

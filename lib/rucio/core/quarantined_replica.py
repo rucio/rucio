@@ -18,17 +18,19 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
 import datetime
 
 from sqlalchemy import and_, or_, exists, not_
-from sqlalchemy.sql.expression import bindparam, text, select, false
+from sqlalchemy.sql.expression import select, false
 
 from rucio.common.utils import chunks
 from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla import filter_thread_work
 
 
 @transactional_session
@@ -133,16 +135,7 @@ def list_quarantined_replicas(rse_id, limit, worker_number=None, total_workers=N
                    models.RSEFileAssociation.name == models.QuarantinedReplica.name,
                    models.RSEFileAssociation.rse_id == models.QuarantinedReplica.rse_id))
     query = query.filter(not_(stmt))
-
-    if worker_number and total_workers and total_workers - 1 > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
-            query = query.filter(text('ORA_HASH(path, :total_workers) = :worker_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter('mod(md5(path), %s) = %s' % (total_workers - 1, worker_number - 1))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter('mod(abs((\'x\'||md5(path))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1))
-
+    query = filter_thread_work(session, query, total_workers, worker_number)
     return [{'path': path,
              'rse_id': rse_id,
              'created_at': created_at,

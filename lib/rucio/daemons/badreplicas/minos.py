@@ -15,6 +15,7 @@
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -74,12 +75,12 @@ def minos(bulk=1000, once=False, sleep_time=60):
     hb_thread = threading.current_thread()
     heartbeat.sanity_check(executable=executable, hostname=hostname)
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info(prepend_str + 'Minos starting')
 
     time.sleep(10)  # To prevent running on the same partition if all the daemons restart at the same time
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
 
     states_mapping = {BadPFNStatus.BAD: BadFilesStatus.BAD,
                       BadPFNStatus.SUSPICIOUS: BadFilesStatus.SUSPICIOUS,
@@ -91,7 +92,7 @@ def minos(bulk=1000, once=False, sleep_time=60):
     while not graceful_stop.is_set():
         start_time = time.time()
         heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-        prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+        prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
         pfns = []
         try:
             bad_replicas = {}

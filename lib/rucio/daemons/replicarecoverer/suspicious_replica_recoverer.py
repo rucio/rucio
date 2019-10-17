@@ -17,6 +17,7 @@
 #  - Cedric Serfon, <cedric.serfon@cern.ch>, 2018
 #  - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019
 #  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+#  - Brandon White, <bjwhite@fnal.gov>, 2019
 # PY3K COMPATIBLE
 
 """
@@ -105,7 +106,7 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
             # issuing the heartbeat for a second time to make all workers aware of each other (there is only 1 worker allowed for this daemon)
             heartbeat = live(executable=executable, hostname=socket.gethostname(), pid=os.getpid(), thread=threading.current_thread())
             total_workers = heartbeat['nr_threads']
-            worker_number = heartbeat['assign_thread'] + 1
+            worker_number = heartbeat['assign_thread']
 
             # there is only 1 worker allowed for this daemon
             if total_workers != 1:

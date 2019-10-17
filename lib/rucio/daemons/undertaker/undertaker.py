@@ -84,7 +84,7 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False):
                 if datetime.utcnow() > paused_dids[key]:
                     del paused_dids[key]
 
-            dids = list_expired_dids(worker_number=heartbeat['assign_thread'] + 1, total_workers=heartbeat['nr_threads'], limit=10000)
+            dids = list_expired_dids(worker_number=heartbeat['assign_thread'], total_workers=heartbeat['nr_threads'], limit=10000)
 
             dids = [did for did in dids if (did['scope'], did['name']) not in paused_dids]
 

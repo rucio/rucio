@@ -28,7 +28,7 @@ from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 from sqlalchemy import and_
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.sql.expression import bindparam, text, false
+from sqlalchemy.sql.expression import false
 
 from rucio.common import constants
 from rucio.common.exception import RucioException, UnsupportedOperation, InvalidRSEExpression, RSEProtocolNotSupported, RequestNotFound
@@ -42,6 +42,7 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, RequestState, FTSState, RSEType, RequestType, ReplicaState
 from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla import filter_thread_work
 from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.fts3_myproxy import FTS3MyProxyTransfertool
@@ -808,15 +809,7 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
     if activity:
         sub_requests = sub_requests.filter(models.Request.activity == activity)
 
-    if total_workers > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number),
-                          bindparam('total_workers', total_workers)]
-            sub_requests = sub_requests.filter(text('ORA_HASH(requests.id, :total_workers) = :worker_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            sub_requests = sub_requests.filter(text('mod(md5(requests.id), %s) = %s' % (total_workers + 1, worker_number)))
-        elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(requests.id::text))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    sub_requests = filter_thread_work(session, sub_requests, total_workers, worker_number)
 
     if limit:
         sub_requests = sub_requests.limit(limit)

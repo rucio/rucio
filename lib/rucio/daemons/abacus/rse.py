@@ -68,7 +68,7 @@ def rse_update(once=False):
 
             # Select a bunch of rses for to update for this worker
             start = time.time()  # NOQA
-            rse_ids = get_updated_rse_counters(total_workers=heartbeat['nr_threads'] - 1,
+            rse_ids = get_updated_rse_counters(total_workers=heartbeat['nr_threads'],
                                                worker_number=heartbeat['assign_thread'])
             logging.debug('Index query time %f size=%d' % (time.time() - start, len(rse_ids)))
 

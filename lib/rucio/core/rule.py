@@ -23,6 +23,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -46,7 +47,7 @@ from string import Template
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import func
-from sqlalchemy.sql.expression import and_, or_, bindparam, text, true, null
+from sqlalchemy.sql.expression import and_, or_, text, true, null
 
 from rucio.core.account import has_account_attribute
 import rucio.core.did
@@ -78,6 +79,7 @@ from rucio.db.sqla.constants import (LockState, ReplicaState, RuleState, RuleGro
                                      DIDAvailability, DIDReEvaluation, DIDType,
                                      RequestType, RuleNotification, OBSOLETE, RSEType)
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
+from rucio.db.sqla import filter_thread_work
 from rucio.extensions.forecast import T3CModel
 
 logging.basicConfig(stream=sys.stdout,
@@ -1503,15 +1505,7 @@ def get_updated_dids(total_workers, worker_number, limit=100, blacklisted_dids=[
                           models.UpdatedDID.name,
                           models.UpdatedDID.rule_evaluation_action)
 
-    if total_workers > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number),
-                          bindparam('total_workers', total_workers)]
-            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    query = filter_thread_work(session, query, total_workers, worker_number)
 
     if limit:
         fetched_dids = query.order_by(models.UpdatedDID.created_at).limit(limit).all()
@@ -1547,14 +1541,7 @@ def get_rules_beyond_eol(date_check, worker_number, total_workers, session):
                           models.ReplicationRule.expires_at).\
         filter(models.ReplicationRule.eol_at < date_check)
 
-    if session.bind.dialect.name == 'oracle':
-        bindparams = [bindparam('worker_number', worker_number),
-                      bindparam('total_workers', total_workers)]
-        query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-    elif session.bind.dialect.name == 'mysql':
-        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
-    elif session.bind.dialect.name == 'postgresql':
-        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    query = filter_thread_work(session, query, total_workers, worker_number)
     return [rule for rule in query.all()]
 
 
@@ -1576,14 +1563,7 @@ def get_expired_rules(total_workers, worker_number, limit=100, blacklisted_rules
         with_hint(models.ReplicationRule, "index(rules RULES_EXPIRES_AT_IDX)", 'oracle').\
         order_by(models.ReplicationRule.expires_at)  # NOQA
 
-    if session.bind.dialect.name == 'oracle':
-        bindparams = [bindparam('worker_number', worker_number),
-                      bindparam('total_workers', total_workers)]
-        query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-    elif session.bind.dialect.name == 'mysql':
-        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
-    elif session.bind.dialect.name == 'postgresql':
-        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    query = filter_thread_work(session, query, total_workers, worker_number)
 
     if limit:
         fetched_rules = query.limit(limit).all()
@@ -1624,14 +1604,7 @@ def get_injected_rules(total_workers, worker_number, limit=100, blacklisted_rule
             filter(models.ReplicationRule.state == RuleState.INJECT).\
             order_by(models.ReplicationRule.created_at)
 
-    if session.bind.dialect.name == 'oracle':
-        bindparams = [bindparam('worker_number', worker_number),
-                      bindparam('total_workers', total_workers)]
-        query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-    elif session.bind.dialect.name == 'mysql':
-        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
-    elif session.bind.dialect.name == 'postgresql':
-        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    query = filter_thread_work(session, query, total_workers, worker_number)
 
     if limit:
         fetched_rules = query.limit(limit).all()
@@ -1680,14 +1653,7 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, blacklist
                        models.ReplicationRule.locked == true())).\
             order_by(models.ReplicationRule.updated_at)
 
-    if session.bind.dialect.name == 'oracle':
-        bindparams = [bindparam('worker_number', worker_number),
-                      bindparam('total_workers', total_workers)]
-        query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-    elif session.bind.dialect.name == 'mysql':
-        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
-    elif session.bind.dialect.name == 'postgresql':
-        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    query = filter_thread_work(session, query, total_workers, worker_number)
 
     if limit:
         fetched_rules = query.limit(limit).all()

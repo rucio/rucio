@@ -127,7 +127,7 @@ def __check_rse_usage(rse_id):
     return max_being_deleted_files, needed_free_space, used, free
 
 
-def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=100,
+def reaper(rses, worker_number=0, child_number=0, total_children=1, chunk_size=100,
            once=False, greedy=False, scheme=None, delay_seconds=0):
     """
     Main loop to select and delete files.
