@@ -603,7 +603,7 @@ def get_account_jwt_for_operation(account, req_audience, req_scope=None, session
         else:
             return None
     except:
-        raise CannotAuthorize("Rucio could not exchange the subject token:\n %s" % traceback.format_exc())
+        return None
 
 
 @transactional_session
@@ -713,7 +713,6 @@ def exchange_token_OIDC(subject_token, scope, audience, grant_type=None, refresh
         return new_token
 
     except:
-        raise CannotAuthorize(traceback.format_exc())
         return None
 
 

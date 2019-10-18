@@ -89,18 +89,19 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
                 else:
                     job_file[key] = file[key]
             job_files.append(job_file)
-        transfertoken = None
+        transfer_token = None
         if 'account' in job_params:
             # find the appropriate OIDC token and exchange it if necessary
             token_object = authentication.get_account_jwt_for_operation(job_params['account'], req_audience='fts', req_scope=None)
-            transfertoken = token_object.token
+            if token_object is not None:
+                transfer_token = token_object.token
         if not user_transfer_job:
-            transfer_id = FTS3Transfertool(external_host=external_host, token=transfertoken).submit(files=job_files, job_params=job_params, timeout=timeout)
+            transfer_id = FTS3Transfertool(external_host=external_host, token=transfer_token).submit(files=job_files, job_params=job_params, timeout=timeout)
         elif USER_TRANSFERS == "cms":
             transfer_id = FTS3MyProxyTransfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
         else:
             # if no valid USER TRANSFER cases --> go with std submission
-            transfer_id = FTS3Transfertool(external_host=external_host, token=transfertoken).submit(files=job_files, job_params=job_params, timeout=timeout)
+            transfer_id = FTS3Transfertool(external_host=external_host, token=transfer_token).submit(files=job_files, job_params=job_params, timeout=timeout)
         record_timer('core.request.submit_transfers_fts3', (time.time() - start_time) * 1000 / len(files))
     return transfer_id
 
