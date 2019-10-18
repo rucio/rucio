@@ -577,8 +577,9 @@ class DownloadClient:
                     local_checksum = 'local_checksum'
 
                     for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
-                        rucio_checksum = item.get(checksum_name)
-                        if rucio_checksum is not None:
+                        rucio_checksum_temp = item.get(checksum_name)
+                        if rucio_checksum_temp is not None:
+                            rucio_checksum = rucio_checksum_temp
                             if checksum_name in CHECKSUM_ALGO_DICT:
                                 local_checksum = CHECKSUM_ALGO_DICT[checksum_name](temp_file_path)
                                 if checksum_name == PREFERRED_CHECKSUM:
