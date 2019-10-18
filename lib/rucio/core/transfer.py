@@ -13,6 +13,7 @@
 # - Robert Illingworth, <illingwo@fnal.gov>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White, <bjwhite@fnal.gov>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -36,6 +37,7 @@ from rucio.common.rse_attributes import get_rse_attributes
 from rucio.common.utils import construct_surl
 from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.core import did, message as message_core, request as request_core
+from rucio.core import authentication
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_name, list_rses
 from rucio.core.rse_expression_parser import parse_expression
@@ -87,13 +89,18 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
                 else:
                     job_file[key] = file[key]
             job_files.append(job_file)
+        transfertoken = None
+        if 'account' in job_params:
+            # find the appropriate OIDC token and exchange it if necessary
+            token_object = authentication.get_account_jwt_for_operation(job_params['account'], req_audience='fts', req_scope=None)
+            transfertoken = token_object.token
         if not user_transfer_job:
-            transfer_id = FTS3Transfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
+            transfer_id = FTS3Transfertool(external_host=external_host, token=transfertoken).submit(files=job_files, job_params=job_params, timeout=timeout)
         elif USER_TRANSFERS == "cms":
             transfer_id = FTS3MyProxyTransfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
         else:
             # if no valid USER TRANSFER cases --> go with std submission
-            transfer_id = FTS3Transfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
+            transfer_id = FTS3Transfertool(external_host=external_host, token=transfertoken).submit(files=job_files, job_params=job_params, timeout=timeout)
         record_timer('core.request.submit_transfers_fts3', (time.time() - start_time) * 1000 / len(files))
     return transfer_id
 
@@ -422,7 +429,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
     bring_online_local = bring_online
     transfers, rses_info, protocols, rse_attrs, reqs_no_source, reqs_only_tape_source, reqs_scheme_mismatch = {}, {}, {}, {}, [], [], []
 
-    for req_id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, previous_attempt_id, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path, retry_count, src_url, ranking, link_ranking in req_sources:
+    for req_id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, previous_attempt_id, dest_rse_id, account, source_rse_id, rse, deterministic, rse_type, path, retry_count, src_url, ranking, link_ranking in req_sources:
 
         # source_rse_id will be None if no source replicas
         # rse will be None if rse is staging area
@@ -634,6 +641,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     file_metadata['previous_attempt_id'] = previous_attempt_id
 
                 transfers[req_id] = {'request_id': req_id,
+                                     'account': account,
                                      'schemes': __add_compatible_schemes(schemes=[matching_scheme[0]], allowed_schemes=current_schemes),
                                      # 'src_urls': [source_url],
                                      'sources': [(rse, source_url, source_rse_id, ranking if ranking is not None else 0, link_ranking)],
@@ -794,7 +802,8 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
                                  models.Request.attributes,
                                  models.Request.previous_attempt_id,
                                  models.Request.dest_rse_id,
-                                 models.Request.retry_count)\
+                                 models.Request.retry_count,
+                                 models.Request.account)\
         .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
         .filter(models.Request.state == RequestState.QUEUED)\
         .filter(models.Request.request_type == RequestType.TRANSFER)\
@@ -834,6 +843,7 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
                           sub_requests.c.attributes,
                           sub_requests.c.previous_attempt_id,
                           sub_requests.c.dest_rse_id,
+                          sub_requests.c.account,
                           models.RSEFileAssociation.rse_id,
                           models.RSE.rse,
                           models.RSE.deterministic,

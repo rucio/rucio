@@ -19,6 +19,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -84,6 +85,8 @@ def generate_rse(endpoint, token):
                                             'web_service_path': '/srm/managerv2?SFN='}
     rse.add_protocol(rse_id=rse_id, parameter=tmp_proto)
     rse.add_rse_attribute(rse_id=rse_id, key='fts', value='https://fts3-pilot.cern.ch:8446')
+    # for testing XDC IAM authentication with a OAuth2.0 token
+    # rse.add_rse_attribute(rse_id=rse_id, key='fts', value='https://fts3-xdc.cern.ch:8446')
 
     account_limit.set_account_limit(account=InternalAccount('root'), rse_id=rsemanager.get_rse_info(rse_name)['id'], bytes=-1)
 

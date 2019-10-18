@@ -44,6 +44,7 @@ from dogpile.cache.api import NO_VALUE
 
 from rucio.common.exception import RucioException, CannotAuthenticate, CannotAuthorize, CannotInitOIDCClient
 from rucio.common.utils import generate_uuid, oidc_identity_string, build_url
+from rucio.common.types import InternalAccount
 from rucio.core.account import account_exists
 from rucio.core.monitor import record_counter, record_timer
 from rucio.db.sqla import models
@@ -84,6 +85,16 @@ TOKENREGION = make_region(
 
 # private/protected file containing Rucio Client secrets known to the Identity Provider as well
 idpsecrets = '/opt/rucio/etc/idpsecrets.json'
+
+# TO-DO permission layer: if scope == 'wlcg.groups'
+# --> check 'profile' info (requested profile scope)
+# decide on exchanges permitted and save the dict per token in the DB
+# (user groups maybe need to be transformed in to exchange token patameters
+# and the permitted token echange audience and scopes to be saved in the DB table as well)
+exchange_params = {
+    'audiences': {'rucio': 'fts'},
+    'scopes': {}
+}
 
 
 @read_session
@@ -146,11 +157,11 @@ def get_rucio_OIDC_clients():
     """
     # initializing a client_id and client_secret - provided in a secret config file
     with open(idpsecrets) as client_secret_file:
-        client_secret = json.load(client_secret_file)
+        client_secrets = json.load(client_secret_file)
     clients = {}
-    for iss in client_secret:
+    for iss in client_secrets:
         try:
-            client_secret = client_secret[iss]
+            client_secret = client_secrets[iss]
             issuer = client_secret["issuer"]
             client = Client(client_authn_method=CLIENT_AUTHN_METHOD)
             # general parameter discovery about the Identity Provider via the issuers URL
@@ -284,14 +295,13 @@ def get_auth_OIDC(account, session=None, **kwargs):
 
     :returns: User & Rucio OIDC Client specific Authorization or Redirection URL as a string.
     """
-    auth_scope = kwargs.get('auth_scope', 'xdc')
-    audience = kwargs.get('audience', 'xdc')
+    auth_scope = kwargs.get('auth_scope', 'openid')
+    audience = kwargs.get('audience', 'rucio')
     issuer = kwargs.get('issuer', 'xdc')
     auto = kwargs.get('auto', False)
     polling = kwargs.get('polling', False)
     refresh_lifetime = kwargs.get('refresh_lifetime', 96)
     ip = kwargs.get('ip', None)
-
     global OIDC_clients
 
     # Make sure the account exists
@@ -425,7 +435,11 @@ def get_token_OIDC(auth_query_string, ip=None, session=None):
                                    info=auth_query_string,
                                    sformat="urlencoded")
         # assembling parameters to request an access token
-        args = {"code": code}
+
+        args = {"code": code,
+                "audience": auth_args['audience'],
+                "scope": auth_args['scope'],
+                }
         record_counter(counters='IdP_authentication.code_granted')
 
         # exchange access code for a access token
@@ -449,9 +463,17 @@ def get_token_OIDC(auth_query_string, ip=None, session=None):
         record_counter(counters='IdP_authentication.success')
         # get access token expiry timestamp
         expired_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=oidc_tokens['expires_in'])
-        audience = None
-        if 'audience' in oidc_tokens:
-            audience = oidc_tokens['audience']
+        # get audience and group information (assumes profile scope is provided) from id_token
+        audience = " ".join(auth_args['audience'])
+        at_claims = json.loads(JWT().unpack(oidc_tokens['access_token']).part[1])
+        if 'aud' in at_claims:
+            audience = at_claims['aud']
+        # groups = oidc_tokens['id_token']['groups']
+        # nothing done with group info for the moment - TO-DO !
+        if isinstance(oidc_tokens['scope'], list):
+            scope = " ".join(oidc_tokens['scope'])
+        else:
+            scope = oidc_tokens['scope']
         # In case user requested to grant Rucio a refresh token, this token will get saved in the DB
         # and an automatic refresh for a specified period of time will be initiated (done by the Rucio daemon).
         if 'refresh_token' in oidc_tokens:
@@ -470,7 +492,7 @@ def get_token_OIDC(auth_query_string, ip=None, session=None):
             new_token = models.Token(account=account,
                                      token=oidc_tokens['access_token'],
                                      refresh_token=oidc_tokens['refresh_token'],
-                                     scope=oidc_tokens['scope'],
+                                     scope=scope,
                                      refresh=True,
                                      audience=audience,
                                      expired_at=expired_at,
@@ -490,7 +512,7 @@ def get_token_OIDC(auth_query_string, ip=None, session=None):
             # return an access token
             new_token = models.Token(account=account,
                                      token=oidc_tokens['access_token'],
-                                     scope=oidc_tokens['scope'],
+                                     scope=scope,
                                      refresh=False,
                                      expired_at=expired_at,
                                      audience=audience,
@@ -499,6 +521,7 @@ def get_token_OIDC(auth_query_string, ip=None, session=None):
             new_token.save(session=session)
             session.expunge(new_token)
             record_counter(counters='IdP_authorization.access_token.saved')
+
         # In case authentication via browser was requested, we save the token temporarily in the oauth_requests table
         if redirect_code:
 
@@ -528,8 +551,63 @@ def get_token_OIDC(auth_query_string, ip=None, session=None):
         raise CannotAuthenticate(traceback.format_exc())
 
 
+@read_session
+def get_account_jwt_for_operation(account, req_audience, req_scope=None, session=None):
+    """
+    Looks-up the token in the DB, reads scope and audience parameters and decides
+    which exchange should be made or returns None in case authorization is missing.
+    :param token_string: Token to be exchanged for a new one
+    :param session: DB session in use
+
+    :return: Token or None, throws an exception in case of problems
+    """
+    try:
+        # get the OIDC identities of the account
+        account = InternalAccount(account)
+        identities = session.query(models.IdentityAccountAssociation.identity)\
+                            .filter_by(identity_type=IdentityType.OIDC, account=account).all()
+        # check if there is no exchange token with the requested parameters already in the DB
+        account_tokens = session.query(models.Token).filter(models.Token.identity.in_(identities),
+                                                            models.Token.account == account,
+                                                            models.Token.expired_at > datetime.datetime.utcnow()).all()
+        if len(account_tokens) < 1:
+            raise CannotAuthorize("Rucio could not exchange the subject token since it did not find any valid token associated with OIDC identity of account %s" % account)
+        # from available accounts select preferentially the one which
+        # is being refreshed (offline_access in the scope)
+        subject_token = None
+        for token in account_tokens:
+            if token.audience:
+                if req_audience in token.audience:
+                    return token
+            if 'offline_access' in token.scope:
+                subject_token = token
+        if not subject_token:
+            subject_token = random.choice(account_tokens)
+
+        if not req_scope:
+            req_scope = subject_token.scope
+
+        exchange_audience = [exchange_params['audiences'][i] for i in exchange_params['audiences'] if token.audience == i and req_audience in exchange_params['audiences'][i]]
+        exchange_scope = [exchange_params['scopes'][i] for i in exchange_params['scopes'] if token.scope == i and req_scope in exchange_params['scopes'][i]]
+        if not exchange_scope:
+            exchange_scope = subject_token.scope
+        else:
+            exchange_scope = exchange_scope[0]
+        if not exchange_audience:
+            exchange_audience = subject_token.audience
+        else:
+            exchange_audience = exchange_audience[0]
+        if subject_token.audience != exchange_audience or subject_token.scope != exchange_scope:
+            exchanged_token = exchange_token_OIDC(subject_token.token, exchange_scope, exchange_audience, grant_type=None, refresh_lifetime=subject_token.refresh_lifetime)
+            return exchanged_token
+        else:
+            return None
+    except:
+        raise CannotAuthorize("Rucio could not exchange the subject token:\n %s" % traceback.format_exc())
+
+
 @transactional_session
-def exchange_token_OIDC(subject_token, scope, audience, grant_type="urn:ietf:params:oauth:grant-type:token-exchange", refresh_lifetime=None, session=None):
+def exchange_token_OIDC(subject_token, scope, audience, grant_type=None, refresh_lifetime=None, session=None):
     """
     An access_token can be exchanged for a new one with different scope &/ audience
     providing that the scope specified is registered with IdP for the Rucio OIDC Client
@@ -548,7 +626,8 @@ def exchange_token_OIDC(subject_token, scope, audience, grant_type="urn:ietf:par
 
     :returns: new DB access token table object
     """
-
+    if not grant_type:
+        grant_type = "urn:ietf:params:oauth:grant-type:token-exchange"
     global OIDC_clients
     try:
         start = time.time()
@@ -573,10 +652,9 @@ def exchange_token_OIDC(subject_token, scope, audience, grant_type="urn:ietf:par
         # assembling parameters to request a new access token
         args = {"subject_token": subject_token,
                 "scope": scope,
+                "audience": audience,
                 "grant_type": grant_type}
-
-        if audience:
-            args["audience"] = audience
+        print(args, OIDC_client.provider_info["token_endpoint"], exchange_session_state, )
         # exchange access code for a access token
         oidc_token_response = OIDC_client.do_any(Message,
                                                  endpoint=OIDC_client.provider_info["token_endpoint"],
@@ -584,6 +662,10 @@ def exchange_token_OIDC(subject_token, scope, audience, grant_type="urn:ietf:par
                                                  request_args=args,
                                                  authn_method="client_secret_basic")
         oidc_tokens = oidc_token_response.json()
+        if isinstance(oidc_tokens['scope'], list):
+            scope = " ".join(oidc_tokens['scope'])
+        else:
+            scope = oidc_tokens['scope']
         expired_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=oidc_tokens['expires_in'])
         if 'refresh_token' in oidc_tokens:
             # save the received access and refresh tokens in the DB
@@ -601,7 +683,7 @@ def exchange_token_OIDC(subject_token, scope, audience, grant_type="urn:ietf:par
             new_token = models.Token(account=validated['account'],
                                      token=oidc_tokens['access_token'],
                                      refresh_token=oidc_tokens['refresh_token'],
-                                     scope=oidc_tokens['scope'],
+                                     scope=scope,
                                      refresh=True,
                                      audience=audience,
                                      expired_at=expired_at,
@@ -619,7 +701,7 @@ def exchange_token_OIDC(subject_token, scope, audience, grant_type="urn:ietf:par
             # save the received access token in the DB
             new_token = models.Token(account=validated['account'],
                                      token=oidc_tokens['access_token'],
-                                     scope=oidc_tokens['scope'],
+                                     scope=scope,
                                      refresh=False,
                                      expired_at=expired_at,
                                      audience=audience,
@@ -631,6 +713,7 @@ def exchange_token_OIDC(subject_token, scope, audience, grant_type="urn:ietf:par
         return new_token
 
     except:
+        raise CannotAuthorize(traceback.format_exc())
         return None
 
 
@@ -684,9 +767,19 @@ def refresh_token_OIDC(token_object, session=None):
         # if request below is successful, the used refresh token is assumed to become automatically invalid on the side of IAM (Identity Provider)
         oidc_tokens = OIDC_client.do_access_token_refresh(state=refresh_session_state)
         record_counter(counters='IdP_authorization.refresh_token.refreshed')
-        audience = None
-        if 'audience' in oidc_tokens:
-            audience = oidc_tokens['audience']
+        # get audience and group information (assumes profile scope is provided) from id_token
+        audience = token_object.audience
+        at_claims = json.loads(JWT().unpack(oidc_tokens['access_token']).part[1])
+        if 'aud' in at_claims:
+            audience = at_claims['aud']
+        # groups = oidc_tokens['id_token']['groups']
+        # nothing done with group info for the moment - TO-DO !
+
+        # save new access and refresh tokens in the DB
+        if isinstance(oidc_tokens['scope'], list):
+            scope = " ".join(oidc_tokens['scope'])
+        else:
+            scope = oidc_tokens['scope']
         if 'refresh_token' in oidc_tokens and 'access_token' in oidc_tokens:
             # aborting refresh of the original token (keeping it in place until it expires) and setting the expiry time of the refresh token to now
             session.query(models.Token).filter(models.Token.token == token_object.token)\
@@ -706,7 +799,7 @@ def refresh_token_OIDC(token_object, session=None):
             new_token = models.Token(account=token_object.account,
                                      token=oidc_tokens['access_token'],
                                      refresh_token=oidc_tokens['refresh_token'],
-                                     scope=oidc_tokens['scope'],
+                                     scope=scope,
                                      audience=audience,
                                      refresh=True,
                                      expired_at=expired_at,

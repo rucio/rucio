@@ -20,7 +20,8 @@ from pprint import pprint
 
 if __name__ == "__main__":
     # token for OAuth 2.0 OIDC authorization scheme is working only with dCache + davs/https protocols (as of September 2019)
-    FTS3_TransferTool = rucio.transfertool.fts3.FTS3Transfertool('https://fts3-xdc.cern.ch:8446')
+    token = '<token>'
+    FTS3_TransferTool = rucio.transfertool.fts3.FTS3Transfertool('https://fts3-xdc.cern.ch:8446', token)
     files = [{"sources": ['https://dcache-xdc.desy.de/Users/jaroslav/tests/test.txt'],
               "destinations": ['https://dcache-xdc.desy.de/Users/jaroslav/tests/test.txt-%s' % generate_uuid()],
               "verify_checksum": False,

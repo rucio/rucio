@@ -73,15 +73,15 @@ class FTS3Transfertool(Transfertool):
     FTS3 implementation of a Rucio transfertool
     """
 
-    def __init__(self, external_host):
+    def __init__(self, external_host, token=None):
         """
         Initializes the transfertool
 
-        :param external_host:   The external host where the transfertool API is running
+        :param external_host: The external host where the transfertool API is running
         """
         usercert = config_get('conveyor', 'usercert', False, None)
-        # token for OAuth 2.0 OIDC authorization scheme (working only with dCache + davs/https protocols)
-        self.token = config_get('conveyor', 'token', False, None)
+        # token for OAuth 2.0 OIDC authorization scheme (working only with dCache + davs/https protocols as of Sep 2019)
+        self.token = token
         self.deterministic_id = config_get_bool('conveyor', 'use_deterministic_id', False, False)
         super(FTS3Transfertool, self).__init__(external_host)
         self.headers = {'Content-Type': 'application/json'}

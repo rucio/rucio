@@ -387,10 +387,10 @@ class BaseClient(object):
 
         :returns: True if the token was successfully received. False otherwise.
         """
-        scope = self.creds['scope_oidc']
+        scope = str(self.creds['scope_oidc'])
         headers = {'X-Rucio-Account': self.account,
                    'X-Rucio-Client-Authorize-Scope': scope,
-                   'X-Rucio-Client-Authorize-Audience': self.creds['audience'],
+                   'X-Rucio-Client-Authorize-Audience': str(self.creds['audience']),
                    'X-Rucio-Client-Authorize-Auto': str(self.creds['auto']),
                    'X-Rucio-Client-Authorize-Issuer': str(self.creds['issuer']),
                    'X-Rucio-Client-Authorize-Polling': str(self.creds['polling']),
@@ -404,7 +404,7 @@ class BaseClient(object):
                 result = None
                 request_auth_url = build_url(self.auth_host, path='auth/OIDC')
                 # requesting authorization URL specific to the user & Rucio OIDC Client
-                OIDC_auth_res = self.session.get(request_auth_url, headers=headers, verify=False)
+                OIDC_auth_res = self.session.get(request_auth_url, headers=headers, verify=self.ca_cert)
                 # with the obtained authorization URL we will contact the Identity Provider to get to the login page
                 auth_url = OIDC_auth_res.headers['X-Rucio-OIDC-Auth-URL']
                 if not self.creds['auto']:
@@ -423,7 +423,7 @@ class BaseClient(object):
                         start = time.time()
                         print("3 minutes from now the authentication attempt will time out.")
                         while time.time() - start < timeout:
-                            result = self.session.get(auth_url, headers=headers, verify=False)
+                            result = self.session.get(auth_url, headers=headers, verify=self.ca_cert)
                             if 'X-Rucio-Auth-Token' in result.headers and result.status_code == codes.ok:
                                 break
                             time.sleep(2)
@@ -433,7 +433,7 @@ class BaseClient(object):
                         while count < 3:
                             fetchcode = raw_input()
                             fetch_url = build_url(self.auth_host, path='auth/OIDC_redirect', params=fetchcode)
-                            result = self.session.get(fetch_url, headers=headers, verify=False)
+                            result = self.session.get(fetch_url, headers=headers, verify=self.ca_cert)
                             if 'X-Rucio-Auth-Token' in result.headers and result.status_code == codes.ok:
                                 break
                             else:
@@ -441,11 +441,11 @@ class BaseClient(object):
                                       "try again and make sure you typed the correct code.")
                                 count += 1
                 else:
-                    auth_res = self.session.get(auth_url, verify=False)
+                    auth_res = self.session.get(auth_url, verify=self.ca_cert)
                     # getting the login URL and logging in the user
                     login_url = auth_res.url
                     start = time.time()
-                    result = self.session.post(login_url, data=userpass, verify=False, allow_redirects=True)
+                    result = self.session.post(login_url, data=userpass, verify=self.ca_cert, allow_redirects=True)
                     # if the Rucio OIDC Client configuration does not match the one registered at the Identity Provider
                     # the user will get an OAuth error
                     if 'OAuth Error' in result.text:
@@ -464,14 +464,15 @@ class BaseClient(object):
                         form_data.update(default_data)
                         LOG.warning('Automatically authorising request of the following info on behalf of user: %s', str(form_data))
                         # authorizing info request on behalf of the user until he/she revokes this authorization !
-                        result = self.session.post(result.url, data=form_data, verify=False, allow_redirects=True)
+                        result = self.session.post(result.url, data=form_data, verify=self.ca_cert, allow_redirects=True)
+                break
             except RequestException:
                 LOG.warning('RequestException: %s', str(traceback.format_exc()))
                 print(traceback.format_exc())
                 self.ca_cert = False
                 if retry > self.request_retries:
                     raise
-            break
+
         if not result or 'result' not in locals():
             LOG.error('cannot get auth_token')
             return False
@@ -759,7 +760,7 @@ class BaseClient(object):
             if self.creds['auto'] and (self.creds['username'] is None or self.creds['password'] is None or self.creds['scope_oidc'] is None):
                 raise NoAuthInformation('For automatic OIDC log-in with your Identity Provider, username, password and scope are required.')
             if not self.creds['auto'] and self.creds['scope_oidc'] is None:
-                raise NoAuthInformation('To get the authentication URL to be used in your browser, please provide a OIDC scope parameter (minimum scope=\'openid\').')
+                raise NoAuthInformation('To get the authentication URL to be used in your browser, please provide a OIDC scope parameter (minimum scope=\'openid profile\').')
         elif self.auth_type == 'x509':
             if self.creds['client_cert'] is None:
                 raise NoAuthInformation('The path to the client certificate is required')
