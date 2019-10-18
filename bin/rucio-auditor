@@ -155,8 +155,7 @@ def get_parser():
     Returns the argparse parser.
     """
     parser = argparse.ArgumentParser(description="The auditor daemon is the one responsable to detect inconsistencies in Rucio, i.e.: dark data discovery.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
         '--nprocs',
         help='Number subprocess, each subprocess check a fraction of the DDM '
