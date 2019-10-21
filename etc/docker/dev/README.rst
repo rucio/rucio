@@ -30,7 +30,7 @@ Now, ensure that the `.git/config` is proper, i.e., mentioning your full name an
 Next, setup and configure the Rucio development environment. There are three different types. A simple one to just run the nosetests. One including an FTS server and three xrootd endpoints to test actual transfers. And a third one adding a full monitoring stack with Logstash, Elasticsearch, Kibana and Grafana.
 
 Using the simple environment
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Run the containers using docker-compose (again might need `sudo`)::
 
@@ -58,7 +58,7 @@ Alternatively, you can bootstrap the test environment once and then selectively 
     nosetests -v lib/rucio/tests/test_replica.py:TestReplicaCore.test_delete_replicas_from_datasets
 
 Using the environment including storage
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Again run the containers using docker-compose (again might need `sudo`)::
 
@@ -71,7 +71,7 @@ With this container you can upload testing data to the storage and submit transf
     tools/run_tests_docker.sh -ir
 
 Using the environment including monitoring
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Again run the containers using docker-compose (again might need `sudo`)::
 
@@ -85,19 +85,21 @@ To create some events and write them to Elasticsearch first run again the tests:
 
 Then you will have to run the conveyors and hermes to send the events to ActiveMQ. There a script for that::
 
-    tools/run_daemons.sh
+    run_daemons
 
-When all the daemons ran you will be able to find the events in Kibana. If you run the docker environment on you local machine you can access Kibana at http://localhost:5601. Then add an index pattern for `rucio-events-*` and you will be able to see all events in Discover. If it it running on remote machine you can just forward it::
+When all the daemons ran you will be able to find the events in Kibana. If you run the docker environment on you local machine you can access Kibana at http://localhost:5601. The necessary index pattern will be added automatically. There is also one dashboard available in Kibana. If it is running on remote machine you can just forward it::
 
     ssh -L 5601:127.0.0.1:5601 <hostname>
 
+Additionally, there is also a Grafana server running with one simple dashboard. You can access it at http://localhost:3000. The default credentials are "admin/admin".
+
 If you would like to continously create some transfers and events there are scripts available for that. Open two different shells and in one run::
 
-    tools/create_monit_data.sh
+    create_monit_data
 
 And in the other run::
 
-    tools/run_daemons.sh
+    run_daemons
 
 Development
 -----------
