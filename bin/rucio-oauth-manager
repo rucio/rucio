@@ -48,7 +48,7 @@ The maximum number of DB rows (tokens, parameters, refresh tokens) on which the 
 can be specified by 'maxrows' parameter.
 
 ''')  # NOQA: E501
-    parser.add_argument("--maxrows", action="store", default=100, help='Max number of DB rows to deal with per operation.')
+    parser.add_argument("--maxrows", action="store", default=1000, help='Max number of DB rows to deal with per operation.')
     parser.add_argument("--looprate", action="store", default=300, help='The number of seconds the daemon will wait before running next loop of operations.')
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only.')
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: total number of threads for this process')

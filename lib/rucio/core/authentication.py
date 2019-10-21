@@ -474,6 +474,7 @@ def get_token_OIDC(auth_query_string, ip=None, session=None):
             scope = " ".join(oidc_tokens['scope'])
         else:
             scope = oidc_tokens['scope']
+
         # In case user requested to grant Rucio a refresh token, this token will get saved in the DB
         # and an automatic refresh for a specified period of time will be initiated (done by the Rucio daemon).
         if 'refresh_token' in oidc_tokens:
@@ -507,6 +508,7 @@ def get_token_OIDC(auth_query_string, ip=None, session=None):
             # remove refresh token info (not for the user/Rucio Client)
             new_token.refresh_token = None
             new_token.refresh_expired_at = None
+            new_token.refresh_lifetime = None
 
         else:
             # return an access token
@@ -521,7 +523,6 @@ def get_token_OIDC(auth_query_string, ip=None, session=None):
             new_token.save(session=session)
             session.expunge(new_token)
             record_counter(counters='IdP_authorization.access_token.saved')
-
         # In case authentication via browser was requested, we save the token temporarily in the oauth_requests table
         if redirect_code:
 
@@ -1000,7 +1001,7 @@ def get_ssh_challenge_token(account, appid, ip=None, session=None):
 
 
 @transactional_session
-def delete_expired_tokens(total_workers, worker_number, limit=100, session=None):
+def delete_expired_tokens(total_workers, worker_number, limit=1000, session=None):
     """
     Delete expired tokens.
 
@@ -1021,7 +1022,7 @@ def delete_expired_tokens(total_workers, worker_number, limit=100, session=None)
                                                  .with_for_update(skip_locked=True)\
                                                  .order_by(models.Token.expired_at)
 
-        query = partition_load(query, 'state', total_workers, worker_number, session=session)
+        query = partition_load(query, 'token', total_workers, worker_number, session=session)
 
         # limiting the number of tokens deleted at once
         filtered_tokens = query.limit(limit).subquery()
@@ -1035,7 +1036,7 @@ def delete_expired_tokens(total_workers, worker_number, limit=100, session=None)
 
 
 @transactional_session
-def delete_expired_oauthreqests(total_workers, worker_number, limit=100, session=None):
+def delete_expired_oauthreqests(total_workers, worker_number, limit=1000, session=None):
     """
     Delete expired OAuth request parameters.
 
@@ -1100,7 +1101,7 @@ def change_refresh_state(token, refresh=False, session=None):
 
 
 @read_session
-def get_tokens_for_refresh(total_workers, worker_number, refreshrate=3600, limit=100, session=None):
+def get_tokens_for_refresh(total_workers, worker_number, refreshrate=3600, limit=1000, session=None):
     """
     Get tokens which expired or will expire before (now + refreshrate)
     next run of this function and which have valid refresh token.
