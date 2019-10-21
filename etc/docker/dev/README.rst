@@ -149,3 +149,66 @@ Docker is eating my disk space
 You can reclaim this with::
 
     docker system prune -f --volumes
+
+Unleash the daemons
+~~~~~~~~~~~~~~~~~~~
+Daemons are not running in the docker environment, but all daemons support the --run-once arguemnt. E.g., after do the initialization with::
+
+   tools/run_tests_docker.sh -ir
+
+Some files are created. Let's add them to a new dataset::
+
+   rucio add-dataset test:mynewdataset
+   rucio attach test:mynewdataset test:file1 test:file2 test:file3 test:file4
+
+As you can see if you run the command below, the files are not in the RSE XRD3, but in XRD1 and 2.::
+   rucio list-file-replicas test:mynewdataset
+   > +---------+--------+------------+-----------+------------------------------------------------+
+   > | SCOPE   | NAME   | FILESIZE   | ADLER32   | RSE: REPLICA                                   |
+   > |---------+--------+------------+-----------+------------------------------------------------|
+   > | test    | file1  | 10.486 MB  | 141a641e  | XRD1: root://xrd1:1094//rucio/test/80/25/file1 |
+   > | test    | file2  | 10.486 MB  | fdfa7eea  | XRD1: root://xrd1:1094//rucio/test/f3/14/file2 |
+   > | test    | file3  | 10.486 MB  | c669167d  | XRD2: root://xrd2:1095//rucio/test/a9/23/file3 |
+   > | test    | file4  | 10.486 MB  | 65786e49  | XRD2: root://xrd2:1095//rucio/test/2b/c2/file4 |
+   > +---------+--------+------------+-----------+------------------------------------------------+
+   
+   
+So let's add a new rule over our new dataset to oblige rucio to create replicas also in XRD3 RSE::
+
+    rucio add-rule test:mynewdataset 1 XRD3
+    > 1aadd685d891400dba050ad43e71fea9
+
+Now we can check the status of the rule. We will see there are 4 files in `Replicating` state::
+
+   rucio rule-info 1aadd685d891400dba050ad43e71fea9|grep Locks
+   > Locks OK/REPLICATING/STUCK: 0/4/0
+
+Now we can run the deamons. First judge-evaluator will pick up our rule. Then the conveyor-submitter will send the created transfers to the FTS server. After that, the conveyor-poller will wait till FTS send the signal indicating the replicas was created. Finally, the conveyor-finisher will update the internal state of Rucio to reflect the changes.::
+
+   rucio-judge-evaluator --run-once
+   rucio-conveyor-submitter --run-once
+   rucio-conveyor-poller --run-once
+   rucio-conveyor-finisher --run-once
+
+If we see the state of the rule now, we see the locks are OK::
+
+   rucio rule-info 1aadd685d891400dba050ad43e71fea9|grep Locks
+   > Locks OK/REPLICATING/STUCK: 4/0/0
+
+And if we look at the replicas of the dataset, we see the there are copies of the files also in XRD3::
+
+   rucio list-file-replicas test:mynewdataset
+   > +---------+--------+------------+-----------+------------------------------------------------+
+   > | SCOPE   | NAME   | FILESIZE   | ADLER32   | RSE: REPLICA                                   |
+   > |---------+--------+------------+-----------+------------------------------------------------|
+   > | test    | file1  | 10.486 MB  | 141a641e  | XRD3: root://xrd3:1096//rucio/test/80/25/file1 |
+   > | test    | file1  | 10.486 MB  | 141a641e  | XRD1: root://xrd1:1094//rucio/test/80/25/file1 |
+   > | test    | file2  | 10.486 MB  | fdfa7eea  | XRD3: root://xrd3:1096//rucio/test/f3/14/file2 |
+   > | test    | file2  | 10.486 MB  | fdfa7eea  | XRD1: root://xrd1:1094//rucio/test/f3/14/file2 |
+   > | test    | file3  | 10.486 MB  | c669167d  | XRD2: root://xrd2:1095//rucio/test/a9/23/file3 |
+   > | test    | file3  | 10.486 MB  | c669167d  | XRD3: root://xrd3:1096//rucio/test/a9/23/file3 |
+   > | test    | file4  | 10.486 MB  | 65786e49  | XRD2: root://xrd2:1095//rucio/test/2b/c2/file4 |
+   > | test    | file4  | 10.486 MB  | 65786e49  | XRD3: root://xrd3:1096//rucio/test/2b/c2/file4 |
+   > +---------+--------+------------+-----------+------------------------------------------------+
+
+
