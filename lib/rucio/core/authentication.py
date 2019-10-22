@@ -1236,7 +1236,7 @@ def validate_jwt(json_web_token, session=None):
             scope = claim_dict['scope']
         audience = claim_dict.get('aud', None)
         # this assumes token has been previously looked up in DB before to be sure that we do not have the right account already in the DB !
-        account = get_default_account(identity_string, 'OIDC', True, session=session)
+        account = get_default_account(identity_string, IdentityType.OIDC, True, session=session)
         # account = session.query(models.Token.account).filter(models.Token.identity == identity_string).first()
         value = {'account': account[0],
                  'identity': identity_string,
