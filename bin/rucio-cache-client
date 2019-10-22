@@ -110,7 +110,7 @@ def get_parser():
          'operation': 'delete_replicas'
         }
 """
-    oparser = argparse.ArgumentParser(description="This daemons is used to populate information about replicas living in volatile storage to Rucio.",
+    oparser = argparse.ArgumentParser(description="This daemons is used to populate information of replicas on volatile storage.",
                                       prog=os.path.basename(sys.argv[0]), add_help=True)
 
     # Main arguments

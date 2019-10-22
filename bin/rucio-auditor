@@ -154,7 +154,7 @@ def get_parser():
     """
     Returns the argparse parser.
     """
-    parser = argparse.ArgumentParser(description="The auditor daemon is the one responsable to detect inconsistencies in Rucio, i.e.: dark data discovery.",
+    parser = argparse.ArgumentParser(description="The auditor daemon is the one responsable for the detection of inconsistencies on storage, i.e.: dark data discovery.",
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
         '--nprocs',
