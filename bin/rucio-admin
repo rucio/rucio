@@ -1515,18 +1515,18 @@ def get_parser():
 
     # The update_rse command
     update_rse_parser = rse_subparser.add_parser('update',
-                                              help='Update RSE settings.',
-                                              formatter_class=argparse.RawDescriptionHelpFormatter,
-                                              epilog='Example Usage\n'
-                                                     '"""""""""""""\n'
-                                                     '::\n'
-                                                     '\n'
-                                                     '    $ rucio-admin rse update --param availability_write --value False\n'
-                                                     '\n'
-                                                     '\n')
+                                                 help='Update RSE settings.',
+                                                 formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                 epilog='Example Usage\n'
+                                                        '"""""""""""""\n'
+                                                        '::\n'
+                                                        '\n'
+                                                        '    $ rucio-admin rse update --param availability_write --value False\n'
+                                                        '\n'
+                                                        '\n')
     update_rse_parser.set_defaults(which='update_rse')
     update_rse_parser.add_argument('--rse', dest='rse', action='store', help='RSE name')
-    update_rse_parser.add_argument('--param', dest='param', action='store', help="One of availability_read, availability_write, availability_delete, latitude, longitude, time_zone, rse_type, volatile, deterministic, region_code, country_name, city, or staging_area")
+    update_rse_parser.add_argument('--param', dest='param', action='store', help="One of availability_read, availability_write, availability_delete, latitude, longitude, time_zone, rse_type, volatile, deterministic, region_code, country_name, city, or staging_area")  # noqa E501
     update_rse_parser.add_argument('--value', dest='value', action='store', help='Value for the new setting configuration.')
 
     # The info_rse command
