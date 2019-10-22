@@ -1,4 +1,4 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2015-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,10 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
+# - Vincent Garonne <vgaronne@gmail.com>, 2015-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
-
+# - Robert Illingworth <illingwo@fnal.gov>, 2019
 
 ''' asynchronous rules and rule approval '''
 
@@ -30,13 +31,14 @@ from alembic.op import (add_column, create_check_constraint,
 revision = '1d96f484df21'
 down_revision = '3d9813fab443'
 
+# Schema identifier for manual SQL statements
+schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+
 
 def upgrade():
     '''
     Upgrade the database to this revision
     '''
-
-    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name == 'oracle':
         add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False))
@@ -44,12 +46,17 @@ def upgrade():
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O', 'W', 'I')")
 
     elif context.get_context().dialect.name == 'postgresql':
-        add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False), schema=schema)
+        add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False), schema=schema[:-1])
         drop_constraint('RULES_STATE_CHK', 'rules')
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O', 'W', 'I')")
 
-    elif context.get_context().dialect.name == 'mysql':
-        add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False), schema=schema)
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
+        add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False), schema=schema[:-1])
+        create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O', 'W', 'I')")
+
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
+        add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False), schema=schema[:-1])
+        op.execute('ALTER TABLE ' + schema + 'rules DROP CHECK RULES_STATE_CHK')  # pylint: disable=no-member
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O', 'W', 'I')")
 
 
@@ -57,8 +64,6 @@ def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
-
-    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name == 'oracle':
         drop_column('rules', 'ignore_account_limit')
@@ -70,6 +75,11 @@ def downgrade():
         op.execute('ALTER TABLE ' + schema + 'rules DROP CONSTRAINT IF EXISTS "RULES_STATE_CHK", ALTER COLUMN state TYPE CHAR')  # pylint: disable=no-member
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O')")
 
-    elif context.get_context().dialect.name == 'mysql':
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
         drop_column('rules', 'ignore_account_limit', schema=schema[:-1])
+        create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O')")
+
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
+        drop_column('rules', 'ignore_account_limit', schema=schema[:-1])
+        op.execute('ALTER TABLE ' + schema + 'rules DROP CHECK RULES_STATE_CHK')  # pylint: disable=no-member
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O')")

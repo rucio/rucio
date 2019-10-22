@@ -40,6 +40,12 @@ do
   esac
 done
 
+echo 'Clearing memcache'
+echo 'flush_all' | nc localhost 11211
+
+echo 'Graceful restart of Apache'
+httpd -k graceful
+
 echo 'Cleaning old authentication tokens'
 rm -rf /tmp/.rucio_*/
 
