@@ -71,7 +71,7 @@ class UserPass(MethodView):
 
         :reqheader X-Rucio-Account: Account identifier as a string.
         :reqheader X-Rucio-Username: Username as a string.
-        :reqheader X-Rucio-Password: SHA1 hash of the password as a string.
+        :reqheader X-Rucio-Password: password as a text-plain string.
         :reqheader X-Rucio-AppID: Application identifier as a string.
         :resheader Access-Control-Allow-Origin:
         :resheader Access-Control-Allow-Headers:
@@ -364,7 +364,7 @@ class SSH(MethodView):
         # decode the signature which must come in base64 encoded
         try:
             signature = base64.b64decode(signature)
-        except Exception as error:
+        except Exception as error:  # noqa: F841
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with malformed signature' % locals())
 
         try:
