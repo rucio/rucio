@@ -1,4 +1,4 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2015-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,15 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2019
-# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2019
-# - Wen Guan, <wen.guan@cern.ch>, 2015
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Vincent Garonne <vgaronne@gmail.com>, 2015-2017
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015
+# - Wen Guan <wguan.icedew@gmail.com>, 2015
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2019
+# - asket <asket.agarwal96@gmail.com>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -879,10 +880,10 @@ class ReplicationRule(BASE, ModelBase):
                    CheckConstraint('STATE IS NOT NULL', name='RULES_STATE_NN'),
                    CheckConstraint('SCOPE IS NOT NULL', name='RULES_SCOPE_NN'),
                    CheckConstraint('NAME IS NOT NULL', name='RULES_NAME_NN'),
+                   CheckConstraint(grouping != None, name='RULES_GROUPING_NN'),  # NOQA: E711
                    CheckConstraint('COPIES IS NOT NULL', name='RULES_COPIES_NN'),
                    CheckConstraint('LOCKED IS NOT NULL', name='RULES_LOCKED_NN'),
                    CheckConstraint('ACCOUNT IS NOT NULL', name='RULES_ACCOUNT_NN'),
-                   CheckConstraint(grouping != None, name='RULES_GROUPING_NN'),  # noqa: E711
                    CheckConstraint('LOCKS_OK_CNT IS NOT NULL', name='RULES_LOCKS_OK_CNT_NN'),
                    CheckConstraint('LOCKS_REPLICATING_CNT IS NOT NULL', name='RULES_LOCKS_REPLICATING_CNT_NN'),
                    CheckConstraint('LOCKS_STUCK_CNT IS NOT NULL', name='RULES_LOCKS_STUCK_CNT_NN'),
