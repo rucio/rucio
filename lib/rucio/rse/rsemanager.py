@@ -152,7 +152,7 @@ def select_protocol(rse_settings, operation, scheme=None, domain='wan'):
     return min(candidates, key=lambda k: k['domains'][domain][operation])
 
 
-def create_protocol(rse_settings, operation, scheme=None, domain='wan'):
+def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_token=None):
     """
     Instanciates the protocol defined for the given operation.
 
@@ -182,11 +182,12 @@ def create_protocol(rse_settings, operation, scheme=None, domain='wan'):
         except AttributeError:
             print('Protocol implementation not found')
             raise  # TODO: provide proper rucio exception
+    protocol_attr['auth_token'] = auth_token
     protocol = mod(protocol_attr, rse_settings)
     return protocol
 
 
-def lfns2pfns(rse_settings, lfns, operation='write', scheme=None, domain='wan'):
+def lfns2pfns(rse_settings, lfns, operation='write', scheme=None, domain='wan', auth_token=None):
     """
         Convert the lfn to a pfn
 
@@ -196,10 +197,10 @@ def lfns2pfns(rse_settings, lfns, operation='write', scheme=None, domain='wan'):
         :returns: a dict with scope:name as key and the PFN as value
 
     """
-    return create_protocol(rse_settings, operation, scheme, domain).lfns2pfns(lfns)
+    return create_protocol(rse_settings, operation, scheme, domain, auth_token=auth_token).lfns2pfns(lfns)
 
 
-def parse_pfns(rse_settings, pfns, operation='read', domain='wan'):
+def parse_pfns(rse_settings, pfns, operation='read', domain='wan', auth_token=None):
     """
         Checks if a PFN is feasible for a given RSE. If so it splits the pfn in its various components.
 
@@ -215,10 +216,10 @@ def parse_pfns(rse_settings, pfns, operation='read', domain='wan'):
     """
     if len(set([urlparse(pfn).scheme for pfn in pfns])) != 1:
         raise ValueError('All PFNs must provide the same protocol scheme')
-    return create_protocol(rse_settings, operation, urlparse(pfns[0]).scheme, domain).parse_pfns(pfns)
+    return create_protocol(rse_settings, operation, urlparse(pfns[0]).scheme, domain, auth_token=auth_token).parse_pfns(pfns)
 
 
-def exists(rse_settings, files):
+def exists(rse_settings, files, auth_token=None):
     """
         Checks if a file is present at the connected storage.
         Providing a list indicates the bulk mode.
@@ -234,7 +235,7 @@ def exists(rse_settings, files):
     ret = {}
     gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
 
-    protocol = create_protocol(rse_settings, 'read')
+    protocol = create_protocol(rse_settings, 'read', auth_token=auth_token)
     protocol.connect()
 
     files = [files] if not type(files) is list else files
@@ -265,7 +266,7 @@ def exists(rse_settings, files):
     return [gs, ret]
 
 
-def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False, sign_service=None):
+def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False, sign_service=None, auth_token=None):
     """
         Uploads a file to the connected storage.
         Providing a list indicates the bulk mode.
@@ -293,9 +294,9 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
     ret = {}
     gs = True  # gs represents the global status which indicates if every operation worked in bulk mode
 
-    protocol = create_protocol(rse_settings, 'write', scheme=force_scheme)
+    protocol = create_protocol(rse_settings, 'write', scheme=force_scheme, auth_token=auth_token)
     protocol.connect()
-    protocol_delete = create_protocol(rse_settings, 'delete')
+    protocol_delete = create_protocol(rse_settings, 'delete', auth_token=auth_token)
     protocol_delete.connect()
 
     lfns = [lfns] if not type(lfns) is list else lfns
@@ -362,7 +363,6 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                 try:  # Get metadata of file to verify if upload was successful
                     try:
                         stats = _retry_protocol_stat(protocol, '%s.rucio.upload' % pfn)
-
                         # Verify all supported checksums and keep rack of the verified ones
                         verified_checksums = []
                         for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
@@ -373,6 +373,11 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                         valid = any(verified_checksums)
                         if not valid and ('filesize' in stats) and ('filesize' in lfn):
                             valid = stats['filesize'] == lfn['filesize']
+                    except NotImplementedError:
+                        if rse_settings['verify_checksum'] is False:
+                            valid = True
+                        else:
+                            raise exception.RucioException('Checksum not validated')
                     except exception.RSEChecksumUnavailable as e:
                         if rse_settings['verify_checksum'] is False:
                             valid = True
@@ -422,6 +427,11 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                         valid = any(verified_checksums)
                         if not valid and ('filesize' in stats) and ('filesize' in lfn):
                             valid = stats['filesize'] == lfn['filesize']
+                    except NotImplementedError:
+                        if rse_settings['verify_checksum'] is False:
+                            valid = True
+                        else:
+                            raise exception.RucioException('Checksum not validated')
                     except exception.RSEChecksumUnavailable as e:
                         if rse_settings['verify_checksum'] is False:
                             valid = True
@@ -448,7 +458,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
     return {0: gs, 1: ret, 'success': gs, 'pfn': pfn}
 
 
-def delete(rse_settings, lfns):
+def delete(rse_settings, lfns, auth_token=None):
     """
         Delete a file from the connected storage.
         Providing a list indicates the bulk mode.
@@ -465,7 +475,7 @@ def delete(rse_settings, lfns):
     ret = {}
     gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
 
-    protocol = create_protocol(rse_settings, 'delete')
+    protocol = create_protocol(rse_settings, 'delete', auth_token=auth_token)
     protocol.connect()
 
     lfns = [lfns] if not type(lfns) is list else lfns
@@ -488,7 +498,7 @@ def delete(rse_settings, lfns):
     return [gs, ret]
 
 
-def rename(rse_settings, files):
+def rename(rse_settings, files, auth_token=None):
     """
         Rename files stored on the connected storage.
         Providing a list indicates the bulk mode.
@@ -512,7 +522,7 @@ def rename(rse_settings, files):
     ret = {}
     gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
 
-    protocol = create_protocol(rse_settings, 'write')
+    protocol = create_protocol(rse_settings, 'write', auth_token=auth_token)
     protocol.connect()
 
     files = [files] if not type(files) is list else files
@@ -560,7 +570,7 @@ def rename(rse_settings, files):
     return [gs, ret]
 
 
-def get_space_usage(rse_settings, scheme=None):
+def get_space_usage(rse_settings, scheme=None, auth_token=None):
     """
         Get RSE space usage information.
 
@@ -573,7 +583,7 @@ def get_space_usage(rse_settings, scheme=None):
     gs = True
     ret = {}
 
-    protocol = create_protocol(rse_settings, 'read', scheme)
+    protocol = create_protocol(rse_settings, 'read', scheme, auth_token=auth_token)
     protocol.connect()
 
     try:
@@ -671,6 +681,8 @@ def _retry_protocol_stat(protocol, pfn):
         except exception.RSEChecksumUnavailable as e:
             # The stat succeeded here, but the checksum failed
             raise e
+        except NotImplementedError as e:
+            break
         except Exception as e:
             sleep(2**attempt)
     return protocol.stat(pfn)

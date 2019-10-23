@@ -15,7 +15,6 @@ Heads up: We recommend to use the docker-based install (see next section) as it 
 
 This will pull the latest release from `PyPi <https://pypi.python.org/pypi/rucio/>`_. The Rucio server also needs several Python dependencies. These are all listed in the file ``tools/pip-requires`` and will be pulled in as necessary.
 
-
 Install via Docker
 ~~~~~~~~~~~~~~~~~~
 
@@ -119,3 +118,178 @@ All available environment variables are:
 * RUCIO_CFG_PERMISSION_SUPPORT
 * RUCIO_CFG_PERMISSION_SUPPORT_RUCIO
 * RUCIO_CFG_WEBUI_USERCERT
+
+Server Configuration for Open ID Connect AuthN/Z
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In order to be able to use JSON web tokens (JWTs) and related OAuth2.0 authentication and authorization with Rucio, one first needs to have an account with the Identity Provider (IdP) which will act as Rucio Admin account representing the Rucio Application. Currently supported IdPs use Identity Access Management (IAM) system. Once, you have got your Rucio Admin IAM account (and its `sub` claim identifier), you will need to `register two IAM Rucio clients <https://indigo-iam.github.io/docs/v/current/user-guide/client-registration.html>`_ linked to this account. Once it is done, please save the relevant client_id, client_secret and registration access token (RAT some place safe, you will be needing them. In both clients, one needs to setup the redirect_uris to include both `https://<your_server_name>/auth/oidc_token` and `https://<your_server_name>/auth/oidc_code` paths. We will use one client as Rucio Auth IAM client (i.e. client for the authentication and authorization on the Rucio server). This client needs to have `token exchange`, `token refresh` and `authorization code grant` enabled. For the former two you might need to contact the IAM admin as such settings are usually not accessible to IAM users. In addition, you will need to request your IAM admin to allow your client returning refresh tokens with lifetime being visible in their unverified header. In addition Rucio assumes refresh tokens to expire immediatelly after their first use, which has to be also confirmed by your IAM admin. Second client, let's call it Rucio Admin IAM client, will be used by a Rucio probe script `check_voms` in order to synchronize existing Rucio accounts with Rucio identities. Rucio will also use this client's credentials in order to request token for itself. The IAM administrator must include the `scim:read` scope and allow `client credentials` grant type for the Rucio Admin IAM client in order to grant you rights to pre-provision IAM users for Rucio. Examples of the configuration of these two clients follow below:
+
+Example of the Rucio Auth IAM client configuration::
+
+   {
+     "client_id": "AbcCDe123...",
+     "registration_access_token": "AbcCDe123...",
+     "redirect_uris": [
+       "https://rucio-auth.cern.ch/auth/oidc_token",
+       "https://rucio-auth.cern.ch/auth/oidc_code",
+     ],
+     "client_name": "rucio-admin-client",
+     "client_uri": null,
+     "logo_uri": null,
+     "contacts": [
+       "jaroslav.guenther@gmail.com"
+     ],
+     "tos_uri": null,
+     "token_endpoint_auth_method": "client_secret_basic",
+     "scope": "address fts phone openid profile offline_access rucio email wlcg wlcg.groups fts:submit-transfer",
+     "grant_types": [
+       "refresh_token",
+       "urn:ietf:params:oauth:grant-type:token-exchange",
+       "authorization_code"
+     ],
+     "response_types": [
+       "code"
+     ],
+     "policy_uri": null,
+     "jwks_uri": null,
+     "jwks": null,
+     "jwksType": "URI",
+     "application_type": null,
+     "sector_identifier_uri": null,
+     "subject_type": null,
+     "request_object_signing_alg": null,
+     "userinfo_signed_response_alg": null,
+     "userinfo_encrypted_response_alg": null,
+     "userinfo_encrypted_response_enc": null,
+     "id_token_signed_response_alg": null,
+     "id_token_encrypted_response_alg": null,
+     "id_token_encrypted_response_enc": null,
+     "default_max_age": 60000,
+     "require_auth_time": true,
+     "default_acr_values": null,
+     "initiate_login_uri": null,
+     "post_logout_redirect_uris": null,
+     "claims_redirect_uris": [],
+     "request_uris": [],
+     "software_statement": null,
+     "software_id": null,
+     "software_version": null,
+     "code_challenge_method": null,
+     "registration_client_uri": "https://wlcg.cloud.cnaf.infn.it/register/fdc297fc-0907-4a68-9022-3ccc7dd2501a",
+     "client_secret_expires_at": 0,
+     "client_id_issued_at": 1574700620
+   }
+
+
+Example of the Rucio Admin IAM client configuration::
+
+   {
+     "client_id": "AbcDe123...",
+     "registration_access_token": "AbcDe123...",
+     "client_secret": "AbcDe123...",
+     "redirect_uris": [],
+     "client_name": null,
+     "client_uri": null,
+     "logo_uri": null,
+     "contacts": [
+       "jaroslav.guenther@gmail.com"
+     ],
+     "tos_uri": null,
+     "token_endpoint_auth_method": "client_secret_basic",
+     "scope": "address scim:read phone email wlcg profile fts:submit-transfer rucio fts fts:submit-transfer",
+     "grant_types": [
+       "client_credentials"
+     ],
+     "response_types": [],
+     "policy_uri": null,
+     "jwks_uri": null,
+     "jwks": null,
+     "jwksType": "URI",
+     "application_type": null,
+     "sector_identifier_uri": null,
+     "subject_type": null,
+     "request_object_signing_alg": null,
+     "userinfo_signed_response_alg": null,
+     "userinfo_encrypted_response_alg": null,
+     "userinfo_encrypted_response_enc": null,
+     "id_token_signed_response_alg": null,
+     "id_token_encrypted_response_alg": null,
+     "id_token_encrypted_response_enc": null,
+     "default_max_age": 60000,
+     "require_auth_time": true,
+     "default_acr_values": null,
+     "initiate_login_uri": null,
+     "post_logout_redirect_uris": null,
+     "claims_redirect_uris": [],
+     "request_uris": [],
+     "software_statement": null,
+     "software_id": null,
+     "software_version": null,
+     "code_challenge_method": null,
+     "registration_client_uri": "https://wlcg.cloud.cnaf.infn.it/register/5b5e5d37-926b-4b42-8a98-a0b4b28baf18",
+     "client_secret_expires_at": 0,
+     "client_id_issued_at": 1574700703
+   }
+
+
+To make the Rucio server aware of the two clients above, one has to exchange the empty dictionary in `etc/idpsecrets.json` file with one containing the relevant information. Example of such dictionary (for multiple IdPs) follows::
+
+   {
+    "<IdP nickname>": {
+     "redirect_uris": [
+      "https://<server_name>/auth/oidc_token",
+      "https://<server_name>/auth/oidc_code"
+     ],
+     "registration_access_token": "<RAT_string>",
+     "client_secret": "<client_secret>",
+    "SCIM": {
+      "client_secret": "<client_secret>",
+      "grant_type": "client_credentials",
+      "registration_access_token": "<RAT_string>"
+     },
+     "issuer": "https://<issuer_server_name>/"
+    },
+    "wlcg": {
+     "redirect_uris": [
+      "https://rucio-auth.cern.ch/auth/oidc_token",
+      "https://rucio-auth.cern.ch/auth/oidc_code"
+     ],
+     "registration_access_token": "eyJraWQiOi ...",
+     "client_id": "fdc297fc-09 ...",
+     "client_secret": "APFVcga_X ...",
+     "SCIM": {
+      "client_secret": "IQqAcMOa ...",
+      "grant_type": "client_credentials",
+      "registration_access_token": "eyJraW ...",
+      "client_id": "5b5e5d3 ..."
+     },
+     "issuer": "https://wlcg.cloud.cnaf.infn.it/"
+    },
+    "xdc": { ... },
+   }
+
+
+After this is done, please make sure your `rucio.cfg` file contains the following section::
+
+   [oidc]
+   idpsecrets = /path/to/your/idpsecrets.json
+   admin_issuer = <IdP_nickname>
+
+Where <IdP_nickname> stands for your preferred IdP (e.g. "wlcg"). The IdP specified under admin_issuer will be contacted to get information about Rucio Users (SCIM) and to request tokens for the Rucio 'root' account.
+
+To finalise the process, one should assign the OIDC identity to the relevant Rucio Admin account (e.g. 'root', 'ddmadmin'). This identity ID is composed of the IAM account sub claim and issuer url such as demonstrated below::
+
+  rucio-admin identity add --account AdminAccountName --type OIDC --id "SUB=b3127dc7-2be3-417b-9647-6bf61238ad01, ISS=https://wlcg.cloud.cnaf.infn.it/" --email "Jaroslav.Guenther@gmail.com"
+
+
+Note: In case you can not/will not run the Rucio check_scim probe script in order to sync Rucio accounts with their IAM identities, you should assign the OIDC identity manually (as in the example above) to each Rucio account which is meant to use the OIDC authN/Z.
+
+In case you wish to use OIDC in order to login to the Rucio WebUI, one has to configure also another block in the `rucio.cfg` file::
+
+   [webui]
+   auth_type = oidc
+   auth_issuer = <IdP nickname from the idpsecrets.json file>
+
+
+At last, one should also make sure the rucio-oauth-daemon is running.
+

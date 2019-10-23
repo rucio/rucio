@@ -217,3 +217,7 @@ signature_lifetime = 3600
 
 [saml]
 config_path = /opt/rucio/lib/rucio/web/ui/common/saml/
+
+[oidc]
+idpsecrets = /opt/rucio/etc/idpsecrets.json
+admin_issuer = wlcg

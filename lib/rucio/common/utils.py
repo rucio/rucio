@@ -26,8 +26,10 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Gabriele Fronze' <gfronze@cern.ch>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
+
 
 from __future__ import print_function
 
@@ -53,6 +55,7 @@ from logging import getLogger, Formatter
 from logging.handlers import RotatingFileHandler
 from uuid import uuid4 as uuid
 from six import string_types, PY3
+from sqlalchemy.sql.expression import bindparam, text
 from xml.etree import ElementTree
 
 try:
@@ -81,7 +84,7 @@ except ImportError:
     import urllib.parse as urlparse
 
 from rucio.common.config import config_get
-from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError
+from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError, RucioException
 from rucio.common.types import InternalAccount, InternalScope
 # delay import until function to avoid circular dependancy (note here for reference)
 # from rucio.core.rse import get_rse_name
@@ -154,9 +157,8 @@ def build_url(url, path=None, params=None, doseq=False):
     separated by '&' are generated for each element of the value sequence for the key.
     """
     complete_url = url
-    complete_url += "/"
     if path is not None:
-        complete_url += path
+        complete_url += "/" + path
     if params is not None:
         complete_url += "?"
         if isinstance(params, str):
@@ -164,6 +166,17 @@ def build_url(url, path=None, params=None, doseq=False):
         else:
             complete_url += urlencode(params, doseq=doseq)
     return complete_url
+
+
+def oidc_identity_string(sub, iss):
+    """
+    Transform IdP sub claim and issuers url into users identity string.
+    :param sub: users SUB claim from the Identity Provider
+    :param iss: issuer (IdP) https url
+
+    :returns: OIDC identity string "SUB=<usersid>, ISS=https://iam-test.ch/"
+    """
+    return 'SUB=' + str(sub) + ', ISS=' + str(iss)
 
 
 def generate_uuid():
@@ -295,6 +308,18 @@ def str_to_date(string):
     :param string: the RFC-1123 string to convert to datetime value.
     """
     return datetime.datetime.strptime(string, DATE_FORMAT) if string else None
+
+
+def val_to_space_sep_str(vallist):
+    """ Converts a list of values into a string of space separated values
+
+    :param vallist: the list of values to to convert into string
+    :return: the string of space separated values or the value initially passed as parameter
+    """
+    if isinstance(vallist, list):
+        return u" ".join(vallist)
+    else:
+        return unicode(vallist)
 
 
 def date_to_str(date):
@@ -1150,3 +1175,59 @@ def get_parsed_throttler_mode(throttler_mode):
         direction = 'source'
         all_activities = True
     return (direction, all_activities)
+
+
+def filter_thread_load(query, column_name, total_workers, worker_number, session=None):
+    """
+    Adds filter to a DB session query in order to distribute
+    the queried number of rows among all workers.
+    :param total_workers: total number of threads started
+    :param worker_number: the number of the worker asking for query results
+    :param column: name of the column w.r.t. which the partitioning should be made
+    :param query: the session query
+
+    :returns: session query in case all went OK, Exception otherwise.
+
+    """
+    try:
+        if worker_number and total_workers and total_workers - 1 > 0:
+            if session.bind.dialect.name == 'oracle':
+                bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
+                query = query.filter(text('ORA_HASH(%s, :total_workers) = :worker_number' % column_name, bindparams=bindparams))
+            elif session.bind.dialect.name == 'mysql':
+                query = query.filter(text('mod(md5(%s), %s) = %s' % (column_name, total_workers - 1, worker_number - 1)))
+            elif session.bind.dialect.name == 'postgresql':
+                query = query.filter(text('mod(abs((\'x\'||md5(%s))::bit(32)::int), %s) = %s' % (column_name, total_workers - 1, worker_number - 1)))
+
+        return query
+
+    except Exception as error:
+        raise RucioException(error.args)
+
+
+def query_bunches(query, bunch_by):
+    """
+    Queries output by yield_per sqlalchemy function
+    (which in a for loop returns rows one by one).
+    Groups the query rows in bunches of bunch_by
+    elements and returns list of bunches.
+    :param query: sqlalchemy session query
+    :param bunch_by: integer number
+    :returns: [[bunch_of_tuples_1],[bunch_of_tuples_2],...]
+
+    """
+    filtered_bunches = []
+    item_bunch = []
+    for i in query.yield_per(bunch_by):
+        # i is either tuple of one element (token/model object etc.)
+        if not isinstance(i, tuple) and not isinstance(i, list):
+            item_bunch.append(i)
+        # or i is a tuple with the column elements per row
+        else:
+            item_bunch += i
+        if len(item_bunch) % bunch_by == 0:
+            filtered_bunches.append(item_bunch)
+            item_bunch = []
+    if item_bunch:
+        filtered_bunches.append(item_bunch)
+    return filtered_bunches

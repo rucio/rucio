@@ -8,6 +8,7 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2019
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019
 
 from json import dumps
 from os.path import dirname, join
@@ -27,11 +28,18 @@ try:
 except:
     AUTH_TYPE = 'x509'
 
+try:
+    AUTH_ISSUER = config_get('webui', 'auth_issuer')
+except:
+    if AUTH_TYPE == 'oidc':
+        render = template.render(join(dirname(__file__), '../templates'))
+        render.problem("Please specify auth_issuer in the [webui] section of the Rucio configuration.")
+    AUTH_ISSUER = None
+
 
 def prepare_webpy_request(request, data):
     """
     Prepare a webpy request for SAML
-
     :param request: webpy request object
     :param data: GET or POST data
     """
@@ -72,7 +80,6 @@ def set_cookies(token, cookie_accounts, attribs, ui_account=None):
 def __to_js(var, value):
     """
     Encapsulates python variable into a javascript var.
-
     :param var: The name of the javascript var.
     :param value: The value to set.
     """
@@ -261,7 +268,6 @@ def log_in(data, rendered_tpl):
 def saml_authentication(method, rendered_tpl):
     """
     Login with SAML
-
     :param method: method type, GET or POST
     :param rendered_tpl: page to be rendered
     """
@@ -372,6 +378,32 @@ def saml_authentication(method, rendered_tpl):
     return render.problem("Error while processing SAML")
 
 
+def oidc(validate_token, session_token, render, rendered_tpl):
+    """
+    Used to finalise login once a token was put in a session cookie
+    via web/rest/oidc_token endpoint.
+
+    """
+    if not validate_token or not session_token:
+        return render.problem('No valid token found.')
+    try:
+        js_token = __to_js('token', session_token)
+        js_account = __to_js('account', validate_token['account'])
+        attribs = cookies().get('rucio-account-attr')
+        if not attribs:
+            attribs = list_account_attributes(validate_token['account'])
+        accounts = identity.list_accounts_for_identity(validate_token['identity'], 'OIDC')
+        if len(accounts) == 0:
+            return render.problem('No accounts for the given identity.')
+
+        set_cookies(session_token, accounts, attribs, ui_account=validate_token['account'])
+        rucio_ui_version = version.version_string()
+        policy = config_get('policy', 'permission')
+        return render.base(js_token, js_account, rucio_ui_version, policy, rendered_tpl)
+    except:
+        return render.problem('Could not finalise login with your token.')
+
+
 def authenticate(rendered_tpl):
     """ Select the auth type defined in config """
 
@@ -388,6 +420,24 @@ def authenticate(rendered_tpl):
             return log_in(None, rendered_tpl)
 
         return seeother('/login')
+
+    elif AUTH_TYPE == 'oidc':
+        if not validate_token:
+            kwargs = {'audience': 'rucio',
+                      'auth_scope': 'openid profile',
+                      'issuer': AUTH_ISSUER,
+                      'auto': True,
+                      'polling': False,
+                      'refresh_lifetime': None,
+                      'ip': None,
+                      'webhome': ctx.realhome + ctx.fullpath}
+
+            # account should be an input from the user !!! - TO-DO
+            auth_url = authentication.get_auth_oidc('webui', **kwargs)
+            return seeother(auth_url)
+
+        else:
+            return oidc(validate_token, session_token, render, rendered_tpl)
 
     elif AUTH_TYPE == 'x509_userpass':
         if ctx.env.get('SSL_CLIENT_VERIFY') == 'SUCCESS':
