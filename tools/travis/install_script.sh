@@ -46,6 +46,7 @@ elif [[ $SUITE == "syntax" ]]; then
     pip install .[dev,saml]
     cp etc/docker/travis/rucio_syntax.cfg etc/rucio.cfg
     cp etc/docker/travis/google-cloud-storage-test.json etc/google-cloud-storage-test.json
+    cp etc/docker/travis/idpsecrets.json etc/idpsecrets.json
 
 elif [[ $SUITE == "all" ]]; then
     echo $TRAVIS_PYTHON_VERSION

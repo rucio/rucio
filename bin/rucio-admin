@@ -29,6 +29,7 @@
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis, <dimitrios.christidis@cern.ch>, 2019
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -198,13 +199,24 @@ def get_client(args):
     """
     Returns a new client object.
     """
-    if args.auth_strategy == 'userpass':
+    auth_type = args.auth_strategy.lower() if args.auth_strategy else args.auth_strategy
+
+    if auth_type == 'userpass':
         creds = {'username': args.username, 'password': args.password}
+    elif auth_type == 'oidc':
+        creds = {'oidc_auto': args.oidc_auto,
+                 'oidc_scope': args.oidc_scope,
+                 'oidc_audience': args.oidc_audience,
+                 'oidc_polling': args.oidc_polling,
+                 'oidc_refresh_lifetime': args.oidc_refresh_lifetime,
+                 'oidc_issuer': args.oidc_issuer.lower()}
+        if args.oidc_auto:
+            creds['oidc_username'] = args.oidc_username
+            creds['oidc_password'] = args.oidc_password
     else:
         creds = None
 
     try:
-        auth_type = args.auth_strategy.lower() if args.auth_strategy else args.auth_strategy
         client = Client(rucio_host=args.host, auth_host=args.auth_host,
                         account=args.issuer,
                         auth_type=auth_type, creds=creds,
@@ -1152,6 +1164,22 @@ def get_parser():
     # Options for the userpass auth_strategy
     oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
     oparser.add_argument('-pwd', '--password', dest='password', default=None, help='password')
+    # Options for defining the OIDC scope# Options for defining remaining OIDC parameters
+    oparser.add_argument('--oidc-user', dest='oidc_username', default=None, help='OIDC username')
+    oparser.add_argument('--oidc-password', dest='oidc_password', default=None, help='OIDC password')
+    oparser.add_argument('--oidc-scope', dest='oidc_scope', default='openid profile', help='Defines which (OIDC) information user will share with Rucio. '
+                         + 'Rucio requires at least -sc="openid profile". To request refresh token for Rucio, scope must include "openid offline_access" and '  # NOQA: W503
+                         + 'there must be no active access token saved on the side of the currently used Rucio Client.')  # NOQA: W503
+    oparser.add_argument('--oidc-audience', dest='oidc_audience', default='rucio', help='Defines which audience are tokens requested for.')
+    oparser.add_argument('--oidc-auto', dest='oidc_auto', default=False, action='store_true', help='If not specified, username and password credentials are not required and users will be given a URL '
+                         + 'to use in their browser. If specified, the users explicitly trust Rucio with their IdP credentials.')  # NOQA: W503
+    oparser.add_argument('--oidc-polling', dest='oidc_polling', default=False, action='store_true', help='If not specified, user will be asked to enter a code returned by the browser to the command line. '
+                         + 'If --polling is set, Rucio Client should get the token without any further interaction of the user. This option is active only if --auto is *not* specified.')  # NOQA: W503
+    oparser.add_argument('--oidc-refresh-lifetime', dest='oidc_refresh_lifetime', default=None, help='Max lifetime in hours for this an access token will be refreshed by asynchronous Rucio daemon. '
+                         + 'If not specified, refresh will be stopped after 4 days. This option is effective only if --oidc-scope includes offline_access scope for a refresh token to be granted to Rucio.')  # NOQA: W503
+    oparser.add_argument('--oidc-issuer', dest='oidc_issuer', default=config_get('oidc', 'admin_issuer', False),
+                         help='Defines which Identity Provider is goign to be used. The issuer string must correspond '
+                         + 'to the keys configured in the /etc/idpsecrets.json auth server configuration file.')  # NOQA: W503
 
     # Options for the x509  auth_strategy
     oparser.add_argument('--certificate', dest='certificate', default=None, help='Client certificate file')
@@ -1459,7 +1487,7 @@ def get_parser():
                                                                '\n')
     identity_add_parser.set_defaults(which='identity_add')
     identity_add_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
-    identity_add_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH', 'SAML'], help='Authentication type [X509|GSS|USERPASS|SSH|SAML]', required=True)
+    identity_add_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC'], help='Authentication type [X509|GSS|USERPASS|SSH|SAML|OIDC]', required=True)
     identity_add_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
     identity_add_parser.add_argument('--email', dest='email', action='store', help='Email address associated with the identity', required=True)
     identity_add_parser.add_argument('--password', dest='password', action='store', help='Password if authtype is USERPASS', required=False)
@@ -1479,7 +1507,7 @@ def get_parser():
                                                                   '\n')
     identity_delete_parser.set_defaults(which='identity_delete')
     identity_delete_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
-    identity_delete_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH', 'SAML'], help='Authentication type [X509|GSS|USERPASS|SSH|SAML]', required=True)
+    identity_delete_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC'], help='Authentication type [X509|GSS|USERPASS|SSH|SAML|OIDC]', required=True)
     identity_delete_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
 
     # The RSE subparser

@@ -982,3 +982,13 @@ class PolicyPackageNotFound(RucioException):
         super(PolicyPackageNotFound, self).__init__(*args, **kwargs)
         self._message = 'The specified policy package cannot be loaded'
         self.error_code = 93
+
+
+class CannotAuthorize(RucioException):
+    """
+    Failed to authorize an operation.
+    """
+    def __init__(self, *args, **kwargs):
+        super(CannotAuthorize, self).__init__(*args, **kwargs)
+        self._message = 'Can not authorize operation.'
+        self.error_code = 94
