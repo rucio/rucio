@@ -20,13 +20,14 @@
 import sqlalchemy as sa
 
 from alembic import context
-from alembic.op import (create_primary_key, create_check_constraint,
-                        drop_constraint, rename_table)
-
+from alembic.op import execute
 
 # Alembic revision identifiers
 revision = ${repr(up_revision)}
 down_revision = ${repr(down_revision)}
+
+# Schema identifier for manual SQL statements -- for direct application use schema=schema[:-1]
+schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
 
 def upgrade():
@@ -40,7 +41,10 @@ def upgrade():
     elif context.get_context().dialect.name == 'postgresql':
         pass
 
-    elif context.get_context().dialect.name == 'mysql':
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
+        pass
+
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
         pass
 
 
@@ -55,5 +59,8 @@ def downgrade():
     elif context.get_context().dialect.name == 'postgresql':
         pass
 
-    elif context.get_context().dialect.name == 'mysql':
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
+        pass
+
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
         pass

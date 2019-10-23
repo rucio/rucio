@@ -73,7 +73,11 @@ def dump_schema():
 def destroy_database(echo=True):
     """ Removes the schema from the database. Only useful for test cases or malicious intents. """
     engine = session.get_engine(echo=echo)
-    models.unregister_models(engine)
+
+    try:
+        models.unregister_models(engine)
+    except Exception as e:
+            print('Cannot destroy schema -- assuming already gone, continuing:', e)
 
 
 def drop_everything(echo=True):
