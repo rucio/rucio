@@ -333,7 +333,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                     grouped_transfers[external_host][scope_str][job_key] = {}
 
             if multihop:
-                policy_key = 'multihop_%s_%s' % (transfer['parent_request'], transfer['child_request'])
+                policy_key = 'multihop_%s_%s' % (transfer['parent_request'])
             else:
                 if policy == 'rule':
                     policy_key = '%s' % (transfer['rule_id'])
