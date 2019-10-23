@@ -1526,7 +1526,7 @@ def get_parser():
                                                         '\n')
     update_rse_parser.set_defaults(which='update_rse')
     update_rse_parser.add_argument('--rse', dest='rse', action='store', help='RSE name')
-    update_rse_parser.add_argument('--param', dest='param', action='store', help="One of availability_read, availability_write, availability_delete, latitude, longitude, time_zone, rse_type, volatile, deterministic, region_code, country_name, city, or staging_area")  # noqa E501
+    update_rse_parser.add_argument('--setting', dest='param', action='store', help="One of availability_read, availability_write, availability_delete, latitude, longitude, time_zone, region_code, country_name, or city")
     update_rse_parser.add_argument('--value', dest='value', action='store', help='Value for the new setting configuration.')
 
     # The info_rse command
