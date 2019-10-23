@@ -59,7 +59,7 @@ from rucio.client import Client
 from rucio.common.config import config_get
 from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject, ReplicaNotFound,
                                     RSENotFound, RSEOperationNotSupported, InvalidRSEExpression, DuplicateContent, RuleNotFound, CannotAuthenticate,
-                                    Duplicate, ReplicaIsLocked)
+                                    Duplicate, ReplicaIsLocked, ConfigNotFound)
 from rucio.common.utils import chunks, construct_surl, sizefmt, get_bytes_value_from_string, render_json, parse_response
 from rucio import version
 from rucio.rse import rsemanager as rsemgr
@@ -180,6 +180,10 @@ def exception_handler(function):
         except ReplicaNotFound as error:
             logger.error(error)
             logger.error('This means that the replica does not exist.')
+            return FAILURE
+        except ConfigNotFound as error:
+            logger.error(error)
+            logger.error('This means that the configuration section you are looking for does not exist.')
             return FAILURE
         except Exception as error:
             logger.error(error)
