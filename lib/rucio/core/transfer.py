@@ -18,6 +18,7 @@
 
 from __future__ import division
 
+import copy
 import datetime
 import imp
 import json
@@ -436,9 +437,83 @@ def update_transfer_state(external_host, transfer_id, state, logging_prepend_str
         return False
 
 
-def get_hops(source_rse_id, dest_rse_id):
-    # TODO Martin
-    return [{'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm'}]
+@transactional_session
+def get_hops(source_rse_id, dest_rse_id, session=None):
+    """
+    Get a list of hops needed to transfer date from source_rse_id to dest_rse_id.
+    Ideally, the list will only include one item (dest_rse_id) since no hops are needed.
+
+    :param source_rse_id:    Source RSE id of the transfer.
+    :param dest_rse_id:      Dest RSE id of the transfer.
+    :returns:                List of hops in the format [{'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm'}]
+    """
+
+    # TODO: Might be problematic to always load the distance_graph, since it might be expensive
+    # TODO: Have an rse_expression to specify the eligible hops
+
+    # Load the graph from the distances table
+    distance_graph = __load_distance_graph(session=session)    
+    
+    # 1. Check if there is a direct connection between source and dest:
+    if distance_graph.get(source_rse_id, {dest_rse_id, -1}).get(dest_rse_id) >= 0:
+        # Check if there is a protocol match between the two RSEs
+        try:
+            matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=__load_rse_settings(rse_id=dest_rse_id, session=session),
+                                                          rse_settings_src=__load_rse_settings(rse_id=source_rse_id, session=session),
+                                                          operation_src='third_party_copy',
+                                                          operation_dest='third_party_copy',
+                                                          domain='wan')
+            return [{'source_rse_id': source_rse_id,
+                     'dest_rse_id': dest_rse_id,
+                     'source_scheme': matching_scheme[1],
+                     'dest_scheme': matching_scheme[0]}]
+        except RSEProtocolNotSupported:
+            # Delete the edge from the graph
+            del distance_graph[source_rse_id][dest_rse_id]
+
+    # 2. There is no connection or no scheme match --> Try a multi hop --> Dijkstra algorithm
+    HOP_PENALTY = 5  # Penalty to be applied to each further hop
+            
+    visited_nodes = {source_rse_id: {'distance': 0,
+                                     'path': []}}  # Dijkstra already visisted nodes
+    # {rse_id: {'path': [{'source_rse_id':, 'dest_rse_id':, 'source_scheme', 'dest_scheme': }],
+    #           'distance': X}
+    # }
+    to_visit = [source_rse_id]  # Nodes to visit, once list is empty, break loop
+    local_optimum = 9999  # Local optimum to accelerated search
+    
+    while to_visit:
+        for current_node in copy.deepcopy(to_visit):
+            to_visit.remove(current_node)
+            current_distance = visited_nodes[current_node]['distance']
+            current_path = visited_nodes[current_node]['path']
+            
+            for out_v in distance_graph[current_node]:
+                # Check if the distance would be smaller
+                if visited_nodes.get(out_v, {'distance': 9999})['distance'] > current_distance + distance_graph[current_node][out_v] + HOP_PENALTY\
+                    and local_optimum > current_distance + distance_graph[current_node][out_v] + HOP_PENALTY:
+                    # Check if there is a compatible protocol pair
+                    try:
+                        matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=__load_rse_settings(rse_id=out_v, session=session),
+                                                                      rse_settings_src=__load_rse_settings(rse_id=current_node, session=session),
+                                                                      operation_src='third_party_copy',
+                                                                      operation_dest='third_party_copy',
+                                                                      domain='wan')
+                        visited_nodes[out_v] = {'distance': current_distance + distance_graph[current_node][out_v] + HOP_PENALTY,
+                                                'path': current_path + [{'source_rse_id': current_node,
+                                                                         'dest_rse_id': out_v,
+                                                                         'source_scheme': matching_scheme[1],
+                                                                         'dest_scheme': matching_scheme[0]}]}
+                        if out_v != dest_rse_id:
+                            to_visit.append(out_v)
+                        else:
+                            local_optimum = current_distance + distance_graph[current_node][out_v] + HOP_PENALTY
+                    except RSEProtocolNotSupported:
+                        pass
+    if dest_rse_id in visited_nodes:
+        return visited_nodes[dest_rse_id]['path']
+    else:
+        return []
 
 
 def get_attributes(attributes):
@@ -1108,3 +1183,43 @@ def __add_compatible_schemes(schemes, allowed_schemes):
                 else:
                     return_schemes.append(scheme_map_scheme)
     return list(set(return_schemes))
+
+
+@transactional_session
+def __load_distance_graph(session=None):
+    """
+    Loads the distance graph from the cache or distance table
+
+    :param session:   The DB Session to use.
+    :returns:         Dictionary based graph object.
+    """
+    
+    result = REGION_SHORT.get('distance_graph')
+    if isinstance(result, NoValue):
+        distance_graph = {}
+        for distance in session.query(models.Distance).all():
+            if distance.src_rse_id in distance_graph:
+                distance_graph[distance.src_rse_id][distance.dest_rse_id] = distance.agis_distance
+            else:
+                distance_graph[distance.src_rse_id] = {distance.dest_rse_id: distance.agis_distance}            
+        REGION_SHORT.set('distance_graph', distance_graph)
+        result = distance_graph
+    return result
+
+
+@transactional_session
+def __load_rse_settings(rse_id, session=None):
+    """
+    Loads the RSE settings from cache.
+
+    :param rse_id:    RSE id to load the settings from.
+    :param session:   The DB Session to use.
+    :returns:         Dict of RSE Settings
+    """
+
+    result = REGION_SHORT.get('rse_settings_%s' % str(rse_id))
+    if isinstance(result, NoValue):
+        result = rsemgr.get_rse_info(rse=get_rse_name(rse_id=rse_id, session=session),
+                                     session=session)
+        REGION_SHORT.set('rse_settings_%s' % str(rse_id), result)
+    return result
