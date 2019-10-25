@@ -21,6 +21,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -67,7 +68,7 @@ def exist_identity_account(identity, type, account, session=None):
     Check if an identity is mapped to an account.
 
     :param identity: The user identity as string.
-    :param type: The type of identity as a string, e.g. userpass, x509, gss...
+    :param type: The type of identity as a string, e.g. userpass, x509, gss, saml...
     :param account: The account identifier as a string.
     :param session: The database session in use.
 
@@ -311,6 +312,41 @@ def get_ssh_challenge_token(account, appid, ip=None, session=None):
     session.expunge(new_challenge_token)
 
     return new_challenge_token
+
+
+@transactional_session
+def get_auth_token_saml(account, saml_nameid, appid, ip=None, session=None):
+    """
+    Authenticate a Rucio account temporarily via SAML.
+
+    The token lifetime is 1 hour.
+
+    :param account: Account identifier as a string.
+    :param saml_nameid: SAML NameID of the client.
+    :param appid: The application identifier as a string.
+    :param ip: IP address of the client a a string.
+    :param session: The database session in use.
+
+    :returns: Authentication token as a Python struct
+              .token string
+              .expired_at datetime
+    """
+
+    # Make sure the account exists
+    if not account_exists(account, session=session):
+        return None
+
+    # remove expired tokens
+    session.query(models.Token).filter(models.Token.expired_at < datetime.datetime.utcnow(),
+                                       models.Token.account == account).with_for_update(skip_locked=True).delete()
+
+    tuid = generate_uuid()  # NOQA
+    token = '%(account)s-%(saml_nameid)s-%(appid)s-%(tuid)s' % locals()
+    new_token = models.Token(account=account, token=token, ip=ip)
+    new_token.save(session=session)
+    session.expunge(new_token)
+
+    return new_token
 
 
 def validate_auth_token(token):

@@ -28,17 +28,22 @@ if [[ $SUITE == "client" ]]; then
     if [[ "$TRAVIS_PYTHON_VERSION" !=  "2.6" ]]; then
 	pip install -r tools/pip-requires;
     fi
+    sudo apt-get update
+    sudo apt-get install libxml2-dev libxmlsec1-dev libxmlsec1-openssl
     pip install setuptools_scm
     pip install -r tools/pip-requires-test
+    pip install .[saml]
     python setup_rucio_client.py install
     cp etc/docker/travis/rucio_client.cfg etc/rucio.cfg
     cp etc/docker/travis/Dockerfile Dockerfile
     docker build -t rucio/rucio .
 
 elif [[ $SUITE == "syntax" ]]; then
+    sudo apt-get update
+    sudo apt-get install libxml2-dev libxmlsec1-dev libxmlsec1-openssl
     pip install setuptools_scm
     pip install google_compute_engine
-    pip install .[dev]
+    pip install .[dev,saml]
     cp etc/docker/travis/rucio_syntax.cfg etc/rucio.cfg
     cp etc/docker/travis/google-cloud-storage-test.json etc/google-cloud-storage-test.json
 
@@ -53,7 +58,9 @@ elif [[ $SUITE == "all" ]]; then
         cd ..
     fi
 
-elif [[ $SUITE == 'python3' ]]; then
+elif [[ $SUITE == 'python3' ]]; then 
+    sudo apt-get update
+    sudo apt-get install libxml2-dev libxmlsec1-dev libxmlsec1-openssl
     pip install -r tools/pip-requires-test
-
+    pip install .[saml]
 fi
