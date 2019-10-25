@@ -20,6 +20,54 @@ from rucio.api.account import get_account_info, list_account_attributes
 from rucio.common.config import config_get
 from rucio.db.sqla.constants import AccountType
 
+try:
+    AUTH_TYPE = config_get('webui', 'auth_type')
+    if AUTH_TYPE == 'saml':
+        from onelogin.saml2.auth import OneLogin_Saml2_Auth
+except:
+    AUTH_TYPE = 'x509'
+
+
+def prepare_webpy_request(request, data):
+    """
+    Prepare a webpy request for SAML
+
+    :param request: webpy request object
+    :param data: GET or POST data
+    """
+    if request['wsgi.url_scheme'] == 'https':
+        return {
+            'https': 'on' if request['wsgi.url_scheme'] == 'https' else 'off',
+            'http_host': request['HTTP_HOST'],
+            'server_port': request['SERVER_PORT'],
+            'script_name': request['SCRIPT_NAME'],
+            'get_data': data,
+            # Uncomment if using ADFS as IdP
+            # 'lowercase_urlencoding': True,
+            'post_data': data
+        }
+
+    return None
+
+
+def set_cookies(token, cookie_accounts, attribs, ui_account=None):
+    # if there was no valid session token write the new token to a cookie.
+    if token:
+        setcookie('X-Rucio-Auth-Token', value=token, path='/')
+        setcookie('rucio-auth-token-created-at', value=long(time()), path='/')
+
+    if cookie_accounts:
+        values = ""
+        for acc in cookie_accounts:
+            values += acc + " "
+        setcookie('rucio-available-accounts', value=values[:-1], path='/')
+
+    if attribs:
+        setcookie('rucio-account-attr', value=dumps(attribs), path='/')
+
+    if ui_account:
+        setcookie('rucio-selected-account', value=ui_account, path='/')
+
 
 def __to_js(var, value):
     """
@@ -76,7 +124,7 @@ def check_token(rendered_tpl):
     msg += "<br><br>Then, if it is still not working please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>."
 
     # try to get and check the rucio session token from cookie
-    session_token = cookies().get('x-rucio-auth-token')
+    session_token = cookies().get('X-Rucio-Auth-Token')
     validate_token = authentication.validate_auth_token(session_token)
 
     # check if ui_account param is set and if yes, force new token
@@ -136,22 +184,8 @@ def check_token(rendered_tpl):
             js_token = __to_js('token', token)
             js_account = __to_js('account', def_account)
 
-    # if there was no valid session token write the new token to a cookie.
-    if token:
-        setcookie('x-rucio-auth-token', value=token, path='/')
-        setcookie('rucio-auth-token-created-at', value=int(time()), path='/')
+    set_cookies(token, cookie_accounts, attribs, ui_account)
 
-    if cookie_accounts:
-        values = ""
-        for acc in cookie_accounts:
-            values += acc + " "
-        setcookie('rucio-available-accounts', value=values[:-1], path='/')
-
-    if attribs:
-        setcookie('rucio-account-attr', value=dumps(attribs), path='/')
-
-    if ui_account:
-        setcookie('rucio-selected-account', value=ui_account, path='/')
     return render.base(js_token, js_account, rucio_ui_version, policy, rendered_tpl)
 
 
@@ -219,46 +253,143 @@ def log_in(data, rendered_tpl):
         js_token = __to_js('token', token)
         js_account = __to_js('account', def_account)
 
-    # # if there was no valid session token write the new token to a cookie.
-    if token:
-        setcookie('x-rucio-auth-token', value=token, path='/')
-        setcookie('rucio-auth-token-created-at', value=int(time()), path='/')
-
-    if cookie_accounts:
-        values = ""
-        for acc in cookie_accounts:
-            values += acc + " "
-        setcookie('rucio-available-accounts', value=values[:-1], path='/')
-
-    if attribs:
-        setcookie('rucio-account-attr', value=dumps(attribs), path='/')
+    set_cookies(token, cookie_accounts, attribs)
 
     return seeother('/')
 
 
+def saml_authentication(method, rendered_tpl):
+    """
+    Login with SAML
+
+    :param method: method type, GET or POST
+    :param rendered_tpl: page to be rendered
+    """
+
+    attribs = None
+    token = None
+    js_token = ""
+    js_account = ""
+    def_account = None
+    accounts = None
+    cookie_accounts = None
+    rucio_ui_version = version.version_string()
+    policy = config_get('policy', 'permission')
+
+    # Initialize variables for sending SAML request
+    SAML_PATH = join(dirname(__file__), 'saml/')
+    request = ctx.env
+    data = dict(input())
+    req = prepare_webpy_request(request, data)
+    auth = OneLogin_Saml2_Auth(req, custom_base_path=SAML_PATH)
+
+    saml_user_data = cookies().get('saml-user-data')
+
+    render = template.render(join(dirname(__file__), '../templates'))
+
+    session_token = cookies().get('X-Rucio-Auth-Token')
+    validate_token = authentication.validate_auth_token(session_token)
+
+    if method == "GET":
+        # If user data is not present, redirect to IdP for authentication
+        if not saml_user_data:
+            return seeother(auth.login())
+
+        # If user data is present and token is valid, render the required page
+        elif validate_token:
+            js_token = __to_js('token', session_token)
+            js_account = __to_js('account', def_account)
+
+            return render.base(js_token, js_account, rucio_ui_version, policy, rendered_tpl)
+
+        # If user data is present but token is not valid, create a new one
+        saml_nameid = cookies().get('saml-nameid')
+        accounts = identity.list_accounts_for_identity(saml_nameid, 'saml')
+
+        cookie_accounts = accounts
+        try:
+            token = authentication.get_auth_token_saml(def_account,
+                                                       saml_nameid,
+                                                       'webui',
+                                                       ctx.env.get('REMOTE_ADDR')).token
+
+        except:
+            return render.problem('Cannot get auth token')
+
+        attribs = list_account_attributes(def_account)
+        # write the token and account to javascript variables, that will be used in the HTML templates.
+        js_token = __to_js('token', token)
+        js_account = __to_js('account', def_account)
+
+        set_cookies(token, cookie_accounts, attribs)
+
+        return render.base(js_token, js_account, rucio_ui_version, policy, rendered_tpl)
+
+    # If method is POST, check the received SAML response and redirect to home if valid
+    auth.process_response()
+    errors = auth.get_errors()
+    if not errors:
+        if auth.is_authenticated():
+            setcookie('saml-user-data', value=auth.get_attributes(), path='/')
+            setcookie('saml-session-index', value=auth.get_session_index(), path='/')
+            setcookie('saml-nameid', value=auth.get_nameid(), path='/')
+            saml_nameid = auth.get_nameid()
+
+            accounts = identity.list_accounts_for_identity(saml_nameid, 'saml')
+            cookie_accounts = accounts
+            # try to set the default account to the user account, if not available take the first account.
+            def_account = accounts[0]
+            for account in accounts:
+                account_info = get_account_info(account)
+                if account_info.account_type == AccountType.USER:
+                    def_account = account
+                    break
+
+            selected_account = cookies().get('rucio-selected-account')
+            if (selected_account):
+                def_account = selected_account
+
+            try:
+                token = authentication.get_auth_token_saml(def_account,
+                                                           saml_nameid,
+                                                           'webui',
+                                                           ctx.env.get('REMOTE_ADDR')).token
+
+            except:
+                return render.problem('Cannot get auth token')
+
+            attribs = list_account_attributes(def_account)
+            # write the token and account to javascript variables, that will be used in the HTML templates.
+            js_token = __to_js('token', token)
+            js_account = __to_js('account', def_account)
+
+            set_cookies(token, cookie_accounts, attribs)
+
+            return seeother("/")
+
+        return render.problem("Not authenticated")
+
+    return render.problem("Error while processing SAML")
+
+
 def authenticate(rendered_tpl):
+    """ Select the auth type defined in config """
 
-    try:
-        auth_type = config_get('webui', 'auth_type')
-
-    except:
-        auth_type = 'x509'
-
-    session_token = cookies().get('x-rucio-auth-token')
+    session_token = cookies().get('X-Rucio-Auth-Token')
     validate_token = authentication.validate_auth_token(session_token)
 
     render = template.render(join(dirname(__file__), '../templates'))
 
-    if auth_type == 'x509':
+    if AUTH_TYPE == 'x509':
         return check_token(rendered_tpl)
 
-    elif auth_type == 'userpass':
+    elif AUTH_TYPE == 'userpass':
         if validate_token:
             return log_in(None, rendered_tpl)
 
         return seeother('/login')
 
-    elif auth_type == 'x509_userpass':
+    elif AUTH_TYPE == 'x509_userpass':
         if ctx.env.get('SSL_CLIENT_VERIFY') == 'SUCCESS':
             return check_token(rendered_tpl)
 
@@ -266,5 +397,8 @@ def authenticate(rendered_tpl):
             return log_in(None, rendered_tpl)
 
         return render.no_certificate()
+
+    elif AUTH_TYPE == 'saml':
+        return saml_authentication("GET", rendered_tpl)
 
     return render.problem('Invalid auth type')
