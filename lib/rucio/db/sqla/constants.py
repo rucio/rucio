@@ -10,6 +10,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014-2019
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2018
 # - Wen Guan, <wen.guan>, 2016
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -96,6 +97,7 @@ class IdentityType(DeclEnum):
     GSS = 'GSS', 'GSS'
     USERPASS = 'USERPASS', 'USERPASS'
     SSH = 'SSH', 'SSH'
+    SAML = 'SAML', 'SAML'
 
 
 class KeyType(DeclEnum):
