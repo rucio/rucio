@@ -30,14 +30,13 @@ from alembic.op import add_column, create_check_constraint, drop_constraint, dro
 revision = '3152492b110b'
 down_revision = '22cf51430c78'
 
-# Schema identifier for manual SQL statements
-schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
-
 
 def upgrade():
     '''
     Upgrade the database to this revision
     '''
+
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name == 'oracle':
         add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK'), default=False))
@@ -67,6 +66,8 @@ def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
+
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name == 'oracle':
         drop_constraint('RSE_STAGING_AREA_CHK', 'rses', type_='check')
