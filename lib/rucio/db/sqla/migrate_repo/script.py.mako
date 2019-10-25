@@ -26,14 +26,13 @@ from alembic.op import execute
 revision = ${repr(up_revision)}
 down_revision = ${repr(down_revision)}
 
-# Schema identifier for manual SQL statements -- for direct application use schema=schema[:-1]
-schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
-
 
 def upgrade():
     '''
     Upgrade the database to this revision
     '''
+
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name == 'oracle':
         pass
@@ -52,6 +51,8 @@ def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
+
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name == 'oracle':
         pass

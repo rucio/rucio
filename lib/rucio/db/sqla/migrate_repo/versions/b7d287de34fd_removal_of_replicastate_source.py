@@ -26,14 +26,13 @@ from alembic.op import (create_check_constraint, drop_constraint)
 revision = 'b7d287de34fd'
 down_revision = 'f1b14a8c2ac1'
 
-# Schema identifier for manual SQL statements
-schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
-
 
 def upgrade():
     '''
     Upgrade the database to this revision
     '''
+
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name in ['oracle', 'postgresql']:
         drop_constraint('REPLICAS_STATE_CHK', 'replicas', type_='check')
@@ -62,6 +61,8 @@ def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
+
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name in ['oracle', 'postgresql']:
         drop_constraint('REPLICAS_STATE_CHK', 'replicas', type_='check')
