@@ -154,9 +154,8 @@ def get_parser():
     """
     Returns the argparse parser.
     """
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    parser = argparse.ArgumentParser(description="The auditor daemon is the one responsable for the detection of inconsistencies on storage, i.e.: dark data discovery.",
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
         '--nprocs',
         help='Number subprocess, each subprocess check a fraction of the DDM '
