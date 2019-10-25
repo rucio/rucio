@@ -494,6 +494,25 @@ def list_rses(args):
 
 
 @exception_handler
+def update_rse(args):
+    """
+    %(prog)s update [options] <field1=value1 field2=value2 ...>
+
+    Update the settings of the RSE ('availability_read', 'availability_write', 'availability_delete', 'latitude', 'longitude', 'time_zone', 'rse_type',
+    'volatile', 'deterministic', 'region_code', 'country_name', 'city', or 'staging_area')
+    """
+    client = get_client(args)
+    if args.value in ['true', 'True', 'TRUE', '1']:
+        args.value = True
+    if args.value in ['false', 'False', 'FALSE', '0']:
+        args.value = False
+    params = {'name': args.rse, args.param: args.value}
+    client.update_rse(args.rse, parameters=params)
+    print('Updated RSE %s settings %s to %s' % (args.rse, args.param, args.value))
+    return SUCCESS
+
+
+@exception_handler
 def info_rse(args):
     """
     %(prog)s info [options] <field1=value1 field2=value2 ...>
@@ -1498,6 +1517,22 @@ def get_parser():
     add_rse_parser.add_argument('rse', action='store', help='RSE name')
     add_rse_parser.add_argument('--non-deterministic', action='store_true', help='Create RSE in non-deterministic mode')
 
+    # The update_rse command
+    update_rse_parser = rse_subparser.add_parser('update',
+                                                 help='Update RSE settings.',
+                                                 formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                 epilog='Example Usage\n'
+                                                        '"""""""""""""\n'
+                                                        '::\n'
+                                                        '\n'
+                                                        '    $ rucio-admin rse update --param availability_write --value False\n'
+                                                        '\n'
+                                                        '\n')
+    update_rse_parser.set_defaults(which='update_rse')
+    update_rse_parser.add_argument('--rse', dest='rse', action='store', help='RSE name')
+    update_rse_parser.add_argument('--setting', dest='param', action='store', help="One of availability_read, availability_write, availability_delete, latitude, longitude, time_zone, region_code, country_name, or city")
+    update_rse_parser.add_argument('--value', dest='value', action='store', help='Value for the new setting configuration.')
+
     # The info_rse command
     info_rse_parser = rse_subparser.add_parser('info',
                                                help='Information about RSE.',
@@ -2025,6 +2060,7 @@ if __name__ == '__main__':
                 'identity_add': identity_add,
                 'identity_delete': identity_delete,
                 'add_rse': add_rse,
+                'update_rse': update_rse,
                 'set_attribute_rse': set_attribute_rse,
                 'get_attribute_rse': get_attribute_rse,
                 'delete_attribute_rse': delete_attribute_rse,
