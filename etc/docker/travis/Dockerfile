@@ -2,7 +2,7 @@
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+# You may obtain a copy of the License at 
 #
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
@@ -19,6 +19,7 @@
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 
 FROM centos:7
 ARG python
@@ -28,6 +29,7 @@ RUN yum -y update
 RUN yum install -y gcc httpd python-pip gmp-devel krb5-devel httpd mod_ssl mod_auth_kerb git python-devel.x86_64 openssl-devel.x86_64 gridsite which libaio memcached MySQL-python ffi-devel
 RUN yum -y install https://centos7.iuscommunity.org/ius-release.rpm
 RUN yum -y install python36u python36u-devel python36u-pip
+RUN yum -y install libxml2-devel xmlsec1-devel xmlsec1-openssl-devel libtool-ltdl-devel
 RUN yum clean all
 
 RUN rm -rf /usr/lib/python2.7/site-packages/ipaddress*
@@ -68,7 +70,7 @@ RUN if [ "$python" == "3.6" ] ; then pip3.6 install --upgrade pip ; else pip ins
 RUN if [ "$python" == "3.6" ] ; then pip3.6 install --upgrade setuptools ; else pip install --upgrade setuptools ; fi
 
 # Install Rucio + dependencies
-RUN if [ "$python" == "3.6" ] ; then pip3.6 install .[oracle,postgresql,mysql,kerberos,dev] ; else pip install .[oracle,postgresql,mysql,kerberos,dev] ; fi
+RUN if [ "$python" == "3.6" ] ; then pip3.6 install .[oracle,postgresql,mysql,kerberos,dev,saml] ; else pip install .[oracle,postgresql,mysql,kerberos,dev,saml] ; fi
 
 RUN cp etc/docker/travis/aliases-py27.conf etc/web/aliases-py27.conf
 RUN cp etc/docker/travis/google-cloud-storage-test.json etc/google-cloud-storage-test.json
