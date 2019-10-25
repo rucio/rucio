@@ -110,7 +110,8 @@ def get_parser():
          'operation': 'delete_replicas'
         }
 """
-    oparser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), add_help=True)
+    oparser = argparse.ArgumentParser(description="This daemons is used to populate information of replicas on volatile storage.",
+                                      prog=os.path.basename(sys.argv[0]), add_help=True)
 
     # Main arguments
     oparser.add_argument('-b', '--broker', dest='broker', default=config_get('messaging-cache', 'brokers').split(',')[0], help='Message broker name')
