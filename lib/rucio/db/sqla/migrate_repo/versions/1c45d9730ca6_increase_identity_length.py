@@ -28,14 +28,13 @@ from alembic.op import alter_column, create_check_constraint, create_foreign_key
 revision = '1c45d9730ca6'
 down_revision = 'b4293a99f344'
 
-# Schema identifier for manual SQL statements
-schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
-
 
 def upgrade():
     '''
     Upgrade the database to this revision
     '''
+
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name in ['oracle', 'postgresql']:
 
@@ -93,6 +92,8 @@ def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
+
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     # Attention!
     # This automatically removes all SSH keys to accommodate the column size and check constraint.
