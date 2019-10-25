@@ -31,14 +31,13 @@ from alembic.op import (add_column, create_check_constraint,
 revision = '1d96f484df21'
 down_revision = '3d9813fab443'
 
-# Schema identifier for manual SQL statements
-schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
-
 
 def upgrade():
     '''
     Upgrade the database to this revision
     '''
+
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name == 'oracle':
         add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False))
@@ -64,6 +63,8 @@ def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
+
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name == 'oracle':
         drop_column('rules', 'ignore_account_limit')
