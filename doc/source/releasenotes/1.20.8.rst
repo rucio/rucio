@@ -1,0 +1,41 @@
+======
+1.20.8
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Core & Internals: Datatype to store a DID `#3013 <https://github.com/rucio/rucio/issues/3013>`_
+- Documentation: Add demons --run-once examples to docker documentation `#2996 <https://github.com/rucio/rucio/issues/2996>`_
+
+****
+Bugs
+****
+
+- Core & Internals: alembic: move schema back to callable for interactive use `#3039 <https://github.com/rucio/rucio/issues/3039>`_
+- Messaging: Hermes triggers SSL "truncation attack" errors on the message brokers `#2861 <https://github.com/rucio/rucio/issues/2861>`_
+- Recovery: minos-expiration doesn't handle properly ReplicaNotFound `#3028 <https://github.com/rucio/rucio/issues/3028>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Remove DownloadClient.download_file_from_archive and rsemanager.download `#2021 <https://github.com/rucio/rucio/issues/2021>`_
+- Clients: checksum after download `#2399 <https://github.com/rucio/rucio/issues/2399>`_
+- Clients: rucio download should return a clear message if a DID doesn't exist `#2661 <https://github.com/rucio/rucio/issues/2661>`_
+- Clients: Add rse update support in rucio-admin `#3022 <https://github.com/rucio/rucio/issues/3022>`_
+
+****
+Bugs
+****
+
+- Clients: ConfigNotFound exception not handled in rucio-admin `#3019 <https://github.com/rucio/rucio/issues/3019>`_
