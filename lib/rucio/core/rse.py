@@ -27,6 +27,7 @@
 # - Gabriele Fronze' <gfronze@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
+# - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -119,7 +120,7 @@ def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None
 
 
 @read_session
-def rse_exists(rse, session=None):
+def rse_exists(rse, include_deleted=False, session=None):
     """
     Checks to see if RSE exists.
 
@@ -128,7 +129,7 @@ def rse_exists(rse, session=None):
 
     :returns: True if found, otherwise false.
     """
-    return True if session.query(models.RSE).filter_by(rse=rse, deleted=False).first() else False
+    return True if session.query(models.RSE).filter_by(rse=rse, deleted=include_deleted).first() else False
 
 
 @read_session
@@ -198,8 +199,10 @@ def restore_rse(rse_id, session=None):
         old_rse = session.query(models.RSE).filter_by(id=rse_id, deleted=True).one()
     except sqlalchemy.orm.exc.NoResultFound:
         raise exception.RSENotFound('RSE with id \'%s\' cannot be found' % rse_id)
+    old_rse.deleted = False
+    old_rse.deleted_at = None
+    old_rse.save(session=session)
     rse = old_rse.rse
-    old_rse.restore(session=session)
     add_rse_attribute(rse_id=rse_id, key=rse, value=True, session=session)
 
 
