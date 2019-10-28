@@ -20,7 +20,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
 # - Tobias Wegner <twegner@cern.ch>, 2017
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2017-2018
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
@@ -221,7 +221,7 @@ class BaseClient(object):
                 try:
                     self.account = config_get('client', 'account')
                 except (NoOptionError, NoSectionError):
-                        raise MissingClientParameter('Option \'account\' cannot be found in config file and RUCIO_ACCOUNT is not set.')
+                    raise MissingClientParameter('Option \'account\' cannot be found in config file and RUCIO_ACCOUNT is not set.')
 
         token_path = self.TOKEN_PATH_PREFIX + self.account
         self.token_file = token_path + '/' + self.TOKEN_PREFIX + self.account
