@@ -15,6 +15,7 @@
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -28,6 +29,7 @@ from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import RSEType, AccountType, IdentityType, AccountStatus
 from rucio.client.importclient import ImportClient
 from rucio.client.exportclient import ExportClient
+from rucio.common.config import config_set, config_add_section, config_has_section
 from rucio.common.exception import RSENotFound
 from rucio.common.types import InternalAccount
 from rucio.common.utils import render_json, parse_response
@@ -35,8 +37,8 @@ from rucio.core.account import add_account, get_account
 from rucio.core.distance import add_distance, get_distances
 from rucio.core.exporter import export_data, export_rses
 from rucio.core.identity import add_identity, list_identities, add_account_identity, list_accounts_for_identity
-from rucio.core.importer import import_data
-from rucio.core.rse import get_rse_id, get_rse_name, add_rse, get_rse, add_protocol, get_rse_protocols, list_rse_attributes, get_rse_limits, set_rse_limits, add_rse_attribute, list_rses, export_rse, get_rse_attribute
+from rucio.core.importer import import_data, import_rses
+from rucio.core.rse import get_rse_id, get_rse_name, add_rse, get_rse, add_protocol, get_rse_protocols, list_rse_attributes, get_rse_limits, set_rse_limits, add_rse_attribute, list_rses, export_rse, get_rse_attribute, del_rse
 from rucio.tests.common import rse_name_generator
 from rucio.web.rest.importer import APP as import_app
 from rucio.web.rest.exporter import APP as export_app
@@ -84,8 +86,15 @@ def reset_rses():
 
 
 class TestImporter(object):
+    """ Tests the initial import method (hard-sync everything) """
 
     def setup(self):
+        if not config_has_section('importer'):
+            config_add_section('importer')
+        config_set('importer', 'rse_sync_method', 'hard')
+        config_set('importer', 'attr_method', 'edit')
+        config_set('importer', 'protocol_method', 'edit')
+
         # New RSE
         self.new_rse = rse_name_generator()
 
@@ -371,8 +380,9 @@ class TestImporter(object):
 
         self.check_accounts(self.data1['accounts'])
 
-        with assert_raises(RSENotFound):
-            get_rse(rse_id=self.old_rse_id_4)
+        # If the default sync method is not 'hard', RSE old_rse_id_4 should still be there
+        # with assert_raises(RSENotFound):
+        #     get_rse(rse_id=self.old_rse_id_4)
 
         import_client.import_data(data=self.data2)
         import_client.import_data(data=self.data3)
@@ -432,6 +442,738 @@ class TestImporter(object):
 
         r2 = TestApp(import_app.wsgifunc(*mw)).post('/', headers=headers2, expect_errors=True, params=render_json(**self.data3))
         assert_equal(r2.status, 201)
+
+
+class TestImporterSyncModes(object):
+
+    def setup(self):
+        # Since test config scenarios are complicated moved the setup inside the individual tests
+        pass
+
+    def test_import_rses_append(self):
+        """ IMPORTER (CORE): test import rse (APPEND mode). """
+        # In rse sync mode append: New RSEs are created, existing RSEs are not modified, leftover RSEs are not deleted
+
+        # RSE that did not exist before
+        new_rse = rse_name_generator()
+
+        # RSE missing from json
+        old_rse = rse_name_generator()
+        old_rse_id = add_rse(old_rse)
+
+        # RSE that was disabled but is active on json
+        disabled_rse = rse_name_generator()
+        disabled_rse_id = add_rse(disabled_rse)
+        del_rse(disabled_rse_id)
+
+        data = {
+            'rses': {
+                new_rse: {
+                    'rse_type': RSEType.TAPE,
+                    'availability': 3,
+                    'city': 'NewCity',
+                    'region_code': 'CH',
+                    'country_name': 'switzerland',
+                    'staging_area': False,
+                    'time_zone': 'Europe',
+                    'latitude': 1,
+                    'longitude': 2,
+                    'deterministic': True,
+                    'volatile': False,
+                    'protocols': [{
+                        'scheme': 'scheme',
+                        'hostname': 'hostname',
+                        'port': 1000,
+                        'impl': 'impl'
+                    }],
+                    'attributes': {
+                        'attr1': 'test'
+                    },
+                    'MinFreeSpace': 20000,
+                    'lfn2pfn_algorithm': 'hash2',
+                    'verify_checksum': False,
+                    'availability_delete': True,
+                    'availability_read': False,
+                    'availability_write': True
+                },
+                disabled_rse: {
+                    'rse_type': RSEType.TAPE,
+                    'deterministic': True,
+                    'volatile': True,
+                    'region_code': 'DE',
+                    'country_name': 'DE',
+                    'staging_area': False,
+                    'time_zone': 'Europe',
+                    'longitude': 2,
+                    'city': 'City',
+                    'availability': 1,
+                    'latitude': 1,
+                    'protocols': [{
+                        'scheme': 'scheme1',
+                        'hostname': 'hostname1',
+                        'port': 1000,
+                        'prefix': 'prefix',
+                        'impl': 'impl1'
+                    }, {
+                        'scheme': 'scheme2',
+                        'hostname': 'hostname2',
+                        'port': 1001,
+                        'impl': 'impl'
+                    }, {
+                        'scheme': 'scheme3',
+                        'hostname': 'hostname3',
+                        'port': 1001,
+                        'impl': 'impl'
+                    }],
+                    'attributes': {
+                        'attr1': 'test1',
+                        'attr2': 'test2'
+                    },
+                    'MinFreeSpace': 10000,
+                    'MaxBeingDeletedFiles': 1000,
+                    'verify_checksum': False,
+                    'lfn2pfn_algorithm': 'hash3',
+                    'availability_delete': False,
+                    'availability_read': False,
+                    'availability_write': True
+                }
+            }
+        }
+
+        import_rses(rses=deepcopy(data['rses']), rse_sync_method='append')
+
+        # Check RSE that did not exist before exists now
+        check_rse(new_rse, data['rses'])
+
+        # Check that old_rse was not disabled after import
+        assert_equal(get_rse_id(old_rse, include_deleted=False), old_rse_id)
+
+        # Check that disabled_rse dit not get enabled
+        with assert_raises(RSENotFound):
+            get_rse(rse_id=disabled_rse_id)
+
+    def test_import_rses_edit(self):
+        """ IMPORTER (CORE): test import rse (EDIT mode). """
+        # In rse sync mode edit: New RSEs are created, existing RSEs are modified, leftover RSEs are not deleted
+
+        # RSE that did not exist before
+        new_rse = rse_name_generator()
+
+        # RSE missing from json
+        old_rse = rse_name_generator()
+        old_rse_id = add_rse(old_rse)
+
+        # RSE that was disabled but is active on json
+        disabled_rse = rse_name_generator()
+        disabled_rse_id = add_rse(disabled_rse)
+        del_rse(disabled_rse_id)
+
+        data = {
+            'rses': {
+                new_rse: {
+                    'rse_type': RSEType.TAPE,
+                    'availability': 3,
+                    'city': 'NewCity',
+                    'region_code': 'CH',
+                    'country_name': 'switzerland',
+                    'staging_area': False,
+                    'time_zone': 'Europe',
+                    'latitude': 1,
+                    'longitude': 2,
+                    'deterministic': True,
+                    'volatile': False,
+                    'protocols': [{
+                        'scheme': 'scheme',
+                        'hostname': 'hostname',
+                        'port': 1000,
+                        'impl': 'impl'
+                    }],
+                    'attributes': {
+                        'attr1': 'test'
+                    },
+                    'MinFreeSpace': 20000,
+                    'lfn2pfn_algorithm': 'hash2',
+                    'verify_checksum': False,
+                    'availability_delete': True,
+                    'availability_read': False,
+                    'availability_write': True
+                },
+                disabled_rse: {
+                    'rse_type': RSEType.TAPE,
+                    'deterministic': True,
+                    'volatile': True,
+                    'region_code': 'DE',
+                    'country_name': 'DE',
+                    'staging_area': False,
+                    'time_zone': 'Europe',
+                    'longitude': 2,
+                    'city': 'City',
+                    'availability': 1,
+                    'latitude': 1,
+                    'protocols': [{
+                        'scheme': 'scheme1',
+                        'hostname': 'hostname1',
+                        'port': 1000,
+                        'prefix': 'prefix',
+                        'impl': 'impl1'
+                    }, {
+                        'scheme': 'scheme2',
+                        'hostname': 'hostname2',
+                        'port': 1001,
+                        'impl': 'impl'
+                    }, {
+                        'scheme': 'scheme3',
+                        'hostname': 'hostname3',
+                        'port': 1001,
+                        'impl': 'impl'
+                    }],
+                    'attributes': {
+                        'attr1': 'test1',
+                        'attr2': 'test2'
+                    },
+                    'MinFreeSpace': 10000,
+                    'MaxBeingDeletedFiles': 1000,
+                    'verify_checksum': False,
+                    'lfn2pfn_algorithm': 'hash3',
+                    'availability_delete': False,
+                    'availability_read': False,
+                    'availability_write': True
+                }
+            }
+        }
+
+        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit')
+
+        # Check RSE that did not exist before exists now
+        check_rse(new_rse, data['rses'])
+
+        # Check that old_rse was not disabled after import
+        assert_equal(get_rse_id(old_rse, include_deleted=False), old_rse_id)
+
+        # Check that disabled_rse got enabled
+        assert_equal(get_rse_id(disabled_rse, include_deleted=False), disabled_rse_id)
+
+    def test_import_attributes_append(self):
+        """ IMPORTER (CORE): test import attributes (APPEND mode). """
+        # In attributes sync mode append: New attributes are created, existing attributes are not modified, leftover attributes are not deleted
+
+        # RSE has less attributes than on json
+        less_attr_rse = rse_name_generator()
+        less_attr_rse_id = add_rse(less_attr_rse)
+        add_rse_attribute(rse_id=less_attr_rse_id, key='attr1', value='test')
+
+        # RSE has an attribute with different value
+        diff_attr_rse = rse_name_generator()
+        diff_attr_rse_id = add_rse(diff_attr_rse)
+        add_rse_attribute(rse_id=diff_attr_rse_id, key='attr1', value='test_original')
+        add_rse_attribute(rse_id=diff_attr_rse_id, key='attr2', value='test_original')
+
+        # RSE has attributes that are missing from the json
+        more_attr_rse = rse_name_generator()
+        more_attr_rse_id = add_rse(more_attr_rse)
+        add_rse_attribute(rse_id=more_attr_rse_id, key='attr1', value='test_original')
+        add_rse_attribute(rse_id=more_attr_rse_id, key='attr2', value='test_original')
+        add_rse_attribute(rse_id=more_attr_rse_id, key='attr3', value='test_original')
+
+        data = {
+            'rses': {
+                less_attr_rse: {
+                    'attributes': {
+                        'attr1': 'test',
+                        'attr2': 'test_new'
+
+                    }
+                },
+                diff_attr_rse: {
+                    'attributes': {
+                        'attr1': 'test_original_dif',
+                        'attr2': 'test_different'
+                    }
+                },
+                more_attr_rse: {
+                    'attributes': {
+                        'attr1': 'test_original',
+                        'attr2': 'test_original'
+                    }
+                }
+            }
+        }
+
+        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', attr_sync_method='append')
+
+        # Check that attributes were added for less_attr_rse
+        assert_equal(get_rse_attribute('attr2', rse_id=less_attr_rse_id, use_cache=False), ['test_new'])
+
+        # Check that attributes were not modified for diff_attr_rse
+        assert_equal(get_rse_attribute('attr2', rse_id=diff_attr_rse_id, use_cache=False), ['test_original'])
+
+        # Check that attributes were missing from the json are not deleted
+        assert_equal(get_rse_attribute('attr3', rse_id=more_attr_rse_id, use_cache=False), ['test_original'])
+
+    def test_import_attributes_edit(self):
+        """ IMPORTER (CORE): test import attributes (EDIT mode). """
+        # In attributes sync mode edit: New attributes are created, existing attributes are modified, leftover attributes are not deleted
+
+        # RSE has less attributes than on json
+        less_attr_rse = rse_name_generator()
+        less_attr_rse_id = add_rse(less_attr_rse)
+        add_rse_attribute(rse_id=less_attr_rse_id, key='attr1', value='test')
+
+        # RSE has an attribute with different value
+        diff_attr_rse = rse_name_generator()
+        diff_attr_rse_id = add_rse(diff_attr_rse)
+        add_rse_attribute(rse_id=diff_attr_rse_id, key='attr1', value='test_original')
+        add_rse_attribute(rse_id=diff_attr_rse_id, key='attr2', value='test_original')
+
+        # RSE has attributes that are missing from the json
+        more_attr_rse = rse_name_generator()
+        more_attr_rse_id = add_rse(more_attr_rse)
+        add_rse_attribute(rse_id=more_attr_rse_id, key='attr1', value='test_original')
+        add_rse_attribute(rse_id=more_attr_rse_id, key='attr2', value='test_original')
+        add_rse_attribute(rse_id=more_attr_rse_id, key='attr3', value='test_original')
+
+        data = {
+            'rses': {
+                less_attr_rse: {
+                    'attributes': {
+                        'attr1': 'test',
+                        'attr2': 'test_new'
+
+                    }
+                },
+                diff_attr_rse: {
+                    'attributes': {
+                        'attr1': 'test_original_dif',
+                        'attr2': 'test_different'
+                    }
+                },
+                more_attr_rse: {
+                    'attributes': {
+                        'attr1': 'test_original',
+                        'attr2': 'test_original'
+                    }
+                }
+            }
+        }
+
+        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', attr_sync_method='edit')
+
+        # Check that attributes were added for less_attr_rse
+        assert_equal(get_rse_attribute('attr2', rse_id=less_attr_rse_id, use_cache=False), ['test_new'])
+
+        # Check that attributes were modified for diff_attr_rse
+        assert_equal(get_rse_attribute('attr2', rse_id=diff_attr_rse_id, use_cache=False), ['test_different'])
+
+        # Check that attributes that were missing from the json are not deleted
+        assert_equal(get_rse_attribute('attr3', rse_id=more_attr_rse_id, use_cache=False), ['test_original'])
+
+    def test_import_attributes_hard(self):
+        """ IMPORTER (CORE): test import attributes (HARD mode). """
+        # In attributes sync mode hard: New attributes are created, existing attributes are modified, leftover attributes are deleted
+
+        # RSE has less attributes than on json
+        less_attr_rse = rse_name_generator()
+        less_attr_rse_id = add_rse(less_attr_rse)
+        add_rse_attribute(rse_id=less_attr_rse_id, key='attr1', value='test')
+
+        # RSE has an attribute with different value
+        diff_attr_rse = rse_name_generator()
+        diff_attr_rse_id = add_rse(diff_attr_rse)
+        add_rse_attribute(rse_id=diff_attr_rse_id, key='attr1', value='test_original')
+        add_rse_attribute(rse_id=diff_attr_rse_id, key='attr2', value='test_original')
+
+        # RSE has attributes that are missing from the json
+        more_attr_rse = rse_name_generator()
+        more_attr_rse_id = add_rse(more_attr_rse)
+        add_rse_attribute(rse_id=more_attr_rse_id, key='attr1', value='test_original')
+        add_rse_attribute(rse_id=more_attr_rse_id, key='attr2', value='test_original')
+        add_rse_attribute(rse_id=more_attr_rse_id, key='attr3', value='test_original')
+
+        data = {
+            'rses': {
+                less_attr_rse: {
+                    'attributes': {
+                        'attr1': 'test',
+                        'attr2': 'test_new'
+
+                    }
+                },
+                diff_attr_rse: {
+                    'attributes': {
+                        'attr1': 'test_original_dif',
+                        'attr2': 'test_different'
+                    }
+                },
+                more_attr_rse: {
+                    'attributes': {
+                        'attr1': 'test_original',
+                        'attr2': 'test_original'
+                    }
+                }
+            }
+        }
+
+        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', attr_sync_method='hard')
+
+        # Check that attributes were added for less_attr_rse
+        assert_equal(get_rse_attribute('attr2', rse_id=less_attr_rse_id, use_cache=False), ['test_new'])
+
+        # Check that attributes were modified for diff_attr_rse
+        assert_equal(get_rse_attribute('attr2', rse_id=diff_attr_rse_id, use_cache=False), ['test_different'])
+
+        # Check that attributes that were missing from the json are deleted
+        assert_equal(get_rse_attribute('attr3', rse_id=more_attr_rse_id, use_cache=False), [])
+
+    def test_import_protocols_append(self):
+        """ IMPORTER (CORE): test import protocols (APPEND mode). """
+        # In protocols sync mode append: New protocols are created, existing protocols are not modified, leftover protocols are not deleted
+
+        less_prot_rse = rse_name_generator()
+        less_prot_rse_id = add_rse(less_prot_rse)
+        add_protocol(less_prot_rse_id, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
+
+        diff_prot_rse = rse_name_generator()
+        diff_prot_rse_id = add_rse(diff_prot_rse)
+        add_protocol(diff_prot_rse_id, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
+
+        more_prot_rse = rse_name_generator()
+        more_prot_rse_id = add_rse(more_prot_rse)
+        add_protocol(more_prot_rse_id, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
+        add_protocol(more_prot_rse_id, {'scheme': 'scheme2', 'hostname': 'hostname2', 'port': 1000, 'impl': 'TODO'})
+        add_protocol(more_prot_rse_id, {'scheme': 'scheme3', 'hostname': 'hostname3', 'port': 1000, 'impl': 'TODO'})
+
+        data = {
+            'rses': {
+                less_prot_rse: {
+                    'rse_type': RSEType.TAPE,
+                    'availability': 3,
+                    'city': 'NewCity',
+                    'region_code': 'CH',
+                    'country_name': 'switzerland',
+                    'staging_area': False,
+                    'time_zone': 'Europe',
+                    'latitude': 1,
+                    'longitude': 2,
+                    'deterministic': True,
+                    'volatile': False,
+                    'protocols': [
+                        {
+                            'scheme': 'scheme',
+                            'hostname': 'hostname',
+                            'port': 1000,
+                            'impl': 'impl'
+                        },
+                        {
+                            'scheme': 'scheme2',
+                            'hostname': 'hostname2',
+                            'port': 1000,
+                            'impl': 'impl'
+                        }
+                    ]
+                },
+                diff_prot_rse: {
+                    'rse_type': RSEType.DISK,
+                    'availability': 3,
+                    'city': 'NewCity',
+                    'region_code': 'CH',
+                    'country_name': 'switzerland',
+                    'staging_area': False,
+                    'time_zone': 'Europe',
+                    'latitude': 1,
+                    'longitude': 2,
+                    'deterministic': True,
+                    'volatile': False,
+                    'protocols': [{
+                        'scheme': 'scheme',
+                        'hostname': 'hostname',
+                        'port': 1000,
+                        'impl': 'impl_new'
+                    }]
+                },
+                more_prot_rse: {
+                    'rse_type': RSEType.DISK,
+                    'availability': 2,
+                    'city': 'NewCity',
+                    'region_code': 'CH',
+                    'country_name': 'switzerland',
+                    'staging_area': False,
+                    'time_zone': 'Europe',
+                    'latitude': 1,
+                    'longitude': 2,
+                    'deterministic': True,
+                    'volatile': False,
+                    'protocols': [
+                        {
+                            'scheme': 'scheme',
+                            'hostname': 'hostname',
+                            'port': 1000,
+                            'impl': 'impl'
+                        },
+                        {
+                            'scheme': 'scheme2',
+                            'hostname': 'hostname2',
+                            'port': 1000,
+                            'impl': 'impl'
+                        }
+                    ]
+                }
+            }
+        }
+
+        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', protocol_sync_method='append')
+
+        # Check that new protocol was added
+        protocols = get_rse_protocols(less_prot_rse_id)
+        protocols_formated = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl'], 'prefix': protocol['prefix']} for protocol in protocols['protocols']]
+        dp = data['rses'][less_prot_rse]['protocols'][0]
+        data_protocol_formated = {'hostname': dp['hostname'], 'scheme': dp['scheme'], 'port': dp['port'], 'impl': dp.get('impl', ''), 'prefix': dp.get('prefix', '')}
+        assert_in(data_protocol_formated, protocols_formated)
+
+        # Check that protocol was not modified
+        protocols = get_rse_protocols(diff_prot_rse_id)
+        protocols_formated = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl']} for protocol in protocols['protocols']]
+        data_protocol_formated = {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'}
+        assert_in(data_protocol_formated, protocols_formated)
+
+        # Check that missing protocol was not deleted
+        protocols = get_rse_protocols(more_prot_rse_id)
+        protocols_formated = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl']} for protocol in protocols['protocols']]
+        data_protocol_formated = {'scheme': 'scheme3', 'hostname': 'hostname3', 'port': 1000, 'impl': 'TODO'}
+        assert_in(data_protocol_formated, protocols_formated)
+
+    def test_import_protocols_edit(self):
+        """ IMPORTER (CORE): test import protocols (EDIT mode). """
+        # In protocols sync mode edit: New protocols are created, existing protocols are modified, leftover protocols are not deleted
+
+        less_prot_rse = rse_name_generator()
+        less_prot_rse_id = add_rse(less_prot_rse)
+        add_protocol(less_prot_rse_id, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
+
+        diff_prot_rse = rse_name_generator()
+        diff_prot_rse_id = add_rse(diff_prot_rse)
+        add_protocol(diff_prot_rse_id, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
+
+        more_prot_rse = rse_name_generator()
+        more_prot_rse_id = add_rse(more_prot_rse)
+        add_protocol(more_prot_rse_id, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
+        add_protocol(more_prot_rse_id, {'scheme': 'scheme2', 'hostname': 'hostname2', 'port': 1000, 'impl': 'TODO'})
+        add_protocol(more_prot_rse_id, {'scheme': 'scheme3', 'hostname': 'hostname3', 'port': 1000, 'impl': 'TODO'})
+
+        data = {
+            'rses': {
+                less_prot_rse: {
+                    'rse_type': RSEType.TAPE,
+                    'availability': 3,
+                    'city': 'NewCity',
+                    'region_code': 'CH',
+                    'country_name': 'switzerland',
+                    'staging_area': False,
+                    'time_zone': 'Europe',
+                    'latitude': 1,
+                    'longitude': 2,
+                    'deterministic': True,
+                    'volatile': False,
+                    'protocols': [
+                        {
+                            'scheme': 'scheme',
+                            'hostname': 'hostname',
+                            'port': 1000,
+                            'impl': 'impl'
+                        },
+                        {
+                            'scheme': 'scheme2',
+                            'hostname': 'hostname2',
+                            'port': 1000,
+                            'impl': 'impl'
+                        }
+                    ]
+                },
+                diff_prot_rse: {
+                    'rse_type': RSEType.DISK,
+                    'availability': 3,
+                    'city': 'NewCity',
+                    'region_code': 'CH',
+                    'country_name': 'switzerland',
+                    'staging_area': False,
+                    'time_zone': 'Europe',
+                    'latitude': 1,
+                    'longitude': 2,
+                    'deterministic': True,
+                    'volatile': False,
+                    'protocols': [{
+                        'scheme': 'scheme1',
+                        'hostname': 'hostname1',
+                        'port': 1000,
+                        'impl': 'impl_new'
+                    }]
+                },
+                more_prot_rse: {
+                    'rse_type': RSEType.DISK,
+                    'availability': 2,
+                    'city': 'NewCity',
+                    'region_code': 'CH',
+                    'country_name': 'switzerland',
+                    'staging_area': False,
+                    'time_zone': 'Europe',
+                    'latitude': 1,
+                    'longitude': 2,
+                    'deterministic': True,
+                    'volatile': False,
+                    'protocols': [
+                        {
+                            'scheme': 'scheme',
+                            'hostname': 'hostname',
+                            'port': 1000,
+                            'impl': 'impl'
+                        },
+                        {
+                            'scheme': 'scheme2',
+                            'hostname': 'hostname2',
+                            'port': 1000,
+                            'impl': 'impl'
+                        }
+                    ]
+                }
+            }
+        }
+
+        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', protocol_sync_method='edit')
+
+        # Check that new protocol was added
+        protocols = get_rse_protocols(less_prot_rse_id)
+        protocols_formated = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl'], 'prefix': protocol['prefix']} for protocol in protocols['protocols']]
+        dp = data['rses'][less_prot_rse]['protocols'][0]
+        data_protocol_formated = {'hostname': dp['hostname'], 'scheme': dp['scheme'], 'port': dp['port'], 'impl': dp.get('impl', ''), 'prefix': dp.get('prefix', '')}
+        assert_in(data_protocol_formated, protocols_formated)
+
+        # Check that protocol was added
+        protocols = get_rse_protocols(diff_prot_rse_id)
+        protocols_formated = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl']} for protocol in protocols['protocols']]
+        data_protocol_formated = {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'impl_new'}
+        assert_in(data_protocol_formated, protocols_formated)
+
+        # Check that missing protocol was not deleted
+        protocols = get_rse_protocols(more_prot_rse_id)
+        protocols_formated = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl']} for protocol in protocols['protocols']]
+        data_protocol_formated = {'scheme': 'scheme3', 'hostname': 'hostname3', 'port': 1000, 'impl': 'TODO'}
+        assert_in(data_protocol_formated, protocols_formated)
+
+    def test_import_protocols_hard(self):
+        """ IMPORTER (CORE): test import protocols (HARD mode). """
+        # In protocols sync mode hard: New protocols are created, existing protocols are modified, leftover protocols are deleted
+
+        less_prot_rse = rse_name_generator()
+        less_prot_rse_id = add_rse(less_prot_rse)
+        add_protocol(less_prot_rse_id, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
+
+        diff_prot_rse = rse_name_generator()
+        diff_prot_rse_id = add_rse(diff_prot_rse)
+        add_protocol(diff_prot_rse_id, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
+
+        more_prot_rse = rse_name_generator()
+        more_prot_rse_id = add_rse(more_prot_rse)
+        add_protocol(more_prot_rse_id, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
+        add_protocol(more_prot_rse_id, {'scheme': 'scheme2', 'hostname': 'hostname2', 'port': 1000, 'impl': 'TODO'})
+        add_protocol(more_prot_rse_id, {'scheme': 'scheme3', 'hostname': 'hostname3', 'port': 1000, 'impl': 'TODO'})
+
+        data = {
+            'rses': {
+                less_prot_rse: {
+                    'rse_type': RSEType.TAPE,
+                    'availability': 3,
+                    'city': 'NewCity',
+                    'region_code': 'CH',
+                    'country_name': 'switzerland',
+                    'staging_area': False,
+                    'time_zone': 'Europe',
+                    'latitude': 1,
+                    'longitude': 2,
+                    'deterministic': True,
+                    'volatile': False,
+                    'protocols': [
+                        {
+                            'scheme': 'scheme',
+                            'hostname': 'hostname',
+                            'port': 1000,
+                            'impl': 'impl'
+                        },
+                        {
+                            'scheme': 'scheme2',
+                            'hostname': 'hostname2',
+                            'port': 1000,
+                            'impl': 'impl'
+                        }
+                    ]
+                },
+                diff_prot_rse: {
+                    'rse_type': RSEType.DISK,
+                    'availability': 3,
+                    'city': 'NewCity',
+                    'region_code': 'CH',
+                    'country_name': 'switzerland',
+                    'staging_area': False,
+                    'time_zone': 'Europe',
+                    'latitude': 1,
+                    'longitude': 2,
+                    'deterministic': True,
+                    'volatile': False,
+                    'protocols': [{
+                        'scheme': 'scheme1',
+                        'hostname': 'hostname1',
+                        'port': 1000,
+                        'impl': 'impl_new'
+                    }]
+                },
+                more_prot_rse: {
+                    'rse_type': RSEType.DISK,
+                    'availability': 2,
+                    'city': 'NewCity',
+                    'region_code': 'CH',
+                    'country_name': 'switzerland',
+                    'staging_area': False,
+                    'time_zone': 'Europe',
+                    'latitude': 1,
+                    'longitude': 2,
+                    'deterministic': True,
+                    'volatile': False,
+                    'protocols': [
+                        {
+                            'scheme': 'scheme',
+                            'hostname': 'hostname',
+                            'port': 1000,
+                            'impl': 'impl'
+                        },
+                        {
+                            'scheme': 'scheme2',
+                            'hostname': 'hostname2',
+                            'port': 1000,
+                            'impl': 'impl'
+                        }
+                    ]
+                }
+            }
+        }
+
+        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', protocol_sync_method='hard')
+
+        # Check that new protocol was added
+        protocols = get_rse_protocols(less_prot_rse_id)
+        protocols_formated = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl'], 'prefix': protocol['prefix']} for protocol in protocols['protocols']]
+        dp = data['rses'][less_prot_rse]['protocols'][0]
+        data_protocol_formated = {'hostname': dp['hostname'], 'scheme': dp['scheme'], 'port': dp['port'], 'impl': dp.get('impl', ''), 'prefix': dp.get('prefix', '')}
+        assert_in(data_protocol_formated, protocols_formated)
+
+        # Check that protocol was modified
+        protocols = get_rse_protocols(diff_prot_rse_id)
+        protocols_formated = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl']} for protocol in protocols['protocols']]
+        data_protocol_formated = {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'impl_new'}
+        assert_in(data_protocol_formated, protocols_formated)
+
+        # Check that missing protocol was deleted
+        protocols = get_rse_protocols(more_prot_rse_id)
+        protocols_formated = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl']} for protocol in protocols['protocols']]
+        data_protocol_formated = {'scheme': 'scheme3', 'hostname': 'hostname3', 'port': 1000, 'impl': 'TODO'}
+        assert(data_protocol_formated not in protocols_formated)
 
 
 class TestExporter(object):
@@ -500,6 +1242,12 @@ class TestExportImport(object):
 
     def test_export_import(self):
         """ IMPORT/EXPORT (REST): Test the export and import of data together to check same syntax."""
+        if not config_has_section('importer'):
+            config_add_section('importer')
+            config_set('importer', 'rse_sync_method', 'hard')
+            config_set('importer', 'attr_method', 'hard')
+            config_set('importer', 'protocol_method', 'hard')
+
         # Setup new RSE, distance, attribute, limits
         new_rse = rse_name_generator()
         add_rse(new_rse)

@@ -664,6 +664,7 @@ class RSE(BASE, SoftModelBase):
         self.deleted_at = None
         self.save(session=session)
 
+
 class RSELimit(BASE, ModelBase):
     """Represents RSE limits"""
     __tablename__ = 'rse_limits'
