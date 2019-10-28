@@ -42,13 +42,8 @@ from requests.packages.urllib3 import disable_warnings  # pylint: disable=import
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 
-try:
-    from fts3.rest.client.easy import Context, delegate  # pylint: disable=no-name-in-module,import-error
-    from fts3.rest.client.exceptions import BadEndpoint, ClientError, ServerError, DuplicateFileTransferSubmission  # pylint: disable=no-name-in-module,import-error
-except ImportError:
-    pass
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer
+from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer, DuplicateFileTransferSubmission
 from rucio.common.utils import APIEncoder
 from rucio.core.monitor import record_counter, record_timer
 from rucio.db.sqla.constants import FTSState
@@ -89,58 +84,6 @@ class FTS3Transfertool(Transfertool):
         else:
             self.cert = None
             self.verify = True  # True is the default setting of a requests.* method
-
-    # Public methods part of the common interface
-
-    def delegate_proxy(self, proxy, ca_path='/etc/grid-security/certificates/', duration_hours=96, timeleft_hours=72):
-        """Delegate user proxy to fts server if the lifetime is less than timeleft_hours
-
-        :param proxy: proxy to be delegated
-        :type proxy: str
-
-        :param ca_path: ca path for verification, defaults to '/etc/grid-security/certificates/'
-        :param ca_path: str, optional
-        :param duration_hours: delegation validity duration in hours, defaults to 48
-        :param duration_hours: int, optional
-        :param timeleft_hours: minimal delegation time left, defaults to 12
-        :param timeleft_hours: int, optional
-
-        :return: delegation ID
-        :rtype: str
-        """
-        logging.info("Delegating proxy %s to %s", proxy, self.external_host)
-        start_time = time.time()
-
-        try:
-            context = Context(self.external_host,
-                              ucert=proxy,
-                              ukey=proxy,
-                              verify=True,
-                              capath=ca_path)
-            delegation_id = delegate(context,
-                                     lifetime=datetime.timedelta(hours=duration_hours),
-                                     delegate_when_lifetime_lt=datetime.timedelta(hours=timeleft_hours))
-            record_timer('transfertool.fts3.delegate_proxy.success.%s' % proxy, (time.time() - start_time))
-        except ServerError:
-            logging.error("Server side exception during FTS proxy delegation.")
-            record_timer('transfertool.fts3.delegate_proxy.fail.%s' % proxy, (time.time() - start_time))
-            raise
-        except ClientError:
-            logging.error("Config side exception during FTS proxy delegation.")
-            record_timer('transfertool.fts3.delegate_proxy.fail.%s' % proxy, (time.time() - start_time))
-            raise
-        except BadEndpoint:
-            logging.error("Wrong FTS endpoint: %s", self.external_host)
-            record_timer('transfertool.fts3.delegate_proxy.fail.%s' % proxy, (time.time() - start_time))
-            raise
-        except ReadTimeout as error:
-            raise TransferToolTimeout(error)
-        except JSONDecodeError as error:
-            raise TransferToolWrongAnswer(error)
-
-        logging.info("Delegated proxy %s", delegation_id)
-
-        return delegation_id, context
 
     def submit(self, files, job_params, timeout=None):
         """
@@ -208,7 +151,7 @@ class FTS3Transfertool(Transfertool):
             transfer_id = str(post_result.json()['job_id'])
         elif post_result and post_result.status_code == 409:
             record_counter('transfertool.fts3.%s.submission.failure' % self.__extract_host(self.external_host), len(files))
-            raise DuplicateFileTransferSubmission
+            raise DuplicateFileTransferSubmission()
         else:
             if expected_transfer_id:
                 transfer_id = expected_transfer_id

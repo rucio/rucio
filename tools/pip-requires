@@ -18,6 +18,4 @@ redis==3.2.1                                      # Python client for Redis key-
 numpy==1.14.2                                     # Numpy for forecasting T3C
 paramiko==2.4.2                                   # SSH2 protocol library
 Flask==1.0.2                                      # Python web framework
-fts3-rest-API==3.7.1; python_version == '2.7'     # FTS rest API
 M2Crypto<=0.35.2                                  # Dependency of FTS rest API; Temporary fix since 0.33 does not install on CC7
-MyProxyClient==2.1.0                              # myproxy client bindings
