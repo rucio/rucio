@@ -665,11 +665,6 @@ class RSE(BASE, SoftModelBase):
                    CheckConstraint('RSE IS NOT NULL', name='RSES_RSE__NN'),
                    CheckConstraint('RSE_TYPE IS NOT NULL', name='RSES_TYPE_NN'),)
 
-    def restore(self, session=None):
-        """Delete this object"""
-        self.deleted = False
-        self.deleted_at = None
-        self.save(session=session)
 
 class RSELimit(BASE, ModelBase):
     """Represents RSE limits"""
