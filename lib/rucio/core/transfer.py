@@ -44,7 +44,6 @@ from rucio.db.sqla.constants import DIDType, RequestState, FTSState, RSEType, Re
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.fts3 import FTS3Transfertool
-from rucio.transfertool.fts3_myproxy import FTS3MyProxyTransfertool
 from rucio.common.config import config_get
 """
 The core transfer.py is specifically for handling transfer-requests, thus requests
@@ -55,7 +54,6 @@ Requests accessed by request_id  are covered in the core request.py
 REGION_SHORT = make_region().configure('dogpile.cache.memcached',
                                        expiration_time=600,
                                        arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
-USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
 
 
 def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None, user_transfer_job=False):
@@ -89,8 +87,6 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
             job_files.append(job_file)
         if not user_transfer_job:
             transfer_id = FTS3Transfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
-        elif USER_TRANSFERS == "cms":
-            transfer_id = FTS3MyProxyTransfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
         else:
             # if no valid USER TRANSFER cases --> go with std submission
             transfer_id = FTS3Transfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
