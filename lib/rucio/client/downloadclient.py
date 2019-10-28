@@ -19,6 +19,7 @@
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018-2019
 # - Tobias Wegner <tobias.wegner@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -1068,7 +1069,7 @@ class DownloadClient:
             # extend RSE expression to exclude tape RSEs for non-admin accounts
             rse_expression = item.get('rse')
             if self.is_tape_excluded:
-                rse_expression = '*\istape=true' if not rse_expression else '(%s)\istape=true' % rse_expression
+                rse_expression = '*\istape=true' if not rse_expression else '(%s)\istape=true' % rse_expression  # NOQA: W605
             logger.debug('rse_expression: %s' % rse_expression)
 
             # get PFNs of files and datasets

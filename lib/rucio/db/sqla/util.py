@@ -78,7 +78,7 @@ def destroy_database(echo=True):
     try:
         models.unregister_models(engine)
     except Exception as e:
-            print('Cannot destroy schema -- assuming already gone, continuing:', e)
+        print('Cannot destroy schema -- assuming already gone, continuing:', e)
 
 
 def drop_everything(echo=True):

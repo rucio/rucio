@@ -109,11 +109,11 @@ def auto_activate_endpoint(tc, ep_id):
         logging.critical('Endpoint({}) Not Active! Error! Source message: {}'.format(ep_id, r['message']))
         # sys.exit(1) # TODO: don't want to exit; hook into graceful exit
     elif r['code'] == 'AutoActivated.CachedCredential':
-            logging.info('Endpoint({}) autoactivated using a cached credential.'.format(ep_id))
+        logging.info('Endpoint({}) autoactivated using a cached credential.'.format(ep_id))
     elif r['code'] == 'AutoActivated.GlobusOnlineCredential':
-            logging.info(('Endpoint({}) autoactivated using a built-in Globus credential.').format(ep_id))
+        logging.info(('Endpoint({}) autoactivated using a built-in Globus credential.').format(ep_id))
     elif r['code'] == 'AlreadyActivated':
-            logging.info('Endpoint({}) already active until at least {}'.format(ep_id, 3600))
+        logging.info('Endpoint({}) already active until at least {}'.format(ep_id, 3600))
     return r['code']
 
 

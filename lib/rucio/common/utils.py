@@ -19,7 +19,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2017
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Tobias Wegner <twegner@cern.ch>, 2018
@@ -544,9 +544,9 @@ def clean_surls(surls):
     for surl in surls:
         if surl.startswith('srm'):
             surl = re.sub(':[0-9]+/', '/', surl)
-            surl = re.sub('/srm/managerv1\?SFN=', '', surl)
-            surl = re.sub('/srm/v2/server\?SFN=', '', surl)
-            surl = re.sub('/srm/managerv2\?SFN=', '', surl)
+            surl = re.sub('/srm/managerv1\?SFN=', '', surl)  # NOQA: W605
+            surl = re.sub('/srm/v2/server\?SFN=', '', surl)  # NOQA: W605
+            surl = re.sub('/srm/managerv2\?SFN=', '', surl)  # NOQA: W605
         res.append(surl)
     res.sort()
     return res
@@ -642,7 +642,7 @@ def is_archive(name):
 
     :return: A boolean.
     '''
-    regexp = '^.*\.(zip|zipx|tar.gz|tgz|tar.Z|tar.bz2|tbz2)(\.\d+)*$'
+    regexp = r'^.*\.(zip|zipx|tar.gz|tgz|tar.Z|tar.bz2|tbz2)(\.\d+)*$'
     if re.match(regexp, name, re.I):
         return True
     return False

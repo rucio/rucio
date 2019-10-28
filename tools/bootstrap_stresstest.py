@@ -9,6 +9,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+# - Martin Barisits, <martin.barisits@cern.ch>, 2019
 
 import json
 import sys
@@ -38,8 +39,8 @@ meta_keys = [('project', 'all', None, ['data13_hip', ]),
              ('prod_step', 'all', None, []),
              ('datatype', 'all', None, []),
              ('version', 'all', None, []),
-             ('guid', 'file', '^(\{){0,1}[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}(\}){0,1}$', []),
-             ('events', 'derived', '^\d+$', [])]
+             ('guid', 'file', r'^(\{){0,1}[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}(\}){0,1}$', []),
+             ('events', 'derived', r'^\d+$', [])]
 
 if __name__ == '__main__':
 
@@ -100,7 +101,7 @@ if __name__ == '__main__':
     for user in known_users:
         print 'Adding account %s' % user[0]
         try:
-            c.add_account(user[0], user[1])
+            c.add_account(user[0], user[1], None)
             c.add_scope(user[0], user[0])  # Adding default scope
         except Duplicate:
             print 'User %s already exists' % user[0]
@@ -110,7 +111,7 @@ if __name__ == '__main__':
     # 4. Fill up DB to total number of Users
     while users_total:
         try:
-            c.add_account('user%s' % users_total, 'user')  # Adding user
+            c.add_account('user%s' % users_total, 'user', None)  # Adding user
             c.add_scope('user%s' % users_total, 'user%s' % users_total)  # Adding default scope
         except Duplicate:
             print 'User user%s already exists' % users_total

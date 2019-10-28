@@ -1,15 +1,16 @@
-"""
-   Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
-  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-"""
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Martin Barisits, <martin.barisits@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
 # pylint: disable=E0611
 from nose.tools import assert_equal, assert_raises
@@ -43,7 +44,7 @@ class TestNamingConventionCore:
         scope = InternalScope('mock')
         if scope not in conventions:
             add_naming_convention(scope=scope,
-                                  regexp='^(?P<project>mock)\.(?P<datatype>\w+)\.\w+$',
+                                  regexp=r'^(?P<project>mock)\.(?P<datatype>\w+)\.\w+$',
                                   convention_type=KeyType.DATASET)
 
         meta = validate_name(scope=InternalScope('mck'), name='mock.DESD.yipeeee', did_type='D')
@@ -69,5 +70,5 @@ class TestNamingConventionCore:
         assert_equal(observed_datatype, 'AOD')
 
         delete_naming_convention(scope=scope,
-                                 regexp='(?P<project>mock)\.(\w+)$',
+                                 regexp=r'(?P<project>mock)\.(\w+)$',
                                  convention_type=KeyType.DATASET)
