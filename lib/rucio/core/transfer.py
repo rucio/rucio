@@ -44,7 +44,7 @@ from rucio.core import did, message as message_core, request as request_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.replica import add_replicas
 from rucio.core.request import queue_requests, set_requests_state
-from rucio.core.rse import get_rse_name, list_rses
+from rucio.core.rse import get_rse_name, list_rses, get_rse_supported_checksums
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, RequestState, FTSState, RSEType, RequestType, ReplicaState
@@ -780,9 +780,14 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     else:
                         verify_checksum = 'both'
 
-                logging.info('source RSE checksum compatibility: {}'.format(rse_attrs[source_rse_id][CHECKSUM_KEY]))
-                logging.info('destination RSE checksum compatibility: {}'.format(rse_attrs[dest_rse_id][CHECKSUM_KEY]))
-                common_checksum_names = set(rse_attrs[dest_rse_id][CHECKSUM_KEY]).intersection(rse_attrs[source_rse_id][CHECKSUM_KEY])
+                source_rse_checksums = get_rse_supported_checksums(source_rse_id, session)
+                dest_rse_checksums = get_rse_supported_checksums(dest_rse_id, session)
+
+                logging.info('source RSE checksum compatibility: {}'.format(source_rse_checksums))
+                logging.info('destination RSE checksum compatibility: {}'.format(dest_rse_checksums))
+
+                common_checksum_names = set(source_rse_checksums).intersection(dest_rse_checksums)
+
                 if len(common_checksum_names) == 0:
                     logging.info('No common checksum method. Verifying destination only.')
                     verify_checksum = 'destination'
