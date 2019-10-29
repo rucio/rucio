@@ -181,7 +181,8 @@ def clean_headers(msg):
     return msg
 
 
-GLOBALLY_SUPPORTED_CHECKSUMS = ['adler32', 'md5', 'sha256', 'crc32']
+# GLOBALLY_SUPPORTED_CHECKSUMS = ['adler32', 'md5', 'sha256', 'crc32']
+GLOBALLY_SUPPORTED_CHECKSUMS = ['adler32', 'md5']
 CHECKSUM_ALGO_DICT = {}
 PREFERRED_CHECKSUM = GLOBALLY_SUPPORTED_CHECKSUMS[0]
 CHECKSUM_KEY = 'supported_checksums'
