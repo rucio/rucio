@@ -592,13 +592,13 @@ class TestReplicationRuleCore():
 
         set_local_account_limit(account=self.jdoe, rse_id=self.rse3_id, bytes=400)
         # check with two global limits - one breaking limit is enough to let the rule fail
-        set_global_account_limit(rse_exp='%s|MOCK2' % self.rse3, account=self.jdoe, bytes=400)
-        set_global_account_limit(rse_exp='%s|MOCK' % self.rse3, account=self.jdoe, bytes=10)
+        set_global_account_limit(rse_expression='%s|MOCK2' % self.rse3, account=self.jdoe, bytes=400)
+        set_global_account_limit(rse_expression='%s|MOCK' % self.rse3, account=self.jdoe, bytes=10)
         assert_raises(InsufficientAccountLimit, add_rule, dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         set_local_account_limit(account=self.jdoe, rse_id=self.rse3_id, bytes=-1)
-        set_global_account_limit(rse_exp='%s|MOCK' % self.rse3, account=self.jdoe, bytes=-1)
-        set_global_account_limit(rse_exp='%s|MOCK2' % self.rse3, account=self.jdoe, bytes=-1)
+        set_global_account_limit(rse_expression='%s|MOCK' % self.rse3, account=self.jdoe, bytes=-1)
+        set_global_account_limit(rse_expression='%s|MOCK2' % self.rse3, account=self.jdoe, bytes=-1)
 
     def test_rule_add_fails_rse_limit(self):
         """ REPLICATION RULE (CORE): Test if a rule fails correctly when rse limit set"""
