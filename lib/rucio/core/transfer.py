@@ -33,14 +33,16 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import bindparam, text, false
 
 from rucio.common import constants
-from rucio.common.exception import RucioException, UnsupportedOperation, InvalidRSEExpression, RSEProtocolNotSupported, RequestNotFound
+from rucio.common.exception import (RucioException, UnsupportedOperation,
+                                    InvalidRSEExpression, RSEProtocolNotSupported,
+                                    RequestNotFound, NoDistance)
 from rucio.common.rse_attributes import get_rse_attributes
 from rucio.common.types import InternalAccount
 from rucio.common.utils import construct_surl
 from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.monitor import record_counter, record_timer
-from rucio.core.replica import add_replica
+from rucio.core.replica import add_replicas
 from rucio.core.rse import get_rse_name, list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
@@ -452,8 +454,8 @@ def get_hops(source_rse_id, dest_rse_id, session=None):
     # TODO: Have an rse_expression to specify the eligible hops
 
     # Load the graph from the distances table
-    distance_graph = __load_distance_graph(session=session)    
-    
+    distance_graph = __load_distance_graph(session=session)
+
     # 1. Check if there is a direct connection between source and dest:
     if distance_graph.get(source_rse_id, {dest_rse_id, -1}).get(dest_rse_id) >= 0:
         # Check if there is a protocol match between the two RSEs
@@ -473,7 +475,7 @@ def get_hops(source_rse_id, dest_rse_id, session=None):
 
     # 2. There is no connection or no scheme match --> Try a multi hop --> Dijkstra algorithm
     HOP_PENALTY = 5  # Penalty to be applied to each further hop
-            
+
     visited_nodes = {source_rse_id: {'distance': 0,
                                      'path': []}}  # Dijkstra already visisted nodes
     # {rse_id: {'path': [{'source_rse_id':, 'dest_rse_id':, 'source_scheme', 'dest_scheme': }],
@@ -481,17 +483,17 @@ def get_hops(source_rse_id, dest_rse_id, session=None):
     # }
     to_visit = [source_rse_id]  # Nodes to visit, once list is empty, break loop
     local_optimum = 9999  # Local optimum to accelerated search
-    
+
     while to_visit:
         for current_node in copy.deepcopy(to_visit):
             to_visit.remove(current_node)
             current_distance = visited_nodes[current_node]['distance']
             current_path = visited_nodes[current_node]['path']
-            
+
             for out_v in distance_graph[current_node]:
                 # Check if the distance would be smaller
                 if visited_nodes.get(out_v, {'distance': 9999})['distance'] > current_distance + distance_graph[current_node][out_v] + HOP_PENALTY\
-                    and local_optimum > current_distance + distance_graph[current_node][out_v] + HOP_PENALTY:
+                        and local_optimum > current_distance + distance_graph[current_node][out_v] + HOP_PENALTY:
                     # Check if there is a compatible protocol pair
                     try:
                         matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=__load_rse_settings(rse_id=out_v, session=session),
@@ -616,12 +618,12 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             if len(list_hops) > 1:
                 multihop = True
                 multi_hop_dict[req_id] = list_hops
-        except RSEProtocolNotSupported:
-            # logging.debug("Request %s: no link from %s to %s" % (req_id, source_rse_name, dest_rse_name))
-            if req_id not in reqs_scheme_mismatch:
-                reqs_scheme_mismatch.append(req_id)
-            if req_id in reqs_no_source:
-                reqs_no_source.remove(req_id)
+        except NoDistance:
+            logging.warning("Request %s: no link from %s to %s" % (req_id, source_rse_name, dest_rse_name))
+            if req_id in reqs_scheme_mismatch:
+                reqs_scheme_mismatch.remove(req_id)
+            if req_id not in reqs_no_source:
+                reqs_no_source.append(req_id)
             continue
 
         # This loop is to fill the rse_infos and rse_mapping dictionary for the intermediate RSEs including the dest_rse_id
@@ -908,14 +910,21 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values())[0]
 
                 if transfers[req_id]['dest_rse_id'] != hop['dest_rse_id']:
-                    add_replica(rse_id=hop['dest_rse_id'],
-                                scope=transfers[req_id]['scope'],
-                                name=transfers[req_id]['name'],
-                                bytes=transfers[req_id]['bytes'],
-                                account=InternalAccount('root'),
-                                adler32=transfers[req_id]['adler32'],
-                                md5=transfers[req_id]['md5'],
-                                session=session)
+                    files = [{'scope': transfers[req_id]['scope'],
+                              'name': transfers[req_id]['name'],
+                              'bytes': transfers[req_id]['bytes'],
+                              'adler32': transfers[req_id]['adler32'],
+                              'md5': transfers[req_id]['md5'],
+                              'state': 'C'}]
+                    try:
+                        add_replicas(rse_id=hop['dest_rse_id'],
+                                     files=files,
+                                     account=InternalAccount('root'),
+                                     ignore_availability=False,
+                                     dataset_meta=None,
+                                     session=session)
+                    except Exception as error:
+                        logging.error('Problem adding replicas %s:%s on %s : %s', transfers[req_id]['scope'], transfers[req_id]['name'], rses_info[dest_rse_id]['rse'], str(error))
                     # TODO : Create the new request
                     new_req_id = 'jewkjkjnewdwked'
 
@@ -1193,7 +1202,7 @@ def __load_distance_graph(session=None):
     :param session:   The DB Session to use.
     :returns:         Dictionary based graph object.
     """
-    
+
     result = REGION_SHORT.get('distance_graph')
     if isinstance(result, NoValue):
         distance_graph = {}
@@ -1201,7 +1210,7 @@ def __load_distance_graph(session=None):
             if distance.src_rse_id in distance_graph:
                 distance_graph[distance.src_rse_id][distance.dest_rse_id] = distance.agis_distance
             else:
-                distance_graph[distance.src_rse_id] = {distance.dest_rse_id: distance.agis_distance}            
+                distance_graph[distance.src_rse_id] = {distance.dest_rse_id: distance.agis_distance}
         REGION_SHORT.set('distance_graph', distance_graph)
         result = distance_graph
     return result

@@ -1753,13 +1753,14 @@ def get_sum_count_being_deleted(rse_id, session=None):
 
 
 @transactional_session
-def update_replicas_states(replicas, nowait=False, session=None):
+def update_replicas_states(replicas, nowait=False, add_tombstone=False, session=None):
     """
     Update File replica information and state.
 
-    :param replicas: The list of replicas.
-    :param nowait:   Nowait parameter for the for_update queries.
-    :param session:  The database session in use.
+    :param replicas:        The list of replicas.
+    :param nowait:          Nowait parameter for the for_update queries.
+    :param add_tombstone:   To set a tombstone in case there is no lock on the replica.
+    :param session:         The database session in use.
     """
 
     for replica in replicas:
@@ -1790,7 +1791,7 @@ def update_replicas_states(replicas, nowait=False, session=None):
         elif replica['state'] == ReplicaState.AVAILABLE:
             rucio.core.lock.successful_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
             # If No locks we set a tombstone in the future
-            if lock_cnt == 0:
+            if add_tombstone and lock_cnt == 0:
                 set_tombstone(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'], tombstone=datetime.utcnow() + timedelta(hours=2), session=session)
 
         elif replica['state'] == ReplicaState.UNAVAILABLE:
@@ -1800,7 +1801,7 @@ def update_replicas_states(replicas, nowait=False, session=None):
                                             broken_message=replica.get('broken_message', None),
                                             nowait=nowait, session=session)
             # If No locks we set a tombstone in the future
-            if lock_cnt == 0:
+            if add_tombstone and lock_cnt == 0:
                 set_tombstone(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'], tombstone=datetime.utcnow() + timedelta(hours=2), session=session)
         elif replica['state'] == ReplicaState.TEMPORARY_UNAVAILABLE:
             query = query.filter(or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE, models.RSEFileAssociation.state == ReplicaState.TEMPORARY_UNAVAILABLE))
