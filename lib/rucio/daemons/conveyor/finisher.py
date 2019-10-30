@@ -1,4 +1,4 @@
-# Copyright 2015-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2015-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,12 @@
 #
 # Authors:
 # - Wen Guan <wguan.icedew@gmail.com>, 2015-2016
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2015-2019
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Robert Illingworth <illingwo@fnal.gov>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
@@ -149,14 +150,15 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000)
                 logging.error('%s %s', prepend_str, traceback.format_exc())
         except Exception as error:
             logging.critical('%s %s', prepend_str, str(error))
+
+        if once:
+            return
+
         end_time = time.time()
         time_diff = end_time - start_time
         if time_diff < sleep_time:
             logging.info('%s Sleeping for a while :  %s seconds', prepend_str, (sleep_time - time_diff))
             graceful_stop.wait(sleep_time - time_diff)
-
-        if once:
-            return
 
     logging.info('%s Graceful stop requests', prepend_str)
 
