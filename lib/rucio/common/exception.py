@@ -962,3 +962,13 @@ class DIDTypeError(RucioException):
         super(DIDTypeError, self).__init__(*args, **kwargs)
         self._message = 'Error using DIDType'
         self.error_code = 91
+
+
+class NoDistance(RucioException):
+    """
+    No distance can be found between 2 RSEs
+    """
+    def __init__(self, *args, **kwargs):
+        super(NoDistance, self).__init__(*args, **kwargs)
+        self._message = 'Cannot found a distance between 2 RSEs'
+        self.error_code = 92
