@@ -84,18 +84,18 @@ class AccountLimitClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def set_global_account_limit(self, account, rse_exp, bytes):
+    def set_global_account_limit(self, account, rse_expression, bytes):
         """
         Sends the request to set a global account limit for an account.
 
-        :param account: The name of the account.
-        :param rse_exp: The rse expression.
-        :param bytes:   An integer with the limit in bytes.
-        :return:        True if quota was created successfully else False.
+        :param account:        The name of the account.
+        :param rse_expression: The rse expression.
+        :param bytes:          An integer with the limit in bytes.
+        :return:               True if quota was created successfully else False.
         """
 
         data = dumps({'bytes': bytes})
-        path = '/'.join([self.ACCOUNTLIMIT_BASEURL, 'global', account, rse_exp])
+        path = '/'.join([self.ACCOUNTLIMIT_BASEURL, 'global', account, rse_expression])
         url = build_url(choice(self.list_hosts), path=path)
 
         r = self._send_request(url, type='POST', data=data)
@@ -106,18 +106,18 @@ class AccountLimitClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def delete_global_account_limit(self, account, rse_exp):
+    def delete_global_account_limit(self, account, rse_expression):
         """
         Sends the request to remove a global account limit.
 
-        :param account: The name of the account.
-        :param rse_exp: The rse expression.
+        :param account:        The name of the account.
+        :param rse_expression: The rse expression.
 
         :return: True if quota was removed successfully. False otherwise.
         :raises AccountNotFound: if account doesn't exist.
         """
 
-        path = '/'.join([self.ACCOUNTLIMIT_BASEURL, 'global', account, rse_exp])
+        path = '/'.join([self.ACCOUNTLIMIT_BASEURL, 'global', account, rse_expression])
         url = build_url(choice(self.list_hosts), path=path)
 
         r = self._send_request(url, type='DEL')

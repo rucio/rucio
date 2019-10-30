@@ -124,7 +124,7 @@ class GlobalAccountLimit(RucioController):
     '''
     AccountLimit
     '''
-    def POST(self, account, rse_exp):
+    def POST(self, account, rse_expression):
         """ Create or update an account limit.
         HTTP Success:
             201 Created
@@ -138,7 +138,7 @@ class GlobalAccountLimit(RucioController):
         :param X-Rucio-Auth-Account: Account identifier.
         :param X-Rucio-Auth-Token:   As an 32 character hex string.
         :param account:              Account name.
-        :param rse_exp:              RSE expression.
+        :param rse_expression:       RSE expression.
         """
         json_data = data()
         try:
@@ -154,7 +154,7 @@ class GlobalAccountLimit(RucioController):
             raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            set_global_account_limit(account=account, rse_exp=rse_exp, bytes=bytes, issuer=ctx.env.get('issuer'))
+            set_global_account_limit(account=account, rse_expression=rse_expression, bytes=bytes, issuer=ctx.env.get('issuer'))
         except AccessDenied as exception:
             raise generate_http_error(401, 'AccessDenied', exception.args[0])
         except RSENotFound as exception:
@@ -167,7 +167,7 @@ class GlobalAccountLimit(RucioController):
 
         raise Created()
 
-    def DELETE(self, account, rse_exp):
+    def DELETE(self, account, rse_expression):
         """ Delete an account limit.
         HTTP Success:
             200 OK
@@ -180,10 +180,10 @@ class GlobalAccountLimit(RucioController):
         :param X-Rucio-Auth-Account: Account identifier.
         :param X-Rucio-Auth-Token:   As an 32 character hex string.
         :param account:              Account name.
-        :param rse_exp:              RSE expression.
+        :param rse_expression:       RSE expression.
         """
         try:
-            delete_global_account_limit(account=account, rse_exp=rse_exp, issuer=ctx.env.get('issuer'))
+            delete_global_account_limit(account=account, rse_expression=rse_expression, issuer=ctx.env.get('issuer'))
         except AccessDenied as exception:
             raise generate_http_error(401, 'AccessDenied', exception.args[0])
         except AccountNotFound as exception:
