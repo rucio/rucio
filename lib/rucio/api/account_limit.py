@@ -100,7 +100,7 @@ def get_global_account_limit(account, rse_expression):
     """
 
     account = InternalAccount(account)
-    return {rse_exp: account_limit_core.get_global_account_limit(account=account, rse_expression=rse_expression)}
+    return {rse_expression: account_limit_core.get_global_account_limit(account=account, rse_expression=rse_expression)}
 
 
 def set_local_account_limit(account, rse, bytes, issuer):

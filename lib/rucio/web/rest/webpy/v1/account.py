@@ -498,7 +498,7 @@ class GlobalAccountLimits(RucioController):
         """
         header('Content-Type', 'application/json')
         try:
-            if rse_exp:
+            if rse_expression:
                 limits = get_global_account_limit(account=account, rse_expression=rse_expression)
             else:
                 limits = get_global_account_limits(account=account)
