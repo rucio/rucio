@@ -87,20 +87,20 @@ def get_global_account_limits(account):
     return account_limit_core.get_global_account_limits(account=account)
 
 
-def get_global_account_limit(account, rse_exp):
+def get_global_account_limit(account, rse_expression):
     """
-    Lists the limitation names/values for the specified account name and rse name.
+    Lists the limitation names/values for the specified account name and rse expression.
 
     REST API: http://<host>:<port>/rucio/account/<account>/limits
 
-    :param account:     The account name.
-    :param rse:         The rse name.
+    :param account:         The account name.
+    :param rse_expression:  The rse expression.
 
     :returns: The account limit.
     """
 
     account = InternalAccount(account)
-    return {rse_exp: account_limit_core.get_global_account_limit(account=account, rse_exp=rse_exp)}
+    return {rse_exp: account_limit_core.get_global_account_limit(account=account, rse_expression=rse_expression)}
 
 
 def set_local_account_limit(account, rse, bytes, issuer):
@@ -126,17 +126,17 @@ def set_local_account_limit(account, rse, bytes, issuer):
     account_limit_core.set_local_account_limit(account=account, rse_id=rse_id, bytes=bytes)
 
 
-def set_global_account_limit(account, rse_exp, bytes, issuer):
+def set_global_account_limit(account, rse_expression, bytes, issuer):
     """
     Set a global account limit.
 
-    :param account: The account name.
-    :param rse_exp  The rse expression.
-    :param bytes:   The limit in bytes.
-    :param issuer:  The issuer account_core.
+    :param account:         The account name.
+    :param rse_expression:  The rse expression.
+    :param bytes:           The limit in bytes.
+    :param issuer:          The issuer account_core.
     """
 
-    kwargs = {'account': account, 'rse_exp': rse_exp, 'bytes': bytes}
+    kwargs = {'account': account, 'rse_expression': rse_expression, 'bytes': bytes}
     if not rucio.api.permission.has_permission(issuer=issuer, action='set_global_account_limit', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not set account limits.' % (issuer))
 
@@ -145,7 +145,7 @@ def set_global_account_limit(account, rse_exp, bytes, issuer):
     if not account_exists(account=account):
         raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (account))
 
-    account_limit_core.set_global_account_limit(account=account, rse_exp=rse_exp, bytes=bytes)
+    account_limit_core.set_global_account_limit(account=account, rse_expression=rse_expression, bytes=bytes)
 
 
 def delete_local_account_limit(account, rse, issuer):
@@ -172,18 +172,18 @@ def delete_local_account_limit(account, rse, issuer):
     return account_limit_core.delete_local_account_limit(account=account, rse_id=rse_id)
 
 
-def delete_global_account_limit(account, rse_exp, issuer):
+def delete_global_account_limit(account, rse_expression, issuer):
     """
     Delete a global account limit..
 
-    :param account: The account name.
-    :param rse_exp: The rse expression.
-    :param issuer:  The issuer account_core.
+    :param account:        The account name.
+    :param rse_expression: The rse expression.
+    :param issuer:         The issuer account_core.
 
     :returns: True if successful; False otherwise.
     """
 
-    kwargs = {'account': account, 'rse_exp': rse_exp}
+    kwargs = {'account': account, 'rse_expression': rse_expression}
     if not rucio.api.permission.has_permission(issuer=issuer, action='delete_global_account_limit', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not delete global account limits.' % (issuer))
 
@@ -192,7 +192,7 @@ def delete_global_account_limit(account, rse_exp, issuer):
     if not account_exists(account=account):
         raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (account))
 
-    return account_limit_core.delete_global_account_limit(account=account, rse_exp=rse_exp)
+    return account_limit_core.delete_global_account_limit(account=account, rse_expression=rse_expression)
 
 
 def get_local_account_usage(account, rse, issuer):
@@ -222,18 +222,18 @@ def get_local_account_usage(account, rse, issuer):
     return [api_update_return_dict(d) for d in account_limit_core.get_local_account_usage(account=account, rse_id=rse_id)]
 
 
-def get_global_account_usage(account, rse_exp, issuer):
+def get_global_account_usage(account, rse_expression, issuer):
     """
     Get the account usage and connect it with (if available) the account limits of the account.
 
-    :param account:  The account to read.
-    :param rse_exp:  The rse expression to read (If none, get all).
-    :param issuer:   The issuer account.
+    :param account:         The account to read.
+    :param rse_expression:  The rse expression to read (If none, get all).
+    :param issuer:          The issuer account.
 
     :returns:        List of dicts {'rse_id', 'bytes_used', 'files_used', 'bytes_limit'}
     """
 
-    kwargs = {'account': account, 'rse_exp': rse_exp}
+    kwargs = {'account': account, 'rse_expression': rse_expression}
     if not rucio.api.permission.has_permission(issuer=issuer, action='get_global_account_usage', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not list global account usage.' % (issuer))
 
@@ -242,4 +242,4 @@ def get_global_account_usage(account, rse_exp, issuer):
     if not account_exists(account=account):
         raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (account))
 
-    return account_limit_core.get_global_account_usage(account=account, rse_exp=rse_exp)
+    return account_limit_core.get_global_account_usage(account=account, rse_expression=rse_expression)

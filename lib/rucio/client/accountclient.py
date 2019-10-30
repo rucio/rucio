@@ -242,15 +242,15 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
             raise exc_cls(exc_msg)
 
-    def get_global_account_limit(self, account, rse_exp):
+    def get_global_account_limit(self, account, rse_expression):
         """
         List the account limit for the specific RSE expression.
 
-        :param account: The account name.
-        :param rse_exp: The rse expression.
+        :param account:        The account name.
+        :param rse_expression: The rse expression.
         """
 
-        path = '/'.join([self.ACCOUNTS_BASEURL, account, 'limits', 'global', rse_exp])
+        path = '/'.join([self.ACCOUNTS_BASEURL, account, 'limits', 'global', rse_expression])
         url = build_url(choice(self.list_hosts), path=path)
         res = self._send_request(url, type='GET')
         if res.status_code == codes.ok:
@@ -323,15 +323,15 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
             raise exc_cls(exc_msg)
 
-    def get_global_account_usage(self, account, rse_exp=None):
+    def get_global_account_usage(self, account, rse_expression=None):
         """
         List the account usage for one or all RSE expressions of this account.
 
-        :param account: The account name.
-        :param rse_exp: The rse expression.
+        :param account:        The account name.
+        :param rse_expression: The rse expression.
         """
-        if rse_exp:
-            path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage', 'global', rse_exp])
+        if rse_expression:
+            path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage', 'global', rse_expression])
         else:
             path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage', 'global'])
         url = build_url(choice(self.list_hosts), path=path)

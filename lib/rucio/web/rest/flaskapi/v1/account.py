@@ -414,13 +414,13 @@ class LocalAccountLimits(MethodView):
 
 class GlobalAccountLimits(MethodView):
     @check_accept_header_wrapper_flask(['application/json'])
-    def get(self, account, rse_exp=None):
+    def get(self, account, rse_expression=None):
         """ get the current global limits for an account on a specific RSE expression
 
         .. :quickref: GlobalAccountLimits; Get global account limits.
 
         :param account: The account name.
-        :param rse: The rse name.
+        :param rse_expression: The rse expression.
         :resheader Content-Type: application/json
         :status 200: OK.
         :status 401: Invalid auth token.
@@ -431,8 +431,8 @@ class GlobalAccountLimits(MethodView):
         """
 
         try:
-            if rse_exp:
-                limits = get_global_account_limit(account=account, rse_exp=rse_exp)
+            if rse_expression:
+                limits = get_global_account_limit(account=account, rse_expression=rse_expression)
             else:
                 limits = get_global_account_limits(account=account)
         except RSENotFound as error:
@@ -667,7 +667,7 @@ class LocalUsage(MethodView):
 class GlobalUsage(MethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
-    def get(self, account, rse_exp=None):
+    def get(self, account, rse_expression=None):
         """
         Return the global account usage of the account.
 
@@ -686,7 +686,7 @@ class GlobalUsage(MethodView):
 
         try:
             data = ""
-            for usage in get_global_account_usage(account=account, rse_exp=rse_exp, issuer=request.environ.get('issuer')):
+            for usage in get_global_account_usage(account=account, rse_expression=rse_expression, issuer=request.environ.get('issuer')):
                 data += dumps(usage, cls=APIEncoder) + '\n'
             return Response(data, content_type="application/x-json-stream")
         except AccountNotFound as error:
@@ -721,7 +721,7 @@ bp.add_url_rule('/<account>/limits/local', view_func=local_account_limits_view, 
 bp.add_url_rule('/<account>/limits/local/<rse>', view_func=local_account_limits_view, methods=['get', ])
 global_account_limits_view = GlobalAccountLimits.as_view('global_account_limit')
 bp.add_url_rule('/<account>/limits/global', view_func=global_account_limits_view, methods=['get', ])
-bp.add_url_rule('/<account>/limits/global/<rse_exp>', view_func=global_account_limits_view, methods=['get', ])
+bp.add_url_rule('/<account>/limits/global/<rse_expression>', view_func=global_account_limits_view, methods=['get', ])
 identities_view = Identities.as_view('identities')
 bp.add_url_rule('/<account>/identities', view_func=identities_view, methods=['get', 'post', 'delete'])
 rules_view = Rules.as_view('rules')
@@ -733,7 +733,7 @@ bp.add_url_rule('/<account>/usage', view_func=usage_view, methods=['get', ])
 bp.add_url_rule('/<account>/usage/<rse>', view_func=usage_view, methods=['get', ])
 global_usage_view = GlobalUsage.as_view('global_usage')
 bp.add_url_rule('/<account>/usage', view_func=global_usage_view, methods=['get', ])
-bp.add_url_rule('/<account>/usage/<rse_exp>', view_func=global_usage_view, methods=['get', ])
+bp.add_url_rule('/<account>/usage/<rse_expression>', view_func=global_usage_view, methods=['get', ])
 
 application = Flask(__name__)
 application.register_blueprint(bp)
