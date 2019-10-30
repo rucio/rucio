@@ -477,7 +477,7 @@ class LocalAccountLimits(RucioController):
 class GlobalAccountLimits(RucioController):
 
     @check_accept_header_wrapper(['application/json'])
-    def GET(self, account, rse_exp=None):
+    def GET(self, account, rse_expression=None):
         """ get the current limits for an account on a specific RSE
 
         HTTP Success:
@@ -491,15 +491,15 @@ class GlobalAccountLimits(RucioController):
         :param X-Rucio-Account: Account identifier.
         :param X-Rucio-Auth-Token: as an 32 character hex string.
 
-        :param account:   The account name.
-        :param rse:       The rse name.
+        :param account:        The account name.
+        :param rse_expression: The rse expression.
 
         :returns: JSON dict containing informations about the requested user.
         """
         header('Content-Type', 'application/json')
         try:
             if rse_exp:
-                limits = get_global_account_limit(account=account, rse_exp=rse_exp)
+                limits = get_global_account_limit(account=account, rse_expression=rse_expression)
             else:
                 limits = get_global_account_limits(account=account)
         except RSENotFound as error:
@@ -750,7 +750,7 @@ class LocalUsage(RucioController):
 class GlobalUsage(RucioController):
 
     @check_accept_header_wrapper(['application/x-json-stream'])
-    def GET(self, account, rse_exp=None):
+    def GET(self, account, rse_expression=None):
         """
         Return the account usage of the account.
 
@@ -762,11 +762,12 @@ class GlobalUsage(RucioController):
             406 Not Acceptable
             404 Not Found
 
-        :param account: The account name.
+        :param account:        The account name.
+        :param rse_expression: The RSE expression.
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            for usage in get_global_account_usage(account=account, rse_exp=rse_exp, issuer=ctx.env.get('issuer')):
+            for usage in get_global_account_usage(account=account, rse_expression=rse_expression, issuer=ctx.env.get('issuer')):
                 yield dumps(usage, cls=APIEncoder) + '\n'
         except AccountNotFound as error:
             raise generate_http_error(404, 'AccountNotFound', error.args[0])
