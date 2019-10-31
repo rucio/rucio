@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2017
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2019
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2018
@@ -1061,6 +1061,8 @@ class Request(BASE, ModelBase, Versioned):
     submitter_id = Column(Integer)
     estimated_started_at = Column(DateTime)
     estimated_transferred_at = Column(DateTime)
+    staging_started_at = Column(DateTime)
+    staging_finished_at = Column(DateTime)
     account = Column(InternalAccountString(25))
     requested_at = Column(DateTime)
     priority = Column(Integer)
