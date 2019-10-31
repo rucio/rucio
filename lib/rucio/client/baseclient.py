@@ -315,7 +315,7 @@ class BaseClient(object):
                 continue
 
             if result is not None and result.status_code == codes.unauthorized:  # pylint: disable-msg=E1101
-                self.session = session()
+                self.session = Session()
                 self.__get_token()
                 hds['X-Rucio-Auth-Token'] = self.auth_token
             else:
