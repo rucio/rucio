@@ -440,14 +440,16 @@ def update_transfer_state(external_host, transfer_id, state, logging_prepend_str
 
 
 @transactional_session
-def get_hops(source_rse_id, dest_rse_id, session=None):
+def get_hops(source_rse_id, dest_rse_id, include_multihop=False, session=None):
     """
     Get a list of hops needed to transfer date from source_rse_id to dest_rse_id.
     Ideally, the list will only include one item (dest_rse_id) since no hops are needed.
 
-    :param source_rse_id:    Source RSE id of the transfer.
-    :param dest_rse_id:      Dest RSE id of the transfer.
-    :returns:                List of hops in the format [{'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm'}]
+    :param source_rse_id:      Source RSE id of the transfer.
+    :param dest_rse_id:        Dest RSE id of the transfer.
+    :param include_multihop:   If no direct link can be made, also include multihop transfers.
+    :returns:                  List of hops in the format [{'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm'}]
+    :raises:                   NoDistance
     """
 
     # TODO: Might be problematic to always load the distance_graph, since it might be expensive
@@ -457,7 +459,7 @@ def get_hops(source_rse_id, dest_rse_id, session=None):
     distance_graph = __load_distance_graph(session=session)
 
     # 1. Check if there is a direct connection between source and dest:
-    if distance_graph.get(source_rse_id, {dest_rse_id, -1}).get(dest_rse_id) >= 0:
+    if distance_graph.get(source_rse_id, {dest_rse_id, None}).get(dest_rse_id) is not None:
         # Check if there is a protocol match between the two RSEs
         try:
             matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=__load_rse_settings(rse_id=dest_rse_id, session=session),
@@ -469,9 +471,15 @@ def get_hops(source_rse_id, dest_rse_id, session=None):
                      'dest_rse_id': dest_rse_id,
                      'source_scheme': matching_scheme[1],
                      'dest_scheme': matching_scheme[0]}]
-        except RSEProtocolNotSupported:
-            # Delete the edge from the graph
-            del distance_graph[source_rse_id][dest_rse_id]
+        except RSEProtocolNotSupported, e:
+            if include_multihop:
+                # Delete the edge from the graph
+                del distance_graph[source_rse_id][dest_rse_id]
+            else:
+                raise e
+
+    if not include_multihop:
+        raise NoDistance()
 
     # 2. There is no connection or no scheme match --> Try a multi hop --> Dijkstra algorithm
     HOP_PENALTY = 5  # Penalty to be applied to each further hop
@@ -493,7 +501,7 @@ def get_hops(source_rse_id, dest_rse_id, session=None):
             for out_v in distance_graph[current_node]:
                 # Check if the distance would be smaller
                 if visited_nodes.get(out_v, {'distance': 9999})['distance'] > current_distance + distance_graph[current_node][out_v] + HOP_PENALTY\
-                        and local_optimum > current_distance + distance_graph[current_node][out_v] + HOP_PENALTY:
+                   and local_optimum > current_distance + distance_graph[current_node][out_v] + HOP_PENALTY:
                     # Check if there is a compatible protocol pair
                     try:
                         matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=__load_rse_settings(rse_id=out_v, session=session),
@@ -515,7 +523,7 @@ def get_hops(source_rse_id, dest_rse_id, session=None):
     if dest_rse_id in visited_nodes:
         return visited_nodes[dest_rse_id]['path']
     else:
-        return []
+        raise NoDistance()
 
 
 def get_attributes(attributes):
@@ -614,7 +622,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         # In case of non-connected, the list contains all the intermediary RSEs
         list_hops = []
         try:
-            list_hops = get_hops(source_rse_id, dest_rse_id)
+            list_hops = get_hops(source_rse_id, dest_rse_id, session=session)
             if len(list_hops) > 1:
                 multihop = True
                 multi_hop_dict[req_id] = list_hops
@@ -1208,9 +1216,9 @@ def __load_distance_graph(session=None):
         distance_graph = {}
         for distance in session.query(models.Distance).all():
             if distance.src_rse_id in distance_graph:
-                distance_graph[distance.src_rse_id][distance.dest_rse_id] = distance.agis_distance
+                distance_graph[distance.src_rse_id][distance.dest_rse_id] = distance.ranking
             else:
-                distance_graph[distance.src_rse_id] = {distance.dest_rse_id: distance.agis_distance}
+                distance_graph[distance.src_rse_id] = {distance.dest_rse_id: distance.ranking}
         REGION_SHORT.set('distance_graph', distance_graph)
         result = distance_graph
     return result
