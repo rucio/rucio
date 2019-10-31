@@ -448,7 +448,7 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, session=None):
     :param source_rse_id:      Source RSE id of the transfer.
     :param dest_rse_id:        Dest RSE id of the transfer.
     :param include_multihop:   If no direct link can be made, also include multihop transfers.
-    :returns:                  List of hops in the format [{'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm'}]
+    :returns:                  List of hops in the format [{'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'source_scheme_priority': N, 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm', 'dest_scheme_priority': N}]
     :raises:                   NoDistance
     """
 
@@ -470,7 +470,9 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, session=None):
             return [{'source_rse_id': source_rse_id,
                      'dest_rse_id': dest_rse_id,
                      'source_scheme': matching_scheme[1],
-                     'dest_scheme': matching_scheme[0]}]
+                     'dest_scheme': matching_scheme[0],
+                     'source_scheme_priority': matching_scheme[3],
+                     'dest_scheme_priority': matching_scheme[2]}]
         except RSEProtocolNotSupported, e:
             if include_multihop:
                 # Delete the edge from the graph
@@ -513,7 +515,9 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, session=None):
                                                 'path': current_path + [{'source_rse_id': current_node,
                                                                          'dest_rse_id': out_v,
                                                                          'source_scheme': matching_scheme[1],
-                                                                         'dest_scheme': matching_scheme[0]}]}
+                                                                         'dest_scheme': matching_scheme[0],
+                                                                         'source_scheme_priority': matching_scheme[3],
+                                                                         'dest_scheme_priority': matching_scheme[2]}]}
                         if out_v != dest_rse_id:
                             to_visit.append(out_v)
                         else:
