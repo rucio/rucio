@@ -35,7 +35,7 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'postgresql', 'mysql']:
-        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         add_column('requests', sa.Column('staging_started_at', sa.DateTime()), schema=schema)
         add_column('requests', sa.Column('staging_finished_at', sa.DateTime()), schema=schema)
         add_column('requests_history', sa.Column('staging_started_at', sa.DateTime()), schema=schema)
@@ -48,7 +48,7 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'postgresql', 'mysql']:
-        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         drop_column('requests', 'staging_started_at', schema=schema)
         drop_column('requests', 'staging_finished_at', schema=schema)
         drop_column('requests_history', 'staging_started_at', schema=schema)
