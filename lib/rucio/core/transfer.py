@@ -43,6 +43,7 @@ from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.replica import add_replicas
+from rucio.core.request import queue_requests
 from rucio.core.rse import get_rse_name, list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
@@ -975,7 +976,27 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     except Exception as error:
                         logging.error('Problem adding replicas %s:%s on %s : %s', scope, name, dest_rse_name, str(error))
                     # TODO : Create the new request
-                    new_req_id = 'jewkjkjnewdwked'
+
+                    req_attributes = {'activity': transfers[req_id]['file_metadata']['activity'],
+                                      'source_replica_expression': None,
+                                      'lifetime': None,
+                                      'ds_scope': None,
+                                      'ds_name': None,
+                                      'bytes': transfers[req_id]['file_metadata']['bytes'],
+                                      'md5': transfers[req_id]['file_metadata']['md5'],
+                                      'adler32': transfers[req_id]['file_metadata']['adler32'],
+                                      'priority': None,
+                                      'allow_tape_source': True}
+                    new_req = queue_requests(requests=[{'dest_rse_id': dest_rse_id,
+                                                        'scope': scope,
+                                                        'name': name,
+                                                        'rule_id': None,
+                                                        'attributes': req_attributes,
+                                                        'request_type': RequestType.TRANSFER,
+                                                        'retry_count': retry_count,
+                                                        'account': InternalAccount('root'),
+                                                        'requested_at': datetime.datetime.now()}], session=session)
+                    new_req_id = new_req[0]['id']
 
                     # I - Here we will compute the destination URL
                     # I.1 - Get destination protocol

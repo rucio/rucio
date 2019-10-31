@@ -634,7 +634,7 @@ def find_matching_scheme(rse_settings_dest, rse_settings_src, operation_src, ope
     for dest_protocol in dest_candidates:
         for src_protocol in src_candidates:
             if __check_compatible_scheme(dest_protocol['scheme'], src_protocol['scheme']):
-                return (dest_protocol['scheme'], src_protocol['scheme'], dest_protocol[domain][operation_dest], src_protocol[domain][operation_src])
+                return (dest_protocol['scheme'], src_protocol['scheme'], dest_protocol['domains'][domain][operation_dest], src_protocol['domains'][domain][operation_src])
 
     raise exception.RSEProtocolNotSupported('No protocol for provided settings found : %s.' % str(rse_settings_dest))
 
