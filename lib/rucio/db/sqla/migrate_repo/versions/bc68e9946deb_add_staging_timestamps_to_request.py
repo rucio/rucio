@@ -26,7 +26,7 @@ from alembic.op import add_column, drop_column
 
 # Alembic revision identifiers
 revision = 'bc68e9946deb'
-down_revision = '2cbee484dcf9'
+down_revision = '9a1b149a2044'
 
 
 def upgrade():
