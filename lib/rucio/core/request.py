@@ -436,13 +436,17 @@ def query_request_details(request_id, transfertool='fts3', session=None):
 
 
 @transactional_session
-def set_request_state(request_id, new_state, transfer_id=None, transferred_at=None, started_at=None, src_rse_id=None, err_msg=None, session=None):
+def set_request_state(request_id, new_state, transfer_id=None, transferred_at=None, started_at=None, staging_started_at=None, staging_finished_at=None, src_rse_id=None, err_msg=None, session=None):
     """
     Update the state of a request. Fails silently if the request_id does not exist.
 
     :param request_id:   Request-ID as a 32 character hex string.
     :param new_state:    New state as string.
     :param transfer_id:  External transfer job id as a string.
+    :param transferred_at: Transferred at timestamp
+    :param started_at: Started at timestamp
+    :param staging_started_at: Timestamp indicating the moment the stage beggins
+    :param staging_finished_at: Timestamp indicating the moment the stage ends
     :param session:      Database session to use.
     """
 
@@ -456,6 +460,10 @@ def set_request_state(request_id, new_state, transfer_id=None, transferred_at=No
             update_items['transferred_at'] = transferred_at
         if started_at:
             update_items['started_at'] = started_at
+        if staging_started_at:
+            update_items['staging_started_at'] = staging_started_at
+        if staging_finished_at:
+            update_items['staging_finished_at'] = staging_finished_at
         if src_rse_id:
             update_items['source_rse_id'] = src_rse_id
         if err_msg:
@@ -640,6 +648,8 @@ def archive_request(request_id, session=None):
                                                                 dest_url=req['dest_url'],
                                                                 requested_at=req['requested_at'],
                                                                 submitted_at=req['submitted_at'],
+                                                                staging_started_at=req['staging_started_at'],
+                                                                staging_finished_at=req['staging_finished_at'],
                                                                 started_at=req['started_at'],
                                                                 estimated_started_at=req['estimated_started_at'],
                                                                 estimated_at=req['estimated_at'],
@@ -1217,6 +1227,8 @@ def update_request_state(response, logging_prepend_str=None, session=None):
                 src_url = response.get('src_url', None)
                 src_rse = response.get('src_rse', None)
                 src_rse_id = response.get('src_rse_id', None)
+                staging_started_at = response.get('staging_start', None)
+                staging_finished_at = response.get('staging_finished', None)
                 started_at = response.get('started_at', None)
                 transferred_at = response.get('transferred_at', None)
                 if job_m_replica and (str(job_m_replica).lower() == str('true')) and src_url:
@@ -1235,6 +1247,8 @@ def update_request_state(response, logging_prepend_str=None, session=None):
                                   response['new_state'],
                                   transfer_id=transfer_id,
                                   started_at=started_at,
+                                  staging_started_at=staging_started_at,
+                                  staging_finished_at=staging_finished_at,
                                   transferred_at=transferred_at,
                                   src_rse_id=src_rse_id,
                                   err_msg=err_msg,
