@@ -33,20 +33,21 @@ from __future__ import print_function
 import base64
 import datetime
 import errno
+import getpass
 import hashlib
 import imp
 import json
 import os
-import pwd
+import os.path
 import re
 import requests
 import socket
 import subprocess
+import tempfile
 import threading
 import time
 import zlib
 
-from getpass import getuser
 from logging import getLogger, Formatter
 from logging.handlers import RotatingFileHandler
 from uuid import uuid4 as uuid
@@ -616,24 +617,18 @@ def get_tmp_dir():
 
     :return: A path.
     """
-    user, tmp_dir = None, None
+    base_dir = os.path.abspath(tempfile.gettempdir())
     try:
-        user = pwd.getpwuid(os.getuid()).pw_name
+        return os.path.join(base_dir, getpass.getuser())
     except Exception:
         pass
 
-    for env_var in ('TMP', 'TMPDIR', 'TEMP'):
-        if env_var in os.environ:
-            tmp_dir = os.environ[env_var]
-            break
+    try:
+        return os.path.join(base_dir, str(os.getuid()))
+    except Exception:
+        pass
 
-    if not user:
-        user = getuser()
-
-    if not tmp_dir:
-        return '/tmp/' + user + '/'
-
-    return tmp_dir + '/' + user + '/'
+    return base_dir
 
 
 def is_archive(name):
