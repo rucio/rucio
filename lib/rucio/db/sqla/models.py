@@ -17,7 +17,7 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2019
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2019
 # - asket <asket.agarwal96@gmail.com>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
@@ -736,6 +736,8 @@ class RSEProtocols(BASE, ModelBase):
     write_wan = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
     delete_wan = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
     third_party_copy = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
+    third_party_copy_read = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
+    third_party_copy_write = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
     extended_attributes = Column(String(4000), nullable=True)
     rses = relationship("RSE", backref="rse_protocols")
     _table_args = (PrimaryKeyConstraint('rse_id', 'scheme', 'hostname', 'port', name='RSE_PROTOCOL_PK'),
