@@ -27,7 +27,7 @@ from alembic.op import (create_primary_key, create_check_constraint,
 
 # Alembic revision identifiers
 revision = 'a74275a1ad30'
-down_revision = '9a1b149a2044'
+down_revision = '2b69addda658'
 
 table_name = 'account_glob_limits'
 
