@@ -636,11 +636,13 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 reqs_no_source.append(req_id)
             continue
 
-        # This loop is to fill the rse_infos and rse_mapping dictionary for the intermediate RSEs including the dest_rse_id
+        # This loop is to fill the rses_info and rse_mapping dictionary for the intermediate RSEs including the dest_rse_id
         for hop in list_hops:
             # hop = {'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm'}
             if hop['dest_rse_id'] not in rse_mapping:
                 rse_mapping[hop['dest_rse_id']] = get_rse_name(rse_id=hop['dest_rse_id'], session=session)
+            if hop['dest_rse_id'] not in rses_info:
+                rses_info[hop['dest_rse_id']] = rsemgr.get_rse_info(rse=rse_mapping[hop['dest_rse_id']], session=session)
             if hop['dest_rse_id'] not in rse_attrs:
                 rse_attrs[dest_rse_id] = get_rse_attributes(hop['dest_rse_id'], session=session)
 
