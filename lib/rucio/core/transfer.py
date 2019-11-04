@@ -475,12 +475,12 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, session=None):
                      'dest_scheme': matching_scheme[0],
                      'source_scheme_priority': matching_scheme[3],
                      'dest_scheme_priority': matching_scheme[2]}]
-        except RSEProtocolNotSupported, e:
+        except RSEProtocolNotSupported as error:
             if include_multihop:
                 # Delete the edge from the graph
                 del distance_graph[source_rse_id][dest_rse_id]
             else:
-                raise e
+                raise error
 
     if not include_multihop:
         raise NoDistance()
@@ -638,6 +638,13 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 reqs_scheme_mismatch.remove(req_id)
             if req_id not in reqs_no_source:
                 reqs_no_source.append(req_id)
+            continue
+        except RSEProtocolNotSupported:
+            logging.warning("Request %s: no matching protocol between %s and %s" % (req_id, source_rse_name, dest_rse_name))
+            if req_id in reqs_no_source:
+                reqs_no_source.remove(req_id)
+            if req_id not in reqs_scheme_mismatch:
+                reqs_scheme_mismatch.append(req_id)
             continue
 
         # This loop is to fill the rses_info and rse_mapping dictionary for the intermediate RSEs including the dest_rse_id
