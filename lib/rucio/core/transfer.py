@@ -1279,28 +1279,6 @@ def __add_compatible_schemes(schemes, allowed_schemes):
 
 
 @transactional_session
-def __load_distance_graph(session=None):
-    """
-    Loads the distance graph from the cache or distance table
-
-    :param session:   The DB Session to use.
-    :returns:         Dictionary based graph object.
-    """
-
-    result = REGION_SHORT.get('distance_graph')
-    if isinstance(result, NoValue):
-        distance_graph = {}
-        for distance in session.query(models.Distance).all():
-            if distance.src_rse_id in distance_graph:
-                distance_graph[distance.src_rse_id][distance.dest_rse_id] = distance.ranking
-            else:
-                distance_graph[distance.src_rse_id] = {distance.dest_rse_id: distance.ranking}
-        REGION_SHORT.set('distance_graph', distance_graph)
-        result = distance_graph
-    return result
-
-
-@transactional_session
 def __load_distance_edges_node(rse_id, session=None):
     """
     Loads the outgoing edges of the distance graph for one node.
@@ -1313,7 +1291,9 @@ def __load_distance_edges_node(rse_id, session=None):
     result = REGION_SHORT.get('distance_graph_%s' % str(rse_id))
     if isinstance(result, NoValue):
         distance_graph = {}
-        for distance in session.query(models.Distance).filter(models.Distance.src_rse_id == rse_id).all():
+        for distance in session.query(models.Distance).join(models.RSE, models.RSE.id == models.Distance.dest_rse_id)\
+                               .filter(models.Distance.src_rse_id == rse_id)\
+                               .filter(models.RSE.deleted == false()).all():
             if distance.src_rse_id in distance_graph:
                 distance_graph[distance.src_rse_id][distance.dest_rse_id] = distance.ranking
             else:
