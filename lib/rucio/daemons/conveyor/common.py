@@ -270,7 +270,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
             if 'adler32' in list(t_file['metadata'].keys()) and t_file['metadata']['adler32']:
                 t_file['checksum'] = 'ADLER32:%s' % str(t_file['metadata']['adler32'])
 
-        multihop = transfer.find('multihop', False)
+        multihop = transfer.get('multihop', False)
 
         external_host = transfer['external_host']
         scope = t_file['metadata']['scope']
