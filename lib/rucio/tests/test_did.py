@@ -21,8 +21,8 @@
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 
 from __future__ import print_function
 
@@ -43,7 +43,7 @@ from rucio.common.exception import (DataIdentifierNotFound, DataIdentifierAlread
                                     UnsupportedStatus, ScopeNotFound, FileAlreadyExists, FileConsistencyMismatch)
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
-from rucio.core.account_limit import set_account_limit
+from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids, detach_dids,
                             get_metadata, set_metadata, get_did, get_did_access_cnt)
 from rucio.core.rse import get_rse_id
@@ -382,8 +382,8 @@ class TestDIDClients:
         tmp_rse = 'MOCK'
         tmp_dsn = 'dsn_%s' % generate_uuid()
         root = InternalAccount('root')
-        set_account_limit(root, get_rse_id('MOCK'), -1)
-        set_account_limit(root, get_rse_id('CERN-PROD_TZERO'), -1)
+        set_local_account_limit(root, get_rse_id('MOCK'), -1)
+        set_local_account_limit(root, get_rse_id('CERN-PROD_TZERO'), -1)
 
         # PFN example: rfio://castoratlas.cern.ch/castor/cern.ch/grid/atlas/tzero/xx/xx/xx/filename
         dataset_meta = {'project': 'data13_hip',
