@@ -18,7 +18,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
 
@@ -30,7 +30,7 @@ from traceback import format_exc
 from flask import Flask, Blueprint, request
 from flask.views import MethodView
 
-from rucio.api.account_limit import set_account_limit, delete_account_limit
+from rucio.api.account_limit import set_local_account_limit, delete_local_account_limit
 from rucio.common.exception import RSENotFound, AccessDenied, AccountNotFound
 from rucio.common.utils import generate_http_error_flask
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request
@@ -72,7 +72,7 @@ class AccountLimit(MethodView):
             return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            set_account_limit(account=account, rse=rse, bytes=bytes, issuer=request.environ.get('issuer'))
+            set_local_account_limit(account=account, rse=rse, bytes=bytes, issuer=request.environ.get('issuer'))
         except AccessDenied as exception:
             return generate_http_error_flask(401, 'AccessDenied', exception.args[0])
         except RSENotFound as exception:
@@ -98,7 +98,7 @@ class AccountLimit(MethodView):
         :status 404: Account not found
         """
         try:
-            delete_account_limit(account=account, rse=rse, issuer=request.environ.get('issuer'))
+            delete_local_account_limit(account=account, rse=rse, issuer=request.environ.get('issuer'))
         except AccessDenied as exception:
             return generate_http_error_flask(401, 'AccessDenied', exception.args[0])
         except AccountNotFound as exception:
