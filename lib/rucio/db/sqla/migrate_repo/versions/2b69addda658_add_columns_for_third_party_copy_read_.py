@@ -34,8 +34,8 @@ def upgrade():
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        add_column('rse_protocols', sa.Column('third_party_copy_write', sa.Integer), server_default='0', schema=schema)
-        add_column('rse_protocols', sa.Column('third_party_copy_read', sa.Integer), server_default='0', schema=schema)
+        add_column('rse_protocols', sa.Column('third_party_copy_write', sa.Integer), schema=schema)
+        add_column('rse_protocols', sa.Column('third_party_copy_read', sa.Integer), schema=schema)
 
 
 def downgrade():
