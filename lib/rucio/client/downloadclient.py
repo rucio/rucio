@@ -573,9 +573,8 @@ class DownloadClient:
                 end_time = time.time()
 
                 if success and not item.get('merged_options', {}).get('ignore_checksum', False):
-                    local_checksum = None
-                    rucio_checksum = None
-                    if self._verify_checksum(item, temp_file_path, rucio_checksum, local_checksum):
+                    verified, rucio_checksum, local_checksum = _verify_checksum(item, temp_file_path)
+                    if not verified:
                         success = False
                         os.unlink(temp_file_path)
                         logger.warning('%sChecksum validation failed for file: %s' % (log_prefix, did_str))
@@ -1446,21 +1445,22 @@ class DownloadClient:
         if self.tracing:
             send_trace(trace, self.client.host, self.client.user_agent)
 
-    def _verify_checksum(self, item, path, rucio_checksum, local_checksum):
-        rucio_checksum = item.get(PREFERRED_CHECKSUM)
-        local_checksum = None
-        checksum_algo = CHECKSUM_ALGO_DICT.get(PREFERRED_CHECKSUM)
 
-        if rucio_checksum and checksum_algo:
-            local_checksum = checksum_algo(path)
-        else:
-            for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
-                rucio_checksum = item.get(checksum_name)
-                checksum_algo = CHECKSUM_ALGO_DICT.get(checksum_name)
-                if rucio_checksum and checksum_algo:
-                    local_checksum = checksum_algo(path)
+def _verify_checksum(item, path):
+    rucio_checksum = item.get(PREFERRED_CHECKSUM)
+    local_checksum = None
+    checksum_algo = CHECKSUM_ALGO_DICT.get(PREFERRED_CHECKSUM)
 
-        if rucio_checksum and checksum_algo:
-            return rucio_checksum == local_checksum
-        else:
-            return False
+    if rucio_checksum and checksum_algo:
+        local_checksum = checksum_algo(path)
+        return rucio_checksum == local_checksum, rucio_checksum, local_checksum
+    else:
+        for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
+            rucio_checksum = item.get(checksum_name)
+            checksum_algo = CHECKSUM_ALGO_DICT.get(checksum_name)
+            if rucio_checksum and checksum_algo:
+                local_checksum = checksum_algo(path)
+                break
+
+    return rucio_checksum == local_checksum, rucio_checksum, local_checksum
+
