@@ -43,7 +43,7 @@ from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.replica import add_replicas
-from rucio.core.request import queue_requests
+from rucio.core.request import queue_requests, set_request_state
 from rucio.core.rse import get_rse_name, list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
@@ -441,7 +441,7 @@ def update_transfer_state(external_host, transfer_id, state, logging_prepend_str
 
 
 @transactional_session
-def get_hops(source_rse_id, dest_rse_id, include_multihop=False, session=None):
+def get_hops(source_rse_id, dest_rse_id, include_multihop=True, session=None):
     """
     Get a list of hops needed to transfer date from source_rse_id to dest_rse_id.
     Ideally, the list will only include one item (dest_rse_id) since no hops are needed.
@@ -453,6 +453,7 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, session=None):
     :raises:                   NoDistance
     """
 
+    logging.debug('Starting get_hops')
     # TODO: Might be problematic to always load the distance_graph, since it might be expensive
     # TODO: Have an rse_expression to specify the eligible hops
 
@@ -560,7 +561,7 @@ def get_dsn(scope, name, dsn):
     return 'other'
 
 
-@read_session
+@transactional_session
 def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, limit=None, activity=None, older_than=None, rses=None, schemes=None,
                                               bring_online=43200, retry_other_fts=False, failover_schemes=None, session=None):
     """
@@ -819,6 +820,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                      'dest_scheme_priority': dest_scheme_priority}
                 if multihop:
                     transfers[req_id]['multihop'] = True
+                    transfers[req_id]['initial_request_id'] = req_id
 
             else:
                 current_schemes = transfers[req_id]['schemes']
@@ -948,7 +950,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             logging.critical("Exception happened when trying to get transfer for request %s: %s" % (req_id, traceback.format_exc()))
             break
 
-    for req_id in transfers:
+    for req_id in copy.deepcopy(transfers):
         # If the transfer is a multihop, need to create the intermediate replicas, intermediate requests and the transfers
         if transfers[req_id].get('multihop', False):
             parent_request = None
@@ -972,10 +974,10 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'third_party_copy', source_protocol)
                 source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values())[0]
 
-                if transfers[req_id]['dest_rse_id'] != hop['dest_rse_id']:
+                if transfers[req_id]['file_metadata']['dest_rse_id'] != hop['dest_rse_id']:
                     files = [{'scope': scope,
                               'name': name,
-                              'bytes': transfers[req_id]['file_metadata']['bytes'],
+                              'bytes': transfers[req_id]['file_metadata']['filesize'],
                               'adler32': transfers[req_id]['file_metadata']['adler32'],
                               'md5': transfers[req_id]['file_metadata']['md5'],
                               'state': 'C'}]
@@ -988,14 +990,13 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                      session=session)
                     except Exception as error:
                         logging.error('Problem adding replicas %s:%s on %s : %s', scope, name, dest_rse_name, str(error))
-                    # TODO : Create the new request
 
                     req_attributes = {'activity': transfers[req_id]['file_metadata']['activity'],
                                       'source_replica_expression': None,
                                       'lifetime': None,
                                       'ds_scope': None,
                                       'ds_name': None,
-                                      'bytes': transfers[req_id]['file_metadata']['bytes'],
+                                      'bytes': transfers[req_id]['file_metadata']['filesize'],
                                       'md5': transfers[req_id]['file_metadata']['md5'],
                                       'adler32': transfers[req_id]['file_metadata']['adler32'],
                                       'priority': None,
@@ -1009,12 +1010,16 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                                         'retry_count': retry_count,
                                                         'account': InternalAccount('root'),
                                                         'requested_at': datetime.datetime.now()}], session=session)
+                    # TODO : This assume that a new request is created, but if a request already exists
+                    # new_req will be an empty list.
                     new_req_id = new_req[0]['id']
+                    set_request_state(request_id=new_req_id, new_state=RequestState.QUEUED, session=session)
+                    logging.debug('New request created for the the transfer between %s and %s : %s', source_rse_name, dest_rse_name, new_req_id)
 
                     # I - Here we will compute the destination URL
                     # I.1 - Get destination protocol
                     dest_rse_id = hop['dest_rse_id']
-                    destination_protocol = hop['destination_scheme']
+                    destination_protocol = hop['dest_scheme']
                     dest_rse_id_key = 'write_%s_%s' % (dest_rse_id, destination_protocol)
                     if dest_rse_id_key not in protocols:
                         protocols[dest_rse_id_key] = rsemgr.create_protocol(rses_info[dest_rse_id], 'third_party_copy', destination_protocol)
@@ -1061,7 +1066,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     file_metadata = {'request_id': new_req_id,
                                      'scope': scope,
                                      'name': name,
-                                     'activity': transfers[req_id]['activity'],
+                                     'activity': transfers[req_id]['file_metadata']['activity'],
                                      'request_type': str(RequestType.TRANSFER).lower(),
                                      'src_type': transfer_src_type,
                                      'dst_type': transfer_dst_type,
@@ -1069,15 +1074,15 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                      'dst_rse': rses_info[dest_rse_id]['rse'],
                                      'src_rse_id': source_rse_id,
                                      'dest_rse_id': dest_rse_id,
-                                     'filesize': transfers[req_id]['file_metadata']['bytes'],
+                                     'filesize': transfers[req_id]['file_metadata']['filesize'],
                                      'md5': transfers[req_id]['file_metadata']['md5'],
                                      'adler32': transfers[req_id]['file_metadata']['adler32'],
                                      'verify_checksum': transfers[req_id]['file_metadata']['verify_checksum'],
-                                     'multihop': True,
-                                     'parent_request': parent_request,
-                                     'source_globus_endpoint_id': transfers[req_id]['source_globus_endpoint_id'],
-                                     'dest_globus_endpoint_id': transfers[req_id]['dest_globus_endpoint_id']}
+                                     'source_globus_endpoint_id': transfers[req_id]['file_metadata']['source_globus_endpoint_id'],
+                                     'dest_globus_endpoint_id': transfers[req_id]['file_metadata']['dest_globus_endpoint_id']}
                     transfers[new_req_id] = {'request_id': new_req_id,
+                                             'initial_request_id': req_id,
+                                             'parent_request': parent_request,
                                              'schemes': __add_compatible_schemes(schemes=[destination_protocol], allowed_schemes=current_schemes),
                                              # 'src_urls': [source_url],
                                              'sources': [(source_rse_name, source_url, source_rse_id, 0, 0)],
@@ -1090,6 +1095,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                              'external_host': transfers[req_id]['external_host'],
                                              'selection_strategy': 'auto',
                                              'rule_id': transfers[req_id]['rule_id'],
+                                             'multihop': True,
                                              'file_metadata': file_metadata}
                     parent_request = new_req_id
 
@@ -1100,7 +1106,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     transfers[req_id]['file_metadata']['src_rse'] = source_rse_name
                     # We make the assumption that the hop is never made through TAPE
                     transfers[req_id]['file_metadata']['src_type'] = 'DISK'
-                    transfers[req_id]['file_metadata']['sources'] = [(source_rse_name, source_url, source_rse_id, 0, 0)]
+                    transfers[req_id]['sources'] = [(source_rse_name, source_url, source_rse_id, 0, 0)]
         if req_id in reqs_no_source:
             reqs_no_source.remove(req_id)
         if req_id in reqs_only_tape_source:
