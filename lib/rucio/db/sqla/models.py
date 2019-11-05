@@ -13,15 +13,17 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2015-2017
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2019
+# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
+# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2019
+# - Wen Guan, <wen.guan@cern.ch>, 2015
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2019
-# - Wen Guan <wguan.icedew@gmail.com>, 2015
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2019
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2019
-# - asket <asket.agarwal96@gmail.com>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -1278,6 +1280,38 @@ class LifetimeExceptions(BASE, ModelBase):
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='LIFETIME_EXCEPT_ACCOUNT_FK'))
 
 
+class DidsFollowed(BASE, ModelBase):
+    """Represents the datasets followed by an user"""
+    __tablename__ = 'dids_followed'
+    scope = Column(InternalScopeString(SCOPE_LENGTH))
+    name = Column(String(NAME_LENGTH))
+    account = Column(InternalAccountString(25))
+    did_type = Column(DIDType.db_type(name='DIDS_FOLLOWED_TYPE_CHK'))
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'account', name='DIDS_FOLLOWED_PK'),
+                   CheckConstraint('SCOPE IS NOT NULL', name='DIDS_FOLLOWED_SCOPE_NN'),
+                   CheckConstraint('NAME IS NOT NULL', name='DIDS_FOLLOWED_NAME_NN'),
+                   CheckConstraint('DID_TYPE IS NOT NULL', name='DIDS_FOLLOWED_DID_TYPE_NN'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='DIDS_FOLLOWED_ACCOUNT_FK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DIDS_FOLLOWED_SCOPE_NAME_FK'))
+
+
+class FollowEvents(BASE, ModelBase):
+    """Represents the events affecting the datasets which are followed"""
+    __tablename__ = 'follow_events'
+    scope = Column(String(SCOPE_LENGTH))
+    name = Column(String(NAME_LENGTH))
+    account = Column(String(25))
+    did_type = Column(DIDType.db_type(name='FOLLOW_EVENTS_TYPE_CHK'))
+    event_type = Column(String(1024))
+    payload = Column(Text)
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'account', name='FOLLOW_EVENTS_PK'),
+                   CheckConstraint('SCOPE IS NOT NULL', name='FOLLOW_EVENTS_SCOPE_NN'),
+                   CheckConstraint('NAME IS NOT NULL', name='FOLLOW_EVENTS_NAME_NN'),
+                   CheckConstraint('DID_TYPE IS NOT NULL', name='FOLLOW_EVENTS_DID_TYPE_NN'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='FOLLOW_EVENTS_ACCOUNT_FK'),
+                   Index('FOLLOW_EVENTS_ACCOUNT_IDX', 'account'))
+
+
 def register_models(engine):
     """
     Creates database tables for all models with the given engine
@@ -1301,6 +1335,8 @@ def register_models(engine):
               DataIdentifier,
               DidMeta,
               DeletedDataIdentifier,
+              DidsFollowed,
+              FollowEvents,
               Heartbeats,
               Identity,
               IdentityAccountAssociation,
@@ -1358,6 +1394,8 @@ def unregister_models(engine):
               DidMeta,
               DataIdentifier,
               DeletedDataIdentifier,
+              DidsFollowed,
+              FollowEvents,
               Heartbeats,
               Identity,
               IdentityAccountAssociation,
