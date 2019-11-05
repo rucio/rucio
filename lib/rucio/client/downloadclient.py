@@ -1454,12 +1454,12 @@ def _verify_checksum(item, path):
     if rucio_checksum and checksum_algo:
         local_checksum = checksum_algo(path)
         return rucio_checksum == local_checksum, rucio_checksum, local_checksum
-    else:
-        for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
-            rucio_checksum = item.get(checksum_name)
-            checksum_algo = CHECKSUM_ALGO_DICT.get(checksum_name)
-            if rucio_checksum and checksum_algo:
-                local_checksum = checksum_algo(path)
-                break
 
-    return rucio_checksum == local_checksum, rucio_checksum, local_checksum
+    for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
+        rucio_checksum = item.get(checksum_name)
+        checksum_algo = CHECKSUM_ALGO_DICT.get(checksum_name)
+        if rucio_checksum and checksum_algo:
+            local_checksum = checksum_algo(path)
+            return rucio_checksum == local_checksum, rucio_checksum, local_checksum
+
+    return False
