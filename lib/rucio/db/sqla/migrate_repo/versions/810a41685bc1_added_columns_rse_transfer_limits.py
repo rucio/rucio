@@ -25,15 +25,15 @@ from alembic.op import (add_column, drop_column)
 
 # Alembic revision identifiers
 revision = '810a41685bc1'
-down_revision = '2cbee484dcf9'
-
-schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+down_revision = '7541902bf173'
 
 
 def upgrade():
     '''
     Upgrade the database to this revision
     '''
+
+    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name in ['oracle', 'postgresql', 'mysql']:
         add_column('rse_transfer_limits', sa.Column('deadline', sa.BigInteger), schema=schema)
@@ -45,6 +45,9 @@ def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
+
+    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+
     if context.get_context().dialect.name in ['oracle', 'postgresql', 'mysql']:
         drop_column('rse_transfer_limits', 'deadline', schema=schema)
         drop_column('rse_transfer_limits', 'strategy', schema=schema)
