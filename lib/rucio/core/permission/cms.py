@@ -966,5 +966,5 @@ def perm_remove_dids_from_followed(issuer, kwargs):
     if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
         return True
     if not kwargs['account'] == issuer:
-            return False
+        return False
     return True
