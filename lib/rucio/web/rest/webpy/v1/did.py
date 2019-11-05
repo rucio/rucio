@@ -22,6 +22,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Martin Baristis <martin.barisits@cern.ch>, 2014-2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -39,7 +40,8 @@ from rucio.api.did import (add_did, add_dids, list_content, list_content_history
                            get_metadata, set_status, attach_dids, detach_dids,
                            attach_dids_to_dids, get_dataset_by_guid, list_parent_dids,
                            create_did_sample, list_new_dids, resurrect, get_did_meta,
-                           add_did_meta, list_dids_by_meta, delete_did_meta)
+                           add_did_meta, list_dids_by_meta, delete_did_meta, add_did_to_followed,
+                           get_users_following_did, remove_did_from_followed)
 from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
@@ -73,6 +75,7 @@ URLS = (
     '/new', 'NewDIDs',
     '/resurrect', 'Resurrect',
     '/list_dids_by_meta', 'ListByMeta',
+    '%s/follow' % SCOPE_NAME_REGEXP, 'Follow',
 )
 
 
@@ -990,6 +993,103 @@ class DidMeta(RucioController):
         except Exception as error:
             print(format_exc())
             raise InternalError(error)
+        raise OK()
+
+
+class Follow(RucioController):
+
+    @check_accept_header_wrapper(['application/json'])
+    def GET(self, scope, name):
+        """
+        Return all users following a specific DID.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            406 Not Acceptable
+            404 Not Found
+
+        :param name: The data identifier name.
+        :param scope: The scope name.
+        """
+        header('Content-Type', 'application/json')
+        try:
+            # Get the users following a did and render it as json.
+            for user in get_users_following_did(scope=scope, name=name):
+                yield render_json(**user) + '\n'
+        except DataIdentifierNotFound as error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+
+    def POST(self, scope, name):
+        """
+        Mark the input DID as being followed by the given account.
+
+        HTTP Success:
+            201 Created
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+            500 Internal Error
+
+        :param scope: The scope of the input DID.
+        :param name: The name of the input DID.
+        """
+        try:
+            json_data = loads(data())
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            add_did_to_followed(scope=scope, name=name, account=json_data['account'])
+        except DataIdentifierNotFound as error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except DatabaseException as error:
+            raise generate_http_error(500, 'DatabaseException', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+
+    def DELETE(self, scope, name):
+        """
+        Mark the input DID as not followed
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            500 InternalError
+
+        :param scope: The scope of the input DID.
+        :param name: The name of the input DID.
+        """
+        try:
+            json_data = loads(data())
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            remove_did_from_followed(scope=scope, name=name, account=json_data['account'], issuer=ctx.env.get('issuer'))
+        except DataIdentifierNotFound as error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+
         raise OK()
 
 
