@@ -28,7 +28,7 @@ from rucio.db.sqla.constants import DIDType
 
 # Alembic revision identifiers
 revision = '7541902bf173'
-down_revision = '2cbee484dcf9'
+down_revision = 'a74275a1ad30'
 
 
 def upgrade():
