@@ -1463,4 +1463,3 @@ def _verify_checksum(item, path):
                 break
 
     return rucio_checksum == local_checksum, rucio_checksum, local_checksum
-
