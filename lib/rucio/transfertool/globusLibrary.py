@@ -79,32 +79,6 @@ def getTransferClient():
     return tc
 
 
-def getTransferData():
-    cfg = load_config()
-    client_id = cfg['globus']['apps']['SDK Tutorial App']['client_id']
-    auth_client = NativeAppAuthClient(client_id)
-    refresh_token = cfg['globus']['apps']['SDK Tutorial App']['refresh_token']
-    source_endpoint_id = cfg['globus']['apps']['SDK Tutorial App']['win10_endpoint_id']
-    destination_endpoint_id = cfg['globus']['apps']['SDK Tutorial App']['sdccfed_endpoint_id']
-    authorizer = RefreshTokenAuthorizer(refresh_token=refresh_token, auth_client=auth_client)
-    tc = TransferClient(authorizer=authorizer)
-    # as both endpoints are expected to be Globus Server endpoints, send auto-activate commands for both globus endpoints
-    auto_activate_endpoint(tc, source_endpoint_id)
-    auto_activate_endpoint(tc, destination_endpoint_id)
-
-    # make job_label for task a timestamp
-    x = datetime.now()
-    job_label = x.strftime('%Y%m%d%H%M%s')
-
-    # from Globus... sync_level=checksum means that before files are transferred, Globus will compute checksums on the source and destination files,
-    # and only transfer files that have different checksums are transferred. verify_checksum=True means that after a file is transferred, Globus will
-    # compute checksums on the source and destination files to verify that the file was transferred correctly.  If the checksums do not match, it will
-    # redo the transfer of that file.
-    tdata = TransferData(tc, source_endpoint_id, destination_endpoint_id, label=job_label, sync_level="checksum", verify_checksum=True)
-
-    return tdata
-
-
 def auto_activate_endpoint(tc, ep_id):
     r = tc.endpoint_autoactivate(ep_id, if_expires_in=3600)
     if r['code'] == 'AutoActivationFailed':
