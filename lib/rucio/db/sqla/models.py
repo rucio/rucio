@@ -195,6 +195,11 @@ class ModelBase(object):
             return cls._table_args + (CheckConstraint('CREATED_AT IS NOT NULL', 'UPDATED_RSE_CNTRS_CREATED_NN'),
                                       CheckConstraint('UPDATED_AT IS NOT NULL', 'UPDATED_RSE_CNTRS_UPDATED_NN'),
                                       {'mysql_engine': 'InnoDB'})
+        # pylint: disable=maybe-no-member
+        elif cls.__tablename__.upper() == 'DIDS_FOLLOWED_EVENTS':
+            return cls._table_args + (CheckConstraint('CREATED_AT IS NOT NULL', 'DIDS_FOLLOWED_EVENTS_CRE_NN'),
+                                      CheckConstraint('UPDATED_AT IS NOT NULL', 'DIDS_FOLLOWED_EVENTS_UPD_NN'),
+                                      {'mysql_engine': 'InnoDB'})
 
         # otherwise, proceed normally
         # pylint: disable=maybe-no-member
@@ -768,7 +773,7 @@ class AccountGlobalLimit(BASE, ModelBase):
     rse_expression = Column(String(3000))
     bytes = Column(BigInteger)
     _table_args = (PrimaryKeyConstraint('account', 'rse_expression', name='ACCOUNT_GLOBAL_LIMITS_PK'),
-                   ForeignKeyConstraint(['account'], ['accounts.account'], name='GLOBAL_LIMITS_ACCOUNT_FK'),)
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_GLOBAL_LIMITS_ACC_FK'),)
 
 
 class AccountUsage(BASE, ModelBase, Versioned):
