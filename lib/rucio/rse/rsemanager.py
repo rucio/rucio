@@ -19,7 +19,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2017
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2017
-# - Martin Barisits <martin.barisits@cern.ch>, 2017-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2019
 # - Tobias Wegner <twegner@cern.ch>, 2017-2018
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018-2019
@@ -582,7 +582,7 @@ def find_matching_scheme(rse_settings_dest, rse_settings_src, operation_src, ope
     :param operation_dest:       Dest Operation such as read, write.
     :param domain:               Domain such as lan, wan.
     :param scheme:               List of supported schemes.
-    :returns:                    Tuple of matching schemes (dest_scheme, src_scheme).
+    :returns:                    Tuple of matching schemes (dest_scheme, src_scheme, dest_scheme_priority, src_scheme_priority).
     """
     operation_src = operation_src.lower()
     operation_dest = operation_dest.lower()
@@ -634,7 +634,7 @@ def find_matching_scheme(rse_settings_dest, rse_settings_src, operation_src, ope
     for dest_protocol in dest_candidates:
         for src_protocol in src_candidates:
             if __check_compatible_scheme(dest_protocol['scheme'], src_protocol['scheme']):
-                return (dest_protocol['scheme'], src_protocol['scheme'])
+                return (dest_protocol['scheme'], src_protocol['scheme'], dest_protocol['domains'][domain][operation_dest], src_protocol['domains'][domain][operation_src])
 
     raise exception.RSEProtocolNotSupported('No protocol for provided settings found : %s.' % str(rse_settings_dest))
 
