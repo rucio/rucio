@@ -50,6 +50,8 @@ def upgrade():
         create_check_constraint('DIDS_FOLLOWED_NAME_NN', 'dids_followed', 'name is not null')
         create_check_constraint('DIDS_FOLLOWED_ACCOUNT_NN', 'dids_followed', 'account is not null')
         create_check_constraint('DIDS_FOLLOWED_DID_TYPE_NN', 'dids_followed', 'did_type is not null')
+        create_check_constraint('DIDS_FOLLOWED_CREATED_NN', 'dids_followed', 'created_at is not null')
+        create_check_constraint('DIDS_FOLLOWED_UPDATED_NN', 'dids_followed', 'updated_at is not null')
         create_foreign_key('DIDS_FOLLOWED_ACCOUNT_FK', 'dids_followed', 'accounts',
                            ['account'], ['account'])
         create_foreign_key('DIDS_FOLLOWED_SCOPE_NAME_FK', 'dids_followed', 'dids',
@@ -70,6 +72,8 @@ def upgrade():
         create_check_constraint('DIDS_FOLLOWED_EVENTS_NAME_NN', 'dids_followed_events', 'name is not null')
         create_check_constraint('DIDS_FOLLOWED_EVENTS_ACC_NN', 'dids_followed_events', 'account is not null')
         create_check_constraint('DIDS_FOLLOWED_EVENTS_TYPE_NN', 'dids_followed_events', 'did_type is not null')
+        create_check_constraint('DIDS_FOLLOWED_EVENTS_CRE_NN', 'dids_followed_events', 'created_at is not null')
+        create_check_constraint('DIDS_FOLLOWED_EVENTS_UPD_NN', 'dids_followed_events', 'updated_at is not null')
         create_foreign_key('DIDS_FOLLOWED_EVENTS_ACC_FK', 'dids_followed_events', 'accounts',
                            ['account'], ['account'])
         create_index('DIDS_FOLLOWED_EVENTS_ACC_IDX', 'dids_followed_events', ['account'])
