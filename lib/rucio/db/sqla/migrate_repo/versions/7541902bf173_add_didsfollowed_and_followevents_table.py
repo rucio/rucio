@@ -41,36 +41,38 @@ def upgrade():
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
                      sa.Column('account', sa.String(25)),
-                     sa.Column('did_type', DIDType.db_type()),
+                     sa.Column('did_type', DIDType.db_type(name='DIDS_FOLLOWED_TYPE_CHK')),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow))
 
         create_primary_key('DIDS_FOLLOWED_PK', 'dids_followed', ['scope', 'name', 'account'])
         create_check_constraint('DIDS_FOLLOWED_SCOPE_NN', 'dids_followed', 'scope is not null')
         create_check_constraint('DIDS_FOLLOWED_NAME_NN', 'dids_followed', 'name is not null')
+        create_check_constraint('DIDS_FOLLOWED_ACCOUNT_NN', 'dids_followed', 'account is not null')
         create_check_constraint('DIDS_FOLLOWED_DID_TYPE_NN', 'dids_followed', 'did_type is not null')
         create_foreign_key('DIDS_FOLLOWED_ACCOUNT_FK', 'dids_followed', 'accounts',
                            ['account'], ['account'])
         create_foreign_key('DIDS_FOLLOWED_SCOPE_NAME_FK', 'dids_followed', 'dids',
                            ['scope', 'name'], ['scope', 'name'])
 
-        create_table('follow_events',
+        create_table('dids_followed_events',
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
                      sa.Column('account', sa.String(25)),
-                     sa.Column('did_type', DIDType.db_type()),
+                     sa.Column('did_type', DIDType.db_type(name='DIDS_FOLLOWED_EVENTS_TYPE_CHK')),
                      sa.Column('event_type', sa.String(1024)),
                      sa.Column('payload', sa.Text),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow))
 
-        create_primary_key('FOLLOW_EVENTS_PK', 'follow_events', ['scope', 'name', 'account'])
-        create_check_constraint('FOLLOW_EVENTS_SCOPE_NN', 'follow_events', 'scope is not null')
-        create_check_constraint('FOLLOW_EVENTS_NAME_NN', 'follow_events', 'name is not null')
-        create_check_constraint('FOLLOW_EVENTS_DID_TYPE_NN', 'follow_events', 'did_type is not null')
-        create_foreign_key('FOLLOW_EVENTS_ACCOUNT_FK', 'follow_events', 'accounts',
+        create_primary_key('DIDS_FOLLOWED_EVENTS_PK', 'dids_followed_events', ['scope', 'name', 'account'])
+        create_check_constraint('DIDS_FOLLOWED_EVENTS_SCOPE_NN', 'dids_followed_events', 'scope is not null')
+        create_check_constraint('DIDS_FOLLOWED_EVENTS_NAME_NN', 'dids_followed_events', 'name is not null')
+        create_check_constraint('DIDS_FOLLOWED_EVENTS_ACC_NN', 'dids_followed_events', 'account is not null')
+        create_check_constraint('DIDS_FOLLOWED_EVENTS_TYPE_NN', 'dids_followed_events', 'did_type is not null')
+        create_foreign_key('DIDS_FOLLOWED_EVENTS_ACC_FK', 'dids_followed_events', 'accounts',
                            ['account'], ['account'])
-        create_index('FOLLOW_EVENTS_ACCOUNT_IDX', 'follow_events', ['account'])
+        create_index('DIDS_FOLLOWED_EVENTS_ACC_IDX', 'dids_followed_events', ['account'])
 
 
 def downgrade():
@@ -80,4 +82,4 @@ def downgrade():
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_table('dids_followed')
-        drop_table('follow_events')
+        drop_table('dids_followed_events')
