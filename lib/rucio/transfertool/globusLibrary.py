@@ -46,6 +46,8 @@ logging.basicConfig(stream=sys.stdout,
                                              default='DEBUG').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
+GLOBUS_AUTH_APP = config_get('conveyor', 'globus_auth_app')
+
 
 def load_config():
     config = None
@@ -67,9 +69,9 @@ def load_config():
 def getTransferClient():
     cfg = load_config()
     # cfg = yaml.safe_load(open("/opt/rucio/lib/rucio/transfertool/config.yml"))
-    client_id = cfg['globus']['apps']['SDK Tutorial App']['client_id']
+    client_id = cfg['globus']['apps'][GLOBUS_AUTH_APP]['client_id']
     auth_client = NativeAppAuthClient(client_id)
-    refresh_token = cfg['globus']['apps']['SDK Tutorial App']['refresh_token']
+    refresh_token = cfg['globus']['apps'][GLOBUS_AUTH_APP]['refresh_token']
     logging.info('authorizing token...')
     authorizer = RefreshTokenAuthorizer(refresh_token=refresh_token, auth_client=auth_client)
     logging.info('initializing TransferClient...')
@@ -140,9 +142,9 @@ def submit_xfer(source_endpoint_id, destination_endpoint_id, source_path, dest_p
 
 def bulk_submit_xfer(submitjob, recursive=False):
     cfg = load_config()
-    client_id = cfg['globus']['apps']['SDK Tutorial App']['client_id']
+    client_id = cfg['globus']['apps'][GLOBUS_AUTH_APP]['client_id']
     auth_client = NativeAppAuthClient(client_id)
-    refresh_token = cfg['globus']['apps']['SDK Tutorial App']['refresh_token']
+    refresh_token = cfg['globus']['apps'][GLOBUS_AUTH_APP]['refresh_token']
     source_endpoint_id = submitjob[0].get('metadata').get('source_globus_endpoint_id')
     destination_endpoint_id = submitjob[0].get('metadata').get('dest_globus_endpoint_id')
     authorizer = RefreshTokenAuthorizer(refresh_token=refresh_token, auth_client=auth_client)

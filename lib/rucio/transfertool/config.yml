@@ -1,0 +1,6 @@
+globus:
+  apps:
+    RucioGlobusBNLNativeApp:
+      client_id: 56c0be2a-d89d-4854-819b-70a68da58ffe
+      authorization_code: vYBf7oBHJ5cEbwda8NCyVRWLb7wH09
+      refresh_token: AgXdP9wX57jVxvNDr96mx5m7nrBk84P8Pyz1DKlwM1PjV3NPkJCYU0pJpG59bvKlwlBMm3VrDj9qoOPmPnGlwjxe6mxvg
