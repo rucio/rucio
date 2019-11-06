@@ -293,6 +293,7 @@ def queue_requests(requests, session=None):
 
     for messages_chunk in chunks(messages, 1000):
         session.bulk_insert_mappings(models.Message, messages_chunk)
+    return new_requests
 
 
 @read_session

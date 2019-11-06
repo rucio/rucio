@@ -270,6 +270,8 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
             if 'adler32' in list(t_file['metadata'].keys()) and t_file['metadata']['adler32']:
                 t_file['checksum'] = 'ADLER32:%s' % str(t_file['metadata']['adler32'])
 
+        multihop = transfer.get('multihop', False)
+
         external_host = transfer['external_host']
         scope = t_file['metadata']['scope']
         scope_str = scope.internal
@@ -292,6 +294,8 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                       'overwrite': transfer['overwrite'],
                       'priority': 3,
                       's3alternate': True}
+        if multihop:
+            job_params['multihop'] = True
 
         # Don't put optional & missing keys in the parameters
         if transfer['dest_spacetoken']:
@@ -322,38 +326,58 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
             if 'max_time_in_queue' in job_params:
                 job_key = job_key + ',%s' % job_params['max_time_in_queue']
 
+            if multihop:
+                job_key = 'multihop_%s' % (transfer['initial_request_id'])
+
             if job_key not in grouped_transfers[external_host]:
                 if USER_TRANSFERS not in ['cms'] or activity not in USER_ACTIVITY:
                     grouped_transfers[external_host][job_key] = {}
                 elif activity in USER_ACTIVITY:
                     grouped_transfers[external_host][scope_str][job_key] = {}
 
-            if policy == 'rule':
-                policy_key = '%s' % (transfer['rule_id'])
-            if policy == 'dest':
-                policy_key = '%s' % (t_file['metadata']['dst_rse'])
-            if policy == 'src_dest':
-                policy_key = '%s,%s' % (t_file['metadata']['src_rse'], t_file['metadata']['dst_rse'])
-            if policy == 'rule_src_dest':
-                policy_key = '%s,%s,%s' % (transfer['rule_id'], t_file['metadata']['src_rse'], t_file['metadata']['dst_rse'])
-            if policy == 'activity_dest':
-                policy_key = '%s %s' % (activity, t_file['metadata']['dst_rse'])
-                policy_key = "_".join(policy_key.split(' '))
-            if policy == 'activity_src_dest':
-                policy_key = '%s %s %s' % (activity, t_file['metadata']['src_rse'], t_file['metadata']['dst_rse'])
-                policy_key = "_".join(policy_key.split(' '))
-            # maybe here we need to hash the key if it's too long
+            if multihop:
+                policy_key = 'multihop_%s' % (transfer['initial_request_id'])
+            else:
+                if policy == 'rule':
+                    policy_key = '%s' % (transfer['rule_id'])
+                if policy == 'dest':
+                    policy_key = '%s' % (t_file['metadata']['dst_rse'])
+                if policy == 'src_dest':
+                    policy_key = '%s,%s' % (t_file['metadata']['src_rse'], t_file['metadata']['dst_rse'])
+                if policy == 'rule_src_dest':
+                    policy_key = '%s,%s,%s' % (transfer['rule_id'], t_file['metadata']['src_rse'], t_file['metadata']['dst_rse'])
+                if policy == 'activity_dest':
+                    policy_key = '%s %s' % (activity, t_file['metadata']['dst_rse'])
+                    policy_key = "_".join(policy_key.split(' '))
+                if policy == 'activity_src_dest':
+                    policy_key = '%s %s %s' % (activity, t_file['metadata']['src_rse'], t_file['metadata']['dst_rse'])
+                    policy_key = "_".join(policy_key.split(' '))
+                    # maybe here we need to hash the key if it's too long
 
             if USER_TRANSFERS not in ['cms'] or activity not in USER_ACTIVITY:
                 if policy_key not in grouped_transfers[external_host][job_key]:
                     grouped_transfers[external_host][job_key][policy_key] = {'files': [t_file], 'job_params': job_params}
                 else:
-                    grouped_transfers[external_host][job_key][policy_key]['files'].append(t_file)
+                    if multihop:
+                        # The parent transfer should be the first of the list
+                        # TODO : Only work for a single hop now, need to be able to handle multiple hops
+                        if transfer['parent_request']:  # This is the child
+                            grouped_transfers[external_host][job_key][policy_key]['files'].append(t_file)
+                        else:
+                            grouped_transfers[external_host][job_key][policy_key]['files'].insert(0, t_file)
+                    else:
+                        grouped_transfers[external_host][job_key][policy_key]['files'].append(t_file)
             elif activity in USER_ACTIVITY:
                 if policy_key not in grouped_transfers[external_host][scope_str][job_key]:
                     grouped_transfers[external_host][scope_str][job_key][policy_key] = {'files': [t_file], 'job_params': job_params}
                 else:
-                    grouped_transfers[external_host][scope_str][job_key][policy_key]['files'].append(t_file)
+                    if multihop:
+                        # The parent transfer should be the first of the list
+                        # TODO : Only work for a single hop now, need to be able to handle multiple hops
+                        if transfer['parent_request']:  # This is the child
+                            grouped_transfers[external_host][scope_str][job_key][policy_key]['files'].append(t_file)
+                        else:
+                            grouped_transfers[external_host][scope_str][job_key][policy_key]['files'].insert(0, t_file)
 
     # for jobs with different job_key, we cannot put in one job.
     for external_host in grouped_transfers:
