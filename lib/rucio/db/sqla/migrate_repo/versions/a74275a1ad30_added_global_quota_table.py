@@ -22,7 +22,7 @@ import sqlalchemy as sa
 
 from alembic import context
 from alembic.op import (create_primary_key, create_check_constraint,
-                        create_table, drop_table)
+                        create_table, drop_table, create_foreign_key)
 
 
 # Alembic revision identifiers
@@ -44,9 +44,10 @@ def upgrade():
                      sa.Column('account', sa.String(25)),
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
-        create_primary_key('account_glob_limits_pk', table_name, ['account', 'rse_expression'])
-        create_check_constraint('account_glob_limits_created_nn', table_name, 'created_at is not null')
-        create_check_constraint('account_glob_limits_updated_nn', table_name, 'updated_at is not null')
+        create_primary_key('ACCOUNT_GLOB_LIMITS_PK', table_name, ['account', 'rse_expression'])
+        create_check_constraint('ACCOUNT_GLOB_LIMITS_CREATED_NN', table_name, 'created_at is not null')
+        create_check_constraint('ACCOUNT_GLOB_LIMITS_UPDATED_NN', table_name, 'updated_at is not null')
+        create_foreign_key('ACCOUNT_GLOBAL_LIMITS_ACC_FK', table_name, 'accounts', ['account'], ['account'])
 
 
 def downgrade():

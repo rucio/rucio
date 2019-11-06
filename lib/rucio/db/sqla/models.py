@@ -195,6 +195,11 @@ class ModelBase(object):
             return cls._table_args + (CheckConstraint('CREATED_AT IS NOT NULL', 'UPDATED_RSE_CNTRS_CREATED_NN'),
                                       CheckConstraint('UPDATED_AT IS NOT NULL', 'UPDATED_RSE_CNTRS_UPDATED_NN'),
                                       {'mysql_engine': 'InnoDB'})
+        # pylint: disable=maybe-no-member
+        elif cls.__tablename__.upper() == 'DIDS_FOLLOWED_EVENTS':
+            return cls._table_args + (CheckConstraint('CREATED_AT IS NOT NULL', 'DIDS_FOLLOWED_EVENTS_CRE_NN'),
+                                      CheckConstraint('UPDATED_AT IS NOT NULL', 'DIDS_FOLLOWED_EVENTS_UPD_NN'),
+                                      {'mysql_engine': 'InnoDB'})
 
         # otherwise, proceed normally
         # pylint: disable=maybe-no-member
@@ -768,7 +773,7 @@ class AccountGlobalLimit(BASE, ModelBase):
     rse_expression = Column(String(3000))
     bytes = Column(BigInteger)
     _table_args = (PrimaryKeyConstraint('account', 'rse_expression', name='ACCOUNT_GLOBAL_LIMITS_PK'),
-                   ForeignKeyConstraint(['account'], ['accounts.account'], name='GLOBAL_LIMITS_ACCOUNT_FK'),)
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_GLOBAL_LIMITS_ACC_FK'),)
 
 
 class AccountUsage(BASE, ModelBase, Versioned):
@@ -1293,6 +1298,7 @@ class DidsFollowed(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'account', name='DIDS_FOLLOWED_PK'),
                    CheckConstraint('SCOPE IS NOT NULL', name='DIDS_FOLLOWED_SCOPE_NN'),
                    CheckConstraint('NAME IS NOT NULL', name='DIDS_FOLLOWED_NAME_NN'),
+                   CheckConstraint('ACCOUNT IS NOT NULL', name='DIDS_FOLLOWED_ACCOUNT_NN'),
                    CheckConstraint('DID_TYPE IS NOT NULL', name='DIDS_FOLLOWED_DID_TYPE_NN'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='DIDS_FOLLOWED_ACCOUNT_FK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DIDS_FOLLOWED_SCOPE_NAME_FK'))
@@ -1300,19 +1306,20 @@ class DidsFollowed(BASE, ModelBase):
 
 class FollowEvents(BASE, ModelBase):
     """Represents the events affecting the datasets which are followed"""
-    __tablename__ = 'follow_events'
+    __tablename__ = 'dids_followed_events'
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
     account = Column(String(25))
-    did_type = Column(DIDType.db_type(name='FOLLOW_EVENTS_TYPE_CHK'))
+    did_type = Column(DIDType.db_type(name='DIDS_FOLLOWED_EVENTS_TYPE_CHK'))
     event_type = Column(String(1024))
     payload = Column(Text)
-    _table_args = (PrimaryKeyConstraint('scope', 'name', 'account', name='FOLLOW_EVENTS_PK'),
-                   CheckConstraint('SCOPE IS NOT NULL', name='FOLLOW_EVENTS_SCOPE_NN'),
-                   CheckConstraint('NAME IS NOT NULL', name='FOLLOW_EVENTS_NAME_NN'),
-                   CheckConstraint('DID_TYPE IS NOT NULL', name='FOLLOW_EVENTS_DID_TYPE_NN'),
-                   ForeignKeyConstraint(['account'], ['accounts.account'], name='FOLLOW_EVENTS_ACCOUNT_FK'),
-                   Index('FOLLOW_EVENTS_ACCOUNT_IDX', 'account'))
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'account', name='DIDS_FOLLOWED_EVENTS_PK'),
+                   CheckConstraint('SCOPE IS NOT NULL', name='DIDS_FOLLOWED_EVENTS_SCOPE_NN'),
+                   CheckConstraint('NAME IS NOT NULL', name='DIDS_FOLLOWED_EVENTS_NAME_NN'),
+                   CheckConstraint('ACCOUNT IS NOT NULL', name='DIDS_FOLLOWED_EVENTS_ACC_NN'),
+                   CheckConstraint('DID_TYPE IS NOT NULL', name='DIDS_FOLLOWED_EVENTS_TYPE_NN'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='DIDS_FOLLOWED_EVENTS_ACC_FK'),
+                   Index('DIDS_FOLLOWED_EVENTS_ACC_IDX', 'account'))
 
 
 def register_models(engine):
