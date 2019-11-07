@@ -43,7 +43,7 @@ from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.replica import add_replicas
-from rucio.core.request import queue_requests, set_request_state
+from rucio.core.request import queue_requests, set_requests_state
 from rucio.core.rse import get_rse_name, list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
@@ -453,7 +453,6 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=True, session=None):
     :raises:                   NoDistance
     """
 
-    logging.debug('Starting get_hops')
     # TODO: Might be problematic to always load the distance_graph, since it might be expensive
     # TODO: Have an rse_expression to specify the eligible hops
 
@@ -957,6 +956,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             scope = transfers[req_id]['file_metadata']['scope']
             name = transfers[req_id]['file_metadata']['name']
             list_multihop, dict_attributes, retry_count = multi_hop_dict[req_id]
+            parent_requests = []
 
             for hop in list_multihop:
                 # hop = {'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'source_scheme_priority': N, 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm', 'dest_scheme_priority': N}
@@ -1010,11 +1010,17 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                                         'retry_count': retry_count,
                                                         'account': InternalAccount('root'),
                                                         'requested_at': datetime.datetime.now()}], session=session)
-                    # TODO : This assume that a new request is created, but if a request already exists
-                    # new_req will be an empty list.
+                    # If a request already exists, new_req will be an empty list.
+                    if not new_req:
+                        # Need to fail all the intermediate requests + the initial one and exit the multihop loop
+                        logging.warning('Multihop : A request already exists for the transfer between %s and %s. Will cancel all the parent requests', source_rse_name, dest_rse_name)
+                        parent_requests.append(req_id)
+                        set_requests_state(request_ids=parent_requests, new_state=RequestState.FAILED, session=session)
+                        break
                     new_req_id = new_req[0]['id']
-                    set_request_state(request_id=new_req_id, new_state=RequestState.QUEUED, session=session)
-                    logging.debug('New request created for the the transfer between %s and %s : %s', source_rse_name, dest_rse_name, new_req_id)
+                    parent_requests.append(new_req_id)
+                    set_requests_state(request_ids=[new_req_id, ], new_state=RequestState.QUEUED, session=session)
+                    logging.debug('New request created for the transfer between %s and %s : %s', source_rse_name, dest_rse_name, new_req_id)
 
                     # I - Here we will compute the destination URL
                     # I.1 - Get destination protocol
