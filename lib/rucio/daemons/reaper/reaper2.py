@@ -182,6 +182,28 @@ def get_rses_to_hostname_mapping():
     return result
 
 
+def get_max_deletion_threads_by_hostname(hostname):
+    """
+    Internal method to check RSE usage and limits.
+
+    :param hostname: the hostname of the SE
+
+    :returns : The maximum deletion thread for the SE.
+    """
+    result = REGION.get('max_deletion_threads_%s' % hostname)
+    if result is NO_VALUE:
+        try:
+            max_deletion_thread = get('reaper', 'max_deletion_threads_%s' % hostname)
+        except ConfigNotFound:
+            try:
+                max_deletion_thread = get('reaper', 'nb_workers_by_hostname')
+            except ConfigNotFound:
+                max_deletion_thread = 5
+        REGION.set('max_deletion_threads_%s' % hostname, max_deletion_thread)
+        result = max_deletion_thread
+    return result
+
+
 def __check_rse_usage(rse, rse_id, prepend_str):
     """
     Internal method to check RSE usage and limits.
@@ -283,11 +305,6 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
     :param delay_seconds:  The delay to query replicas in BEING_DELETED state.
     :param sleep_time:     Time between two cycles.
     """
-
-    try:
-        max_deletion_thread = get('reaper', 'nb_workers_by_hostname')
-    except ConfigNotFound as error:
-        max_deletion_thread = 5
     hostname = socket.getfqdn()
     executable = sys.argv[0]
     pid = os.getpid()
@@ -350,9 +367,10 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
                 list_rses_mult.extend([(rse_name, rse_id, dict_rses[rse_key][0], dict_rses[rse_key][1]) for _ in range(int(max_workers))])
             random.shuffle(list_rses_mult)
 
-            skip_until_next_run = []
             for rse_name, rse_id, needed_free_space, max_being_deleted_files in list_rses_mult:
-                if rse_id in skip_until_next_run:
+                result = REGION.get('pause_deletion_%s' % rse_id, expiration_time=120)
+                if result is not NO_VALUE:
+                    logging.info('%s Not enough replicas to delete on %s during the previous cycle. Deletion paused for a while', prepend_str, rse_name)
                     continue
                 logging.debug('%s Working on %s. Percentage of the total space needed %.2f', prepend_str, rse_name, needed_free_space / tot_needed_free_space * 100)
                 rse_hostname, rse_info = rses_hostname_mapping[rse_id]
@@ -368,6 +386,7 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
                         if key.split(',')[0] == str(rse_id):
                             tot_threads_for_rse += payload_cnt[key]
 
+                max_deletion_thread = get_max_deletion_threads_by_hostname(rse_hostname)
                 if rse_hostname_key in payload_cnt and tot_threads_for_hostname >= max_deletion_thread:
                     logging.debug('%s Too many deletion threads for %s on RSE %s. Back off', prepend_str, rse_hostname, rse_name)
                     # Might need to reschedule a try on this RSE later in the same cycle
@@ -388,7 +407,7 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
                     logging.debug('%s list_and_mark_unlocked_replicas  on %s for %s bytes in %s seconds: %s replicas', prepend_str, rse_name, needed_free_space, time.time() - del_start_time, len(replicas))
                     if len(replicas) < chunk_size:
                         logging.info('%s Not enough replicas to delete on %s (%s requested vs %s returned). Will skip any new attempts on this RSE until next cycle', prepend_str, rse_name, chunk_size, len(replicas))
-                        skip_until_next_run.append(rse_id)
+                        REGION.set('pause_deletion_%s' % rse_id, True)
 
                 except (DatabaseException, IntegrityError, DatabaseError) as error:
                     logging.error('%s %s', prepend_str, str(error))
