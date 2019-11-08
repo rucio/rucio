@@ -2,6 +2,7 @@ version: "2"
 services:
   rucio:
     image: rucio/rucio-dev
+    container_name: rucio
     hostname: rucio
     ports:
       - "443:443"
@@ -12,11 +13,13 @@ services:
       - ../../../tools:/opt/rucio/tools
       - ../../../bin:/opt/rucio/bin
       - ../../../lib:/opt/rucio/lib
+      - ../../../etc/rucio.cfg:/opt/rucio/etc/rucio.cfg
     environment:
       - X509_USER_CERT=/opt/rucio/etc/usercert.pem
       - X509_USER_KEY=/opt/rucio/etc/userkey.pem
   ruciodb:
     image: postgres:11
+    container_name: ruciodb
     environment:
       - POSTGRES_USER=rucio
       - POSTGRES_DB=rucio
@@ -26,5 +29,23 @@ services:
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
   graphite:
     image: graphiteapp/graphite-statsd
+    container_name: graphite
     ports:
       - "80:80"
+  judge-evaluator:
+    image: rucio/rucio-daemons
+    container_name: judge-evaluator
+    hostname: judge-evaluator
+    links:
+      - ruciodb:ruciodb
+      - graphite:graphite
+    volumes:
+      - ../../../tools:/opt/rucio/tools
+      - ../../../bin:/opt/rucio/bin
+      - ../../../lib:/opt/rucio/lib
+      - ../../../etc/rucio.cfg:/opt/rucio/etc/rucio.cfg
+    environment:
+      - RUCIO_DAEMON=judge-evaluator
+#      - RUCIO_DAEMON_ARGS="--sleep-time 120"
+      - RUCIO_ENABLE_LOGS=True
+#      - RUCIO_CFG_DATABASE_DEFAULT="postgresql://rucio:secret@ruciodb/rucio"

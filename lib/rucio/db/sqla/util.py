@@ -45,6 +45,11 @@ from rucio.core.account_counter import create_counters_for_new_account
 from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import AccountStatus, AccountType, IdentityType
 
+import logging
+import sys
+
+logging.basicConfig(stream=sys.stdout, level='DEBUG', format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
+
 
 def build_database(echo=True, tests=False):
     """ Applies the schema to the database. Run this command once to build the database. """
@@ -166,12 +171,19 @@ def create_root_account():
     account = models.Account(account=InternalAccount('root'), account_type=AccountType.SERVICE, status=AccountStatus.ACTIVE)
 
     salt = urandom(255)
+#    salt = '0'
+    logging.debug('salt: %s' % salt)
+    logging.debug('up_pwd: %s' % up_pwd)
     if PY3:
         decoded_salt = b64encode(salt).decode()
         salted_password = ('%s%s' % (decoded_salt, up_pwd)).encode()
     else:
         salted_password = '%s%s' % (salt, str(up_pwd))
+
+    logging.debug('salted_password: %s' % salted_password)
+
     hashed_password = sha256(salted_password).hexdigest()
+    logging.debug('hashed_password: %s' % hashed_password)
     identity1 = models.Identity(identity=up_id, identity_type=IdentityType.USERPASS, password=hashed_password, salt=salt, email=up_email)
     iaa1 = models.IdentityAccountAssociation(identity=identity1.identity, identity_type=identity1.identity_type, account=account.account, is_default=True)
 
