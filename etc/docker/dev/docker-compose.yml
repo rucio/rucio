@@ -13,7 +13,7 @@ services:
       - ../../../tools:/opt/rucio/tools
       - ../../../bin:/opt/rucio/bin
       - ../../../lib:/opt/rucio/lib
-      - ../../../etc/rucio.cfg:/opt/rucio/etc/rucio.cfg
+#      - ../../../etc/rucio.cfg:/opt/rucio/etc/rucio.cfg
     environment:
       - X509_USER_CERT=/opt/rucio/etc/usercert.pem
       - X509_USER_KEY=/opt/rucio/etc/userkey.pem
