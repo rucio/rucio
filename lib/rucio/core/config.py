@@ -165,6 +165,7 @@ def get(section, option, default=None, use_cache=True, expiration_time=3600, ses
             raise ConfigNotFound
         else:
             value = default
+            write_to_cache(value_key, str(value))  # Also write default to cache
     else:
         value = __convert_type(value)
     return value
