@@ -41,6 +41,7 @@ from rucio.common.types import InternalAccount
 from rucio.common.utils import construct_surl
 from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.core import did, message as message_core, request as request_core
+from rucio.core.config import get as core_config_get
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.replica import add_replicas
 from rucio.core.request import queue_requests, set_requests_state
@@ -441,7 +442,7 @@ def update_transfer_state(external_host, transfer_id, state, logging_prepend_str
 
 
 @transactional_session
-def get_hops(source_rse_id, dest_rse_id, include_multihop=True, session=None):
+def get_hops(source_rse_id, dest_rse_id, include_multihop=False, session=None):
     """
     Get a list of hops needed to transfer date from source_rse_id to dest_rse_id.
     Ideally, the list will only include one item (dest_rse_id) since no hops are needed.
@@ -486,7 +487,7 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=True, session=None):
         raise NoDistance()
 
     # 2. There is no connection or no scheme match --> Try a multi hop --> Dijkstra algorithm
-    HOP_PENALTY = 5  # Penalty to be applied to each further hop
+    HOP_PENALTY = core_config_get('transfers', 'hop_penalty', default=5, session=session)  # Penalty to be applied to each further hop
 
     visited_nodes = {source_rse_id: {'distance': 0,
                                      'path': []}}  # Dijkstra already visisted nodes
@@ -628,7 +629,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         # In case of non-connected, the list contains all the intermediary RSEs
         list_hops = []
         try:
-            list_hops = get_hops(source_rse_id, dest_rse_id, session=session)
+            list_hops = get_hops(source_rse_id, dest_rse_id, include_multihop=core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session), session=session)
             if len(list_hops) > 1:
                 multihop = True
                 multi_hop_dict[req_id] = (list_hops, dict_attributes, retry_count)
