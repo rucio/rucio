@@ -80,6 +80,44 @@ REGION = make_region().configure('dogpile.cache.memcached',
                                             'distributed_lock': True})
 
 
+def get_rses_to_process(rses, include_rses, exclude_rses):
+    """
+    Return the list of RSEs to process based on rses, include_rses and exclude_rses
+
+    :param rses:               List of RSEs the reaper should work against. If empty, it considers all RSEs.
+    :param exclude_rses:       RSE expression to exclude RSEs from the Reaper.
+    :param include_rses:       RSE expression to include RSEs.
+
+    :returns: A list of RSEs to process
+    """
+    result = REGION.get('rses_to_process')
+    if result is not NO_VALUE:
+        return result
+
+    all_rses = list_rses()
+    if rses:
+        invalid = set(rses) - set([rse['rse'] for rse in all_rses])
+        if invalid:
+            msg = 'RSE{} {} cannot be found'.format('s' if len(invalid) > 1 else '',
+                                                    ', '.join([repr(rse) for rse in invalid]))
+            raise RSENotFound(msg)
+        rses = [rse for rse in all_rses if rse['rse'] in rses]
+    else:
+        rses = all_rses
+
+    if include_rses:
+        included_rses = parse_expression(include_rses)
+        rses = [rse for rse in rses if rse in included_rses]
+
+    if exclude_rses:
+        excluded_rses = parse_expression(exclude_rses)
+        rses = [rse for rse in rses if rse not in excluded_rses]
+
+    REGION.set('rses_to_process', rses)
+    logging.info('Reaper: This instance will work on RSEs: %s', ', '.join([rse['rse'] for rse in rses]))
+    return rses
+
+
 def delete_from_storage(replicas, prot, rse_info, staging_areas, prepend_str):
     deleted_files = []
     rse_name = rse_info['rse']
@@ -292,12 +330,14 @@ def __check_rse_usage(rse, rse_id, prepend_str):
     return result
 
 
-def reaper(rses, chunk_size=100, once=False, greedy=False,
+def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=False,
            scheme=None, delay_seconds=0, sleep_time=60):
     """
     Main loop to select and delete files.
 
     :param rses:           List of RSEs the reaper should work against. If empty, it considers all RSEs.
+    :param exclude_rses:       RSE expression to exclude RSEs from the Reaper.
+    :param include_rses:       RSE expression to include RSEs.
     :param chunk_size:     The size of chunk for deletion.
     :param once:           If True, only runs one iteration of the main loop.
     :param greedy:         If True, delete right away replicas with tombstone.
@@ -321,6 +361,10 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
 
     while not GRACEFUL_STOP.is_set():
 
+        rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses)
+        if not rses_to_process:
+            logging.error('%s Reaper: No RSEs found. Exiting.', prepend_str)
+            break
         start_time = time.time()
         try:
             staging_areas = []
@@ -328,7 +372,7 @@ def reaper(rses, chunk_size=100, once=False, greedy=False,
             heart_beat = live(executable, hostname, pid, hb_thread, older_than=3600)
             prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
             tot_needed_free_space = 0
-            for rse in rses:
+            for rse in rses_to_process:
                 # Check if the RSE is a staging area
                 if rse['staging_area']:
                     staging_areas.append(rse['rse'])
@@ -494,35 +538,18 @@ def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=N
     """
     logging.info('main: starting processes')
 
-    all_rses = list_rses()
-
-    if rses:
-        invalid = set(rses) - set([rse['rse'] for rse in all_rses])
-        if invalid:
-            msg = 'RSE{} {} cannot be found'.format('s' if len(invalid) > 1 else '',
-                                                    ', '.join([repr(rse) for rse in invalid]))
-            raise RSENotFound(msg)
-        rses = [rse for rse in all_rses if rse['rse'] in rses]
-    else:
-        rses = all_rses
-
-    if include_rses:
-        included_rses = parse_expression(include_rses)
-        rses = [rse for rse in rses if rse in included_rses]
-
-    if exclude_rses:
-        excluded_rses = parse_expression(exclude_rses)
-        rses = [rse for rse in rses if rse not in excluded_rses]
-
-    if not rses:
+    rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses)
+    if not rses_to_process:
         logging.error('Reaper: No RSEs found. Exiting.')
         return
 
-    logging.info('Reaper: This instance will work on RSEs: %s', ', '.join([rse['rse'] for rse in rses]))
+    logging.info('Reaper: This instance will work on RSEs: %s', ', '.join([rse['rse'] for rse in rses_to_process]))
 
     logging.info('starting reaper threads')
     threads_list = [threading.Thread(target=reaper, kwargs={'once': once,
                                                             'rses': rses,
+                                                            'include_rses': include_rses,
+                                                            'exclude_rses': exclude_rses,
                                                             'chunk_size': chunk_size,
                                                             'greedy': greedy,
                                                             'sleep_time': sleep_time,
