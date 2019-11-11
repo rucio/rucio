@@ -1545,7 +1545,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
                                      models.DataIdentifier.name == name))
 
     # Remove Archive Constituents
-    for chunk in chunks(archive_contents_condition, 100):
+    for chunk in chunks(archive_contents_condition, 30):
         session.query(models.ConstituentAssociation).\
             with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_CHILD_IDX)", 'oracle').\
             filter(or_(*chunk)).\
