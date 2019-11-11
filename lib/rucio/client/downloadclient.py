@@ -1462,4 +1462,4 @@ def _verify_checksum(item, path):
             local_checksum = checksum_algo(path)
             return rucio_checksum == local_checksum, rucio_checksum, local_checksum
 
-    return False
+    return False, None, None
