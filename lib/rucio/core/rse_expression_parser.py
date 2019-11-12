@@ -9,7 +9,7 @@
   - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2019
   - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
   - Brandon White, <bjwhite@fnal.gov>, 2019
 
@@ -42,7 +42,7 @@ PATTERN = r'^%s(%s|%s|%s)*' % (PRIMITIVE, UNION, INTERSECTION, COMPLEMENT)
 
 
 REGION = make_region().configure('dogpile.cache.memcached',
-                                 expiration_time=3600,
+                                 expiration_time=600,
                                  arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
 
 
