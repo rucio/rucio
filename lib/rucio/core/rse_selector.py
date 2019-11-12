@@ -94,7 +94,9 @@ class RSESelector():
                         local_quota_left = 0
                     else:
                         local_quota_left = quota_limit - get_usage(rse_id=rse['rse_id'], account=account, session=session)['bytes']
+
                     # check global quota
+                    rse['global_quota_left'] = {}
                     all_global_quota_enough = True
                     for rse_expression, limit in global_quota_limit.items():
                         if rse['rse_id'] in limit['resolved_rse_ids']:
@@ -110,6 +112,8 @@ class RSESelector():
                             if global_quota_left <= 0:
                                 all_global_quota_enough = False
                                 break
+                            else:
+                                rse['global_quota_left'][rse_expression] = global_quota_left
                     if local_quota_left > 0 and all_global_quota_enough:
                         rse['quota_left'] = local_quota_left
                         space_limit = get_rse_limits(name='MaxSpaceAvailable', rse_id=rse['rse_id'], session=session).get('MaxSpaceAvailable')
@@ -157,8 +161,22 @@ class RSESelector():
         if len(rses) < count:
             raise RSEOverQuota('There is insufficient space on any of the target RSE\'s to fullfill the operation.')
 
-        # Remove rses which do not have enough quota
+        # Remove rses which do not have enough local quota
         rses = [rse for rse in rses if rse['quota_left'] > size]
+        if len(rses) < count:
+            raise InsufficientAccountLimit('There is insufficient quota on any of the target RSE\'s to fullfill the operation.')
+
+        # Remove rses which do not have enough global quota
+        rses_with_enough_quota = []
+        for rse in rses:
+            enough_global_quota = True
+            for rse_expression in rse.get('global_quota_left', []):
+                if rse['global_quota_left'][rse_expression] < size:
+                    enough_global_quota = False
+                    break
+            if enough_global_quota:
+                rses_with_enough_quota.append(rse)
+        rses = rses_with_enough_quota
         if len(rses) < count:
             raise InsufficientAccountLimit('There is insufficient quota on any of the target RSE\'s to fullfill the operation.')
 
@@ -202,6 +220,8 @@ class RSESelector():
         for element in self.rses:
             if element['rse_id'] == rse[0]:
                 element['quota_left'] -= size
+                for rse_expression in element.get('global_quota_left', []):
+                    element['global_quota_left'][rse_expression] -= size
                 return
 
     def __choose_rse(self, rses):
