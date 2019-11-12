@@ -25,6 +25,7 @@
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Gabriele Fronze' <gfronze@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -180,10 +181,38 @@ def clean_headers(msg):
     return msg
 
 
+# GLOBALLY_SUPPORTED_CHECKSUMS = ['adler32', 'md5', 'sha256', 'crc32']
+GLOBALLY_SUPPORTED_CHECKSUMS = ['adler32', 'md5']
+CHECKSUM_ALGO_DICT = {}
+PREFERRED_CHECKSUM = GLOBALLY_SUPPORTED_CHECKSUMS[0]
+CHECKSUM_KEY = 'supported_checksums'
+
+
+def is_checksum_valid(checksum_name):
+    """
+    A simple function to check wether a checksum algorithm is supported.
+    Relies on GLOBALLY_SUPPORTED_CHECKSUMS to allow for expandability.
+
+    :param checksum_name: The name of the checksum to be verified.
+    :returns: True if checksum_name is in GLOBALLY_SUPPORTED_CHECKSUMS list, False otherwise.
+    """
+
+    return checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS
+
+
+def set_checksum_value(file, checksum_names_list):
+    for checksum_name in checksum_names_list:
+        if checksum_name in file['metadata'].keys() and file['metadata'][checksum_name]:
+            file['checksum'] = '%s:%s' % (checksum_name.upper(), str(file['metadata'][checksum_name]))
+            if checksum_name == PREFERRED_CHECKSUM:
+                break
+
+
 def adler32(file):
     """
     An Adler-32 checksum is obtained by calculating two 16-bit checksums A and B and concatenating their bits into a 32-bit integer. A is the sum of all bytes in the stream plus one, and B is the sum of the individual values of A from each step.
 
+    :param file: file name
     :returns: Hexified string, padded to 8 values.
     """
 
@@ -204,11 +233,14 @@ def adler32(file):
     return str('%08x' % adler)
 
 
+CHECKSUM_ALGO_DICT['adler32'] = adler32
+
+
 def md5(file):
     """
     Runs the MD5 algorithm (RFC-1321) on the binary content of the file named file and returns the hexadecimal digest
 
-    :param string: file name
+    :param file: file name
     :returns: string of 32 hexadecimal digits
     """
     hash_md5 = hashlib.md5()
@@ -219,6 +251,42 @@ def md5(file):
         raise Exception('FATAL - could not get MD5 checksum of file %s - %s' % (file, e))
 
     return hash_md5.hexdigest()
+
+
+CHECKSUM_ALGO_DICT['md5'] = md5
+
+
+def sha256(file):
+    """
+    Runs the SHA256 algorithm on the binary content of the file named file and returns the hexadecimal digest
+
+    :param file: file name
+    :returns: string of 32 hexadecimal digits
+    """
+    with open(file, "rb") as f:
+        bytes = f.read()  # read entire file as bytes
+        readable_hash = hashlib.sha256(bytes).hexdigest()
+        print(readable_hash)
+        return readable_hash
+
+
+CHECKSUM_ALGO_DICT['sha256'] = sha256
+
+
+def crc32(file):
+    """
+    Runs the CRC32 algorithm on the binary content of the file named file and returns the hexadecimal digest
+
+    :param file: file name
+    :returns: string of 32 hexadecimal digits
+    """
+    prev = 0
+    for eachLine in open(file, "rb"):
+        prev = zlib.crc32(eachLine, prev)
+    return "%X" % (prev & 0xFFFFFFFF)
+
+
+CHECKSUM_ALGO_DICT['crc32'] = crc32
 
 
 def str_to_date(string):

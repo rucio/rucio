@@ -24,6 +24,7 @@
 # - Eric Vaandering <ericvaandering@gmail.com>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Gabriele Fronze' <gfronze@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -41,12 +42,13 @@ import traceback
 
 from rucio.common.config import config_get
 from rucio.common.exception import InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound, ConfigNotFound, DuplicateFileTransferSubmission
-from rucio.common.utils import chunks
+from rucio.common.utils import chunks, set_checksum_value
 from rucio.core import request, transfer as transfer_core
 from rucio.core.config import get
 from rucio.core.monitor import record_counter, record_timer
-from rucio.core.rse import list_rses
+from rucio.core.rse import list_rses, get_rse_supported_checksums
 from rucio.core.rse_expression_parser import parse_expression
+from rucio.db.sqla.session import read_session
 from rucio.db.sqla.constants import RequestState
 from rucio.rse import rsemanager as rsemgr
 
@@ -222,7 +224,8 @@ def submit_transfer(external_host, job, submitter='submitter', logging_prepend_s
         logging.error('%s Failed to submit a job with error %s: %s', prepend_str, str(error), traceback.format_exc())
 
 
-def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strategy=None, max_time_in_queue=None):
+@read_session
+def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strategy=None, max_time_in_queue=None, session=None):
     """
     Group transfers in bulk based on certain criterias
 
@@ -253,8 +256,42 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
 
     for request_id in transfers:
         transfer = transfers[request_id]
-
         verify_checksum = transfer['file_metadata'].get('verify_checksum', 'both')
+
+        dest_rse_id = transfer['file_metadata']['dest_rse_id']
+        source_rse_id = transfer['file_metadata']['src_rse_id']
+
+        dest_supported_checksums = get_rse_supported_checksums(rse_id=dest_rse_id, session=session)
+        source_supported_checksums = get_rse_supported_checksums(rse_id=source_rse_id, session=session)
+        common_checksum_names = set(source_supported_checksums).intersection(dest_supported_checksums)
+
+        logging.info('source RSE checksum compatibility: {}'.format(source_supported_checksums))
+        logging.info('destination RSE checksum compatibility: {}'.format(dest_supported_checksums))
+
+        if source_supported_checksums == ['none']:
+            if dest_supported_checksums == ['none']:
+                # both endpoints support none
+                verify_checksum = 'none'
+                logging.info('Skipping checksum verification.')
+            else:
+                # src supports none but dst does
+                verify_checksum = 'destination'
+                logging.info('Verifying checksum only at destination.')
+        else:
+            if dest_supported_checksums == ['none']:
+                # source supports some but destination does not
+                verify_checksum = 'source'
+                logging.info('Verifying checksum only at source.')
+            else:
+                if len(common_checksum_names) == 0:
+                    # source and dst support some bot none in common (dst priority)
+                    verify_checksum = 'destination'
+                    logging.info('Verifying checksum only at destination.')
+                else:
+                    # source and dst have some in common
+                    verify_checksum = 'both'
+                    logging.info('Verifying checksum at both ends.')
+
         t_file = {'sources': transfer['sources'],
                   'destinations': transfer['dest_urls'],
                   'metadata': transfer['file_metadata'],
@@ -264,11 +301,18 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                   'selection_strategy': source_strategy if source_strategy else activity_source_strategy.get(str(transfer['file_metadata']['activity']), default_source_strategy),
                   'request_type': transfer['file_metadata'].get('request_type', None),
                   'activity': str(transfer['file_metadata']['activity'])}
+
         if verify_checksum != 'none':
-            if 'md5' in list(t_file['metadata'].keys()) and t_file['metadata']['md5']:
-                t_file['checksum'] = 'MD5:%s' % str(t_file['metadata']['md5'])
-            if 'adler32' in list(t_file['metadata'].keys()) and t_file['metadata']['adler32']:
-                t_file['checksum'] = 'ADLER32:%s' % str(t_file['metadata']['adler32'])
+            if verify_checksum == 'both':
+                set_checksum_value(t_file, common_checksum_names)
+            if verify_checksum == 'source':
+                set_checksum_value(t_file, source_supported_checksums)
+            if verify_checksum == 'destination':
+                set_checksum_value(t_file, dest_supported_checksums)
+
+            logging.info('Checksum set to: {}'.format(t_file['checksum']))
+        else:
+            logging.info('Checksum empty since skipping checksum verification')
 
         multihop = transfer.get('multihop', False)
 
