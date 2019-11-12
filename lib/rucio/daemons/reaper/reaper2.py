@@ -354,7 +354,7 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
     prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
     logging.info('%s Reaper starting', prepend_str)
 
-    time.sleep(15)  # To prevent running on the same partition if all the reapers restart at the same time
+    time.sleep(10)  # To prevent running on the same partition if all the reapers restart at the same time
     heart_beat = live(executable, hostname, pid, hb_thread)
     prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
     logging.info('%s Reaper started', prepend_str)
@@ -363,8 +363,9 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
 
         rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses)
         if not rses_to_process:
-            logging.error('%s Reaper: No RSEs found. Exiting.', prepend_str)
-            break
+            logging.error('%s Reaper: No RSEs found. Will sleep for 30 seconds', prepend_str)
+            time.sleep(30)
+            continue
         start_time = time.time()
         try:
             staging_areas = []
@@ -545,6 +546,9 @@ def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=N
 
     logging.info('Reaper: This instance will work on RSEs: %s', ', '.join([rse['rse'] for rse in rses_to_process]))
 
+    # To populate the cache
+    get_rses_to_hostname_mapping()
+
     logging.info('starting reaper threads')
     threads_list = [threading.Thread(target=reaper, kwargs={'once': once,
                                                             'rses': rses,
@@ -560,9 +564,6 @@ def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=N
         thread.start()
 
     logging.info('waiting for interrupts')
-
-    # To populate the cache
-    get_rses_to_hostname_mapping()
 
     # Interruptible joins require a timeout.
     while threads_list:
