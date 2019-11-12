@@ -48,7 +48,7 @@ PATTERN = r'^%s(%s|%s|%s)*' % (PRIMITIVE, UNION, INTERSECTION, COMPLEMENT)
 
 
 REGION = make_region().configure('dogpile.cache.memcached',
-                                 expiration_time=3600,
+                                 expiration_time=600,
                                  arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
 
 
