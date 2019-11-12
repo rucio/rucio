@@ -38,7 +38,7 @@ from rucio.common.exception import (RucioException, UnsupportedOperation,
                                     RequestNotFound, NoDistance)
 from rucio.common.rse_attributes import get_rse_attributes
 from rucio.common.types import InternalAccount
-from rucio.common.utils import construct_surl, CHECKSUM_KEY
+from rucio.common.utils import construct_surl
 from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.monitor import record_counter, record_timer
