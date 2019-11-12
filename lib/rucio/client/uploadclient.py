@@ -20,6 +20,7 @@
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Gabriele Fronze' <gfronze@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -36,7 +37,7 @@ from rucio.client.client import Client
 from rucio.common.exception import (RucioException, RSEBlacklisted, DataIdentifierAlreadyExists,
                                     DataIdentifierNotFound, NoFilesUploaded, NotAllFilesUploaded,
                                     ResourceTemporaryUnavailable, ServiceUnavailable, InputValidationError)
-from rucio.common.utils import adler32, execute, generate_uuid, md5, send_trace
+from rucio.common.utils import adler32, execute, generate_uuid, md5, send_trace, GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
 
@@ -207,7 +208,11 @@ class UploadClient:
                 lfn['filename'] = basename
                 lfn['scope'] = file['did_scope']
                 lfn['name'] = file['did_name']
-                lfn['adler32'] = file['adler32']
+
+                for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
+                    if checksum_name in file:
+                        lfn[checksum_name] = file[checksum_name]
+
                 lfn['filesize'] = file['bytes']
 
                 sign_service = None
@@ -274,9 +279,12 @@ class UploadClient:
                                                'bytes': file['bytes'],
                                                'rse': file['rse'],
                                                'pfn': file['upload_result'].get('pfn', ''),
-                                               'guid': file['meta']['guid'],
-                                               'adler32': file['adler32'],
-                                               'md5': file['md5']}
+                                               'guid': file['meta']['guid']}
+
+                for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
+                    if checksum_name in file:
+                        final_summary[file_did_str][checksum_name] = file[checksum_name]
+
             with open(summary_file_path, 'wb') as summary_file:
                 json.dump(final_summary, summary_file, sort_keys=True, indent=1)
 

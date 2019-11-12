@@ -24,6 +24,7 @@
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Gabriele Fronze' <gfronze@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 #
@@ -56,6 +57,7 @@ import rucio.core.account_counter
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.common import exception, utils
 from rucio.common.config import get_lfn2pfn_algorithm_default, config_get
+from rucio.common.utils import CHECKSUM_KEY, is_checksum_valid, GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RSEType
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
@@ -69,8 +71,7 @@ REGION = make_region().configure('dogpile.cache.memcached',
 
 @transactional_session
 def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None,
-            ISP=None, staging_area=False, rse_type=RSEType.DISK, longitude=None, latitude=None, ASN=None, availability=7,
-            session=None):
+            ISP=None, staging_area=False, rse_type=RSEType.DISK, longitude=None, latitude=None, ASN=None, availability=7, session=None):
     """
     Add a rse with the given location name.
 
@@ -534,6 +535,48 @@ def get_rse_attribute(key, rse_id=None, value=None, use_cache=True, session=None
         return rse_attrs
 
     return result
+
+
+@read_session
+def get_rse_supported_checksums(rse_id=None, session=None):
+    """
+    Retrieve RSE attribute value.
+
+    :param rse_id: The RSE id.
+    :param session: The database session in use.
+
+    :returns: The list of checksums supported by the selected RSE.
+              If the list is empty (aka attribute is not set) it returns all the default checksums.
+              Use 'none' to explicitly tell the RSE does not support any checksum algorithm.
+    """
+
+    # each checksum is formatted as: ["[u'adler32']"]
+    supported_checksum_list = str(get_rse_attribute(CHECKSUM_KEY, rse_id=rse_id, session=session)) \
+        .replace('[u\'', '') \
+        .replace('\']', '') \
+        .split(',')
+
+    if not supported_checksum_list:
+        return GLOBALLY_SUPPORTED_CHECKSUMS
+    else:
+        return supported_checksum_list
+
+
+@read_session
+def get_rse_is_checksum_supported(checksum_name, rse_id=None, session=None):
+    """
+    Retrieve RSE attribute value.
+
+    :param checksum_name: The desired checksum name for the attribute.
+    :param rse_id: The RSE id.
+    :param session: The database session in use.
+
+    :returns: True if required checksum is supported, False otherwise.
+    """
+    if is_checksum_valid(checksum_name):
+        return checksum_name in get_rse_supported_checksums(rse_id=rse_id, session=session)
+    else:
+        return False
 
 
 @transactional_session
