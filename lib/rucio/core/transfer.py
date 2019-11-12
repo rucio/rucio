@@ -781,8 +781,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     else:
                         verify_checksum = 'both'
 
-                source_rse_checksums = get_rse_supported_checksums(source_rse_id, session)
-                dest_rse_checksums = get_rse_supported_checksums(dest_rse_id, session)
+                source_rse_checksums = get_rse_supported_checksums(source_rse_id, session=session)
+                dest_rse_checksums = get_rse_supported_checksums(dest_rse_id, session=session)
 
                 logging.info('source RSE checksum compatibility: {}'.format(source_rse_checksums))
                 logging.info('destination RSE checksum compatibility: {}'.format(dest_rse_checksums))
