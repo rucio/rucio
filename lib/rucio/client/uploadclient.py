@@ -480,3 +480,137 @@ class UploadClient:
         """
         if self.tracing:
             send_trace(trace, self.client.host, self.client.user_agent)
+
+    def _upload_item(self, rse_settings, lfn, source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False, sign_service=None):
+        """
+            Uploads a file to the connected storage.
+
+            :param lfn:         a single dict containing 'scope' and 'name'.
+                                Example:
+                             {'name': '1_rse_local_put.raw', 'scope': 'user.jdoe', 'filesize': 42, 'adler32': '87HS3J968JSNWID'}
+                              If the 'filename' key is present, it will be used by Rucio as the actual name of the file on disk (separate from the Rucio 'name').
+            :param source_dir:  path to the local directory including the source files
+            :param force_pfn: use the given PFN -- can lead to dark data, use sparingly
+            :param force_scheme: use the given protocol scheme, overriding the protocol priority in the RSE description
+            :param transfer_timeout: set this timeout (in seconds) for the transfers, for protocols that support it
+            :param sign_service: use the given service (e.g. gcs, s3, swift) to sign the URL
+
+            :raises RucioException(msg): general exception with msg for more details.
+        """    
+        # TODO:
+        # - deletion of previous attempts is done with delete protocl, but list is taken from read protocol
+        # - exceptions
+        # - checksums
+
+        logger = self.logger
+
+        # Construct protocol for write and read operation.
+        protocol_write = self._create_protocol(rse_settings, 'write', scheme=force_scheme)
+        protocol_read = self._create_protocol(rse_settings, 'read')
+
+        base_name = lfn.get('filename', lfn['name'])
+        name = lfn.get('name', base_name)
+        scope = lfn['scope']
+
+        # Conditional lfn properties
+        if 'adler32' not in lfn:
+            logger.warning('Missing checksum for file %s:%s' % (lfn['scope'], name))
+
+        # Getting pfn
+        try:
+            pfn = list(protocol_write.lfns2pfns(make_valid_did(lfn)).values())[0]
+        except Exception as error:
+            logger.warning('Failed to create PFN for LFN: %s' % (log_prefix, lfn))
+        pfn = force_pfn if force_pfn
+        readpfn = pfn
+
+        # Auth. mostly for object stores
+        if sign_service:
+            pfn = self.client.get_signed_url(sign_service, 'write', pfn)       # NOQA pylint: disable=undefined-variable
+            readpfn = self.client.get_signed_url(sign_service, 'read', pfn)    # NOQA pylint: disable=undefined-variable
+
+        # Create a name of tmp file if renaming operation is supported
+        pfn_tmp = '%s.rucio.upload' % pfn if protocol_write.renaming else: pfn 
+
+        # Either DID eixsts or not register_after_upload 
+        if protocol_write.overwrite is False and delete_existing is False and protocol_read.exists(pfn): 
+            raise exception.FileReplicaAlreadyExists('File %s in scope %s already exists on storage as PFN %s' % (name, scope, pfn))  # wrong exception ?
+
+        # Removing tmp from earlier attempts
+        if protocol_read.exists('%s.rucio.upload' % pfn):
+            try:
+                # Construct protocol for delete operation.
+                protocol_delete = self._create_protocol(rse_settings, 'delete')
+                protocol_delete.delete('%s.rucio.upload' % list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0])
+                protocol_delete.close()
+            except Exception as e:
+                raise exception.RSEOperationNotSupported('Unable to remove temporary file %s.rucio.upload: %s' % (pfn, str(e)))
+
+        # Removing not registered files from earlier attempts
+        if delete_existing:
+            try:
+                # Construct protocol for delete operation.
+                protocol_delete = self._create_protocol(rse_settings, 'delete')
+                protocol_delete.delete('%s' % list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0])
+                protocol_delete.close()
+            except Exception as error:
+                raise exception.RSEOperationNotSupported('Unable to remove file %s: %s' % (pfn, str(error))
+
+        # Process the upload of the tmp file
+        try:
+            protocol_write.put(base_name, pfn_tmp, source_dir, transfer_timeout=transfer_timeout)
+        except Exception as error:
+            raise error
+
+        # Checksum verification, obsolete, see Gabriele changes. 
+        try:
+            stats = None
+            # Get the stats of given pfn through several attempts
+            retries = config_get_int('client', 'protocol_stat_retries', raise_exception=False, default=6)  # needs to be hardcoded?
+            for attempt in range(retries):
+                try:
+                    stats = protocol.stat(pfn)
+                except exception.RSEChecksumUnavailable as error:
+                    # The stat succeeded here, but the checksum failed
+                    raise error
+                except Exception as e:
+                    sleep(2**attempt)
+            if not isinstance(stats, dict):
+                raise exception.RucioException('Could not get protocol.stats for given PFN: %s' pfn)
+
+            # The checksum and filesize check
+            if ('filesize' in stats) and ('filesize' in lfn):
+                if stats['filesize'] != lfn['filesize']:
+                    raise exception.RucioException('Checksum after upload does not match the origin.')
+            if rse_settings['verify_checksum'] is not False:
+                if ('adler32' in stats) and ('adler32' in lfn):
+                    if stats['adler32'] != lfn['adler32']:
+                        raise exception.RucioException('Checksum after upload does not match the origin.')
+        except Exception as error:
+               raise error
+
+        # The upload finished successful and the file can be renamed
+        try:
+            if protocol_write.renaming:
+                protocol_write.rename(pfn_tmp, pfn)
+        except Exception as e:
+            raise exception.RucioException('Unable to rename the tmp file %s.' % pfn_tmp)
+
+        protocol_write.close()
+        protocol_read.close()
+
+    def _create_protocol(self, rse_settings, operation, force_scheme=None):
+        """
+        Protol construction.
+        :param: rse_settings        rse_settings
+        :param: operation           activity, e.g. read, write, delete etc.
+        :param: force_scheme        custom scheme
+        """
+        try:
+            protocol = rsemgr.create_protocol(rse_settings, 'write', scheme=force_scheme)
+            protocol.connect()
+        except Exception as error:
+            self.logger.warning('%sFailed to create protocol for LFN: %s' % (log_prefix, lfn))
+            self.logger.debug('scheme: %s, exception: %s' % (scheme, error))
+            raise error
+        return protocol
