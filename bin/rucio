@@ -16,7 +16,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2019
 # - Vincent Garonne, <vgaronne@gmail.com>, 2012-2018
-# - Martin Barisits, <martin.barisits@cern.ch>, 2012-2018
+# - Martin Barisits, <martin.barisits@cern.ch>, 2012-2019
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2017
 # - Yun-Pin Sun, <winter0128@gmail.com>, 2012-2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
@@ -32,6 +32,7 @@
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -241,7 +242,7 @@ def get_client(args):
     """
     Returns a new client object.
     """
-    if args.auth_strategy == 'userpass':
+    if args.auth_strategy in ['userpass', 'saml']:
         creds = {'username': args.username, 'password': args.password}
     else:
         creds = None
@@ -1487,8 +1488,7 @@ def list_rse_usage(args):
     for usage in select_usages:
         print('------')
         for elem in usage:
-            if (elem in ['free', 'total'] and usage['source'] != 'storage' or
-                    elem == 'files' and usage['source'] != 'rucio'):
+            if (elem in ['free', 'total'] and usage['source'] != 'storage' or elem == 'files' and usage['source'] != 'rucio'):
                 continue
             elif elem in ['used', 'free', 'total']:
                 print('  {0}: {1}'.format(elem, sizefmt(usage[elem], args.human)))
@@ -1524,13 +1524,22 @@ def list_account_limits(args):
     client = get_client(args)
     table = []
     if args.rse:
-        limits = client.get_account_limit(account=args.limit_account, rse=args.rse)
+        limits = client.get_local_account_limit(account=args.limit_account, rse=args.rse)
     else:
-        limits = client.get_account_limits(account=args.limit_account)
+        limits = client.get_local_account_limits(account=args.limit_account)
     for limit in list(limits.items()):
         table.append([limit[0], sizefmt(limit[1], args.human)])
     table.sort()
     print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'LIMIT']))
+
+    table = []
+    limits = client.get_global_account_limits(account=args.limit_account)
+    for limit in list(limits.items()):
+        if (args.rse and args.rse in limit[1]['resolved_rses']) or not args.rse:
+            table.append([limit[0], sizefmt(limit[1]['limit'], args.human)])
+    table.sort()
+    print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE EXPRESSION', 'LIMIT']))
+
     return SUCCESS
 
 
@@ -1545,14 +1554,24 @@ def list_account_usage(args):
     client = get_client(args)
     table = []
     if args.rse:
-        usage = client.get_account_usage(account=args.usage_account, rse=args.rse)
+        usage = client.get_local_account_usage(account=args.usage_account, rse=args.rse)
     else:
-        usage = client.get_account_usage(account=args.usage_account)
+        usage = client.get_local_account_usage(account=args.usage_account)
     for item in usage:
         remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
         table.append([item['rse'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
     table.sort()
     print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
+
+    table = []
+    usage = client.get_global_account_usage(account=args.usage_account)
+    for item in usage:
+        if (args.rse and args.rse in item['resolved_rses']) or not args.rse:
+            remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
+            table.append([item['rse_expression'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
+    table.sort()
+    print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE EXPRESSION', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
+
     return SUCCESS
 
 

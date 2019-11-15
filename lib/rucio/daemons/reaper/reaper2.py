@@ -146,7 +146,7 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, prepend_str):
                     pfn = replica['pfn']
                     # sign the URL if necessary
                     if prot.attributes['scheme'] == 'https' and rse_info['sign_url'] is not None:
-                        pfn = get_signed_url(rse_info['sign_url'], 'delete', pfn)
+                        pfn = get_signed_url(rse_id, rse_info['sign_url'], 'delete', pfn)
                     prot.delete(pfn)
                 else:
                     logging.warning('%s Deletion UNAVAILABLE of %s:%s as %s on %s', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name)

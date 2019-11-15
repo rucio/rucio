@@ -1,20 +1,26 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2019
-  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
-  - Brandon White, <bjwhite@fnal.gov>, 2019
-
-  PY3K COMPATIBLE
-'''
+# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2019
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Brandon White, <bjwhite@fnal.gov>, 2019
+#
+# PY3K COMPATIBLE
 
 import abc
 import re
@@ -33,7 +39,7 @@ from rucio.db.sqla.session import transactional_session
 
 DEFAULT_RSE_ATTRIBUTE = schema.DEFAULT_RSE_ATTRIBUTE['pattern']
 RSE_ATTRIBUTE = schema.RSE_ATTRIBUTE['pattern']
-PRIMITIVE = r'(\(*(%s|%s|%s)\)*)' % (RSE_ATTRIBUTE, DEFAULT_RSE_ATTRIBUTE, '\*')
+PRIMITIVE = r'(\(*(%s|%s|%s)\)*)' % (RSE_ATTRIBUTE, DEFAULT_RSE_ATTRIBUTE, r'\*')
 UNION = r'(\|%s)' % (PRIMITIVE)
 INTERSECTION = r'(\&%s)' % (PRIMITIVE)
 COMPLEMENT = r'(\\%s)' % (PRIMITIVE)
@@ -57,7 +63,7 @@ def parse_expression(expression, filter=None, session=None):
     :returns:             A list of rse dictionaries.
     :raises:              InvalidRSEExpression, RSENotFound, RSEBlacklisted
     """
-    result = REGION.get(sha256(expression).hexdigest())
+    result = REGION.get(sha256(expression.encode()).hexdigest())
     if type(result) is NoValue:
         # Evaluate the correctness of the parentheses
         parantheses_open_count = 0
@@ -84,7 +90,7 @@ def parse_expression(expression, filter=None, session=None):
         result = []
         for rse in list(result_tuple[0]):
             result.append(result_tuple[1][rse])
-        REGION.set(sha256(expression).hexdigest(), result)
+        REGION.set(sha256(expression.encode()).hexdigest(), result)
 
     if not result:
         raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
@@ -385,7 +391,7 @@ class ComplementOperator(BaseRSEOperator):
         """
         left_term_tuple = self.left_term.resolve_elements(session=session)
         right_term_tuple = self.right_term.resolve_elements(session=session)
-        return (left_term_tuple[0] - right_term_tuple[0], dict(left_term_tuple[1].items() + right_term_tuple[1].items()))
+        return (left_term_tuple[0] - right_term_tuple[0], dict(list(left_term_tuple[1].items()) + list(right_term_tuple[1].items())))
 
 
 class UnionOperator(BaseRSEOperator):
@@ -419,7 +425,7 @@ class UnionOperator(BaseRSEOperator):
         """
         left_term_tuple = self.left_term.resolve_elements(session=session)
         right_term_tuple = self.right_term.resolve_elements(session=session)
-        return (left_term_tuple[0] | right_term_tuple[0], dict(left_term_tuple[1].items() + right_term_tuple[1].items()))
+        return (left_term_tuple[0] | right_term_tuple[0], dict(list(left_term_tuple[1].items()) + list(right_term_tuple[1].items())))
 
 
 class IntersectOperator(BaseRSEOperator):
@@ -453,4 +459,4 @@ class IntersectOperator(BaseRSEOperator):
         """
         left_term_tuple = self.left_term.resolve_elements(session=session)
         right_term_tuple = self.right_term.resolve_elements(session=session)
-        return (left_term_tuple[0] & right_term_tuple[0], dict(left_term_tuple[1].items() + right_term_tuple[1].items()))
+        return (left_term_tuple[0] & right_term_tuple[0], dict(list(left_term_tuple[1].items()) + list(right_term_tuple[1].items())))

@@ -92,9 +92,10 @@ class SignURL(RucioController):
             print(format_exc())
             raise InternalError(e)
 
-        svc, operation, url = None, None, None
+        rse, svc, operation, url = None, None, None, None
         try:
             params = parse_qs(ctx.query[1:])
+            rse = params.get('rse', [None])[0]
             lifetime = params.get('lifetime', [600])[0]
             service = params.get('svc', ['gcs'])[0]
             operation = params.get('op', ['read'])[0]
@@ -108,11 +109,14 @@ class SignURL(RucioController):
         if url is None:
             raise generate_http_error(400, 'ValueError', 'Parameter "url" not found')
 
+        if rse is None:
+            raise generate_http_error(400, 'ValueError', 'Parameter "rse" not found')
+
         if operation not in ['read', 'write', 'delete']:
             raise generate_http_error(400, 'ValueError', 'Parameter "op" must be either empty(=read), read, write, or delete.')
 
         try:
-            result = get_signed_url(account, appid, ip, service=service, operation=operation, url=url, lifetime=lifetime)
+            result = get_signed_url(account, appid, ip, rse=rse, service=service, operation=operation, url=url, lifetime=lifetime)
         except RucioException as e:
             raise generate_http_error(500, e.__class__.__name__, e.args[0])
         except Exception as e:

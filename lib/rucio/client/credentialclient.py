@@ -34,10 +34,11 @@ class CredentialClient(BaseClient):
         super(CredentialClient, self).__init__(rucio_host, auth_host, account, ca_cert,
                                                auth_type, creds, timeout, user_agent)
 
-    def get_signed_url(self, service, operation, url, lifetime=3600):
+    def get_signed_url(self, rse, service, operation, url, lifetime=3600):
         """
         Return a signed version of the given URL for the given operation.
 
+        :param rse: The name of the RSE the URL points to.
         :param service: The service the URL points to (gcs, s3, swift)
         :param operation: The desired operation (read, write, delete)
         :param url: The URL to sign
@@ -48,6 +49,7 @@ class CredentialClient(BaseClient):
         path = '/'.join([self.CREDENTIAL_BASEURL, 'signurl'])
         params = {}
         params['lifetime'] = lifetime
+        params['rse'] = rse
         params['svc'] = service
         params['op'] = operation
         params['url'] = url

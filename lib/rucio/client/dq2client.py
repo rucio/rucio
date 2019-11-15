@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2016
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2015
 # - WeiJen Chang <e4523744@gmail.com>, 2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014
@@ -1995,7 +1995,7 @@ class DQ2Client:
                             lifetime = lifetime.days * 86400 + lifetime.seconds
                         self.client.update_replication_rule(rule['id'], {'lifetime': lifetime})
                     elif attrname == 'pin_lifetime':
-                        if attrvalue is None or attrvalue is '':
+                        if attrvalue is None or attrvalue == '':
                             self.client.update_replication_rule(rule['id'], {'locked': False})
                         else:
                             pin_lifetime = validate_time_formats(attrvalue)
@@ -2031,7 +2031,7 @@ class DQ2Client:
                     elif lifetime:
                         lifetime = lifetime.days * 86400 + lifetime.seconds
             elif attrname == 'pin_lifetime':
-                if attrvalue is None or attrvalue is '':
+                if attrvalue is None or attrvalue == '':
                     locked = False
                 else:
                     lifetime = validate_time_formats(attrvalue)

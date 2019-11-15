@@ -25,6 +25,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Tobias Wegner <twegner@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -571,6 +572,7 @@ def delete_dids(dids, account, expire_rules=False, session=None):
     parent_content_clause, did_clause = [], []
     collection_replica_clause, file_clause = [], []
     not_purge_replicas = []
+    did_followed_clause = []
 
     for did in dids:
         logging.info('Removing did %(scope)s:%(name)s (%(did_type)s)' % did)
@@ -581,6 +583,7 @@ def delete_dids(dids, account, expire_rules=False, session=None):
             content_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name']))
             collection_replica_clause.append(and_(models.CollectionReplica.scope == did['scope'],
                                                   models.CollectionReplica.name == did['name']))
+            did_followed_clause.append(and_(models.DidsFollowed.scope == did['scope'], models.DidsFollowed.name == did['name']))
 
         # ATLAS LOCALGROUPDISK Archive policy
         if did['did_type'] == DIDType.DATASET and did['scope'].external != 'archive':
@@ -688,6 +691,11 @@ def delete_dids(dids, account, expire_rules=False, session=None):
         with record_timer_block('undertaker.dids'):
             rowcount = session.query(models.DataIdentifier).filter(or_(*did_clause)).\
                 filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).\
+                delete(synchronize_session=False)
+
+    if did_followed_clause:
+        with record_timer_block('undertaker.dids'):
+            rowcount = session.query(models.DidsFollowed).filter(or_(*did_followed_clause)).\
                 delete(synchronize_session=False)
 
     if file_clause:
@@ -1566,11 +1574,11 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
                 continue
             if session.bind.dialect.name == 'postgresql':
                 query = query.filter(getattr(models.DataIdentifier, k).
-                                     like(v.replace('*', '%').replace('_', '\_'),
+                                     like(v.replace('*', '%').replace('_', '\_'),  # NOQA: W605
                                           escape='\\'))
             else:
                 query = query.filter(getattr(models.DataIdentifier, k).
-                                     like(v.replace('*', '%').replace('_', '\_'), escape='\\'))
+                                     like(v.replace('*', '%').replace('_', '\_'), escape='\\'))  # NOQA: W605
         elif k == 'created_before':
             created_before = str_to_date(v)
             query = query.filter(models.DataIdentifier.created_at <= created_before)
@@ -1833,3 +1841,173 @@ def list_archive_content(scope, name, session=None):
                    'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5}
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+
+
+@transactional_session
+def add_did_to_followed(scope, name, account, session=None):
+    """
+    Mark a did as followed by the given account
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param account: The account owner.
+    :param session: The database session in use.
+    """
+    return add_dids_to_followed(dids=[{'scope': scope, 'name': name}],
+                                account=account, session=session)
+
+
+@transactional_session
+def add_dids_to_followed(dids, account, session=None):
+    """
+    Bulk mark datasets as followed
+
+    :param dids: A list of dids.
+    :param account: The account owner.
+    :param session: The database session in use.
+    """
+    try:
+        for did in dids:
+            # Get the did details corresponding to the scope and name passed.
+            did = session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).one()
+            # Add the queried to the followed table.
+            new_did_followed = models.DidsFollowed(scope=did.scope, name=did.name, account=account,
+                                                   did_type=did.did_type)
+
+            new_did_followed.save(session=session, flush=False)
+
+        session.flush()
+    except IntegrityError as error:
+        raise exception.RucioException(error.args)
+
+
+@stream_session
+def get_users_following_did(scope, name, session=None):
+    """
+    Return list of users following a did
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param session: The database session in use.
+    """
+    try:
+        query = session.query(models.DidsFollowed).filter_by(scope=scope, name=name).all()
+
+        for user in query:
+            # Return a dictionary of users to be rendered as json.
+            yield {'user': user.account}
+
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (scope, name))
+
+
+@transactional_session
+def remove_did_from_followed(scope, name, account, session=None):
+    """
+    Mark a did as not followed
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param account: The account owner.
+    :param session: The database session in use.
+    """
+    return remove_dids_from_followed(dids=[{'scope': scope, 'name': name}],
+                                     account=account, session=session)
+
+
+@transactional_session
+def remove_dids_from_followed(dids, account, session=None):
+    """
+    Bulk mark datasets as not followed
+
+    :param dids: A list of dids.
+    :param account: The account owner.
+    :param session: The database session in use.
+    """
+    try:
+        for did in dids:
+            session.query(models.DidsFollowed).\
+                filter_by(scope=did['scope'], name=did['name'], account=account).\
+                delete(synchronize_session=False)
+
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (did['scope'], did['name']))
+
+
+@transactional_session
+def trigger_event(scope, name, event_type, payload, session=None):
+    """
+    Records changes occuring in the did to the FollowEvents table
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param event_type: The type of event affecting the did.
+    :param payload: Any message to be stored along with the event.
+    :param session: The database session in use.
+    """
+    try:
+        dids = session.query(models.DidsFollowed).filter_by(scope=scope, name=name).all()
+
+        for did in dids:
+            # Create a new event using teh specified parameters.
+            new_event = models.FollowEvents(scope=scope, name=name, account=did.account,
+                                            did_type=did.did_type, event_type=event_type, payload=payload)
+            new_event.save(session=session, flush=False)
+
+        session.flush()
+    except IntegrityError as error:
+        raise exception.RucioException(error.args)
+
+
+@read_session
+def create_reports(total_workers, worker_number, session=None):
+    """
+    Create a summary report of the events affecting a dataset, for its followers.
+
+    :param session: The database session in use.
+    """
+    # Query the FollowEvents table
+    query = session.query(models.FollowEvents)
+
+    # Use hearbeat mechanism to select a chunck of events based on the hashed account
+    if total_workers > 0:
+        if session.bind.dialect.name == 'oracle':
+            bindparams = [bindparam('worker_number', worker_number),
+                          bindparam('total_workers', total_workers)]
+            query = query.filter(text('ORA_HASH(account, :total_workers) = :worker_number', bindparams=bindparams))
+        elif session.bind.dialect.name == 'mysql':
+            query = query.filter(text('mod(md5(account), %s) = %s' % (total_workers + 1, worker_number)))
+        elif session.bind.dialect.name == 'postgresql':
+            query = query.filter(text('mod(abs((\'x\'||md5(account))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+
+    try:
+        events = query.order_by(models.FollowEvents.created_at).all()
+        # If events exist for an account then create a report.
+        if events:
+            body = '''
+                Hello,
+                This is an auto-generated report of the events that have affected the datasets you follow.
+
+                '''
+            account = None
+            for i, event in enumerate(events):
+                # Add each event to the message body.
+                body += "{}. Dataset: {} Event: {}\n".format(i + 1, event.name, event.event_type)
+                if event.payload:
+                    body += "Message: {}\n".format(event.payload)
+                body += "\n"
+                account = event.account
+                # Clean up the event after creating the report
+                session.query(models.FollowEvents).\
+                    filter_by(scope=event.scope, name=event.name, account=event.account).\
+                    delete(synchronize_session=False)
+
+            body += "Thank You."
+            # Get the email associated with the account.
+            email = session.query(models.Account.email).filter_by(account=account)
+            add_message('email', {'to': email,
+                                  'subject': 'Report of affected dataset(s)',
+                                  'body': body})
+
+    except NoResultFound:
+        raise exception.AccountNotFound("No email found for given account.")

@@ -18,13 +18,11 @@ from datetime import datetime
 from datetime import timedelta
 from nose.tools import eq_
 from nose.tools import ok_
-from rucio.common.dumper import consistency
 from rucio.daemons import auditor
-from rucio.daemons.auditor import srmdumps
-from rucio.daemons.auditor import hdfs
-from rucio.tests.common import stubbed
+
 import bz2
 import collections
+import mock
 import multiprocessing
 import os
 import tempfile
@@ -70,46 +68,58 @@ class TestBz2CompressFile(object):
         ok_(os.path.exists(self.destination))
         ok_(not os.path.exists(self.source))
         with bz2.BZ2File(self.destination) as f:
-            eq_(f.read(), test_data)
+            eq_(f.read().decode(), test_data)
 
 
-def test_auditor_download_dumps_with_expected_dates():
-    def mock_fn_wrapper(return_value):
-        calls = []
+def mock_fn_wrapper(return_value):
+    calls = []
 
-        def mock_fn(*args, **kwargs):
-            calls.append({
-                'args': args,
-                'kwargs': kwargs,
-            })
-            return return_value
+    def mock_fn(*args, **kwargs):
+        calls.append({
+            'args': args,
+            'kwargs': kwargs,
+        })
+        return return_value
 
-        return mock_fn, calls
+    return mock_fn, calls
 
-    date = datetime.strptime('01-01-2015', '%d-%m-%Y')
 
-    fake_gfal_download, fake_gfal_download_calls = mock_fn_wrapper(('', date))
-    fake_rrd_download, fake_rrd_download_calls = mock_fn_wrapper('')
-    fake_consistency_dump, fake_consistency_dump_calls = mock_fn_wrapper('')
+date = datetime.strptime('01-01-2015', '%d-%m-%Y')
+fake_gfal_download, fake_gfal_download_calls = mock_fn_wrapper(('', date))
+fake_rrd_download, fake_rrd_download_calls = mock_fn_wrapper('')
+fake_consistency_dump, fake_consistency_dump_calls = mock_fn_wrapper('')
+
+
+@mock.patch('rucio.common.dumper.consistency.Consistency.dump', side_effect=fake_consistency_dump)
+@mock.patch('rucio.daemons.auditor.hdfs.ReplicaFromHDFS.download', side_effect=fake_rrd_download)
+@mock.patch('rucio.daemons.auditor.srmdumps.download_rse_dump', side_effect=fake_gfal_download)
+def test_auditor_download_dumps_with_expected_dates(mocked_srmdumps, mocked_hdfs, mocked_auditor_consistency):
     tmp_dir = tempfile.mkdtemp()
 
-    with stubbed(srmdumps.download_rse_dump, fake_gfal_download):
-        with stubbed(hdfs.ReplicaFromHDFS.download, fake_rrd_download):
-            with stubbed(consistency.Consistency.dump, fake_consistency_dump):
-                auditor.consistency('RSENAME', timedelta(days=3), None, cache_dir=tmp_dir, results_dir=tmp_dir)
+    auditor.consistency('RSENAME', timedelta(days=3), None, cache_dir=tmp_dir, results_dir=tmp_dir)
 
     eq_(
-        fake_rrd_download_calls[0]['args'][2],
+        fake_rrd_download_calls[0]['args'][1],
         date.strptime('29-12-2014', '%d-%m-%Y')
     )
 
     eq_(
-        fake_rrd_download_calls[1]['args'][2],
+        fake_rrd_download_calls[1]['args'][1],
         date.strptime('04-01-2015', '%d-%m-%Y')
     )
 
 
-def test_auditor_check_survives_failures_and_queues_failed_rses():
+def mocked_auditor_consistency(rse, delta, configuration, cache_dir, results_dir):
+    if rse == 'RSE_WITH_EXCEPTION':
+        raise Exception
+    elif rse == 'RSE_SHOULD_WORK':
+        pass
+    else:
+        return 1 / 0
+
+
+@mock.patch('rucio.daemons.auditor.consistency', side_effect=mocked_auditor_consistency)
+def test_auditor_check_survives_failures_and_queues_failed_rses(mock_auditor):
     queue = multiprocessing.Queue()
     retry = multiprocessing.Queue()
     queue.put(('RSE_WITH_EXCEPTION', 1))
@@ -120,18 +130,11 @@ def test_auditor_check_survives_failures_and_queues_failed_rses():
         lambda: None,
     )
 
-    def fake_consistency(rse, delta, configuration, cache_dir, results_dir):
-        if rse == 'RSE_WITH_EXCEPTION':
-            raise Exception
-        elif rse == 'RSE_SHOULD_WORK':
-            pass
-        else:
-            return 1 / 0
-
-    terminate = multiprocessing.Event()
-    with stubbed(auditor.consistency, fake_consistency):
-        with stubbed(terminate.is_set, lambda slf: queue.empty()):
-            auditor.check(queue, retry, terminate, wr_pipe, None, None, 3, False)
+    class MockMultiProcessing():
+        def is_set(self):
+            return queue.empty()
+    terminate = MockMultiProcessing()
+    auditor.check(queue, retry, terminate, wr_pipe, None, None, 3, False)
 
     ok_(queue.empty())
     eq_(retry.get(), ('RSE_WITH_EXCEPTION', 0))

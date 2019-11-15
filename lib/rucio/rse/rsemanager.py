@@ -19,13 +19,14 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2017
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2017
-# - Martin Barisits <martin.barisits@cern.ch>, 2017-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2019
 # - Tobias Wegner <twegner@cern.ch>, 2017-2018
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018-2019
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
+# - Gabriele Fronze' <gfronze@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -43,7 +44,7 @@ except ImportError:
 from rucio.common import exception, utils, constants
 from rucio.common.config import config_get_int
 from rucio.common.constraints import STRING_TYPES
-from rucio.common.utils import make_valid_did
+from rucio.common.utils import make_valid_did, GLOBALLY_SUPPORTED_CHECKSUMS
 
 
 def get_rse_info(rse, session=None):
@@ -248,7 +249,7 @@ def exists(rse_settings, files):
                 raise pfn
             # deal with URL signing if required
             if rse_settings['sign_url'] is not None and pfn[:5] == 'https':
-                pfn = __get_signed_url(rse_settings['sign_url'], 'read', pfn)    # NOQA pylint: disable=undefined-variable
+                pfn = __get_signed_url(rse_settings['rse'], rse_settings['sign_url'], 'read', pfn)    # NOQA pylint: disable=undefined-variable
             exists = protocol.exists(pfn)
             ret[f['scope'] + ':' + f['name']] = exists
         else:
@@ -321,8 +322,8 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
             readpfn = pfn
             if sign_service is not None:
                 # need a separate signed URL for read operations (exists and stat)
-                readpfn = __get_signed_url(sign_service, 'read', pfn)    # NOQA pylint: disable=undefined-variable
-                pfn = __get_signed_url(sign_service, 'write', pfn)       # NOQA pylint: disable=undefined-variable
+                readpfn = __get_signed_url(rse_settings['rse'], sign_service, 'read', pfn)    # NOQA pylint: disable=undefined-variable
+                pfn = __get_signed_url(rse_settings['rse'], sign_service, 'write', pfn)       # NOQA pylint: disable=undefined-variable
 
         # First check if renaming operation is supported
         if protocol.renaming:
@@ -357,12 +358,20 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                     continue
 
                 valid = None
+
                 try:  # Get metadata of file to verify if upload was successful
                     try:
                         stats = _retry_protocol_stat(protocol, '%s.rucio.upload' % pfn)
-                        if ('adler32' in stats) and ('adler32' in lfn):
-                            valid = stats['adler32'] == lfn['adler32']
-                        if (valid is None) and ('filesize' in stats) and ('filesize' in lfn):
+
+                        # Verify all supported checksums and keep rack of the verified ones
+                        verified_checksums = []
+                        for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
+                            if (checksum_name in stats) and (checksum_name in lfn):
+                                verified_checksums.append(stats[checksum_name] == lfn[checksum_name])
+
+                        # Upload is successful if at least one checksum was found
+                        valid = any(verified_checksums)
+                        if not valid and ('filesize' in stats) and ('filesize' in lfn):
                             valid = stats['filesize'] == lfn['filesize']
                     except exception.RSEChecksumUnavailable as e:
                         if rse_settings['verify_checksum'] is False:
@@ -401,10 +410,17 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                 valid = None
                 try:  # Get metadata of file to verify if upload was successful
                     try:
-                        stats = _retry_protocol_stat(protocol, readpfn)
-                        if ('adler32' in stats) and ('adler32' in lfn):
-                            valid = stats['adler32'] == lfn['adler32']
-                        if (valid is None) and ('filesize' in stats) and ('filesize' in lfn):
+                        stats = _retry_protocol_stat(protocol, '%s.rucio.upload' % pfn)
+
+                        # Verify all supported checksums and keep rack of the verified ones
+                        verified_checksums = []
+                        for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
+                            if (checksum_name in stats) and (checksum_name in lfn):
+                                verified_checksums.append(stats[checksum_name] == lfn[checksum_name])
+
+                        # Upload is successful if at least one checksum was found
+                        valid = any(verified_checksums)
+                        if not valid and ('filesize' in stats) and ('filesize' in lfn):
                             valid = stats['filesize'] == lfn['filesize']
                     except exception.RSEChecksumUnavailable as e:
                         if rse_settings['verify_checksum'] is False:
@@ -582,7 +598,7 @@ def find_matching_scheme(rse_settings_dest, rse_settings_src, operation_src, ope
     :param operation_dest:       Dest Operation such as read, write.
     :param domain:               Domain such as lan, wan.
     :param scheme:               List of supported schemes.
-    :returns:                    Tuple of matching schemes (dest_scheme, src_scheme).
+    :returns:                    Tuple of matching schemes (dest_scheme, src_scheme, dest_scheme_priority, src_scheme_priority).
     """
     operation_src = operation_src.lower()
     operation_dest = operation_dest.lower()
@@ -634,7 +650,7 @@ def find_matching_scheme(rse_settings_dest, rse_settings_src, operation_src, ope
     for dest_protocol in dest_candidates:
         for src_protocol in src_candidates:
             if __check_compatible_scheme(dest_protocol['scheme'], src_protocol['scheme']):
-                return (dest_protocol['scheme'], src_protocol['scheme'])
+                return (dest_protocol['scheme'], src_protocol['scheme'], dest_protocol['domains'][domain][operation_dest], src_protocol['domains'][domain][operation_src])
 
     raise exception.RSEProtocolNotSupported('No protocol for provided settings found : %s.' % str(rse_settings_dest))
 

@@ -946,10 +946,9 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                             pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope.internal, name)] = path
 
                     try:
-                        pfn = protocol.lfns2pfns(lfns={'scope': scope,
-                                                       'name': name,
-                                                       'path': path}).\
-                            values()[0]
+                        pfn = list(protocol.lfns2pfns(lfns={'scope': scope,
+                                                            'name': name,
+                                                            'path': path}).values())[0]
 
                         # server side root proxy handling if location is set.
                         # supports root and http destinations
@@ -982,7 +981,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                                         rse_id=rse_id,
                                                         session=session)
                             if service and isinstance(service, list):
-                                pfn = get_signed_url(service=service[0], operation='read', url=pfn, lifetime=signature_lifetime)
+                                pfn = get_signed_url(rse_id=rse_id, service=service[0], operation='read', url=pfn, lifetime=signature_lifetime)
 
                         # PFNs don't have concepts, therefore quickly encapsulate in a tuple
                         # ('pfn', 'domain', 'priority', 'client_extract')
@@ -1546,7 +1545,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
                                      models.DataIdentifier.name == name))
 
     # Remove Archive Constituents
-    for chunk in chunks(archive_contents_condition, 100):
+    for chunk in chunks(archive_contents_condition, 30):
         session.query(models.ConstituentAssociation).\
             with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_CHILD_IDX)", 'oracle').\
             filter(or_(*chunk)).\
@@ -1754,20 +1753,25 @@ def get_sum_count_being_deleted(rse_id, session=None):
 
 
 @transactional_session
-def update_replicas_states(replicas, nowait=False, session=None):
+def update_replicas_states(replicas, nowait=False, add_tombstone=False, session=None):
     """
     Update File replica information and state.
 
-    :param replicas: The list of replicas.
-    :param nowait:   Nowait parameter for the for_update queries.
-    :param session:  The database session in use.
+    :param replicas:        The list of replicas.
+    :param nowait:          Nowait parameter for the for_update queries.
+    :param add_tombstone:   To set a tombstone in case there is no lock on the replica.
+    :param session:         The database session in use.
     """
 
     for replica in replicas:
         query = session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'])
+        lock_cnt = 0
         try:
             if nowait:
-                query.with_for_update(nowait=True).one()
+                rep = query.with_for_update(nowait=True).one()
+            else:
+                rep = query.one()
+            lock_cnt = rep.lock_cnt
         except NoResultFound:
             # remember scope, name and rse
             raise exception.ReplicaNotFound("No row found for scope: %s name: %s rse: %s" % (replica['scope'], replica['name'], get_rse_name(replica['rse_id'], session=session)))
@@ -1786,12 +1790,19 @@ def update_replicas_states(replicas, nowait=False, session=None):
             values['tombstone'] = OBSOLETE
         elif replica['state'] == ReplicaState.AVAILABLE:
             rucio.core.lock.successful_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
+            # If No locks we set a tombstone in the future
+            if add_tombstone and lock_cnt == 0:
+                set_tombstone(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'], tombstone=datetime.utcnow() + timedelta(hours=2), session=session)
+
         elif replica['state'] == ReplicaState.UNAVAILABLE:
             rucio.core.lock.failed_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'],
                                             error_message=replica.get('error_message', None),
                                             broken_rule_id=replica.get('broken_rule_id', None),
                                             broken_message=replica.get('broken_message', None),
                                             nowait=nowait, session=session)
+            # If No locks we set a tombstone in the future
+            if add_tombstone and lock_cnt == 0:
+                set_tombstone(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'], tombstone=datetime.utcnow() + timedelta(hours=2), session=session)
         elif replica['state'] == ReplicaState.TEMPORARY_UNAVAILABLE:
             query = query.filter(or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE, models.RSEFileAssociation.state == ReplicaState.TEMPORARY_UNAVAILABLE))
 
@@ -2512,13 +2523,13 @@ def get_cleaned_updated_collection_replicas(total_workers, worker_number, sessio
     replica_update_requests.filter(models.UpdatedCollectionReplica.id.in_(duplicate_request_ids)).delete(synchronize_session=False)
 
     # Delete update requests which do not have collection_replicas
-    session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.rse_id.is_(None) &
-                                                          ~exists().where(and_(models.CollectionReplica.name == models.UpdatedCollectionReplica.name,
-                                                                               models.CollectionReplica.scope == models.UpdatedCollectionReplica.scope))).delete(synchronize_session=False)
-    session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.rse_id.isnot(None) &
-                                                          ~exists().where(and_(models.CollectionReplica.name == models.UpdatedCollectionReplica.name,
-                                                                               models.CollectionReplica.scope == models.UpdatedCollectionReplica.scope,
-                                                                               models.CollectionReplica.rse_id == models.UpdatedCollectionReplica.rse_id))).delete(synchronize_session=False)
+    session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.rse_id.is_(None)
+                                                          & ~exists().where(and_(models.CollectionReplica.name == models.UpdatedCollectionReplica.name,  # NOQA: W503
+                                                                                 models.CollectionReplica.scope == models.UpdatedCollectionReplica.scope))).delete(synchronize_session=False)
+    session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.rse_id.isnot(None)
+                                                          & ~exists().where(and_(models.CollectionReplica.name == models.UpdatedCollectionReplica.name,  # NOQA: W503
+                                                                                 models.CollectionReplica.scope == models.UpdatedCollectionReplica.scope,
+                                                                                 models.CollectionReplica.rse_id == models.UpdatedCollectionReplica.rse_id))).delete(synchronize_session=False)
 
     query = session.query(models.UpdatedCollectionReplica)
     return [update_request.to_dict() for update_request in query.all()]
@@ -2532,12 +2543,12 @@ def update_collection_replica(update_request, session=None):
     """
     if update_request['rse_id'] is not None:
         # Check one specific dataset replica
-        ds_length = None
-        old_available_replicas = None
-        ds_bytes = None
+        ds_length = 0
+        old_available_replicas = 0
+        ds_bytes = 0
         ds_replica_state = None
-        ds_available_bytes = None
-        available_replicas = None
+        ds_available_bytes = 0
+        available_replicas = 0
 
         try:
             collection_replica = session.query(models.CollectionReplica)\
@@ -2935,19 +2946,20 @@ def get_suspicious_files(rse_expression, **kwargs):
 
 
 @transactional_session
-def set_tombstone(rse_id, scope, name, session=None):
+def set_tombstone(rse_id, scope, name, tombstone=OBSOLETE, session=None):
     """
     Sets a tombstone on a replica.
 
     :param rse_id: ID of RSE.
     :param scope: scope of the replica DID.
     :param name: name of the replica DID.
+    :param tombstone: the tombstone to set. Default is OBSOLETE
     :param session: database session in use.
     """
     conn = get_engine().connect()
     stmt = update(models.RSEFileAssociation).where(and_(models.RSEFileAssociation.rse_id == rse_id, models.RSEFileAssociation.name == name, models.RSEFileAssociation.scope == scope,
                                                         ~session.query(models.ReplicaLock).filter_by(scope=scope, name=name, rse_id=rse_id).exists()))\
-                                            .values(tombstone=OBSOLETE)
+                                            .values(tombstone=tombstone)
     result = conn.execute(stmt)
     if not result.rowcount:
         try:
