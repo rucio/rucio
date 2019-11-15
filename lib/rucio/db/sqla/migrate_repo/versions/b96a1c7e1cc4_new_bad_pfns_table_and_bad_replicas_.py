@@ -48,7 +48,7 @@ def upgrade():
         # Create new bad_pfns table
         create_table('bad_pfns',
                      sa.Column('path', sa.String(2048)),
-                     sa.Column('state', BadPFNStatus.db_type(), default=BadPFNStatus.SUSPICIOUS),
+                     sa.Column('state', BadPFNStatus.db_type(name='BAD_PFNS_STATE_CHK'), default=BadPFNStatus.SUSPICIOUS),
                      sa.Column('reason', sa.String(255)),
                      sa.Column('account', sa.String(25)),
                      sa.Column('expires_at', sa.DateTime),
@@ -76,7 +76,7 @@ def upgrade():
         # Create new bad_pfns table
         create_table('bad_pfns',
                      sa.Column('path', sa.String(2048)),
-                     sa.Column('state', BadPFNStatus.db_type(), default=BadPFNStatus.SUSPICIOUS),
+                     sa.Column('state', BadPFNStatus.db_type(name='BAD_PFNS_STATE_CHK'), default=BadPFNStatus.SUSPICIOUS),
                      sa.Column('reason', sa.String(255)),
                      sa.Column('account', sa.String(25)),
                      sa.Column('expires_at', sa.DateTime),
@@ -103,7 +103,7 @@ def upgrade():
         # Create new bad_pfns table
         create_table('bad_pfns',
                      sa.Column('path', sa.String(2048)),
-                     sa.Column('state', BadPFNStatus.db_type(), default=BadPFNStatus.SUSPICIOUS),
+                     sa.Column('state', BadPFNStatus.db_type(name='BAD_PFNS_STATE_CHK'), default=BadPFNStatus.SUSPICIOUS),
                      sa.Column('reason', sa.String(255)),
                      sa.Column('account', sa.String(25)),
                      sa.Column('expires_at', sa.DateTime),

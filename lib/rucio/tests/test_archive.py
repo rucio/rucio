@@ -120,7 +120,7 @@ class TestArchive(object):
                                                         resolve_archives=True)]
         assert_equal(len(res), 2)
         for r in res:
-            assert_in('weighted.storage.cube.zip?xrdcl.unzip=norep-', r.keys()[0])
+            assert_in('weighted.storage.cube.zip?xrdcl.unzip=norep-', list(r.keys())[0])
 
     def test_list_archive_contents_at_rse(self):
         """ ARCHIVE (CORE): Transparent archive listing at RSE """

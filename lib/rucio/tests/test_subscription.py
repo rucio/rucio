@@ -20,6 +20,7 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 
 from __future__ import print_function
 
@@ -34,7 +35,7 @@ from rucio.client.didclient import DIDClient
 from rucio.common.exception import InvalidObject, SubscriptionNotFound, SubscriptionDuplicate
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
-from rucio.core.account_limit import set_account_limit
+from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_did, set_new_dids
 from rucio.core.rse import add_rse
 from rucio.core.rule import add_rule
@@ -114,8 +115,8 @@ class TestSubscriptionCoreApi():
         site_b_id = add_rse(site_b)
 
         # Add quota
-        set_account_limit(root, site_a_id, -1)
-        set_account_limit(root, site_b_id, -1)
+        set_local_account_limit(root, site_a_id, -1)
+        set_local_account_limit(root, site_b_id, -1)
 
         # add a new dataset
         dsn = 'dataset-%s' % uuid()
@@ -190,7 +191,7 @@ class TestSubscriptionRestApi():
         res2 = TestApp(subs_app.wsgifunc(*mw)).post('/root/%s' % (subscription_name), headers=headers2, params=data, expect_errors=True)
         assert_equal(res2.status, 201)
 
-        subscription_id = res2.body
+        subscription_id = res2.body.decode()
         res3 = TestApp(subs_app.wsgifunc(*mw)).get('/Id/%s' % (subscription_id), headers=headers2, expect_errors=True)
         assert_equal(res3.status, 200)
         assert_equal(loads(loads(res3.body)['filter'])['project'][0], 'data12_900GeV')
@@ -248,8 +249,8 @@ class TestSubscriptionRestApi():
         site_b_id = add_rse(site_b)
 
         # Add quota
-        set_account_limit(root, site_a_id, -1)
-        set_account_limit(root, site_b_id, -1)
+        set_local_account_limit(root, site_a_id, -1)
+        set_local_account_limit(root, site_b_id, -1)
 
         # add a new dataset
         dsn = 'dataset-%s' % uuid()
@@ -273,7 +274,7 @@ class TestSubscriptionRestApi():
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         res2 = TestApp(subs_app.wsgifunc(*mw)).get('/%s/%s/Rules/States' % ('root', subscription_name), headers=headers2, expect_errors=True)
 
-        for line in res2.body.split('\n'):
+        for line in res2.body.decode().split('\n'):
             print(line)
             rs = loads(line)
             if rs[1] == subscription_name:

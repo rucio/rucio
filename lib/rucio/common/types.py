@@ -55,6 +55,18 @@ class InternalType(object):
             return NotImplemented
         return not val
 
+    def __le__(self, other):
+        val = self.external <= other.external
+        if val is NotImplemented:
+            return NotImplemented
+        return not val
+
+    def __lt__(self, other):
+        val = self.external < other.external
+        if val is NotImplemented:
+            return NotImplemented
+        return not val
+
     def __hash__(self):
         return hash(self.internal)
 
