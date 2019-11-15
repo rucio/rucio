@@ -1,0 +1,89 @@
+==============================
+1.21.0 "Donkeys of the Galaxy"
+==============================
+
+--------------------
+Upgrade Instructions
+--------------------
+
+This feature release requires a database schema upgrade. Please consult the `documentation <https://rucio.readthedocs.io/en/latest/database.html>`_ about upgrading your database schema.
+
+The following changes are necessary and are covered by the ``alembic upgrade head`` command:
+
+1. Adding columns ``created_at`` and ``updated_at`` to ``did_meta`` table. This only needs to be executed if the columns are not existing (Alembic revision ``53b479c3cb0f``)
+
+2. Adding ``SAML`` as authentication typ to ``identities`` and ``account_map`` tables (Alembic revision ``9a1b149a2044``)
+
+3. Adding ``staging_started_at`` and ``staging_finished_at`` to ``requests`` and ``requests_history`` tables (Alembic revision ``bc68e9946deb``)
+
+4. Adding ``third_party_copy_write`` and ``third_party_copy_read`` columns to ``rse_protocols`` table (Alembic revision ``2b69addda658``)
+
+5. Added new ``account_glob_limits`` table (Alembic revision ``a74275a1ad30``)
+
+6. Added new ``dids_followed`` and ``dids_followed_events`` tables (Alembic revision ``7541902bf173``)
+
+7. Added ``strategy``, ``direction``, and ``deadline`` column to ``rse_transfer_limits`` table (Alembic revision ``810a41685bc1``)
+ 
+-------
+General
+-------
+
+********
+Features
+********
+
+- Core & Internals: Global account qutoas `#2315 <https://github.com/rucio/rucio/issues/2315>`_
+- Core & Internals: Per-RSE checksum specification `#2498 <https://github.com/rucio/rucio/issues/2498>`_
+- Core & Internals: Removal of fts3-rest-api dependency `#2518 <https://github.com/rucio/rucio/issues/2518>`_
+- Core & Internals: Add Source rse mode to throttler `#2611 <https://github.com/rucio/rucio/issues/2611>`_
+- Deletion: Use signed URLs when deleting from object stores `#2411 <https://github.com/rucio/rucio/issues/2411>`_
+- Collection following mechanism `#2304 <https://github.com/rucio/rucio/issues/2304>`_
+- Release management: Dependency upgrade for 1.21 `#3054 <https://github.com/rucio/rucio/issues/3054>`_
+- Testing: flake8 and pycodestyles upgrade `#2156 <https://github.com/rucio/rucio/issues/2156>`_
+- Testing: activate python3 client tests `#2943 <https://github.com/rucio/rucio/issues/2943>`_
+- Transfers: Generic Multi-Hop transfers `#2632 <https://github.com/rucio/rucio/issues/2632>`_
+- Transfers: Rucio support for Globus Online as a transfer tool `#2905 <https://github.com/rucio/rucio/issues/2905>`_
+- Transfers: Add staging timestamps to request history `#3023 <https://github.com/rucio/rucio/issues/3023>`_
+- WebUI: Login to WebUI with SSO `#2306 <https://github.com/rucio/rucio/issues/2306>`_
+- WebUI: Create username/password authentication for Rucio WebUI `#2614 <https://github.com/rucio/rucio/issues/2614>`_
+
+************
+Enhancements
+************
+
+- Core & Internals: S3 URL signing code should pass endpoint to boto3 `#2715 <https://github.com/rucio/rucio/issues/2715>`_
+- Core & Internals: S3 URL signing code should use RSE name to index credentials `#2717 <https://github.com/rucio/rucio/issues/2717>`_
+- Core & Internals: session() replaced by Session() in requests `#3011 <https://github.com/rucio/rucio/issues/3011>`_
+- Core & Internals: Add a quota_approver similar to rule_approver `#3053 <https://github.com/rucio/rucio/issues/3053>`_
+- Infrastructure: Add objectstore to development Docker image `#2855 <https://github.com/rucio/rucio/issues/2855>`_
+- Infrastructure: Add a docker-compose that brings services up only listening on localhost `#2990 <https://github.com/rucio/rucio/issues/2990>`_
+- Testing: fix setup problems in python3 travis tests `#2597 <https://github.com/rucio/rucio/issues/2597>`_
+- Testing: Activate grouped FIFO tests for mysql `#2802 <https://github.com/rucio/rucio/issues/2802>`_
+- Testing: Python 3.* tests for clients `#3032 <https://github.com/rucio/rucio/issues/3032>`_
+- Transfers: Minor improvements to MultiHop algorithm `#3086 <https://github.com/rucio/rucio/issues/3086>`_
+
+****
+Bugs
+****
+
+- Core & Internals: problems upgrading to latest mysql/mariadb version `#2421 <https://github.com/rucio/rucio/issues/2421>`_
+- Core & Internals: Missing created_at and updated_at columns in did_meta table `#2462 <https://github.com/rucio/rucio/issues/2462>`_
+- Core & Internals: Integer attribute value '1' displayed as 'True' in the client.   `#2787 <https://github.com/rucio/rucio/issues/2787>`_
+- Core & Internals: missing dot in schema in alembic scripts `#2823 <https://github.com/rucio/rucio/issues/2823>`_
+- Core & Internals: check global quota in running RSESelector `#3070 <https://github.com/rucio/rucio/issues/3070>`_
+- Core & Internals: delete_replica query on archive_contents uses too many bind variables `#3089 <https://github.com/rucio/rucio/issues/3089>`_
+- Infrastructure: docker setup issues `#3038 <https://github.com/rucio/rucio/issues/3038>`_
+- Release management: alembic cli not working `#2872 <https://github.com/rucio/rucio/issues/2872>`_
+- Transfers: Failure with multihop in case an intermediate request already exists `#3078 <https://github.com/rucio/rucio/issues/3078>`_
+- Transfers: Keyword argument error in conveyor `#3093 <https://github.com/rucio/rucio/issues/3093>`_
+
+
+-------
+Clients
+-------
+
+****
+Bugs
+****
+
+- Clients: rucio client fails if username not defined `#3050 <https://github.com/rucio/rucio/issues/3050>`_
