@@ -19,6 +19,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
+# - Brandon White <bjwhite@fnal.gov>, 2019-2020-2020
 #
 # PY3K COMPATIBLE
 
@@ -60,7 +61,7 @@ logging.basicConfig(stream=sys.stdout,
 GRACEFUL_STOP = threading.Event()
 
 
-def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False, scheme=None):
+def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False, scheme=None):
     """
     Main loop to select and delete files.
 

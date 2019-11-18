@@ -20,6 +20,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Brandon White <bjwhite@fnal.gov>, 2019-2020
 #
 # PY3K COMPATIBLE
 
@@ -71,7 +72,7 @@ def throttler(once=False, sleep_time=600):
     heartbeat.sanity_check(executable=executable, hostname=hostname)
     # Make an initial heartbeat so that all throttlers have the correct worker number on the next try
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info(prepend_str + 'Throttler started - timeout (%s)' % (sleep_time))
 
     current_time = time.time()
@@ -81,9 +82,9 @@ def throttler(once=False, sleep_time=600):
 
         try:
             heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
-            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
             if heart_beat['assign_thread'] != 0:
-                logging.info(prepend_str + 'Throttler thread id is not 1, will sleep. Only thread 1 will work')
+                logging.info(prepend_str + 'Throttler thread id is not 0, will sleep. Only thread 0 will work')
                 if once:
                     break
                 if time.time() < current_time + sleep_time:

@@ -19,6 +19,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Brandon White <bjwhite@fnal.gov>, 2019-2020
 #
 # PY3K COMPATIBLE
 
@@ -101,19 +102,19 @@ def stager(once=False, rses=None, mock=False, bulk=100, group_bulk=1, group_poli
     hb_thread = threading.current_thread()
     heartbeat.sanity_check(executable=executable, hostname=hostname)
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info(prepend_str + 'Stager starting with bring_online %s seconds' % (bring_online))
 
     time.sleep(10)  # To prevent running on the same partition if all the poller restart at the same time
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info(prepend_str + 'Stager started')
 
     while not graceful_stop.is_set():
 
         try:
             heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
 
             if activities is None:
                 activities = [None]
@@ -129,7 +130,7 @@ def stager(once=False, rses=None, mock=False, bulk=100, group_bulk=1, group_poli
 
                 logging.info(prepend_str + 'Starting to get stagein transfers for %s' % (activity))
                 start_time = time.time()
-                transfers = __get_stagein_transfers(total_workers=heart_beat['nr_threads'] - 1,
+                transfers = __get_stagein_transfers(total_workers=heart_beat['nr_threads'],
                                                     worker_number=heart_beat['assign_thread'],
                                                     failover_schemes=failover_scheme,
                                                     limit=bulk,
