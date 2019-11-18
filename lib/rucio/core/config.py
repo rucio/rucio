@@ -17,7 +17,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Brandon White <bjwhite@fnal.gov>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019-2020
 #
 # PY3K COMPATIBLE
 
