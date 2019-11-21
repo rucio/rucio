@@ -31,7 +31,12 @@ if config.config_has_section('policy'):
     try:
         POLICY = config.config_get('policy', 'package') + ".schema"
     except (NoOptionError, NoSectionError) as error:
-        POLICY = 'rucio.common.schema.generic'
+        # fall back to old system for now
+        try:
+            POLICY = config.config_get('policy', 'schema')
+        except (NoOptionError, NoSectionError) as error:
+            POLICY = 'generic'
+        POLICY = 'rucio.common.schema.' + POLICY.lower()
 else:
     POLICY = 'rucio.common.schema.generic'
 
@@ -43,5 +48,3 @@ except (ImportError) as error:
 for i in dir(module):
     if i[:1] != '_':
         globals()[i] = getattr(module, i)
-
-# from rucio.common.schema.generic import *
