@@ -23,6 +23,7 @@ from __future__ import print_function
 
 from copy import deepcopy
 from nose.tools import assert_equal, assert_true, assert_raises, assert_in
+from nose import SkipTest
 from paste.fixture import TestApp
 
 from rucio.db.sqla import session, models
@@ -83,6 +84,13 @@ def reset_rses():
         rse.save(session=db_session)
         add_rse_attribute(rse_id=rse['id'], key=rse['rse'], value=True, session=db_session)
     db_session.commit()
+
+
+def test_active():
+    db_session = session.get_session()
+    if db_session.bind.dialect.name == 'sqlite':
+        return False
+    return True
 
 
 class TestImporter(object):
@@ -448,7 +456,8 @@ class TestImporterSyncModes(object):
 
     def setup(self):
         # Since test config scenarios are complicated moved the setup inside the individual tests
-        pass
+        if not test_active():
+            raise SkipTest
 
     def test_import_rses_append(self):
         """ IMPORTER (CORE): test import rse (APPEND mode). """
