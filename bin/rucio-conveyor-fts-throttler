@@ -33,10 +33,10 @@ def get_parser():
     """
     Returns the argparse parser.
     """
-    parser = argparse.ArgumentParser(description="The fts_throttler daemon is responsible for automatically setting" +
-                                     " the configurations of FTS storages depending on specific transfer failures." +
-                                     " It does this by retrieving transfer failure information from elastic search, depending on their failure ratio." +
-                                     " it will use http requests to set the storage configurations accordingly")
+    parser = argparse.ArgumentParser(description="The fts_throttler daemon is responsible for automatically setting\
+                                     the configurations of FTS storages depending on specific transfer failures.\
+                                     It does this by retrieving transfer failure information from elastic search, depending on their failure ratio.\
+                                     it will use http requests to set the storage configurations accordingly")
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--cycle_interval", action="store", default=3600, type=int, help='interval for each cycle')
 

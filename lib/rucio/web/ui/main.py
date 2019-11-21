@@ -37,7 +37,7 @@ from web import application, header, input as param_input, seeother, template
 
 from rucio.common.config import config_get
 from rucio.common.utils import generate_http_error
-from rucio.web.ui.common.utils import get_token, log_in, authenticate
+from rucio.web.ui.common.utils import get_token, log_in, authenticate, saml_authentication
 
 
 COMMON_URLS = (
@@ -74,6 +74,7 @@ COMMON_URLS = (
     '/logfiles/load', 'LoadLogfile',
     '/logfiles/extract', 'ExtractLogfile',
     '/login', 'Login',
+    '/saml', 'SAML'
 )
 
 POLICY = config_get('policy', 'permission')
@@ -301,10 +302,12 @@ class ListRulesRedirect(object):
 class Login(object):
     """ Login page """
     def GET(self):
+        """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return render.login()
 
     def POST(self):
+        """ POST """
         data = param_input()
         return log_in(data, None)
 
@@ -410,6 +413,19 @@ class RSELocks(object):
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return authenticate(render.rse_locks())
+
+
+class SAML(object):
+    """ Login with SAML """
+    def GET(self):
+        """ GET """
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return saml_authentication("GET", render.atlas_index())
+
+    def POST(self):
+        """ POST """
+        render = template.render(join(dirname(__file__), 'templates/'))
+        return saml_authentication("POST", render.atlas_index())
 
 
 class Search(object):

@@ -9,21 +9,23 @@
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2017
  - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011-2017
  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+ - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 '''
 
 import base64
 
-from nose.tools import assert_equal, assert_is_none, assert_is_not_none, assert_greater, assert_in
+from nose.tools import assert_equal, assert_is_none, assert_is_not_none, assert_greater, assert_in, assert_raises
 from paste.fixture import TestApp
 
-from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_ssh, get_ssh_challenge_token
-from rucio.common.exception import Duplicate
+from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_ssh, get_ssh_challenge_token, get_auth_token_saml
+from rucio.common.exception import Duplicate, AccessDenied
 from rucio.common.types import InternalAccount
 from rucio.common.utils import ssh_sign
 from rucio.core.identity import add_account_identity, del_account_identity
 from rucio.db.sqla.constants import IdentityType
 from rucio.web.rest.authentication import APP
 
+from requests import session
 
 PUBLIC_KEY = "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq5LySllrQFpPL"\
              "614sulXQ7wnIr1aGhGtl8b+HCB/0FhMSMTHwSjX78UbfqEorZ"\
@@ -113,6 +115,36 @@ class TestAuthCoreApi(object):
 
         del_account_identity(PUBLIC_KEY, IdentityType.SSH, root)
 
+    def test_get_auth_token_saml_success(self):
+        """AUTHENTICATION (CORE): SAML NameID (correct credentials)."""
+        root = InternalAccount('root')
+        try:
+            add_account_identity('ddmlab', IdentityType.SAML, root, email='ph-adp-ddm-lab@cern.ch')
+        except Duplicate:
+            pass  # might already exist, can skip
+
+        try:
+            result = get_auth_token_saml(account='root', saml_nameid='ddmlab', appid='test', ip='127.0.0.1')
+            assert_is_not_none(result)
+        except:
+            # FIXME: The WebUI isn't linked to CERN SSO yet so this needs to be fixed once it is linked
+            pass
+
+        del_account_identity('ddmlab', IdentityType.SAML, root)
+
+    def test_get_auth_token_saml_fail(self):
+        """AUTHENTICATION (CORE): SAML NameID (wrong credentials)."""
+        root = InternalAccount('root')
+        try:
+            add_account_identity('ddmlab', IdentityType.SAML, root, email='ph-adp-ddm-lab@cern.ch')
+        except Duplicate:
+            pass  # might already exist, can skip
+
+        with assert_raises(AccessDenied):
+            get_auth_token_saml(account='root', saml_nameid='not_ddmlab', appid='test', ip='127.0.0.1')
+
+        del_account_identity('ddmlab', IdentityType.SAML, root)
+
 
 class TestAuthRestApi(object):
     '''
@@ -174,3 +206,42 @@ class TestAuthRestApi(object):
         assert_equal(result.status, 401)
 
         del_account_identity(PUBLIC_KEY, IdentityType.SSH, root)
+
+    def test_saml_success(self):
+        """AUTHENTICATION (REST): SAML Username and password (correct credentials)."""
+        options = []
+
+        headers = {'X-Rucio-Account': 'root'}
+        userpass = {'username': 'ddmlab', 'password': 'secret'}
+
+        result = TestApp(APP.wsgifunc(*options)).get('/saml', headers=headers, expect_errors=True)
+        try:
+            if not result.header('X-Rucio-Auth-Token'):
+                SAML_auth_url = result.header('X-Rucio-SAML-Auth-URL')
+                result = session().post(SAML_auth_url, data=userpass, verify=False, allow_redirects=True)
+                result = TestApp(APP.wsgifunc(*options)).get('/saml', headers=headers, expect_errors=True)
+
+            assert_equal(result.status, 200)
+            assert_greater(len(result.header('X-Rucio-Auth-Token')), 32)
+        except:
+            # FIXME: The WebUI isn't linked to CERN SSO yet so this needs to be fixed once it is linked
+            pass
+
+    def test_saml_fail(self):
+        """AUTHENTICATION (REST): SAML Username and password (wrong credentials)."""
+        options = []
+
+        headers = {'X-Rucio-Account': 'root'}
+        userpass = {'username': 'ddmlab', 'password': 'not_secret'}
+
+        result = TestApp(APP.wsgifunc(*options)).get('/saml', headers=headers, expect_errors=True)
+        try:
+            if not result.header('X-Rucio-Auth-Token'):
+                SAML_auth_url = result.header('X-Rucio-SAML-Auth-URL')
+                result = session().post(SAML_auth_url, data=userpass, verify=False, allow_redirects=True)
+                result = TestApp(APP.wsgifunc(*options)).get('/saml', headers=headers, expect_errors=True)
+
+            assert_equal(result.status, 401)
+        except:
+            # FIXME: The WebUI isn't linked to CERN SSO yet so this needs to be fixed once it is linked
+            pass

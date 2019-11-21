@@ -19,12 +19,13 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2017
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Gabriele Fronze' <gfronze@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -33,20 +34,21 @@ from __future__ import print_function
 import base64
 import datetime
 import errno
+import getpass
 import hashlib
 import imp
 import json
 import os
-import pwd
+import os.path
 import re
 import requests
 import socket
 import subprocess
+import tempfile
 import threading
 import time
 import zlib
 
-from getpass import getuser
 from logging import getLogger, Formatter
 from logging.handlers import RotatingFileHandler
 from uuid import uuid4 as uuid
@@ -179,10 +181,38 @@ def clean_headers(msg):
     return msg
 
 
+# GLOBALLY_SUPPORTED_CHECKSUMS = ['adler32', 'md5', 'sha256', 'crc32']
+GLOBALLY_SUPPORTED_CHECKSUMS = ['adler32', 'md5']
+CHECKSUM_ALGO_DICT = {}
+PREFERRED_CHECKSUM = GLOBALLY_SUPPORTED_CHECKSUMS[0]
+CHECKSUM_KEY = 'supported_checksums'
+
+
+def is_checksum_valid(checksum_name):
+    """
+    A simple function to check wether a checksum algorithm is supported.
+    Relies on GLOBALLY_SUPPORTED_CHECKSUMS to allow for expandability.
+
+    :param checksum_name: The name of the checksum to be verified.
+    :returns: True if checksum_name is in GLOBALLY_SUPPORTED_CHECKSUMS list, False otherwise.
+    """
+
+    return checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS
+
+
+def set_checksum_value(file, checksum_names_list):
+    for checksum_name in checksum_names_list:
+        if checksum_name in file['metadata'].keys() and file['metadata'][checksum_name]:
+            file['checksum'] = '%s:%s' % (checksum_name.upper(), str(file['metadata'][checksum_name]))
+            if checksum_name == PREFERRED_CHECKSUM:
+                break
+
+
 def adler32(file):
     """
     An Adler-32 checksum is obtained by calculating two 16-bit checksums A and B and concatenating their bits into a 32-bit integer. A is the sum of all bytes in the stream plus one, and B is the sum of the individual values of A from each step.
 
+    :param file: file name
     :returns: Hexified string, padded to 8 values.
     """
 
@@ -203,11 +233,14 @@ def adler32(file):
     return str('%08x' % adler)
 
 
+CHECKSUM_ALGO_DICT['adler32'] = adler32
+
+
 def md5(file):
     """
     Runs the MD5 algorithm (RFC-1321) on the binary content of the file named file and returns the hexadecimal digest
 
-    :param string: file name
+    :param file: file name
     :returns: string of 32 hexadecimal digits
     """
     hash_md5 = hashlib.md5()
@@ -218,6 +251,42 @@ def md5(file):
         raise Exception('FATAL - could not get MD5 checksum of file %s - %s' % (file, e))
 
     return hash_md5.hexdigest()
+
+
+CHECKSUM_ALGO_DICT['md5'] = md5
+
+
+def sha256(file):
+    """
+    Runs the SHA256 algorithm on the binary content of the file named file and returns the hexadecimal digest
+
+    :param file: file name
+    :returns: string of 32 hexadecimal digits
+    """
+    with open(file, "rb") as f:
+        bytes = f.read()  # read entire file as bytes
+        readable_hash = hashlib.sha256(bytes).hexdigest()
+        print(readable_hash)
+        return readable_hash
+
+
+CHECKSUM_ALGO_DICT['sha256'] = sha256
+
+
+def crc32(file):
+    """
+    Runs the CRC32 algorithm on the binary content of the file named file and returns the hexadecimal digest
+
+    :param file: file name
+    :returns: string of 32 hexadecimal digits
+    """
+    prev = 0
+    for eachLine in open(file, "rb"):
+        prev = zlib.crc32(eachLine, prev)
+    return "%X" % (prev & 0xFFFFFFFF)
+
+
+CHECKSUM_ALGO_DICT['crc32'] = crc32
 
 
 def str_to_date(string):
@@ -557,9 +626,9 @@ def clean_surls(surls):
     for surl in surls:
         if surl.startswith('srm'):
             surl = re.sub(':[0-9]+/', '/', surl)
-            surl = re.sub('/srm/managerv1\?SFN=', '', surl)
-            surl = re.sub('/srm/v2/server\?SFN=', '', surl)
-            surl = re.sub('/srm/managerv2\?SFN=', '', surl)
+            surl = re.sub('/srm/managerv1\?SFN=', '', surl)  # NOQA: W605
+            surl = re.sub('/srm/v2/server\?SFN=', '', surl)  # NOQA: W605
+            surl = re.sub('/srm/managerv2\?SFN=', '', surl)  # NOQA: W605
         res.append(surl)
     res.sort()
     return res
@@ -629,24 +698,18 @@ def get_tmp_dir():
 
     :return: A path.
     """
-    user, tmp_dir = None, None
+    base_dir = os.path.abspath(tempfile.gettempdir())
     try:
-        user = pwd.getpwuid(os.getuid()).pw_name
+        return os.path.join(base_dir, getpass.getuser())
     except Exception:
         pass
 
-    for env_var in ('TMP', 'TMPDIR', 'TEMP'):
-        if env_var in os.environ:
-            tmp_dir = os.environ[env_var]
-            break
+    try:
+        return os.path.join(base_dir, str(os.getuid()))
+    except Exception:
+        pass
 
-    if not user:
-        user = getuser()
-
-    if not tmp_dir:
-        return '/tmp/' + user + '/'
-
-    return tmp_dir + '/' + user + '/'
+    return base_dir
 
 
 def is_archive(name):
@@ -655,7 +718,7 @@ def is_archive(name):
 
     :return: A boolean.
     '''
-    regexp = '^.*\.(zip|zipx|tar.gz|tgz|tar.Z|tar.bz2|tbz2)(\.\d+)*$'
+    regexp = r'^.*\.(zip|zipx|tar.gz|tgz|tar.Z|tar.bz2|tbz2)(\.\d+)*$'
     if re.match(regexp, name, re.I):
         return True
     return False
@@ -1068,3 +1131,22 @@ def api_update_return_dict(dictionary):
         dictionary['scope'] = dictionary['scope'].external
 
     return dictionary
+
+
+def get_parsed_throttler_mode(throttler_mode):
+    """ Parse the conveyor-throttler mode string. """
+    direction = None
+    all_activities = None
+    if throttler_mode == 'DEST_PER_ACT':
+        direction = 'destination'
+        all_activities = False
+    elif throttler_mode == 'DEST_PER_ALL_ACT':
+        direction = 'destination'
+        all_activities = True
+    elif throttler_mode == 'SRC_PER_ACT':
+        direction = 'source'
+        all_activities = False
+    elif throttler_mode == 'SRC_PER_ALL_ACT':
+        direction = 'source'
+        all_activities = True
+    return (direction, all_activities)

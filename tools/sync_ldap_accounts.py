@@ -8,6 +8,7 @@
 #
 # Authors:
 # - Cheng-Hsi Chao, <cheng-hsi.chaos@cern.ch>, 2014
+# - Martin Barisits, <martin.barisits@cern.ch>, 2019
 
 """
 Script to sync LDAP accounts as Rucio Identity
@@ -15,8 +16,8 @@ Script to sync LDAP accounts as Rucio Identity
 
 import ConfigParser
 import getpass
-import ldap
-import ldapurl
+import ldap  # pylint: disable=import-error
+import ldapurl  # pylint: disable=import-error
 import os
 from rucio.client import Client
 from rucio.common import exception
@@ -84,7 +85,7 @@ def add_identity(ldapObject):
             identity = result[1]['gecos'][0]
             email = result[1]['mail'][0]
             add_account(account)
-            client.add_identity(account, identity, authtype, email)
+            client.add_identity(account, identity, authtype, email)  # pylint: disable:no-value-for-parameter
             print 'Added new identity to account: %s-%s' % (identity, account)
         except KeyError as e:
             print 'Attribute', e, 'for account \'' + account + '\' is missing'
@@ -103,7 +104,7 @@ def add_account(account):
         client.get_account(account)
         print 'Account \'' + account + '\' is already registered as Rucio account'
     except exception.AccountNotFound:
-        client.add_account(account, type)
+        client.add_account(account, type, None)
         pass
     except exception.InvalidObject as e:
         print e[0][0]
@@ -137,10 +138,10 @@ if config.get('attributes', 'auth_type') != 'DEFAULT':
     retrieveAttributes.append('auth_type')
 searchFilter = config.get('ldap', 'searchFilter')
 login_dn = config.get('ldap', 'login_dn')
-if login_dn is 'DEFAULT':
+if login_dn == 'DEFAULT':
     login_dn = None
 password = config.get('ldap', 'password')
-if not password and login_dn is not 'DEFAULT':  # Prompt for password if left blank using DN bind
+if not password and login_dn != 'DEFAULT':  # Prompt for password if left blank using DN bind
     password = str(getpass.getpass("Please input LDAP LoginDN's password: "))
 
 if __name__ == '__main__':

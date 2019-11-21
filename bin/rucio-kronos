@@ -35,7 +35,7 @@ def get_parser():
     """
     Returns the argparse parser.
     """
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Kronos is a daemon that consume tracer massages and update the replica accessed time accordingly.")
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: number of threads')
     parser.add_argument('--sleep-time-files', action="store", default=60, type=int, help='Seconds to sleep between two cycles for the file thread')
