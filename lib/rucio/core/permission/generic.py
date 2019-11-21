@@ -19,6 +19,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -26,6 +27,7 @@ import rucio.core.authentication
 import rucio.core.scope
 from rucio.core.account import list_account_attributes, has_account_attribute
 from rucio.core.rse import list_rse_attributes
+from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla.constants import IdentityType
 
 
@@ -68,6 +70,7 @@ def has_permission(issuer, action, kwargs):
             'get_auth_token_user_pass': perm_get_auth_token_user_pass,
             'get_auth_token_gss': perm_get_auth_token_gss,
             'get_auth_token_x509': perm_get_auth_token_x509,
+            'get_auth_token_saml': perm_get_auth_token_saml,
             'add_account_identity': perm_add_account_identity,
             'add_did': perm_add_did,
             'add_dids': perm_add_dids,
@@ -84,8 +87,10 @@ def has_permission(issuer, action, kwargs):
             'get_request_by_did': perm_get_request_by_did,
             'cancel_request': perm_cancel_request,
             'get_next': perm_get_next,
-            'set_account_limit': perm_set_account_limit,
-            'delete_account_limit': perm_delete_account_limit,
+            'set_local_account_limit': perm_set_local_account_limit,
+            'set_global_account_limit': perm_set_global_account_limit,
+            'delete_local_account_limit': perm_delete_local_account_limit,
+            'delete_global_account_limit': perm_delete_global_account_limit,
             'config_sections': perm_config,
             'config_add_section': perm_config,
             'config_has_section': perm_config,
@@ -96,7 +101,7 @@ def has_permission(issuer, action, kwargs):
             'config_set': perm_config,
             'config_remove_section': perm_config,
             'config_remove_option': perm_config,
-            'get_account_usage': perm_get_account_usage,
+            'get_local_account_usage': perm_get_local_account_usage,
             'add_attribute': perm_add_account_attribute,
             'del_attribute': perm_del_account_attribute,
             'list_heartbeats': perm_list_heartbeats,
@@ -106,7 +111,9 @@ def has_permission(issuer, action, kwargs):
             'get_signed_url': perm_get_signed_url,
             'add_bad_pfns': perm_add_bad_pfns,
             'del_account_identity': perm_del_account_identity,
-            'del_identity': perm_del_identity}
+            'del_identity': perm_del_identity,
+            'remove_did_from_followed': perm_remove_did_from_followed,
+            'remove_dids_from_followed': perm_remove_dids_from_followed}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -292,6 +299,19 @@ def perm_get_auth_token_x509(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     if rucio.core.authentication.exist_identity_account(identity=kwargs['dn'], type=IdentityType.X509, account=kwargs['account']):
+        return True
+    return False
+
+
+def perm_get_auth_token_saml(issuer, kwargs):
+    """
+    Checks if a user can request a token with user_pass for an account.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    if rucio.core.authentication.exist_identity_account(identity=kwargs['saml_nameid'], type=IdentityType.SAML, account=kwargs['account']):
         return True
     return False
 
@@ -715,7 +735,7 @@ def perm_set_rse_limits(issuer, kwargs):
     return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
 
 
-def perm_set_account_limit(issuer, kwargs):
+def perm_set_local_account_limit(issuer, kwargs):
     """
     Checks if an account can set an account limit.
 
@@ -735,7 +755,28 @@ def perm_set_account_limit(issuer, kwargs):
     return False
 
 
-def perm_delete_account_limit(issuer, kwargs):
+def perm_set_global_account_limit(issuer, kwargs):
+    """
+    Checks if an account can set a global account limit.
+
+    :param account: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
+        return True
+    # Check if user is a country admin
+    admin_in_country = set()
+    for kv in list_account_attributes(account=issuer):
+        if kv['key'].startswith('country-') and kv['value'] == 'admin':
+            admin_in_country.add(kv['key'].partition('-')[2])
+    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country') for rse in parse_expression(kwargs['rse_exp'])}
+    if resolved_rse_countries.issubset(admin_in_country):
+        return True
+    return False
+
+
+def perm_delete_local_account_limit(issuer, kwargs):
     """
     Checks if an account can delete an account limit.
 
@@ -755,6 +796,28 @@ def perm_delete_account_limit(issuer, kwargs):
     return False
 
 
+def perm_delete_global_account_limit(issuer, kwargs):
+    """
+    Checks if an account can delete a global account limit.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
+        return True
+    # Check if user is a country admin
+    admin_in_country = set()
+    for kv in list_account_attributes(account=issuer):
+        if kv['key'].startswith('country-') and kv['value'] == 'admin':
+            admin_in_country.add(kv['key'].partition('-')[2])
+    if admin_in_country:
+        resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country') for rse in parse_expression(kwargs['rse_exp'])}
+        if resolved_rse_countries.issubset(admin_in_country):
+            return True
+    return False
+
+
 def perm_config(issuer, kwargs):
     """
     Checks if an account can read/write the configuration.
@@ -766,7 +829,7 @@ def perm_config(issuer, kwargs):
     return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
 
 
-def perm_get_account_usage(issuer, kwargs):
+def perm_get_local_account_usage(issuer, kwargs):
     """
     Checks if an account can get the account usage of an account.
 
@@ -866,3 +929,32 @@ def perm_add_bad_pfns(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     return _is_root(issuer)
+
+
+def perm_remove_did_from_followed(issuer, kwargs):
+    """
+    Checks if an account can remove did from followed table.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return _is_root(issuer)\
+        or has_account_attribute(account=issuer, key='admin')\
+        or kwargs['account'] == issuer\
+        or kwargs['scope'] == 'mock'
+
+
+def perm_remove_dids_from_followed(issuer, kwargs):
+    """
+    Checks if an account can bulk remove dids from followed table.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
+        return True
+    if not kwargs['account'] == issuer:
+        return False
+    return True

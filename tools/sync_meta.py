@@ -9,6 +9,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Martin Barisits, <martin.barisits@cern.ch>, 2019
 
 import sys
 import traceback
@@ -30,8 +31,8 @@ if __name__ == '__main__':
                  ('datatype', 'ALL', None, ['HITS', 'AOD', 'EVNT', 'NTUP_TRIG', 'NTUP_SMWZ', 'NoDatatypeDefined', 'DPD']),
                  ('version', 'ALL', None, []),
                  ('campaign', 'ALL', None, []),
-                 ('guid', 'FILE', '^(\{){0,1}[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}(\}){0,1}$', []),
-                 ('events', 'DERIVED', '^\d+$', [])]
+                 ('guid', 'FILE', r'^(\{){0,1}[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}(\}){0,1}$', []),
+                 ('events', 'DERIVED', r'^\d+$', [])]
 
     c = Client()
     for key, key_type, value_regexp, values in meta_keys:

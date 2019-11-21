@@ -173,6 +173,8 @@ class CustomSdist(_sdist):
 
 cmdclass['sdist'] = CustomSdist
 
+# For using SSO login option, install these RPM packages: libxml2-devel xmlsec1-devel xmlsec1-openssl-devel libtool-ltdl-devel
+
 setup(
     name=NAME,
     version=version.version_string(),

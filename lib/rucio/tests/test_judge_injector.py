@@ -8,13 +8,14 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2015-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 
 from nose.tools import assert_raises
 
 from rucio.common.exception import RuleNotFound
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
-from rucio.core.account_limit import set_account_limit
+from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_did, attach_dids
 from rucio.core.lock import get_replica_locks
 from rucio.core.rse import add_rse_attribute, get_rse_id
@@ -56,15 +57,15 @@ class TestJudgeEvaluator():
         # Add quota
         cls.jdoe = InternalAccount('jdoe')
         cls.root = InternalAccount('root')
-        set_account_limit(cls.jdoe, cls.rse1_id, -1)
-        set_account_limit(cls.jdoe, cls.rse3_id, -1)
-        set_account_limit(cls.jdoe, cls.rse4_id, -1)
-        set_account_limit(cls.jdoe, cls.rse5_id, -1)
+        set_local_account_limit(cls.jdoe, cls.rse1_id, -1)
+        set_local_account_limit(cls.jdoe, cls.rse3_id, -1)
+        set_local_account_limit(cls.jdoe, cls.rse4_id, -1)
+        set_local_account_limit(cls.jdoe, cls.rse5_id, -1)
 
-        set_account_limit(cls.jdoe, cls.rse1_id, -1)
-        set_account_limit(cls.jdoe, cls.rse3_id, -1)
-        set_account_limit(cls.jdoe, cls.rse4_id, -1)
-        set_account_limit(cls.jdoe, cls.rse5_id, -1)
+        set_local_account_limit(cls.jdoe, cls.rse1_id, -1)
+        set_local_account_limit(cls.jdoe, cls.rse3_id, -1)
+        set_local_account_limit(cls.jdoe, cls.rse4_id, -1)
+        set_local_account_limit(cls.jdoe, cls.rse5_id, -1)
 
     def test_judge_inject_rule(self):
         """ JUDGE INJECTOR: Test the judge when injecting a rule"""

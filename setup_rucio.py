@@ -18,6 +18,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 
 '''
 Setup.py which moves kerberos modules in extra dependencies to be buildthedocs compliant.
@@ -166,6 +167,7 @@ postgresql_extras = ['psycopg2-binary>=2.4.2,<2.8']
 mysql_extras = ['PyMySQL']
 kerberos_extras = ['kerberos>=1.3.0', 'pykerberos>=1.2.1', 'requests-kerberos>=0.12.0']
 globus_extras = ['PyYAML==5.1.1', 'globus-sdk==1.8.0']
+saml_extras = ['python3-saml>=1.6.0']
 dev_extras = parse_requirements(requirements_files=['tools/pip-requires-test', ])
 requires = parse_requirements(requirements_files=requirements_files)
 extras_require = dict(oracle=oracle_extras,
@@ -173,6 +175,7 @@ extras_require = dict(oracle=oracle_extras,
                       mysql=mysql_extras,
                       kerberos=kerberos_extras,
                       globus=globus_extras,
+                      saml=saml_extras,
                       dev=dev_extras)
 depend_links = parse_dependency_links(requirements_files=requirements_files)
 

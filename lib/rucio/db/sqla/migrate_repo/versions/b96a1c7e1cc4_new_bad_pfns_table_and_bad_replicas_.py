@@ -1,4 +1,4 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2018-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2018-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Robert Illingworth <illingwo@fnal.gov>, 2019
 
 ''' new bad_pfns table and bad_replicas changes '''
 
@@ -41,13 +42,13 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name in ['oracle', 'postgresql']:
         # Create new bad_pfns table
         create_table('bad_pfns',
                      sa.Column('path', sa.String(2048)),
-                     sa.Column('state', BadPFNStatus.db_type(), default=BadPFNStatus.SUSPICIOUS),
+                     sa.Column('state', BadPFNStatus.db_type(name='BAD_PFNS_STATE_CHK'), default=BadPFNStatus.SUSPICIOUS),
                      sa.Column('reason', sa.String(255)),
                      sa.Column('account', sa.String(25)),
                      sa.Column('expires_at', sa.DateTime),
@@ -62,7 +63,7 @@ def upgrade():
                                 condition="state in ('B', 'D', 'L', 'R', 'S', 'T')")
 
         # Add new column to bad_replicas table
-        add_column('bad_replicas', sa.Column('expires_at', sa.DateTime()), schema=schema)
+        add_column('bad_replicas', sa.Column('expires_at', sa.DateTime()), schema=schema[:-1])
 
         # Change PK
         drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
@@ -71,11 +72,11 @@ def upgrade():
         # Add new Index to Table
         create_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas', ['expires_at'])
 
-    elif context.get_context().dialect.name == 'mysql':
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
         # Create new bad_pfns table
         create_table('bad_pfns',
                      sa.Column('path', sa.String(2048)),
-                     sa.Column('state', BadPFNStatus.db_type(), default=BadPFNStatus.SUSPICIOUS),
+                     sa.Column('state', BadPFNStatus.db_type(name='BAD_PFNS_STATE_CHK'), default=BadPFNStatus.SUSPICIOUS),
                      sa.Column('reason', sa.String(255)),
                      sa.Column('account', sa.String(25)),
                      sa.Column('expires_at', sa.DateTime),
@@ -89,7 +90,35 @@ def upgrade():
                                 condition="state in ('B', 'D', 'L', 'R', 'S', 'T')")
 
         # Add new column to bad_replicas table
-        add_column('bad_replicas', sa.Column('expires_at', sa.DateTime()), schema=schema)
+        add_column('bad_replicas', sa.Column('expires_at', sa.DateTime()), schema=schema[:-1])
+
+        # Change PK
+        drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
+        create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'state', 'created_at'])
+
+        # Add new Index to Table
+        create_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas', ['expires_at'])
+
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
+        # Create new bad_pfns table
+        create_table('bad_pfns',
+                     sa.Column('path', sa.String(2048)),
+                     sa.Column('state', BadPFNStatus.db_type(name='BAD_PFNS_STATE_CHK'), default=BadPFNStatus.SUSPICIOUS),
+                     sa.Column('reason', sa.String(255)),
+                     sa.Column('account', sa.String(25)),
+                     sa.Column('expires_at', sa.DateTime),
+                     sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
+                     sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
+
+        create_primary_key('BAD_PFNS_PK', 'bad_pfns', ['path', 'state'])
+        create_foreign_key('BAD_PFNS_ACCOUNT_FK', 'bad_pfns', 'accounts', ['account'], ['account'])
+
+        op.execute('ALTER TABLE ' + schema + 'bad_replicas DROP CHECK BAD_REPLICAS_STATE_CHK')  # pylint: disable=no-member
+        create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
+                                condition="state in ('B', 'D', 'L', 'R', 'S', 'T')")
+
+        # Add new column to bad_replicas table
+        add_column('bad_replicas', sa.Column('expires_at', sa.DateTime()), schema=schema[:-1])
 
         # Change PK
         drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
@@ -130,10 +159,22 @@ def downgrade():
         drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
         create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'created_at'])
 
-    elif context.get_context().dialect.name == 'mysql':
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
         drop_table('bad_pfns')
         drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
 
+        create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
+                                condition="state in ('B', 'D', 'L', 'R', 'S')")
+
+        drop_column('bad_replicas', 'expires_at', schema=schema[:-1])
+        drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
+        create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'created_at'])
+
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
+        drop_table('bad_pfns')
+        drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
+
+        op.execute('ALTER TABLE ' + schema + 'bad_replicas DROP CHECK BAD_REPLICAS_STATE_CHK')  # pylint: disable=no-member
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
                                 condition="state in ('B', 'D', 'L', 'R', 'S')")
 

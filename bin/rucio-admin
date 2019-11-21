@@ -28,6 +28,7 @@
 # - Nicolo Magini, <Nicolo.Magini@cern.ch>, 2018
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis, <dimitrios.christidis@cern.ch>, 2019
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -59,7 +60,7 @@ from rucio.client import Client
 from rucio.common.config import config_get
 from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject, ReplicaNotFound,
                                     RSENotFound, RSEOperationNotSupported, InvalidRSEExpression, DuplicateContent, RuleNotFound, CannotAuthenticate,
-                                    Duplicate, ReplicaIsLocked)
+                                    Duplicate, ReplicaIsLocked, ConfigNotFound)
 from rucio.common.utils import chunks, construct_surl, sizefmt, get_bytes_value_from_string, render_json, parse_response
 from rucio import version
 from rucio.rse import rsemanager as rsemgr
@@ -180,6 +181,10 @@ def exception_handler(function):
         except ReplicaNotFound as error:
             logger.error(error)
             logger.error('This means that the replica does not exist.')
+            return FAILURE
+        except ConfigNotFound as error:
+            logger.error(error)
+            logger.error('This means that the configuration section you are looking for does not exist.')
             return FAILURE
         except Exception as error:
             logger.error(error)
@@ -486,6 +491,25 @@ def list_rses(args):
     rses = client.list_rses()
     for rse in rses:
         print('%(rse)s' % rse)
+    return SUCCESS
+
+
+@exception_handler
+def update_rse(args):
+    """
+    %(prog)s update [options] <field1=value1 field2=value2 ...>
+
+    Update the settings of the RSE ('availability_read', 'availability_write', 'availability_delete', 'latitude', 'longitude', 'time_zone', 'rse_type',
+    'volatile', 'deterministic', 'region_code', 'country_name', 'city', or 'staging_area')
+    """
+    client = get_client(args)
+    if args.value in ['true', 'True', 'TRUE', '1']:
+        args.value = True
+    if args.value in ['false', 'False', 'FALSE', '0']:
+        args.value = False
+    params = {'name': args.rse, args.param: args.value}
+    client.update_rse(args.rse, parameters=params)
+    print('Updated RSE %s settings %s to %s' % (args.rse, args.param, args.value))
     return SUCCESS
 
 
@@ -1431,7 +1455,7 @@ def get_parser():
                                                                '\n')
     identity_add_parser.set_defaults(which='identity_add')
     identity_add_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
-    identity_add_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH'], help='Authentication type [X509|GSS|USERPASS|SSH]', required=True)
+    identity_add_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH', 'SAML'], help='Authentication type [X509|GSS|USERPASS|SSH|SAML]', required=True)
     identity_add_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
     identity_add_parser.add_argument('--email', dest='email', action='store', help='Email address associated with the identity', required=True)
     identity_add_parser.add_argument('--password', dest='password', action='store', help='Password if authtype is USERPASS', required=False)
@@ -1451,7 +1475,7 @@ def get_parser():
                                                                   '\n')
     identity_delete_parser.set_defaults(which='identity_delete')
     identity_delete_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
-    identity_delete_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH'], help='Authentication type [X509|GSS|USERPASS|SSH]', required=True)
+    identity_delete_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH', 'SAML'], help='Authentication type [X509|GSS|USERPASS|SSH|SAML]', required=True)
     identity_delete_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
 
     # The RSE subparser
@@ -1493,6 +1517,22 @@ def get_parser():
     add_rse_parser.set_defaults(which='add_rse')
     add_rse_parser.add_argument('rse', action='store', help='RSE name')
     add_rse_parser.add_argument('--non-deterministic', action='store_true', help='Create RSE in non-deterministic mode')
+
+    # The update_rse command
+    update_rse_parser = rse_subparser.add_parser('update',
+                                                 help='Update RSE settings.',
+                                                 formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                 epilog='Example Usage\n'
+                                                        '"""""""""""""\n'
+                                                        '::\n'
+                                                        '\n'
+                                                        '    $ rucio-admin rse update --param availability_write --value False\n'
+                                                        '\n'
+                                                        '\n')
+    update_rse_parser.set_defaults(which='update_rse')
+    update_rse_parser.add_argument('--rse', dest='rse', action='store', help='RSE name')
+    update_rse_parser.add_argument('--setting', dest='param', action='store', help="One of availability_read, availability_write, availability_delete, latitude, longitude, time_zone, region_code, country_name, or city")
+    update_rse_parser.add_argument('--value', dest='value', action='store', help='Value for the new setting configuration.')
 
     # The info_rse command
     info_rse_parser = rse_subparser.add_parser('info',
@@ -2021,6 +2061,7 @@ if __name__ == '__main__':
                 'identity_add': identity_add,
                 'identity_delete': identity_delete,
                 'add_rse': add_rse,
+                'update_rse': update_rse,
                 'set_attribute_rse': set_attribute_rse,
                 'get_attribute_rse': get_attribute_rse,
                 'delete_attribute_rse': delete_attribute_rse,

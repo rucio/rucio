@@ -20,6 +20,7 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 
 from __future__ import print_function
 
@@ -34,7 +35,7 @@ from rucio.client.didclient import DIDClient
 from rucio.common.exception import InvalidObject, SubscriptionNotFound, SubscriptionDuplicate
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
-from rucio.core.account_limit import set_account_limit
+from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_did, set_new_dids
 from rucio.core.rse import add_rse
 from rucio.core.rule import add_rule
@@ -114,8 +115,8 @@ class TestSubscriptionCoreApi():
         site_b_id = add_rse(site_b)
 
         # Add quota
-        set_account_limit(root, site_a_id, -1)
-        set_account_limit(root, site_b_id, -1)
+        set_local_account_limit(root, site_a_id, -1)
+        set_local_account_limit(root, site_b_id, -1)
 
         # add a new dataset
         dsn = 'dataset-%s' % uuid()
@@ -248,8 +249,8 @@ class TestSubscriptionRestApi():
         site_b_id = add_rse(site_b)
 
         # Add quota
-        set_account_limit(root, site_a_id, -1)
-        set_account_limit(root, site_b_id, -1)
+        set_local_account_limit(root, site_a_id, -1)
+        set_local_account_limit(root, site_b_id, -1)
 
         # add a new dataset
         dsn = 'dataset-%s' % uuid()

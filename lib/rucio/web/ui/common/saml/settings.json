@@ -1,0 +1,21 @@
+{
+    "strict": false,
+    "debug": true,
+    "sp": {
+        "entityId": "https://localhost/ui/",
+        "assertionConsumerService": {
+            "url": "https://localhost/ui/saml",
+            "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+        },
+        "NameIDFormat": "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified"
+    },
+    "idp": {
+
+        "entityId": "https://login.cern.ch",
+        "singleSignOnService": {
+            "url": "https://login.cern.ch/adfs/ls/auth/integrated/",
+            "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+        },
+        "x509cert": "<IdP certificate here>"
+    }
+}

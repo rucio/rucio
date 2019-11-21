@@ -43,3 +43,5 @@ except (ImportError) as error:
 for i in dir(module):
     if i[:1] != '_':
         globals()[i] = getattr(module, i)
+
+# from rucio.common.schema.generic import *

@@ -85,7 +85,7 @@ def generate_rse(endpoint, token):
     rse.add_protocol(rse_id=rse_id, parameter=tmp_proto)
     rse.add_rse_attribute(rse_id=rse_id, key='fts', value='https://fts3-pilot.cern.ch:8446')
 
-    account_limit.set_account_limit(account=InternalAccount('root'), rse_id=rsemanager.get_rse_info(rse_name)['id'], bytes=-1)
+    account_limit.set_local_account_limit(account=InternalAccount('root'), rse_id=rsemanager.get_rse_info(rse_name)['id'], bytes=-1)
 
     return rsemanager.get_rse_info(rse_name)
 

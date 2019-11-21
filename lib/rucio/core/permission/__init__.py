@@ -38,3 +38,5 @@ except (ImportError) as error:
 for i in dir(module):
     if i[:1] != '_' or i == '_is_root':
         globals()[i] = getattr(module, i)
+
+# from rucio.core.permission.generic import *
