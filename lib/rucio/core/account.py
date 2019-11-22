@@ -1,19 +1,27 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
-# - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013, 2017
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2019
-# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2015
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012
+# - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2019
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2015
+# - Martin Barisits <martin.barisits@cern.ch>, 2014
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -254,7 +262,8 @@ def add_account_attribute(account, key, value, session=None):
            or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
            or match('.*IntegrityError.*UNIQUE constraint failed: account_attr_map.account, account_attr_map.key.*', error.args[0]) \
            or error.args[0] == "(IntegrityError) column account/key is not unique" \
-           or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]):
+           or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+           or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]):
             raise exception.Duplicate('Key {0} already exist for account {1}!'.format(key, account))
     except Exception:
         raise exception.RucioException(str(format_exc()))
