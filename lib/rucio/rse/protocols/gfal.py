@@ -360,7 +360,7 @@ class Default(protocol.RSEProtocol):
                 ret[checksum_name] = ctx.checksum(str(path), str(checksum_name.capitalize()))
                 verified = True
             except Exception as error:
-                message += 'Error while processing gfal checksum call (%s). Error: %s \n' % checksum_name, str(error)
+                message += 'Error while processing gfal checksum call (%s). Error: %s \n' % (checksum_name, str(error))
 
         if not verified:
             raise exception.RSEChecksumUnavailable(message)
