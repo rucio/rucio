@@ -1,4 +1,4 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,17 +14,17 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2019
 # - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2016
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2017-2018
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -660,6 +660,7 @@ class TestBinRucio():
             metalink_file.write(replica_file)
         cmd = 'rucio download --dir /tmp --metalink {0}'.format(metalink_file_path)
         exitcode, out, err = execute(cmd)
+        remove(metalink_file_path)
         cmd = 'ls /tmp/{0}'.format(scope)
         exitcode, out, err = execute(cmd)
         nose.tools.assert_not_equal(re.search(tmp_file_name, out), None)
