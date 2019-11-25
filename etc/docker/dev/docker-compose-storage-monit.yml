@@ -1,0 +1,131 @@
+version: "2"
+services:
+  rucio:
+    image: rucio/rucio-dev
+    hostname: rucio
+    ports:
+      - "443:443"
+    links:
+      - ruciodb:ruciodb
+      - graphite:graphite
+      - fts:fts
+      - ftsdb:ftsdb
+      - xrd1:xrd1
+      - xrd2:xrd2
+      - xrd3:xrd3
+      - activemq:activemq
+      - kibana:kibana
+      - grafana:grafana
+    volumes:
+      - ../../../tools:/opt/rucio/tools
+      - ../../../bin:/opt/rucio/bin
+      - ../../../lib:/opt/rucio/lib
+    environment:
+      - X509_USER_CERT=/opt/rucio/etc/usercert.pem
+      - X509_USER_KEY=/opt/rucio/etc/userkey.pem
+    command: ["/monit-entrypoint.sh"]
+  ruciodb:
+    image: postgres:11
+    environment:
+      - POSTGRES_USER=rucio
+      - POSTGRES_DB=rucio
+      - POSTGRES_PASSWORD=secret
+    ports:
+      - "5432:5432"
+    command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
+  graphite:
+    image: graphiteapp/graphite-statsd
+    ports:
+      - "80:80"
+  fts:
+    image: rucio/fts
+    hostname: fts
+    ports:
+      - "8446:8446"
+      - "8449:8449"
+  ftsdb:
+    image: mysql:5
+    hostname: ftsdb
+    environment:
+      - MYSQL_USER=fts
+      - MYSQL_PASSWORD=fts
+      - MYSQL_ROOT_PASSWORD=fts
+      - MYSQL_DATABASE=fts
+    ports:
+      - "3306:3306"
+  xrd1:
+    image: rucio/xrootd
+    hostname: xrd1
+    environment:
+      - XRDPORT=1094
+    ports:
+      - "1094:1094"
+    volumes:
+      - ../../certs/hostcert_xrd1.pem:/tmp/xrdcert.pem
+      - ../../certs/hostcert_xrd1.key.pem:/tmp/xrdkey.pem
+  xrd2:
+    image: rucio/xrootd
+    hostname: xrd2
+    environment:
+      - XRDPORT=1095
+    ports:
+      - "1095:1095"
+    volumes:
+      - ../../certs/hostcert_xrd2.pem:/tmp/xrdcert.pem
+      - ../../certs/hostcert_xrd2.key.pem:/tmp/xrdkey.pem
+  xrd3:
+    image: rucio/xrootd
+    hostname: xrd3
+    environment:
+      - XRDPORT=1096
+    ports:
+      - "1096:1096"
+    volumes:
+      - ../../certs/hostcert_xrd3.pem:/tmp/xrdcert.pem
+      - ../../certs/hostcert_xrd3.key.pem:/tmp/xrdkey.pem
+  activemq:
+    image: webcenter/activemq:latest
+    hostname: activemq
+    environment:
+       - ACTIVEMQ_CONFIG_NAME=activemq
+       - ACTIVEMQ_CONFIG_DEFAULTACCOUNT=false
+       - ACTIVEMQ_USERS_hermes=supersecret
+       - ACTIVEMQ_GROUPS_writes=hermes
+       - ACTIVEMQ_USERS_logstash=supersecret
+       - ACTIVEMQ_GROUPS_reads=logstash
+       - ACTIVEMQ_CONFIG_SCHEDULERENABLED=true
+    ports:
+      - "61613:61613"
+  elasticsearch:
+    image: elasticsearch:7.4.0
+    hostname: elasticsearch
+    environment:
+      - discovery.type=single-node
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+  logstash:
+    image: docker.elastic.co/logstash/logstash-oss:7.3.2
+    hostname: logstash
+    command: bash -c "logstash-plugin install logstash-input-stomp ; /usr/local/bin/docker-entrypoint"
+    ports:
+      - "5044:5044"
+    links:
+      - "activemq:activemq"
+      - "elasticsearch:elasticsearch"
+    volumes:
+      - ./pipeline.conf:/usr/share/logstash/pipeline/pipeline.conf
+  kibana:
+    image: kibana:7.4.0
+    hostname: kibana
+    ports:
+      - "5601:5601"
+    links:
+      - "elasticsearch:elasticsearch"
+  grafana:
+    image: grafana/grafana:latest
+    hostname: grafana
+    ports:
+      - "3000:3000"
+    links:
+      - "elasticsearch:elasticsearch"

@@ -10,12 +10,10 @@
 # PY3K COMPATIBLE
 
 from rucio.common import dumper
-from rucio.common.dumper import error, DUMPS_CACHE_DIR
-import data_models
+from rucio.common.dumper import error, DUMPS_CACHE_DIR, data_models, path_parsing
 import datetime
 import logging
 import os
-import path_parsing
 import re
 import subprocess
 import tempfile

@@ -182,7 +182,8 @@ class TestDatasetReplicaUpdate:
         add_replicas(rse_id=self.rse_id, files=files, account=self.account, session=self.db_session)
         add_did(scope=self.scope, name=dataset_name, type=constants.DIDType.DATASET, account=self.account, session=self.db_session)
         attach_dids(scope=self.scope, name=dataset_name, dids=files, account=self.account, session=self.db_session)
-        models.CollectionReplica(rse_id=self.rse_id, scope=self.scope, state=constants.ReplicaState.AVAILABLE, name=dataset_name, did_type=constants.DIDType.DATASET, bytes=len(files) * file_size, length=len(files)).save(session=self.db_session)
+        models.CollectionReplica(rse_id=self.rse_id, scope=self.scope, state=constants.ReplicaState.AVAILABLE, name=dataset_name, did_type=constants.DIDType.DATASET, bytes=len(files) * file_size, length=len(files), available_replicas_cnt=0)\
+              .save(session=self.db_session)
 
         # Update request with rse id
         # First update -> dataset replica should be available

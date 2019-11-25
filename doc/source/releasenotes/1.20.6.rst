@@ -1,0 +1,23 @@
+======
+1.20.6
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Core & Internals: The caching endpoint address should be a configurable value. `#2812 <https://github.com/rucio/rucio/issues/2812>`_
+
+****
+Bugs
+****
+
+- Core & Internals: Temporary unavailable files injection fails if duplucates `#2678 <https://github.com/rucio/rucio/issues/2678>`_
+- Core & Internals: bug in resolving site attribute to only one RSE `#2899 <https://github.com/rucio/rucio/issues/2899>`_
+- Core & Internals: declare_bad_file_replicas broken `#2912 <https://github.com/rucio/rucio/issues/2912>`_
+- Deletion: Reaper 2.0 Should Reap Greedy RSE's Without Needing MinFreeSpace/MaxBeingDeletedFiles Set `#2819 <https://github.com/rucio/rucio/issues/2819>`_
+- Rebalancing: Background rebalacing error due to multi-VO support `#2895 <https://github.com/rucio/rucio/issues/2895>`_

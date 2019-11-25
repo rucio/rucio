@@ -20,6 +20,7 @@
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Gabriele Fronze' <gfronze@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -36,7 +37,7 @@ from rucio.client.client import Client
 from rucio.common.exception import (RucioException, RSEBlacklisted, DataIdentifierAlreadyExists,
                                     DataIdentifierNotFound, NoFilesUploaded, NotAllFilesUploaded,
                                     ResourceTemporaryUnavailable, ServiceUnavailable, InputValidationError)
-from rucio.common.utils import adler32, execute, generate_uuid, md5, send_trace
+from rucio.common.utils import adler32, execute, generate_uuid, md5, send_trace, GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
 
@@ -68,7 +69,7 @@ class UploadClient:
         self.trace['eventType'] = 'upload'
         self.trace['eventVersion'] = version.RUCIO_VERSION[0]
 
-    def upload(self, items, summary_file_path=None):
+    def upload(self, items, summary_file_path=None, traces_copy_out=None):
         """
         :param items: List of dictionaries. Each dictionary describing a file to upload. Keys:
             path                  - path of the file that will be uploaded
@@ -85,6 +86,7 @@ class UploadClient:
             transfer_timeout      - Optional: time after the upload will be aborted
             guid                  - Optional: guid of the file
         :param summary_file_path: Optional: a path where a summary in form of a json file will be stored
+        :param traces_copy_out: reference to an external list, where the traces should be uploaded
 
         :returns: 0 on success
 
@@ -140,11 +142,16 @@ class UploadClient:
             force_scheme = file.get('force_scheme')
             delete_existing = False
 
-            self.trace['scope'] = file['did_scope']
-            self.trace['datasetScope'] = file.get('dataset_scope', '')
-            self.trace['dataset'] = file.get('dataset_name', '')
-            self.trace['remoteSite'] = rse
-            self.trace['filesize'] = file['bytes']
+            trace = copy.deepcopy(self.trace)
+            # appending trace to list reference, if the reference exists
+            if traces_copy_out is not None:
+                traces_copy_out.append(trace)
+
+            trace['scope'] = file['did_scope']
+            trace['datasetScope'] = file.get('dataset_scope', '')
+            trace['dataset'] = file.get('dataset_name', '')
+            trace['remoteSite'] = rse
+            trace['filesize'] = file['bytes']
 
             file_did = {'scope': file['did_scope'], 'name': file['did_name']}
             dataset_did_str = file.get('dataset_did_str')
@@ -170,6 +177,7 @@ class UploadClient:
                     try:
                         self.client.get_did(file['did_scope'], file['did_name'])
                         logger.info('File already registered. Skipping upload.')
+                        trace['stateReason'] = 'File already exists'
                         continue
                     except DataIdentifierNotFound:
                         logger.info('File already exists on RSE. Previous left overs will be overwritten.')
@@ -177,13 +185,16 @@ class UploadClient:
             elif not is_deterministic and not no_register:
                 if rsemgr.exists(rse_settings, pfn):
                     logger.info('File already exists on RSE with given pfn. Skipping upload. Existing replica has to be removed first.')
+                    trace['stateReason'] = 'File already exists'
                     continue
                 elif rsemgr.exists(rse_settings, file_did):
                     logger.info('File already exists on RSE with different pfn. Skipping upload.')
+                    trace['stateReason'] = 'File already exists'
                     continue
             else:
                 if rsemgr.exists(rse_settings, pfn if pfn else file_did):
                     logger.info('File already exists on RSE. Skipping upload')
+                    trace['stateReason'] = 'File already exists'
                     continue
             protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=force_scheme)
             protocols.reverse()
@@ -197,15 +208,19 @@ class UploadClient:
                 lfn['filename'] = basename
                 lfn['scope'] = file['did_scope']
                 lfn['name'] = file['did_name']
-                lfn['adler32'] = file['adler32']
+
+                for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
+                    if checksum_name in file:
+                        lfn[checksum_name] = file[checksum_name]
+
                 lfn['filesize'] = file['bytes']
 
                 sign_service = None
                 if cur_scheme == 'https':
                     sign_service = rse_sign_service
 
-                self.trace['protocol'] = cur_scheme
-                self.trace['transferStart'] = time.time()
+                trace['protocol'] = cur_scheme
+                trace['transferStart'] = time.time()
                 try:
                     state = rsemgr.upload(rse_settings=rse_settings,
                                           lfns=lfn,
@@ -224,11 +239,11 @@ class UploadClient:
 
             if success:
                 num_succeeded += 1
-                self.trace['transferEnd'] = time.time()
-                self.trace['clientState'] = 'DONE'
+                trace['transferEnd'] = time.time()
+                trace['clientState'] = 'DONE'
                 file['state'] = 'A'
                 logger.info('Successfully uploaded file %s' % basename)
-                self._send_trace(self.trace)
+                self._send_trace(trace)
 
                 if summary_file_path:
                     summary.append(copy.deepcopy(file))
@@ -248,9 +263,9 @@ class UploadClient:
                         logger.warning('Failed to attach file to the dataset')
                         logger.debug(error)
             else:
-                self.trace['clientState'] = 'FAILED'
-                self.trace['stateReason'] = state_reason
-                self._send_trace(self.trace)
+                trace['clientState'] = 'FAILED'
+                trace['stateReason'] = state_reason
+                self._send_trace(trace)
                 logger.error('Failed to upload file %s' % basename)
 
         if summary_file_path:
@@ -264,9 +279,12 @@ class UploadClient:
                                                'bytes': file['bytes'],
                                                'rse': file['rse'],
                                                'pfn': file['upload_result'].get('pfn', ''),
-                                               'guid': file['meta']['guid'],
-                                               'adler32': file['adler32'],
-                                               'md5': file['md5']}
+                                               'guid': file['meta']['guid']}
+
+                for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
+                    if checksum_name in file:
+                        final_summary[file_did_str][checksum_name] = file[checksum_name]
+
             with open(summary_file_path, 'wb') as summary_file:
                 json.dump(final_summary, summary_file, sort_keys=True, indent=1)
 

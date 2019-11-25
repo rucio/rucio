@@ -22,6 +22,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -31,17 +32,24 @@ import base64
 from re import search
 from traceback import format_exc
 
-from web import application, ctx, OK, BadRequest, header, InternalError
+from web import application, ctx, OK, BadRequest, header, InternalError, input as param_input
 
 from rucio.api.authentication import (get_auth_token_user_pass,
                                       get_auth_token_gss,
                                       get_auth_token_x509,
                                       get_auth_token_ssh,
                                       get_ssh_challenge_token,
+                                      get_auth_token_saml,
                                       validate_auth_token)
 from rucio.common.exception import AccessDenied, IdentityError, RucioException
 from rucio.common.utils import generate_http_error, date_to_str
 from rucio.web.rest.common import RucioController, check_accept_header_wrapper
+
+from rucio.common.config import config_get
+if config_get('client', 'auth_type') == 'saml':
+    from onelogin.saml2.auth import OneLogin_Saml2_Auth
+    from rucio.web.ui.common.utils import prepare_webpy_request
+    from web import cookies, setcookie
 
 
 URLS = (
@@ -51,6 +59,7 @@ URLS = (
     '/x509_proxy', 'x509',
     '/ssh', 'SSH',
     '/ssh_challenge_token', 'SSHChallengeToken',
+    '/saml', 'SAML',
     '/validate', 'Validate',
 )
 
@@ -439,6 +448,105 @@ class SSHChallengeToken(RucioController):
         header('X-Rucio-SSH-Challenge-Token', result.token)
         header('X-Rucio-SSH-Challenge-Token-Expires', date_to_str(result.expired_at))
         return str()
+
+
+class SAML(RucioController):
+    """
+    Authenticate a Rucio account temporarily via CERN SSO.
+    """
+
+    def OPTIONS(self):
+        """
+        HTTP Success:
+            200 OK
+
+        Allow cross-site scripting. Explicit for Authentication.
+        """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+        header('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
+        raise OK
+
+    @check_accept_header_wrapper(['application/octet-stream'])
+    def GET(self):
+        """
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+
+        :param Rucio-Account: Account identifier as a string.
+        :param Rucio-Username: Username as a string.
+        :param Rucio-Password: Password as a string.
+        :param Rucio-AppID: Application identifier as a string.
+        :returns: "X-Rucio-SAML-Auth-URL" as a variable-length string header.
+        """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+        header('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
+
+        header('Content-Type', 'application/octet-stream')
+        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        header('Cache-Control', 'post-check=0, pre-check=0', False)
+        header('Pragma', 'no-cache')
+
+        saml_nameid = cookies().get('saml-nameid')
+        account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
+        appid = ctx.env.get('HTTP_X_RUCIO_APPID')
+        if appid is None:
+            appid = 'unknown'
+        ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
+        if ip is None:
+            ip = ctx.ip
+
+        if saml_nameid:
+            try:
+                result = get_auth_token_saml(account, saml_nameid, appid, ip)
+            except AccessDenied:
+                raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
+            except RucioException as error:
+                raise generate_http_error(500, error.__class__.__name__, error.args[0])
+            except Exception as error:
+                print(format_exc())
+                raise InternalError(error)
+
+            if not result:
+                raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
+
+            header('X-Rucio-Auth-Token', result.token)
+            header('X-Rucio-Auth-Token-Expires', date_to_str(result.expired_at))
+            return str()
+
+        # Path to the SAML config folder
+        SAML_PATH = config_get('saml', 'config_path')
+
+        request = ctx.env
+        data = dict(param_input())
+        req = prepare_webpy_request(request, data)
+        auth = OneLogin_Saml2_Auth(req, custom_base_path=SAML_PATH)
+
+        header('X-Rucio-SAML-Auth-URL', auth.login())
+        return str()
+
+    def POST(self):
+        SAML_PATH = config_get('saml', 'config_path')
+        request = ctx.env
+        data = dict(param_input())
+        req = prepare_webpy_request(request, data)
+        auth = OneLogin_Saml2_Auth(req, custom_base_path=SAML_PATH)
+
+        auth.process_response()
+        errors = auth.get_errors()
+        if not errors:
+            if auth.is_authenticated():
+                setcookie('saml-nameid', value=auth.get_nameid(), path='/')
 
 
 class Validate(RucioController):

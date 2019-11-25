@@ -20,9 +20,7 @@
 import sqlalchemy as sa
 
 from alembic import context
-from alembic.op import (create_primary_key, create_check_constraint,
-                        drop_constraint, rename_table)
-
+from alembic.op import execute
 
 # Alembic revision identifiers
 revision = ${repr(up_revision)}
@@ -34,13 +32,18 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+
     if context.get_context().dialect.name == 'oracle':
         pass
 
     elif context.get_context().dialect.name == 'postgresql':
         pass
 
-    elif context.get_context().dialect.name == 'mysql':
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
+        pass
+
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
         pass
 
 
@@ -49,11 +52,16 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+
     if context.get_context().dialect.name == 'oracle':
         pass
 
     elif context.get_context().dialect.name == 'postgresql':
         pass
 
-    elif context.get_context().dialect.name == 'mysql':
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
+        pass
+
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
         pass
