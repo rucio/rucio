@@ -1,4 +1,4 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,10 +14,13 @@
 #
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Tobias Wegner <twegner@cern.ch>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
 import logging
+import shutil
 
 import nose.tools
 import os.path
@@ -39,35 +42,37 @@ class TestDownloadClient(object):
         self.upload_client = UploadClient(_client=self.client, logger=logger)
         self.download_client = DownloadClient(client=self.client, logger=logger)
 
-    def create_and_upload_tmp_file(self, rse, scope='mock'):
-        file_path = file_generator()
-        item = {'path': file_path,
-                'rse': rse,
-                'did_scope': scope,
-                'did_name': os.path.basename(file_path),
-                'guid': generate_uuid()}
+        self.file_path = file_generator()
+        self.scope = 'mock'
+        self.name = os.path.basename(self.file_path)
+        self.rse = 'MOCK4'
+        self.guid = generate_uuid()
+
+        item = {'path': self.file_path,
+                'rse': self.rse,
+                'did_scope': self.scope,
+                'did_name': self.name,
+                'guid': self.guid}
         nose.tools.assert_equal(self.upload_client.upload([item]), 0)
-        return item
+
+    def teardown(self):
+        shutil.rmtree('mock')
 
     def test_download_item(self):
-        """ DOWNLOAD (CLIENT): download DIDs. """
-        item = self.create_and_upload_tmp_file('MOCK4')
-        scope = item['did_scope']
-        name = item['did_name']
-        uuid = item['guid']
+        """ DOWNLOAD (CLIENT): Download DIDs """
 
         # Download specific DID
-        result = self.download_client.download_dids([{'did': '%s:%s' % (scope, name)}])
+        result = self.download_client.download_dids([{'did': '%s:%s' % (self.scope, self.name)}])
         nose.tools.assert_true(result)
 
         # Download with wildcard
-        result = self.download_client.download_dids([{'did': '%s:%s' % (scope, name[:-2] + '*')}])
+        result = self.download_client.download_dids([{'did': '%s:%s' % (self.scope, self.name[:-2] + '*')}])
         nose.tools.assert_true(result)
 
         # Download with filter
-        result = self.download_client.download_dids([{'filters': {'guid': uuid, 'scope': scope}}])
+        result = self.download_client.download_dids([{'filters': {'guid': self.guid, 'scope': self.scope}}])
         nose.tools.assert_true(result)
 
         # Download with wildcard and name
-        result = self.download_client.download_dids([{'did': '%s:%s' % (scope, '*'), 'filters': {'guid': uuid}}])
+        result = self.download_client.download_dids([{'did': '%s:%s' % (self.scope, '*'), 'filters': {'guid': self.guid}}])
         nose.tools.assert_true(result)
