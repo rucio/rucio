@@ -1,0 +1,13 @@
+============
+1.21.0.post1
+============
+
+-------
+Clients
+-------
+
+****
+Bugs
+****
+
+- Clients: Output formatting typo in rse/protocols/gfal.py `#3111 <https://github.com/rucio/rucio/issues/3111>`_
