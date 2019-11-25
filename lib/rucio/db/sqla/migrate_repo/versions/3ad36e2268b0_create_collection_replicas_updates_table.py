@@ -67,15 +67,16 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
+    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+
     if context.get_context().dialect.name in ['oracle', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         drop_column('collection_replicas', 'available_replicas_cnt', schema=schema)
         drop_column('collection_replicas', 'available_bytes', schema=schema)
         drop_table('updated_col_rep')
 
     elif context.get_context().dialect.name == 'mysql':
-        drop_column('collection_replicas', 'available_replicas_cnt')
-        drop_column('collection_replicas', 'available_bytes')
+        drop_column('collection_replicas', 'available_replicas_cnt', schema=schema)
+        drop_column('collection_replicas', 'available_bytes', schema=schema)
         drop_constraint('UPDATED_COL_REP_PK', 'updated_col_rep', type_='primary')
         drop_index('UPDATED_COL_REP_SNR_IDX', 'updated_col_rep')
         drop_table('updated_col_rep')

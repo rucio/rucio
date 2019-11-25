@@ -61,7 +61,7 @@ NAME_LENGTH = 250
 
 NAME = {"description": "Data Identifier name",
         "type": "string",
-        "pattern": "^[\/A-Za-z0-9][A-Za-z0-9\\.\\-\\_\/]{1,%s}$" % NAME_LENGTH}
+        "pattern": r"^[\/A-Za-z0-9][A-Za-z0-9\\.\\-\\_\/]{1,%s}$" % NAME_LENGTH}
 
 R_NAME = {"description": "Data Identifier name",
           "type": "string",

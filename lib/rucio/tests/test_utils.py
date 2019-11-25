@@ -12,6 +12,7 @@
  PY3K COMPATIBLE
 '''
 
+import datetime
 import unittest
 import tempfile
 
@@ -27,12 +28,18 @@ class TestUtils(unittest.TestCase):
     def setUp(self):
         """set up test fixtures"""
         self.temp_file_1 = tempfile.NamedTemporaryFile()
-        self.temp_file_1.write('hello test\n')
+        self.temp_file_1.write('hello test\n'.encode())
         self.temp_file_1.seek(0)
 
     def tearDown(self):
         """tear down test fixtures"""
         self.temp_file_1.close()
+
+    def check_exception_message(self, exptected_message, exception_object):
+        try:
+            assert_equal(exception_object.exception.message, exptected_message)
+        except AttributeError:
+            assert_equal(str(exception_object.exception), exptected_message)
 
     def test_utils_md5(self):
         """(COMMON/UTILS): test calculating MD5 of a file"""
@@ -44,7 +51,7 @@ class TestUtils(unittest.TestCase):
 
         with assert_raises(Exception) as e:
             md5('no_file')
-        assert_equal('FATAL - could not get MD5 checksum of file no_file - [Errno 2] No such file or directory: \'no_file\'', e.exception.message)
+        self.check_exception_message('FATAL - could not get MD5 checksum of file no_file - [Errno 2] No such file or directory: \'no_file\'', e)
 
     def test_utils_adler32(self):
         """(COMMON/UTILS): test calculating Adler32 of a file"""
@@ -55,13 +62,13 @@ class TestUtils(unittest.TestCase):
 
         with assert_raises(Exception) as e:
             adler32('no_file')
-        assert_equal('FATAL - could not get Adler32 checksum of file no_file - [Errno 2] No such file or directory: \'no_file\'', e.exception.message)
+        self.check_exception_message('FATAL - could not get Adler32 checksum of file no_file - [Errno 2] No such file or directory: \'no_file\'', e)
 
     def test_parse_did_filter_string(self):
         """(COMMON/UTILS): test parsing of did filter string"""
         test_cases = [{
-            'input': 'type=all,length=3,length>4,length>=6,length<=7,  test=b',
-            'expected_filter': {'length': 3, 'length.gt': 4, 'length.gte': 6, 'length.lte': 7, 'test': 'b'},
+            'input': 'type=all,length=3,length>4,length>=6,length<=7,  test=b, created_after=1900-01-01T00:00:00.000Z',
+            'expected_filter': {'length': 3, 'length.gt': 4, 'length.gte': 6, 'length.lte': 7, 'test': 'b', 'created_after': datetime.datetime.strptime('1900-01-01T00:00:00.000Z', '%Y-%m-%dT%H:%M:%S.%fZ')},
             'expected_type': 'all'
         }, {
             'input': 'type=FILE',

@@ -251,7 +251,8 @@ def add_account_attribute(account, key, value, session=None):
         new_attr.save(session=session)
     except IntegrityError as error:
         if match('.*IntegrityError.*ORA-00001: unique constraint.*ACCOUNT_ATTR_MAP_PK.*violated.*', error.args[0]) \
-           or match('.*IntegrityError.*1062, "Duplicate entry.*for key.*', error.args[0]) \
+           or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
+           or match('.*IntegrityError.*UNIQUE constraint failed: account_attr_map.account, account_attr_map.key.*', error.args[0]) \
            or error.args[0] == "(IntegrityError) column account/key is not unique" \
            or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]):
             raise exception.Duplicate('Key {0} already exist for account {1}!'.format(key, account))
@@ -290,6 +291,23 @@ def get_usage(rse_id, account, session=None):
         return {'bytes': counter.bytes, 'files': counter.files, 'updated_at': counter.updated_at}
     except exc.NoResultFound:
         return {'bytes': 0, 'files': 0, 'updated_at': None}
+
+
+@read_session
+def get_all_rse_usages_per_account(account, session=None):
+    """
+    Returns current values of the specified counter, or raises CounterNotFound if the counter does not exist.
+
+    :param rse_id:           The id of the RSE.
+    :param account:          The account name.
+    :param session:          The database session in use.
+    :returns:                A dictionary with total and bytes.
+    """
+
+    try:
+        return [result.to_dict() for result in session.query(models.AccountUsage).filter_by(account=account).all()]
+    except exc.NoResultFound:
+        return []
 
 
 @read_session

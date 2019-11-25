@@ -21,8 +21,9 @@
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 
 from __future__ import print_function
 
@@ -43,9 +44,10 @@ from rucio.common.exception import (DataIdentifierNotFound, DataIdentifierAlread
                                     UnsupportedStatus, ScopeNotFound, FileAlreadyExists, FileConsistencyMismatch)
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
-from rucio.core.account_limit import set_account_limit
+from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids, detach_dids,
-                            get_metadata, set_metadata, get_did, get_did_access_cnt)
+                            get_metadata, set_metadata, get_did, get_did_access_cnt, add_did_to_followed,
+                            get_users_following_did, remove_did_from_followed)
 from rucio.core.rse import get_rse_id
 from rucio.core.replica import add_replica
 from rucio.db.sqla.constants import DIDType
@@ -172,6 +174,62 @@ class TestDIDCore:
         attach_dids(scope=tmp_scope, name=parent_name, rse_id=rse_id, dids=files, account=root)
 
         detach_dids(scope=tmp_scope, name=parent_name, dids=files)
+
+    def test_add_did_to_followed(self):
+        """ DATA IDENTIFIERS (CORE): Mark a did as followed """
+        tmp_scope = InternalScope('mock')
+        dsn = 'dsn_%s' % generate_uuid()
+        root = InternalAccount('root')
+
+        add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
+        add_did_to_followed(scope=tmp_scope, name=dsn, account=root)
+        users = get_users_following_did(scope=tmp_scope, name=dsn)
+        rows = 0
+        for user in users:
+            rows += 1
+
+        assert_equal(rows, 1)
+
+    def test_get_users_following_did(self):
+        """ DATA IDENTIFIERS (CORE): Get the list of users following a did """
+        tmp_scope = InternalScope('mock')
+        dsn = 'dsn_%s' % generate_uuid()
+        root = InternalAccount('root')
+
+        add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
+        add_did_to_followed(scope=tmp_scope, name=dsn, account=root)
+
+        users = get_users_following_did(scope=tmp_scope, name=dsn)
+        rows = 0
+        for user in users:
+            rows += 1
+
+        assert_equal(rows, 1)
+
+    def test_remove_did_from_followed(self):
+        """ DATA IDENTIFIERS (CORE): Mark a did as not followed """
+        tmp_scope = InternalScope('mock')
+        dsn = 'dsn_%s' % generate_uuid()
+        root = InternalAccount('root')
+
+        add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
+        add_did_to_followed(scope=tmp_scope, name=dsn, account=root)
+
+        users = get_users_following_did(scope=tmp_scope, name=dsn)
+        rows = 0
+        for user in users:
+            rows += 1
+
+        assert_equal(rows, 1)
+
+        remove_did_from_followed(scope=tmp_scope, name=dsn, account=root)
+
+        users = get_users_following_did(scope=tmp_scope, name=dsn)
+        rows = 0
+        for user in users:
+            rows += 1
+
+        assert_equal(rows, 0)
 
 
 class TestDIDApi:
@@ -382,8 +440,8 @@ class TestDIDClients:
         tmp_rse = 'MOCK'
         tmp_dsn = 'dsn_%s' % generate_uuid()
         root = InternalAccount('root')
-        set_account_limit(root, get_rse_id('MOCK'), -1)
-        set_account_limit(root, get_rse_id('CERN-PROD_TZERO'), -1)
+        set_local_account_limit(root, get_rse_id('MOCK'), -1)
+        set_local_account_limit(root, get_rse_id('CERN-PROD_TZERO'), -1)
 
         # PFN example: rfio://castoratlas.cern.ch/castor/cern.ch/grid/atlas/tzero/xx/xx/xx/filename
         dataset_meta = {'project': 'data13_hip',

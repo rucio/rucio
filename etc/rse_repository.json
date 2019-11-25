@@ -84,64 +84,6 @@
     },
     "storage_usage_tool": "rucio.rse.protocols.s3boto.Default.getSpace"
   },
-  "BNL-S3-LOGS": {
-    "backend_type": "S3",
-    "deterministic": true,
-    "protocols": {
-      "default": "s3",
-      "supported": {
-        "s3": {
-          "impl": "rucio.rse.protocols.signeds3.Default",
-          "hostname": "cephgw.usatlas.bnl.gov",
-          "port": 8443,
-          "scheme": "s3",
-          "prefix": "rucio_bucket",
-          "domains": {
-            "lan": {
-              "read": 1,
-              "write": 1,
-              "delete": 1
-            },
-            "wan": {
-              "read": 1,
-              "write": 1,
-              "delete": 1
-            }
-          }
-        }
-      }
-    },
-    "storage_usage_tool": "rucio.rse.protocols.s3http.Default.getSpace"
-  },
-  "BNL-OSG2_ES": {
-    "backend_type": "S3",
-    "deterministic": true,
-    "protocols": {
-      "default": "s3+https",
-      "supported": {
-        "s3+https": {
-          "impl": "rucio.rse.protocols.signeds3.Default",
-          "hostname": "cephgw.usatlas.bnl.gov",
-          "port": 8443,
-          "scheme": "s3+https",
-          "prefix": "rucio_bucket",
-          "domains": {
-            "lan": {
-              "read": 1,
-              "write": 1,
-              "delete": 1
-            },
-            "wan": {
-              "read": 1,
-              "write": 1,
-              "delete": 1
-            }
-          }
-        }
-      }
-    },
-    "storage_usage_tool": "rucio.rse.protocols.s3http.Default.getSpace"
-  },
   "CERN-S3-LOGS": {
     "backend_type": "S3",
     "deterministic": true,

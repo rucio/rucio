@@ -38,6 +38,7 @@ import time
 import traceback
 
 from email.mime.text import MIMEText
+from six import PY2
 from sqlalchemy.orm.exc import NoResultFound
 
 import stomp
@@ -99,7 +100,10 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
                 logging.debug('[email] %i:%i - submitting: %s', heartbeat['assign_thread'],
                               heartbeat['nr_threads'], str(message))
 
-                msg = MIMEText(message['payload']['body'].encode('utf-8'))
+                if PY2:
+                    msg = MIMEText(message['payload']['body'].encode('utf-8'))
+                else:
+                    msg = MIMEText(message['payload']['body'])
 
                 msg['From'] = email_from
                 msg['To'] = ', '.join(message['payload']['to'])
@@ -172,6 +176,9 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
     if not brokers_resolved:
         logging.fatal('No brokers resolved.')
         return
+
+    if not broker_timeout:  # Allow zero in config
+        broker_timeout = None
 
     logging.info('[broker] checking authentication method')
     use_ssl = True

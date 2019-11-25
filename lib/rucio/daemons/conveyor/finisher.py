@@ -1,4 +1,4 @@
-# Copyright 2015-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2015-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,12 @@
 #
 # Authors:
 # - Wen Guan <wguan.icedew@gmail.com>, 2015-2016
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2015-2019
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Robert Illingworth <illingwo@fnal.gov>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
@@ -49,6 +50,7 @@ from dogpile.cache.api import NoValue
 from sqlalchemy.exc import DatabaseError
 
 from rucio.common.config import config_get
+from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks
 from rucio.common.exception import DatabaseException, ConfigNotFound, UnsupportedOperation, ReplicaNotFound, RequestNotFound
 from rucio.core import request as request_core, heartbeat, replica as replica_core
@@ -148,14 +150,15 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000)
                 logging.error('%s %s', prepend_str, traceback.format_exc())
         except Exception as error:
             logging.critical('%s %s', prepend_str, str(error))
+
+        if once:
+            return
+
         end_time = time.time()
         time_diff = end_time - start_time
         if time_diff < sleep_time:
             logging.info('%s Sleeping for a while :  %s seconds', prepend_str, (sleep_time - time_diff))
             graceful_stop.wait(sleep_time - time_diff)
-
-        if once:
-            return
 
     logging.info('%s Graceful stop requests', prepend_str)
 
@@ -351,7 +354,7 @@ def __check_suspicious_files(req, suspicious_patterns):
                     pfns.append(url['url'])
                 if pfns:
                     logging.debug("Found suspicious urls: %s", str(pfns))
-                    replica_core.declare_bad_file_replicas(pfns, reason=reason, issuer='root', status=BadFilesStatus.SUSPICIOUS)
+                    replica_core.declare_bad_file_replicas(pfns, reason=reason, issuer=InternalAccount('root'), status=BadFilesStatus.SUSPICIOUS)
     except Exception as error:
         logging.warning("Failed to check suspicious file with request: %s - %s", req['request_id'], str(error))
     return is_suspicious
@@ -405,7 +408,7 @@ def __update_bulk_replicas(replicas, session=None):
     :returns commit_or_rollback:  Boolean.
     """
     try:
-        replica_core.update_replicas_states(replicas, nowait=True, session=session)
+        replica_core.update_replicas_states(replicas, nowait=True, add_tombstone=True, session=session)
     except ReplicaNotFound as error:
         logging.warn('Failed to bulk update replicas, will do it one by one: %s', str(error))
         raise ReplicaNotFound(error)
@@ -429,7 +432,7 @@ def __update_replica(replica, session=None):
     """
 
     try:
-        replica_core.update_replicas_states([replica], nowait=True, session=session)
+        replica_core.update_replicas_states([replica], nowait=True, add_tombstone=True, session=session)
         if not replica['archived']:
             request_core.archive_request(replica['request_id'], session=session)
         logging.info("HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s", replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']))
@@ -444,7 +447,7 @@ def __update_replica(replica, session=None):
                                          replica['name'],
                                          replica['bytes'],
                                          pfn=replica['pfn'] if 'pfn' in replica else None,
-                                         account='root',  # it will deleted immediately, do we need to get the accurate account from rule?
+                                         account=InternalAccount('root'),  # it will deleted immediately, do we need to get the accurate account from rule?
                                          adler32=replica['adler32'],
                                          tombstone=datetime.datetime.utcnow(),
                                          session=session)

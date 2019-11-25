@@ -1,4 +1,4 @@
-# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2014-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,12 +16,13 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2016-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2016-2019
 # - Tobias Wegner <twegner@cern.ch>, 2017
 # - Nicolo Magini <Nicolo.Magini@cern.ch>, 2018-2019
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Gabriele Fronze' <gfronze@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -40,6 +41,7 @@ from threading import Timer
 
 from rucio.common import exception, config
 from rucio.common.constraints import STRING_TYPES
+from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.rse.protocols import protocol
 
 try:
@@ -182,10 +184,9 @@ class Default(protocol.RSEProtocol):
         """
 
         self.__ctx = gfal2.creat_context()  # pylint: disable=no-member
-        # self.__ctx.set_opt_string("X509", "CERT", proxy)
-        # self.__ctx.set_opt_string("X509", "KEY", proxy)
         self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
         self.__ctx.set_opt_string("XROOTD PLUGIN", "XRD.WANTPROT", "gsi,unix")
+        self.__ctx.set_opt_boolean("XROOTD PLUGIN", "NORMALIZE_PATH", False)
 
     def get(self, path, dest, transfer_timeout=None):
         """
@@ -351,11 +352,18 @@ class Default(protocol.RSEProtocol):
 
         ret['filesize'] = stat_str.split()[7]
 
-        try:
-            ret['adler32'] = ctx.checksum(str(path), str('ADLER32'))
-        except Exception as error:
-            msg = 'Error while processing gfal checksum call. Error: %s'
-            raise exception.RSEChecksumUnavailable(msg % str(error))
+        verified = False
+        message = "\n"
+
+        for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
+            try:
+                ret[checksum_name] = ctx.checksum(str(path), str(checksum_name.capitalize()))
+                verified = True
+            except Exception as error:
+                message += 'Error while processing gfal checksum call (%s). Error: %s \n' % (checksum_name, str(error))
+
+        if not verified:
+            raise exception.RSEChecksumUnavailable(message)
 
         return ret
 

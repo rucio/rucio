@@ -16,12 +16,27 @@ from datetime import datetime
 import requests
 
 
+import mock
+
 from nose.tools import eq_
 from nose.tools import ok_
 from nose.tools import raises
 from rucio.common import dumper
 from rucio.common.dumper import data_models
-from rucio.tests.common import stubbed
+
+
+def mocked_requests_head(*args, **kwargs):
+    response = requests.Response()
+    response.status_code = 200
+    response._content = 'content'
+    response.headers['content-disposition'] = 'filename=01-01-2015'
+    response.iter_content = lambda _: [response._content]
+
+    eq_(
+        args[0],
+        'https://rucio-hadoop.cern.ch/data_concrete?rse=SOMEENDPOINT',
+    )
+    return response
 
 
 class TestDataModel(object):
@@ -145,20 +160,22 @@ CERN-PROD_DATADISK	data12_8TeV	ESD.04972924._000218.pool.root.1	a6152bbc	2498690
         """ test wrong format of fields """
         self._DataConcrete.parse_line('a\ta\ta\ta\ta\ta\ta\ta\n')
 
-    def test_download_with_fixed_date(self):
+    @mock.patch('requests.Session.get')
+    @mock.patch('requests.Session.head')
+    def test_download_with_fixed_date(self, mock_request_head, mock_request_get):
         """ test download with fixed date"""
         response = requests.Response()
         response.status_code = 200
         response._content = 'content'
         response.iter_content = lambda _: [response._content]
+        mock_request_get.return_value = response
+        mock_request_head.return_value = response
 
-        with stubbed(requests.Session.get, lambda _, __: response):
-            with stubbed(requests.Session.head, lambda _, __: response):
-                self._DataConcrete.download(
-                    'SOMEENDPOINT',
-                    date=datetime.strptime('01-01-2015', '%d-%m-%Y'),
-                    cache_dir=self.tmp_dir,
-                )
+        self._DataConcrete.download(
+            'SOMEENDPOINT',
+            date=datetime.strptime('01-01-2015', '%d-%m-%Y'),
+            cache_dir=self.tmp_dir,
+        )
         downloaded = glob.glob(
             os.path.join(
                 self.tmp_dir,
@@ -169,7 +186,9 @@ CERN-PROD_DATADISK	data12_8TeV	ESD.04972924._000218.pool.root.1	a6152bbc	2498690
         with open(downloaded[0]) as fil:
             eq_(fil.read(), 'content')
 
-    def test_download_empty_date(self):
+    @mock.patch('requests.Session.get')
+    @mock.patch('requests.Session.head', side_effect=mocked_requests_head)
+    def test_download_empty_date(self, mock_request_head, mock_request_get):
         """ test_download_with_date_latest_should_make_a_head_query_with_empty_date_and_name_the_output_file_according_to_the_content_disposition_header """
         response = requests.Response()
         response.status_code = 200
@@ -177,21 +196,13 @@ CERN-PROD_DATADISK	data12_8TeV	ESD.04972924._000218.pool.root.1	a6152bbc	2498690
         response.headers['content-disposition'] = 'filename=01-01-2015'
         response.iter_content = lambda _: [response._content]
 
-        def fake_head(slf, url):
-            """ fake head method """
-            eq_(
-                url,
-                'https://rucio-hadoop.cern.ch/data_concrete?rse=SOMEENDPOINT',
-            )
-            return response
+        mock_request_get.return_value = response
 
-        with stubbed(requests.Session.get, fake_head):
-            with stubbed(requests.Session.head, lambda _, __: response):
-                self._DataConcrete.download(
-                    'SOMEENDPOINT',
-                    date='latest',
-                    cache_dir=self.tmp_dir,
-                )
+        self._DataConcrete.download(
+            'SOMEENDPOINT',
+            date='latest',
+            cache_dir=self.tmp_dir,
+        )
         downloaded = glob.glob(
             os.path.join(
                 self.tmp_dir,
@@ -202,19 +213,21 @@ CERN-PROD_DATADISK	data12_8TeV	ESD.04972924._000218.pool.root.1	a6152bbc	2498690
         with open(downloaded[0]) as fil:
             eq_(fil.read(), 'content')
 
+    @mock.patch('requests.Session.get')
+    @mock.patch('requests.Session.head')
     @raises(dumper.HTTPDownloadFailed)
-    def test_raises_exception(self):
+    def test_raises_exception(self, mock_session_head, mock_session_get):
         """ test raise exception """
         response = requests.Response()
         response.status_code = 500
+        mock_session_get.return_value = response
+        mock_session_head.return_value = response
 
-        with stubbed(requests.Session.get, lambda _, __: response):
-            with stubbed(requests.Session.head, lambda _, __: response):
-                self._DataConcrete.download(
-                    'SOMEENDPOINT',
-                    date=datetime.strptime('01-01-2015', '%d-%m-%Y'),
-                    cache_dir=self.tmp_dir,
-                )
+        self._DataConcrete.download(
+            'SOMEENDPOINT',
+            date=datetime.strptime('01-01-2015', '%d-%m-%Y'),
+            cache_dir=self.tmp_dir,
+        )
 
 
 class TestCompleteDataset(object):

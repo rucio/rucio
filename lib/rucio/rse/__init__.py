@@ -18,6 +18,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2017-2019
 # - James Perry, <j.perry@epcc.ed.ac.uk>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White, <bjwhite@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -46,12 +47,23 @@ def get_rse_client(rse, **kwarg):
     return RSEClient().get_rse(rse)
 
 
-def get_signed_url_client(service, op, url):
+def get_signed_url_client(rse, service, op, url):
     '''
     get_signed_url_client
     '''
     from rucio.client.credentialclient import CredentialClient
-    return CredentialClient().get_signed_url(service, op, url)
+    return CredentialClient().get_signed_url(rse, service, op, url)
+
+
+def get_signed_url_server(rse, service, op, url):
+    '''
+    get_signed_url_server
+    '''
+    from rucio.core.rse import get_rse_id
+    from rucio.core.credential import get_signed_url
+
+    rse_id = get_rse_id(rse=rse)
+    return get_signed_url(rse_id, service, op, url)
 
 
 def rse_key_generator(namespace, fn, **kwargs):
@@ -80,16 +92,15 @@ if rsemanager.CLIENT_MODE:   # pylint:disable=no-member
 
 if rsemanager.SERVER_MODE:   # pylint:disable=no-member
     from rucio.core.rse import get_rse_protocols, get_rse_id
-    from rucio.core.credential import get_signed_url
 
     def tmp_rse_info(rse, session=None):
         rse_id = get_rse_id(rse=rse)
         return get_rse_protocols(rse_id=rse_id, session=session)
 
     setattr(rsemanager, '__request_rse_info', tmp_rse_info)
-    setattr(rsemanager, '__get_signed_url', get_signed_url)
+    setattr(rsemanager, '__get_signed_url', get_signed_url_server)
     RSE_REGION = make_region(function_key_generator=rse_key_generator).configure(
         'dogpile.cache.memcached',
         expiration_time=3600,
-        arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
+        arguments={'url': config.config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
     setattr(rsemanager, 'RSE_REGION', RSE_REGION)

@@ -19,6 +19,7 @@
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018-2019
 # - Tobias Wegner <tobias.wegner@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -27,7 +28,6 @@ from __future__ import division
 import copy
 import logging
 import os
-import os.path
 import random
 import shutil
 import signal
@@ -40,9 +40,11 @@ except ImportError:
 from threading import Thread
 
 from rucio.client.client import Client
-from rucio.common.exception import (InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RSENotFound, RucioException)
+from rucio.common.exception import (InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RucioException)
 from rucio.common.pcache import Pcache
-from rucio.common.utils import adler32, md5, detect_client_location, generate_uuid, parse_replicas_from_string, send_trace, sizefmt, execute, parse_replicas_from_file
+from rucio.common.utils import adler32, detect_client_location, generate_uuid, parse_replicas_from_string, \
+    send_trace, sizefmt, execute, parse_replicas_from_file
+from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, CHECKSUM_ALGO_DICT, PREFERRED_CHECKSUM
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
 
@@ -176,7 +178,8 @@ class DownloadClient:
             rse                 - rse name (e.g. 'CERN-PROD_DATADISK'). RSE Expressions are not allowed
             base_dir            - Optional: Base directory where the downloaded files will be stored. (Default: '.')
             no_subdir           - Optional: If true, files are written directly into base_dir and existing files are overwritten. (Default: False)
-            ignore_checksum     - Optional: If true, the checksum validation is skipped (for pfn downloads the checksum must be given explicitly). (Default: True)
+            adler32             - Optional: The adler32 checmsum to compare the downloaded files adler32 checksum with
+            md5                 - Optional: The md5 checksum to compare the downloaded files md5 checksum with
             transfer_timeout    - Optional: Timeout time for the download protocols. (Default: None)
         :param num_threads: Suggestion of number of threads to use for the download. It will be lowered if it's too high.
         :param trace_custom_fields: Custom key value pairs to send with the traces
@@ -222,7 +225,7 @@ class DownloadClient:
             item['dest_file_paths'] = [dest_file_path]
             item['temp_file_path'] = '%s.part' % dest_file_path
             options = item.setdefault('merged_options', {})
-            options.setdefault('ignore_checksum', item.pop('ignore_checksum', True))
+            options['ignore_checksum'] = 'adler32' not in item and 'md5' not in item
             options.setdefault('transfer_timeout', item.pop('transfer_timeout', None))
 
             input_items.append(item)
@@ -471,8 +474,8 @@ class DownloadClient:
         if not sources or not len(sources):
             logger.warning('%sNo available source found for file: %s' % (log_prefix, did_str))
             item['clientState'] = 'FILE_NOT_FOUND'
-
             trace['clientState'] = 'FILE_NOT_FOUND'
+            trace['stateReason'] = 'No available sources'
             self._send_trace(trace)
             return item
 
@@ -526,8 +529,9 @@ class DownloadClient:
 
             try:
                 rse = rsemgr.get_rse_info(rse_name)
-            except RSENotFound:
-                logger.warning('%sCould not get info of RSE %s' % (log_prefix, rse_name))
+            except RucioException as error:
+                logger.warning('%sCould not get info of RSE %s: %s' % (log_prefix, rse_name, error))
+                trace['stateReason'] = str(error)
                 continue
 
             trace['remoteSite'] = rse_name
@@ -542,6 +546,7 @@ class DownloadClient:
             except Exception as error:
                 logger.warning('%sFailed to create protocol for PFN: %s' % (log_prefix, pfn))
                 logger.debug('scheme: %s, exception: %s' % (scheme, error))
+                trace['stateReason'] = str(error)
                 continue
 
             attempt = 0
@@ -563,27 +568,19 @@ class DownloadClient:
                 except Exception as error:
                     logger.debug(error)
                     trace['clientState'] = str(type(error).__name__)
+                    trace['stateReason'] = str(error)
 
                 end_time = time.time()
 
                 if success and not item.get('merged_options', {}).get('ignore_checksum', False):
-                    rucio_checksum = item.get('adler32')
-                    local_checksum = None
-                    if rucio_checksum is None:
-                        rucio_checksum = item.get('md5')
-                        if rucio_checksum is None:
-                            logger.warning('%sNo remote checksum available. Skipping validation.' % log_prefix)
-                        else:
-                            local_checksum = md5(temp_file_path)
-                    else:
-                        local_checksum = adler32(temp_file_path)
-
-                    if rucio_checksum != local_checksum:
+                    verified, rucio_checksum, local_checksum = _verify_checksum(item, temp_file_path)
+                    if not verified:
                         success = False
                         os.unlink(temp_file_path)
                         logger.warning('%sChecksum validation failed for file: %s' % (log_prefix, did_str))
                         logger.debug('Local checksum: %s, Rucio checksum: %s' % (local_checksum, rucio_checksum))
                         trace['clientState'] = 'FAIL_VALIDATE'
+                        trace['stateReason'] = 'Checksum validation failed: Local checksum: %s, Rucio checksum: %s' % (local_checksum, rucio_checksum)
                 if not success:
                     logger.warning('%sDownload attempt failed. Try %s/%s' % (log_prefix, attempt, retries))
                     self._send_trace(trace)
@@ -616,6 +613,7 @@ class DownloadClient:
         trace['transferStart'] = start_time
         trace['transferEnd'] = end_time
         trace['clientState'] = 'DONE'
+        trace['stateReason'] = 'OK'
         item['clientState'] = 'DONE'
         self._send_trace(trace)
 
@@ -1063,7 +1061,7 @@ class DownloadClient:
             # extend RSE expression to exclude tape RSEs for non-admin accounts
             rse_expression = item.get('rse')
             if self.is_tape_excluded:
-                rse_expression = '*\istape=true' if not rse_expression else '(%s)\istape=true' % rse_expression
+                rse_expression = '*\istape=true' if not rse_expression else '(%s)\istape=true' % rse_expression  # NOQA: W605
             logger.debug('rse_expression: %s' % rse_expression)
 
             # get PFNs of files and datasets
@@ -1077,7 +1075,19 @@ class DownloadClient:
                                                      resolve_parents=True,
                                                      metalink=True)
             file_items = parse_replicas_from_string(metalink_str)
+
             logger.debug('num resolved files: %s' % len(file_items))
+
+            for input_did in item['dids']:
+                input_did_str = '%s:%s' % (input_did['scope'], input_did['name'])
+                did_exists = False
+                for file_item in file_items:
+                    if input_did_str == file_item['did'] or input_did_str in file_item['parent_dids']:
+                        did_exists = True
+                        break
+                if not did_exists:
+                    logger.error('No replicas found for DIDs: %s' % input_did_str)
+                    file_items.append({'did': input_did_str, 'adler32': None, 'md5': None, 'sources': []})
 
             nrandom = item.get('nrandom')
             if nrandom:
@@ -1087,6 +1097,7 @@ class DownloadClient:
                 merged_items_with_sources.append(file_items)
             else:
                 merged_items_with_sources.append(file_items)
+
         return merged_items_with_sources
 
     def _prepare_items_for_download(self, did_to_options, merged_items_with_sources, resolve_archives=True):
@@ -1126,7 +1137,6 @@ class DownloadClient:
         all_dest_file_paths = set()
 
         # get replicas for every file of the given dids
-        logger.debug('num list_replicas calls: %d' % len(merged_items_with_sources))
         for file_items in merged_items_with_sources:
             all_file_items.extend(file_items)
             for file_item in file_items:
@@ -1434,3 +1444,22 @@ class DownloadClient:
         """
         if self.tracing:
             send_trace(trace, self.client.host, self.client.user_agent)
+
+
+def _verify_checksum(item, path):
+    rucio_checksum = item.get(PREFERRED_CHECKSUM)
+    local_checksum = None
+    checksum_algo = CHECKSUM_ALGO_DICT.get(PREFERRED_CHECKSUM)
+
+    if rucio_checksum and checksum_algo:
+        local_checksum = checksum_algo(path)
+        return rucio_checksum == local_checksum, rucio_checksum, local_checksum
+
+    for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
+        rucio_checksum = item.get(checksum_name)
+        checksum_algo = CHECKSUM_ALGO_DICT.get(checksum_name)
+        if rucio_checksum and checksum_algo:
+            local_checksum = checksum_algo(path)
+            return rucio_checksum == local_checksum, rucio_checksum, local_checksum
+
+    return False, None, None

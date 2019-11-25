@@ -190,7 +190,7 @@ class Default(protocol.RSEProtocol):
             self.timeout = credentials['timeout']
         except KeyError:
             self.timeout = 300
-        self.session = requests.session()
+        self.session = requests.Session()
         self.session.mount('https://', TLSv1HttpAdapter())
 
         # "ping" to see if the server is available

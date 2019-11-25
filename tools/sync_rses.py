@@ -9,6 +9,7 @@
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2014
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 
 import json
 import sys
@@ -46,21 +47,21 @@ if __name__ == '__main__':
                       region_code=region_code, country_name=country_name, staging_area=staging_area,
                       continent=continent, time_zone=time_zone, ISP=ISP)
         except Duplicate:
-            print '%(rse)s already added' % locals()
+            print('%(rse)s already added' % locals())
         except:
             errno, errstr = sys.exc_info()[:2]
             trcbck = traceback.format_exc()
-            print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
+            print('Interrupted processing with %s %s %s.' % (errno, errstr, trcbck))
         for p_id in repo_data[rse]['protocols']['supported']:
             try:
                 p = repo_data[rse]['protocols']['supported'][p_id]
                 p['scheme'] = p_id
                 c.add_protocol(rse, p)
-            except ValueError, e:
-                print rse, e
-            except Duplicate, e:
-                print rse, e
-            except Exception, e:
+            except ValueError as e:
+                print(rse, e)
+            except Duplicate as e:
+                print(rse, e)
+            except Exception as e:
                 errno, errstr = sys.exc_info()[:2]
                 trcbck = traceback.format_exc()
-                print 'Interrupted processing for %s with %s %s %s.' % (rse, errno, errstr, trcbck)
+                print('Interrupted processing for %s with %s %s %s.' % (rse, errno, errstr, trcbck))

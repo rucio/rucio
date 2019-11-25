@@ -17,6 +17,7 @@
 #  - Cedric Serfon, <cedric.serfon@cern.ch>, 2018
 #  - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019
 #  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+#  - Martin Barisits, <martin.barisits@cern.ch>, 2019
 # PY3K COMPATIBLE
 
 """
@@ -115,8 +116,8 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
 
             start = time.time()
 
-            logging.info('replica_recoverer[%i/%i]: ready to query replicas at RSE %s,' +
-                         ' reported suspicious in the last %i days at least %i times which are available on other RSEs.',
+            logging.info('replica_recoverer[%i/%i]: ready to query replicas at RSE %s,'
+                         + ' reported suspicious in the last %i days at least %i times which are available on other RSEs.',  # NOQA: W503
                          worker_number, total_workers, rse_expression, younger_than, nattempts)
 
             getfileskwargs = {'younger_than': younger_than,
