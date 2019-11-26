@@ -1,0 +1,29 @@
+======
+1.21.1
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Testing: Stale files after test `#3118 <https://github.com/rucio/rucio/issues/3118>`_
+
+****
+Bugs
+****
+
+- Core & Internals: UniqueViolation PSQL driver problem `#3108 <https://github.com/rucio/rucio/issues/3108>`_
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- WebUI: Lifetime Model: Limit the duration of the extension to one year in the UI `#3121 <https://github.com/rucio/rucio/issues/3121>`_
