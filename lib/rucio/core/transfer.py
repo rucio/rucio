@@ -995,7 +995,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'third_party_copy', source_protocol)
                 if hop['dest_rse_id'] not in rse_attrs:
                     rse_attrs[dest_rse_id] = get_rse_attributes(hop['dest_rse_id'], session=session)
-                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values())[0]
+                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': None}).values())[0]
 
                 if transfers[req_id]['file_metadata']['dest_rse_id'] != hop['dest_rse_id']:
                     files = [{'scope': scope,
