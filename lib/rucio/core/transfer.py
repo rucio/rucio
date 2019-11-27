@@ -442,7 +442,7 @@ def update_transfer_state(external_host, transfer_id, state, logging_prepend_str
 
 
 @transactional_session
-def get_hops(source_rse_id, dest_rse_id, include_multihop=False, session=None):
+def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=[], session=None):
     """
     Get a list of hops needed to transfer date from source_rse_id to dest_rse_id.
     Ideally, the list will only include one item (dest_rse_id) since no hops are needed.
@@ -450,6 +450,7 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, session=None):
     :param source_rse_id:      Source RSE id of the transfer.
     :param dest_rse_id:        Dest RSE id of the transfer.
     :param include_multihop:   If no direct link can be made, also include multihop transfers.
+    :param multihop_rses:      List of RSE ids that can be used for multihop.
     :returns:                  List of hops in the format [{'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'source_scheme_priority': N, 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm', 'dest_scheme_priority': N}]
     :raises:                   NoDistance
     """
@@ -462,7 +463,7 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, session=None):
     distance_graph = __load_distance_edges_node(rse_id=source_rse_id, session=session)
 
     # 1. Check if there is a direct connection between source and dest:
-    if distance_graph.get(source_rse_id, {dest_rse_id, None}).get(dest_rse_id) is not None:
+    if distance_graph.get(source_rse_id, {dest_rse_id: None}).get(dest_rse_id) is not None:
         # Check if there is a protocol match between the two RSEs
         try:
             matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=__load_rse_settings(rse_id=dest_rse_id, session=session),
@@ -487,7 +488,7 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, session=None):
         raise NoDistance()
 
     # 2. There is no connection or no scheme match --> Try a multi hop --> Dijkstra algorithm
-    HOP_PENALTY = core_config_get('transfers', 'hop_penalty', default=5, session=session)  # Penalty to be applied to each further hop
+    HOP_PENALTY = core_config_get('transfers', 'hop_penalty', default=10, session=session)  # Penalty to be applied to each further hop
 
     visited_nodes = {source_rse_id: {'distance': 0,
                                      'path': []}}  # Dijkstra already visisted nodes
@@ -510,6 +511,9 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, session=None):
                 # Check if the distance would be smaller
                 if visited_nodes.get(out_v, {'distance': 9999})['distance'] > current_distance + distance_graph[current_node][out_v] + HOP_PENALTY\
                    and local_optimum > current_distance + distance_graph[current_node][out_v] + HOP_PENALTY:
+                    # Check if the intermediate RSE is enabled for multihop
+                    if out_v != dest_rse_id and out_v not in multihop_rses:
+                        continue
                     # Check if there is a compatible protocol pair
                     try:
                         matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=__load_rse_settings(rse_id=out_v, session=session),
@@ -598,6 +602,13 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
     rse_mapping = {}
     current_schemes = SUPPORTED_PROTOCOLS
+
+    multihop_rses = []
+    try:
+        multihop_rses = [rse['id'] for rse in parse_expression('available_for_multihop=true')]
+    except InvalidRSEExpression:
+        multihop_rses = []
+
     for req_id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, previous_attempt_id, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path, retry_count, src_url, ranking, link_ranking in req_sources:
 
         multihop = False
@@ -629,7 +640,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         # In case of non-connected, the list contains all the intermediary RSEs
         list_hops = []
         try:
-            list_hops = get_hops(source_rse_id, dest_rse_id, include_multihop=core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session), session=session)
+            list_hops = get_hops(source_rse_id, dest_rse_id, include_multihop=core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session), multihop_rses=multihop_rses, session=session)
             if len(list_hops) > 1:
                 multihop = True
                 multi_hop_dict[req_id] = (list_hops, dict_attributes, retry_count)
@@ -656,7 +667,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             if hop['dest_rse_id'] not in rses_info:
                 rses_info[hop['dest_rse_id']] = rsemgr.get_rse_info(rse=rse_mapping[hop['dest_rse_id']], session=session)
             if hop['dest_rse_id'] not in rse_attrs:
-                rse_attrs[dest_rse_id] = get_rse_attributes(hop['dest_rse_id'], session=session)
+                rse_attrs[hop['dest_rse_id']] = get_rse_attributes(hop['dest_rse_id'], session=session)
 
         source_protocol = list_hops[0]['source_scheme']
         destination_protocol = list_hops[-1]['dest_scheme']
@@ -783,9 +794,6 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 source_rse_checksums = get_rse_supported_checksums(source_rse_id, session=session)
                 dest_rse_checksums = get_rse_supported_checksums(dest_rse_id, session=session)
-
-                logging.info('source RSE checksum compatibility: {}'.format(source_rse_checksums))
-                logging.info('destination RSE checksum compatibility: {}'.format(dest_rse_checksums))
 
                 common_checksum_names = set(source_rse_checksums).intersection(dest_rse_checksums)
 
@@ -985,6 +993,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 source_rse_id_key = 'read_%s_%s' % (source_rse_id, source_protocol)
                 if source_rse_id_key not in protocols:
                     protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'third_party_copy', source_protocol)
+                if hop['dest_rse_id'] not in rse_attrs:
+                    rse_attrs[dest_rse_id] = get_rse_attributes(hop['dest_rse_id'], session=session)
                 source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values())[0]
 
                 if transfers[req_id]['file_metadata']['dest_rse_id'] != hop['dest_rse_id']:
