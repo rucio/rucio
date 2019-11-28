@@ -265,32 +265,24 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
         source_supported_checksums = get_rse_supported_checksums(rse_id=source_rse_id, session=session)
         common_checksum_names = set(source_supported_checksums).intersection(dest_supported_checksums)
 
-        logging.info('source RSE checksum compatibility: {}'.format(source_supported_checksums))
-        logging.info('destination RSE checksum compatibility: {}'.format(dest_supported_checksums))
-
         if source_supported_checksums == ['none']:
             if dest_supported_checksums == ['none']:
                 # both endpoints support none
                 verify_checksum = 'none'
-                logging.info('Skipping checksum verification.')
             else:
                 # src supports none but dst does
                 verify_checksum = 'destination'
-                logging.info('Verifying checksum only at destination.')
         else:
             if dest_supported_checksums == ['none']:
                 # source supports some but destination does not
                 verify_checksum = 'source'
-                logging.info('Verifying checksum only at source.')
             else:
                 if len(common_checksum_names) == 0:
                     # source and dst support some bot none in common (dst priority)
                     verify_checksum = 'destination'
-                    logging.info('Verifying checksum only at destination.')
                 else:
                     # source and dst have some in common
                     verify_checksum = 'both'
-                    logging.info('Verifying checksum at both ends.')
 
         t_file = {'sources': transfer['sources'],
                   'destinations': transfer['dest_urls'],
@@ -309,10 +301,6 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                 set_checksum_value(t_file, source_supported_checksums)
             if verify_checksum == 'destination':
                 set_checksum_value(t_file, dest_supported_checksums)
-
-            logging.info('Checksum set to: {}'.format(t_file['checksum']))
-        else:
-            logging.info('Checksum empty since skipping checksum verification')
 
         multihop = transfer.get('multihop', False)
 

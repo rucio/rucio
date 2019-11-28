@@ -550,15 +550,14 @@ def get_rse_supported_checksums(rse_id=None, session=None):
               Use 'none' to explicitly tell the RSE does not support any checksum algorithm.
     """
 
-    # each checksum is formatted as: ["[u'adler32']"]
-    supported_checksum_list = str(get_rse_attribute(CHECKSUM_KEY, rse_id=rse_id, session=session)) \
-        .replace('[u\'', '') \
-        .replace('\']', '') \
-        .split(',')
+    checksum_support_attribute_list = get_rse_attribute(key=CHECKSUM_KEY, rse_id=rse_id, session=session)
 
-    if not supported_checksum_list:
+    if not checksum_support_attribute_list:
         return GLOBALLY_SUPPORTED_CHECKSUMS
     else:
+        supported_checksum_list = checksum_support_attribute_list[0].split(',')
+        if 'none' in supported_checksum_list:
+            return []
         return supported_checksum_list
 
 
