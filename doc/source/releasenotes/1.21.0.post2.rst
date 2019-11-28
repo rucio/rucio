@@ -1,0 +1,13 @@
+============
+1.21.0.post2
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Transfers: Default checksum algorithms not triggered `#3138 <https://github.com/rucio/rucio/issues/3138>`_
