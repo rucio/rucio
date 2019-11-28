@@ -38,6 +38,7 @@ import time
 import traceback
 
 from email.mime.text import MIMEText
+from prometheus_client import Counter
 from six import PY2
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -60,6 +61,8 @@ logging.basicConfig(stream=sys.stdout,
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 GRACEFUL_STOP = threading.Event()
+
+RECONNECT_COUNTER = Counter('rucio_daemons_hermes_reconnect', 'Counts Hermes reconnects to different ActiveMQ brokers', labelnames=('host',))
 
 
 def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
@@ -254,6 +257,8 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                         if not conn.is_connected():
                             host_and_ports = conn.transport._Transport__host_and_ports[0][0]
                             record_counter('daemons.hermes.reconnect.%s' % host_and_ports.split('.')[0])
+                            labels = {'host': host_and_ports.split('.')[0]}
+                            RECONNECT_COUNTER.labels(**labels).inc()
                             conn.start()
                             if not use_ssl:
                                 logging.info('[broker] %i:%i - connecting with USERPASS to %s',
