@@ -1,0 +1,21 @@
+======
+1.21.1
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Testing: Stale files after test `#3118 <https://github.com/rucio/rucio/issues/3118>`_
+
+****
+Bugs
+****
+
+- Core & Internals: UniqueViolation PSQL driver problem `#3108 <https://github.com/rucio/rucio/issues/3108>`_
+- Core & Internals: Broken backwards compatibility for account usage and limits `#3127 <https://github.com/rucio/rucio/issues/3127>`_
+- Transfers: Problem when multihop is done through a non-deterministic endpoint `#3128 <https://github.com/rucio/rucio/issues/3128>`_
