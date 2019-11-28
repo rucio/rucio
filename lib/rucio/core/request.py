@@ -503,7 +503,7 @@ def set_request_state(request_id, new_state, transfer_id=None, transferred_at=No
         if transfer_id:
             rowcount = session.query(models.Request).filter_by(id=request_id, external_id=transfer_id).update(update_items, synchronize_session=False)
         else:
-            if new_state in [RequestState.FAILED, RequestState.DONE]:
+            if new_state in [RequestState.FAILED, RequestState.DONE, RequestState.LOST]:
                 logging.error("Request %s should not be updated to 'Failed' or 'Done' without external transfer_id" % request_id)
             else:
                 rowcount = session.query(models.Request).filter_by(id=request_id).update(update_items, synchronize_session=False)
