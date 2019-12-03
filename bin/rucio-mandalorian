@@ -1,0 +1,55 @@
+#!/usr/bin/env python
+# Copyright 2016-2018 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Joaquin Bogado, <joaquinbogado@gmail.com>, 2019
+#
+# PY3K COMPATIBLE
+
+"""
+Mandalorian daemon is in charge of site decommissioning.
+"""
+
+import argparse
+
+from rucio.daemons.mandalorian.common import decommission_rse
+
+
+def get_parser():
+    """
+    Returns the argparse parser.
+    """
+    parser = argparse.ArgumentParser(description='The Mandalorian daemon is in charge of site decommissioning.')
+    parser.add_argument('rse', action='store', help='RSE to decommission')
+    parser.add_argument('--dry-run', action='store_true', default=False, help='Only run in dry-run mode')
+    parser.add_argument('--exclude-expression', action='store', help='Exclude these rse_expression from being destinations')
+    parser.add_argument('--comment', action='store', help='Add a comment to the new rules')
+    parser.add_argument('--force-expression', action='store', help='For this rse_expression for rebalanced rules instead of letting BB8 decide')
+    parser.add_argument('--priority', action='store', help='Priority for the newly created rules', type=int, default=3)
+    parser.add_argument('--source-replica-expression', action='store', help='Source replica expression for the newly created rules')
+    # TODO: Add argument with date deadline to mark files as lost.
+    # TODO: Add argument to generate a report for a decommissioned/decommissioning RSE.
+    return parser
+
+
+if __name__ == "__main__":
+    parser = get_parser()
+    args = parser.parse_args()
+
+    decommission_rse(rse=args.rse, dry_run=args.dry_run,
+                     comment=args.comment, force_expression=args.force_expression,
+                     priority=args.priority,
+                     source_replica_expression=args.source_replica_expression,
+                     mode='decommission')
