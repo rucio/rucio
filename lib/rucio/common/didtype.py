@@ -21,6 +21,8 @@
 DID type to represent a did and to simplify operations on it
 """
 
+from six import string_types
+
 from rucio.common.exception import DIDTypeError
 
 
@@ -70,7 +72,7 @@ class DIDType(object):
             did = args[0]
 
             if num_kwargs == 1:
-                if not isinstance(did, type('')):
+                if not isinstance(did, string_types):
                     raise DIDTypeError('First argument of constructor is expected to be string type'
                                        'when keyword argument is given. Given type: {}'.format(type(did)))
 
@@ -96,7 +98,7 @@ class DIDType(object):
                 raise DIDTypeError('Construction from tuple or list requires exactly 2 elements')
             self.scope = did[0]
             self.name = did[1]
-        elif isinstance(did, type('')):
+        elif isinstance(did, string_types):
             did_parts = did.split(DIDType.SCOPE_SEPARATOR, 1)
             if len(did_parts) == 1:
                 self.name = did
@@ -166,7 +168,7 @@ class DIDType(object):
         Equality comparison with another object
         :return: bool
         """
-        if isinstance(other, type('')):
+        if isinstance(other, string_types):
             return str(self) == other
         elif not isinstance(other, DIDType):
             try:
