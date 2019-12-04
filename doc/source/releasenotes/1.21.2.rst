@@ -1,0 +1,13 @@
+======
+1.21.2
+======
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Core & Internals: Backwards compatibility for account usage and limits broken `#3165 <https://github.com/rucio/rucio/issues/3165>`_
