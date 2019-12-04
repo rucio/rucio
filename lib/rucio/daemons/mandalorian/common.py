@@ -35,7 +35,7 @@ from sqlalchemy import and_
 from rucio.core.lock import get_dataset_locks, get_replica_locks
 from rucio.core.rule import get_rule, add_rule, update_rule
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.core.rse import list_rse_attributes, get_rse_id, get_rse_name
+from rucio.core.rse import add_rse_attribute, list_rse_attributes, get_rse_id, get_rse_name, update_rse
 from rucio.core.rse_selector import RSESelector
 from rucio.common.config import config_get
 from rucio.common.exception import (InsufficientTargetRSEs, RuleNotFound, DuplicateRule,
@@ -228,6 +228,16 @@ def decommission_rse(rse, dry_run=False, exclude_expression=None, comment=None, 
     rebalanced_datasets = []
     rse_id = get_rse_id(rse=rse)
     rse_attributes = list_rse_attributes(rse_id=rse_id, session=session)
+    if 'decommissioned' in rse_attributes.keys():
+        print('RSE %s already in decommissioning process.' % rse)
+        print('Execute:')
+        print('    # rucio-mandalorian %s --get-report' % rse)
+        print('in order to check the progress of the decommissioning process.')
+        return
+    if not dry_run:
+        # Avoid new data to go to the decommissioned RSE
+        update_rse(rse_id, {'availability_write': False})
+        add_rse_attribute(rse_id=rse_id, key='decommissioned', value='True')
 
     print('***************************')
     print('Mandalorian - Execution Summary')
