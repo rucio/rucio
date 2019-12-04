@@ -408,7 +408,7 @@ def __update_bulk_replicas(replicas, session=None):
     :returns commit_or_rollback:  Boolean.
     """
     try:
-        replica_core.update_replicas_states(replicas, nowait=True, add_tombstone=True, session=session)
+        replica_core.update_replicas_states(replicas, nowait=True, add_tombstone=False, session=session)  # TODO: add_tombstone needs to be changed to True once set_tombstone is fixed
     except ReplicaNotFound as error:
         logging.warn('Failed to bulk update replicas, will do it one by one: %s', str(error))
         raise ReplicaNotFound(error)
@@ -432,7 +432,7 @@ def __update_replica(replica, session=None):
     """
 
     try:
-        replica_core.update_replicas_states([replica], nowait=True, add_tombstone=True, session=session)
+        replica_core.update_replicas_states([replica], nowait=True, add_tombstone=False, session=session)  # TODO: add_tombstone needs to be changed to True once set_tombstone is fixed
         if not replica['archived']:
             request_core.archive_request(replica['request_id'], session=session)
         logging.info("HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s", replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']))
