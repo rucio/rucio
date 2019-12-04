@@ -69,7 +69,7 @@ URLS = (
     '/(.+)/usage/local/(.+)', 'LocalUsage',
     '/(.+)/usage/global', 'GlobalUsage',
     '/(.+)/usage/global/(.+)', 'GlobalUsage',
-    '/(.+)/usage', 'LocalUsage',
+    '/(.+)/usage/', 'LocalUsage',
     '/(.+)/usage/(.+)', 'LocalUsage',
     '/(.+)', 'AccountParameter',
     '/?$', 'Account',
