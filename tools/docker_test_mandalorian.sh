@@ -27,8 +27,6 @@ rucio-reaper --run-once --greedy --rse XRD2
 rucio-reaper --run-once --greedy --rse XRD3
 
 # Test the Mandalorian over XRD2
-# avoid new files go to XRD2
-rucio-admin rse update --setting availability_write --value False --rse XRD2
 # decommission of XRD2, should remove all the rules over all the datasets in XRD2
 rucio-mandalorian XRD2
 

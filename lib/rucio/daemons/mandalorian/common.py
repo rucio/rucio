@@ -121,7 +121,7 @@ def rebalance_rule(parent_rule, activity, rse_expression, priority, source_repli
 
 
 @transactional_session
-def list_rebalance_rule_candidates(rse, session=None):
+def list_rebalance_rule_candidates(rse, file_level=False, session=None):
     """
     List the rebalance rule candidates based on the agreed on specification
 
@@ -140,7 +140,7 @@ def list_rebalance_rule_candidates(rse, session=None):
         summary = []
     if len(summary) > 0:
         return summary
-    else:
+    if file_level:
         # this query will take some time in the real db
         query = session.query(models.ReplicaLock.scope,
                               models.ReplicaLock.name,
@@ -152,6 +152,22 @@ def list_rebalance_rule_candidates(rse, session=None):
                               models.ReplicaLock.bytes).\
             join(models.ReplicationRule, models.ReplicationRule.id == models.ReplicaLock.rule_id).\
             join(models.DataIdentifier, and_(models.ReplicaLock.scope == models.DataIdentifier.scope, models.ReplicaLock.name == models.DataIdentifier.name)).\
+            filter(models.ReplicaLock.rse_id == rse_id)
+
+        summary = query.order_by(models.DataIdentifier.bytes).all()
+        return summary
+    else:
+        # this query will take some time in the real db
+        query = session.query(models.DatasetLock.scope,
+                              models.DatasetLock.name,
+                              models.ReplicationRule.id,
+                              models.ReplicationRule.rse_expression,
+                              models.ReplicationRule.subscription_id,
+                              models.DataIdentifier.bytes,
+                              models.DataIdentifier.length,
+                              models.DatasetLock.bytes).\
+            join(models.ReplicationRule, models.ReplicationRule.id == models.DatasetLock.rule_id).\
+            join(models.DataIdentifier, and_(models.DatasetLock.scope == models.DataIdentifier.scope, models.DatasetLock.name == models.DataIdentifier.name)).\
             filter(models.DatasetLock.rse_id == rse_id)
 
         summary = query.order_by(models.DataIdentifier.bytes).all()
@@ -231,7 +247,7 @@ def decommission_rse(rse, dry_run=False, exclude_expression=None, comment=None, 
     if 'decommissioned' in rse_attributes.keys():
         print('RSE %s already in decommissioning process.' % rse)
         print('Execute:')
-        print('    # rucio-mandalorian %s --get-report' % rse)
+        print('    # rucio-mandalorian %s --generate-report' % rse)
         print('in order to check the progress of the decommissioning process.')
         return
     if not dry_run:
@@ -277,16 +293,35 @@ def decommission_rse(rse, dry_run=False, exclude_expression=None, comment=None, 
                     child_rule_id = ''
             except (InsufficientTargetRSEs, DuplicateRule, RuleNotFound, InsufficientAccountLimit):
                 continue
-            print('%s:%s %s %d %s %s %s' % (scope, name, str(rule_id), bytes, target_rse_exp, child_rule_id, rule['grouping']))
+            print('%s:%s %s %d %s %s %s' % (scope, name, str(rule_id), 0 if bytes is None else bytes, target_rse_exp, child_rule_id, rule['grouping']))
             if 'Concurrent' in str(child_rule_id):
                 print(str(child_rule_id))
                 continue
-            rebalanced_bytes += bytes
+            rebalanced_bytes += 0 if bytes is None else bytes
             rebalanced_files += 0 if length is None else length
             rebalanced_datasets.append((scope, name, bytes, length, target_rse_exp, rule_id, child_rule_id))
         except Exception as error:
             print('Exception %s occured while rebalancing %s:%s, rule_id: %s' % (str(error.args), scope, name, str(rule_id)))
-            raise error
+            # raise error
 
     print('The Mandalorian is moving %d Gb of data (%d rules) from RSE %s' % (rebalanced_bytes, len(rebalanced_datasets), rse))
     return rebalanced_datasets
+
+
+@transactional_session
+def generate_report(rse, file_level=False, session=None):
+    '''
+    Generate a report for a decommissioned RSE
+
+    :param rse:                        RSE to rebalance data from.
+    '''
+    rse_id = get_rse_id(rse=rse)
+    rse_attributes = list_rse_attributes(rse_id=rse_id, session=session)
+    if 'decommissioned' not in rse_attributes.keys():
+        print('RSE %s not to be decommissioned.' % rse)
+        print('In order to decommission it, execute:')
+        print('    # rucio-mandalorian %s' % rse)
+        print('You can use the --dry-run option if you are not sure.')
+        return
+    for scope, name, rule_id, rse_expression, subscription_id, bytes, length, fsize in list(set(list_rebalance_rule_candidates(rse=rse, file_level=file_level))):
+        print('%s:%s\t%s' % (scope, name, rule_id))

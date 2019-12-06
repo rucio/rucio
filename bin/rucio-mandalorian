@@ -24,7 +24,7 @@ Mandalorian daemon is in charge of site decommissioning.
 
 import argparse
 
-from rucio.daemons.mandalorian.common import decommission_rse
+from rucio.daemons.mandalorian.common import decommission_rse, generate_report
 
 
 def get_parser():
@@ -32,7 +32,7 @@ def get_parser():
     Returns the argparse parser.
     """
     parser = argparse.ArgumentParser(description='The Mandalorian daemon is in charge of site decommissioning.')
-    parser.add_argument('rse', action='store', help='RSE to decommission')
+    parser.add_argument('rse', action='store', help='RSE to decommission or get report about the decommissioning status')
     parser.add_argument('--dry-run', action='store_true', default=False, help='Only run in dry-run mode')
     parser.add_argument('--exclude-expression', action='store', help='Exclude these rse_expression from being destinations')
     parser.add_argument('--comment', action='store', help='Add a comment to the new rules')
@@ -41,6 +41,8 @@ def get_parser():
     parser.add_argument('--source-replica-expression', action='store', help='Source replica expression for the newly created rules')
     # TODO: Add argument with date deadline to mark files as lost.
     # TODO: Add argument to generate a report for a decommissioned/decommissioning RSE.
+    parser.add_argument('--generate-report', action='store_true', default=False, help='Generate report for a decommissioned RSE. If no dumps available, will query Rucio DB and can take a lot of time.')
+    parser.add_argument('--go-to-file-level', dest='file_level', action='store_true', default=False, help='Do the querys for replicas at file level, either for report or for decommissioning.')
     return parser
 
 
@@ -48,8 +50,11 @@ if __name__ == "__main__":
     parser = get_parser()
     args = parser.parse_args()
 
-    decommission_rse(rse=args.rse, dry_run=args.dry_run,
-                     comment=args.comment, force_expression=args.force_expression,
-                     priority=args.priority,
-                     source_replica_expression=args.source_replica_expression,
-                     mode='decommission')
+    if args.generate_report:
+        generate_report(args.rse, args.file_level)
+    else:
+        decommission_rse(rse=args.rse, dry_run=args.dry_run,
+                         comment=args.comment, force_expression=args.force_expression,
+                         priority=args.priority,
+                         source_replica_expression=args.source_replica_expression,
+                         mode='decommission')
