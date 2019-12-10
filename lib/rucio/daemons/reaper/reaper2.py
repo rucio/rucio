@@ -276,8 +276,8 @@ def __check_rse_usage(rse, rse_id, prepend_str):
 
         # Check from which sources to get used and total spaces
         # Default is storage
-        source_for_total_space = attributes.get('sourceForTotalSpace', 'storage')
-        source_for_used_space = attributes.get('sourceForUsedSpace', 'storage')
+        source_for_total_space = attributes.get('source_for_total_space', 'storage')
+        source_for_used_space = attributes.get('source_for_used_space', 'storage')
 
         logging.debug('%s RSE: %s, source_for_total_space: %s, source_for_used_space: %s',
                       prepend_str, rse, source_for_total_space, source_for_used_space)
