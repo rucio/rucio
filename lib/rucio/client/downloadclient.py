@@ -41,6 +41,7 @@ from threading import Thread
 
 from rucio.client.client import Client
 from rucio.common.exception import (InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RucioException)
+from rucio.common.didtype import DIDType
 from rucio.common.pcache import Pcache
 from rucio.common.utils import adler32, detect_client_location, generate_uuid, parse_replicas_from_string, \
     send_trace, sizefmt, execute, parse_replicas_from_file
@@ -1078,16 +1079,15 @@ class DownloadClient:
 
             logger.debug('num resolved files: %s' % len(file_items))
 
+            # list_replicas returns nothing if the DID does not exist and we dont want to
+            # do another server call so we check if there is a result from list_replicas
+            # for each given DID. If not the DID does not exist
             for input_did in item['dids']:
-                input_did_str = '%s:%s' % (input_did['scope'], input_did['name'])
-                did_exists = False
-                for file_item in file_items:
-                    if input_did_str == file_item['did'] or input_did_str in file_item['parent_dids']:
-                        did_exists = True
-                        break
-                if not did_exists:
-                    logger.error('No replicas found for DIDs: %s' % input_did_str)
-                    file_items.append({'did': input_did_str, 'adler32': None, 'md5': None, 'sources': []})
+                input_did = DIDType(input_did)
+                if not any([input_did == f['did'] or str(input_did) in f['parent_dids'] for f in file_items]):
+                    logger.error('DID does not exist: %s' % input_did)
+                    # TODO: store did directly as DIDType object
+                    file_items.append({'did': str(input_did), 'adler32': None, 'md5': None, 'sources': [], 'parent_dids': set()})
 
             nrandom = item.get('nrandom')
             if nrandom:
