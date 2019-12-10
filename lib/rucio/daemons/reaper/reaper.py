@@ -269,7 +269,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                       'protocol': prot.attributes['scheme']})
                                         logging.info('Reaper %s-%s: Deletion SUCCESS of %s:%s as %s on %s in %s seconds', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], duration)
                                     except SourceNotFound:
-                                        err_msg = 'Reaper %s-%s: Deletion NOTFOUND of %s:%s as %s on %s' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'])
+                                        err_msg = 'Deletion NOTFOUND of %s:%s as %s on %s' % (replica['scope'], replica['name'], replica['pfn'], rse['rse'])
                                         logging.warning(err_msg)
                                         deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
                                         if replica['state'] == ReplicaState.AVAILABLE:
