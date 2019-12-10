@@ -101,6 +101,8 @@ class TestSchemaCMS(object):
             '/store/temp/acquisition_10-A/MuElectron-10_100/RAW-RECO/vX-1/1000/a_X;-2.root',
             '/store/temp/user/ewv/Higgs-123/Private;Sample/v1/a_X-2.root',
             '/store/temp/user/ewv/Higgs-123/PrivateSample/v1;/a_X-2.root',
+            '/store/temp/user/ewv/Higgs-123/PrivateSample/v1#/a_X-2.root',
+            '/root/store/temp/user/ewv/Higgs-123/PrivateSample/v1#/a_X-2.root',
             '/store/lhe/10860/11%11/1111/LQToUE_BetaHalf_vector_YM-MLQ300LG0KG0.lhe.xz',
         ]
 
