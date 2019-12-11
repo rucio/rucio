@@ -561,15 +561,28 @@ def construct_surl_BelleII(dsn, filename):
         return '%s/%s' % (dsn, filename)
 
 
-def construct_surl(dsn, filename, naming_convention=None):
-    if naming_convention == 'T0':
-        return construct_surl_T0(dsn, filename)
-    elif naming_convention == 'DQ2':
-        return construct_surl_DQ2(dsn, filename)
-    elif naming_convention == 'BelleII':
-        return construct_surl_BelleII(dsn, filename)
+_SURL_ALGORITHMS = {}
+_DEFAULT_SURL = 'DQ2'
 
-    return construct_surl_DQ2(dsn, filename)
+
+def register_surl_algorithm(surl_callable, name=None):
+    if name is None:
+        name = surl_callable.__name__
+    _SURL_ALGORITHMS[name] = surl_callable
+
+
+register_surl_algorithm(construct_surl_T0, 'T0')
+register_surl_algorithm(construct_surl_DQ2, 'DQ2')
+register_surl_algorithm(construct_surl_BelleII, 'BelleII')
+
+
+def construct_surl(dsn, filename, naming_convention=None):
+    # ensure that policy package is loaded in case it registers its own algorithms
+    import rucio.common.schema  # noqa: F401
+
+    if naming_convention is None or naming_convention not in _SURL_ALGORITHMS:
+        naming_convention = _DEFAULT_SURL
+    return _SURL_ALGORITHMS[naming_convention](dsn, filename)
 
 
 def __strip_dsn(dsn):
