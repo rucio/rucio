@@ -61,7 +61,7 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import (DIDType, ReplicaState, OBSOLETE, DIDAvailability,
                                      BadFilesStatus, RuleState, BadPFNStatus)
 from rucio.db.sqla.session import (read_session, stream_session, transactional_session,
-                                   DEFAULT_SCHEMA_NAME, get_engine)
+                                   DEFAULT_SCHEMA_NAME)
 from rucio.rse import rsemanager as rsemgr
 
 
@@ -2956,11 +2956,10 @@ def set_tombstone(rse_id, scope, name, tombstone=OBSOLETE, session=None):
     :param tombstone: the tombstone to set. Default is OBSOLETE
     :param session: database session in use.
     """
-    conn = get_engine().connect()
     stmt = update(models.RSEFileAssociation).where(and_(models.RSEFileAssociation.rse_id == rse_id, models.RSEFileAssociation.name == name, models.RSEFileAssociation.scope == scope,
                                                         ~session.query(models.ReplicaLock).filter_by(scope=scope, name=name, rse_id=rse_id).exists()))\
                                             .values(tombstone=tombstone)
-    result = conn.execute(stmt)
+    result = session.execute(stmt)
     if not result.rowcount:
         try:
             session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, rse_id=rse_id).one()
