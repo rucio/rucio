@@ -1,0 +1,40 @@
+======
+1.21.3
+======
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Core & Internals: Session leak in set_tombstone `#3175 <https://github.com/rucio/rucio/issues/3175>`_
+- Deletion: Change error message generation for reaper1  `#3182 <https://github.com/rucio/rucio/issues/3182>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: rucio mover should correctly set trace parameters `#1214 <https://github.com/rucio/rucio/issues/1214>`_
+
+****
+Bugs
+****
+
+- Clients: Download API crashes if called with at least two not existing DIDs `#3161 <https://github.com/rucio/rucio/issues/3161>`_
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- WebUI: Misleading message about transfers in rule page `#3153 <https://github.com/rucio/rucio/issues/3153>`_
