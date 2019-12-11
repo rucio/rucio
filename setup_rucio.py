@@ -50,11 +50,11 @@ name = 'rucio'
 packages = find_packages('lib/')
 description = "Rucio Package"
 IsRelease = False
-requirements_files = ['tools/pip-requires', 'tools/pip-requires-client']
-data_files = [('rucio/etc/', glob.glob('etc/*.template')),
+requirements_files = ['etc/pip-requires', 'etc/pip-requires-client']
+data_files = [('rucio/etc/', glob.glob('etc/*.template') + ['etc/pip-requires', 'etc/pip-requires-client',
+                                                            'etc/pip-requires-test']),
               ('rucio/etc/web', glob.glob('etc/web/*.template')),
-              ('rucio/tools/', ['tools/pip-requires', 'tools/pip-requires-client', 'tools/pip-requires-test',
-                                'tools/bootstrap.py', 'tools/reset_database.py']),
+              ('rucio/tools/', ['tools/bootstrap.py', 'tools/reset_database.py']),
               ('rucio/etc/mail_templates/', glob.glob('etc/mail_templates/*.tmpl'))]
 
 scripts = glob.glob('bin/rucio*')
@@ -168,7 +168,7 @@ mysql_extras = ['PyMySQL']
 kerberos_extras = ['kerberos>=1.3.0', 'pykerberos>=1.2.1', 'requests-kerberos>=0.12.0']
 globus_extras = ['PyYAML==5.1.1', 'globus-sdk==1.8.0']
 saml_extras = ['python3-saml>=1.6.0']
-dev_extras = parse_requirements(requirements_files=['tools/pip-requires-test', ])
+dev_extras = parse_requirements(requirements_files=['etc/pip-requires-test', ])
 requires = parse_requirements(requirements_files=requirements_files)
 extras_require = dict(oracle=oracle_extras,
                       postgresql=postgresql_extras,
