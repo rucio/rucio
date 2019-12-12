@@ -35,7 +35,7 @@ from rucio.db.sqla.constants import BadFilesStatus, BadPFNStatus, ReplicaState
 from rucio.db.sqla.session import get_session
 from rucio.common.config import config_get
 from rucio.common.utils import chunks
-from rucio.common.exception import UnsupportedOperation, DataIdentifierNotFound
+from rucio.common.exception import UnsupportedOperation, DataIdentifierNotFound, ReplicaNotFound
 from rucio.core.did import get_metadata
 from rucio.core.replica import (get_bad_pfns, get_pfn_to_rse, declare_bad_file_replicas,
                                 get_did_from_pfns, update_replicas_states, bulk_add_bad_replicas,
@@ -212,7 +212,7 @@ def minos(bulk=1000, once=False, sleep_time=60):
                             pfns = [entry['pfn'] for entry in chunk]
                             bulk_delete_bad_pfns(pfns=pfns, session=session)
                             session.commit()  # pylint: disable=no-member
-                        except UnsupportedOperation as error:
+                        except (UnsupportedOperation, ReplicaNotFound) as error:
                             session.rollback()  # pylint: disable=no-member
                             logging.error(prepend_str + 'Problem to bulk update PFNs. PFNs will be updated individually. Error : %s' % str(error))
                             for rep in chunk:
@@ -227,7 +227,7 @@ def minos(bulk=1000, once=False, sleep_time=60):
                                     if rep['rse_id'] in unavailable_states:
                                         logging.info(prepend_str + '%s is in unavailable state. Will be removed from the list of bad PFNs' % str(rep['pfn']))
                                         bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
-                                except DataIdentifierNotFound as error:
+                                except (DataIdentifierNotFound, ReplicaNotFound) as error:
                                     logging.error(prepend_str + 'Will remove %s from the list of bad PFNs' % str(rep['pfn']))
                                     bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
                             session = get_session()
