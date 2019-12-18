@@ -28,6 +28,7 @@ import traceback
 import threading
 import time
 
+from datetime import datetime
 from sys import stdout, argv
 
 from rucio.db.sqla.constants import BadFilesStatus, BadPFNStatus, ReplicaState
@@ -226,6 +227,9 @@ def minos(bulk=1000, once=False, sleep_time=60):
                                     unavailable_states.extend(rep_state.get(ReplicaState.BAD, []))
                                     if rep['rse_id'] in unavailable_states:
                                         logging.info(prepend_str + '%s is in unavailable state. Will be removed from the list of bad PFNs' % str(rep['pfn']))
+                                        bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
+                                    elif expires_at < datetime.now():
+                                        logging.info('%s PFN %s expiration time (%s) is older than now and is not in unavailable state. Removing the PFNs from bad_pfns', prepend_str, str(rep['pfn']), expires_at)
                                         bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
                                 except (DataIdentifierNotFound, ReplicaNotFound) as error:
                                     logging.error(prepend_str + 'Will remove %s from the list of bad PFNs' % str(rep['pfn']))
