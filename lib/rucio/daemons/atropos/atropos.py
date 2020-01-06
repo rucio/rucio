@@ -153,7 +153,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
                             logging.info(prepend_str + 'Setting %s seconds lifetime for rule %s' % (lifetime, rule.id))
                             options = {'lifetime': lifetime}
                             if purge_replicas:
-                                options = {'purge_replicas': True}
+                                options['purge_replicas'] = True
                             if rule.locked and unlock:
                                 logging.info(prepend_str + 'Unlocking rule %s', rule.id)
                                 options['locked'] = False
