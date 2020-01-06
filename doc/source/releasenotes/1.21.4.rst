@@ -1,0 +1,31 @@
+======
+1.21.4
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Testing: Move python3 tests to required `#3187 <https://github.com/rucio/rucio/issues/3187>`_
+
+****
+Bugs
+****
+
+- Life time model: Atropos does not set the rule lifetime when --purge-replicas is used `#3196 <https://github.com/rucio/rucio/issues/3196>`_
+- Recovery: Minos doesn't handle properly ReplicaNotFound `#3188 <https://github.com/rucio/rucio/issues/3188>`_
+- Recovery: Temporary unavailable files in bad_pfns not removed if processed after expiration date  `#3201 <https://github.com/rucio/rucio/issues/3201>`_
+
+-------
+Clients
+-------
+
+****
+Bugs
+****
+
+- Clients: gfal stat does checksum calls for all checksums `#3193 <https://github.com/rucio/rucio/issues/3193>`_
