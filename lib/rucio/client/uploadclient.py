@@ -37,7 +37,7 @@ from rucio.client.client import Client
 from rucio.common.exception import (RucioException, RSEBlacklisted, DataIdentifierAlreadyExists,
                                     DataIdentifierNotFound, NoFilesUploaded, NotAllFilesUploaded,
                                     ResourceTemporaryUnavailable, ServiceUnavailable, InputValidationError)
-from rucio.common.utils import adler32, execute, generate_uuid, md5, send_trace, GLOBALLY_SUPPORTED_CHECKSUMS
+from rucio.common.utils import adler32, detect_client_location, execute, generate_uuid, md5, send_trace, GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
 
@@ -57,6 +57,7 @@ class UploadClient:
 
         self.logger = logger
         self.client = _client if _client else Client()
+        self.client_location = detect_client_location()
         self.tracing = tracing
         if not self.tracing:
             logger.debug('Tracing is turned off.')
@@ -196,7 +197,16 @@ class UploadClient:
                     logger.info('File already exists on RSE. Skipping upload')
                     trace['stateReason'] = 'File already exists'
                     continue
-            protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=force_scheme)
+
+            # resolving local area networks
+            domain = 'wan'
+            rse_attributes = self.client.list_rse_attributes(rse)
+            if self.client_location and 'lan' in rse_settings['domain']:
+                if self.client_location['site'] == rse_attributes('site'):
+                    domain = 'lan'
+
+            # protocol handling and upload
+            protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=force_scheme, domain=domain)
             protocols.reverse()
             success = False
             state_reason = ''
