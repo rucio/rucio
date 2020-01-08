@@ -9,9 +9,9 @@ include lib/rucio/db/migrate_repo/script.py.mako
 include etc/rse-accounts.cfg.template
 include etc/rucio.cfg.atlas.client.template
 include etc/rucio.cfg.template
-include tools/pip-requires
-include tools/pip-requires-test
-include tools/pip-requires-client
+include etc/pip-requires
+include etc/pip-requires-test
+include etc/pip-requires-client
 include tools/bootstrap.py
 include tools/reset_database.py
 recursive-include lib/rucio/db/sqla/migrate_repo/versions *.py
