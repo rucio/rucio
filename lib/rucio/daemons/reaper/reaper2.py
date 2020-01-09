@@ -19,7 +19,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 #
@@ -48,7 +48,6 @@ from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
-from rucio.db.sqla.constants import ReplicaState
 from rucio.common.config import config_get
 from rucio.common.exception import (DatabaseException, RSENotFound, ConfigNotFound, ReplicaUnAvailable, ReplicaNotFound, ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable, SourceNotFound)
 from rucio.common.utils import chunks
@@ -164,9 +163,6 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, prepend_str):
                 err_msg = 'Deletion NOTFOUND of %s:%s as %s on %s' % (replica['scope'], replica['name'], replica['pfn'], rse_name)
                 logging.warning('%s %s', prepend_str, err_msg)
                 deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
-                if replica['state'] == ReplicaState.AVAILABLE:
-                    deletion_dict['reason'] = str(err_msg)
-                    add_message('deletion-failed', deletion_dict)
 
             except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
                 logging.warning('%s Deletion NOACCESS of %s:%s as %s on %s: %s', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name, str(error))
