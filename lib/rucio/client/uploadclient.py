@@ -202,7 +202,7 @@ class UploadClient:
             domain = 'wan'
             rse_attributes = self.client.list_rse_attributes(rse)
             if self.client_location and 'lan' in rse_settings['domain']:
-                if self.client_location['site'] == rse_attributes('site'):
+                if self.client_location['site'] == rse_attributes['site']:
                     domain = 'lan'
 
             # protocol handling and upload
