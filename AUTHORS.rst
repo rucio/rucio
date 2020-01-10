@@ -41,6 +41,7 @@ Individual contributors to the source code
 - Boris Bauermeister <Boris.Bauermeister@gmail.com> 2019
 - Ruturaj Gujar <ruturaj.gujar23@gmail.com> 2019
 - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+- Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
 
 Organisations employing contributors
 ------------------------------------
