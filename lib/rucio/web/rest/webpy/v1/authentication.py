@@ -31,6 +31,7 @@ import base64
 
 from re import search
 from traceback import format_exc
+import imp
 
 from web import application, ctx, OK, BadRequest, header, InternalError, input as param_input
 
@@ -46,11 +47,21 @@ from rucio.common.utils import generate_http_error, date_to_str
 from rucio.web.rest.common import RucioController, check_accept_header_wrapper
 
 from rucio.common.config import config_get
-if config_get('client', 'auth_type') == 'saml':
+
+# Extra modules: Only imported if available
+EXTRA_MODULES = {'onelogin': False}
+
+for extra_module in EXTRA_MODULES:
+    try:
+        imp.find_module(extra_module)
+        EXTRA_MODULES[extra_module] = True
+    except ImportError:
+        EXTRA_MODULES[extra_module] = False
+
+if EXTRA_MODULES['onelogin']:
     from onelogin.saml2.auth import OneLogin_Saml2_Auth
     from rucio.web.ui.common.utils import prepare_webpy_request
     from web import cookies, setcookie
-
 
 URLS = (
     '/userpass', 'UserPass',
