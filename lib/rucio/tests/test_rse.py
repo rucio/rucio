@@ -41,7 +41,7 @@ from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSuppor
                                     InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError,
                                     ResourceTemporaryUnavailable, RSEAttributeNotFound, RSEOperationNotSupported)
 from rucio.common.utils import generate_uuid
-from rucio.core.rse import (add_rse, get_rse_id, del_rse, list_rses, rse_exists, add_rse_attribute, list_rse_attributes,
+from rucio.core.rse import (add_rse, get_rse_id, del_rse, restore_rse, list_rses, rse_exists, add_rse_attribute, list_rse_attributes,
                             set_rse_transfer_limits, get_rse_transfer_limits, delete_rse_transfer_limits,
                             get_rse_protocols, del_rse_attribute, get_rse_attribute, get_rse, rse_is_empty)
 from rucio.rse import rsemanager as mgr
@@ -179,6 +179,30 @@ class TestRSECoreApi(object):
         # rse_name = rse_name_generator() #- No longer valid syntax
         # with assert_raises(RSENotFound):
         #     del_rse(rse=rse_name)
+
+    def test_restore_rse(self):
+        """ RSE (CORE): Test restore of RSE """
+        # Restore deleted RSE
+        rse_name = rse_name_generator()
+        rse_id = add_rse(rse_name)
+        db_session = session.get_session()
+        db_session.commit()
+
+        del_rse(rse_id)
+        db_session.commit()
+        # Verify RSE was deleted
+        assert_equal(rse_exists(rse=rse_id), False)
+
+        restore_rse(rse_id=rse_id)
+        db_session.commit()
+        # Verify RSE was restored
+        assert rse_exists(rse=rse_name)
+
+        # Restoration of not deleted RSE:
+        rse_name = rse_name_generator()
+        rse_id = add_rse(rse_name)
+        with assert_raises(RSENotFound):
+            restore_rse(rse_id=rse_id)
 
     def test_empty_rse(self):
         """ RSE (CORE): Test if RSE is empty """
