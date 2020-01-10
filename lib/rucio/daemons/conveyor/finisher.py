@@ -17,7 +17,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015-2019
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
@@ -119,8 +119,10 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000)
                 logging.debug('%s Working on activity %s', prepend_str, activity)
                 time1 = time.time()
                 reqs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-                                             state=[RequestState.DONE, RequestState.FAILED, RequestState.LOST, RequestState.SUBMITTING,
-                                                    RequestState.SUBMISSION_FAILED, RequestState.NO_SOURCES, RequestState.ONLY_TAPE_SOURCES],
+                                             state=[RequestState.DONE, RequestState.FAILED,
+                                                    RequestState.LOST, RequestState.SUBMITTING,
+                                                    RequestState.SUBMISSION_FAILED, RequestState.NO_SOURCES,
+                                                    RequestState.ONLY_TAPE_SOURCES, RequestState.MISMATCH_SCHEME],
                                              limit=db_bulk,
                                              older_than=datetime.datetime.utcnow(),
                                              total_workers=heart_beat['nr_threads'] - 1,
