@@ -205,7 +205,7 @@ class UploadClient:
                 rse_attributes = self.client.list_rse_attributes(rse)
             except:
                 logger.warning('Attributes of the RSE: %s not available.' % rse)
-            if (self.client_location and 'lan' in rse_settings['domain'] and'site' in rse_attributes):
+            if (self.client_location and 'lan' in rse_settings['domain'] and 'site' in rse_attributes):
                 if self.client_location['site'] == rse_attributes['site']:
                     domain = 'lan'
 
