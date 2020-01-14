@@ -8,7 +8,7 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017-2018
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2018-2019
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2018-2020
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 # - Robert Illingworth, <illingwo@fnal.gov>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
@@ -1038,7 +1038,11 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                         # Need to fail all the intermediate requests + the initial one and exit the multihop loop
                         logging.warning('Multihop : A request already exists for the transfer between %s and %s. Will cancel all the parent requests', source_rse_name, dest_rse_name)
                         parent_requests.append(req_id)
-                        set_requests_state(request_ids=parent_requests, new_state=RequestState.FAILED, session=session)
+                        try:
+                            set_requests_state(request_ids=parent_requests, new_state=RequestState.FAILED, session=session)
+                        except UnsupportedOperation:
+                            logging.error('Multihop : Cannot cancel all the parent requests : %s', str(parent_requests))
+
                         # Remove from the transfer dictionary all the requests
                         for cur_req_id in parent_requests:
                             transfers.pop(cur_req_id, None)
