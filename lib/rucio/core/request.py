@@ -12,7 +12,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2014-2016
 # - Joaquin Bogado, <jbogadog@cern.ch>, 2016
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017-2019
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017-2020
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
@@ -485,6 +485,7 @@ def set_request_state(request_id, new_state, transfer_id=None, transferred_at=No
 
     record_counter('core.request.set_request_state')
 
+    rowcount = 0
     try:
         update_items = {'state': new_state, 'updated_at': datetime.datetime.utcnow()}
         if transferred_at:
