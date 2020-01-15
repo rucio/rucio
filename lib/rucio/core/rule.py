@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - David Cameron <d.g.cameron@gmail.com>, 2014
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
@@ -46,7 +46,7 @@ from string import Template
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import func
-from sqlalchemy.sql.expression import and_, or_, bindparam, text, true, null
+from sqlalchemy.sql.expression import and_, or_, bindparam, text, true, null, tuple_
 
 from rucio.core.account import has_account_attribute
 import rucio.core.did
@@ -63,7 +63,7 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     ManualRuleApprovalBlocked, UnsupportedOperation, UndefinedPolicy)
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalScope, InternalAccount
-from rucio.common.utils import str_to_date, sizefmt
+from rucio.common.utils import str_to_date, sizefmt, chunks
 from rucio.core import account_counter, rse_counter, request as request_core
 from rucio.core.account import get_account
 from rucio.core.lifetime_exception import define_eol
@@ -1512,6 +1512,11 @@ def get_updated_dids(total_workers, worker_number, limit=100, blacklisted_dids=[
             query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
         elif session.bind.dialect.name == 'postgresql':
             query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+
+    # Remove blacklisted dids from query, but only do the first 30 ones, not to overload the query
+    if blacklisted_dids:
+        chunk = list(chunks(blacklisted_dids, 30))[0]
+        query = query.filter(tuple_(models.UpdatedDID.scope, models.UpdatedDID.name).notin_(chunk))
 
     if limit:
         fetched_dids = query.order_by(models.UpdatedDID.created_at).limit(limit).all()
