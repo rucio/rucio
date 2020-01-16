@@ -526,14 +526,20 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
                 identity_object = random.choice(identities)
                 issuer = identity_object.identity.split(", ")[1].split("=")[1]
             else:
-                raise CannotAuthorize("Rucio could not find and OIDC identity associated with %s account" % account)  # NOQA: W503
+                return None
+                # in the future, this function should be called only if OIDC
+                # tokens are explicitly requested in which case an exception could then be thrown
+                # raise CannotAuthorize("Rucio could not find and OIDC identity associated with %s account" % account)  # NOQA: W503
 
             new_admin_token = get_admin_token_oidc(account, req_scope, req_audience, issuer, session=None)
             return new_admin_token
 
         if not account_tokens:
-            raise CannotAuthorize("Rucio could not exchange any subject token since it did not find any "
-                                  + "valid token associated with OIDC identity of account %s" % account)  # NOQA: W503
+            return None
+            # in the future, this function should be called only if OIDC
+            # tokens are explicitly requested in which case an exception could then be thrown
+            # raise CannotAuthorize("Rucio could not exchange any subject token since it did not find any "
+            #                      + "valid token associated with OIDC identity of account %s" % account)  # NOQA: W503
 
         # for any other account (than Rucio admin) - proceed with token exchange
         subject_token = None
@@ -552,8 +558,8 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
         return exchanged_token
 
     except Exception:
-        raise CannotAuthorize(traceback.format_exc())
-        # return None
+        # raise CannotAuthorize(traceback.format_exc())
+        return None
 
 
 @transactional_session
