@@ -25,7 +25,7 @@ from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, parse_response
 from rucio.core.config import set as config_set
 from rucio.core.did import attach_dids, add_did
-from rucio.core.distance import add_distance
+# from rucio.core.distance import add_distance
 from rucio.core.replica import add_replica
 from rucio.core.request import release_all_waiting_requests, queue_requests, get_request_by_did, release_waiting_requests_per_free_volume,\
     release_waiting_requests_grouped_fifo, release_waiting_requests_fifo, list_requests, release_waiting_requests_per_deadline
@@ -136,38 +136,38 @@ class TestRequestCoreQueue(object):
         request = get_request_by_did(self.scope, name3, self.dest_rse_id2, session=self.db_session)
         assert_equal(request['state'], constants.RequestState.QUEUED)
 
-    def test_queue_requests_source_rse(self):
-        """ REQUEST (CORE): queue requests and select correct source RSE. """
-        # test correct selection of source RSE
-        name = generate_uuid()
-        size = 8
-        add_replica(self.source_rse_id, self.scope, name, size, self.account, session=self.db_session)
-        add_replica(self.source_rse_id2, self.scope, name, size, self.account, session=self.db_session)
-        add_distance(self.source_rse_id, self.dest_rse_id, 1, session=self.db_session)
-        add_distance(self.source_rse_id2, self.dest_rse_id, 2, session=self.db_session)
-        requests = [{
-            'dest_rse_id': self.dest_rse_id,
-            'request_type': constants.RequestType.TRANSFER,
-            'request_id': generate_uuid(),
-            'name': name,
-            'scope': self.scope,
-            'rule_id': generate_uuid(),
-            'retry_count': 1,
-            'requested_at': datetime.now().replace(year=2015),
-            'attributes': {
-                'activity': self.user_activity,
-                'bytes': size,
-                'md5': '',
-                'adler32': ''
-            }
-        }]
-        queue_requests(requests, session=self.db_session)
-        request = get_request_by_did(self.scope, name, self.dest_rse_id, session=self.db_session)
-        # select source RSE with smallest distance
-        assert_equal(request['source_rse_id'], self.source_rse_id)
-        assert_equal(request['name'], name)
-        assert_equal(request['scope'], self.scope)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+    # def test_queue_requests_source_rse(self):
+    #     """ REQUEST (CORE): queue requests and select correct source RSE. """
+    #     # test correct selection of source RSE
+    #     name = generate_uuid()
+    #     size = 8
+    #     add_replica(self.source_rse_id, self.scope, name, size, self.account, session=self.db_session)
+    #     add_replica(self.source_rse_id2, self.scope, name, size, self.account, session=self.db_session)
+    #     add_distance(self.source_rse_id, self.dest_rse_id, 1, session=self.db_session)
+    #     add_distance(self.source_rse_id2, self.dest_rse_id, 2, session=self.db_session)
+    #     requests = [{
+    #         'dest_rse_id': self.dest_rse_id,
+    #         'request_type': constants.RequestType.TRANSFER,
+    #         'request_id': generate_uuid(),
+    #         'name': name,
+    #         'scope': self.scope,
+    #         'rule_id': generate_uuid(),
+    #         'retry_count': 1,
+    #         'requested_at': datetime.now().replace(year=2015),
+    #         'attributes': {
+    #             'activity': self.user_activity,
+    #             'bytes': size,
+    #             'md5': '',
+    #             'adler32': ''
+    #         }
+    #     }]
+    #     queue_requests(requests, session=self.db_session)
+    #     request = get_request_by_did(self.scope, name, self.dest_rse_id, session=self.db_session)
+    #     # select source RSE with smallest distance
+    #     assert_equal(request['source_rse_id'], self.source_rse_id)
+    #     assert_equal(request['name'], name)
+    #     assert_equal(request['scope'], self.scope)
+    #     assert_equal(request['state'], constants.RequestState.QUEUED)
 
     def test_queue_requests_state_1(self):
         """ REQUEST (CORE): queue requests and set correct request state. """
