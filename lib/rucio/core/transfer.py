@@ -94,6 +94,7 @@ REGION_SHORT = make_region().configure('dogpile.cache.memcached',
                                        expiration_time=600,
                                        arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
 TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)
+ALLOW_USER_OIDC_TOKENS = config_get('conveyor', 'allow_user_oidc_tokens', False, False)
 
 
 def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None, user_transfer_job=False):
@@ -124,10 +125,16 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
                 else:
                     job_file[key] = file[key]
             job_files.append(job_file)
+
+        # getting info about account and OIDC support of the RSEs
+        use_oidc = job_params.get('use_oidc', False)
         transfer_token = None
-        if 'account' in job_params:
-            # find the appropriate OIDC token and exchange it if necessary
-            token_object = get_token_for_account_operation(job_params['account'], req_audience='fts:example', req_scope='fts:submit-transfer')
+        if use_oidc:
+            account = job_params.get('account', None)
+            if ALLOW_USER_OIDC_TOKENS is False:
+                account = InternalAccount('ddmadmin')
+            # find the appropriate OIDC token and exchange it (for user accounts) if necessary
+            token_object = get_token_for_account_operation(account, req_audience='fts:example', req_scope='fts:submit-transfer')
             if token_object is not None:
                 transfer_token = token_object.token
         if not user_transfer_job:
@@ -982,6 +989,27 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         except Exception:
             logging.critical("Exception happened when trying to get transfer for request %s: %s" % (req_id, traceback.format_exc()))
             break
+
+    # checking OIDC AuthN/Z support per destination and soucre RSEs;
+    # assumes use of boolean 'oidc_support' RSE attribute
+    for req_id in transfers:
+        use_oidc = False
+        dest_rse_id = transfers[req_id]['file_metadata']['dest_rse_id']
+        if dest_rse_id in rse_attrs and 'oidc_support' in rse_attrs[dest_rse_id]:
+            use_oidc = rse_attrs[dest_rse_id]['oidc_support']
+        else:
+            transfers[req_id]['use_oidc'] = use_oidc
+            continue
+        for source in transfers[req_id]['sources']:
+            source_rse_id = source[2]
+            if 'oidc_support' in rse_attrs[source_rse_id]:
+                use_oidc = use_oidc and rse_attrs[source_rse_id]['oidc_support']
+            else:
+                use_oidc = False
+            if not use_oidc:
+                break
+        # OIDC token will be requested for the account of this tranfer
+        transfers[req_id]['use_oidc'] = use_oidc
 
     for req_id in copy.deepcopy(transfers):
         # If the transfer is a multihop, need to create the intermediate replicas, intermediate requests and the transfers
