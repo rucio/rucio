@@ -28,7 +28,7 @@ from six import string_types
 
 from sqlalchemy import and_, or_, func, update
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.sql import tuple_
+# from sqlalchemy.sql import tuple_
 from sqlalchemy.sql.expression import asc, bindparam, text, false, true
 
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation, ConfigNotFound
@@ -156,27 +156,28 @@ def queue_requests(requests, session=None):
             for request in query_existing_requests:
                 existing_requests.append(request)
 
+    # Temporary disabled
     source_rses = {}
-    request_scopes_names = [(request['scope'], request['name']) for request in requests]
-    for chunked_requests in chunks(request_scopes_names, 50):
-        results = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id, models.Distance.dest_rse_id, models.Distance.ranking)\
-                         .filter(tuple_(models.RSEFileAssociation.scope, models.RSEFileAssociation.name).in_(chunked_requests))\
-                         .join(models.Distance, models.Distance.src_rse_id == models.RSEFileAssociation.rse_id)\
-                         .all()
-        for result in results:
-            scope = result[0]
-            name = result[1]
-            src_rse_id = result[2]
-            dest_rse_id = result[3]
-            distance = result[4]
-            if scope not in source_rses:
-                source_rses[scope] = {}
-            if name not in source_rses[scope]:
-                source_rses[scope][name] = {}
-            if dest_rse_id not in source_rses[scope][name]:
-                source_rses[scope][name][dest_rse_id] = {}
-            if src_rse_id not in source_rses[scope][name][dest_rse_id]:
-                source_rses[scope][name][dest_rse_id][src_rse_id] = distance
+    # request_scopes_names = [(request['scope'], request['name']) for request in requests]
+    # for chunked_requests in chunks(request_scopes_names, 50):
+    #    results = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id, models.Distance.dest_rse_id, models.Distance.ranking)\
+    #                     .filter(tuple_(models.RSEFileAssociation.scope, models.RSEFileAssociation.name).in_(chunked_requests))\
+    #                     .join(models.Distance, models.Distance.src_rse_id == models.RSEFileAssociation.rse_id)\
+    #                     .all()
+    #    for result in results:
+    #        scope = result[0]
+    #        name = result[1]
+    #        src_rse_id = result[2]
+    #        dest_rse_id = result[3]
+    #        distance = result[4]
+    #        if scope not in source_rses:
+    #            source_rses[scope] = {}
+    #        if name not in source_rses[scope]:
+    #            source_rses[scope][name] = {}
+    #        if dest_rse_id not in source_rses[scope][name]:
+    #            source_rses[scope][name][dest_rse_id] = {}
+    #        if src_rse_id not in source_rses[scope][name][dest_rse_id]:
+    #            source_rses[scope][name][dest_rse_id][src_rse_id] = distance
 
     try:
         throttler_mode = get('throttler', 'mode', default=None, use_cache=False, session=session)
