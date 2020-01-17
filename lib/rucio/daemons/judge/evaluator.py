@@ -89,7 +89,7 @@ def re_evaluator(once=False):
                                     worker_number=heartbeat['assign_thread'],
                                     limit=100,
                                     blacklisted_dids=[(InternalScope(key[0], fromExternal=False), key[1]) for key in paused_dids])
-            logging.debug('re_evaluator[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, time.time() - start, len(dids)))
+            logging.debug('re_evaluator[%s/%s] index query time %f fetch size is %d (%d blacklisted)' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, time.time() - start, len(dids), len([(InternalScope(key[0], fromExternal=False), key[1]) for key in paused_dids])))
 
             # If the list is empty, sent the worker to sleep
             if not dids and not once:
@@ -110,6 +110,10 @@ def re_evaluator(once=False):
                             continue
                     else:
                         done_dids[did_tag] = []
+
+                    # Jump paused dids
+                    if (did.scope.internal, did.name) in paused_dids:
+                        continue
 
                     try:
                         start_time = time.time()
