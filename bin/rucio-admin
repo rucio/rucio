@@ -369,6 +369,7 @@ def set_limits(args):
     Set account limit for an account and rse.
     """
     client = get_client(args)
+    locality = args.locality.lower()
     byte_limit = None
     limit_input = args.bytes.lower()
 
@@ -383,7 +384,7 @@ def set_limits(args):
                 logger.error('The limit could not be set. Either you misspelled infinity or your input could not be converted to integer or you used a wrong pattern. Please use a format like 10GB with B,KB,MB,GB,TB,PB as units (not case sensistive)')
                 return FAILURE
 
-    client.set_account_limit(account=args.account, rse=args.rse, bytes=byte_limit)
+    client.set_account_limit(account=args.account, rse=args.rse, bytes=byte_limit, locality=locality)
     print('Set account limit for account %s on RSE %s: %s' % (args.account, args.rse, sizefmt(byte_limit, True)))
     return SUCCESS
 
@@ -397,7 +398,7 @@ def get_limits(args):
 
     """
     client = get_client(args)
-    limits = client.get_account_limit(account=args.account, rse=args.rse)
+    limits = client.get_account_limit(account=args.account, rse=args.rse, locality=args.locality)
     for rse in limits:
         print('Quota on %s for %s : %s' % (rse, args.account, sizefmt(limits[rse], True)))
     return SUCCESS
@@ -411,7 +412,7 @@ def delete_limits(args):
     Delete account limit for an account and rse.
     """
     client = get_client(args)
-    client.delete_account_limit(account=args.account, rse=args.rse)
+    client.delete_account_limit(account=args.account, rse=args.rse, locality=args.locality)
     print('Deleted account limit for account %s and RSE %s' % (args.account, args.rse))
     return SUCCESS
 
@@ -1343,6 +1344,7 @@ def get_parser():
     set_account_limits_parser.add_argument('account', action='store', help='Account name')
     set_account_limits_parser.add_argument('rse', action='store', help='RSE boolean expression')
     set_account_limits_parser.add_argument('bytes', action='store', help='Value can be specified in bytes ("10000"), with a storage unit ("10GB"), or "infinity"')
+    set_account_limits_parser.add_argument('locality', action='store', nargs='?', default='local', choices=['local', 'global'], help='Global or local limit scope. Default: "local"')
 
     # The account-limit subparser
     get_account_limits_parser = account_subparser.add_parser('get-limits',
@@ -1359,6 +1361,7 @@ def get_parser():
     get_account_limits_parser.set_defaults(which='get_limits')
     get_account_limits_parser.add_argument('account', action='store', help='Account name')
     get_account_limits_parser.add_argument('rse', action='store', help='The RSE name')
+    set_account_limits_parser.add_argument('locality', action='store', nargs='?', default='local', choices=['local', 'global'], help='Global or local limit scope. Default: "local"')
 
     # The delete_quota command
     delete_account_limits_parser = account_subparser.add_parser('delete-limits',
@@ -1376,6 +1379,7 @@ def get_parser():
     delete_account_limits_parser.set_defaults(which='delete_limits')
     delete_account_limits_parser.add_argument('account', action='store', help='Account name')
     delete_account_limits_parser.add_argument('rse', action='store', help='RSE name')
+    delete_account_limits_parser.add_argument('locality', action='store', nargs='?', default='local', choices=['local', 'global'], help='Global or local limit scope. Default: "local"')
 
     # Ban/unban operations not implemented yet
     ban_account_limits_parser = account_subparser.add_parser('ban',
