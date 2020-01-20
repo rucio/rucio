@@ -1,0 +1,32 @@
+======
+1.20.9
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Testing: Python 3.* tests for clients `#3032 <https://github.com/rucio/rucio/issues/3032>`_
+- Core & Internals: Add a quota_approver similar to rule_approver `#3053 <https://github.com/rucio/rucio/issues/3053>`_
+- Deletion: Tunable values for max_threads by host `#3081 <https://github.com/rucio/rucio/issues/3081>`_
+- Deletion: Reevaluate the list of RSEs to be processed by a reaper `#3085 <https://github.com/rucio/rucio/issues/3085>`_
+
+****
+Bugs
+****
+
+- Infrastructure: docker setup issues `#3038 <https://github.com/rucio/rucio/issues/3038>`_
+
+-------
+Clients
+-------
+
+****
+Bugs
+****
+
+- Clients: rucio client fails if username not defined `#3050 <https://github.com/rucio/rucio/issues/3050>`_
