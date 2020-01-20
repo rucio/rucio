@@ -40,6 +40,43 @@ class AccountLimitClient(BaseClient):
         super(AccountLimitClient, self).__init__(rucio_host, auth_host, account, ca_cert,
                                                  auth_type, creds, timeout, user_agent)
 
+    def set_account_limit(self, account, rse, bytes, locality):
+        """
+        Sets an account limit for a given limit scope.
+
+        :param account: The name of the account.
+        :param rse:     The rse name.
+        :param bytes:   An integer with the limit in bytes.
+        :param locality: The scope of the account limit. 'local' or 'global'.
+        :return:        True if quota was created successfully else False.
+        """
+
+        if locality == 'local':
+            return self.set_local_account_limit(account, rse, bytes)
+        elif locality == 'global':
+            return self.set_global_account_limit(account, rse, bytes)
+        else:
+            from rucio.common.exception import UnsupportedOperation
+            raise UnsupportedOperation('The provided scope (%s) for the account limit was invalid' % locality)
+
+    def delete_account_limit(self, account, rse, locality):
+        """
+        Deletes an account limit for a given limit scope.
+
+        :param account: The name of the account.
+        :param rse:     The rse name.
+        :param locality: The scope of the account limit. 'local' or 'global'.
+        :return:        True if quota was created successfully else False.
+        """
+
+        if locality == 'local':
+            return self.delete_local_account_limit(account, rse)
+        elif locality == 'global':
+            return self.delete_global_account_limit(account, rse)
+        else:
+            from rucio.common.exception import UnsupportedOperation
+            raise UnsupportedOperation('The provided scope (%s) for the account limit was invalid' % locality)
+
     def set_local_account_limit(self, account, rse, bytes):
         """
         Sends the request to set an account limit for an account.
