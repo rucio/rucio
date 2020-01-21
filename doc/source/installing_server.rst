@@ -277,12 +277,15 @@ After this is done, please make sure your `rucio.cfg` file contains the followin
 
 Where <IdP_nickname> stands for your preferred IdP (e.g. "wlcg"). The IdP specified under admin_issuer will be contacted to get information about Rucio Users (SCIM) and to request tokens for the Rucio 'root' account.
 
-To finalise the process, one should assign the OIDC identity to the relevant Rucio Admin account (e.g. 'root', 'ddmadmin'). This identity ID is composed of the IAM account sub claim and issuer url such as demonstrated below::
+To finalise the process, one should assign the OIDC identities to the relevant Rucio admin_account_name (e.g. 'root', 'ddmadmin'). This identity ID is composed of the IAM account sub claim and issuer url such as demonstrated below::
 
-  rucio-admin identity add --account AdminAccountName --type OIDC --id "SUB=b3127dc7-2be3-417b-9647-6bf61238ad01, ISS=https://wlcg.cloud.cnaf.infn.it/" --email "Jaroslav.Guenther@gmail.com"
+   rucio-admin identity add --account admin_account_name --type OIDC --id "SUB=b3127dc7-2be3-417b-9647-6bf61238ad01, ISS=https://wlcg.cloud.cnaf.infn.it/" --email "wlcg-doma-rucio@cern.ch"
 
+A second identity has to be added to the same admin_account_name representing the client_credentials flow of the Rucio application, i.e. of the Rucio Admin IAM client from above. This identity consists of the client_id of the Rucio Admin IAM client and the issuer (the token obtained via the client credentials flow using the Rucio Admin IAM client will contain in the SUB claim the client_id instead of the IAM account SUB claim)::
 
-Note: In case you can not/will not run the Rucio check_scim probe script in order to sync Rucio accounts with their IAM identities, you should assign the OIDC identity manually (as in the example above) to each Rucio account which is meant to use the OIDC authN/Z.
+   rucio-admin identity add --account admin_account_name --type OIDC --id "SUB=5b5e5d37-926b-4b42-8a98-a0b4b28baf18, ISS=https://wlcg.cloud.cnaf.infn.it/" --email "wlcg-doma-rucio@cern.ch"
+
+Note: In case you can not/will not run the Rucio check_scim probe script in order to sync Rucio accounts with their IAM identities, you should assign the appropriate OIDC identity manually (as in the example above) to each Rucio account which is meant to use the OIDC authN/Z.
 
 In case you wish to use OIDC in order to login to the Rucio WebUI, one has to configure also another block in the `rucio.cfg` file::
 
