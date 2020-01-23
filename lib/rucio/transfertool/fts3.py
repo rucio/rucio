@@ -359,7 +359,7 @@ class FTS3Transfertool(Transfertool):
         responses = {}
         fts_session = requests.Session()
         xfer_ids = ','.join(transfer_ids)
-        jobs = fts_session.get('%s/jobs/%s?files=file_state,dest_surl,finish_time,start_time,reason,source_surl,file_metadata' % (self.external_host, xfer_ids),
+        jobs = fts_session.get('%s/jobs/%s?files=file_state,dest_surl,finish_time,start_time,staging_start,staging_finished,reason,source_surl,file_metadata' % (self.external_host, xfer_ids),
                                verify=self.verify,
                                cert=self.cert,
                                headers={'Content-Type': 'application/json'},
