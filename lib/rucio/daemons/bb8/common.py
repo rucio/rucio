@@ -197,6 +197,9 @@ def _list_rebalance_rule_candidates_dump(rse, mode=None):
                     rules[rule_id] = {'state': 'DELETED'}
                     print(e)
                     continue
+                if rule_info['child_rule_id']:
+                    rules[rule_id] = {'state': 'DELETED'}
+                    continue
                 rules[rule_id] = {'scope': rule_info['scope'],
                                   'name': rule_info['name'],
                                   'rse_expression': rse_expression,
