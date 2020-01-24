@@ -205,7 +205,8 @@ class Replicas(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            add_replicas(rse=parameters['rse'], files=parameters['files'], issuer=ctx.env.get('issuer'), ignore_availability=parameters.get('ignore_availability', False))
+            add_replicas(rse=parameters['rse'], files=parameters['files'], issuer=ctx.env.get(
+                'issuer'), ignore_availability=parameters.get('ignore_availability', False))
         except InvalidPath as error:
             raise generate_http_error(400, 'InvalidPath', error.args[0])
         except AccessDenied as error:
@@ -274,7 +275,8 @@ class Replicas(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            delete_replicas(rse=parameters['rse'], files=parameters['files'], issuer=ctx.env.get('issuer'), ignore_availability=parameters.get('ignore_availability', False))
+            delete_replicas(rse=parameters['rse'], files=parameters['files'], issuer=ctx.env.get(
+                'issuer'), ignore_availability=parameters.get('ignore_availability', False))
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except RSENotFound as error:
@@ -677,7 +679,8 @@ class BadReplicasStates(RucioController):
                 list_pfns = bool(params['list_pfns'][0])
 
         try:
-            result = list_bad_replicas_status(state=state, rse=rse, younger_than=younger_than, older_than=older_than, limit=limit, list_pfns=list_pfns)
+            result = list_bad_replicas_status(state=state, rse=rse, younger_than=younger_than,
+                                              older_than=older_than, limit=limit, list_pfns=list_pfns)
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -782,7 +785,7 @@ class DatasetReplicasVP(RucioController):
             406 Not Acceptable
             500 InternalError
 
-        :returns: If VP exists a list of dicts of sites, otherwise a list of dicts of dataset replicas
+        :returns: If VP exists a list of dicts of sites, otherwise nothing
         """
 
         header('Content-Type', 'application/x-json-stream')
