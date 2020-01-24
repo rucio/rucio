@@ -700,6 +700,8 @@ class FTS3Transfertool(Transfertool):
                                      'src_url': file_resp.get('source_surl', None),
                                      'dst_url': file_resp.get('dest_surl', None),
                                      'started_at': datetime.datetime.strptime(file_resp['start_time'], '%Y-%m-%dT%H:%M:%S') if file_resp['start_time'] else None,
+                                     'staging_start_at': datetime.datetime.strptime(file_resp['staging_start'], '%Y-%m-%dT%H:%M:%S') if file_resp['staging_start'] else None,
+                                     'staging_finished_at': datetime.datetime.strptime(file_resp['staging_finished'], '%Y-%m-%dT%H:%M:%S') if file_resp['staging_finished'] else None,
                                      'transferred_at': datetime.datetime.strptime(file_resp['finish_time'], '%Y-%m-%dT%H:%M:%S') if file_resp['finish_time'] else None,
                                      'duration': duration,
                                      'reason': file_resp.get('reason', None),
