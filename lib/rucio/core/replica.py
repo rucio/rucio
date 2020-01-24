@@ -2365,7 +2365,7 @@ def list_dataset_replicas_vp(scope, name, deep=False, session=None):
     :param deep: Lookup at the file level.
     :param session: Database session to use.
 
-    :returns: If VP exists a list of dicts ofsites, otherwise a list of dicts of dataset replicas
+    :returns: If VP exists and there is at least one non-TAPE replica, returns a list of dicts of sites
     """
 
     vp_replies = ['other']
@@ -2379,17 +2379,20 @@ def list_dataset_replicas_vp(scope, name, deep=False, session=None):
             vp_replies = vp_replies.json()
         else:
             vp_replies = ['other']
-    except Exception as e:
-        print(e)
+    except Exception as exc:
+        print(exc)
         vp_replies = ['other']
 
     if vp_replies != ['other']:
-        for vp_reply in vp_replies:
-            yield {'vp': True, 'site': vp_reply}
-    else:
+        # check that there is at least one regular replica that is not on tape.
+        accessible_replica_exists = False
         for reply in list_dataset_replicas(scope=scope, name=name, deep=deep, session=session):
-            reply['vp'] = False
-            yield reply
+            if reply['rse'].count('TAPE'):
+                accessible_replica_exists = True
+                break
+        if accessible_replica_exists is True:
+            for vp_reply in vp_replies:
+                yield {'vp': True, 'site': vp_reply}
 
 
 @stream_session

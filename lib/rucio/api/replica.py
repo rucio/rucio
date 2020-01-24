@@ -58,7 +58,8 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=No
     if rse is not None:
         rse_id = get_rse_id(rse=rse)
 
-    replicas = replica.list_bad_replicas_status(state=state, rse_id=rse_id, younger_than=younger_than, older_than=older_than, limit=limit, list_pfns=list_pfns)
+    replicas = replica.list_bad_replicas_status(state=state, rse_id=rse_id, younger_than=younger_than,
+                                                older_than=older_than, limit=limit, list_pfns=list_pfns)
     return [api_update_return_dict(r) for r in replicas]
 
 
@@ -251,7 +252,6 @@ def delete_replicas(rse, files, issuer, ignore_availability=False):
 
 
 def update_replicas_states(rse, files, issuer):
-
     """
     Update File replica information and state.
 
@@ -299,7 +299,7 @@ def list_dataset_replicas_vp(scope, name, deep=False):
     :param name: The name of the dataset.
     :param deep: Lookup at the file level.
 
-    :returns: If VP exists a list of dicts of sites, otherwise a list of dicts of dataset replicas
+    :returns: If VP exists a list of dicts of sites, otherwise nothing
 
     NOTICE: This is an RnD function and might change or go away at any time.
     """
