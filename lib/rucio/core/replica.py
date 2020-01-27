@@ -2384,7 +2384,7 @@ def list_dataset_replicas_vp(scope, name, deep=False, session=None):
         vp_replies = ['other']
 
     if vp_replies != ['other']:
-        # check that there is at least one regular replica 
+        # check that there is at least one regular replica
         # that is not on tape and has a protocol  with scheme "root"
         # and can be accessed from WAN
         accessible_replica_exists = False
