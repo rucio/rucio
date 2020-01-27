@@ -2384,11 +2384,19 @@ def list_dataset_replicas_vp(scope, name, deep=False, session=None):
         vp_replies = ['other']
 
     if vp_replies != ['other']:
-        # check that there is at least one regular replica that is not on tape.
+        # check that there is at least one regular replica 
+        # that is not on tape and has a protocol  with scheme "root"
+        # and can be accessed from WAN
         accessible_replica_exists = False
         for reply in list_dataset_replicas(scope=scope, name=name, deep=deep, session=session):
-            if reply['rse'].count('TAPE'):
-                accessible_replica_exists = True
+            rse_info = rsemgr.get_rse_info(rse=reply['rse'], session=session)
+            if rse_info['rse_type'] == 'TAPE':
+                continue
+            for prot in rse_info['protocols']:
+                if prot['scheme'] == 'root' and prot['domains']['wan']['read']:
+                    accessible_replica_exists = True
+                    break
+            if accessible_replica_exists is True:
                 break
         if accessible_replica_exists is True:
             for vp_reply in vp_replies:
