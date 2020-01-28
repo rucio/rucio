@@ -51,8 +51,6 @@ from rucio.common.exception import AccessDenied, IdentityError, RucioException
 from rucio.common.utils import date_to_str, generate_http_error
 from rucio.web.rest.common import RucioController, check_accept_header_wrapper
 
-from rucio.common.config import config_get
-
 # Extra modules: Only imported if available
 EXTRA_MODULES = {'onelogin': False}
 
