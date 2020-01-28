@@ -23,6 +23,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019-2020
 #
 # PY3K COMPATIBLE
 
@@ -46,7 +47,7 @@ from string import Template
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import func
-from sqlalchemy.sql.expression import and_, or_, bindparam, text, true, null, tuple_
+from sqlalchemy.sql.expression import and_, or_, text, true, null, tuple_
 
 from rucio.core.account import has_account_attribute
 import rucio.core.did
@@ -73,7 +74,7 @@ from rucio.core.rse import get_rse_name, list_rse_attributes, get_rse, get_rse_u
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rse_selector import RSESelector
 from rucio.core.rule_grouping import apply_rule_grouping, repair_stuck_locks_and_apply_rule_grouping, create_transfer_dict
-from rucio.db.sqla import models
+from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import (LockState, ReplicaState, RuleState, RuleGrouping,
                                      DIDAvailability, DIDReEvaluation, DIDType,
                                      RequestType, RuleNotification, OBSOLETE, RSEType)
@@ -1503,15 +1504,7 @@ def get_updated_dids(total_workers, worker_number, limit=100, blacklisted_dids=[
                           models.UpdatedDID.name,
                           models.UpdatedDID.rule_evaluation_action)
 
-    if total_workers > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number),
-                          bindparam('total_workers', total_workers)]
-            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
 
     # Remove blacklisted dids from query, but only do the first 30 ones, not to overload the query
     if blacklisted_dids:
@@ -1552,14 +1545,7 @@ def get_rules_beyond_eol(date_check, worker_number, total_workers, session):
                           models.ReplicationRule.expires_at).\
         filter(models.ReplicationRule.eol_at < date_check)
 
-    if session.bind.dialect.name == 'oracle':
-        bindparams = [bindparam('worker_number', worker_number),
-                      bindparam('total_workers', total_workers)]
-        query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-    elif session.bind.dialect.name == 'mysql':
-        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
-    elif session.bind.dialect.name == 'postgresql':
-        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
     return [rule for rule in query.all()]
 
 
@@ -1581,14 +1567,7 @@ def get_expired_rules(total_workers, worker_number, limit=100, blacklisted_rules
         with_hint(models.ReplicationRule, "index(rules RULES_EXPIRES_AT_IDX)", 'oracle').\
         order_by(models.ReplicationRule.expires_at)  # NOQA
 
-    if session.bind.dialect.name == 'oracle':
-        bindparams = [bindparam('worker_number', worker_number),
-                      bindparam('total_workers', total_workers)]
-        query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-    elif session.bind.dialect.name == 'mysql':
-        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
-    elif session.bind.dialect.name == 'postgresql':
-        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
 
     if limit:
         fetched_rules = query.limit(limit).all()
@@ -1629,14 +1608,7 @@ def get_injected_rules(total_workers, worker_number, limit=100, blacklisted_rule
             filter(models.ReplicationRule.state == RuleState.INJECT).\
             order_by(models.ReplicationRule.created_at)
 
-    if session.bind.dialect.name == 'oracle':
-        bindparams = [bindparam('worker_number', worker_number),
-                      bindparam('total_workers', total_workers)]
-        query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-    elif session.bind.dialect.name == 'mysql':
-        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
-    elif session.bind.dialect.name == 'postgresql':
-        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
 
     if limit:
         fetched_rules = query.limit(limit).all()
@@ -1685,14 +1657,7 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, blacklist
                        models.ReplicationRule.locked == true())).\
             order_by(models.ReplicationRule.updated_at)
 
-    if session.bind.dialect.name == 'oracle':
-        bindparams = [bindparam('worker_number', worker_number),
-                      bindparam('total_workers', total_workers)]
-        query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-    elif session.bind.dialect.name == 'mysql':
-        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
-    elif session.bind.dialect.name == 'postgresql':
-        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
 
     if limit:
         fetched_rules = query.limit(limit).all()
