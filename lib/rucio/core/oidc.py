@@ -353,7 +353,7 @@ def get_token_oidc(auth_query_string, ip=None, session=None):
             try:
                 jwt_row_dict['account'] = get_default_account(jwt_row_dict['identity'], IdentityType.OIDC, True, session=session)
             except Exception:
-                return ('webhome', None, 'token', None)
+                return {'webhome': None, 'token': None}
 
         # check if given account has the identity registered
         if not exist_identity_account(jwt_row_dict['identity'], IdentityType.OIDC, jwt_row_dict['account']):
@@ -425,13 +425,13 @@ def get_token_oidc(auth_query_string, ip=None, session=None):
                                     models.OAuthRequest.redirect_msg: new_token.token})
                 session.commit()
             if '_polling' in oauth_req_params.access_msg:
-                return ('polling', True)
+                return {'polling': True}
             elif 'http' in oauth_req_params.access_msg:
-                return ('webhome', oauth_req_params.access_msg, 'token', new_token)
+                return {'webhome': oauth_req_params.access_msg, 'token': new_token}
             else:
-                return ('fetchcode', fetchcode)
+                return {'fetchcode': fetchcode}
         else:
-            return ('token', new_token)
+            return {'token': new_token}
         record_timer(stat='IdP_authorization', time=time.time() - start)
 
     except Exception:

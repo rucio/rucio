@@ -397,10 +397,10 @@ class CodeOIDC(RucioController):
         if not result:
             return render.auth_crash('no_result')
             raise generate_http_error(401, 'CannotAuthorize', 'Cannot authorize token request.')
-        if result[0] == 'fetchcode':
-            authcode = result[1]
+        if 'fetchcode' in result:
+            authcode = result['fetchcode']
             return render.auth_granted(authcode)
-        elif result[0] == 'polling':
+        elif 'polling' in result and result['polling'] is True:
             authcode = "allok"
             return render.auth_granted(authcode)
         else:
@@ -471,18 +471,18 @@ class TokenOIDC(RucioController):
 
         if not result:
             raise generate_http_error(401, 'CannotAuthorize', 'Cannot authorize token request.')
-        if result[0] == 'token':
-            header('X-Rucio-Auth-Token', result[1].token)  # pylint: disable=no-member
-            header('X-Rucio-Auth-Token-Expires', date_to_str(result[1].expired_at))  # pylint: disable=no-member
+        if 'token' in result and 'webhome' not in result:
+            header('X-Rucio-Auth-Token', result['token'].token)  # pylint: disable=no-member
+            header('X-Rucio-Auth-Token-Expires', date_to_str(result['token'].expired_at))  # pylint: disable=no-member
             return str()
-        elif result[0] == 'webhome':
-            webhome = result[1]
+        elif 'webhome' in result:
+            webhome = result['webhome']
             if webhome is None:
                 header('Content-Type', 'text/html')
                 render = template.render(join(dirname(__file__), 'templates/'))
                 return render.auth_crash('unknown_identity')
             # header('X-Rucio-Auth-Token', result[3].token)
-            setcookie('x-rucio-auth-token', value=result[3].token, path='/')
+            setcookie('x-rucio-auth-token', value=result['token'].token, path='/')
             setcookie('rucio-auth-token-created-at', value=int(time.time()), path='/')
             return seeother(webhome)
         else:
