@@ -284,7 +284,7 @@ def run(total_workers=1, once=False, inputfile=None):
 
     threads = list()
     for worker_number in range(0, total_workers):
-        kwargs = {'worker_number': worker_number + 1,
+        kwargs = {'worker_number': worker_number,
                   'total_workers': total_workers,
                   'once': once,
                   'sites': sites,

@@ -19,6 +19,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Brandon White <bjwhite@fnal.gov>, 2019-2020
 #
 # PY3K COMPATIBLE
 
@@ -94,12 +95,12 @@ def poller(once=False, activities=None, sleep_time=60,
     hb_thread = threading.current_thread()
     heartbeat.sanity_check(executable=executable, hostname=hostname)
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info(prepend_str + 'Poller starting - db_bulk (%i) fts_bulk (%i) timeout (%s)' % (db_bulk, fts_bulk, timeout))
 
     time.sleep(10)  # To prevent running on the same partition if all the poller restart at the same time
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
 
     logging.info(prepend_str + 'Poller started')
 
@@ -109,7 +110,7 @@ def poller(once=False, activities=None, sleep_time=60,
 
         try:
             heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
-            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
 
             if activities is None:
                 activities = [None]
@@ -124,7 +125,7 @@ def poller(once=False, activities=None, sleep_time=60,
                                                 state=[RequestState.SUBMITTED],
                                                 limit=db_bulk,
                                                 older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than),
-                                                total_workers=heart_beat['nr_threads'] - 1, worker_number=heart_beat['assign_thread'],
+                                                total_workers=heart_beat['nr_threads'], worker_number=heart_beat['assign_thread'],
                                                 mode_all=False, hash_variable='id',
                                                 activity=activity,
                                                 activity_shares=activity_shares)

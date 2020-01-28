@@ -18,6 +18,7 @@
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019-2020
 #
 # PY3K COMPATIBLE
 
@@ -74,7 +75,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
     hb = heartbeat.live(executable, hostname, pid, hb_thread)
     time.sleep(10)
     hb = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (hb['assign_thread'] + 1, hb['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (hb['assign_thread'], hb['nr_threads'])
     logging.debug(prepend_str + 'Starting worker')
     summary = {}
     lifetime_exceptions = {}
@@ -91,11 +92,11 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
         while not GRACEFUL_STOP.is_set():
 
             hb = heartbeat.live(executable, hostname, pid, hb_thread)
-            prepend_str = 'Thread [%i/%i] : ' % (hb['assign_thread'] + 1, hb['nr_threads'])
+            prepend_str = 'Thread [%i/%i] : ' % (hb['assign_thread'], hb['nr_threads'])
 
             stime = time.time()
             try:
-                rules = get_rules_beyond_eol(date_check, thread, hb['nr_threads'] - 1, session=None)
+                rules = get_rules_beyond_eol(date_check, thread, hb['nr_threads'], session=None)
                 logging.info(prepend_str + '%s rules to process' % (len(rules)))
                 for rule_idx, rule in enumerate(rules, start=1):
                     did = '%s:%s' % (rule.scope, rule.name)

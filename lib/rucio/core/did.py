@@ -26,6 +26,7 @@
 # - Tobias Wegner <twegner@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Brandon White, <bjwhite@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -55,7 +56,7 @@ from rucio.core import account_counter, rse_counter, config as config_core
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
 from rucio.core.naming_convention import validate_name
-from rucio.db.sqla import models
+from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, RuleState
 from rucio.db.sqla.enum import EnumSymbol
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
@@ -89,28 +90,25 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
         order_by(models.DataIdentifier.expired_at).\
         with_hint(models.DataIdentifier, "index(DIDS DIDS_EXPIRED_AT_IDX)", 'oracle')
 
-    if worker_number and total_workers and total_workers - 1 > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
-            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1)))
-        elif session.bind.dialect.name == 'sqlite':
-            row_count = 0
-            dids = list()
-            for scope, name, did_type, created_at, purge_replicas in query.yield_per(10):
-                if int(md5(name).hexdigest(), 16) % total_workers == worker_number - 1:
-                    dids.append({'scope': scope,
-                                 'name': name,
-                                 'did_type': did_type,
-                                 'created_at': created_at,
-                                 'purge_replicas': purge_replicas})
-                    row_count += 1
-                if limit and row_count >= limit:
-                    return dids
-            return dids
+    if session.bind.dialect.name in ['oracle', 'mysql', 'postgresql']:
+        query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
+    elif session.bind.dialect.name == 'sqlite' and worker_number and total_workers and total_workers > 0:
+        row_count = 0
+        dids = list()
+        for scope, name, did_type, created_at, purge_replicas in query.yield_per(10):
+            if int(md5(name).hexdigest(), 16) % total_workers == worker_number:
+                dids.append({'scope': scope,
+                             'name': name,
+                             'did_type': did_type,
+                             'created_at': created_at,
+                             'purge_replicas': purge_replicas})
+                row_count += 1
+            if limit and row_count >= limit:
+                return dids
+        return dids
+    else:
+        if worker_number and total_workers:
+            raise exception.DatabaseException('The database type %s returned by SQLAlchemy is invalid.' % session.bind.dialect.name)
 
     if limit:
         query = query.limit(limit)
@@ -823,14 +821,7 @@ def list_new_dids(did_type, thread=None, total_threads=None, chunk_size=1000, se
         elif isinstance(did_type, EnumSymbol):
             query = query.filter_by(did_type=did_type)
 
-    if total_threads and (total_threads - 1) > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
-            query = query.filter(text('ORA_HASH(name, :total_threads) = :thread_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(name), %s) = %s' % (total_threads - 1, thread)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
+    query = filter_thread_work(session=session, query=query, total_threads=total_threads, thread_id=thread, hash_variable='name')
 
     row_count = 0
     for chunk in query.yield_per(10):
@@ -1970,15 +1961,7 @@ def create_reports(total_workers, worker_number, session=None):
     query = session.query(models.FollowEvents)
 
     # Use hearbeat mechanism to select a chunck of events based on the hashed account
-    if total_workers > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number),
-                          bindparam('total_workers', total_workers)]
-            query = query.filter(text('ORA_HASH(account, :total_workers) = :worker_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(account), %s) = %s' % (total_workers + 1, worker_number)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(account))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='account')
 
     try:
         events = query.order_by(models.FollowEvents.created_at).all()

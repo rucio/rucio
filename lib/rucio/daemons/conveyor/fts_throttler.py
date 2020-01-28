@@ -15,6 +15,7 @@
 # Authors:
 # - Dilaksun Bavarajan <dilaksun@hotmail.com>, 2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019-2020
 #
 # PY3K COMPATIBLE
 
@@ -367,7 +368,7 @@ def fts_throttler(once=False, cycle_interval=3600):
     heartbeat.sanity_check(executable=executable, hostname=hostname)
 
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     current_time = time.time()
     graceful_stop.wait(10)
     running_instance = False
@@ -381,7 +382,7 @@ def fts_throttler(once=False, cycle_interval=3600):
 
                 try:
                     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
-                    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+                    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
 
                     logging.info(prepend_str + "fts_throttler start cycle")
                     if FTSThrottler().revert():
@@ -402,7 +403,7 @@ def fts_throttler(once=False, cycle_interval=3600):
                 if once:
                     break
         else:
-            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
             logging.info(prepend_str + 'another fts_throttler instance already exists. will wait')
             if time.time() < current_time + cycle_interval:
                 graceful_stop.wait(int((current_time + cycle_interval) - time.time()))

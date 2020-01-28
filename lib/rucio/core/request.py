@@ -15,6 +15,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2017-2020
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White, <bjwhite@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -29,7 +30,7 @@ from six import string_types
 from sqlalchemy import and_, or_, func, update
 from sqlalchemy.exc import IntegrityError
 # from sqlalchemy.sql import tuple_
-from sqlalchemy.sql.expression import asc, bindparam, text, false, true
+from sqlalchemy.sql.expression import asc, false, true
 
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation, ConfigNotFound
 from rucio.common.types import InternalAccount, InternalScope
@@ -38,7 +39,7 @@ from rucio.core.config import get
 from rucio.core.message import add_message
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_name, get_rse_transfer_limits
-from rucio.db.sqla import models
+from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import RequestState, RequestType, FTSState, ReplicaState, LockState, RequestErrMsg
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 from rucio.transfertool.fts3 import FTS3Transfertool
@@ -354,15 +355,7 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
         elif activity:
             query = query.filter(models.Request.activity == activity)
 
-        if total_workers > 0:
-            if session.bind.dialect.name == 'oracle':
-                bindparams = [bindparam('worker_number', worker_number),
-                              bindparam('total_workers', total_workers)]
-                query = query.filter(text('ORA_HASH(%s, :total_workers) = :worker_number' % (hash_variable), bindparams=bindparams))
-            elif session.bind.dialect.name == 'mysql':
-                query = query.filter(text('mod(md5(%s), %s) = %s' % (hash_variable, total_workers + 1, worker_number)))
-            elif session.bind.dialect.name == 'postgresql':
-                query = query.filter(text('mod(abs((\'x\'||md5(%s::text))::bit(32)::int), %s) = %s' % (hash_variable, total_workers + 1, worker_number)))
+        query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable=hash_variable)
 
         if share:
             query = query.limit(activity_shares[share])
@@ -790,15 +783,7 @@ def list_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, 
     if activity:
         sub_requests = sub_requests.filter(models.Request.activity == activity)
 
-    if total_workers > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number),
-                          bindparam('total_workers', total_workers)]
-            sub_requests = sub_requests.filter(text('ORA_HASH(id, :total_workers) = :worker_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            sub_requests = sub_requests.filter(text('mod(md5(id), %s) = %s' % (total_workers + 1, worker_number)))
-        elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(id::text))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    sub_requests = filter_thread_work(session=session, query=sub_requests, total_threads=total_workers, thread_id=worker_number)
 
     if limit:
         sub_requests = sub_requests.limit(limit)

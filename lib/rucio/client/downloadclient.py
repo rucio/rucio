@@ -366,7 +366,7 @@ class DownloadClient:
 
         logger.info('Using %d threads to download %d files' % (num_threads, num_files))
         threads = []
-        for thread_num in range(1, num_threads + 1):
+        for thread_num in range(0, num_threads):
             log_prefix = 'Thread %s/%s: ' % (thread_num, num_threads)
             kwargs = {'input_queue': input_queue,
                       'output_queue': output_queue,
