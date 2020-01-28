@@ -18,6 +18,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019-2020
 #
 # PY3K COMPATIBLE
 
@@ -84,7 +85,7 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False):
                 if datetime.utcnow() > paused_dids[key]:
                     del paused_dids[key]
 
-            dids = list_expired_dids(worker_number=heartbeat['assign_thread'] + 1, total_workers=heartbeat['nr_threads'], limit=10000)
+            dids = list_expired_dids(worker_number=heartbeat['assign_thread'], total_workers=heartbeat['nr_threads'], limit=10000)
 
             dids = [did for did in dids if (did['scope'], did['name']) not in paused_dids]
 
@@ -133,7 +134,7 @@ def run(once=False, total_workers=1, chunk_size=10):
     Starts up the undertaker threads.
     """
     logging.info('main: starting threads')
-    threads = [threading.Thread(target=undertaker, kwargs={'worker_number': i, 'total_workers': total_workers, 'once': once, 'chunk_size': chunk_size}) for i in range(1, total_workers + 1)]
+    threads = [threading.Thread(target=undertaker, kwargs={'worker_number': i, 'total_workers': total_workers, 'once': once, 'chunk_size': chunk_size}) for i in range(0, total_workers)]
     [t.start() for t in threads]
     logging.info('main: waiting for interrupts')
 

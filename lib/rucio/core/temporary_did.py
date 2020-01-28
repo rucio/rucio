@@ -10,6 +10,7 @@
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
   - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+  - Brandon White <bjwhite@fnal.gov>, 2019-2020
 
   PY3K COMPATIBLE
 """
@@ -17,11 +18,11 @@
 from datetime import datetime
 
 from sqlalchemy import and_, or_, func
-from sqlalchemy.sql.expression import bindparam, case, text
+from sqlalchemy.sql.expression import case
 
 from rucio.core.did import attach_dids
 from rucio.core.replica import add_replica
-from rucio.db.sqla import models
+from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.session import read_session, transactional_session
 # from rucio.rse import rsemanager as rsemgr
 
@@ -131,14 +132,7 @@ def list_expired_temporary_dids(rse_id, limit, worker_number=None, total_workers
         with_hint(models.TemporaryDataIdentifier, "INDEX(tmp_dids TMP_DIDS_EXPIRED_AT_IDX)", 'oracle').\
         filter(case([(models.TemporaryDataIdentifier.expired_at != is_none, models.TemporaryDataIdentifier.rse_id), ]) == rse_id)
 
-    if worker_number and total_workers and total_workers - 1 > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
-            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(path))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1)))
+    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
 
     return [{'path': path,
              'rse_id': rse_id,
