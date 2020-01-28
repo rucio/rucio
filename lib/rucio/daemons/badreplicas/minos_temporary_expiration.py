@@ -15,6 +15,7 @@
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2018-2019
+# - Brandon White <bjwhite@fnal.gov>, 2019-2020
 #
 # PY3K COMPATIBLE
 
@@ -70,12 +71,12 @@ def minos_tu_expiration(bulk=1000, once=False, sleep_time=60):
     hb_thread = threading.current_thread()
     heartbeat.sanity_check(executable=executable, hostname=hostname)
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info(prepend_str + 'Minos Temporary Expiration starting')
 
     time.sleep(10)  # To prevent running on the same partition if all the daemons restart at the same time
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
 
     logging.info(prepend_str + 'Minos Temporary Expiration started')
 
@@ -84,11 +85,11 @@ def minos_tu_expiration(bulk=1000, once=False, sleep_time=60):
     while not graceful_stop.is_set():
         start_time = time.time()
         heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-        prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+        prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
         try:
             # Get list of expired TU replicas
             logging.info(prepend_str + 'Getting list of expired replicas')
-            expired_replicas = list_expired_temporary_unavailable_replicas(total_workers=heart_beat['nr_threads'] - 1,
+            expired_replicas = list_expired_temporary_unavailable_replicas(total_workers=heart_beat['nr_threads'],
                                                                            worker_number=heart_beat['assign_thread'],
                                                                            limit=1000)
             logging.info(prepend_str + '%s expired replicas returned' % len(expired_replicas))
