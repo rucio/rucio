@@ -1,0 +1,13 @@
+======
+1.21.6
+======
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Core & Internals: Thread workload hashing is incorrect for MySQL and PostgreSQL `#2993 <https://github.com/rucio/rucio/issues/2993>`_
