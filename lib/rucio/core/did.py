@@ -571,6 +571,7 @@ def delete_dids(dids, account, expire_rules=False, session=None):
     collection_replica_clause, file_clause = [], []
     not_purge_replicas = []
     did_followed_clause = []
+    metadata_to_delete = []
 
     for did in dids:
         logging.info('Removing did %(scope)s:%(name)s (%(did_type)s)' % did)
@@ -622,6 +623,13 @@ def delete_dids(dids, account, expire_rules=False, session=None):
                 session.execute(ins)
         parent_content_clause.append(and_(models.DataIdentifierAssociation.child_scope == did['scope'], models.DataIdentifierAssociation.child_name == did['name']))
         rule_id_clause.append(and_(models.ReplicationRule.scope == did['scope'], models.ReplicationRule.name == did['name']))
+
+        if session.bind.dialect.name == 'oracle':
+            oracle_version = int(session.connection().connection.version.split('.')[0])
+            if oracle_version >= 12:
+                metadata_to_delete.append(and_(models.DidMeta.scope == did['scope'], models.DidMeta.name == did['name']))
+        else:
+            metadata_to_delete.append(and_(models.DidMeta.scope == did['scope'], models.DidMeta.name == did['name']))
 
         # Send message
         add_message('ERASE', {'account': account.external,
@@ -678,6 +686,19 @@ def delete_dids(dids, account, expire_rules=False, session=None):
         with record_timer_block('undertaker.dids'):
             rowcount = session.query(models.CollectionReplica).filter(or_(*collection_replica_clause)).\
                 delete(synchronize_session=False)
+
+    # Remove generic did metadata
+    if metadata_to_delete:
+        if session.bind.dialect.name == 'oracle':
+            oracle_version = int(session.connection().connection.version.split('.')[0])
+            if oracle_version >= 12:
+                with record_timer_block('undertaker.did_meta'):
+                    rowcount = session.query(models.DidMeta).filter(or_(*metadata_to_delete)).\
+                        delete(synchronize_session=False)
+        else:
+            with record_timer_block('undertaker.did_meta'):
+                rowcount = session.query(models.DidMeta).filter(or_(*metadata_to_delete)).\
+                    delete(synchronize_session=False)
 
     # remove data identifier
     if existing_parent_dids:
