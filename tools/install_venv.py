@@ -19,9 +19,9 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 VENV = os.path.join(ROOT, '.venv')
-PIP_REQUIRES = os.path.join(ROOT, 'tools', 'pip-requires')
-PIP_REQUIRES_CLIENT = os.path.join(ROOT, 'tools', 'pip-requires-client')
-PIP_REQUIRES_TEST = os.path.join(ROOT, 'tools', 'pip-requires-test')
+PIP_REQUIRES = os.path.join(ROOT, 'etc', 'pip-requires')
+PIP_REQUIRES_CLIENT = os.path.join(ROOT, 'etc', 'pip-requires-client')
+PIP_REQUIRES_TEST = os.path.join(ROOT, 'etc', 'pip-requires-test')
 
 
 def die(message, *args):
