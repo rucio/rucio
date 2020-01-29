@@ -1,18 +1,30 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017-2018
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2018-2020
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
-# - Robert Illingworth, <illingwo@fnal.gov>, 2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Brandon White, <bjwhite@fnal.gov>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2019
+# - Vincent Garonne <vgaronne@gmail.com>, 2017
+# - Igor Mandrichenko <rucio@fermicloud055.fnal.gov>, 2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2020
+# - dciangot <diego.ciangottini@cern.ch>, 2018
+# - Robert Illingworth <illingwo@fnal.gov>, 2018-2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
+# - maatthias <maatthias@gmail.com>, 2019
+# - Gabriele <sucre.91@hotmail.it>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -832,7 +844,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                      'dest_spacetoken': dest_spacetoken,
                                      'overwrite': overwrite,
                                      'bring_online': bring_online,
-                                     'copy_pin_lifetime': dict_attributes.get('lifetime', -1),
+                                     'copy_pin_lifetime': dict_attributes.get('lifetime', 172800),
                                      'external_host': external_host,
                                      'selection_strategy': 'auto',
                                      'rule_id': rule_id,
