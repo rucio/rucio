@@ -155,8 +155,8 @@ class TestAuthCoreAPIoidc():
         except:
             print(traceback.format_exc())
 
-    @patch('rucio.core.oidc.get_init_oidc_client')
-    @patch('rucio.core.oidc.get_rucio_oidc_clients')
+    @patch('rucio.core.oidc.__get_init_oidc_client')
+    @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_auth_oidc_url(self, mock_clients, mock_oidc_client):
         """ OIDC Auth URL generation
 
@@ -226,8 +226,8 @@ class TestAuthCoreAPIoidc():
         except CannotAuthenticate:
             assert_true("could not keep track of responses from outstanding requests" in traceback.format_exc())
 
-    @patch('rucio.core.oidc.get_init_oidc_client')
-    @patch('rucio.core.oidc.get_rucio_oidc_clients')
+    @patch('rucio.core.oidc.__get_init_oidc_client')
+    @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_token_oidc_unknown_code(self, mock_clients, mock_oidc_client):
         """ OIDC Token request with unknown code from IdP
 
@@ -251,8 +251,8 @@ class TestAuthCoreAPIoidc():
         except CannotAuthenticate:
             assert_true("Unknown AuthZ code provided" in traceback.format_exc())
 
-    @patch('rucio.core.oidc.get_init_oidc_client')
-    @patch('rucio.core.oidc.get_rucio_oidc_clients')
+    @patch('rucio.core.oidc.__get_init_oidc_client')
+    @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_token_oidc_unknown_nonce(self, mock_clients, mock_oidc_client):
         """ OIDC Token request with unknown nonce from IdP
 
@@ -278,8 +278,8 @@ class TestAuthCoreAPIoidc():
         except CannotAuthenticate:
             assert_true("This points to possible replay attack !" in traceback.format_exc())
 
-    @patch('rucio.core.oidc.get_init_oidc_client')
-    @patch('rucio.core.oidc.get_rucio_oidc_clients')
+    @patch('rucio.core.oidc.__get_init_oidc_client')
+    @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_token_oidc_unknown_account_identity(self, mock_clients, mock_oidc_client):
         """ OIDC Token request with unknown account identity in the token from IdP
 
@@ -306,8 +306,8 @@ class TestAuthCoreAPIoidc():
             assert_true("OIDC identity 'SUB=unknownsub, ISS=https://test_issuer/' of the '"
                         + self.accountstring + "' account is unknown to Rucio." in traceback.format_exc())  # NOQA: W503
 
-    @patch('rucio.core.oidc.get_init_oidc_client')
-    @patch('rucio.core.oidc.get_rucio_oidc_clients')
+    @patch('rucio.core.oidc.__get_init_oidc_client')
+    @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_token_oidc_unknown_webui_account_identity(self, mock_clients, mock_oidc_client):
         """ OIDC Token request with unknown webui identity in the token from IdP
 
@@ -333,8 +333,8 @@ class TestAuthCoreAPIoidc():
         assert_true(token_dict['webhome'] is None)
         assert_true(token_dict['token'] is None)
 
-    @patch('rucio.core.oidc.get_init_oidc_client')
-    @patch('rucio.core.oidc.get_rucio_oidc_clients')
+    @patch('rucio.core.oidc.__get_init_oidc_client')
+    @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_access_token_oidc_success(self, mock_clients, mock_oidc_client):
         """ OIDC Request for access token - success
 
@@ -362,8 +362,8 @@ class TestAuthCoreAPIoidc():
         db_token = get_token_row(access_token, accountstring=self.accountstring)
         assert_false(not db_token)
 
-    @patch('rucio.core.oidc.get_init_oidc_client')
-    @patch('rucio.core.oidc.get_rucio_oidc_clients')
+    @patch('rucio.core.oidc.__get_init_oidc_client')
+    @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_access_token_oidc_webui_success(self, mock_clients, mock_oidc_client):
         """ OIDC Request for access token via webui 'account' - success
 
@@ -396,8 +396,8 @@ class TestAuthCoreAPIoidc():
         db_token = get_token_row(access_token)
         assert_false(not db_token)
 
-    @patch('rucio.core.oidc.get_init_oidc_client')
-    @patch('rucio.core.oidc.get_rucio_oidc_clients')
+    @patch('rucio.core.oidc.__get_init_oidc_client')
+    @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_access_token_oidc_cli_polling_success(self, mock_clients, mock_oidc_client):
         """ OIDC Request for access token while client is polling - success
 
@@ -429,8 +429,8 @@ class TestAuthCoreAPIoidc():
         db_token = get_token_row(access_token)
         assert_false(not db_token)
 
-    @patch('rucio.core.oidc.get_init_oidc_client')
-    @patch('rucio.core.oidc.get_rucio_oidc_clients')
+    @patch('rucio.core.oidc.__get_init_oidc_client')
+    @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_access_token_oidc_cli_fetchcode_success(self, mock_clients, mock_oidc_client):
         """ OIDC Request for access token, client receives fetchcode - success
 
@@ -465,8 +465,8 @@ class TestAuthCoreAPIoidc():
         token = redirect_auth_oidc(token_dict['fetchcode'], fetchtoken=True)
         assert_true(token == access_token)
 
-    @patch('rucio.core.oidc.get_init_oidc_client')
-    @patch('rucio.core.oidc.get_rucio_oidc_clients')
+    @patch('rucio.core.oidc.__get_init_oidc_client')
+    @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_access_and_refresh_tokens_oidc_success(self, mock_clients, mock_oidc_client):
         """ OIDC Request for access and refresh tokens - success
 
