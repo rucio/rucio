@@ -55,7 +55,6 @@ from logging import getLogger, Formatter
 from logging.handlers import RotatingFileHandler
 from uuid import uuid4 as uuid
 from six import string_types, PY3
-from sqlalchemy.sql.expression import bindparam, text
 from xml.etree import ElementTree
 
 try:
@@ -84,7 +83,7 @@ except ImportError:
     import urllib.parse as urlparse
 
 from rucio.common.config import config_get
-from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError, RucioException
+from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError
 from rucio.common.types import InternalAccount, InternalScope
 # delay import until function to avoid circular dependancy (note here for reference)
 # from rucio.core.rse import get_rse_name
@@ -1175,34 +1174,6 @@ def get_parsed_throttler_mode(throttler_mode):
         direction = 'source'
         all_activities = True
     return (direction, all_activities)
-
-
-def filter_thread_load(query, column_name, total_workers, worker_number, session=None):
-    """
-    Adds filter to a DB session query in order to distribute
-    the queried number of rows among all workers.
-    :param total_workers: total number of threads started
-    :param worker_number: the number of the worker asking for query results
-    :param column: name of the column w.r.t. which the partitioning should be made
-    :param query: the session query
-
-    :returns: session query in case all went OK, Exception otherwise.
-
-    """
-    try:
-        if worker_number and total_workers and total_workers - 1 > 0:
-            if session.bind.dialect.name == 'oracle':
-                bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
-                query = query.filter(text('ORA_HASH(%s, :total_workers) = :worker_number' % column_name, bindparams=bindparams))
-            elif session.bind.dialect.name == 'mysql':
-                query = query.filter(text('mod(md5(%s), %s) = %s' % (column_name, total_workers - 1, worker_number - 1)))
-            elif session.bind.dialect.name == 'postgresql':
-                query = query.filter(text('mod(abs((\'x\'||md5(%s))::bit(32)::int), %s) = %s' % (column_name, total_workers - 1, worker_number - 1)))
-
-        return query
-
-    except Exception as error:
-        raise RucioException(error.args)
 
 
 def query_bunches(query, bunch_by):

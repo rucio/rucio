@@ -36,12 +36,12 @@ from rucio.common.config import config_get
 from rucio.common.exception import (CannotAuthenticate, CannotAuthorize,
                                     RucioException)
 from rucio.common.types import InternalAccount
-from rucio.common.utils import (build_url, filter_thread_load,
-                                oidc_identity_string, query_bunches,
-                                val_to_space_sep_str)
+from rucio.common.utils import (build_url, oidc_identity_string,
+                                query_bunches, val_to_space_sep_str)
 from rucio.core.account import account_exists
 from rucio.core.identity import exist_identity_account, get_default_account
 from rucio.core.monitor import record_counter, record_timer
+from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
@@ -765,7 +765,7 @@ def delete_expired_oauthrequests(total_workers, worker_number, limit=1000, sessi
         query = session.query(models.OAuthRequest.state).filter(models.OAuthRequest.expired_at < datetime.utcnow())\
                        .order_by(models.OAuthRequest.expired_at)
 
-        query = filter_thread_load(query, 'state', total_workers, worker_number, session=session)
+        query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='state')
 
         # limiting the number of oauth requests deleted at once
         filtered_oauthparams_query = query.limit(limit)

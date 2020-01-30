@@ -38,9 +38,10 @@ import six
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 from rucio.common.exception import CannotAuthenticate, RucioException
-from rucio.common.utils import filter_thread_load, generate_uuid, query_bunches
+from rucio.common.utils import generate_uuid, query_bunches
 from rucio.core.account import account_exists
 from rucio.core.oidc import save_validated_token, validate_jwt
+from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
@@ -391,7 +392,7 @@ def delete_expired_tokens(total_workers, worker_number, limit=1000, session=None
                                                              models.Token.refresh_expired_at <= datetime.datetime.utcnow()))\
                                                  .order_by(models.Token.expired_at)
 
-        query = filter_thread_load(query, 'token', total_workers, worker_number, session=session)
+        query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='token')
 
         # limiting the number of tokens deleted at once
         filtered_tokens_query = query.limit(limit)
@@ -430,7 +431,7 @@ def get_tokens_for_refresh(total_workers, worker_number, refreshrate=3600, limit
                                                               models.Token.refresh_expired_at > datetime.datetime.utcnow(),
                                                               models.Token.expired_at < expiration_future))\
                                                  .order_by(models.Token.expired_at)
-        query = filter_thread_load(query, 'token', total_workers, worker_number, session=session)
+        query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='token')
 
         # limiting the number of tokens for refresh
         filtered_tokens_query = query.limit(limit)
