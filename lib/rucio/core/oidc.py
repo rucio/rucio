@@ -64,7 +64,7 @@ ADMIN_ISSUER_ID = config_get('oidc', 'admin_issuer', False)
 # --> check 'profile' info (requested profile scope)
 
 
-def get_rucio_oidc_clients(keytimeout=43200):
+def __get_rucio_oidc_clients(keytimeout=43200):
     """
     Creates a Rucio OIDC Client instances per Identity Provider (IdP)
     according to etc/idpsecrets.json configuration file.
@@ -109,12 +109,12 @@ def get_rucio_oidc_clients(keytimeout=43200):
 
 
 # Initialising Rucio OIDC Clients
-OIDC_CLIENTS = get_rucio_oidc_clients()[0]
-OIDC_ADMIN_CLIENTS = get_rucio_oidc_clients()[1]
+OIDC_CLIENTS = __get_rucio_oidc_clients()[0]
+OIDC_ADMIN_CLIENTS = __get_rucio_oidc_clients()[1]
 
 
 @read_session
-def get_init_oidc_client(token_object=None, token_type=None, **kwargs):
+def __get_init_oidc_client(token_object=None, token_type=None, **kwargs):
     """
     Get an OIDC client object, (re-)initialised with parameters corresponding
     to authorization flows used to get a token. For special cases - token refresh,
@@ -254,7 +254,7 @@ def get_auth_oidc(account, session=None, **kwargs):
         state, nonce = rndstr(50), rndstr(50)
         # in the following statement we retrieve the authorization endpoint
         # from the client of the issuer and build url
-        oidc_dict = get_init_oidc_client(issuer_id=issuer_id, redirect_to=redirect_to,
+        oidc_dict = __get_init_oidc_client(issuer_id=issuer_id, redirect_to=redirect_to,
                                          state=state, nonce=nonce,
                                          scope=auth_scope, audience=audience, first_init=True)
         auth_url = oidc_dict['auth_url']
@@ -329,7 +329,7 @@ def get_token_oidc(auth_query_string, ip=None, session=None):
         for key in req_params:
             req_params[key] = val_to_space_sep_str(req_params[key])
 
-        oidc_client = get_init_oidc_client(issuer=issuer, code=code, **req_params)['client']
+        oidc_client = __get_init_oidc_client(issuer=issuer, code=code, **req_params)['client']
         record_counter(counters='IdP_authentication.code_granted')
         # exchange access code for a access token
         oidc_tokens = oidc_client.do_access_token_request(state=state,
@@ -368,7 +368,7 @@ def get_token_oidc(auth_query_string, ip=None, session=None):
             jwt_row_dict['audience'] = val_to_space_sep_str(oidc_tokens['audience'])
         elif 'access_token' in oidc_tokens:
             try:
-                values = get_keyvalues_from_claims(oidc_tokens['access_token'], ['scope', 'aud'])
+                values = __get_keyvalues_from_claims(oidc_tokens['access_token'], ['scope', 'aud'])
                 jwt_row_dict['authz_scope'] = values['scope']
                 jwt_row_dict['audience'] = values['aud']
             except Exception:
@@ -392,7 +392,7 @@ def get_token_oidc(auth_query_string, ip=None, session=None):
             except Exception:
                 extra_dict['refresh_lifetime'] = 96
             try:
-                values = get_keyvalues_from_claims(oidc_tokens['refresh_token'], ['exp'])
+                values = __get_keyvalues_from_claims(oidc_tokens['refresh_token'], ['exp'])
                 exp = values['exp']
                 extra_dict['refresh_expired_at'] = datetime.utcfromtimestamp(float(exp))
             except Exception:
@@ -441,7 +441,7 @@ def get_token_oidc(auth_query_string, ip=None, session=None):
 
 
 @transactional_session
-def get_admin_token_oidc(account, req_scope, req_audience, issuer, session=None):
+def __get_admin_token_oidc(account, req_scope, req_audience, issuer, session=None):
     """
     Get a token for Rucio application to act on behalf of itself.
     client_credential flow is used for this purpose.
@@ -471,7 +471,7 @@ def get_admin_token_oidc(account, req_scope, req_audience, issuer, session=None)
         record_counter(counters='IdP_authentication.rucio_admin_token_granted')
         # save the access token in the Rucio DB
         if 'access_token' in oidc_tokens:
-            validate_dict = get_rucio_jwt_dict(oidc_tokens['access_token'], account=account)
+            validate_dict = __get_rucio_jwt_dict(oidc_tokens['access_token'], account=account)
             if validate_dict:
                 record_counter(counters='IdP_authentication.success')
                 new_token = save_validated_token(oidc_tokens['access_token'], validate_dict, extra_dict={})
@@ -531,7 +531,7 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
                 # tokens are explicitly requested in which case an exception could then be thrown
                 # raise CannotAuthorize("Rucio could not find and OIDC identity associated with %s account" % account)  # NOQA: W503
 
-            new_admin_token = get_admin_token_oidc(account, req_scope, req_audience, issuer, session=None)
+            new_admin_token = __get_admin_token_oidc(account, req_scope, req_audience, issuer, session=None)
             return new_admin_token
 
         if not account_tokens:
@@ -550,7 +550,7 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
         if not subject_token:
             subject_token = random.choice(account_tokens)
 
-        exchanged_token = exchange_token_oidc(subject_token,
+        exchanged_token = __exchange_token_oidc(subject_token,
                                               scope=req_scope,
                                               audience=req_audience,
                                               refresh_lifetime=subject_token.refresh_lifetime,
@@ -563,7 +563,7 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
 
 
 @transactional_session
-def exchange_token_oidc(subject_token_object, session=None, **kwargs):
+def __exchange_token_oidc(subject_token_object, session=None, **kwargs):
     """
     Exchanged an access_token for a new one with different scope &/ audience
     providing that the scope specified is registered with IdP for the Rucio OIDC Client
@@ -589,7 +589,7 @@ def exchange_token_oidc(subject_token_object, session=None, **kwargs):
         start = time.time()
 
         record_counter(counters='IdP_authentication.code_granted')
-        oidc_dict = get_init_oidc_client(subject_token_object, token_type="subject_token")
+        oidc_dict = __get_init_oidc_client(subject_token_object, token_type="subject_token")
         oidc_client = oidc_dict['client']
         args = {"subject_token": subject_token_object.token,
                 "scope": jwt_row_dict['authz_scope'],
@@ -609,7 +609,7 @@ def exchange_token_oidc(subject_token_object, session=None, **kwargs):
             jwt_row_dict['authz_scope'] = val_to_space_sep_str(oidc_tokens['scope'])
             jwt_row_dict['audience'] = val_to_space_sep_str(oidc_tokens['audience'])
         elif 'access_token' in oidc_tokens:
-            values = get_keyvalues_from_claims(oidc_tokens['access_token'], ['scope', 'aud'])
+            values = __get_keyvalues_from_claims(oidc_tokens['access_token'], ['scope', 'aud'])
             jwt_row_dict['authz_scope'] = values['scope']
             jwt_row_dict['audience'] = values['aud']
         jwt_row_dict['lifetime'] = datetime.utcnow() + timedelta(seconds=oidc_tokens['expires_in'])
@@ -618,7 +618,7 @@ def exchange_token_oidc(subject_token_object, session=None, **kwargs):
             extra_dict['refresh'] = True
             extra_dict['refresh_lifetime'] = kwargs.get('refresh_lifetime', 96)
             try:
-                values = get_keyvalues_from_claims(oidc_tokens['refresh_token'], ['exp'])
+                values = __get_keyvalues_from_claims(oidc_tokens['refresh_token'], ['exp'])
                 extra_dict['refresh_expired_at'] = datetime.utcfromtimestamp(float(values['exp']))
             except Exception:
                 # 4 day expiry period by default
@@ -641,7 +641,7 @@ def exchange_token_oidc(subject_token_object, session=None, **kwargs):
 
 
 @transactional_session
-def change_refresh_state(token, refresh=False, session=None):
+def __change_refresh_state(token, refresh=False, session=None):
     """
     Changes token refresh state to True/False.
 
@@ -694,9 +694,9 @@ def refresh_token_oidc(token_object):
         # if the token has been refreshed for time exceeding
         # the refresh_lifetime, the attempt will be aborted and refresh stopped
         if datetime.utcnow() - extra_dict['refresh_start'] > timedelta(hours=extra_dict['refresh_lifetime']):
-            change_refresh_state(token_object.token, refresh=False)
+            __change_refresh_state(token_object.token, refresh=False)
             return False
-        oidc_dict = get_init_oidc_client(token_object, token_type="refresh_token")
+        oidc_dict = __get_init_oidc_client(token_object, token_type="refresh_token")
         oidc_client = oidc_dict['client']
         # getting a new refreshed set of tokens
         state = oidc_dict['state']
@@ -709,21 +709,21 @@ def refresh_token_oidc(token_object):
             jwt_row_dict['authz_scope'] = val_to_space_sep_str(oidc_tokens['scope'])
             jwt_row_dict['audience'] = val_to_space_sep_str(oidc_tokens['audience'])
         elif 'access_token' in oidc_tokens:
-            values = get_keyvalues_from_claims(oidc_tokens['access_token'], ['scope', 'aud'])
+            values = __get_keyvalues_from_claims(oidc_tokens['access_token'], ['scope', 'aud'])
             jwt_row_dict['authz_scope'] = values['scope']
             jwt_row_dict['audience'] = values['aud']
         # save new access and refresh tokens in the DB
         if 'refresh_token' in oidc_tokens and 'access_token' in oidc_tokens:
             # aborting refresh of the original token
             # (keeping it in place until it expires)
-            change_refresh_state(token_object.token, refresh=False)
+            __change_refresh_state(token_object.token, refresh=False)
 
             # get access token expiry timestamp
             jwt_row_dict['lifetime'] = datetime.utcnow() + timedelta(seconds=oidc_tokens['expires_in'])
             extra_dict['refresh'] = True
             extra_dict['refresh_token'] = oidc_tokens['refresh_token']
             try:
-                values = get_keyvalues_from_claims(oidc_tokens['refresh_token'], ['exp'])
+                values = __get_keyvalues_from_claims(oidc_tokens['refresh_token'], ['exp'])
                 extra_dict['refresh_expired_at'] = datetime.utcfromtimestamp(float(values['exp']))
             except Exception:
                 # 4 day expiry period by default
@@ -782,7 +782,7 @@ def delete_expired_oauthrequests(total_workers, worker_number, limit=1000, sessi
     return ndeleted
 
 
-def get_keyvalues_from_claims(token, keys=None):
+def __get_keyvalues_from_claims(token, keys=None):
     """
     Extracting claims from token, e.g. scope and audience.
     :param token: the JWT to be unpacked
@@ -808,7 +808,7 @@ def get_keyvalues_from_claims(token, keys=None):
 
 
 @read_session
-def get_rucio_jwt_dict(jwt, account=None, session=None):
+def __get_rucio_jwt_dict(jwt, account=None, session=None):
     """
     Get a Rucio token dictionary from token claims.
     Check token expiration and find default Rucio
@@ -820,7 +820,7 @@ def get_rucio_jwt_dict(jwt, account=None, session=None):
     """
     try:
         # getting token paylod
-        token_payload = get_keyvalues_from_claims(jwt)
+        token_payload = __get_keyvalues_from_claims(jwt)
         identity_string = oidc_identity_string(token_payload['sub'], token_payload['iss'])
         expiry_date = datetime.utcfromtimestamp(float(token_payload['exp']))
         if expiry_date < datetime.utcnow():  # check if expired
@@ -854,7 +854,7 @@ def save_validated_token(token, valid_dict, extra_dict=None, session=None):
 
     :param token: Authentication token as a variable-length string.
     :param valid_dict: Validation Rucio dictionary as the output
-                       of the get_rucio_jwt_dict function
+                       of the __get_rucio_jwt_dict function
 
     :returns: DB token object if successful, raises an exception otherwise.
     """
@@ -895,7 +895,7 @@ def validate_jwt(json_web_token):
     """
     try:
         # getting issuer from the token payload
-        token_dict = get_rucio_jwt_dict(json_web_token)
+        token_dict = __get_rucio_jwt_dict(json_web_token)
         if not token_dict:
             return None
         issuer = token_dict['identity'].split(", ")[1].split("=")[1]
