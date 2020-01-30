@@ -62,9 +62,7 @@ GRACEFUL_STOP = threading.Event()
 
 
 def OAuthManager(once=False, loop_rate=300, max_rows=100):
-
     """
-
     Main loop to delete all expired tokens, refresh tokens eligible
     for refresh and delete all expired OAuth session parameters.
     It was decided to have only 1 daemon for all 3 of these cleanup activities.
@@ -158,7 +156,6 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100):
 
 
 def run(once=False, threads=1, loop_rate=300, max_rows=100):
-
     """
     Starts up the OAuth Manager threads.
     """

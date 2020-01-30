@@ -219,7 +219,7 @@ class TestOAuthManager():
 
         sleep(1)
 
-    @patch('rucio.core.oidc.get_init_oidc_client')
+    @patch('rucio.core.oidc.__get_init_oidc_client')
     def test_oauthmanager(self, mock_oidc_client):
 
         """ OAuth Manager: Testing deletion of expired tokens, session parameters and refresh of access tokens.

@@ -156,10 +156,11 @@ def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_tok
     """
     Instanciates the protocol defined for the given operation.
 
-    :param rse_attr:  RSE attributes
+    :param rse_settings:  RSE attributes
     :param operation: Intended operation for this protocol
     :param scheme:    Optional filter if no specific protocol is defined in rse_setting for the provided operation
     :param domain:    Optional specification of the domain
+    :param auth_token: Optionally passing JSON Web Token (OIDC) string for authentication
     :returns:         An instance of the requested protocol
     """
 
@@ -191,8 +192,12 @@ def lfns2pfns(rse_settings, lfns, operation='write', scheme=None, domain='wan', 
     """
         Convert the lfn to a pfn
 
+        :rse_settings:   RSE attributes
         :param lfns:        logical file names as a dict containing 'scope' and 'name' as keys. For bulk a list of dicts can be provided
-        :param protocol:    instance of the protocol to be used to create the PFN
+        :param operation: Intended operation for this protocol
+        :param scheme:    Optional filter if no specific protocol is defined in rse_setting for the provided operation
+        :param domain:    Optional specification of the domain
+        :param auth_token: Optionally passing JSON Web Token (OIDC) string for authentication
 
         :returns: a dict with scope:name as key and the PFN as value
 
@@ -204,8 +209,11 @@ def parse_pfns(rse_settings, pfns, operation='read', domain='wan', auth_token=No
     """
         Checks if a PFN is feasible for a given RSE. If so it splits the pfn in its various components.
 
+        :rse_settings:   RSE attributes
         :param pfns:        list of PFNs
-        :param protocol:    instance of the protocol to be used to create the PFN
+        :param operation: Intended operation for this protocol
+        :param domain:    Optional specification of the domain
+        :param auth_token: Optionally passing JSON Web Token (OIDC) string for authentication
 
         :returns: A dict with the parts known by the selected protocol e.g. scheme, hostname, prefix, path, name
 
@@ -224,9 +232,11 @@ def exists(rse_settings, files, auth_token=None):
         Checks if a file is present at the connected storage.
         Providing a list indicates the bulk mode.
 
+        :rse_settings:   RSE attributes
         :param files: a single dict or a list with dicts containing 'scope' and 'name'
                       if LFNs are used and only 'name' if PFNs are used.
                       E.g. {'name': '2_rse_remote_get.raw', 'scope': 'user.jdoe'}, {'name': 'user/jdoe/5a/98/3_rse_remote_get.raw'}
+        :param auth_token: Optionally passing JSON Web Token (OIDC) string for authentication
 
         :returns: True/False for a single file or a dict object with 'scope:name' for LFNs or 'name' for PFNs as keys and True or the exception as value for each file in bulk mode
 
@@ -271,6 +281,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
         Uploads a file to the connected storage.
         Providing a list indicates the bulk mode.
 
+        :rse_settings:   RSE attributes
         :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'.
                             Examples:
                             [
@@ -283,6 +294,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
         :param force_scheme: use the given protocol scheme, overriding the protocol priority in the RSE description
         :param transfer_timeout: set this timeout (in seconds) for the transfers, for protocols that support it
         :param sign_service: use the given service (e.g. gcs, s3, swift) to sign the URL
+        :param auth_token: Optionally passing JSON Web Token (OIDC) string for authentication
 
         :returns: True/False for a single file or a dict object with 'scope:name' as keys and True or the exception as value for each file in bulk mode
 
@@ -463,7 +475,9 @@ def delete(rse_settings, lfns, auth_token=None):
         Delete a file from the connected storage.
         Providing a list indicates the bulk mode.
 
+        :rse_settings:   RSE attributes
         :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_remote_delete.raw', 'scope': 'user.jdoe'}, {'name': '2_rse_remote_delete.raw', 'scope': 'user.jdoe'}]
+        :param auth_token: Optionally passing JSON Web Token (OIDC) string for authentication
 
         :returns: True/False for a single file or a dict object with 'scope:name' as keys and True or the exception as value for each file in bulk mode
 
@@ -503,6 +517,7 @@ def rename(rse_settings, files, auth_token=None):
         Rename files stored on the connected storage.
         Providing a list indicates the bulk mode.
 
+        :rse_settings:   RSE attributes
         :param files: a single dict or a list with dicts containing 'scope', 'name', 'new_scope' and 'new_name'
                       if LFNs are used or only 'name' and 'new_name' if PFNs are used.
                       If 'new_scope' or 'new_name' are not provided, the current one is used.
@@ -511,6 +526,7 @@ def rename(rse_settings, files, auth_token=None):
                       {'name': '3_rse_remote_rename.raw', 'scope': 'user.jdoe', 'new_name': '3_rse_new.raw', 'new_scope': 'user.jdoe'},
                       {'name': 'user/jdoe/d9/cb/9_rse_remote_rename.raw', 'new_name': 'user/jdoe/c6/4a/9_rse_new.raw'}
                       ]
+        :param auth_token: Optionally passing JSON Web Token (OIDC) string for authentication
 
         :returns: True/False for a single file or a dict object with LFN (key) and True/False (value) in bulk mode
 
@@ -574,7 +590,9 @@ def get_space_usage(rse_settings, scheme=None, auth_token=None):
     """
         Get RSE space usage information.
 
+        :rse_settings:   RSE attributes
         :param scheme: optional filter to select which protocol to be used.
+        :param auth_token: Optionally passing JSON Web Token (OIDC) string for authentication
 
         :returns: a list with dict containing 'totalsize' and 'unusedsize'
 
