@@ -382,6 +382,13 @@ def oidc(validate_token, session_token, render, rendered_tpl):
     """
     Used to finalise login once a token was put in a session cookie
     via web/rest/oidc_token endpoint.
+    :param validate_token: dictionary as returned from the
+                           authentication.validate_auth_token after token validation
+    :param session_token: token string from the current cookie session
+    :param render: template renderer object
+    :param rendered_tpl: page to be rendered
+
+    :returns: rendered web page
 
     """
     if not validate_token or not session_token:

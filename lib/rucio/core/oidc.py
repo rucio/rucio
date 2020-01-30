@@ -255,8 +255,8 @@ def get_auth_oidc(account, session=None, **kwargs):
         # in the following statement we retrieve the authorization endpoint
         # from the client of the issuer and build url
         oidc_dict = __get_init_oidc_client(issuer_id=issuer_id, redirect_to=redirect_to,
-                                         state=state, nonce=nonce,
-                                         scope=auth_scope, audience=audience, first_init=True)
+                                           state=state, nonce=nonce,
+                                           scope=auth_scope, audience=audience, first_init=True)
         auth_url = oidc_dict['auth_url']
         redirect_url = oidc_dict['redirect']
         # redirect code is put in access_msg and returned to the user (if auto=False)
@@ -399,7 +399,7 @@ def get_token_oidc(auth_query_string, ip=None, session=None):
                 # 4 day expiry period by default
                 extra_dict['refresh_expired_at'] = datetime.utcnow() + timedelta(hours=96)
 
-        new_token = save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict)
+        new_token = save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict, session=session)
         record_counter(counters='IdP_authorization.access_token.saved')
         if 'refresh_token' in oidc_tokens:
             record_counter(counters='IdP_authorization.refresh_token.saved')
@@ -471,10 +471,10 @@ def __get_admin_token_oidc(account, req_scope, req_audience, issuer, session=Non
         record_counter(counters='IdP_authentication.rucio_admin_token_granted')
         # save the access token in the Rucio DB
         if 'access_token' in oidc_tokens:
-            validate_dict = __get_rucio_jwt_dict(oidc_tokens['access_token'], account=account)
+            validate_dict = __get_rucio_jwt_dict(oidc_tokens['access_token'], account=account, session=session)
             if validate_dict:
                 record_counter(counters='IdP_authentication.success')
-                new_token = save_validated_token(oidc_tokens['access_token'], validate_dict, extra_dict={})
+                new_token = save_validated_token(oidc_tokens['access_token'], validate_dict, extra_dict={}, session=session)
                 record_counter(counters='IdP_authorization.access_token.saved')
                 return new_token
             raise RucioException("Rucio could not get a valid admin token from the Identity Provider.")
@@ -551,10 +551,10 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
             subject_token = random.choice(account_tokens)
 
         exchanged_token = __exchange_token_oidc(subject_token,
-                                              scope=req_scope,
-                                              audience=req_audience,
-                                              refresh_lifetime=subject_token.refresh_lifetime,
-                                              account=account)
+                                                scope=req_scope,
+                                                audience=req_audience,
+                                                refresh_lifetime=subject_token.refresh_lifetime,
+                                                account=account)
         return exchanged_token
 
     except Exception:
@@ -624,7 +624,7 @@ def __exchange_token_oidc(subject_token_object, session=None, **kwargs):
                 # 4 day expiry period by default
                 extra_dict['refresh_expired_at'] = datetime.utcnow() + timedelta(hours=96)
 
-        new_token = save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict)
+        new_token = save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict, session=session)
         record_counter(counters='IdP_authorization.access_token.saved')
         if 'refresh_token' in oidc_tokens:
             record_counter(counters='IdP_authorization.refresh_token.saved')
@@ -664,7 +664,8 @@ def __change_refresh_state(token, refresh=False, session=None):
         raise RucioException(error.args)
 
 
-def refresh_token_oidc(token_object):
+@transactional_session
+def refresh_token_oidc(token_object, session=None):
     """
     Requests new access and refresh tokens from the Identity Provider.
     Assumption: The Identity Provider issues refresh tokens for one time use only and
@@ -694,7 +695,7 @@ def refresh_token_oidc(token_object):
         # if the token has been refreshed for time exceeding
         # the refresh_lifetime, the attempt will be aborted and refresh stopped
         if datetime.utcnow() - extra_dict['refresh_start'] > timedelta(hours=extra_dict['refresh_lifetime']):
-            __change_refresh_state(token_object.token, refresh=False)
+            __change_refresh_state(token_object.token, refresh=False, session=session)
             return False
         oidc_dict = __get_init_oidc_client(token_object, token_type="refresh_token")
         oidc_client = oidc_dict['client']
@@ -716,7 +717,7 @@ def refresh_token_oidc(token_object):
         if 'refresh_token' in oidc_tokens and 'access_token' in oidc_tokens:
             # aborting refresh of the original token
             # (keeping it in place until it expires)
-            __change_refresh_state(token_object.token, refresh=False)
+            __change_refresh_state(token_object.token, refresh=False, session=session)
 
             # get access token expiry timestamp
             jwt_row_dict['lifetime'] = datetime.utcnow() + timedelta(seconds=oidc_tokens['expires_in'])
@@ -729,7 +730,7 @@ def refresh_token_oidc(token_object):
                 # 4 day expiry period by default
                 extra_dict['refresh_expired_at'] = datetime.utcnow() + timedelta(hours=96)
 
-            new_token = save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict)
+            new_token = save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict, session=session)
             record_counter(counters='IdP_authorization.access_token.saved')
             record_counter(counters='IdP_authorization.refresh_token.saved')
             # remove refresh token info (not for the user)
