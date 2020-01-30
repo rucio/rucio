@@ -379,19 +379,19 @@ class BaseClient(object):
     def __get_token_OIDC(self):
         """
         First authenticates the user via a Identity Provider server
-        (with user's username & password), by specifying scope_oidc,
+        (with user's username & password), by specifying oidc_scope,
         user agrees to share the relevant information with Rucio.
         If all proceeds well, an access token is requested from the Identity Provider.
         Access Tokens are not stored in Rucio DB.
         Refresh Tokens are granted only in case no valid access token exists in user's
-        local storage, scope_oidc includes 'offline_access'. In such case, refresh token
+        local storage, oidc_scope includes 'offline_access'. In such case, refresh token
         is stored in Rucio DB.
 
         :returns: True if the token was successfully received. False otherwise.
         """
-        scope = str(self.creds['oidc_scope'])
+        oidc_scope = str(self.creds['oidc_scope'])
         headers = {'X-Rucio-Account': self.account,
-                   'X-Rucio-Client-Authorize-Scope': scope,
+                   'X-Rucio-Client-Authorize-Scope': oidc_scope,
                    'X-Rucio-Client-Authorize-Audience': str(self.creds['oidc_audience']),
                    'X-Rucio-Client-Authorize-Auto': str(self.creds['oidc_auto']),
                    'X-Rucio-Client-Authorize-Issuer': str(self.creds['oidc_issuer']),
@@ -462,7 +462,7 @@ class BaseClient(object):
                     record_timer(stat='IdP_login', time=time.time() - start)
                     if result.url == auth_url:
                         form_data = {}
-                        for scope_item in scope.split():
+                        for scope_item in oidc_scope.split():
                             form_data["scope_" + scope_item] = scope_item
                         default_data = {"remember": "until-revoked",
                                         "user_oauth_approval": True,
@@ -815,7 +815,7 @@ class BaseClient(object):
             if self.creds['oidc_auto'] and (self.creds['oidc_username'] is None or self.creds['oidc_password'] is None or self.creds['oidc_scope'] is None):
                 raise NoAuthInformation('For automatic OIDC log-in with your Identity Provider, username, password and scope are required.')
             if not self.creds['oidc_auto'] and self.creds['oidc_scope'] is None:
-                raise NoAuthInformation('To get the authentication URL to be used in your browser, please provide a OIDC scope parameter (minimum scope=\'openid profile\').')
+                raise NoAuthInformation('To get the authentication URL to be used in your browser, please provide a OIDC scope parameter (minimum oidc_scope=\'openid profile\').')
         elif self.auth_type == 'x509':
             if self.creds['client_cert'] is None:
                 raise NoAuthInformation('The path to the client certificate is required')

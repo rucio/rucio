@@ -138,7 +138,7 @@ def get_init_oidc_client(token_object=None, token_type=None, **kwargs):
                      "response_type": "code",
                      "state": kwargs.get('state', rndstr()),
                      "nonce": kwargs.get('nonce', rndstr())}
-        auth_args["scope"] = token_object.scope if token_object else kwargs.get('scope', None)
+        auth_args["scope"] = token_object.oidc_scope if token_object else kwargs.get('scope', None)
         auth_args["audience"] = token_object.audience if token_object else kwargs.get('audience', None)
 
         if token_object:
@@ -511,9 +511,9 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
                                                             models.Token.expired_at > datetime.utcnow()).all()
         # check if Rucio does not have a token with such audience and scope already
         for token in account_tokens:
-            if 'audience' in token and 'scope' in token:
+            if 'audience' in token and 'oidc_scope' in token:
                 aud_exists = all(elem in token.audience.split(" ") for elem in req_audience.split(" "))
-                scope_exists = all(elem in token.scope.split(" ") for elem in req_scope.split(" "))
+                scope_exists = all(elem in token.oidc_scope.split(" ") for elem in req_scope.split(" "))
                 if aud_exists and scope_exists:
                     return token
 
@@ -545,7 +545,7 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
         subject_token = None
         for token in account_tokens:
             # from available tokens select preferentially the one which are being refreshed
-            if 'offline_access' in token.scope:
+            if 'offline_access' in token.oidc_scope:
                 subject_token = token
         if not subject_token:
             subject_token = random.choice(account_tokens)
@@ -784,7 +784,7 @@ def delete_expired_oauthrequests(total_workers, worker_number, limit=1000, sessi
 
 def get_keyvalues_from_claims(token, keys=None):
     """
-    Extracting scope and audience from token claims.
+    Extracting claims from token, e.g. scope and audience.
     :param token: the JWT to be unpacked
     :param key: list of key names to extract from the token claims
 
@@ -861,7 +861,7 @@ def save_validated_token(token, valid_dict, extra_dict=None, session=None):
     try:
         new_token = models.Token(account=valid_dict.get('account', None),
                                  token=token,
-                                 scope=valid_dict.get('authz_scope', None),
+                                 oidc_scope=valid_dict.get('authz_scope', None),
                                  expired_at=valid_dict.get('lifetime', None),
                                  audience=valid_dict.get('audience', None),
                                  identity=valid_dict.get('identity', None),
