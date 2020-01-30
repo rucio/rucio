@@ -65,7 +65,7 @@ def upgrade():
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC')")
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:  # pylint: disable=no-member
-        add_column('tokens', sa.Column('scope', sa.String(2048), nullable=True, default=None), schema=schema[:-1])
+        add_column('tokens', sa.Column('oidc_scope', sa.String(2048), nullable=True, default=None), schema=schema[:-1])
         add_column('tokens', sa.Column('audience', sa.String(315), nullable=True, default=None), schema=schema[:-1])
         add_column('tokens', sa.Column('refresh_token', sa.String(315), nullable=True, default=None), schema=schema[:-1])
         add_column('tokens', sa.Column('refresh', sa.Boolean(), default=False), schema=schema[:-1])
@@ -110,7 +110,7 @@ def downgrade():
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
-        drop_column('tokens', 'scope', schema=schema[:-1])
+        drop_column('tokens', 'oidc_scope', schema=schema[:-1])
         drop_column('tokens', 'audience', schema=schema[:-1])
         drop_column('tokens', 'refresh_token', schema=schema[:-1])
         drop_column('tokens', 'refresh', schema=schema[:-1])
@@ -128,7 +128,7 @@ def downgrade():
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
-        drop_column('tokens', 'scope', schema=schema[:-1])
+        drop_column('tokens', 'oidc_scope', schema=schema[:-1])
         drop_column('tokens', 'audience', schema=schema[:-1])
         drop_column('tokens', 'refresh_token', schema=schema[:-1])
         drop_column('tokens', 'refresh', schema=schema[:-1])
@@ -148,7 +148,7 @@ def downgrade():
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
-        drop_column('tokens', 'scope', schema=schema[:-1])
+        drop_column('tokens', 'oidc_scope', schema=schema[:-1])
         drop_column('tokens', 'audience', schema=schema[:-1])
         drop_column('tokens', 'refresh_token', schema=schema[:-1])
         drop_column('tokens', 'refresh', schema=schema[:-1])
@@ -169,7 +169,7 @@ def downgrade():
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
-        drop_column('tokens', 'scope', schema=schema[:-1])
+        drop_column('tokens', 'oidc_scope', schema=schema[:-1])
         drop_column('tokens', 'audience', schema=schema[:-1])
         drop_column('tokens', 'refresh_token', schema=schema[:-1])
         drop_column('tokens', 'refresh', schema=schema[:-1])

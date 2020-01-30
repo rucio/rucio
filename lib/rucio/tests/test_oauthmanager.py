@@ -65,7 +65,7 @@ def save_oidc_token(accountstring, lifetime_access=0, lifetime_refresh=0, refres
                              token=rndstr(),
                              refresh_token=refresh_token,
                              refresh=refresh,
-                             scope=json.dumps({'state': final_state}),
+                             oidc_scope=json.dumps({'state': final_state}),
                              expired_at=expired_at,
                              refresh_expired_at=refresh_expired_at,
                              identity="SUB=myid, ISS=mockiss")
@@ -85,7 +85,7 @@ def get_token_count(accountstring):
     session = get_session()
     result = session.query(models.Token).filter_by(account=InternalAccount(accountstring)).all()  # pylint: disable=no-member
     for token in result:
-        print(token.token, token.expired_at, token.refresh_token, token.refresh_expired_at, token.scope)
+        print(token.token, token.expired_at, token.refresh_token, token.refresh_expired_at, token.oidc_scope)
     return len(result)
 
 
@@ -101,8 +101,8 @@ def check_deleted_tokens(accountstring):
     all_deleted = True
     for elem in result:
         if elem.refresh_token is not None:
-            if elem.refresh_token not in str(elem.scope):
-                if 'deleted' in str(elem.scope):
+            if elem.refresh_token not in str(elem.oidc_scope):
+                if 'deleted' in str(elem.oidc_scope):
                     all_deleted = False
     return all_deleted
 
@@ -113,11 +113,11 @@ def count_kept_tokens(accountstring):
     count = 0
     for elem in result:
         if elem.refresh_token is not None:
-            if elem.refresh_token not in str(elem.scope):
-                if 'to_be_kept' in str(elem.scope):
+            if elem.refresh_token not in str(elem.oidc_scope):
+                if 'to_be_kept' in str(elem.oidc_scope):
                     count += 1
         else:
-            if 'to_be_kept' in str(elem.scope):
+            if 'to_be_kept' in str(elem.oidc_scope):
                 count += 1
     return count
 
@@ -151,7 +151,7 @@ def new_tokens_ok(accountstring):
     selection = []
     for elem in result:
         if elem.refresh_token is not None:
-            if elem.refresh_token in str(elem.scope):
+            if elem.refresh_token in str(elem.oidc_scope):
                 selection.append(elem.refresh_token)
     return all(item in token_names_expected for item in selection)
 

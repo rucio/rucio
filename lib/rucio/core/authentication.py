@@ -466,7 +466,7 @@ def query_token(token, session=None):
                         models.Token.identity,
                         models.Token.expired_at,
                         models.Token.audience,
-                        models.Token.scope).\
+                        models.Token.oidc_scope).\
         filter(models.Token.token == token,
                models.Token.expired_at > datetime.datetime.utcnow()).\
         all()

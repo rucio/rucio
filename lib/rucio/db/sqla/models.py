@@ -1181,7 +1181,7 @@ class Token(BASE, ModelBase):
     refresh_start = Column(DateTime, default=None)
     refresh_expired_at = Column(DateTime, default=None)
     refresh_lifetime = Column(Integer())
-    scope = Column(String(2048), default=None)  # scopes define the specific actions applications can be allowed to do on a user's behalf
+    oidc_scope = Column(String(2048), default=None)  # scopes define the specific actions applications can be allowed to do on a user's behalf
     identity = Column(String(2048))
     audience = Column(String(315), default=None)
     expired_at = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
