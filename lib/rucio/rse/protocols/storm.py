@@ -117,7 +117,7 @@ class Default(protocol.RSEProtocol):
         # retrieve the TURL from the webdav etag, TODO: make it configurable
         cmd = 'davix-http --capath /cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase/etc/grid-security-emi/certificates --cert $X509_USER_PROXY -X PROPFIND %s' % pfn
         try:
-            rcode, output = run_cmd_process(cmd, timeout=10)
+            rcode, output = run_cmd_process(cmd, timeout=300)
             if rcode != 0:
                 if output:
                     raise exception.ServiceUnavailable(str(output))
