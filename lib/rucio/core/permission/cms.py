@@ -475,6 +475,17 @@ def perm_approve_rule(issuer, kwargs):
     """
     if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
         return True
+
+    rule = get_rule(rule_id=kwargs['rule_id'])
+    rses = parse_expression(rule['rse_expression'])
+
+    # Those in rule_approvers can approve the rule
+    for rse in rses:
+        rse_attr = list_rse_attributes(rse_id=rse['id'])
+        rule_approvers = rse_attr.get('rule_approvers', None)
+        if rule_approvers and issuer.external in rule_approvers.split(','):
+            return True
+
     return False
 
 
@@ -760,6 +771,13 @@ def perm_set_local_account_limit(issuer, kwargs):
             admin_in_country.append(kv['key'].partition('-')[2])
     if admin_in_country and list_rse_attributes(rse_id=kwargs['rse_id']).get('country') in admin_in_country:
         return True
+
+    # Those listed as quota approvers can add to quotas
+    rse_attr = list_rse_attributes(rse_id=kwargs['rse_id'])
+    quota_approvers = rse_attr.get('quota_approvers', None)
+    if quota_approvers and issuer.external in quota_approvers.split(','):
+        return True
+
     return False
 
 
@@ -823,6 +841,12 @@ def perm_delete_local_account_limit(issuer, kwargs):
             admin_in_country.append(kv['key'].partition('-')[2])
     if admin_in_country and list_rse_attributes(rse_id=kwargs['rse_id']).get('country') in admin_in_country:
         return True
+
+    rse_attr = list_rse_attributes(rse_id=kwargs['rse_id'])
+    quota_approvers = rse_attr.get('quota_approvers', None)
+    if quota_approvers and issuer.external in quota_approvers.split(','):
+        return True
+
     return False
 
 
