@@ -16,7 +16,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
 # - David Cameron <d.g.cameron@gmail.com>, 2014
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2015
@@ -41,9 +41,9 @@ except ImportError:
 from copy import deepcopy
 from datetime import datetime, timedelta
 from re import match
-from six import string_types
 from string import Template
 
+from six import string_types
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import func
@@ -1700,6 +1700,8 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
 
     locks = session.query(models.ReplicaLock).filter(models.ReplicaLock.scope == scope, models.ReplicaLock.name == name, models.ReplicaLock.rse_id == rse_id).with_for_update(nowait=nowait).all()
     replica = session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).with_for_update(nowait=nowait).one()
+    requests = session.query(models.Request).filter(models.Request.scope == scope, models.Request.name == name, models.Request.dest_rse_id == rse_id).with_for_update(nowait=nowait).all()
+
     rse = get_rse_name(rse_id, session=session)
 
     datasets = []
@@ -1707,6 +1709,9 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
     for parent in parent_dids:
         if {'name': parent['name'], 'scope': parent['scope']} not in datasets:
             datasets.append({'name': parent['name'], 'scope': parent['scope']})
+
+    for request in requests:
+        session.delete(request)
 
     for lock in locks:
         rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == lock.rule_id).with_for_update(nowait=nowait).one()
