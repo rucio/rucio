@@ -859,6 +859,8 @@ def __save_validated_token(token, valid_dict, extra_dict=None, session=None):
     :returns: DB token object if successful, raises an exception otherwise.
     """
     try:
+        if not extra_dict:
+            extra_dict = {}
         new_token = models.Token(account=valid_dict.get('account', None),
                                  token=token,
                                  oidc_scope=valid_dict.get('authz_scope', None),
