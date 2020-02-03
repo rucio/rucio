@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2019
@@ -1407,6 +1407,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
             filter(or_(*chunk)).\
             delete(synchronize_session=False)
 
+    rowcount = 0
     for chunk in chunks(replica_condition, 10):
         for (scope, name, rid, replica_bytes) in session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id, models.RSEFileAssociation.bytes).\
                 with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle').filter(models.RSEFileAssociation.rse_id == rse_id).filter(or_(*chunk)):
