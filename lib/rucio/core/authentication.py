@@ -40,7 +40,7 @@ from dogpile.cache.api import NO_VALUE
 from rucio.common.exception import CannotAuthenticate, RucioException
 from rucio.common.utils import generate_uuid, query_bunches
 from rucio.core.account import account_exists
-from rucio.core.oidc import save_validated_token, validate_jwt
+from rucio.core.oidc import validate_jwt
 from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
@@ -335,7 +335,7 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None, session=None):
     return new_token
 
 
-@read_session
+@transactional_session
 def redirect_auth_oidc(auth_code, fetchtoken=False, session=None):
     """
     Finds the Authentication URL in the Rucio DB oauth_requests table
@@ -358,7 +358,7 @@ def redirect_auth_oidc(auth_code, fetchtoken=False, session=None):
         if isinstance(redirect_result, tuple):
             if 'http' not in redirect_result[0] and fetchtoken:
                 # in this case the function check if the value is a valid token
-                vdict = validate_auth_token(redirect_result[0])
+                vdict = validate_auth_token(redirect_result[0], session=session)
                 if vdict:
                     return redirect_result[0]
                 return None
@@ -480,7 +480,8 @@ def query_token(token, session=None):
     return None
 
 
-def validate_auth_token(token):
+@transactional_session
+def validate_auth_token(token, session=None):
     """
     Validate an authentication token.
 
@@ -502,22 +503,13 @@ def validate_auth_token(token):
     # Check if token ca be found in cache region
     value = TOKENREGION.get(token)
     if value is NO_VALUE:  # no cached entry found
-        value = query_token(token)
+        value = query_token(token, session=session)
         if not value:
-            # identify JWT access token and validte it (JWT access tokens are not saved in DB)
+            # identify JWT access token and validte
+            # & save it in Rucio if scope and audience are correct
             if len(token.split(".")) == 3:
-                value = validate_jwt(token)
+                value = validate_jwt(token, session=session)
                 if not value:
-                    return None
-                if value['authz_scope'] and value['audience']:
-                    if 'openid' in value['authz_scope'] and \
-                       'profile' in value['authz_scope'] and \
-                       'rucio' in value['audience']:
-                        # save the token in Rucio DB giving the permission to use it for Rucio operations
-                        save_validated_token(token, value)
-                    else:
-                        return None
-                else:
                     return None
             else:
                 return None

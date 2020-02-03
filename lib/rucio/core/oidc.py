@@ -113,7 +113,6 @@ OIDC_CLIENTS = __get_rucio_oidc_clients()[0]
 OIDC_ADMIN_CLIENTS = __get_rucio_oidc_clients()[1]
 
 
-@read_session
 def __get_init_oidc_client(token_object=None, token_type=None, **kwargs):
     """
     Get an OIDC client object, (re-)initialised with parameters corresponding
@@ -356,7 +355,7 @@ def get_token_oidc(auth_query_string, ip=None, session=None):
                 return {'webhome': None, 'token': None}
 
         # check if given account has the identity registered
-        if not exist_identity_account(jwt_row_dict['identity'], IdentityType.OIDC, jwt_row_dict['account']):
+        if not exist_identity_account(jwt_row_dict['identity'], IdentityType.OIDC, jwt_row_dict['account'], session=session):
             raise CannotAuthenticate("OIDC identity '%s' of the '%s' account is unknown to Rucio."
                                      % (jwt_row_dict['identity'], str(jwt_row_dict['account'])))
         record_counter(counters='IdP_authentication.success')
@@ -399,7 +398,7 @@ def get_token_oidc(auth_query_string, ip=None, session=None):
                 # 4 day expiry period by default
                 extra_dict['refresh_expired_at'] = datetime.utcnow() + timedelta(hours=96)
 
-        new_token = save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict, session=session)
+        new_token = __save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict, session=session)
         record_counter(counters='IdP_authorization.access_token.saved')
         if 'refresh_token' in oidc_tokens:
             record_counter(counters='IdP_authorization.refresh_token.saved')
@@ -474,7 +473,7 @@ def __get_admin_token_oidc(account, req_scope, req_audience, issuer, session=Non
             validate_dict = __get_rucio_jwt_dict(oidc_tokens['access_token'], account=account, session=session)
             if validate_dict:
                 record_counter(counters='IdP_authentication.success')
-                new_token = save_validated_token(oidc_tokens['access_token'], validate_dict, extra_dict={}, session=session)
+                new_token = __save_validated_token(oidc_tokens['access_token'], validate_dict, extra_dict={}, session=session)
                 record_counter(counters='IdP_authorization.access_token.saved')
                 return new_token
             raise RucioException("Rucio could not get a valid admin token from the Identity Provider.")
@@ -486,7 +485,7 @@ def __get_admin_token_oidc(account, req_scope, req_audience, issuer, session=Non
         raise CannotAuthenticate(traceback.format_exc())
 
 
-@read_session
+@transactional_session
 def get_token_for_account_operation(account, req_audience=None, req_scope=None, session=None):
     """
     Looks-up a JWT token corresponding to the account OIDC identity (randomly chosen) in the DB.
@@ -531,7 +530,7 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
                 # tokens are explicitly requested in which case an exception could then be thrown
                 # raise CannotAuthorize("Rucio could not find and OIDC identity associated with %s account" % account)  # NOQA: W503
 
-            new_admin_token = __get_admin_token_oidc(account, req_scope, req_audience, issuer, session=None)
+            new_admin_token = __get_admin_token_oidc(account, req_scope, req_audience, issuer, session=session)
             return new_admin_token
 
         if not account_tokens:
@@ -554,7 +553,7 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
                                                 scope=req_scope,
                                                 audience=req_audience,
                                                 refresh_lifetime=subject_token.refresh_lifetime,
-                                                account=account)
+                                                account=account, session=session)
         return exchanged_token
 
     except Exception:
@@ -624,7 +623,7 @@ def __exchange_token_oidc(subject_token_object, session=None, **kwargs):
                 # 4 day expiry period by default
                 extra_dict['refresh_expired_at'] = datetime.utcnow() + timedelta(hours=96)
 
-        new_token = save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict, session=session)
+        new_token = __save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict, session=session)
         record_counter(counters='IdP_authorization.access_token.saved')
         if 'refresh_token' in oidc_tokens:
             record_counter(counters='IdP_authorization.refresh_token.saved')
@@ -730,7 +729,7 @@ def refresh_token_oidc(token_object, session=None):
                 # 4 day expiry period by default
                 extra_dict['refresh_expired_at'] = datetime.utcnow() + timedelta(hours=96)
 
-            new_token = save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict, session=session)
+            new_token = __save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict, session=session)
             record_counter(counters='IdP_authorization.access_token.saved')
             record_counter(counters='IdP_authorization.refresh_token.saved')
             # remove refresh token info (not for the user)
@@ -836,7 +835,7 @@ def __get_rucio_jwt_dict(jwt, account=None, session=None):
             # before to be sure that we do not have the right account already in the DB !
             account = get_default_account(identity_string, IdentityType.OIDC, True, session=session)
         else:
-            if not exist_identity_account(identity_string, IdentityType.OIDC, account):
+            if not exist_identity_account(identity_string, IdentityType.OIDC, account, session=session):
                 return None
         value = {'account': account,
                  'identity': identity_string,
@@ -849,7 +848,7 @@ def __get_rucio_jwt_dict(jwt, account=None, session=None):
 
 
 @transactional_session
-def save_validated_token(token, valid_dict, extra_dict=None, session=None):
+def __save_validated_token(token, valid_dict, extra_dict=None, session=None):
     """
     Save JWT token to the Rucio DB.
 
@@ -879,11 +878,13 @@ def save_validated_token(token, valid_dict, extra_dict=None, session=None):
         raise RucioException(error.args)
 
 
-def validate_jwt(json_web_token):
+@transactional_session
+def validate_jwt(json_web_token, session=None):
     """
     Verifies signature and validity of a JSON Web Token.
     Gets the issuer public keys from the oidc_client
     and verifies the validity of the token.
+    Used only for external tokens, not known to Rucio DB.
 
     :param json_web_token: the JWT string to verify
 
@@ -896,7 +897,7 @@ def validate_jwt(json_web_token):
     """
     try:
         # getting issuer from the token payload
-        token_dict = __get_rucio_jwt_dict(json_web_token)
+        token_dict = __get_rucio_jwt_dict(json_web_token, session=session)
         if not token_dict:
             return None
         issuer = token_dict['identity'].split(", ")[1].split("=")[1]
@@ -919,6 +920,18 @@ def validate_jwt(json_web_token):
             except:
                 pass
         record_counter(counters='JSONWebToken.valid')
+        # if token is valid and coming from known issuer --> check aud and scope and save it if unknown
+        if token_dict['authz_scope'] and token_dict['audience']:
+            if 'openid' in token_dict['authz_scope'] and \
+               'profile' in token_dict['authz_scope'] and \
+               'rucio' in token_dict['audience']:
+                # save the token in Rucio DB giving the permission to use it for Rucio operations
+                __save_validated_token(json_web_token, token_dict, session=session)
+            else:
+                return None
+        else:
+            return None
+        record_counter(counters='JSONWebToken.saved')
         return token_dict
     except Exception:
         record_counter(counters='JSONWebToken.invalid')
