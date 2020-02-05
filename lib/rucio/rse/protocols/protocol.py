@@ -224,6 +224,8 @@ class RSEProtocol(object):
 
             :param props: Properties of the requested protocol
         """
+        self.auth_token = protocol_attr['auth_token']
+        protocol_attr.pop('auth_token')
         self.attributes = protocol_attr
         self.translator = None
         self.renaming = True

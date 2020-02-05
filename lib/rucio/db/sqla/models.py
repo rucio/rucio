@@ -24,6 +24,7 @@
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -1173,15 +1174,39 @@ class Subscription(BASE, ModelBase, Versioned):
 class Token(BASE, ModelBase):
     """Represents the authentication tokens and their lifetime"""
     __tablename__ = 'tokens'
-    token = Column(String(352))  # account-identity-appid-uuid -> max length: (+ 30 1 255 1 32 1 32)
+    token = Column(String(3072))  # account-identity-appid-uuid -> max length: (+ 30 1 255 1 32 1 32)
     account = Column(InternalAccountString(25))
+    refresh_token = Column(String(315), default=None)
+    refresh = Column(Boolean, default=False)
+    refresh_start = Column(DateTime, default=None)
+    refresh_expired_at = Column(DateTime, default=None)
+    refresh_lifetime = Column(Integer())
+    oidc_scope = Column(String(2048), default=None)  # scopes define the specific actions applications can be allowed to do on a user's behalf
     identity = Column(String(2048))
+    audience = Column(String(315), default=None)
     expired_at = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
     ip = Column(String(39), nullable=True)
     _table_args = (PrimaryKeyConstraint('token', name='TOKENS_TOKEN_PK'),  # not supported for primary key constraint mysql_length=255
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='TOKENS_ACCOUNT_FK'),
                    CheckConstraint('EXPIRED_AT IS NOT NULL', name='TOKENS_EXPIRED_AT_NN'),
                    Index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'account', 'expired_at'))
+
+
+class OAuthRequest(BASE, ModelBase):
+    """Represents the authentication session parameters of OAuth 2.0 requests"""
+    __tablename__ = 'oauth_requests'
+    account = Column(InternalAccountString(25))
+    state = Column(String(50))
+    nonce = Column(String(50))
+    access_msg = Column(String(2048))
+    redirect_msg = Column(String(2048))
+    refresh_lifetime = Column(Integer())
+    ip = Column(String(39), nullable=True)
+    expired_at = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=600))  # 10 min lifetime by default
+    _table_args = (PrimaryKeyConstraint('state', name='OAUTH_REQUESTS_STATE_PK'),
+                   CheckConstraint('EXPIRED_AT IS NOT NULL', name='OAUTH_REQUESTS_EXPIRED_AT_NN'),
+                   Index('OAUTH_REQUESTS_ACC_EXP_AT_IDX', 'account', 'expired_at'),
+                   Index('OAUTH_REQUESTS_ACCESS_MSG_IDX', 'access_msg'))
 
 
 class Message(BASE, ModelBase):
@@ -1354,6 +1379,7 @@ def register_models(engine):
               Message,
               MessageHistory,
               NamingConvention,
+              OAuthRequest,
               QuarantinedReplica,
               RSE,
               RSEAttrAssociation,
@@ -1413,6 +1439,7 @@ def unregister_models(engine):
               Message,
               MessageHistory,
               NamingConvention,
+              OAuthRequest,
               QuarantinedReplica,
               RSE,
               RSEAttrAssociation,
