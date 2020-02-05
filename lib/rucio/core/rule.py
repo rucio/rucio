@@ -43,7 +43,10 @@ from datetime import datetime, timedelta
 from re import match
 from string import Template
 
+from dogpile.cache import make_region
+from dogpile.cache.api import NO_VALUE
 from six import string_types
+
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import func
@@ -87,6 +90,12 @@ logging.basicConfig(stream=sys.stdout,
                                              raise_exception=False,
                                              default='DEBUG').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
+
+
+REGION = make_region().configure('dogpile.cache.memcached',
+                                 expiration_time=3600,
+                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'),
+                                            'distributed_lock': True})
 
 
 @transactional_session
@@ -2160,6 +2169,22 @@ def examine_rule(rule_id, session=None):
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
     except StatementError:
         raise RucioException('Badly formatted rule id (%s)' % (rule_id))
+
+
+@transactional_session
+def get_evaluation_backlog(session=None):
+    """
+    Counts the number of entries in the rule evaluation backlog.
+    (Number of files to be evaluated)
+
+    :returns:     Tuple (Count, Datetime of oldest entry)
+    """
+
+    result = REGION.get('rule_evaluation_backlog', expiration_time=600)
+    if result is NO_VALUE:
+        result = session.query(func.count(models.UpdatedDID.created_at), func.min(models.UpdatedDID.created_at)).one()
+        REGION.set('rule_evaluation_backlog', result)
+    return result
 
 
 @transactional_session
