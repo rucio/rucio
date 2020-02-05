@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2019
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -40,6 +40,7 @@ import threading
 import time
 import traceback
 
+from datetime import datetime, timedelta
 from math import ceil
 from operator import itemgetter
 from collections import OrderedDict
@@ -59,6 +60,7 @@ from rucio.core.message import add_message
 from rucio.core.replica import list_and_mark_unlocked_replicas, delete_replicas
 from rucio.core.rse import list_rses, get_rse_limits, get_rse_usage, list_rse_attributes, get_rse_protocols
 from rucio.core.rse_expression_parser import parse_expression
+from rucio.core.rule import get_evaluation_backlog
 from rucio.rse import rsemanager as rsemgr
 
 
@@ -350,17 +352,40 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
     prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info('%s Reaper starting', prepend_str)
 
-    time.sleep(10)  # To prevent running on the same partition if all the reapers restart at the same time
+    GRACEFUL_STOP.wait(10)  # To prevent running on the same partition if all the reapers restart at the same time
     heart_beat = live(executable, hostname, pid, hb_thread)
     prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info('%s Reaper started', prepend_str)
 
     while not GRACEFUL_STOP.is_set():
 
+        # Check if there is a Judge Evaluator backlog
+        max_evaluator_backlog_count = get('reaper', 'max_evaluator_backlog_count')
+        max_evaluator_backlog_duration = get('reaper', 'max_evaluator_backlog_duration')
+        if max_evaluator_backlog_count or max_evaluator_backlog_duration:
+            backlog = get_evaluation_backlog()
+            if max_evaluator_backlog_count and \
+               backlog[0] and \
+               max_evaluator_backlog_duration and \
+               backlog[1] and \
+               backlog[0] > max_evaluator_backlog_count and \
+               backlog[1] < datetime.utcnow() - timedelta(minutes=max_evaluator_backlog_duration):
+                logging.error('%s Reaper: Judge evaluator backlog count and duration hit, stopping operation', prepend_str)
+                GRACEFUL_STOP.wait(30)
+                continue
+            elif max_evaluator_backlog_count and backlog[0] and backlog[0] > max_evaluator_backlog_count:
+                logging.error('%s Reaper: Judge evaluator backlog count hit, stopping operation', prepend_str)
+                GRACEFUL_STOP.wait(30)
+                continue
+            elif max_evaluator_backlog_duration and backlog[1] and backlog[1] < datetime.utcnow() - timedelta(minutes=max_evaluator_backlog_duration):
+                logging.error('%s Reaper: Judge evaluator backlog duration hit, stopping operation', prepend_str)
+                GRACEFUL_STOP.wait(30)
+                continue
+
         rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses)
         if not rses_to_process:
             logging.error('%s Reaper: No RSEs found. Will sleep for 30 seconds', prepend_str)
-            time.sleep(30)
+            GRACEFUL_STOP.wait(30)
             continue
         start_time = time.time()
         try:
@@ -494,7 +519,7 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
             tottime = time.time() - start_time
             if tottime < sleep_time:
                 logging.info('%s Will sleep for %s seconds', prepend_str, sleep_time - tottime)
-                time.sleep(sleep_time - tottime)
+                GRACEFUL_STOP.wait(sleep_time - tottime)
 
         except DatabaseException as error:
             logging.warning('%s Reaper:  %s', prepend_str, str(error))
