@@ -65,6 +65,10 @@ class Default(protocol.RSEProtocol):
 
         pfns = {}
         prefix = self.attributes['prefix']
+        if self.attributes['extended_attributes'] is not None and 'web_service_path' in list(self.attributes['extended_attributes'].keys()):
+            web_service_path = self.attributes['extended_attributes']['web_service_path']
+        else:
+            web_service_path = ''
 
         if not prefix.startswith('/'):
             prefix = ''.join(['/', prefix])
@@ -74,6 +78,22 @@ class Default(protocol.RSEProtocol):
         hostname = self.attributes['hostname']
         if '://' in hostname:
             hostname = hostname.split("://")[1]
+
+        lfns = [lfns] if type(lfns) == dict else lfns
+        if self.attributes['port'] == 0:
+            for lfn in lfns:
+                scope, name = str(lfn['scope']), lfn['name']
+                path = lfn['path'] if 'path' in lfn and lfn['path'] else self._get_path(scope=scope, name=name)
+                if self.attributes['scheme'] != 'root' and path.startswith('/'):  # do not modify path if it is root
+                    path = path[1:]
+                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, web_service_path, prefix, path])
+        else:
+            for lfn in lfns:
+                scope, name = str(lfn['scope']), lfn['name']
+                path = lfn['path'] if 'path' in lfn and lfn['path'] else self._get_path(scope=scope, name=name)
+                if self.attributes['scheme'] != 'root' and path.startswith('/'):  # do not modify path if it is root
+                    path = path[1:]
+                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, ':', str(self.attributes['port']), web_service_path, prefix, path])
 
         return pfns
 
