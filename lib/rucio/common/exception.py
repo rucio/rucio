@@ -842,6 +842,7 @@ class NoFilesUploaded(RucioException):
         super(NoFilesUploaded, self).__init__(*args, **kwargs)
         self._message = "None of the given files have been uploaded."
         self.error_code = 79
+        self.summary = None
 
 
 class NotAllFilesUploaded(RucioException):
@@ -852,6 +853,7 @@ class NotAllFilesUploaded(RucioException):
         super(NotAllFilesUploaded, self).__init__(*args, **kwargs)
         self._message = "Not all of the given files have been uploaded."
         self.error_code = 80
+        self.summary = None
 
 
 class RSEChecksumUnavailable(RucioException):
