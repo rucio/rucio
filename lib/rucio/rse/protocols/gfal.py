@@ -79,22 +79,6 @@ class Default(protocol.RSEProtocol):
         if '://' in hostname:
             hostname = hostname.split("://")[1]
 
-        lfns = [lfns] if type(lfns) == dict else lfns
-        if self.attributes['port'] == 0:
-            for lfn in lfns:
-                scope, name = str(lfn['scope']), lfn['name']
-                path = lfn['path'] if 'path' in lfn and lfn['path'] else self._get_path(scope=scope, name=name)
-                if self.attributes['scheme'] != 'root' and path.startswith('/'):  # do not modify path if it is root
-                    path = path[1:]
-                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, web_service_path, prefix, path])
-        else:
-            for lfn in lfns:
-                scope, name = str(lfn['scope']), lfn['name']
-                path = lfn['path'] if 'path' in lfn and lfn['path'] else self._get_path(scope=scope, name=name)
-                if self.attributes['scheme'] != 'root' and path.startswith('/'):  # do not modify path if it is root
-                    path = path[1:]
-                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, ':', str(self.attributes['port']), web_service_path, prefix, path])
-
         return pfns
 
     def parse_pfns(self, pfns):
@@ -356,7 +340,7 @@ class Default(protocol.RSEProtocol):
 
         message = "\n"
         try:
-            ret[PREFERRED_CHECKSUM] = ctx.checksum(path, str(PREFERRED_CHECKSUM.capitalize()))
+            ret[PREFERRED_CHECKSUM] = ctx.checksum(path, str(PREFERRED_CHECKSUM.upper()))
             return ret
         except Exception as error:
             message += 'Error while processing gfal checksum call (%s). Error: %s \n' % (PREFERRED_CHECKSUM, str(error))
@@ -365,7 +349,7 @@ class Default(protocol.RSEProtocol):
             if checksum_name == PREFERRED_CHECKSUM:
                 continue
             try:
-                ret[checksum_name] = ctx.checksum(path, str(checksum_name.capitalize()))
+                ret[checksum_name] = ctx.checksum(path, str(checksum_name.upper()))
                 return ret
             except Exception as error:
                 message += 'Error while processing gfal checksum call (%s). Error: %s \n' % (checksum_name, str(error))
