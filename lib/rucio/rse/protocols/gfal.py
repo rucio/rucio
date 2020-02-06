@@ -65,10 +65,6 @@ class Default(protocol.RSEProtocol):
 
         pfns = {}
         prefix = self.attributes['prefix']
-        if self.attributes['extended_attributes'] is not None and 'web_service_path' in list(self.attributes['extended_attributes'].keys()):
-            web_service_path = self.attributes['extended_attributes']['web_service_path']
-        else:
-            web_service_path = ''
 
         if not prefix.startswith('/'):
             prefix = ''.join(['/', prefix])
