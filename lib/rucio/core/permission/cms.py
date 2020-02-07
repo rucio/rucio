@@ -157,6 +157,18 @@ def perm_add_rule(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
+
+    rses = parse_expression(kwargs['rse_expression'])
+    # If all the RSEs matching the expression need approval, the rule cannot be created
+    if not kwargs['ask_approval']:
+        all_rses_need_approval = True
+        for rse in rses:
+            rse_attr = list_rse_attributes(rse_id=rse['id'])
+            if rse_attr.get('requires_approval', False):
+                all_rses_need_approval = False
+        if not all_rses_need_approval:
+            return False
+
     if kwargs['account'] == issuer and not kwargs['locked']:
         return True
     if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
