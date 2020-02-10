@@ -808,7 +808,8 @@ def perm_set_global_account_limit(issuer, kwargs):
     for kv in list_account_attributes(account=issuer):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
-    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country') for rse in parse_expression(kwargs['rse_exp'])}
+    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country')
+                              for rse in parse_expression(kwargs['rse_exp'])}
     if resolved_rse_countries.issubset(admin_in_country):
         return True
     return False
@@ -830,7 +831,8 @@ def perm_delete_global_account_limit(issuer, kwargs):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
     if admin_in_country:
-        resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country') for rse in parse_expression(kwargs['rse_exp'])}
+        resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country')
+                                  for rse in parse_expression(kwargs['rse_exp'])}
         if resolved_rse_countries.issubset(admin_in_country):
             return True
     return False
@@ -985,10 +987,10 @@ def perm_remove_did_from_followed(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer)\
-        or has_account_attribute(account=issuer, key='admin')\
-        or kwargs['account'] == issuer\
-        or kwargs['scope'] == 'mock'
+    return (_is_root(issuer)
+            or has_account_attribute(account=issuer, key='admin')  # NOQA: W503
+            or kwargs['account'] == issuer  # NOQA: W503
+            or kwargs['scope'] == 'mock')  # NOQA: W503
 
 
 def perm_remove_dids_from_followed(issuer, kwargs):
