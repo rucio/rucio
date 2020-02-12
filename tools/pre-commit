@@ -49,7 +49,7 @@ ignore=E722
 
 [flake8]
 max-line-length=256
-ignore=E722
+ignore=E722,W503
 ''')
     f.close()
     f = open(tempdir + '/.pylintrc', 'w')
