@@ -187,7 +187,7 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
             raise exc_cls(exc_msg)
 
-    def del_identity(self, account, identity, authtype, default=False):
+    def del_identity(self, account, identity, authtype):
         """
         Delete an identity's membership association with an account.
 
@@ -197,7 +197,7 @@ class AccountClient(BaseClient):
         :param default: If True, the account should be used by default with the provided identity.
         """
 
-        data = dumps({'identity': identity, 'authtype': authtype, 'default': default})
+        data = dumps({'identity': identity, 'authtype': authtype})
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'identities'])
 
         url = build_url(choice(self.list_hosts), path=path)
