@@ -356,7 +356,7 @@ class Default(protocol.RSEProtocol):
 
         message = "\n"
         try:
-            ret[PREFERRED_CHECKSUM] = ctx.checksum(path, str(PREFERRED_CHECKSUM.capitalize()))
+            ret[PREFERRED_CHECKSUM] = ctx.checksum(path, str(PREFERRED_CHECKSUM.upper()))
             return ret
         except Exception as error:
             message += 'Error while processing gfal checksum call (%s). Error: %s \n' % (PREFERRED_CHECKSUM, str(error))
@@ -365,7 +365,7 @@ class Default(protocol.RSEProtocol):
             if checksum_name == PREFERRED_CHECKSUM:
                 continue
             try:
-                ret[checksum_name] = ctx.checksum(path, str(checksum_name.capitalize()))
+                ret[checksum_name] = ctx.checksum(path, str(checksum_name.upper()))
                 return ret
             except Exception as error:
                 message += 'Error while processing gfal checksum call (%s). Error: %s \n' % (checksum_name, str(error))
