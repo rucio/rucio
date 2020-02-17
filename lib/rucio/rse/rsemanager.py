@@ -410,7 +410,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                 valid = None
                 try:  # Get metadata of file to verify if upload was successful
                     try:
-                        stats = _retry_protocol_stat(protocol, '%s.rucio.upload' % pfn)
+                        stats = _retry_protocol_stat(protocol, pfn)
 
                         # Verify all supported checksums and keep rack of the verified ones
                         verified_checksums = []
