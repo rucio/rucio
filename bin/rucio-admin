@@ -398,7 +398,8 @@ def get_limits(args):
 
     """
     client = get_client(args)
-    limits = client.get_local_account_limit(account=args.account, rse=args.rse)
+    locality = args.locality.lower()
+    limits = client.get_account_limits(account=args.account, rse_expression=args.rse, locality=locality)
     for rse in limits:
         print('Quota on %s for %s : %s' % (rse, args.account, sizefmt(limits[rse], True)))
     return SUCCESS
@@ -1360,7 +1361,7 @@ def get_parser():
     get_account_limits_parser.set_defaults(which='get_limits')
     get_account_limits_parser.add_argument('account', action='store', help='Account name')
     get_account_limits_parser.add_argument('rse', action='store', help='The RSE name')
-    set_account_limits_parser.add_argument('locality', action='store', nargs='?', default='local', choices=['local', 'global'], help='Global or local limit scope. Default: "local"')
+    get_account_limits_parser.add_argument('locality', action='store', nargs='?', default='local', choices=['local', 'global'], help='Global or local limit scope. Default: "local"')
 
     # The delete_quota command
     delete_account_limits_parser = account_subparser.add_parser('delete-limits',
