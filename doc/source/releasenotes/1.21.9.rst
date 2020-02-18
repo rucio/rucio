@@ -1,0 +1,13 @@
+=====================
+1.21.9 (clients only)
+=====================
+
+-------
+Clients
+-------
+
+****
+Bugs
+****
+
+- Clients: Stat *.rucio.upload with protocol.renaming false `#3289 <https://github.com/rucio/rucio/issues/3289>`_
