@@ -1627,15 +1627,16 @@ def list_unlocked_replicas(rse_id, limit, bytes=None, worker_number=None, total_
 
 
 @transactional_session
-def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_seconds=600, session=None):
+def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_seconds=600, only_delete_obsolete=False, session=None):
     """
     List RSE File replicas with no locks.
 
-    :param limit:              Number of replicas returned.
-    :param bytes:              The amount of needed bytes.
-    :param rse_id:             The rse_id.
-    :delay_seconds:            The delay to query replicas in BEING_DELETED state
-    :param session:            The database session in use.
+    :param limit:                    Number of replicas returned.
+    :param bytes:                    The amount of needed bytes.
+    :param rse_id:                   The rse_id.
+    :param delay_seconds:            The delay to query replicas in BEING_DELETED state
+    :param only_delete_obsolete      If set to True, will only return the replicas with EPOCH tombstone
+    :param session:                  The database session in use.
 
     :returns: a list of dictionary replica.
     """
@@ -1668,8 +1669,11 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
         if replica_cnt[0] > 1:
             if state != ReplicaState.UNAVAILABLE:
                 total_bytes += bytes
-                if tombstone != OBSOLETE and needed_space is not None and total_bytes > needed_space:
-                    break
+                if tombstone != OBSOLETE:
+                    if only_delete_obsolete:
+                        break
+                    if needed_space is not None and total_bytes > needed_space:
+                        break
 
                 total_files += 1
                 if total_files > limit:
@@ -1690,8 +1694,11 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
 
             if request_cnt[0] == 0:
                 total_bytes += bytes
-                if tombstone != OBSOLETE and needed_space is not None and total_bytes > needed_space:
-                    break
+                if tombstone != OBSOLETE:
+                    if only_delete_obsolete:
+                        break
+                    if needed_space is not None and total_bytes > needed_space:
+                        break
 
                 total_files += 1
                 if total_files > limit:
