@@ -247,7 +247,7 @@ def __check_rse_usage(rse, rse_id, prepend_str):
     :param rse_id: the rse name.
     :param rse_id: the rse id.
 
-    :returns : max_being_deleted_files, needed_free_space, used, free.
+    :returns : max_being_deleted_files, needed_free_space, used, free, only_delete_obsolete.
     """
 
     result = REGION.get('rse_usage_%s' % rse_id)
@@ -258,14 +258,14 @@ def __check_rse_usage(rse, rse_id, prepend_str):
         attributes = list_rse_attributes(rse_id=rse_id)
         greedy = attributes.get('greedyDeletion', False)
         if greedy:
-            result = (max_being_deleted_files, 1000000000000, used, free)
+            result = (max_being_deleted_files, 1000000000000, used, free, False)
             REGION.set('rse_usage_%s' % rse_id, result)
             return result
 
         # Get RSE limits
         limits = get_rse_limits(rse_id=rse_id)
         if not limits and 'MinFreeSpace' not in limits and 'MaxBeingDeletedFiles' not in limits:
-            result = (max_being_deleted_files, needed_free_space, used, free)
+            result = (max_being_deleted_files, needed_free_space, used, free, False)
             REGION.set('rse_usage_%s' % rse_id, result)
             return result
 
@@ -291,10 +291,10 @@ def __check_rse_usage(rse, rse_id, prepend_str):
         # If no information is available about disk space, do nothing except if there are replicas with Epoch tombstone
         if not usage:
             if not obsolete:
-                result = (max_being_deleted_files, needed_free_space, used, free)
+                result = (max_being_deleted_files, needed_free_space, used, free, False)
                 REGION.set('rse_usage_%s' % rse_id, result)
                 return result
-            result = (max_being_deleted_files, obsolete, used, free)
+            result = (max_being_deleted_files, obsolete, used, free, True)
             REGION.set('rse_usage_%s' % rse_id, result)
             return result
 
@@ -306,7 +306,7 @@ def __check_rse_usage(rse, rse_id, prepend_str):
         if source_for_total_space != source_for_used_space:
             usage = [entry for entry in rse_usage if entry['source'] == source_for_used_space]
             if not usage:
-                result = (max_being_deleted_files, needed_free_space, None, free)
+                result = (max_being_deleted_files, needed_free_space, None, free, False)
                 REGION.set('rse_usage_%s' % rse_id, result)
                 return result
             for var in usage:
@@ -321,7 +321,7 @@ def __check_rse_usage(rse, rse_id, prepend_str):
         if needed_free_space <= 0:
             needed_free_space = 0 or obsolete
 
-        result = (max_being_deleted_files, needed_free_space, used, free)
+        result = (max_being_deleted_files, needed_free_space, used, free, True)
         REGION.set('rse_usage_%s' % rse_id, result)
         return result
     logging.debug('%s Using cached value for RSE usage on RSE %s', prepend_str, rse)
@@ -360,8 +360,14 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
     while not GRACEFUL_STOP.is_set():
 
         # Check if there is a Judge Evaluator backlog
-        max_evaluator_backlog_count = get('reaper', 'max_evaluator_backlog_count')
-        max_evaluator_backlog_duration = get('reaper', 'max_evaluator_backlog_duration')
+        try:
+            max_evaluator_backlog_count = get('reaper', 'max_evaluator_backlog_count')
+        except ConfigNotFound:
+            max_evaluator_backlog_count = None
+        try:
+            max_evaluator_backlog_duration = get('reaper', 'max_evaluator_backlog_duration')
+        except ConfigNotFound:
+            max_evaluator_backlog_duration = None
         if max_evaluator_backlog_count or max_evaluator_backlog_duration:
             backlog = get_evaluation_backlog()
             if max_evaluator_backlog_count and \
@@ -402,7 +408,7 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
                 if rse['availability'] % 2 == 0:
                     logging.debug('%s RSE %s is blacklisted for delete', prepend_str, rse['rse'])
                     continue
-                max_being_deleted_files, needed_free_space, used, free = __check_rse_usage(rse['rse'], rse['id'], prepend_str)
+                max_being_deleted_files, needed_free_space, used, free, only_delete_obsolete = __check_rse_usage(rse['rse'], rse['id'], prepend_str)
                 # Check if greedy mode
                 if greedy:
                     dict_rses[(rse['rse'], rse['id'])] = [1000000000000, max_being_deleted_files]
@@ -465,10 +471,13 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
                 del_start_time = time.time()
                 try:
                     with monitor.record_timer_block('reaper.list_unlocked_replicas'):
+                        if only_delete_obsolete:
+                            logging.debug('%s Will run list_and_mark_unlocked_replicas on %s. No space needed, will only delete EPOCH tombstoned replicas', prepend_str, rse_name)
                         replicas = list_and_mark_unlocked_replicas(limit=chunk_size,
                                                                    bytes=needed_free_space,
                                                                    rse_id=rse_id,
                                                                    delay_seconds=delay_seconds,
+                                                                   only_delete_obsolete=only_delete_obsolete,
                                                                    session=None)
                     logging.debug('%s list_and_mark_unlocked_replicas  on %s for %s bytes in %s seconds: %s replicas', prepend_str, rse_name, needed_free_space, time.time() - del_start_time, len(replicas))
                     if len(replicas) < chunk_size:
