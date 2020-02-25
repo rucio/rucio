@@ -282,8 +282,8 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                     # source and dst support some bot none in common (dst priority)
                     verify_checksum = 'destination'
                 else:
-                    # source and dst have some in common
-                    verify_checksum = 'both'
+                    # Don't override the value in the file_metadata
+                    pass
 
         t_file = {'sources': transfer['sources'],
                   'destinations': transfer['dest_urls'],
