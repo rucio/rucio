@@ -1,0 +1,22 @@
+=======
+1.21.10
+=======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Deletion: Add file to content history when the last replica is deleted by the reaper `#37 <https://github.com/rucio/rucio/issues/37>`_
+- Transfers: Enable the possibility to specify strict_copy `#3315 <https://github.com/rucio/rucio/issues/3315>`_
+
+****
+Bugs
+****
+
+- Deletion: New Reaper implementation can unintentionally act as if in greedy mode. `#3284 <https://github.com/rucio/rucio/issues/3284>`_
+- Deletion: New reaper not handling `ConfigNotFound`  `#3308 <https://github.com/rucio/rucio/issues/3308>`_
+- Transfers: Bug in the selection of compatible checksum in the conveyor `#3314 <https://github.com/rucio/rucio/issues/3314>`_
