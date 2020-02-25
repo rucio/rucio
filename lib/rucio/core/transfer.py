@@ -771,7 +771,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     overwrite = False
                     transfer_dst_type = "TAPE"
 
-                # IV - get external_host
+                # IV - get external_host + strict_mode
+                strict_mode = rse_attrs[dest_rse_id].get('strict_mode', False)
                 fts_hosts = rse_attrs[dest_rse_id].get('fts', None)
                 source_globus_endpoint_id = rse_attrs[source_rse_id].get('globus_endpoint_id', None)
                 dest_globus_endpoint_id = rse_attrs[dest_rse_id].get('globus_endpoint_id', None)
@@ -853,6 +854,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 if multihop:
                     transfers[req_id]['multihop'] = True
                     transfers[req_id]['initial_request_id'] = req_id
+                if strict_mode:
+                    transfers[req_id]['strict_mode'] = strict_mode
 
             else:
                 current_schemes = transfers[req_id]['schemes']
