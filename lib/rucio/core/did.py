@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
@@ -44,7 +44,7 @@ from sqlalchemy import and_, or_, exists, String, cast, type_coerce, JSON
 from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError, InvalidRequestError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
-from sqlalchemy.sql.expression import bindparam, case, text, Insert, select, true
+from sqlalchemy.sql.expression import bindparam, case, text, select, true
 
 import rucio.core.rule
 import rucio.core.replica  # import add_replicas
@@ -344,7 +344,7 @@ def __add_files_to_dataset(scope, name, files, account, rse_id, ignore_duplicate
     # Get metadata from dataset
     try:
         dataset_meta = validate_name(scope=scope, name=name, did_type='D')
-    except:
+    except Exception:
         dataset_meta = None
 
     if rse_id:
@@ -596,31 +596,11 @@ def delete_dids(dids, account, expire_rules=False, session=None):
 
             # Archive content
             # Disable for postgres
-            if session.bind.dialect.name != 'postgresql':
-                q = session.query(models.DataIdentifierAssociation.scope,
-                                  models.DataIdentifierAssociation.name,
-                                  models.DataIdentifierAssociation.child_scope,
-                                  models.DataIdentifierAssociation.child_name,
-                                  models.DataIdentifierAssociation.did_type,
-                                  models.DataIdentifierAssociation.child_type,
-                                  models.DataIdentifierAssociation.bytes,
-                                  models.DataIdentifierAssociation.adler32,
-                                  models.DataIdentifierAssociation.md5,
-                                  models.DataIdentifierAssociation.guid,
-                                  models.DataIdentifierAssociation.events,
-                                  models.DataIdentifierAssociation.rule_evaluation,
-                                  bindparam("did_created_at", did.get('created_at')),
-                                  models.DataIdentifierAssociation.created_at,
-                                  models.DataIdentifierAssociation.updated_at,
-                                  bindparam('deleted_at', datetime.utcnow())).\
-                    filter(and_(models.DataIdentifierAssociation.scope == did['scope'],
-                                models.DataIdentifierAssociation.name == did['name']))
-                ins = Insert(table=models.DataIdentifierAssociationHistory, inline=True).\
-                    from_select(('scope', 'name', 'child_scope', 'child_name', 'did_type',
-                                 'child_type', 'bytes', 'adler32', 'md5', 'guid', 'events',
-                                 'rule_evaluation', 'did_created_at', 'created_at', 'updated_at',
-                                 'deleted_at'), q)
-                session.execute(ins)
+            insert_content_history(content_clause=[and_(models.DataIdentifierAssociation.scope == did['scope'],
+                                                        models.DataIdentifierAssociation.name == did['name'])],
+                                   did_created_at=did.get('created_at'),
+                                   session=session)
+
         parent_content_clause.append(and_(models.DataIdentifierAssociation.child_scope == did['scope'], models.DataIdentifierAssociation.child_name == did['name']))
         rule_id_clause.append(and_(models.ReplicationRule.scope == did['scope'], models.ReplicationRule.name == did['name']))
 
@@ -1941,7 +1921,6 @@ def remove_dids_from_followed(dids, account, session=None):
             session.query(models.DidsFollowed).\
                 filter_by(scope=did['scope'], name=did['name'], account=account).\
                 delete(synchronize_session=False)
-
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (did['scope'], did['name']))
 
@@ -2015,3 +1994,49 @@ def create_reports(total_workers, worker_number, session=None):
 
     except NoResultFound:
         raise exception.AccountNotFound("No email found for given account.")
+
+
+@transactional_session
+def insert_content_history(content_clause, did_created_at, session=None):
+    """
+    Insert into content history a list of did
+
+    :param content_clause: Content clause of the files to archive
+    :param did_created_at: Creation date of the did
+    :param session: The database session in use.
+    """
+    query = session.query(models.DataIdentifierAssociation.scope,
+                          models.DataIdentifierAssociation.name,
+                          models.DataIdentifierAssociation.child_scope,
+                          models.DataIdentifierAssociation.child_name,
+                          models.DataIdentifierAssociation.did_type,
+                          models.DataIdentifierAssociation.child_type,
+                          models.DataIdentifierAssociation.bytes,
+                          models.DataIdentifierAssociation.adler32,
+                          models.DataIdentifierAssociation.md5,
+                          models.DataIdentifierAssociation.guid,
+                          models.DataIdentifierAssociation.events,
+                          models.DataIdentifierAssociation.rule_evaluation,
+                          models.DataIdentifierAssociation.created_at,
+                          models.DataIdentifierAssociation.updated_at).\
+        filter(or_(*content_clause))
+
+    for cont in query.all():
+        models.DataIdentifierAssociationHistory(
+            scope=cont.scope,
+            name=cont.name,
+            child_scope=cont.child_scope,
+            child_name=cont.child_name,
+            did_type=cont.did_type,
+            child_type=cont.child_type,
+            bytes=cont.bytes,
+            adler32=cont.adler32,
+            md5=cont.md5,
+            guid=cont.guid,
+            events=cont.events,
+            rule_evaluation=cont.rule_evaluation,
+            updated_at=cont.updated_at,
+            created_at=cont.created_at,
+            did_created_at=did_created_at,
+            deleted_at=datetime.utcnow()
+        ).save(session=session, flush=False)

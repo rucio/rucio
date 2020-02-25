@@ -37,9 +37,9 @@ from curses.ascii import isprint
 from datetime import datetime, timedelta
 from json import dumps
 from re import match
-from six import string_types
 from traceback import format_exc
 
+from six import string_types
 from sqlalchemy import func, and_, or_, exists, not_, update
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql import label
@@ -1491,6 +1491,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
                                         models.DataIdentifier.did_type == parent_did_type))
 
             for chunk in chunks(child_did_condition, 10):
+                rucio.core.did.insert_content_history(content_clause=chunk, did_created_at=None, session=session)
                 rowcount = session.query(models.DataIdentifierAssociation).\
                     filter(or_(*chunk)).\
                     delete(synchronize_session=False)
