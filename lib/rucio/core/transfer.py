@@ -35,6 +35,7 @@ import datetime
 import imp
 import json
 import logging
+import re
 import time
 import traceback
 
@@ -770,6 +771,11 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 if rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE or rses_info[dest_rse_id]['rse_type'] == 'TAPE':
                     overwrite = False
                     transfer_dst_type = "TAPE"
+
+                sign_url = rse_attrs[dest_rse_id].get('sign_url', None)
+                if sign_url == 'gcs':
+                    dest_url = re.sub('davs', 'gclouds', dest_url)
+                    dest_url = re.sub('https', 'gclouds', dest_url)
 
                 # IV - get external_host + strict_copy
                 strict_copy = rse_attrs[dest_rse_id].get('strict_copy', False)
