@@ -19,6 +19,7 @@ etc/rucio-server-gcs.json
 alembic.ini
 .gitlabkey
 .githubtoken
+lib/rucio/transfertool/config.yml
 
 # ignore test proxies
 *.proxy
