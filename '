@@ -785,10 +785,10 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     continue
                 if retry_count is None:
                     retry_count = 0
-		external_host = ''
+				external_host = ''
                 if fts_hosts:
                     fts_list = fts_hosts.split(",")
-                    external_host = fts_list[0]
+                	external_host = fts_list[0]
                 if retry_other_fts:
                     external_host = fts_list[retry_count % len(fts_list)]
 
