@@ -1,0 +1,72 @@
+$def with (crashtype)
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019
+-->
+
+<style>
+
+table {
+  text-align:center;
+  background-color: white;
+  vertical-align: center;
+  border-spacing: 5px 15px;
+  font-family: sans-serif;
+  font-size: 18px;
+}
+
+td th{
+  text-align: center;
+  border: 0px solid transparent;
+}
+
+div {
+  left: 50%;
+  top: 50%;
+  width: 600px;
+  margin:0 auto;
+}
+
+img {
+  width: 350px;
+}
+
+</style>
+
+
+<div>
+<table>
+<tbody>
+    <tr>
+    <!-- Logo placeholder - possible only after Rucio Auth
+          servers are configured to serve media files
+          <th> <img src="/media/logo.png"> </th> -->
+    <th> RUCIO </th>
+  </tr>
+  <tr>
+    <th> SCIENTIFIC DATA MANAGEMENT </th>
+  </tr>
+  <tr>
+       <td> Rucio authentication server could not
+           $if crashtype == "no_result":
+               finalize your token request, no authorization content returned from the auth server.
+           $elif crashtype == "contact":
+               authorize your access, please check your access credentials.
+           $elif crashtype == "bad_request":
+               recognize and process your request.
+           $elif crashtype == "unknown_identity":
+               find your OIDC identity linked to any Rucio account.
+           $else:
+               process your request due to internal error.
+      </td></tr>
+</tbody>
+</table>
+</div>
+

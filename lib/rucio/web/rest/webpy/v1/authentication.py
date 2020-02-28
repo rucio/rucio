@@ -291,23 +291,23 @@ class RedirectOIDC(RucioController):
             result = redirect_auth_oidc(query_string, fetchtoken)
 
         except AccessDenied:
-            render = template.render(join(dirname(__file__), 'templates/'))
+            render = template.render(join(dirname(__file__), '../auth_templates/'))
             return render.auth_crash('contact')
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot contact the Rucio Authentication Server.')
 
         except RucioException as error:
-            render = template.render(join(dirname(__file__), 'templates/'))
+            render = template.render(join(dirname(__file__), '../auth_templates/'))
             return render.auth_crash('internal_error')
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
 
         except Exception as error:
             print(format_exc())
-            render = template.render(join(dirname(__file__), 'templates/'))
+            render = template.render(join(dirname(__file__), '../auth_templates/'))
             return render.auth_crash('internal_error')
             raise InternalError(error)
 
         if not result:
-            render = template.render(join(dirname(__file__), 'templates/'))
+            render = template.render(join(dirname(__file__), '../auth_templates/'))
             return render.auth_crash('no_token')
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot contact the Rucio Authentication Server.')
         if fetchtoken:
@@ -378,20 +378,20 @@ class CodeOIDC(RucioController):
             result = get_token_oidc(query_string, ip)
 
         except AccessDenied:
-            render = template.render(join(dirname(__file__), 'templates/'))
+            render = template.render(join(dirname(__file__), '../auth_templates/'))
             return render.auth_crash('contact')
             raise generate_http_error(401, 'CannotAuthorize', 'Cannot authorize token request.')
         except RucioException as error:
-            render = template.render(join(dirname(__file__), 'templates/'))
+            render = template.render(join(dirname(__file__), '../auth_templates/'))
             return render.auth_crash('internal_error')
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            render = template.render(join(dirname(__file__), 'templates/'))
+            render = template.render(join(dirname(__file__), '../auth_templates/'))
             return render.auth_crash('internal_error')
             raise InternalError(error)
 
-        render = template.render(join(dirname(__file__), 'templates/'))
+        render = template.render(join(dirname(__file__), '../auth_templates/'))
         if not result:
             return render.auth_crash('no_result')
             raise generate_http_error(401, 'CannotAuthorize', 'Cannot authorize token request.')
@@ -477,7 +477,7 @@ class TokenOIDC(RucioController):
             webhome = result['webhome']
             if webhome is None:
                 header('Content-Type', 'text/html')
-                render = template.render(join(dirname(__file__), 'templates/'))
+                render = template.render(join(dirname(__file__), '../auth_templates/'))
                 return render.auth_crash('unknown_identity')
             # header('X-Rucio-Auth-Token', result[3].token)
             setcookie('x-rucio-auth-token', value=result['token'].token, path='/')
