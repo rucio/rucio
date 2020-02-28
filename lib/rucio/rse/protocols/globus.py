@@ -20,7 +20,8 @@ import hashlib
 import logging
 import sys
 
-from rucio.transfertool.globusLibrary import send_delete_task
+from rucio.transfertool.globusLibrary import getTransferClient, send_delete_task
+from globus_sdk.exc import TransferAPIError
 from rucio.common.config import config_get
 from rucio.core.rse import get_rse_attribute
 
@@ -342,11 +343,52 @@ class GlobusRSEProtocol(RSEProtocol):
             :param path: Physical file name
 
             :returns: True if the file exists, False if it doesn't
-
-            :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         logging.debug('... Beginning GlobusRSEProtocol.exists ... ')
-        raise NotImplementedError
+
+        filepath = '/'.join(path.split('/')[0:-1]) + '/'
+        filename = path.split('/')[-1]
+
+        tc = getTransferClient()
+        exists = False
+
+        if self.globus_endpoint_id:
+            try:
+                resp = tc.operation_ls(endpoint_id=self.globus_endpoint_id[0], path=filepath)
+                exists = len([r for r in resp if r['name'] == filename]) > 0
+            except TransferAPIError as err:
+                logging.debug(err)
+        else:
+            logging.error('No rse attribute found for globus endpoint id.')
+
+        return exists
+        # raise NotImplementedError
+        # pass
+
+    def list(self, path):
+        """
+            Checks if the requested path is known by the referred RSE and returns a list of items
+
+            :param path: Physical file name
+
+            :returns: List of items
+        """
+        logging.debug('... Beginning GlobusRSEProtocol.list ... ')
+
+        tc = getTransferClient()
+        items = []
+
+        if self.globus_endpoint_id:
+            try:
+                resp = tc.operation_ls(endpoint_id=self.globus_endpoint_id[0], path=path)
+                items = resp['DATA']
+            except TransferAPIError as err:
+                logging.debug(err)
+        else:
+            logging.error('No rse attribute found for globus endpoint id.')
+
+        return items
+        # raise NotImplementedError
         # pass
 
     def connect(self):
