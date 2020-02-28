@@ -52,7 +52,6 @@ from rucio.common.exception import (CannotAuthenticate, ClientProtocolNotSupport
                                     MissingModuleException, ServerConnectionException)
 from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, ssh_sign
 from rucio import version
-from rucio.core.monitor import record_counter, record_timer
 
 try:
     # Python 2
@@ -401,7 +400,6 @@ class BaseClient(object):
             userpass = {'username': self.creds['oidc_username'], 'password': self.creds['oidc_password']}
         for retry in range(self.AUTH_RETRIES + 1):
             try:
-                record_counter(counters='IdP_login.count', delta=1)
                 start = time.time()
                 result = None
                 request_auth_url = build_url(self.auth_host, path='auth/oidc')
@@ -459,7 +457,6 @@ class BaseClient(object):
                         return False
                     # In case Rucio Client is not authorized to request information about this user yet,
                     # it will automatically authorize itself on behalf of the user.
-                    record_timer(stat='IdP_login', time=time.time() - start)
                     if result.url == auth_url:
                         form_data = {}
                         for scope_item in oidc_scope.split():
