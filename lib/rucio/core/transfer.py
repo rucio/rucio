@@ -1,18 +1,30 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017-2018
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2018-2019
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
-# - Robert Illingworth, <illingwo@fnal.gov>, 2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Brandon White, <bjwhite@fnal.gov>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2019
+# - Vincent Garonne <vgaronne@gmail.com>, 2017
+# - Igor Mandrichenko <rucio@fermicloud055.fnal.gov>, 2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2020
+# - dciangot <diego.ciangottini@cern.ch>, 2018
+# - Robert Illingworth <illingwo@fnal.gov>, 2018-2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
+# - maatthias <maatthias@gmail.com>, 2019
+# - Gabriele <sucre.91@hotmail.it>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -23,6 +35,7 @@ import datetime
 import imp
 import json
 import logging
+import re
 import time
 import traceback
 
@@ -30,7 +43,7 @@ from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 from sqlalchemy import and_
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.sql.expression import bindparam, text, false
+from sqlalchemy.sql.expression import false
 
 from rucio.common import constants
 from rucio.common.exception import (RucioException, UnsupportedOperation,
@@ -47,7 +60,7 @@ from rucio.core.replica import add_replicas
 from rucio.core.request import queue_requests, set_requests_state
 from rucio.core.rse import get_rse_name, list_rses, get_rse_supported_checksums
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.db.sqla import models
+from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import DIDType, RequestState, FTSState, RSEType, RequestType, ReplicaState
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
@@ -442,7 +455,7 @@ def update_transfer_state(external_host, transfer_id, state, logging_prepend_str
 
 
 @transactional_session
-def get_hops(source_rse_id, dest_rse_id, include_multihop=False, session=None):
+def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=[], session=None):
     """
     Get a list of hops needed to transfer date from source_rse_id to dest_rse_id.
     Ideally, the list will only include one item (dest_rse_id) since no hops are needed.
@@ -450,6 +463,7 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, session=None):
     :param source_rse_id:      Source RSE id of the transfer.
     :param dest_rse_id:        Dest RSE id of the transfer.
     :param include_multihop:   If no direct link can be made, also include multihop transfers.
+    :param multihop_rses:      List of RSE ids that can be used for multihop.
     :returns:                  List of hops in the format [{'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'source_scheme_priority': N, 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm', 'dest_scheme_priority': N}]
     :raises:                   NoDistance
     """
@@ -462,7 +476,7 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, session=None):
     distance_graph = __load_distance_edges_node(rse_id=source_rse_id, session=session)
 
     # 1. Check if there is a direct connection between source and dest:
-    if distance_graph.get(source_rse_id, {dest_rse_id, None}).get(dest_rse_id) is not None:
+    if distance_graph.get(source_rse_id, {dest_rse_id: None}).get(dest_rse_id) is not None:
         # Check if there is a protocol match between the two RSEs
         try:
             matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=__load_rse_settings(rse_id=dest_rse_id, session=session),
@@ -487,7 +501,7 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, session=None):
         raise NoDistance()
 
     # 2. There is no connection or no scheme match --> Try a multi hop --> Dijkstra algorithm
-    HOP_PENALTY = core_config_get('transfers', 'hop_penalty', default=5, session=session)  # Penalty to be applied to each further hop
+    HOP_PENALTY = core_config_get('transfers', 'hop_penalty', default=10, session=session)  # Penalty to be applied to each further hop
 
     visited_nodes = {source_rse_id: {'distance': 0,
                                      'path': []}}  # Dijkstra already visisted nodes
@@ -510,6 +524,9 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, session=None):
                 # Check if the distance would be smaller
                 if visited_nodes.get(out_v, {'distance': 9999})['distance'] > current_distance + distance_graph[current_node][out_v] + HOP_PENALTY\
                    and local_optimum > current_distance + distance_graph[current_node][out_v] + HOP_PENALTY:
+                    # Check if the intermediate RSE is enabled for multihop
+                    if out_v != dest_rse_id and out_v not in multihop_rses:
+                        continue
                     # Check if there is a compatible protocol pair
                     try:
                         matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=__load_rse_settings(rse_id=out_v, session=session),
@@ -598,6 +615,13 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
     rse_mapping = {}
     current_schemes = SUPPORTED_PROTOCOLS
+
+    multihop_rses = []
+    try:
+        multihop_rses = [rse['id'] for rse in parse_expression('available_for_multihop=true')]
+    except InvalidRSEExpression:
+        multihop_rses = []
+
     for req_id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, previous_attempt_id, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path, retry_count, src_url, ranking, link_ranking in req_sources:
 
         multihop = False
@@ -629,7 +653,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         # In case of non-connected, the list contains all the intermediary RSEs
         list_hops = []
         try:
-            list_hops = get_hops(source_rse_id, dest_rse_id, include_multihop=core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session), session=session)
+            list_hops = get_hops(source_rse_id, dest_rse_id, include_multihop=core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session), multihop_rses=multihop_rses, session=session)
             if len(list_hops) > 1:
                 multihop = True
                 multi_hop_dict[req_id] = (list_hops, dict_attributes, retry_count)
@@ -656,7 +680,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             if hop['dest_rse_id'] not in rses_info:
                 rses_info[hop['dest_rse_id']] = rsemgr.get_rse_info(rse=rse_mapping[hop['dest_rse_id']], session=session)
             if hop['dest_rse_id'] not in rse_attrs:
-                rse_attrs[dest_rse_id] = get_rse_attributes(hop['dest_rse_id'], session=session)
+                rse_attrs[hop['dest_rse_id']] = get_rse_attributes(hop['dest_rse_id'], session=session)
 
         source_protocol = list_hops[0]['source_scheme']
         destination_protocol = list_hops[-1]['dest_scheme']
@@ -748,7 +772,13 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     overwrite = False
                     transfer_dst_type = "TAPE"
 
-                # IV - get external_host
+                sign_url = rse_attrs[dest_rse_id].get('sign_url', None)
+                if sign_url == 'gcs':
+                    dest_url = re.sub('davs', 'gclouds', dest_url)
+                    dest_url = re.sub('https', 'gclouds', dest_url)
+
+                # IV - get external_host + strict_copy
+                strict_copy = rse_attrs[dest_rse_id].get('strict_copy', False)
                 fts_hosts = rse_attrs[dest_rse_id].get('fts', None)
                 source_globus_endpoint_id = rse_attrs[source_rse_id].get('globus_endpoint_id', None)
                 dest_globus_endpoint_id = rse_attrs[dest_rse_id].get('globus_endpoint_id', None)
@@ -783,9 +813,6 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 source_rse_checksums = get_rse_supported_checksums(source_rse_id, session=session)
                 dest_rse_checksums = get_rse_supported_checksums(dest_rse_id, session=session)
-
-                logging.info('source RSE checksum compatibility: {}'.format(source_rse_checksums))
-                logging.info('destination RSE checksum compatibility: {}'.format(dest_rse_checksums))
 
                 common_checksum_names = set(source_rse_checksums).intersection(dest_rse_checksums)
 
@@ -824,7 +851,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                      'dest_spacetoken': dest_spacetoken,
                                      'overwrite': overwrite,
                                      'bring_online': bring_online,
-                                     'copy_pin_lifetime': dict_attributes.get('lifetime', -1),
+                                     'copy_pin_lifetime': dict_attributes.get('lifetime', 172800),
                                      'external_host': external_host,
                                      'selection_strategy': 'auto',
                                      'rule_id': rule_id,
@@ -833,6 +860,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 if multihop:
                     transfers[req_id]['multihop'] = True
                     transfers[req_id]['initial_request_id'] = req_id
+                if strict_copy:
+                    transfers[req_id]['strict_copy'] = strict_copy
 
             else:
                 current_schemes = transfers[req_id]['schemes']
@@ -985,7 +1014,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 source_rse_id_key = 'read_%s_%s' % (source_rse_id, source_protocol)
                 if source_rse_id_key not in protocols:
                     protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'third_party_copy', source_protocol)
-                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values())[0]
+                if hop['dest_rse_id'] not in rse_attrs:
+                    rse_attrs[dest_rse_id] = get_rse_attributes(hop['dest_rse_id'], session=session)
+                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': None}).values())[0]
 
                 if transfers[req_id]['file_metadata']['dest_rse_id'] != hop['dest_rse_id']:
                     files = [{'scope': scope,
@@ -1028,7 +1059,11 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                         # Need to fail all the intermediate requests + the initial one and exit the multihop loop
                         logging.warning('Multihop : A request already exists for the transfer between %s and %s. Will cancel all the parent requests', source_rse_name, dest_rse_name)
                         parent_requests.append(req_id)
-                        set_requests_state(request_ids=parent_requests, new_state=RequestState.FAILED, session=session)
+                        try:
+                            set_requests_state(request_ids=parent_requests, new_state=RequestState.FAILED, session=session)
+                        except UnsupportedOperation:
+                            logging.error('Multihop : Cannot cancel all the parent requests : %s', str(parent_requests))
+
                         # Remove from the transfer dictionary all the requests
                         for cur_req_id in parent_requests:
                             transfers.pop(cur_req_id, None)
@@ -1179,15 +1214,7 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
     if activity:
         sub_requests = sub_requests.filter(models.Request.activity == activity)
 
-    if total_workers > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number),
-                          bindparam('total_workers', total_workers)]
-            sub_requests = sub_requests.filter(text('ORA_HASH(requests.id, :total_workers) = :worker_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            sub_requests = sub_requests.filter(text('mod(md5(requests.id), %s) = %s' % (total_workers + 1, worker_number)))
-        elif session.bind.dialect.name == 'postgresql':
-            sub_requests = sub_requests.filter(text('mod(abs((\'x\'||md5(requests.id::text))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    sub_requests = filter_thread_work(session=session, query=sub_requests, total_threads=total_workers, thread_id=worker_number, hash_variable='requests.id')
 
     if limit:
         sub_requests = sub_requests.limit(limit)

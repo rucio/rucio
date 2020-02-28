@@ -41,7 +41,7 @@ from threading import Timer
 
 from rucio.common import exception, config
 from rucio.common.constraints import STRING_TYPES
-from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS
+from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, PREFERRED_CHECKSUM
 from rucio.rse.protocols import protocol
 
 try:
@@ -334,13 +334,15 @@ class Default(protocol.RSEProtocol):
 
             :raises ServiceUnavailable: if some generic error occured in the library.
 
-            :returns: a dict with two keys, filesize and adler32 of the file provided in path.
+            :returns: a dict with two keys, filesize and an element of GLOBALLY_SUPPORTED_CHECKSUMS.
         """
         ret = {}
         ctx = self.__ctx
 
+        path = str(path)
+
         try:
-            stat_str = str(ctx.stat(str(path)))
+            stat_str = str(ctx.stat(path))
         except Exception as error:
             msg = 'Error while processing gfal stat call. Error: %s'
             raise exception.ServiceUnavailable(msg % str(error))
@@ -350,22 +352,25 @@ class Default(protocol.RSEProtocol):
             msg = 'gfal stat call result has unknown format. Result: %s'
             raise exception.ServiceUnavailable(msg % stat_str)
 
-        ret['filesize'] = stat_str.split()[7]
+        ret['filesize'] = stats[7]
 
-        verified = False
         message = "\n"
+        try:
+            ret[PREFERRED_CHECKSUM] = ctx.checksum(path, str(PREFERRED_CHECKSUM.upper()))
+            return ret
+        except Exception as error:
+            message += 'Error while processing gfal checksum call (%s). Error: %s \n' % (PREFERRED_CHECKSUM, str(error))
 
         for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
+            if checksum_name == PREFERRED_CHECKSUM:
+                continue
             try:
-                ret[checksum_name] = ctx.checksum(str(path), str(checksum_name.capitalize()))
-                verified = True
+                ret[checksum_name] = ctx.checksum(path, str(checksum_name.upper()))
+                return ret
             except Exception as error:
                 message += 'Error while processing gfal checksum call (%s). Error: %s \n' % (checksum_name, str(error))
 
-        if not verified:
-            raise exception.RSEChecksumUnavailable(message)
-
-        return ret
+        raise exception.RSEChecksumUnavailable(message)
 
     def __gfal2_cancel(self):
         """

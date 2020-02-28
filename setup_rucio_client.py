@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2019
 
 import os
 import re
@@ -41,10 +41,10 @@ NAME = 'rucio-clients'
 IS_RELEASE = False
 PACKAGES = ['rucio', 'rucio.client', 'rucio.common',
             'rucio.rse.protocols', 'rucio.rse', 'rucio.tests']
-REQUIREMENTS_FILES = ['tools/pip-requires-client']
+REQUIREMENTS_FILES = ['etc/pip-requires-client']
 DESCRIPTION = "Rucio Client Lite Package"
-DATA_FILES = [('etc/', ['etc/rse-accounts.cfg.template', 'etc/rucio.cfg.template', 'etc/rucio.cfg.atlas.client.template']),
-              ('tools/', ['tools/pip-requires-client', ]), ]
+DATA_FILES = [('etc/', ['etc/rse-accounts.cfg.template', 'etc/rucio.cfg.template', 'etc/rucio.cfg.atlas.client.template',
+                        'etc/pip-requires-client']),]
 
 SCRIPTS = ['bin/rucio', 'bin/rucio-admin']
 if os.path.exists('build/'):

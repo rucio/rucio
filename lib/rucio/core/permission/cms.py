@@ -157,6 +157,18 @@ def perm_add_rule(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
+
+    rses = parse_expression(kwargs['rse_expression'])
+    # If all the RSEs matching the expression need approval, the rule cannot be created
+    if not kwargs['ask_approval']:
+        all_rses_need_approval = True
+        for rse in rses:
+            rse_attr = list_rse_attributes(rse_id=rse['id'])
+            if rse_attr.get('requires_approval', False):
+                all_rses_need_approval = False
+        if not all_rses_need_approval:
+            return False
+
     if kwargs['account'] == issuer and not kwargs['locked']:
         return True
     if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
@@ -475,6 +487,17 @@ def perm_approve_rule(issuer, kwargs):
     """
     if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
         return True
+
+    rule = get_rule(rule_id=kwargs['rule_id'])
+    rses = parse_expression(rule['rse_expression'])
+
+    # Those in rule_approvers can approve the rule
+    for rse in rses:
+        rse_attr = list_rse_attributes(rse_id=rse['id'])
+        rule_approvers = rse_attr.get('rule_approvers', None)
+        if rule_approvers and issuer.external in rule_approvers.split(','):
+            return True
+
     return False
 
 
@@ -760,6 +783,13 @@ def perm_set_local_account_limit(issuer, kwargs):
             admin_in_country.append(kv['key'].partition('-')[2])
     if admin_in_country and list_rse_attributes(rse_id=kwargs['rse_id']).get('country') in admin_in_country:
         return True
+
+    # Those listed as quota approvers can add to quotas
+    rse_attr = list_rse_attributes(rse_id=kwargs['rse_id'])
+    quota_approvers = rse_attr.get('quota_approvers', None)
+    if quota_approvers and issuer.external in quota_approvers.split(','):
+        return True
+
     return False
 
 
@@ -778,7 +808,8 @@ def perm_set_global_account_limit(issuer, kwargs):
     for kv in list_account_attributes(account=issuer):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
-    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country') for rse in parse_expression(kwargs['rse_exp'])}
+    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country')
+                              for rse in parse_expression(kwargs['rse_exp'])}
     if resolved_rse_countries.issubset(admin_in_country):
         return True
     return False
@@ -800,7 +831,8 @@ def perm_delete_global_account_limit(issuer, kwargs):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
     if admin_in_country:
-        resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country') for rse in parse_expression(kwargs['rse_exp'])}
+        resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country')
+                                  for rse in parse_expression(kwargs['rse_exp'])}
         if resolved_rse_countries.issubset(admin_in_country):
             return True
     return False
@@ -823,6 +855,12 @@ def perm_delete_local_account_limit(issuer, kwargs):
             admin_in_country.append(kv['key'].partition('-')[2])
     if admin_in_country and list_rse_attributes(rse_id=kwargs['rse_id']).get('country') in admin_in_country:
         return True
+
+    rse_attr = list_rse_attributes(rse_id=kwargs['rse_id'])
+    quota_approvers = rse_attr.get('quota_approvers', None)
+    if quota_approvers and issuer.external in quota_approvers.split(','):
+        return True
+
     return False
 
 
@@ -949,10 +987,10 @@ def perm_remove_did_from_followed(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer)\
-        or has_account_attribute(account=issuer, key='admin')\
-        or kwargs['account'] == issuer\
-        or kwargs['scope'] == 'mock'
+    return (_is_root(issuer)
+            or has_account_attribute(account=issuer, key='admin')  # NOQA: W503
+            or kwargs['account'] == issuer  # NOQA: W503
+            or kwargs['scope'] == 'mock')  # NOQA: W503
 
 
 def perm_remove_dids_from_followed(issuer, kwargs):

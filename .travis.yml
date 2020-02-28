@@ -123,13 +123,7 @@ matrix:
     env:  SUITE=all RDBMS=postgres12
   - python: 3.8
     env:  SUITE=all RDBMS=sqlite
-  allow_failures:
-  - python: 3.6
-    env: SUITE=client RDBMS=sqlite RUCIO_HOME=`pwd`
-  - python: 3.7
-    env: SUITE=client RDBMS=sqlite RUCIO_HOME=`pwd`
-  - python: 3.8
-    env: SUITE=client RDBMS=sqlite RUCIO_HOME=`pwd`
+#  allow_failures:
 
 notifications:
   slack:

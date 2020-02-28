@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Martin Barisits <martin.barisits@cern.ch>, 2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2019
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -41,6 +41,7 @@ LOGGER.addHandler(SH)
 URLS = (
     '/local/(.+)/(.+)', 'LocalAccountLimit',
     '/global/(.+)/(.+)', 'GlobalAccountLimit',
+    '/(.+)/(.+)', 'LocalAccountLimit',
 )
 
 

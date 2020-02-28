@@ -1,0 +1,25 @@
+======
+1.21.8
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Deletion: Reaper should stop operating if there is a judge-evaluator backlog `#1578 <https://github.com/rucio/rucio/issues/1578>`_
+- Functional tests: Possibility to specify different dataset convention in Automatix `#700 <https://github.com/rucio/rucio/issues/700>`_
+
+-------
+Clients
+-------
+
+****
+Bugs
+****
+
+- Clients: Upload with gsiftp fails `#3286 <https://github.com/rucio/rucio/issues/3286>`_
+- Recovery: Declaring temporary unavailable replicas also declares the files lost `#3292 <https://github.com/rucio/rucio/issues/3292>`_

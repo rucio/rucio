@@ -26,12 +26,12 @@ export PYCURL_SSL_LIBRARY=openssl
 if [[ $SUITE == "client" ]]; then
 
     if [[ "$TRAVIS_PYTHON_VERSION" !=  "2.6" ]]; then
-	pip install -r tools/pip-requires;
+	pip install -r etc/pip-requires;
     fi
     sudo apt-get update
     sudo apt-get install libxml2-dev libxmlsec1-dev libxmlsec1-openssl
     pip install setuptools_scm
-    pip install -r tools/pip-requires-test
+    pip install -r etc/pip-requires-test
     pip install .[saml]
     python setup_rucio_client.py install
     cp etc/docker/travis/rucio_client.cfg etc/rucio.cfg
@@ -61,6 +61,6 @@ elif [[ $SUITE == "all" ]]; then
 elif [[ $SUITE == 'python3' ]]; then 
     sudo apt-get update
     sudo apt-get install libxml2-dev libxmlsec1-dev libxmlsec1-openssl
-    pip install -r tools/pip-requires-test
+    pip install -r etc/pip-requires-test
     pip install .[saml]
 fi

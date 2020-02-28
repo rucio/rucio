@@ -359,7 +359,7 @@ class FTS3Transfertool(Transfertool):
         responses = {}
         fts_session = requests.Session()
         xfer_ids = ','.join(transfer_ids)
-        jobs = fts_session.get('%s/jobs/%s?files=file_state,dest_surl,finish_time,start_time,reason,source_surl,file_metadata' % (self.external_host, xfer_ids),
+        jobs = fts_session.get('%s/jobs/%s?files=file_state,dest_surl,finish_time,start_time,staging_start,staging_finished,reason,source_surl,file_metadata' % (self.external_host, xfer_ids),
                                verify=self.verify,
                                cert=self.cert,
                                headers={'Content-Type': 'application/json'},
@@ -700,6 +700,8 @@ class FTS3Transfertool(Transfertool):
                                      'src_url': file_resp.get('source_surl', None),
                                      'dst_url': file_resp.get('dest_surl', None),
                                      'started_at': datetime.datetime.strptime(file_resp['start_time'], '%Y-%m-%dT%H:%M:%S') if file_resp['start_time'] else None,
+                                     'staging_start': datetime.datetime.strptime(file_resp['staging_start'], '%Y-%m-%dT%H:%M:%S') if file_resp['staging_start'] else None,
+                                     'staging_finished': datetime.datetime.strptime(file_resp['staging_finished'], '%Y-%m-%dT%H:%M:%S') if file_resp['staging_finished'] else None,
                                      'transferred_at': datetime.datetime.strptime(file_resp['finish_time'], '%Y-%m-%dT%H:%M:%S') if file_resp['finish_time'] else None,
                                      'duration': duration,
                                      'reason': file_resp.get('reason', None),

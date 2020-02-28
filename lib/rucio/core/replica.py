@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2019
@@ -26,6 +26,7 @@
 # - Robert Illingworth, <illingwo@fnal.gov>, 2019
 # - Jaroslav Guenther, <jaroslav.guenther@gmail.com>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White, <bjwhite@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -36,15 +37,15 @@ from curses.ascii import isprint
 from datetime import datetime, timedelta
 from json import dumps
 from re import match
-from six import string_types
 from traceback import format_exc
 
+from six import string_types
 from sqlalchemy import func, and_, or_, exists, not_, update
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql import label
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError, NoResultFound
-from sqlalchemy.sql.expression import case, bindparam, select, text, false, true
+from sqlalchemy.sql.expression import case, select, text, false, true
 
 import rucio.core.did
 import rucio.core.lock
@@ -57,11 +58,11 @@ from rucio.core.credential import get_signed_url
 from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute
 from rucio.core.rse_counter import decrease, increase
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.db.sqla import models
+from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import (DIDType, ReplicaState, OBSOLETE, DIDAvailability,
                                      BadFilesStatus, RuleState, BadPFNStatus)
 from rucio.db.sqla.session import (read_session, stream_session, transactional_session,
-                                   DEFAULT_SCHEMA_NAME, get_engine)
+                                   DEFAULT_SCHEMA_NAME)
 from rucio.rse import rsemanager as rsemgr
 
 
@@ -207,16 +208,7 @@ def list_bad_replicas_history(limit=10000, thread=None, total_threads=None, sess
 
     query = session.query(models.BadReplicas.scope, models.BadReplicas.name, models.BadReplicas.rse_id).\
         filter(models.BadReplicas.state == BadFilesStatus.BAD)
-
-    if total_threads and (total_threads - 1) > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
-            query = query.filter(text('ORA_HASH(name, :total_threads) = :thread_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(name), %s) = %s' % (total_threads - 1, thread)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
-
+    query = filter_thread_work(session=session, query=query, total_threads=total_threads, thread_id=thread, hash_variable='name')
     query = query.limit(limit)
 
     bad_replicas = {}
@@ -497,15 +489,7 @@ def list_bad_replicas(limit=10000, thread=None, total_threads=None, session=None
                               models.RSEFileAssociation.rse_id).\
             filter(models.RSEFileAssociation.state == ReplicaState.BAD)
 
-    if total_threads and (total_threads - 1) > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
-            query = query.filter(text('ORA_HASH(name, :total_threads) = :thread_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(name), %s) = %s' % (total_threads - 1, thread)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
-
+    query = filter_thread_work(session=session, query=query, total_threads=total_threads, thread_id=thread, hash_variable='name')
     query = query.join(models.DataIdentifier,
                        and_(models.DataIdentifier.scope == models.RSEFileAssociation.scope,
                             models.DataIdentifier.name == models.RSEFileAssociation.name)).\
@@ -1423,6 +1407,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
             filter(or_(*chunk)).\
             delete(synchronize_session=False)
 
+    rowcount = 0
     for chunk in chunks(replica_condition, 10):
         for (scope, name, rid, replica_bytes) in session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id, models.RSEFileAssociation.bytes).\
                 with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle').filter(models.RSEFileAssociation.rse_id == rse_id).filter(or_(*chunk)):
@@ -1506,6 +1491,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
                                         models.DataIdentifier.did_type == parent_did_type))
 
             for chunk in chunks(child_did_condition, 10):
+                rucio.core.did.insert_content_history(content_clause=chunk, did_created_at=None, session=session)
                 rowcount = session.query(models.DataIdentifierAssociation).\
                     filter(or_(*chunk)).\
                     delete(synchronize_session=False)
@@ -1620,16 +1606,7 @@ def list_unlocked_replicas(rse_id, limit, bytes=None, worker_number=None, total_
         where(and_(models.RSEFileAssociation.scope == models.Request.scope,
                    models.RSEFileAssociation.name == models.Request.name))
     query = query.filter(not_(stmt))
-
-    if worker_number and total_workers and total_workers - 1 > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
-            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1)))
-
+    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
     needed_space = bytes
     total_bytes, total_files = 0, 0
     rows = []
@@ -1651,15 +1628,16 @@ def list_unlocked_replicas(rse_id, limit, bytes=None, worker_number=None, total_
 
 
 @transactional_session
-def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_seconds=600, session=None):
+def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_seconds=600, only_delete_obsolete=False, session=None):
     """
     List RSE File replicas with no locks.
 
-    :param limit:              Number of replicas returned.
-    :param bytes:              The amount of needed bytes.
-    :param rse_id:             The rse_id.
-    :delay_seconds:            The delay to query replicas in BEING_DELETED state
-    :param session:            The database session in use.
+    :param limit:                    Number of replicas returned.
+    :param bytes:                    The amount of needed bytes.
+    :param rse_id:                   The rse_id.
+    :param delay_seconds:            The delay to query replicas in BEING_DELETED state
+    :param only_delete_obsolete      If set to True, will only return the replicas with EPOCH tombstone
+    :param session:                  The database session in use.
 
     :returns: a list of dictionary replica.
     """
@@ -1692,8 +1670,11 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
         if replica_cnt[0] > 1:
             if state != ReplicaState.UNAVAILABLE:
                 total_bytes += bytes
-                if tombstone != OBSOLETE and needed_space is not None and total_bytes > needed_space:
-                    break
+                if tombstone != OBSOLETE:
+                    if only_delete_obsolete:
+                        break
+                    if needed_space is not None and total_bytes > needed_space:
+                        break
 
                 total_files += 1
                 if total_files > limit:
@@ -1714,8 +1695,11 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
 
             if request_cnt[0] == 0:
                 total_bytes += bytes
-                if tombstone != OBSOLETE and needed_space is not None and total_bytes > needed_space:
-                    break
+                if tombstone != OBSOLETE:
+                    if only_delete_obsolete:
+                        break
+                    if needed_space is not None and total_bytes > needed_space:
+                        break
 
                 total_files += 1
                 if total_files > limit:
@@ -2365,7 +2349,7 @@ def list_dataset_replicas_vp(scope, name, deep=False, session=None):
     :param deep: Lookup at the file level.
     :param session: Database session to use.
 
-    :returns: If VP exists a list of dicts ofsites, otherwise a list of dicts of dataset replicas
+    :returns: If VP exists and there is at least one non-TAPE replica, returns a list of dicts of sites
     """
 
     vp_replies = ['other']
@@ -2379,17 +2363,28 @@ def list_dataset_replicas_vp(scope, name, deep=False, session=None):
             vp_replies = vp_replies.json()
         else:
             vp_replies = ['other']
-    except Exception as e:
-        print(e)
+    except Exception as exc:
+        print(exc)
         vp_replies = ['other']
 
     if vp_replies != ['other']:
-        for vp_reply in vp_replies:
-            yield {'vp': True, 'site': vp_reply}
-    else:
+        # check that there is at least one regular replica
+        # that is not on tape and has a protocol  with scheme "root"
+        # and can be accessed from WAN
+        accessible_replica_exists = False
         for reply in list_dataset_replicas(scope=scope, name=name, deep=deep, session=session):
-            reply['vp'] = False
-            yield reply
+            rse_info = rsemgr.get_rse_info(rse=reply['rse'], session=session)
+            if rse_info['rse_type'] == 'TAPE':
+                continue
+            for prot in rse_info['protocols']:
+                if prot['scheme'] == 'root' and prot['domains']['wan']['read']:
+                    accessible_replica_exists = True
+                    break
+            if accessible_replica_exists is True:
+                break
+        if accessible_replica_exists is True:
+            for vp_reply in vp_replies:
+                yield {'vp': True, 'site': vp_reply}
 
 
 @stream_session
@@ -2664,16 +2659,7 @@ def get_bad_pfns(limit=10000, thread=None, total_threads=None, session=None):
     """
     result = []
     query = session.query(models.BadPFNs.path, models.BadPFNs.state, models.BadPFNs.reason, models.BadPFNs.account, models.BadPFNs.expires_at)
-
-    if total_threads and (total_threads - 1) > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
-            query = query.filter(text('ORA_HASH(path, :total_threads) = :thread_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(path), %s) = %s' % (total_threads - 1, thread)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(path))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
-
+    query = filter_thread_work(session=session, query=query, total_threads=total_threads, thread_id=thread, hash_variable='path')
     query.order_by(models.BadPFNs.created_at)
     query = query.limit(limit)
     for path, state, reason, account, expires_at in query.yield_per(1000):
@@ -2816,17 +2802,8 @@ def list_expired_temporary_unavailable_replicas(total_workers, worker_number, li
         with_hint(models.ReplicationRule, "index(bad_replicas BAD_REPLICAS_EXPIRES_AT_IDX)", 'oracle').\
         order_by(models.BadReplicas.expires_at)
 
-    if session.bind.dialect.name == 'oracle':
-        bindparams = [bindparam('worker_number', worker_number),
-                      bindparam('total_workers', total_workers)]
-        query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-    elif session.bind.dialect.name == 'mysql':
-        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
-    elif session.bind.dialect.name == 'postgresql':
-        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
-
+    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
     query = query.limit(limit)
-
     return query.all()
 
 
@@ -2956,11 +2933,10 @@ def set_tombstone(rse_id, scope, name, tombstone=OBSOLETE, session=None):
     :param tombstone: the tombstone to set. Default is OBSOLETE
     :param session: database session in use.
     """
-    conn = get_engine().connect()
     stmt = update(models.RSEFileAssociation).where(and_(models.RSEFileAssociation.rse_id == rse_id, models.RSEFileAssociation.name == name, models.RSEFileAssociation.scope == scope,
                                                         ~session.query(models.ReplicaLock).filter_by(scope=scope, name=name, rse_id=rse_id).exists()))\
                                             .values(tombstone=tombstone)
-    result = conn.execute(stmt)
+    result = session.execute(stmt)
     if not result.rowcount:
         try:
             session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, rse_id=rse_id).one()

@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
@@ -26,6 +26,7 @@
 # - Tobias Wegner <twegner@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Brandon White, <bjwhite@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -43,7 +44,7 @@ from sqlalchemy import and_, or_, exists, String, cast, type_coerce, JSON
 from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError, InvalidRequestError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
-from sqlalchemy.sql.expression import bindparam, case, text, Insert, select, true
+from sqlalchemy.sql.expression import bindparam, case, text, select, true
 
 import rucio.core.rule
 import rucio.core.replica  # import add_replicas
@@ -55,7 +56,7 @@ from rucio.core import account_counter, rse_counter, config as config_core
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
 from rucio.core.naming_convention import validate_name
-from rucio.db.sqla import models
+from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, RuleState
 from rucio.db.sqla.enum import EnumSymbol
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
@@ -89,28 +90,25 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
         order_by(models.DataIdentifier.expired_at).\
         with_hint(models.DataIdentifier, "index(DIDS DIDS_EXPIRED_AT_IDX)", 'oracle')
 
-    if worker_number and total_workers and total_workers - 1 > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
-            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1)))
-        elif session.bind.dialect.name == 'sqlite':
-            row_count = 0
-            dids = list()
-            for scope, name, did_type, created_at, purge_replicas in query.yield_per(10):
-                if int(md5(name).hexdigest(), 16) % total_workers == worker_number - 1:
-                    dids.append({'scope': scope,
-                                 'name': name,
-                                 'did_type': did_type,
-                                 'created_at': created_at,
-                                 'purge_replicas': purge_replicas})
-                    row_count += 1
-                if limit and row_count >= limit:
-                    return dids
-            return dids
+    if session.bind.dialect.name in ['oracle', 'mysql', 'postgresql']:
+        query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
+    elif session.bind.dialect.name == 'sqlite' and worker_number and total_workers and total_workers > 0:
+        row_count = 0
+        dids = list()
+        for scope, name, did_type, created_at, purge_replicas in query.yield_per(10):
+            if int(md5(name).hexdigest(), 16) % total_workers == worker_number:
+                dids.append({'scope': scope,
+                             'name': name,
+                             'did_type': did_type,
+                             'created_at': created_at,
+                             'purge_replicas': purge_replicas})
+                row_count += 1
+            if limit and row_count >= limit:
+                return dids
+        return dids
+    else:
+        if worker_number and total_workers:
+            raise exception.DatabaseException('The database type %s returned by SQLAlchemy is invalid.' % session.bind.dialect.name)
 
     if limit:
         query = query.limit(limit)
@@ -346,7 +344,7 @@ def __add_files_to_dataset(scope, name, files, account, rse_id, ignore_duplicate
     # Get metadata from dataset
     try:
         dataset_meta = validate_name(scope=scope, name=name, did_type='D')
-    except:
+    except Exception:
         dataset_meta = None
 
     if rse_id:
@@ -573,6 +571,7 @@ def delete_dids(dids, account, expire_rules=False, session=None):
     collection_replica_clause, file_clause = [], []
     not_purge_replicas = []
     did_followed_clause = []
+    metadata_to_delete = []
 
     for did in dids:
         logging.info('Removing did %(scope)s:%(name)s (%(did_type)s)' % did)
@@ -597,33 +596,20 @@ def delete_dids(dids, account, expire_rules=False, session=None):
 
             # Archive content
             # Disable for postgres
-            if session.bind.dialect.name != 'postgresql':
-                q = session.query(models.DataIdentifierAssociation.scope,
-                                  models.DataIdentifierAssociation.name,
-                                  models.DataIdentifierAssociation.child_scope,
-                                  models.DataIdentifierAssociation.child_name,
-                                  models.DataIdentifierAssociation.did_type,
-                                  models.DataIdentifierAssociation.child_type,
-                                  models.DataIdentifierAssociation.bytes,
-                                  models.DataIdentifierAssociation.adler32,
-                                  models.DataIdentifierAssociation.md5,
-                                  models.DataIdentifierAssociation.guid,
-                                  models.DataIdentifierAssociation.events,
-                                  models.DataIdentifierAssociation.rule_evaluation,
-                                  bindparam("did_created_at", did.get('created_at')),
-                                  models.DataIdentifierAssociation.created_at,
-                                  models.DataIdentifierAssociation.updated_at,
-                                  bindparam('deleted_at', datetime.utcnow())).\
-                    filter(and_(models.DataIdentifierAssociation.scope == did['scope'],
-                                models.DataIdentifierAssociation.name == did['name']))
-                ins = Insert(table=models.DataIdentifierAssociationHistory, inline=True).\
-                    from_select(('scope', 'name', 'child_scope', 'child_name', 'did_type',
-                                 'child_type', 'bytes', 'adler32', 'md5', 'guid', 'events',
-                                 'rule_evaluation', 'did_created_at', 'created_at', 'updated_at',
-                                 'deleted_at'), q)
-                session.execute(ins)
+            insert_content_history(content_clause=[and_(models.DataIdentifierAssociation.scope == did['scope'],
+                                                        models.DataIdentifierAssociation.name == did['name'])],
+                                   did_created_at=did.get('created_at'),
+                                   session=session)
+
         parent_content_clause.append(and_(models.DataIdentifierAssociation.child_scope == did['scope'], models.DataIdentifierAssociation.child_name == did['name']))
         rule_id_clause.append(and_(models.ReplicationRule.scope == did['scope'], models.ReplicationRule.name == did['name']))
+
+        if session.bind.dialect.name == 'oracle':
+            oracle_version = int(session.connection().connection.version.split('.')[0])
+            if oracle_version >= 12:
+                metadata_to_delete.append(and_(models.DidMeta.scope == did['scope'], models.DidMeta.name == did['name']))
+        else:
+            metadata_to_delete.append(and_(models.DidMeta.scope == did['scope'], models.DidMeta.name == did['name']))
 
         # Send message
         add_message('ERASE', {'account': account.external,
@@ -680,6 +666,19 @@ def delete_dids(dids, account, expire_rules=False, session=None):
         with record_timer_block('undertaker.dids'):
             rowcount = session.query(models.CollectionReplica).filter(or_(*collection_replica_clause)).\
                 delete(synchronize_session=False)
+
+    # Remove generic did metadata
+    if metadata_to_delete:
+        if session.bind.dialect.name == 'oracle':
+            oracle_version = int(session.connection().connection.version.split('.')[0])
+            if oracle_version >= 12:
+                with record_timer_block('undertaker.did_meta'):
+                    rowcount = session.query(models.DidMeta).filter(or_(*metadata_to_delete)).\
+                        delete(synchronize_session=False)
+        else:
+            with record_timer_block('undertaker.did_meta'):
+                rowcount = session.query(models.DidMeta).filter(or_(*metadata_to_delete)).\
+                    delete(synchronize_session=False)
 
     # remove data identifier
     if existing_parent_dids:
@@ -823,14 +822,7 @@ def list_new_dids(did_type, thread=None, total_threads=None, chunk_size=1000, se
         elif isinstance(did_type, EnumSymbol):
             query = query.filter_by(did_type=did_type)
 
-    if total_threads and (total_threads - 1) > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
-            query = query.filter(text('ORA_HASH(name, :total_threads) = :thread_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(name), %s) = %s' % (total_threads - 1, thread)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
+    query = filter_thread_work(session=session, query=query, total_threads=total_threads, thread_id=thread, hash_variable='name')
 
     row_count = 0
     for chunk in query.yield_per(10):
@@ -1929,7 +1921,6 @@ def remove_dids_from_followed(dids, account, session=None):
             session.query(models.DidsFollowed).\
                 filter_by(scope=did['scope'], name=did['name'], account=account).\
                 delete(synchronize_session=False)
-
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (did['scope'], did['name']))
 
@@ -1970,15 +1961,7 @@ def create_reports(total_workers, worker_number, session=None):
     query = session.query(models.FollowEvents)
 
     # Use hearbeat mechanism to select a chunck of events based on the hashed account
-    if total_workers > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number),
-                          bindparam('total_workers', total_workers)]
-            query = query.filter(text('ORA_HASH(account, :total_workers) = :worker_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(account), %s) = %s' % (total_workers + 1, worker_number)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(account))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='account')
 
     try:
         events = query.order_by(models.FollowEvents.created_at).all()
@@ -2011,3 +1994,49 @@ def create_reports(total_workers, worker_number, session=None):
 
     except NoResultFound:
         raise exception.AccountNotFound("No email found for given account.")
+
+
+@transactional_session
+def insert_content_history(content_clause, did_created_at, session=None):
+    """
+    Insert into content history a list of did
+
+    :param content_clause: Content clause of the files to archive
+    :param did_created_at: Creation date of the did
+    :param session: The database session in use.
+    """
+    query = session.query(models.DataIdentifierAssociation.scope,
+                          models.DataIdentifierAssociation.name,
+                          models.DataIdentifierAssociation.child_scope,
+                          models.DataIdentifierAssociation.child_name,
+                          models.DataIdentifierAssociation.did_type,
+                          models.DataIdentifierAssociation.child_type,
+                          models.DataIdentifierAssociation.bytes,
+                          models.DataIdentifierAssociation.adler32,
+                          models.DataIdentifierAssociation.md5,
+                          models.DataIdentifierAssociation.guid,
+                          models.DataIdentifierAssociation.events,
+                          models.DataIdentifierAssociation.rule_evaluation,
+                          models.DataIdentifierAssociation.created_at,
+                          models.DataIdentifierAssociation.updated_at).\
+        filter(or_(*content_clause))
+
+    for cont in query.all():
+        models.DataIdentifierAssociationHistory(
+            scope=cont.scope,
+            name=cont.name,
+            child_scope=cont.child_scope,
+            child_name=cont.child_name,
+            did_type=cont.did_type,
+            child_type=cont.child_type,
+            bytes=cont.bytes,
+            adler32=cont.adler32,
+            md5=cont.md5,
+            guid=cont.guid,
+            events=cont.events,
+            rule_evaluation=cont.rule_evaluation,
+            updated_at=cont.updated_at,
+            created_at=cont.created_at,
+            did_created_at=did_created_at,
+            deleted_at=datetime.utcnow()
+        ).save(session=session, flush=False)

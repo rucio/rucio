@@ -14,14 +14,14 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2019
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Brandon White <bjwhite@fnal.gov>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019-2020
 #
 # PY3K COMPATIBLE
 
@@ -40,6 +40,7 @@ import threading
 import time
 import traceback
 
+from datetime import datetime, timedelta
 from math import ceil
 from operator import itemgetter
 from collections import OrderedDict
@@ -48,7 +49,6 @@ from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
-from rucio.db.sqla.constants import ReplicaState
 from rucio.common.config import config_get
 from rucio.common.exception import (DatabaseException, RSENotFound, ConfigNotFound, ReplicaUnAvailable, ReplicaNotFound, ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable, SourceNotFound)
 from rucio.common.utils import chunks
@@ -60,6 +60,7 @@ from rucio.core.message import add_message
 from rucio.core.replica import list_and_mark_unlocked_replicas, delete_replicas
 from rucio.core.rse import list_rses, get_rse_limits, get_rse_usage, list_rse_attributes, get_rse_protocols
 from rucio.core.rse_expression_parser import parse_expression
+from rucio.core.rule import get_evaluation_backlog
 from rucio.rse import rsemanager as rsemgr
 
 
@@ -164,9 +165,6 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, prepend_str):
                 err_msg = 'Deletion NOTFOUND of %s:%s as %s on %s' % (replica['scope'], replica['name'], replica['pfn'], rse_name)
                 logging.warning('%s %s', prepend_str, err_msg)
                 deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
-                if replica['state'] == ReplicaState.AVAILABLE:
-                    deletion_dict['reason'] = str(err_msg)
-                    add_message('deletion-failed', deletion_dict)
 
             except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
                 logging.warning('%s Deletion NOACCESS of %s:%s as %s on %s: %s', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name, str(error))
@@ -249,7 +247,7 @@ def __check_rse_usage(rse, rse_id, prepend_str):
     :param rse_id: the rse name.
     :param rse_id: the rse id.
 
-    :returns : max_being_deleted_files, needed_free_space, used, free.
+    :returns : max_being_deleted_files, needed_free_space, used, free, only_delete_obsolete.
     """
 
     result = REGION.get('rse_usage_%s' % rse_id)
@@ -260,14 +258,14 @@ def __check_rse_usage(rse, rse_id, prepend_str):
         attributes = list_rse_attributes(rse_id=rse_id)
         greedy = attributes.get('greedyDeletion', False)
         if greedy:
-            result = (max_being_deleted_files, 1000000000000, used, free)
+            result = (max_being_deleted_files, 1000000000000, used, free, False)
             REGION.set('rse_usage_%s' % rse_id, result)
             return result
 
         # Get RSE limits
         limits = get_rse_limits(rse_id=rse_id)
         if not limits and 'MinFreeSpace' not in limits and 'MaxBeingDeletedFiles' not in limits:
-            result = (max_being_deleted_files, needed_free_space, used, free)
+            result = (max_being_deleted_files, needed_free_space, used, free, False)
             REGION.set('rse_usage_%s' % rse_id, result)
             return result
 
@@ -276,8 +274,8 @@ def __check_rse_usage(rse, rse_id, prepend_str):
 
         # Check from which sources to get used and total spaces
         # Default is storage
-        source_for_total_space = attributes.get('sourceForTotalSpace', 'storage')
-        source_for_used_space = attributes.get('sourceForUsedSpace', 'storage')
+        source_for_total_space = attributes.get('source_for_total_space', 'storage')
+        source_for_used_space = attributes.get('source_for_used_space', 'storage')
 
         logging.debug('%s RSE: %s, source_for_total_space: %s, source_for_used_space: %s',
                       prepend_str, rse, source_for_total_space, source_for_used_space)
@@ -293,10 +291,10 @@ def __check_rse_usage(rse, rse_id, prepend_str):
         # If no information is available about disk space, do nothing except if there are replicas with Epoch tombstone
         if not usage:
             if not obsolete:
-                result = (max_being_deleted_files, needed_free_space, used, free)
+                result = (max_being_deleted_files, needed_free_space, used, free, False)
                 REGION.set('rse_usage_%s' % rse_id, result)
                 return result
-            result = (max_being_deleted_files, obsolete, used, free)
+            result = (max_being_deleted_files, obsolete, used, free, True)
             REGION.set('rse_usage_%s' % rse_id, result)
             return result
 
@@ -308,7 +306,7 @@ def __check_rse_usage(rse, rse_id, prepend_str):
         if source_for_total_space != source_for_used_space:
             usage = [entry for entry in rse_usage if entry['source'] == source_for_used_space]
             if not usage:
-                result = (max_being_deleted_files, needed_free_space, None, free)
+                result = (max_being_deleted_files, needed_free_space, None, free, False)
                 REGION.set('rse_usage_%s' % rse_id, result)
                 return result
             for var in usage:
@@ -323,7 +321,7 @@ def __check_rse_usage(rse, rse_id, prepend_str):
         if needed_free_space <= 0:
             needed_free_space = 0 or obsolete
 
-        result = (max_being_deleted_files, needed_free_space, used, free)
+        result = (max_being_deleted_files, needed_free_space, used, free, True)
         REGION.set('rse_usage_%s' % rse_id, result)
         return result
     logging.debug('%s Using cached value for RSE usage on RSE %s', prepend_str, rse)
@@ -351,27 +349,56 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
     hb_thread = threading.current_thread()
     sanity_check(executable=executable, hostname=hostname)
     heart_beat = live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info('%s Reaper starting', prepend_str)
 
-    time.sleep(10)  # To prevent running on the same partition if all the reapers restart at the same time
+    GRACEFUL_STOP.wait(10)  # To prevent running on the same partition if all the reapers restart at the same time
     heart_beat = live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info('%s Reaper started', prepend_str)
 
     while not GRACEFUL_STOP.is_set():
 
+        # Check if there is a Judge Evaluator backlog
+        try:
+            max_evaluator_backlog_count = get('reaper', 'max_evaluator_backlog_count')
+        except ConfigNotFound:
+            max_evaluator_backlog_count = None
+        try:
+            max_evaluator_backlog_duration = get('reaper', 'max_evaluator_backlog_duration')
+        except ConfigNotFound:
+            max_evaluator_backlog_duration = None
+        if max_evaluator_backlog_count or max_evaluator_backlog_duration:
+            backlog = get_evaluation_backlog()
+            if max_evaluator_backlog_count and \
+               backlog[0] and \
+               max_evaluator_backlog_duration and \
+               backlog[1] and \
+               backlog[0] > max_evaluator_backlog_count and \
+               backlog[1] < datetime.utcnow() - timedelta(minutes=max_evaluator_backlog_duration):
+                logging.error('%s Reaper: Judge evaluator backlog count and duration hit, stopping operation', prepend_str)
+                GRACEFUL_STOP.wait(30)
+                continue
+            elif max_evaluator_backlog_count and backlog[0] and backlog[0] > max_evaluator_backlog_count:
+                logging.error('%s Reaper: Judge evaluator backlog count hit, stopping operation', prepend_str)
+                GRACEFUL_STOP.wait(30)
+                continue
+            elif max_evaluator_backlog_duration and backlog[1] and backlog[1] < datetime.utcnow() - timedelta(minutes=max_evaluator_backlog_duration):
+                logging.error('%s Reaper: Judge evaluator backlog duration hit, stopping operation', prepend_str)
+                GRACEFUL_STOP.wait(30)
+                continue
+
         rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses)
         if not rses_to_process:
             logging.error('%s Reaper: No RSEs found. Will sleep for 30 seconds', prepend_str)
-            time.sleep(30)
+            GRACEFUL_STOP.wait(30)
             continue
         start_time = time.time()
         try:
             staging_areas = []
             dict_rses = {}
             heart_beat = live(executable, hostname, pid, hb_thread, older_than=3600)
-            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
             tot_needed_free_space = 0
             for rse in rses_to_process:
                 # Check if the RSE is a staging area
@@ -381,7 +408,7 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
                 if rse['availability'] % 2 == 0:
                     logging.debug('%s RSE %s is blacklisted for delete', prepend_str, rse['rse'])
                     continue
-                max_being_deleted_files, needed_free_space, used, free = __check_rse_usage(rse['rse'], rse['id'], prepend_str)
+                max_being_deleted_files, needed_free_space, used, free, only_delete_obsolete = __check_rse_usage(rse['rse'], rse['id'], prepend_str)
                 # Check if greedy mode
                 if greedy:
                     dict_rses[(rse['rse'], rse['id'])] = [1000000000000, max_being_deleted_files]
@@ -444,10 +471,13 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
                 del_start_time = time.time()
                 try:
                     with monitor.record_timer_block('reaper.list_unlocked_replicas'):
+                        if only_delete_obsolete:
+                            logging.debug('%s Will run list_and_mark_unlocked_replicas on %s. No space needed, will only delete EPOCH tombstoned replicas', prepend_str, rse_name)
                         replicas = list_and_mark_unlocked_replicas(limit=chunk_size,
                                                                    bytes=needed_free_space,
                                                                    rse_id=rse_id,
                                                                    delay_seconds=delay_seconds,
+                                                                   only_delete_obsolete=only_delete_obsolete,
                                                                    session=None)
                     logging.debug('%s list_and_mark_unlocked_replicas  on %s for %s bytes in %s seconds: %s replicas', prepend_str, rse_name, needed_free_space, time.time() - del_start_time, len(replicas))
                     if len(replicas) < chunk_size:
@@ -498,7 +528,7 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
             tottime = time.time() - start_time
             if tottime < sleep_time:
                 logging.info('%s Will sleep for %s seconds', prepend_str, sleep_time - tottime)
-                time.sleep(sleep_time - tottime)
+                GRACEFUL_STOP.wait(sleep_time - tottime)
 
         except DatabaseException as error:
             logging.warning('%s Reaper:  %s', prepend_str, str(error))

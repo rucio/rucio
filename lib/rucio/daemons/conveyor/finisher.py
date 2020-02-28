@@ -17,10 +17,11 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015-2019
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019-2020
 #
 # PY3K COMPATIBLE
 
@@ -101,7 +102,7 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000)
     heartbeat.sanity_check(executable=executable, hostname=hostname)
     # Make an initial heartbeat so that all finishers have the correct worker number on the next try
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info('%s Finisher starting - db_bulk(%i) bulk (%i)', prepend_str, db_bulk, bulk)
 
     graceful_stop.wait(10)
@@ -110,7 +111,7 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000)
         start_time = time.time()
         try:
             heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
-            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
             logging.debug('%s Starting new cycle', prepend_str)
             if activities is None:
                 activities = [None]
@@ -119,11 +120,13 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000)
                 logging.debug('%s Working on activity %s', prepend_str, activity)
                 time1 = time.time()
                 reqs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-                                             state=[RequestState.DONE, RequestState.FAILED, RequestState.LOST, RequestState.SUBMITTING,
-                                                    RequestState.SUBMISSION_FAILED, RequestState.NO_SOURCES, RequestState.ONLY_TAPE_SOURCES],
+                                             state=[RequestState.DONE, RequestState.FAILED,
+                                                    RequestState.LOST, RequestState.SUBMITTING,
+                                                    RequestState.SUBMISSION_FAILED, RequestState.NO_SOURCES,
+                                                    RequestState.ONLY_TAPE_SOURCES, RequestState.MISMATCH_SCHEME],
                                              limit=db_bulk,
                                              older_than=datetime.datetime.utcnow(),
-                                             total_workers=heart_beat['nr_threads'] - 1,
+                                             total_workers=heart_beat['nr_threads'],
                                              worker_number=heart_beat['assign_thread'],
                                              mode_all=True,
                                              hash_variable='rule_id')
