@@ -1632,8 +1632,7 @@ def get_parser():
                                                                '\n'
                                                                'Note::\n'
                                                                '\n'
-                                                               '    --distance can be set in range (0-11), 0 is the closest\n'
-                                                               '    --ranking can be set in range (0-13), 13 is the best\n'
+                                                               '    --distance and --ranking can range (0-11), 0 is the closest\n'
                                                                'Note: order of RSEs is fixed: source, destination\n'
                                                                '\n')
     add_distance_rses_parser.set_defaults(which='add_distance_rses')
