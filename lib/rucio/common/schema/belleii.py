@@ -15,6 +15,7 @@
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -84,7 +85,7 @@ IGNORE_AVAILABILITY = {"description": "Rule ignore availability status",
 
 RSE = {"description": "RSE name",
        "type": "string",
-       "pattern": "^([A-Z0-9]+([_-][A-Z0-9]+)*)$"}
+       "pattern": "^([A-Z])+((([A-Za-z0-9]+))*(-)?)*$"}
 
 RSE_ATTRIBUTE = {"description": "RSE attribute",
                  "type": "string",
