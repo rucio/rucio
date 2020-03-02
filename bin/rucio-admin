@@ -1177,7 +1177,7 @@ def get_parser():
                          + 'If --polling is set, Rucio Client should get the token without any further interaction of the user. This option is active only if --auto is *not* specified.')  # NOQA: W503
     oparser.add_argument('--oidc-refresh-lifetime', dest='oidc_refresh_lifetime', default=None, help='Max lifetime in hours for this an access token will be refreshed by asynchronous Rucio daemon. '
                          + 'If not specified, refresh will be stopped after 4 days. This option is effective only if --oidc-scope includes offline_access scope for a refresh token to be granted to Rucio.')  # NOQA: W503
-    oparser.add_argument('--oidc-issuer', dest='oidc_issuer', default=config_get('oidc', 'admin_issuer', False),
+    oparser.add_argument('--oidc-issuer', dest='oidc_issuer', default=config_get('oidc', 'admin_issuer', False, ''),
                          help='Defines which Identity Provider is goign to be used. The issuer string must correspond '
                          + 'to the keys configured in the /etc/idpsecrets.json auth server configuration file.')  # NOQA: W503
 
