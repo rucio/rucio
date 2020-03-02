@@ -76,10 +76,13 @@ def __get_rucio_oidc_clients(keytimeout=43200):
                              'https://issuer_2/': <Rucio OIDC Client_2 instance>,}.
               In case of trouble, Exception is raised.
     """
-    with open(IDPSECRETS) as client_secret_file:
-        client_secrets = json.load(client_secret_file)
     clients = {}
     admin_clients = {}
+    try:
+        with open(IDPSECRETS) as client_secret_file:
+            client_secrets = json.load(client_secret_file)
+    except:
+        return (clients, admin_clients)
     for iss in client_secrets:
         try:
             client_secret = client_secrets[iss]
