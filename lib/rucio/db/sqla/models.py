@@ -1,4 +1,4 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2015-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,11 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2019
 # - Wen Guan, <wen.guan@cern.ch>, 2015
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -191,6 +195,11 @@ class ModelBase(object):
         elif cls.__tablename__.upper() == 'UPDATED_RSE_COUNTERS':
             return cls._table_args + (CheckConstraint('CREATED_AT IS NOT NULL', 'UPDATED_RSE_CNTRS_CREATED_NN'),
                                       CheckConstraint('UPDATED_AT IS NOT NULL', 'UPDATED_RSE_CNTRS_UPDATED_NN'),
+                                      {'mysql_engine': 'InnoDB'})
+        # pylint: disable=maybe-no-member
+        elif cls.__tablename__.upper() == 'DIDS_FOLLOWED_EVENTS':
+            return cls._table_args + (CheckConstraint('CREATED_AT IS NOT NULL', 'DIDS_FOLLOWED_EVENTS_CRE_NN'),
+                                      CheckConstraint('UPDATED_AT IS NOT NULL', 'DIDS_FOLLOWED_EVENTS_UPD_NN'),
                                       {'mysql_engine': 'InnoDB'})
 
         # otherwise, proceed normally
@@ -678,6 +687,9 @@ class RSETransferLimit(BASE, ModelBase):
     rse_expression = Column(String(3000))
     max_transfers = Column(BigInteger)
     volume = Column(BigInteger)
+    deadline = Column(BigInteger)
+    strategy = Column(String(25))
+    direction = Column(String(25))
     transfers = Column(BigInteger)
     waitings = Column(BigInteger)
     _table_args = (PrimaryKeyConstraint('rse_id', 'activity', name='RSE_TRANSFER_LIMITS_PK'),
@@ -737,6 +749,8 @@ class RSEProtocols(BASE, ModelBase):
     write_wan = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
     delete_wan = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
     third_party_copy = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
+    third_party_copy_read = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
+    third_party_copy_write = Column(Integer, server_default='0')  # if no value is provided, 0 i.e. not supported is assumed as default value
     extended_attributes = Column(String(4000), nullable=True)
     rses = relationship("RSE", backref="rse_protocols")
     _table_args = (PrimaryKeyConstraint('rse_id', 'scheme', 'hostname', 'port', name='RSE_PROTOCOL_PK'),
@@ -753,6 +767,16 @@ class AccountLimit(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('account', 'rse_id', name='ACCOUNT_LIMITS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_LIMITS_ACCOUNT_FK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='ACCOUNT_LIMITS_RSE_ID_FK'),)
+
+
+class AccountGlobalLimit(BASE, ModelBase):
+    """Represents account limits"""
+    __tablename__ = 'account_glob_limits'
+    account = Column(InternalAccountString(25))
+    rse_expression = Column(String(3000))
+    bytes = Column(BigInteger)
+    _table_args = (PrimaryKeyConstraint('account', 'rse_expression', name='ACCOUNT_GLOBAL_LIMITS_PK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_GLOBAL_LIMITS_ACC_FK'),)
 
 
 class AccountUsage(BASE, ModelBase, Versioned):
@@ -881,7 +905,7 @@ class ReplicationRule(BASE, ModelBase):
                    CheckConstraint('STATE IS NOT NULL', name='RULES_STATE_NN'),
                    CheckConstraint('SCOPE IS NOT NULL', name='RULES_SCOPE_NN'),
                    CheckConstraint('NAME IS NOT NULL', name='RULES_NAME_NN'),
-                   CheckConstraint('GROUPING IS NOT NULL', name='RULES_GROUPING_NN'),
+                   CheckConstraint(grouping != None, name='RULES_GROUPING_NN'),  # NOQA: E711
                    CheckConstraint('COPIES IS NOT NULL', name='RULES_COPIES_NN'),
                    CheckConstraint('LOCKED IS NOT NULL', name='RULES_LOCKED_NN'),
                    CheckConstraint('ACCOUNT IS NOT NULL', name='RULES_ACCOUNT_NN'),
@@ -1062,6 +1086,8 @@ class Request(BASE, ModelBase, Versioned):
     submitter_id = Column(Integer)
     estimated_started_at = Column(DateTime)
     estimated_transferred_at = Column(DateTime)
+    staging_started_at = Column(DateTime)
+    staging_finished_at = Column(DateTime)
     account = Column(InternalAccountString(25))
     requested_at = Column(DateTime)
     priority = Column(Integer)
@@ -1150,15 +1176,39 @@ class Subscription(BASE, ModelBase, Versioned):
 class Token(BASE, ModelBase):
     """Represents the authentication tokens and their lifetime"""
     __tablename__ = 'tokens'
-    token = Column(String(352))  # account-identity-appid-uuid -> max length: (+ 30 1 255 1 32 1 32)
+    token = Column(String(3072))  # account-identity-appid-uuid -> max length: (+ 30 1 255 1 32 1 32)
     account = Column(InternalAccountString(25))
+    refresh_token = Column(String(315), default=None)
+    refresh = Column(Boolean, default=False)
+    refresh_start = Column(DateTime, default=None)
+    refresh_expired_at = Column(DateTime, default=None)
+    refresh_lifetime = Column(Integer())
+    oidc_scope = Column(String(2048), default=None)  # scopes define the specific actions applications can be allowed to do on a user's behalf
     identity = Column(String(2048))
+    audience = Column(String(315), default=None)
     expired_at = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
     ip = Column(String(39), nullable=True)
     _table_args = (PrimaryKeyConstraint('token', name='TOKENS_TOKEN_PK'),  # not supported for primary key constraint mysql_length=255
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='TOKENS_ACCOUNT_FK'),
                    CheckConstraint('EXPIRED_AT IS NOT NULL', name='TOKENS_EXPIRED_AT_NN'),
                    Index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'account', 'expired_at'))
+
+
+class OAuthRequest(BASE, ModelBase):
+    """Represents the authentication session parameters of OAuth 2.0 requests"""
+    __tablename__ = 'oauth_requests'
+    account = Column(InternalAccountString(25))
+    state = Column(String(50))
+    nonce = Column(String(50))
+    access_msg = Column(String(2048))
+    redirect_msg = Column(String(2048))
+    refresh_lifetime = Column(Integer())
+    ip = Column(String(39), nullable=True)
+    expired_at = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=600))  # 10 min lifetime by default
+    _table_args = (PrimaryKeyConstraint('state', name='OAUTH_REQUESTS_STATE_PK'),
+                   CheckConstraint('EXPIRED_AT IS NOT NULL', name='OAUTH_REQUESTS_EXPIRED_AT_NN'),
+                   Index('OAUTH_REQUESTS_ACC_EXP_AT_IDX', 'account', 'expired_at'),
+                   Index('OAUTH_REQUESTS_ACCESS_MSG_IDX', 'access_msg'))
 
 
 class Message(BASE, ModelBase):
@@ -1274,6 +1324,40 @@ class VO(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('vo', name='VO_PK'), )
 
 
+class DidsFollowed(BASE, ModelBase):
+    """Represents the datasets followed by an user"""
+    __tablename__ = 'dids_followed'
+    scope = Column(InternalScopeString(SCOPE_LENGTH))
+    name = Column(String(NAME_LENGTH))
+    account = Column(InternalAccountString(25))
+    did_type = Column(DIDType.db_type(name='DIDS_FOLLOWED_TYPE_CHK'))
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'account', name='DIDS_FOLLOWED_PK'),
+                   CheckConstraint('SCOPE IS NOT NULL', name='DIDS_FOLLOWED_SCOPE_NN'),
+                   CheckConstraint('NAME IS NOT NULL', name='DIDS_FOLLOWED_NAME_NN'),
+                   CheckConstraint('ACCOUNT IS NOT NULL', name='DIDS_FOLLOWED_ACCOUNT_NN'),
+                   CheckConstraint('DID_TYPE IS NOT NULL', name='DIDS_FOLLOWED_DID_TYPE_NN'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='DIDS_FOLLOWED_ACCOUNT_FK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DIDS_FOLLOWED_SCOPE_NAME_FK'))
+
+
+class FollowEvents(BASE, ModelBase):
+    """Represents the events affecting the datasets which are followed"""
+    __tablename__ = 'dids_followed_events'
+    scope = Column(String(SCOPE_LENGTH))
+    name = Column(String(NAME_LENGTH))
+    account = Column(String(25))
+    did_type = Column(DIDType.db_type(name='DIDS_FOLLOWED_EVENTS_TYPE_CHK'))
+    event_type = Column(String(1024))
+    payload = Column(Text)
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'account', name='DIDS_FOLLOWED_EVENTS_PK'),
+                   CheckConstraint('SCOPE IS NOT NULL', name='DIDS_FOLLOWED_EVENTS_SCOPE_NN'),
+                   CheckConstraint('NAME IS NOT NULL', name='DIDS_FOLLOWED_EVENTS_NAME_NN'),
+                   CheckConstraint('ACCOUNT IS NOT NULL', name='DIDS_FOLLOWED_EVENTS_ACC_NN'),
+                   CheckConstraint('DID_TYPE IS NOT NULL', name='DIDS_FOLLOWED_EVENTS_TYPE_NN'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='DIDS_FOLLOWED_EVENTS_ACC_FK'),
+                   Index('DIDS_FOLLOWED_EVENTS_ACC_IDX', 'account'))
+
+
 def register_models(engine):
     """
     Creates database tables for all models with the given engine
@@ -1282,6 +1366,7 @@ def register_models(engine):
     models = (Account,
               AccountAttrAssociation,
               AccountLimit,
+              AccountGlobalLimit,
               AccountUsage,
               AlembicVersion,
               BadReplicas,
@@ -1296,6 +1381,8 @@ def register_models(engine):
               DataIdentifier,
               DidMeta,
               DeletedDataIdentifier,
+              DidsFollowed,
+              FollowEvents,
               Heartbeats,
               Identity,
               IdentityAccountAssociation,
@@ -1303,6 +1390,7 @@ def register_models(engine):
               Message,
               MessageHistory,
               NamingConvention,
+              OAuthRequest,
               QuarantinedReplica,
               RSE,
               RSEAttrAssociation,
@@ -1339,6 +1427,7 @@ def unregister_models(engine):
     models = (Account,
               AccountAttrAssociation,
               AccountLimit,
+              AccountGlobalLimit,
               AccountUsage,
               AlembicVersion,
               BadReplicas,
@@ -1353,6 +1442,8 @@ def unregister_models(engine):
               DidMeta,
               DataIdentifier,
               DeletedDataIdentifier,
+              DidsFollowed,
+              FollowEvents,
               Heartbeats,
               Identity,
               IdentityAccountAssociation,
@@ -1360,6 +1451,7 @@ def unregister_models(engine):
               Message,
               MessageHistory,
               NamingConvention,
+              OAuthRequest,
               QuarantinedReplica,
               RSE,
               RSEAttrAssociation,

@@ -9,13 +9,16 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014-2017
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White, <bjwhite@fnal.gov>, 2019
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 
 from dogpile.cache import make_region
 from hashlib import sha256
 
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
-from rucio.core.account_limit import set_account_limit
+from rucio.common.config import config_get
+from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_did, attach_dids
 from rucio.core.lock import successful_transfer, failed_transfer, get_replica_locks
 from rucio.core.replica import get_replica
@@ -63,15 +66,15 @@ class TestJudgeRepairer():
         # Add quota
         cls.jdoe = InternalAccount('jdoe')
         cls.root = InternalAccount('root')
-        set_account_limit(cls.jdoe, cls.rse1_id, -1)
-        set_account_limit(cls.jdoe, cls.rse3_id, -1)
-        set_account_limit(cls.jdoe, cls.rse4_id, -1)
-        set_account_limit(cls.jdoe, cls.rse5_id, -1)
+        set_local_account_limit(cls.jdoe, cls.rse1_id, -1)
+        set_local_account_limit(cls.jdoe, cls.rse3_id, -1)
+        set_local_account_limit(cls.jdoe, cls.rse4_id, -1)
+        set_local_account_limit(cls.jdoe, cls.rse5_id, -1)
 
-        set_account_limit(cls.root, cls.rse1_id, -1)
-        set_account_limit(cls.root, cls.rse3_id, -1)
-        set_account_limit(cls.root, cls.rse4_id, -1)
-        set_account_limit(cls.root, cls.rse5_id, -1)
+        set_local_account_limit(cls.root, cls.rse1_id, -1)
+        set_local_account_limit(cls.root, cls.rse3_id, -1)
+        set_local_account_limit(cls.root, cls.rse4_id, -1)
+        set_local_account_limit(cls.root, cls.rse5_id, -1)
 
     def test_to_repair_a_rule_with_NONE_grouping_whose_transfer_failed(self):
         """ JUDGE REPAIRER: Test to repair a rule with 1 failed transfer (lock)"""
@@ -279,7 +282,7 @@ class TestJudgeRepairer():
         rse = rse_name_generator()
         rse_id = add_rse(rse)
         update_rse(rse_id, {'availability_write': False})
-        set_account_limit(self.jdoe, rse_id, -1)
+        set_local_account_limit(self.jdoe, rse_id, -1)
 
         rule_repairer(once=True)  # Clean out the repairer
         scope = InternalScope('mock')
@@ -298,8 +301,8 @@ class TestJudgeRepairer():
 
         region = make_region().configure('dogpile.cache.memcached',
                                          expiration_time=3600,
-                                         arguments={'url': "127.0.0.1:11211", 'distributed_lock': True})
-        region.delete(sha256(rse).hexdigest())
+                                         arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
+        region.delete(sha256(rse.encode()).hexdigest())
 
         update_rse(rse_id, {'availability_write': True})
         rule_repairer(once=True)

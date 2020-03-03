@@ -86,7 +86,7 @@ class Default(protocol.RSEProtocol):
             self.__s3.object_info(S3Uri(pfn))
             return True
         except S3Error as e:
-            if e.status == 404:
+            if e.status in [404, 204]:
                 return False
             else:
                 raise exception.ServiceUnavailable(e)
@@ -131,7 +131,7 @@ class Default(protocol.RSEProtocol):
         except S3Error as e:
             tf.close()
             call(['rm', dest])  # Must be changed if resume will be supported
-            if e.status in [404, 403]:
+            if e.status in [404, 403, 204]:
                 raise exception.SourceNotFound(e)
             else:
                 raise exception.ServiceUnavailable(e)
@@ -177,7 +177,7 @@ class Default(protocol.RSEProtocol):
         try:
             self.__s3.object_delete(S3Uri(pfn))
         except S3Error as e:
-            if e.status in [404, 403]:
+            if e.status in [404, 403, 204]:
                 raise exception.SourceNotFound(e)
             else:
                 raise exception.ServiceUnavailable(e)
@@ -195,7 +195,7 @@ class Default(protocol.RSEProtocol):
         try:
             self.__s3.object_move(S3Uri(pfn), S3Uri(new_pfn))
         except S3Error as e:
-            if e.status in [404, 403]:
+            if e.status in [404, 403, 204]:
                 if self.exists(pfn):
                     raise exception.SourceNotFound(e)
                 else:

@@ -19,6 +19,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -41,6 +42,7 @@ from rucio.core.rse_selector import RSESelector
 from rucio.common.config import config_get
 from rucio.common.exception import (InsufficientTargetRSEs, RuleNotFound, DuplicateRule,
                                     InsufficientAccountLimit)
+from rucio.common.types import InternalAccount
 
 from rucio.db.sqla.session import transactional_session
 from rucio.db.sqla import models
@@ -195,6 +197,9 @@ def _list_rebalance_rule_candidates_dump(rse, mode=None):
                     rules[rule_id] = {'state': 'DELETED'}
                     print(e)
                     continue
+                if rule_info['child_rule_id']:
+                    rules[rule_id] = {'state': 'DELETED'}
+                    continue
                 rules[rule_id] = {'scope': rule_info['scope'],
                                   'name': rule_info['name'],
                                   'rse_expression': rse_expression,
@@ -243,7 +248,7 @@ def list_rebalance_rule_candidates(rse, mode=None, session=None):
     # the rest is done with sql query
     from_date = datetime.utcnow() + timedelta(days=60)
     to_date = datetime.now() - timedelta(days=60)
-    allowed_accounts = ['panda', 'root', 'ddmadmin']
+    allowed_accounts = [InternalAccount(a) for a in ('panda', 'root', 'ddmadmin')]
     allowed_grouping = [RuleGrouping.DATASET, RuleGrouping.ALL]
     external_dsl = aliased(models.DatasetLock)
     count_locks = select([func.count()]).where(and_(external_dsl.scope == models.DatasetLock.scope,
@@ -331,7 +336,7 @@ def select_target_rse(parent_rule, current_rse, rse_expression, subscription_id,
     elif int(rse_attributes['tier']) == 3:
         # Tier 3 will go to Tier 2, since we don't have enough t3s
         rses = parse_expression(expression='((tier=2&type=DATADISK)\\datapolicynucleus=1)\\%s' % target_rse, filter={'availability_write': True}, session=session)
-    rseselector = RSESelector(account='ddmadmin', rses=rses, weight='freespace', copies=1, ignore_account_limit=True, session=session)
+    rseselector = RSESelector(account=InternalAccount('ddmadmin'), rses=rses, weight='freespace', copies=1, ignore_account_limit=True, session=session)
     return get_rse_name([rse_id for rse_id, _, _ in rseselector.select_rse(size=0, preferred_rse_ids=[], blacklist=other_rses)][0], session=session)
 
 

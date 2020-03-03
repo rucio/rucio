@@ -1,4 +1,4 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2017-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,9 @@
 # limitations under the License.
 #
 # Authors:
+# - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2019
+# - Robert Illingworth <illingwo@fnal.gov>, 2019
 
 ''' increase identity length '''
 
@@ -32,12 +34,13 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+
     if context.get_context().dialect.name in ['oracle', 'postgresql']:
 
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
-        alter_column('identities', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
-        alter_column('account_map', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
+        alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema[:-1])
+        alter_column('identities', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema[:-1])
+        alter_column('account_map', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema[:-1])
 
         drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
@@ -48,14 +51,14 @@ def upgrade():
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
 
-    elif context.get_context().dialect.name == 'mysql':
-        alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048))
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
+        alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema[:-1])
 
         # MySQL does not allow altering a column referenced by a ForeignKey
         # so we need to drop that one first
         drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
-        alter_column('identities', 'identity', existing_type=sa.String(255), type_=sa.String(2048), nullable=False)
-        alter_column('account_map', 'identity', existing_type=sa.String(255), type_=sa.String(2048), nullable=False)
+        alter_column('identities', 'identity', existing_type=sa.String(255), type_=sa.String(2048), nullable=False, schema=schema[:-1])
+        alter_column('account_map', 'identity', existing_type=sa.String(255), type_=sa.String(2048), nullable=False, schema=schema[:-1])
         create_foreign_key('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', 'identities', ['identity', 'identity_type'], ['identity', 'identity_type'])
 
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
@@ -65,11 +68,32 @@ def upgrade():
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
 
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
+        alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema[:-1])
+
+        # MySQL does not allow altering a column referenced by a ForeignKey
+        # so we need to drop that one first
+        drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
+        alter_column('identities', 'identity', existing_type=sa.String(255), type_=sa.String(2048), nullable=False, schema=schema[:-1])
+        alter_column('account_map', 'identity', existing_type=sa.String(255), type_=sa.String(2048), nullable=False, schema=schema[:-1])
+        create_foreign_key('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', 'identities', ['identity', 'identity_type'], ['identity', 'identity_type'])
+
+        op.execute('ALTER TABLE ' + schema + 'identities DROP CHECK IDENTITIES_TYPE_CHK')  # pylint: disable=no-member
+        create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
+                                table_name='identities',
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
+        op.execute('ALTER TABLE ' + schema + 'account_map DROP CHECK ACCOUNT_MAP_ID_TYPE_CHK')  # pylint: disable=no-member
+        create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
+                                table_name='account_map',
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
+
 
 def downgrade():
     '''
     Downgrade the database to the previous revision
     '''
+
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     # Attention!
     # This automatically removes all SSH keys to accommodate the column size and check constraint.
@@ -94,7 +118,6 @@ def downgrade():
         alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
 
     elif context.get_context().dialect.name == 'postgresql':
-        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
         execute("DELETE FROM " + schema + "account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
         execute("DELETE FROM " + schema + "identities WHERE identity_type='SSH'")  # pylint: disable=no-member
 
@@ -114,9 +137,9 @@ def downgrade():
         alter_column('account_map', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema[:-1])
         alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema[:-1])
 
-    elif context.get_context().dialect.name == 'mysql':
-        execute("DELETE FROM account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
-        execute("DELETE FROM identities WHERE identity_type='SSH'")  # pylint: disable=no-member
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
+        execute("DELETE FROM " + schema + "account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
+        execute("DELETE FROM " + schema + "identities WHERE identity_type='SSH'")  # pylint: disable=no-member
 
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
@@ -126,11 +149,34 @@ def downgrade():
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS')")
 
-        alter_column('tokens', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
+        alter_column('tokens', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema[:-1])
 
         # MySQL does not allow altering a column referenced by a ForeignKey
         # so we need to drop that one first
         drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
-        alter_column('account_map', 'identity', existing_type=sa.String(2048), type_=sa.String(255), nullable=False)
-        alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255), nullable=False)
+        alter_column('account_map', 'identity', existing_type=sa.String(2048), type_=sa.String(255), nullable=False, schema=schema[:-1])
+        alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255), nullable=False, schema=schema[:-1])
+        create_foreign_key('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', 'identities', ['identity', 'identity_type'], ['identity', 'identity_type'])
+
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
+        execute("DELETE FROM " + schema + "account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
+        execute("DELETE FROM " + schema + "identities WHERE identity_type='SSH'")  # pylint: disable=no-member
+
+        op.execute('ALTER TABLE ' + schema + 'identities DROP CHECK IDENTITIES_TYPE_CHK')  # pylint: disable=no-member
+        create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
+                                table_name='identities',
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS')")
+
+        op.execute('ALTER TABLE ' + schema + 'account_map DROP CHECK ACCOUNT_MAP_ID_TYPE_CHK')  # pylint: disable=no-member
+        create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
+                                table_name='account_map',
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS')")
+
+        alter_column('tokens', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema[:-1])
+
+        # MySQL does not allow altering a column referenced by a ForeignKey
+        # so we need to drop that one first
+        drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
+        alter_column('account_map', 'identity', existing_type=sa.String(2048), type_=sa.String(255), nullable=False, schema=schema[:-1])
+        alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255), nullable=False, schema=schema[:-1])
         create_foreign_key('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', 'identities', ['identity', 'identity_type'], ['identity', 'identity_type'])

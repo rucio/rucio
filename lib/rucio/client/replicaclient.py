@@ -280,7 +280,7 @@ class ReplicaClient(BaseClient):
         :param name: The name of the dataset.
         :param deep: Lookup at the file level.
 
-        :returns: If VP exists a list of dicts of sites, otherwise a list of dicts of dataset replicas
+        :returns: If VP exists a list of dicts of sites
         """
         payload = {}
         if deep:

@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2019
 #
 # script to update the version parameter for RucioUI Javascript and CSS includes
 
@@ -33,7 +34,7 @@ new_file = orig_file
 
 for f in files:
     md5_sum = md5_file('/opt/rucio/lib/rucio/web/ui' + f)
-    regex = r"(?<=" + f + "\?version=)[^\"]+"
+    regex = r"(?<=" + f + r"\?version=)[^\"]+"
 
     new_file = sub(regex, md5_sum, new_file)
 

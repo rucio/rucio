@@ -2,16 +2,20 @@ version: "2"
 services:
   rucio:
     image: rucio/rucio-dev
+    hostname: rucio
     ports:
       - "443:443"
     links:
-      - psql:psql
+      - ruciodb:ruciodb
       - graphite:graphite
     volumes:
       - ../../../tools:/opt/rucio/tools
       - ../../../bin:/opt/rucio/bin
       - ../../../lib:/opt/rucio/lib
-  psql:
+    environment:
+      - X509_USER_CERT=/opt/rucio/etc/usercert.pem
+      - X509_USER_KEY=/opt/rucio/etc/userkey.pem
+  ruciodb:
     image: postgres:11
     environment:
       - POSTGRES_USER=rucio
@@ -19,6 +23,7 @@ services:
       - POSTGRES_PASSWORD=secret
     ports:
       - "5432:5432"
+    command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
   graphite:
     image: graphiteapp/graphite-statsd
     ports:

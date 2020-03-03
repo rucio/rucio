@@ -1,4 +1,4 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Robert Illingworth <illingwo@fnal.gov>, 2019
 
 ''' new replica state for temporary unavailable replicas '''
 
@@ -32,12 +33,19 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+
     if context.get_context().dialect.name in ['oracle', 'postgresql']:
         drop_constraint('REPLICAS_STATE_CHK', 'replicas', type_='check')
         create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'S', 'T')")
 
-    elif context.get_context().dialect.name == 'mysql':
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
+        create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
+                                condition="state in ('A', 'U', 'C', 'B', 'D', 'S', 'T')")
+
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
+        op.execute('ALTER TABLE ' + schema + 'replicas DROP CHECK REPLICAS_STATE_CHK')  # pylint: disable=no-member
         create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'S', 'T')")
 
@@ -47,17 +55,23 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+
     if context.get_context().dialect.name == 'oracle':
         drop_constraint('REPLICAS_STATE_CHK', 'replicas', type_='check')
         create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'S')")
 
     elif context.get_context().dialect.name == 'postgresql':
-        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
         op.execute('ALTER TABLE ' + schema + 'replicas DROP CONSTRAINT IF EXISTS "REPLICAS_STATE_CHK", ALTER COLUMN state TYPE CHAR')  # pylint: disable=no-member
         create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'S')")
 
-    elif context.get_context().dialect.name == 'mysql':
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
+        create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
+                                condition="state in ('A', 'U', 'C', 'B', 'D', 'S')")
+
+    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
+        op.execute('ALTER TABLE ' + schema + 'replicas DROP CHECK REPLICAS_STATE_CHK')  # pylint: disable=no-member
         create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'S')")

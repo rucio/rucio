@@ -20,6 +20,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019-2020
 #
 # PY3K COMPATIBLE
 
@@ -127,7 +128,7 @@ def __check_rse_usage(rse_id):
     return max_being_deleted_files, needed_free_space, used, free
 
 
-def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=100,
+def reaper(rses, worker_number=0, child_number=0, total_children=1, chunk_size=100,
            once=False, greedy=False, scheme=None, delay_seconds=0):
     """
     Main loop to select and delete files.
@@ -151,7 +152,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
     executable = ' '.join(sys.argv)
     # Generate a hash just for the subset of RSEs
     rse_names = [rse['rse'] for rse in rses]
-    hash_executable = hashlib.sha256(sys.argv[0] + ''.join(rse_names)).hexdigest()
+    hash_executable = hashlib.sha256((sys.argv[0] + ''.join(rse_names)).encode()).hexdigest()
     sanity_check(executable=None, hostname=hostname)
 
     nothing_to_do = {}
@@ -221,12 +222,12 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                     for files in chunks(replicas, chunk_size):
                         logging.debug('Reaper %s-%s: Running on : %s', worker_number, child_number, str(files))
                         try:
-                            update_replicas_states(replicas=[dict(replica.items() + [('state', ReplicaState.BEING_DELETED), ('rse_id', rse['id'])]) for replica in files], nowait=True)
+                            update_replicas_states(replicas=[dict(list(replica.items()) + [('state', ReplicaState.BEING_DELETED), ('rse_id', rse['id'])]) for replica in files], nowait=True)
                             for replica in files:
                                 try:
-                                    replica['pfn'] = str(rsemgr.lfns2pfns(rse_settings=rse_info,
-                                                                          lfns=[{'scope': replica['scope'].external, 'name': replica['name'], 'path': replica['path']}],
-                                                                          operation='delete', scheme=scheme).values()[0])
+                                    replica['pfn'] = str(list(rsemgr.lfns2pfns(rse_settings=rse_info,
+                                                                               lfns=[{'scope': replica['scope'].external, 'name': replica['name'], 'path': replica['path']}],
+                                                                               operation='delete', scheme=scheme).values())[0])
                                 except (ReplicaUnAvailable, ReplicaNotFound) as error:
                                     err_msg = 'Failed to get pfn UNAVAILABLE replica %s:%s on %s with error %s' % (replica['scope'], replica['name'], rse['rse'], str(error))
                                     logging.warning('Reaper %s-%s: %s', worker_number, child_number, err_msg)
@@ -249,7 +250,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                 pfn = replica['pfn']
                                                 # sign the URL if necessary
                                                 if prot.attributes['scheme'] == 'https' and rse_info['sign_url'] is not None:
-                                                    pfn = get_signed_url(rse_info['sign_url'], 'delete', pfn)
+                                                    pfn = get_signed_url(rse['id'], rse_info['sign_url'], 'delete', pfn)
                                                 prot.delete(pfn)
                                             else:
                                                 logging.warning('Reaper %s-%s: Deletion UNAVAILABLE of %s:%s as %s on %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'])
@@ -269,7 +270,7 @@ def reaper(rses, worker_number=1, child_number=1, total_children=1, chunk_size=1
                                                                       'protocol': prot.attributes['scheme']})
                                         logging.info('Reaper %s-%s: Deletion SUCCESS of %s:%s as %s on %s in %s seconds', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], duration)
                                     except SourceNotFound:
-                                        err_msg = 'Reaper %s-%s: Deletion NOTFOUND of %s:%s as %s on %s' % (worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'])
+                                        err_msg = 'Deletion NOTFOUND of %s:%s as %s on %s' % (replica['scope'], replica['name'], replica['pfn'], rse['rse'])
                                         logging.warning(err_msg)
                                         deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
                                         if replica['state'] == ReplicaState.AVAILABLE:
@@ -414,7 +415,7 @@ def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, gr
                 logging.warning('Reaper: Empty RSEs list for worker %(worker)s' % locals())
                 continue
             kwargs = {'worker_number': worker,
-                      'child_number': child + 1,
+                      'child_number': child,
                       'total_children': threads_per_worker or 1,
                       'once': once,
                       'chunk_size': chunk_size,
@@ -422,7 +423,7 @@ def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, gr
                       'rses': rses_list,
                       'delay_seconds': delay_seconds,
                       'scheme': scheme}
-            threads.append(threading.Thread(target=reaper, kwargs=kwargs, name='Worker: %s, child: %s' % (worker, child + 1)))
+            threads.append(threading.Thread(target=reaper, kwargs=kwargs, name='Worker: %s, child: %s' % (worker, child)))
     [t.start() for t in threads]
     while threads[0].is_alive():
         [t.join(timeout=3.14) for t in threads]

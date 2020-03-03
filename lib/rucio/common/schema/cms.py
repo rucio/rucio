@@ -62,12 +62,21 @@ R_SCOPE = {"description": "Scope name",
            "type": "string",
            "pattern": "\\w"}
 
+CMS_LFN_LENGTH = 500
+CMS_DATASET_CORE = r'/[a-zA-Z0-9\-_]{1,99}/[a-zA-Z0-9\.\-_]{1,199}/[A-Z\-]{1,50}'
+CMS_BLOCK_PART = r'[a-zA-Z0-9\.\-_]{1,100}'
 
-NAME_LENGTH = 500
+CMS_DATASET = r'^%s$' % CMS_DATASET_CORE
+CMS_BLOCK = r'^%s#%s$' % (CMS_DATASET_CORE, CMS_BLOCK_PART)  # Valid dataset name and block separated by #
+CMS_LFN = r'^\/store\/[A-Za-z0-9][A-Za-z0-9\.\-\_\/]{1,%s}$' % (CMS_LFN_LENGTH - len('/store/'))
+
+CMS_BLOCK_LENGTH = 100 + 200 + 51 + 101
 
 NAME = {"description": "Data Identifier name",
         "type": "string",
-        "pattern": r"^\/[A-Za-z0-9][A-Za-z0-9\.\-\_\/\#]{1,%s}$" % NAME_LENGTH}
+        "pattern": r"%s|%s|%s" % (CMS_DATASET, CMS_BLOCK, CMS_LFN)}
+
+NAME_LENGTH = max(CMS_LFN_LENGTH, CMS_BLOCK_LENGTH)
 
 # read name
 R_NAME = NAME
@@ -346,7 +355,7 @@ MESSAGE_OPERATION = {"type": "object",
 
 ACCOUNT_ATTRIBUTE = {"description": "Account attribute",
                      "type": "string",
-                     "pattern": r'^[a-z0-9-_]{1,30}$'}
+                     "pattern": r'^[a-zA-Z0-9-_\\/\\.]{1,30}$'}
 
 SCOPE_NAME_REGEXP = '/([^/]*)(?=/)(.*)'
 

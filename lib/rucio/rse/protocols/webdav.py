@@ -182,6 +182,8 @@ class Default(protocol.RSEProtocol):
                 proxy_path = '/tmp/x509up_u%s' % os.geteuid()
                 if os.path.isfile(proxy_path):
                     x509 = proxy_path
+                elif self.auth_token:
+                    pass
                 else:
                     raise exception.RSEAccessDenied('X509_USER_PROXY is not set')
             self.cert = (x509, x509)
@@ -190,9 +192,10 @@ class Default(protocol.RSEProtocol):
             self.timeout = credentials['timeout']
         except KeyError:
             self.timeout = 300
-        self.session = requests.session()
+        self.session = requests.Session()
         self.session.mount('https://', TLSv1HttpAdapter())
-
+        if self.auth_token:
+            self.session.headers.update({'Authorization': 'Bearer ' + self.auth_token})
         # "ping" to see if the server is available
         try:
             res = self.session.request('HEAD', self.path2pfn(''), verify=False, timeout=self.timeout, cert=self.cert)

@@ -8,6 +8,8 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Martin Barisits, <martin.barisits@cern.ch>, 2019
 
 import sys
 import traceback
@@ -29,8 +31,8 @@ if __name__ == '__main__':
                  ('datatype', 'ALL', None, ['HITS', 'AOD', 'EVNT', 'NTUP_TRIG', 'NTUP_SMWZ', 'NoDatatypeDefined', 'DPD']),
                  ('version', 'ALL', None, []),
                  ('campaign', 'ALL', None, []),
-                 ('guid', 'FILE', '^(\{){0,1}[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}(\}){0,1}$', []),
-                 ('events', 'DERIVED', '^\d+$', [])]
+                 ('guid', 'FILE', r'^(\{){0,1}[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}(\}){0,1}$', []),
+                 ('events', 'DERIVED', r'^\d+$', [])]
 
     c = Client()
     for key, key_type, value_regexp, values in meta_keys:
@@ -38,23 +40,23 @@ if __name__ == '__main__':
             try:
                 c.add_key(key=key, key_type=key_type, value_regexp=value_regexp)
             except Duplicate:
-                print '%(key)s already added' % locals()
+                print('%(key)s already added' % locals())
 
             for value in values:
 
                 try:
                     c.add_value(key=key, value=value)
                 except Duplicate:
-                    print '%(key)s:%(value)s already added' % locals()
+                    print('%(key)s:%(value)s already added' % locals())
 
                 if key == 'project':
                     try:
                         c.add_scope('root', value)
                     except Duplicate:
-                        print 'Scope %(value)s already added' % locals()
+                        print('Scope %(value)s already added' % locals())
         except:
             errno, errstr = sys.exc_info()[:2]
             trcbck = traceback.format_exc()
-            print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
+            print('Interrupted processing with %s %s %s.' % (errno, errstr, trcbck))
 
     sys.exit(OK)

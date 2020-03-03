@@ -17,6 +17,8 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -24,8 +26,82 @@ from rucio.api import permission
 from rucio.common import exception
 from rucio.common.types import InternalAccount
 from rucio.common.utils import api_update_return_dict
-from rucio.core import authentication, identity
+from rucio.core import authentication, identity, oidc
 from rucio.db.sqla.constants import IdentityType
+
+
+def redirect_auth_oidc(authn_code, fetchtoken=False):
+    """
+    Finds the Authentication URL in the Rucio DB oauth_requests table
+    and redirects user's browser to this URL.
+
+    :param auth_code: Rucio assigned code to redirect
+                      authorization securely to IdP via Rucio Auth server through a browser.
+    :param fetchtoken: If True, valid token temporarily saved in the oauth_requests table
+                       will be returned. If False, redirection URL is returned.
+    :param session: The database session in use.
+
+    :returns: result of the query (authorization URL or a
+              token if a user asks with the correct code) or None.
+              Exception thrown in case of an unexpected crash.
+    """
+    return authentication.redirect_auth_oidc(authn_code, fetchtoken)
+
+
+def get_auth_oidc(account, **kwargs):
+    """
+    Assembles the authorization request of the Rucio Client tailored to the Rucio user
+    & Identity Provider. Saves authentication session parameters in the oauth_requests
+    DB table (for later use-cases). This information is saved for the token lifetime
+    of a token to allow token exchange and refresh.
+    Returns authorization URL as a string or a redirection url to
+    be used in user's browser for authentication.
+
+    :param account: Rucio Account identifier as a string.
+    :param auth_scope: space separated list of scope names. Scope parameter
+                       defines which user's info the user allows to provide
+                       to the Rucio Client.
+    :param audience: audience for which tokens are requested ('rucio' is the default)
+    :param auto: If True, the function will return authorization URL to the Rucio Client
+                 which will log-in with user's IdP credentials automatically.
+                 Also it will instruct the IdP to return an AuthZ code to another Rucio REST
+                 endpoint /oidc_token. If False, the function will return a URL
+                 to be used by the user in the browser in order to authenticate via IdP
+                 (which will then return with AuthZ code to /oidc_code REST endpoint).
+    :param polling: If True, '_polling' string will be appended to the access_msg
+                    in the DB oauth_requests table to inform the authorization stage
+                    that the Rucio Client is polling the server for a token
+                    (and no fetchcode needs to be returned at the end).
+    :param refresh_lifetime: specifies how long the OAuth daemon should
+                             be refreshing this token. Default is 96 hours.
+    :param ip: IP address of the client as a string.
+    :param session: The database session in use.
+
+    :returns: User & Rucio OIDC Client specific Authorization or Redirection URL as a string
+              OR a redirection url to be used in user's browser for authentication.
+    """
+    # no permission layer for the moment !
+
+    account = InternalAccount(account)
+    return oidc.get_auth_oidc(account, **kwargs)
+
+
+def get_token_oidc(auth_query_string, ip=None):
+    """
+    After Rucio User got redirected to Rucio /auth/oidc_token (or /auth/oidc_code)
+    REST endpoints with authz code and session state encoded within the URL.
+    These parameters are used to eventually gets user's info and tokens from IdP.
+
+    :param auth_query_string: IdP redirection URL query string (AuthZ code & user session state).
+    :param ip: IP address of the client as a string.
+    :param session: The database session in use.
+
+    :returns: One of the following tuples: ("fetchcode", <code>); ("token", <token>);
+              ("polling", True); The result depends on the authentication strategy being used
+              (no auto, auto, polling).
+    """
+    # no permission layer for the moment !
+    return oidc.get_token_oidc(auth_query_string, ip)
 
 
 def get_auth_token_user_pass(account, username, password, appid, ip=None):
@@ -141,12 +217,40 @@ def get_ssh_challenge_token(account, appid, ip=None):
     return authentication.get_ssh_challenge_token(account, appid, ip)
 
 
+def get_auth_token_saml(account, saml_nameid, appid, ip=None):
+    """
+    Authenticate a Rucio account temporarily via SSO.
+
+    The token lifetime is 1 hour.
+
+    :param account: Account identifier as a string.
+    :param saml_nameid: NameId returned in SAML response as a string.
+    :param appid: The application identifier as a string.
+    :param ip: IP address of the client as a string.
+    :returns: Authentication token as a variable-length string.
+    """
+
+    kwargs = {'account': account, 'saml_nameid': saml_nameid}
+    if not permission.has_permission(issuer=account, action='get_auth_token_saml', kwargs=kwargs):
+        raise exception.AccessDenied('User with identity %s can not log to account %s' % (saml_nameid, account))
+
+    account = InternalAccount(account)
+
+    return authentication.get_auth_token_saml(account, saml_nameid, appid, ip)
+
+
 def validate_auth_token(token):
     """
     Validate an authentication token.
 
     :param token: Authentication token as a variable-length string.
-    :returns: Tuple(account identifier, token lifetime) if successful, None otherwise.
+
+    :returns: dictionary { account: <account name>,
+                           identity: <identity>,
+                           lifetime: <token lifetime>,
+                           audience: <audience>,
+                           authz_scope: <authz_scope> }
+              if successful, None otherwise.
     """
 
     return api_update_return_dict(authentication.validate_auth_token(token))

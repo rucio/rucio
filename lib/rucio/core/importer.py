@@ -15,34 +15,48 @@
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
 from six import string_types
-from rucio.common.exception import RSEOperationNotSupported, RSENotFound
-from rucio.core import rse as rse_module, distance as distance_module
-from rucio.db.sqla.constants import RSEType
+from rucio.common.exception import RSEOperationNotSupported
+from rucio.core import rse as rse_module, distance as distance_module, account as account_module, identity as identity_module
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import RSEType, AccountType, IdentityType
 from rucio.db.sqla.session import transactional_session
+from rucio.common.config import config_get
 
 
 @transactional_session
-def import_rses(rses, session=None):
+def import_rses(rses, rse_sync_method='edit', attr_sync_method='edit', protocol_sync_method='edit', session=None):
     new_rses = []
     for rse_name in rses:
         rse = rses[rse_name]
         if isinstance(rse.get('rse_type'), string_types):
             rse['rse_type'] = RSEType.from_string(str(rse['rse_type']))
-        try:
+
+        if rse_module.rse_exists(rse_name, include_deleted=False, session=session):
+            # RSE exists and is active
             rse_id = rse_module.get_rse_id(rse=rse_name, session=session)
-        except RSENotFound:
+            rse_module.update_rse(rse_id=rse_id, parameters=rse, session=session)
+        elif rse_module.rse_exists(rse_name, include_deleted=True, session=session):
+            # RSE exists but in deleted state
+            # Should only modify the RSE if importer is configured for edit or hard sync
+            if rse_sync_method in ['edit', 'hard']:
+                rse_id = rse_module.get_rse_id(rse=rse_name, include_deleted=True, session=session)
+                rse_module.restore_rse(rse_id, session=session)
+                rse_module.update_rse(rse_id=rse_id, parameters=rse, session=session)
+            else:
+                # Config is in RSE append only mode, should not modify the disabled RSE
+                continue
+        else:
             rse_id = rse_module.add_rse(rse=rse_name, deterministic=rse.get('deterministic'), volatile=rse.get('volatile'),
                                         city=rse.get('city'), region_code=rse.get('region_code'), country_name=rse.get('country_name'),
                                         staging_area=rse.get('staging_area'), continent=rse.get('continent'), time_zone=rse.get('time_zone'),
                                         ISP=rse.get('ISP'), rse_type=rse.get('rse_type'), latitude=rse.get('latitude'),
                                         longitude=rse.get('longitude'), ASN=rse.get('ASN'), availability=rse.get('availability'),
                                         session=session)
-        else:
-            rse_module.update_rse(rse_id=rse_id, parameters=rse, session=session)
 
         new_rses.append(rse_id)
         # Protocols
@@ -54,6 +68,10 @@ def import_rses(rses, session=None):
             outdated_protocols = [new_protocol for new_protocol in new_protocols if {'scheme': new_protocol['scheme'], 'hostname': new_protocol['hostname'], 'port': new_protocol['port']} in old_protocols]
             new_protocols = [{'scheme': protocol['scheme'], 'hostname': protocol['hostname'], 'port': protocol['port']} for protocol in new_protocols]
             to_be_removed_protocols = [old_protocol for old_protocol in old_protocols if old_protocol not in new_protocols]
+
+            if protocol_sync_method == 'append':
+                outdated_protocols = []
+
             for protocol in outdated_protocols:
                 scheme = protocol['scheme']
                 port = protocol['port']
@@ -66,11 +84,12 @@ def import_rses(rses, session=None):
             for protocol in missing_protocols:
                 rse_module.add_protocol(rse_id=rse_id, parameter=protocol, session=session)
 
-            for protocol in to_be_removed_protocols:
-                scheme = protocol['scheme']
-                port = protocol['port']
-                hostname = protocol['hostname']
-                rse_module.del_protocols(rse_id=rse_id, scheme=scheme, port=port, hostname=hostname, session=session)
+            if protocol_sync_method == 'hard':
+                for protocol in to_be_removed_protocols:
+                    scheme = protocol['scheme']
+                    port = protocol['port']
+                    hostname = protocol['hostname']
+                    rse_module.del_protocols(rse_id=rse_id, scheme=scheme, port=port, hostname=hostname, session=session)
 
         # Limits
         old_limits = rse_module.get_rse_limits(rse_id=rse_id, session=session)
@@ -87,21 +106,31 @@ def import_rses(rses, session=None):
         attributes['verify_checksum'] = rse.get('verify_checksum')
 
         old_attributes = rse_module.list_rse_attributes(rse_id=rse_id, session=session)
+        missing_attributes = [attribute for attribute in old_attributes if attribute not in attributes]
+
         for attr in attributes:
             value = attributes[attr]
             if value is not None:
                 if attr in old_attributes:
+                    if attr_sync_method not in ['append']:
+                        rse_module.del_rse_attribute(rse_id=rse_id, key=attr, session=session)
+                        rse_module.add_rse_attribute(rse_id=rse_id, key=attr, value=value, session=session)
+                else:
+                    rse_module.add_rse_attribute(rse_id=rse_id, key=attr, value=value, session=session)
+        if attr_sync_method == 'hard':
+            for attr in missing_attributes:
+                if attr != rse_name:
                     rse_module.del_rse_attribute(rse_id=rse_id, key=attr, session=session)
-                rse_module.add_rse_attribute(rse_id=rse_id, key=attr, value=value, session=session)
 
     # set deleted flag to RSEs that are missing in the import data
     old_rses = [old_rse['id'] for old_rse in rse_module.list_rses(session=session)]
-    for old_rse in old_rses:
-        if old_rse not in new_rses:
-            try:
-                rse_module.del_rse(rse_id=old_rse, session=session)
-            except RSEOperationNotSupported:
-                pass
+    if rse_sync_method == 'hard':
+        for old_rse in old_rses:
+            if old_rse not in new_rses:
+                try:
+                    rse_module.del_rse(rse_id=old_rse, session=session)
+                except RSEOperationNotSupported:
+                    pass
 
 
 @transactional_session
@@ -128,6 +157,71 @@ def import_distances(distances, session=None):
 
 
 @transactional_session
+def import_identities(identities, account_name, old_identities, old_identity_account, account_email, session=None):
+    for identity in identities:
+        identity['type'] = IdentityType.from_sym(identity['type'])
+
+    missing_identities = [identity for identity in identities if (identity['identity'], identity['type']) not in old_identities]
+    missing_identity_account = [identity for identity in identities if (identity['identity'], identity['type'], account_name) not in old_identity_account]
+    to_be_removed_identity_account = [old_identity for old_identity in old_identity_account if (old_identity[0], old_identity[1], old_identity[2]) not in
+                                      [(identity['identity'], identity['type'], account_name) for identity in identities] and old_identity[2] == account_name]
+
+    # add missing identities
+    for identity in missing_identities:
+        identity_type = identity['type']
+        password = identity.get('password')
+        identity = identity['identity']
+        if identity_type == IdentityType.USERPASS:
+            identity_module.add_identity(identity=identity, password=password, email=account_email, type=identity_type, session=session)
+        elif identity_type == IdentityType.GSS or identity_type == IdentityType.SSH or identity_type == IdentityType.X509:
+            identity_module.add_identity(identity=identity, email=account_email, type=identity_type, session=session)
+
+    # add missing identity-account association
+    for identity in missing_identity_account:
+        identity_module.add_account_identity(identity['identity'], identity['type'], account_name, email=account_email, session=session)
+
+    # remove identities from account-identity association
+    for identity in to_be_removed_identity_account:
+        identity_module.del_account_identity(identity=identity[0], type=identity[1], account=identity[2], session=session)
+
+
+@transactional_session
+def import_accounts(accounts, session=None):
+    old_accounts = {account['account']: account for account in account_module.list_accounts(session=session)}
+    missing_accounts = [account for account in accounts if account['account'] not in old_accounts]
+    outdated_accounts = [account for account in accounts if account['account'] in old_accounts]
+    to_be_removed_accounts = [old_account for old_account in old_accounts if old_account not in [account['account'] for account in accounts]]
+    old_identities = identity_module.list_identities(session=session)
+    old_identity_account = session.query(models.IdentityAccountAssociation.identity, models.IdentityAccountAssociation.identity_type, models.IdentityAccountAssociation.account).all()
+
+    # add missing accounts
+    for account_dict in missing_accounts:
+        account = account_dict['account']
+        email = account_dict['email']
+        account_module.add_account(account=account, type=AccountType.USER, email=email, session=session)
+        identities = account_dict.get('identities', [])
+        if identities:
+            import_identities(identities, account, old_identities, old_identity_account, email, session=session)
+
+    # remove left over accounts
+    for account in to_be_removed_accounts:
+        if account.external != 'root':
+            account_module.del_account(account=account, session=session)
+
+    # update existing accounts
+    for account_dict in outdated_accounts:
+        account = account_dict['account']
+        email = account_dict['email']
+        old_account = old_accounts[account]
+        if email and old_account['email'] != email:
+            account_module.update_account(account, key='email', value=email, session=session)
+
+        identities = account_dict.get('identities', [])
+        if identities:
+            import_identities(identities, account, old_identities, old_identity_account, email, session=session)
+
+
+@transactional_session
 def import_data(data, session=None):
     """
     Import data to add and update records in Rucio.
@@ -135,12 +229,20 @@ def import_data(data, session=None):
     :param data: data to be imported as dictionary.
     :param session: database session in use.
     """
-    # RSEs
+    rse_sync_method = config_get('importer', 'rse_sync_method', False, 'edit')
+    attr_sync_method = config_get('importer', 'attr_sync_method', False, 'edit')
+    protocol_sync_method = config_get('importer', 'rse_sync_method', False, 'edit')
+
     rses = data.get('rses')
     if rses:
-        import_rses(rses, session=session)
+        import_rses(rses, rse_sync_method=rse_sync_method, attr_sync_method=attr_sync_method, protocol_sync_method=protocol_sync_method, session=session)
 
     # Distances
     distances = data.get('distances')
     if distances:
         import_distances(distances, session=session)
+
+    # Accounts
+    accounts = data.get('accounts')
+    if accounts:
+        import_accounts(accounts, session=session)

@@ -15,14 +15,15 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
 # - David Cameron <d.g.cameron@gmail.com>, 2014
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019-2020
 #
 # PY3K COMPATIBLE
 
@@ -40,13 +41,16 @@ except ImportError:
 from copy import deepcopy
 from datetime import datetime, timedelta
 from re import match
-from six import string_types
 from string import Template
+
+from dogpile.cache import make_region
+from dogpile.cache.api import NO_VALUE
+from six import string_types
 
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import func
-from sqlalchemy.sql.expression import and_, or_, bindparam, text, true, null
+from sqlalchemy.sql.expression import and_, or_, text, true, null, tuple_
 
 from rucio.core.account import has_account_attribute
 import rucio.core.did
@@ -62,8 +66,8 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound,
                                     ManualRuleApprovalBlocked, UnsupportedOperation, UndefinedPolicy)
 from rucio.common.schema import validate_schema
-from rucio.common.types import InternalScope
-from rucio.common.utils import str_to_date, sizefmt
+from rucio.common.types import InternalScope, InternalAccount
+from rucio.common.utils import str_to_date, sizefmt, chunks
 from rucio.core import account_counter, rse_counter, request as request_core
 from rucio.core.account import get_account
 from rucio.core.lifetime_exception import define_eol
@@ -73,7 +77,7 @@ from rucio.core.rse import get_rse_name, list_rse_attributes, get_rse, get_rse_u
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rse_selector import RSESelector
 from rucio.core.rule_grouping import apply_rule_grouping, repair_stuck_locks_and_apply_rule_grouping, create_transfer_dict
-from rucio.db.sqla import models
+from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import (LockState, ReplicaState, RuleState, RuleGrouping,
                                      DIDAvailability, DIDReEvaluation, DIDType,
                                      RequestType, RuleNotification, OBSOLETE, RSEType)
@@ -86,6 +90,12 @@ logging.basicConfig(stream=sys.stdout,
                                              raise_exception=False,
                                              default='DEBUG').upper()),
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
+
+
+REGION = make_region().configure('dogpile.cache.memcached',
+                                 expiration_time=3600,
+                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'),
+                                            'distributed_lock': True})
 
 
 @transactional_session
@@ -248,6 +258,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                        or match('.*IntegrityError.*UNIQUE constraint failed.*', str(error.args[0]))\
                        or match('.*1062.*Duplicate entry.*for key.*', str(error.args[0]))\
                        or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+                       or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
                        or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
                         raise DuplicateRule(error.args[0])
                     raise InvalidReplicationRule(error.args[0])
@@ -1502,15 +1513,12 @@ def get_updated_dids(total_workers, worker_number, limit=100, blacklisted_dids=[
                           models.UpdatedDID.name,
                           models.UpdatedDID.rule_evaluation_action)
 
-    if total_workers > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number),
-                          bindparam('total_workers', total_workers)]
-            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
+
+    # Remove blacklisted dids from query, but only do the first 30 ones, not to overload the query
+    if blacklisted_dids:
+        chunk = list(chunks(blacklisted_dids, 30))[0]
+        query = query.filter(tuple_(models.UpdatedDID.scope, models.UpdatedDID.name).notin_(chunk))
 
     if limit:
         fetched_dids = query.order_by(models.UpdatedDID.created_at).limit(limit).all()
@@ -1546,14 +1554,7 @@ def get_rules_beyond_eol(date_check, worker_number, total_workers, session):
                           models.ReplicationRule.expires_at).\
         filter(models.ReplicationRule.eol_at < date_check)
 
-    if session.bind.dialect.name == 'oracle':
-        bindparams = [bindparam('worker_number', worker_number),
-                      bindparam('total_workers', total_workers)]
-        query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-    elif session.bind.dialect.name == 'mysql':
-        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
-    elif session.bind.dialect.name == 'postgresql':
-        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
     return [rule for rule in query.all()]
 
 
@@ -1575,14 +1576,7 @@ def get_expired_rules(total_workers, worker_number, limit=100, blacklisted_rules
         with_hint(models.ReplicationRule, "index(rules RULES_EXPIRES_AT_IDX)", 'oracle').\
         order_by(models.ReplicationRule.expires_at)  # NOQA
 
-    if session.bind.dialect.name == 'oracle':
-        bindparams = [bindparam('worker_number', worker_number),
-                      bindparam('total_workers', total_workers)]
-        query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-    elif session.bind.dialect.name == 'mysql':
-        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
-    elif session.bind.dialect.name == 'postgresql':
-        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
 
     if limit:
         fetched_rules = query.limit(limit).all()
@@ -1623,14 +1617,7 @@ def get_injected_rules(total_workers, worker_number, limit=100, blacklisted_rule
             filter(models.ReplicationRule.state == RuleState.INJECT).\
             order_by(models.ReplicationRule.created_at)
 
-    if session.bind.dialect.name == 'oracle':
-        bindparams = [bindparam('worker_number', worker_number),
-                      bindparam('total_workers', total_workers)]
-        query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-    elif session.bind.dialect.name == 'mysql':
-        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
-    elif session.bind.dialect.name == 'postgresql':
-        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
 
     if limit:
         fetched_rules = query.limit(limit).all()
@@ -1679,14 +1666,7 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, blacklist
                        models.ReplicationRule.locked == true())).\
             order_by(models.ReplicationRule.updated_at)
 
-    if session.bind.dialect.name == 'oracle':
-        bindparams = [bindparam('worker_number', worker_number),
-                      bindparam('total_workers', total_workers)]
-        query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-    elif session.bind.dialect.name == 'mysql':
-        query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers + 1, worker_number)))
-    elif session.bind.dialect.name == 'postgresql':
-        query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
 
     if limit:
         fetched_rules = query.limit(limit).all()
@@ -1729,6 +1709,8 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
 
     locks = session.query(models.ReplicaLock).filter(models.ReplicaLock.scope == scope, models.ReplicaLock.name == name, models.ReplicaLock.rse_id == rse_id).with_for_update(nowait=nowait).all()
     replica = session.query(models.RSEFileAssociation).filter(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id == rse_id).with_for_update(nowait=nowait).one()
+    requests = session.query(models.Request).filter(models.Request.scope == scope, models.Request.name == name, models.Request.dest_rse_id == rse_id).with_for_update(nowait=nowait).all()
+
     rse = get_rse_name(rse_id, session=session)
 
     datasets = []
@@ -1736,6 +1718,9 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
     for parent in parent_dids:
         if {'name': parent['name'], 'scope': parent['scope']} not in datasets:
             datasets.append({'name': parent['name'], 'scope': parent['scope']})
+
+    for request in requests:
+        session.delete(request)
 
     for lock in locks:
         rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == lock.rule_id).with_for_update(nowait=nowait).one()
@@ -2184,6 +2169,22 @@ def examine_rule(rule_id, session=None):
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
     except StatementError:
         raise RucioException('Badly formatted rule id (%s)' % (rule_id))
+
+
+@transactional_session
+def get_evaluation_backlog(session=None):
+    """
+    Counts the number of entries in the rule evaluation backlog.
+    (Number of files to be evaluated)
+
+    :returns:     Tuple (Count, Datetime of oldest entry)
+    """
+
+    result = REGION.get('rule_evaluation_backlog', expiration_time=600)
+    if result is NO_VALUE:
+        result = session.query(func.count(models.UpdatedDID.created_at), func.min(models.UpdatedDID.created_at)).one()
+        REGION.set('rule_evaluation_backlog', result)
+    return result
 
 
 @transactional_session
@@ -3003,6 +3004,7 @@ def __create_recipents_list(rse_expression, session=None):
         rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
         if rse_attr.get('rule_approvers'):
             for account in rse_attr.get('rule_approvers').split(','):
+                account = InternalAccount(account)
                 try:
                     email = get_account(account=account, session=session).email
                     if email:
@@ -3110,7 +3112,7 @@ def archive_localgroupdisk_datasets(scope, name, session=None):
                                    session=session)
             rucio.core.did.attach_dids(scope=archive, name=name, dids=content, account=did['account'], session=session)
             if not did['open']:
-                rucio.core.did.set_status(scope='archive', name=name, open=False, session=session)
+                rucio.core.did.set_status(scope=archive, name=name, open=False, session=session)
 
             for rse in rses_to_rebalance:
                 add_rule(dids=[{'scope': archive, 'name': name}],

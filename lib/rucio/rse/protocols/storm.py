@@ -1,13 +1,20 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2014-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Tomas Javor Javurek, <tomas.javurek@cern.ch>, 2019
-
+# - Tomas Javor Javurek <tomas.javurek@cern.ch>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
 import os
 
@@ -31,20 +38,27 @@ class Default(protocol.RSEProtocol):
         self.attributes.pop('determinism_type', None)
         self.files = []
 
-    def _get_path(self, scope, name):
-        """ Transforms the physical file name into the local URI in the referred RSE.
-            Suitable for sites implementoing the RUCIO naming convention.
-
-            :param name: filename
-            :param scope: scope
-
-            :returns: RSE specific URI of the physical file
-        """
-        return '%s/%s' % (scope, name)
-
     def lfns2pfns(self, lfns):
-        """ In this case, just returns back lfn. """
-        return lfns
+        """ Create fake storm:// path. Will be resolved at the get() stage later. """
+        pfns = {}
+
+        hostname = self.attributes['hostname']
+        if '://' in hostname:
+            hostname = hostname.split("://")[1]
+
+        prefix = self.attributes['prefix']
+        if not prefix.startswith('/'):
+            prefix = ''.join(['/', prefix])
+        if not prefix.endswith('/'):
+            prefix = ''.join([prefix, '/'])
+
+        lfns = [lfns] if isinstance(lfns, dict) else lfns
+        for lfn in lfns:
+            path = lfn['path'] if 'path' in lfn and lfn['path'] else self._get_path(scope=lfn['scope'].external,
+                                                                                    name=lfn['name'])
+            pfns['%s:%s' % (lfn['scope'], lfn['name'])] = ''.join(['storm://', hostname, ':', str(self.attributes['port']), prefix, path])
+
+        return pfns
 
     def path2pfn(self, path):
         """
@@ -103,7 +117,12 @@ class Default(protocol.RSEProtocol):
         # retrieve the TURL from the webdav etag, TODO: make it configurable
         cmd = 'davix-http --capath /cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase/etc/grid-security-emi/certificates --cert $X509_USER_PROXY -X PROPFIND %s' % pfn
         try:
-            rcode, output = run_cmd_process(cmd, timeout=10)
+            rcode, output = run_cmd_process(cmd, timeout=300)
+            if rcode != 0:
+                if output:
+                    raise exception.ServiceUnavailable(str(output))
+                else:
+                    raise exception.ServiceUnavailable('Error message from subprocess davix-http call is missing.')
         except Exception as e:
             raise exception.ServiceUnavailable('Could not retrieve STORM WebDAV ETag: %s' % str(e))
         p_output = minidom.parseString(output)

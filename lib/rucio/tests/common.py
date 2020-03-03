@@ -22,6 +22,7 @@
 
 from paste.fixture import TestApp
 from random import choice
+from six import PY3
 from string import ascii_uppercase
 
 import contextlib
@@ -57,7 +58,7 @@ def execute(cmd):
     (out, err) = result
     exitcode = process.returncode
 
-    return exitcode, out, err
+    return exitcode, out.decode(), err.decode()
 
 
 def create_accounts(account_list, user_type):
@@ -131,31 +132,13 @@ def make_temp_file(dir, data):
     :returns: Name of the temporal file.
     """
     fd, path = tempfile.mkstemp(dir=dir)
-    with os.fdopen(fd, 'w') as f:
-        f.write(data)
-
+    if PY3:
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(data)
+    else:
+        with os.fdopen(fd, 'w') as f:
+            f.write(data)
     return path
-
-
-@contextlib.contextmanager
-def stubbed(target, replacement):
-    """
-    Stubs an object inside a with statement, returning to
-    the original implementation in the end.
-
-    :param target: Object to be stubbed-out.
-    :param replacement: Stub value/function.
-
-    Example:
-    with stubbed(module_under_test.fun_x, lambda _, __: StringIO('hello world')):
-        value = module_under_test.function_using_fun_x()
-    """
-    from stub import stub
-    stubbed_obj = stub(target, replacement)
-    try:
-        yield
-    finally:
-        stubbed_obj.unstub()
 
 
 @contextlib.contextmanager

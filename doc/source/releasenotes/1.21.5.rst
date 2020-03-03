@@ -1,0 +1,43 @@
+======
+1.21.5
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Documentation: Repository cleanup `#2525 <https://github.com/rucio/rucio/issues/2525>`_
+- Rules: Filtering of blacklisted updated_dids needs to be added to sql query `#3228 <https://github.com/rucio/rucio/issues/3228>`_
+
+****
+Bugs
+****
+
+- Authentication & Authorisation: SAML Authentication wrongly requires client config section `#3209 <https://github.com/rucio/rucio/issues/3209>`_
+- Consistency checks: Dark reaper crashes due to None scope `#2877 <https://github.com/rucio/rucio/issues/2877>`_
+- Core & Internals: Importer fails to import RSEs that were deleted `#2896 <https://github.com/rucio/rucio/issues/2896>`_
+- Deletion: Reaper 2.0 is creating error traces for SourceNotFound `#2969 <https://github.com/rucio/rucio/issues/2969>`_
+- Transfers: Conveyor Finisher fails to retry requests in the "protocol mismatch" state `#3102 <https://github.com/rucio/rucio/issues/3102>`_
+- Transfers: Crash when enabling multihop mode `#3225 <https://github.com/rucio/rucio/issues/3225>`_
+- Transfers: Disabling source_rse_id filling on queue_requests `#3236 <https://github.com/rucio/rucio/issues/3236>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Add client location awareness to upload `#3181 <https://github.com/rucio/rucio/issues/3181>`_
+- RSE Manager: Expand S3 protocol to accept 204 No Content as File not Found `#1695 <https://github.com/rucio/rucio/issues/1695>`_
+
+****
+Bugs
+****
+
+- Clients: Cannot set account limits via CLI `#3160 <https://github.com/rucio/rucio/issues/3160>`_

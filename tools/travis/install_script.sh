@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2018-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,26 +15,38 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Thomas Beermann, <thomas.beermann@cern.ch> 2019>
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2019
+
+# Force compile against OpenSSL, otherwise Travis will try to use GnuTLS
+# which is not installed by default.
+export PYCURL_SSL_LIBRARY=openssl
 
 if [[ $SUITE == "client" ]]; then
 
- if [[ "$TRAVIS_PYTHON_VERSION" !=  "2.6" ]]; then pip install -r tools/pip-requires; fi
+    if [[ "$TRAVIS_PYTHON_VERSION" !=  "2.6" ]]; then
+	pip install -r etc/pip-requires;
+    fi
+    sudo apt-get update
+    sudo apt-get install libxml2-dev libxmlsec1-dev libxmlsec1-openssl
     pip install setuptools_scm
-    pip install -r tools/pip-requires-test
+    pip install -r etc/pip-requires-test
+    pip install .[saml]
     python setup_rucio_client.py install
     cp etc/docker/travis/rucio_client.cfg etc/rucio.cfg
     cp etc/docker/travis/Dockerfile Dockerfile
     docker build -t rucio/rucio .
 
 elif [[ $SUITE == "syntax" ]]; then
+    sudo apt-get update
+    sudo apt-get install libxml2-dev libxmlsec1-dev libxmlsec1-openssl
     pip install setuptools_scm
     pip install google_compute_engine
-    pip install .[dev]
+    pip install .[dev,saml]
     cp etc/docker/travis/rucio_syntax.cfg etc/rucio.cfg
     cp etc/docker/travis/google-cloud-storage-test.json etc/google-cloud-storage-test.json
+    cp etc/docker/travis/idpsecrets.json etc/idpsecrets.json
 
 elif [[ $SUITE == "all" ]]; then
     echo $TRAVIS_PYTHON_VERSION
@@ -48,6 +60,8 @@ elif [[ $SUITE == "all" ]]; then
     fi
 
 elif [[ $SUITE == 'python3' ]]; then 
-    pip install -r tools/pip-requires-test
-
+    sudo apt-get update
+    sudo apt-get install libxml2-dev libxmlsec1-dev libxmlsec1-openssl
+    pip install -r etc/pip-requires-test
+    pip install .[saml]
 fi

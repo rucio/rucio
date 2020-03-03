@@ -27,21 +27,29 @@ function usage {
   echo ''
   echo '  -h    Show usage.'
   echo '  -i    Do only the initialization.'
+  echo '  -r    Activate default RSEs (XRD1, XRD2, XRD3)'
   exit
 }
 
-while getopts hi opt
+while getopts hir opt
 do
   case "$opt" in
     h) usage;;
     i) init_only="true";;
+    r) activate_rse="true";;
   esac
 done
+
+echo 'Clearing memcache'
+echo 'flush_all' | nc localhost 11211
+
+echo 'Graceful restart of Apache'
+httpd -k graceful
 
 echo 'Cleaning old authentication tokens'
 rm -rf /tmp/.rucio_*/
 
-echo 'Cleaning RSEs'
+echo 'Cleaning local RSE directories'
 rm -rf /tmp/rucio_rse/*
 
 echo 'Removing old SQLite databases'
@@ -92,12 +100,18 @@ if [ $? != 0 ]; then
     exit 1
 fi
 
+if test ${activate_rse}; then
+    echo 'Activating default RSEs (XRD1, XRD2, XRD3)'
+    tools/docker_activate_rses.sh
+fi
+
+
 if test ${init_only}; then
     exit
 fi
 
 echo 'Running tests'
-noseopts="--exclude=test_dq2* --exclude=.*test_rse_protocol_.* --exclude=test_alembic --exclude=test_rucio_cache --exclude=test_rucio_server --exclude=test_auditor*"
+noseopts="--exclude=test_alembic --exclude=.*test_rse_protocol_.* --exclude=test_rucio_server --exclude=test_objectstore --exclude=test_auditor* --exclude=test_release* --exclude=test_throttler*"
 
 nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts
 

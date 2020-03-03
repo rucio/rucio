@@ -1,0 +1,35 @@
+======
+1.21.7
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Core & Internals: PanDA prefers different return from list_dataset_replicas_vp `#3257 <https://github.com/rucio/rucio/issues/3257>`_
+- Core & Internals: Add quote/rule approvers to CMS `#3272 <https://github.com/rucio/rucio/issues/3272>`_
+- Transfers: Copy_pin_lifetime values in FTS `#3035 <https://github.com/rucio/rucio/issues/3035>`_
+
+****
+Bugs
+****
+
+- Core & Internals: Undertaker can not delete did with Generic Metadata `#2840 <https://github.com/rucio/rucio/issues/2840>`_
+- Core & Internals: There should not be VP replicas if there are no xrootd accessible replicas `#3258 <https://github.com/rucio/rucio/issues/3258>`_
+- Deletion: Fix variable initialization in delete_replica `#3275 <https://github.com/rucio/rucio/issues/3275>`_
+- Rebalancing: BB8 in decommission mode does not check whether a rule already has a child rule `#3253 <https://github.com/rucio/rucio/issues/3253>`_
+- Recovery: Bug when a file with no available replicas is declared `#2960 <https://github.com/rucio/rucio/issues/2960>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: StoRM protocol verbosity `#3262 <https://github.com/rucio/rucio/issues/3262>`_

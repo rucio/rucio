@@ -1,0 +1,20 @@
+# All dependencies needed to develop/test rucio should be defined here
+
+Paste==3.0.8                                  # Utilities for web development in pyton
+coverage==4.5.3                               # Nose module for test coverage
+Sphinx==1.8.5                                 # required to build documentation
+sphinx-rtd-theme==0.4.3                       # Read the Docs theme for Sphinx
+sphinxcontrib-httpdomain==1.7.0               # Provides a Sphinx domain for describing RESTful HTTP APIs
+Pygments==2.2.0                               # Python Syntax highlighter
+docutils==0.14                                # Needed for sphinx
+pyflakes==2.1.1                               # Passive checker of Python programs
+flake8==3.7.8                                 # Wrapper around PyFlakes&pep8
+pylint==1.9.4; python_version >= '2.7'        # static code analysis. 1.9.4 last 2.7 compatible release
+virtualenv==16.2.0                            # Virtual Python Environment builder
+xmltodict==0.12.0                             # Makes working with XML feel like you are working with JSON
+pytz==2019.1                                  # World timezone definitions, modern and historical
+Babel==2.6.0                                  # Internationalization utilities - Dependency of sphinx
+subprocess32==3.5.3; python_version <= '3.0'  # A backport of the subprocess module from Python 3.2/3.3 for use on 2.x.
+pycodestyle==2.5.0                            # New package replacing pep8
+mock==2.0.0                                   # Mock package needed for readthedocs build for mocking pycurls
+s3cmd==2.0.2                                  # Used for testing of S3

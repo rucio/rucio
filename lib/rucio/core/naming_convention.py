@@ -1,17 +1,24 @@
-"""
-   Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
-  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
-
-  PY3K COMPATIBLE
-"""
+# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Brandon White, <bjwhite@fnal.gov>, 2019
+# - Martin Barisits, <martin.barisits@cern.ch>, 2019
+#
+# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -23,6 +30,7 @@ from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 
 from rucio.common.exception import Duplicate, RucioException, InvalidObject
+from rucio.common.config import config_get
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import KeyType
 from rucio.db.sqla.session import read_session, transactional_session
@@ -30,7 +38,7 @@ from rucio.db.sqla.session import read_session, transactional_session
 
 REGION = make_region().configure('dogpile.cache.memcached',
                                  expiration_time=3600,
-                                 arguments={'url': "127.0.0.1:11211",
+                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'),
                                             'distributed_lock': True})
 
 
@@ -145,7 +153,7 @@ def validate_name(scope, name, did_type, session=None):
         meta = groups.groupdict()
         # Hack to get task_id from version
         if 'version' in meta and meta['version']:
-            matched = match('(?P<version>\w+)_tid(?P<task_id>\d+)_\w+$', meta['version'])
+            matched = match(r'(?P<version>\w+)_tid(?P<task_id>\d+)_\w+$', meta['version'])
             if matched:
                 meta['version'] = matched.groupdict()['version']
                 meta['task_id'] = int(matched.groupdict()['task_id'])

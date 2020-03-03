@@ -1,24 +1,34 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2015-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Fernando Lopez, <felopez@cern.ch>, 2015
+# - Fernando Lopez <fernando.e.lopez@gmail.com>, 2015
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
-from rucio.common import dumper
-from rucio.common.dumper import error, DUMPS_CACHE_DIR
-import data_models
 import datetime
 import logging
 import os
-import path_parsing
 import re
 import subprocess
 import tempfile
+
+from rucio.common import dumper
+from rucio.common.dumper import error, DUMPS_CACHE_DIR, data_models, path_parsing
 
 
 subcommands = ['consistency', 'consistency-manual']
@@ -37,9 +47,9 @@ class Consistency(data_models.DataModel):
         logger = logging.getLogger('auditor.consistency')
         if subcommand == 'consistency':
             prev_date_fname = data_models.Replica.download(
-                ddm_endpoint, prev_date)
+                ddm_endpoint, prev_date, cache_dir=cache_dir)
             next_date_fname = data_models.Replica.download(
-                ddm_endpoint, next_date)
+                ddm_endpoint, next_date, cache_dir=cache_dir)
             assert prev_date_fname is not None
             assert next_date_fname is not None
         else:

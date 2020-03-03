@@ -1,0 +1,22 @@
+# All dependencies needed to run rucio should be defined here
+
+SQLAlchemy==1.3.7                                 # DB backend
+alembic==1.2.1                                    # Lightweight database migration tool for SQLAlchemy
+web.py==0.39; python_version <= '2.7'             # Python web framework for Python2
+web.py==0.40; python_version > '2.7'              # Python web framework for Python3
+python-memcached==1.59; python_version <= '2.7'   # Quick and small memcached client for Python2
+python3-memcached==1.51; python_version > '2.7'   # Quick and small memcached client for Python3
+jsonschema==3.1.1                                 # JSON Schema
+python-dateutil==2.8.0                            # Extensions to the standard datetime module
+stomp.py==4.1.22                                  # ActiveMQ Messaging Protocol
+statsd==3.3.0                                     # Needed to log into graphite with more than 1 Hz
+geoip2==2.9.0                                     # GeoIP2 API (for IPv6 support)
+oauth2client==4.1.3                               # OAuth 2.0 client library
+retrying==1.3.3                                   # general-purpose retrying library to simplify the task of adding retry behavior to just about anything
+functools32==3.2.3.post2; python_version == '2.7' # explicitly needed on CC7
+redis==3.3.11                                     # Python client for Redis key-value store
+numpy==1.14.2                                     # Numpy for forecasting T3C
+paramiko==2.6.0                                   # SSH2 protocol library
+Flask==1.1.1                                      # Python web framework
+M2Crypto<=0.35.2                                  # Dependency of FTS rest API; Temporary fix since 0.33 does not install on CC7
+oic==0.15.1                                       # for authentication via OpenID Connect protocol

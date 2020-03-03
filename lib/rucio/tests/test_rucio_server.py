@@ -7,6 +7,7 @@
 # Authors:
 # - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+# - Martin Barisits, <martin.barisits@cern.ch>, 2019
 
 from __future__ import print_function
 
@@ -53,7 +54,7 @@ def file_generator(size=2048, namelen=10):
 def delete_rules(did):
     # get the rules for the file
     print('Deleting rules')
-    cmd = "rucio list-rules --did {0} | grep {0} | cut -f1 -d\ ".format(did)
+    cmd = "rucio list-rules --did {0} | grep {0} | cut -f1 -d\ ".format(did)  # NOQA: W605
     print(cmd)
     exitcode, out, err = execute(cmd)
     print(out, err)

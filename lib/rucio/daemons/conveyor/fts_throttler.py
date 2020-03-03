@@ -14,7 +14,8 @@
 #
 # Authors:
 # - Dilaksun Bavarajan <dilaksun@hotmail.com>, 2019
-
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019-2020
 #
 # PY3K COMPATIBLE
 
@@ -98,8 +99,8 @@ class FTSThrottler(object):
 
                     n = rse['failure_ratio'].get('value')
 
-                    logging.info(' RSE ' + rse_info[0] + ' on FTS host ' + rse_info[1] +
-                                 ' has failure ratio ' + str(rse['failure_ratio'].get('value')) + ' on storage ' + url)
+                    logging.info(' RSE ' + rse_info[0] + ' on FTS host ' + rse_info[1]
+                                 + ' has failure ratio ' + str(rse['failure_ratio'].get('value')) + ' on storage ' + url)  # NOQA: W503
 
                     try:
                         se = t.get_se_config(url)
@@ -111,8 +112,8 @@ class FTSThrottler(object):
                         t.set_se_config(url, inbound_max_active=int((100 / (100 + n)) * default_storage['se_info']['inbound_max_active']),
                                         outbound_max_active=int((100 / (100 + n)) * default_storage['se_info']['outbound_max_active']))
 
-                        logging.info(url + 'inbound_max_active changed from ' + str(default_storage['se_info']['inbound_max_active']) + ' to ' + str(int((100 / (100 + n)) * default_storage['se_info']['inbound_max_active'])) +
-                                     ', outbound_max_active changed from ' + str(default_storage['se_info']['outbound_max_active']) + ' to ' + str(int((100 / (100 + n)) * default_storage['se_info']['outbound_max_active'])))
+                        logging.info(url + 'inbound_max_active changed from ' + str(default_storage['se_info']['inbound_max_active']) + ' to ' + str(int((100 / (100 + n)) * default_storage['se_info']['inbound_max_active']))
+                                     + ', outbound_max_active changed from ' + str(default_storage['se_info']['outbound_max_active']) + ' to ' + str(int((100 / (100 + n)) * default_storage['se_info']['outbound_max_active'])))  # NOQA: W503
 
                         # cycle_info_dict is used to write changes down to the cycle file.
                         cycle_info_dict['storages'].append({'storage': url, 'inbound_max_active': default_storage['se_info']['inbound_max_active'],
@@ -153,8 +154,8 @@ class FTSThrottler(object):
                     # tune down the configuration of a storage relative to the failure ratio(n) and existing configuration.
                     t.set_se_config(url, inbound_max_active=int((100 / (100 + n)) * ima), outbound_max_active=int((100 / (100 + n)) * oma))
 
-                    logging.info(url + 'inbound_max_active changed from ' + str(ima) + ' to ' + str(int((100 / (100 + n)) * ima)) +
-                                 ', outbound_max_active changed from ' + str(oma) + ' to ' + str(int((100 / (100 + n)) * oma)))
+                    logging.info(url + 'inbound_max_active changed from ' + str(ima) + ' to ' + str(int((100 / (100 + n)) * ima))
+                                 + ', outbound_max_active changed from ' + str(oma) + ' to ' + str(int((100 / (100 + n)) * oma)))  # NOQA: W503
 
             if cycle_info_dict['storages'] == []:
                 logging.info('no storages are failing significantly due to timeout errors, therefor no tuning happened.')
@@ -185,9 +186,9 @@ class FTSThrottler(object):
                 t = FTS3Transfertool(storage['fts-host'])
                 logging.info('storage information: %s', storage)
                 t.set_se_config(storage['storage'], inbound_max_active=storage['inbound_max_active'], outbound_max_active=storage['outbound_max_active'])
-                logging.info('on storage ' + storage['storage'] + ' outbound_max_active reverted from ' +
-                             str(storage['tuned_outbound_max_active']) + ' to ' + str(storage['outbound_max_active']) +
-                             ', inbound_max_active reverted from ' + str(storage['tuned_inbound_max_active']) + ' to ' + str(storage['inbound_max_active']))
+                logging.info('on storage ' + storage['storage'] + ' outbound_max_active reverted from '
+                             + str(storage['tuned_outbound_max_active']) + ' to ' + str(storage['outbound_max_active'])  # NOQA: W503
+                             + ', inbound_max_active reverted from ' + str(storage['tuned_inbound_max_active']) + ' to ' + str(storage['inbound_max_active']))  # NOQA: W503
             logging.info('revert performed')
         return True
 
@@ -367,7 +368,7 @@ def fts_throttler(once=False, cycle_interval=3600):
     heartbeat.sanity_check(executable=executable, hostname=hostname)
 
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     current_time = time.time()
     graceful_stop.wait(10)
     running_instance = False
@@ -381,7 +382,7 @@ def fts_throttler(once=False, cycle_interval=3600):
 
                 try:
                     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
-                    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+                    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
 
                     logging.info(prepend_str + "fts_throttler start cycle")
                     if FTSThrottler().revert():
@@ -402,7 +403,7 @@ def fts_throttler(once=False, cycle_interval=3600):
                 if once:
                     break
         else:
-            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
             logging.info(prepend_str + 'another fts_throttler instance already exists. will wait')
             if time.time() < current_time + cycle_interval:
                 graceful_stop.wait(int((current_time + cycle_interval) - time.time()))

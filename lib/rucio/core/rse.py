@@ -24,7 +24,10 @@
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Gabriele Fronze' <gfronze@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -54,7 +57,8 @@ import rucio.core.account_counter
 
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.common import exception, utils
-from rucio.common.config import get_lfn2pfn_algorithm_default
+from rucio.common.config import get_lfn2pfn_algorithm_default, config_get
+from rucio.common.utils import CHECKSUM_KEY, is_checksum_valid, GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RSEType
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
@@ -62,14 +66,13 @@ from rucio.db.sqla.session import read_session, transactional_session, stream_se
 
 REGION = make_region().configure('dogpile.cache.memcached',
                                  expiration_time=3600,
-                                 arguments={'url': "127.0.0.1:11211",
+                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'),
                                             'distributed_lock': True})
 
 
 @transactional_session
 def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None,
-            ISP=None, staging_area=False, rse_type=RSEType.DISK, longitude=None, latitude=None, ASN=None, availability=7,
-            session=None):
+            ISP=None, staging_area=False, rse_type=RSEType.DISK, longitude=None, latitude=None, ASN=None, availability=7, session=None):
     """
     Add a rse with the given location name.
 
@@ -117,7 +120,7 @@ def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None
 
 
 @read_session
-def rse_exists(rse, session=None):
+def rse_exists(rse, include_deleted=False, session=None):
     """
     Checks to see if RSE exists.
 
@@ -126,7 +129,7 @@ def rse_exists(rse, session=None):
 
     :returns: True if found, otherwise false.
     """
-    return True if session.query(models.RSE).filter_by(rse=rse, deleted=False).first() else False
+    return True if session.query(models.RSE).filter_by(rse=rse, deleted=include_deleted).first() else False
 
 
 @read_session
@@ -180,6 +183,27 @@ def del_rse(rse_id, session=None):
         del_rse_attribute(rse_id=rse_id, key=rse, session=session)
     except exception.RSEAttributeNotFound:
         pass
+
+
+@transactional_session
+def restore_rse(rse_id, session=None):
+    """
+    Restore a rse with the given rse id.
+
+    :param rse_id: the rse id.
+    :param session: The database session in use.
+    """
+
+    old_rse = None
+    try:
+        old_rse = session.query(models.RSE).filter_by(id=rse_id, deleted=True).one()
+    except sqlalchemy.orm.exc.NoResultFound:
+        raise exception.RSENotFound('RSE with id \'%s\' cannot be found' % rse_id)
+    old_rse.deleted = False
+    old_rse.deleted_at = None
+    old_rse.save(session=session)
+    rse = old_rse.rse
+    add_rse_attribute(rse_id=rse_id, key=rse, value=True, session=session)
 
 
 @read_session
@@ -325,19 +349,8 @@ def list_rses(filters={}, session=None):
             else:
                 t = aliased(models.RSEAttrAssociation)
                 query = query.join(t, t.rse_id == models.RSEAttrAssociation.rse_id)
-                query = query.filter(t.key == k)
-
-                # FIXME
-                # ATLAS RSE listing workaround (since booleans are capital 'True'/'False')
-                # remove elif branch after appropriate database fix has been applied
-                # see also db/types.py
-                if isinstance(v, bool):
-                    query = query.filter(or_(t.value == v,
-                                             t.value == 'tmp_atlas_%s' % v,
-                                             t.value == 'tmp_atlas_%s' % 1 if v else 0))
-                else:
-                    query = query.filter(or_(t.value == v,
-                                             t.value == 'tmp_atlas_%s' % v))
+                query = query.filter(t.key == k,
+                                     t.value == v)
 
         condition1, condition2 = [], []
         for i in range(0, 8):
@@ -546,6 +559,47 @@ def get_rse_attribute(key, rse_id=None, value=None, use_cache=True, session=None
     return result
 
 
+@read_session
+def get_rse_supported_checksums(rse_id=None, session=None):
+    """
+    Retrieve RSE attribute value.
+
+    :param rse_id: The RSE id.
+    :param session: The database session in use.
+
+    :returns: The list of checksums supported by the selected RSE.
+              If the list is empty (aka attribute is not set) it returns all the default checksums.
+              Use 'none' to explicitly tell the RSE does not support any checksum algorithm.
+    """
+
+    checksum_support_attribute_list = get_rse_attribute(key=CHECKSUM_KEY, rse_id=rse_id, session=session)
+
+    if not checksum_support_attribute_list:
+        return GLOBALLY_SUPPORTED_CHECKSUMS
+    else:
+        supported_checksum_list = checksum_support_attribute_list[0].split(',')
+        if 'none' in supported_checksum_list:
+            return []
+        return supported_checksum_list
+
+
+@read_session
+def get_rse_is_checksum_supported(checksum_name, rse_id=None, session=None):
+    """
+    Retrieve RSE attribute value.
+
+    :param checksum_name: The desired checksum name for the attribute.
+    :param rse_id: The RSE id.
+    :param session: The database session in use.
+
+    :returns: True if required checksum is supported, False otherwise.
+    """
+    if is_checksum_valid(checksum_name):
+        return checksum_name in get_rse_supported_checksums(rse_id=rse_id, session=session)
+    else:
+        return False
+
+
 @transactional_session
 def set_rse_usage(rse_id, source, used, free, session=None):
     """
@@ -665,7 +719,7 @@ def delete_rse_limit(rse_id, name=None, session=None):
 
 
 @transactional_session
-def set_rse_transfer_limits(rse_id, activity, rse_expression=None, max_transfers=0, transfers=0, waitings=0, volume=0, session=None):
+def set_rse_transfer_limits(rse_id, activity, rse_expression=None, max_transfers=0, transfers=0, waitings=0, volume=0, deadline=1, strategy='fifo', session=None):
     """
     Set RSE transfer limits.
 
@@ -676,12 +730,16 @@ def set_rse_transfer_limits(rse_id, activity, rse_expression=None, max_transfers
     :param transfers: Current number of tranfers.
     :param waitings: Current number of waitings.
     :param volume: Maximum transfer volume in bytes.
+    :param deadline: Maximum waiting time in hours until a datasets gets released.
+    :param strategy: Stragey to handle datasets `fifo` or `grouped_fifo`.
     :param session: The database session in use.
 
     :returns: True if successful, otherwise false.
     """
     try:
-        rse_tr_limit = models.RSETransferLimit(rse_id=rse_id, activity=activity, rse_expression=rse_expression, max_transfers=max_transfers, transfers=transfers, waitings=waitings, volume=volume)
+        rse_tr_limit = models.RSETransferLimit(rse_id=rse_id, activity=activity, rse_expression=rse_expression,
+                                               max_transfers=max_transfers, transfers=transfers,
+                                               waitings=waitings, volume=volume, strategy=strategy, deadline=deadline)
         rse_tr_limit = session.merge(rse_tr_limit)
         rowcount = rse_tr_limit.save(session=session)
         return rowcount
@@ -713,7 +771,9 @@ def get_rse_transfer_limits(rse_id=None, activity=None, session=None):
             limits[limit.activity][limit.rse_id] = {'max_transfers': limit.max_transfers,
                                                     'transfers': limit.transfers,
                                                     'waitings': limit.waitings,
-                                                    'volume': limit.volume}
+                                                    'volume': limit.volume,
+                                                    'strategy': limit.strategy,
+                                                    'deadline': limit.deadline}
         return limits
     except IntegrityError as error:
         raise exception.RucioException(error.args)
@@ -825,6 +885,7 @@ def add_protocol(rse_id, parameter, session=None):
            or match('.*IntegrityError.*ORA-00001: unique constraint.*RSE_PROTOCOLS_PK.*violated.*', error.args[0]) \
            or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
            or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0])\
+           or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0])\
            or match('.*IntegrityError.*columns.*are not unique.*', error.args[0]):
             raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (parameter['scheme'], parameter['port'], rse, parameter['hostname']))
         elif 'may not be NULL' in error.args[0] \
