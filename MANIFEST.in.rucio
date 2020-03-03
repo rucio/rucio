@@ -18,6 +18,7 @@ recursive-include lib/rucio/db/sqla/migrate_repo/versions *.py
 recursive-include tools/probes *
 recursive-include etc/schemas *.json
 recursive-include etc/mail_templates *.tmpl
+recursive-include lib/rucio/web/auth_templates *.html
 graft doc
 prune lib/rucio/web/ui
 prune dist
