@@ -1,7 +1,7 @@
 Configure Rucio To Use Globus Online as a Transfer Tool
 =======================================================
 
-This document walks through an example configuration of Rucio to use Globus Online as a transfer tool. There are four configuration points shown here: registration of your application with Globus, RSE setup (properties and parameters), the Rucio configuration file `rucio.cfg` and the Globus configuration file `config.yml`.
+This document walks through an example configuration of Rucio to use Globus Online as a transfer tool. There are four configuration points shown here: registration of your application with Globus, RSE setup (properties and parameters), the Rucio configuration file `rucio.cfg` and the Globus configuration file `globus-config.yml`.
 
 Use of both Globus Server endpoints and Globus Personal endpoints has been tested with the below approach.  Creation of the Globus endpoints is outside the scope here.  Some knowledge of Rucio setup and familiarity with Globus configuration is presumed.
 
@@ -89,12 +89,12 @@ The Rucio configuration file `rucio.cfg` should contain the following for the co
   transfertype = bulk
   globus_auth_app = MyGlobusAuthApp
 
-`globus_auth_app` is the application given in `config.yml` (see below)
+`globus_auth_app` is the application given in `globus-config.yml` (see below)
 
 Globus Configuration File
 -------------------------
 
-The Globus configuration file `./lib/rucio/transfertool/config.yml` is a file of YAML syntax and should include at minimum the registered application name, the client ID and refresh token::
+The Globus configuration file `./etc/globus-config.yml` is a file of YAML syntax and should include at minimum the registered application name, the client ID and refresh token::
 
   globus:
     apps:

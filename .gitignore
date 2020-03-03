@@ -16,6 +16,7 @@ etc/web/lighttpd*.conf
 etc/alembic.ini
 etc/ldap.cfg
 etc/rucio-server-gcs.json
+etc/rucio-globus.yml
 alembic.ini
 .gitlabkey
 .githubtoken
