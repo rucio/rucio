@@ -18,6 +18,8 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2020
+# - Brandon White <bjwhite@fnal.gov>, 2019-2020-2020
 #
 # PY3K COMPATIBLE
 
@@ -59,7 +61,7 @@ logging.basicConfig(stream=sys.stdout,
 GRACEFUL_STOP = threading.Event()
 
 
-def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False, scheme=None):
+def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False, scheme=None):
     """
     Main loop to select and delete files.
 
@@ -101,16 +103,19 @@ def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False
                     prot.connect()
                     for replica in replicas:
                         nothing_to_do = False
+                        scope = ''
+                        if replica['scope']:
+                            scope = replica['scope'].external
                         try:
                             pfn = str(rsemgr.lfns2pfns(rse_settings=rse_info,
-                                                       lfns=[{'scope': replica['scope'].external, 'name': replica['name'], 'path': replica['path']}],
+                                                       lfns=[{'scope': scope, 'name': replica['name'], 'path': replica['path']}],
                                                        operation='delete', scheme=scheme).values()[0])
-                            logging.info('Dark Reaper %s-%s: Deletion ATTEMPT of %s:%s as %s on %s', worker_number, total_workers, replica['scope'], replica['name'], pfn, rse)
+                            logging.info('Dark Reaper %s-%s: Deletion ATTEMPT of %s:%s as %s on %s', worker_number, total_workers, scope, replica['name'], pfn, rse)
                             start = time.time()
                             prot.delete(pfn)
                             duration = time.time() - start
-                            logging.info('Dark Reaper %s-%s: Deletion SUCCESS of %s:%s as %s on %s in %s seconds', worker_number, total_workers, replica['scope'], replica['name'], pfn, rse, duration)
-                            add_message('deletion-done', {'scope': replica['scope'].external,
+                            logging.info('Dark Reaper %s-%s: Deletion SUCCESS of %s:%s as %s on %s in %s seconds', worker_number, total_workers, scope, replica['name'], pfn, rse, duration)
+                            add_message('deletion-done', {'scope': scope,
                                                           'name': replica['name'],
                                                           'rse': rse,
                                                           'rse_id': rse_id,
@@ -121,13 +126,13 @@ def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False
                                                           'protocol': prot.attributes['scheme']})
                             deleted_replicas.append(replica)
                         except SourceNotFound:
-                            err_msg = 'Dark Reaper %s-%s: Deletion NOTFOUND of %s:%s as %s on %s' % (worker_number, total_workers, replica['scope'], replica['name'], pfn, rse)
+                            err_msg = 'Dark Reaper %s-%s: Deletion NOTFOUND of %s:%s as %s on %s' % (worker_number, total_workers, scope, replica['name'], pfn, rse)
                             logging.warning(err_msg)
                             deleted_replicas.append(replica)
                         except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
-                            err_msg = 'Dark Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s' % (worker_number, total_workers, replica['scope'], replica['name'], pfn, rse, str(error))
+                            err_msg = 'Dark Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s' % (worker_number, total_workers, scope, replica['name'], pfn, rse, str(error))
                             logging.warning(err_msg)
-                            add_message('deletion-failed', {'scope': replica['scope'].external,
+                            add_message('deletion-failed', {'scope': scope,
                                                             'name': replica['name'],
                                                             'rse': rse,
                                                             'rse_id': rse_id,
@@ -137,7 +142,7 @@ def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False
                                                             'reason': str(error),
                                                             'protocol': prot.attributes['scheme']})
 
-                        except:
+                        except Exception:
                             logging.critical(traceback.format_exc())
                 finally:
                     prot.close()
@@ -156,7 +161,7 @@ def reaper(rses=[], worker_number=1, total_workers=1, chunk_size=100, once=False
 
         except DatabaseException as error:
             logging.warning('Reaper:  %s', str(error))
-        except:
+        except Exception:
             logging.critical(traceback.format_exc())
 
     die(executable=executable, hostname=hostname, pid=pid, thread=thread, hash_executable=hash_executable)

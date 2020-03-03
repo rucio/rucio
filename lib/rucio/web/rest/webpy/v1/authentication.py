@@ -22,27 +22,49 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
 from __future__ import print_function
-import base64
 
+import base64
+import time
+from os.path import dirname, join
 from re import search
 from traceback import format_exc
+import imp
 
-from web import application, ctx, OK, BadRequest, header, InternalError
+from web import OK, BadRequest, InternalError, application, ctx, header
+from web import input as param_input
+from web import seeother, setcookie, template
 
-from rucio.api.authentication import (get_auth_token_user_pass,
-                                      get_auth_token_gss,
+from rucio.api.authentication import (get_auth_oidc, get_auth_token_gss,
+                                      get_auth_token_saml, get_auth_token_ssh,
+                                      get_auth_token_user_pass,
                                       get_auth_token_x509,
-                                      get_auth_token_ssh,
-                                      get_ssh_challenge_token,
-                                      validate_auth_token)
+                                      get_ssh_challenge_token, get_token_oidc,
+                                      redirect_auth_oidc, validate_auth_token)
+from rucio.common.config import config_get
 from rucio.common.exception import AccessDenied, IdentityError, RucioException
-from rucio.common.utils import generate_http_error, date_to_str
+from rucio.common.utils import date_to_str, generate_http_error
 from rucio.web.rest.common import RucioController, check_accept_header_wrapper
 
+# Extra modules: Only imported if available
+EXTRA_MODULES = {'onelogin': False}
+
+for extra_module in EXTRA_MODULES:
+    try:
+        imp.find_module(extra_module)
+        EXTRA_MODULES[extra_module] = True
+    except ImportError:
+        EXTRA_MODULES[extra_module] = False
+
+if EXTRA_MODULES['onelogin']:
+    from onelogin.saml2.auth import OneLogin_Saml2_Auth
+    from web import cookies
+    from rucio.web.ui.common.utils import prepare_webpy_request
 
 URLS = (
     '/userpass', 'UserPass',
@@ -51,7 +73,12 @@ URLS = (
     '/x509_proxy', 'x509',
     '/ssh', 'SSH',
     '/ssh_challenge_token', 'SSHChallengeToken',
+    '/saml', 'SAML',
     '/validate', 'Validate',
+    '/oidc', 'OIDC',
+    '/oidc_token', 'TokenOIDC',
+    '/oidc_code', 'CodeOIDC',
+    '/oidc_redirect', 'RedirectOIDC',
 )
 
 
@@ -128,6 +155,336 @@ class UserPass(RucioController):
         header('X-Rucio-Auth-Token', result.token)
         header('X-Rucio-Auth-Token-Expires', date_to_str(result.expired_at))
         return str()
+
+
+class OIDC(RucioController):
+    """
+    Requests a user specific Authorization URL (assigning a user session state,
+    nonce, Rucio OIDC Client ID with the correct issuers authentication endpoint).
+    """
+
+    def OPTIONS(self):
+        """
+        HTTP Success:
+            200 OK
+
+        Allow cross-site scripting. Explicit for Authentication.
+        """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+        raise OK
+
+    @check_accept_header_wrapper(['application/octet-stream'])
+    def GET(self):
+        """
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+
+        :param Rucio-Account: Account identifier as a string.
+
+        :returns: User & Rucio OIDC Client specific Authorization URL as a string.
+        """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+
+        header('Content-Type', 'application/octet-stream')
+        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        header('Cache-Control', 'post-check=0, pre-check=0', False)
+        header('Pragma', 'no-cache')
+
+        account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT', 'weblogin')
+        auth_scope = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_SCOPE', 'openid profile')
+        audience = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_AUDIENCE', 'rucio')
+        auto = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_AUTO', False)
+        issuer = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_ISSUER', config_get('oidc', 'admin_issuer'))
+        polling = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_POLLING', False)
+        refresh_lifetime = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_REFRESH_LIFETIME', None)
+        auto = (auto == 'True')
+        polling = (polling == 'True')
+        if refresh_lifetime == 'None':
+            refresh_lifetime = None
+        ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
+        if ip is None:
+            ip = ctx.ip
+        try:
+            kwargs = {'auth_scope': auth_scope,
+                      'audience': audience,
+                      'issuer': issuer,
+                      'auto': auto,
+                      'polling': polling,
+                      'refresh_lifetime': refresh_lifetime,
+                      'ip': ip}
+            result = get_auth_oidc(account, **kwargs)
+        except AccessDenied:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot get authentication URL from Rucio Authentication Server for account %(account)s' % locals())
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+
+        if not result:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot get authentication URL from Rucio Authentication Server for account %(account)s' % locals())
+
+        header('X-Rucio-OIDC-Auth-URL', result)
+        return str()
+
+
+class RedirectOIDC(RucioController):
+    """
+    Authenticate a Rucio account via
+    an Identity Provider (XDC IAM as of June 2019).
+    """
+
+    def OPTIONS(self):
+        """
+        HTTP Success:
+            200 OK
+
+        Allow cross-site scripting. Explicit for Authentication.
+        """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+        raise OK
+
+    @check_accept_header_wrapper(['application/octet-stream', 'text/html'])
+    def GET(self):
+        """
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+
+        :param QUERY_STRING: the URL query string itself
+
+        :returns: "Rucio-Auth-Token" as a variable-length string header.
+        """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+
+        # interaction with web browser - display response in html format
+        header('Content-Type', 'text/html')
+        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        header('Cache-Control', 'post-check=0, pre-check=0', False)
+        header('Pragma', 'no-cache')
+
+        query_string = ctx.env.get('QUERY_STRING')
+        try:
+            fetchtoken = ctx.env.get('HTTP_X_RUCIO_CLIENT_FETCH_TOKEN')
+            fetchtoken = (fetchtoken == 'True')
+            result = redirect_auth_oidc(query_string, fetchtoken)
+
+        except AccessDenied:
+            render = template.render(join(dirname(__file__), '../auth_templates/'))
+            return render.auth_crash('contact')
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot contact the Rucio Authentication Server.')
+
+        except RucioException as error:
+            render = template.render(join(dirname(__file__), '../auth_templates/'))
+            return render.auth_crash('internal_error')
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+
+        except Exception as error:
+            print(format_exc())
+            render = template.render(join(dirname(__file__), '../auth_templates/'))
+            return render.auth_crash('internal_error')
+            raise InternalError(error)
+
+        if not result:
+            render = template.render(join(dirname(__file__), '../auth_templates/'))
+            return render.auth_crash('no_token')
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot contact the Rucio Authentication Server.')
+        if fetchtoken:
+            # this is only a case of returning the final token to the Rucio Client polling
+            # or requesting token after copy-pasting the Rucio code from the web page page
+            header('Content-Type', 'application/octet-stream')
+            header('X-Rucio-Auth-Token', result)
+            return str()
+        else:
+            raise seeother(result)
+
+
+class CodeOIDC(RucioController):
+    """
+    IdP redirects to this endpoing with the AuthZ code
+    Rucio Auth server will request new token. This endpoint should be reached
+    only if the request/ IdP login has been made through web browser. Then the response
+    content will be in html (including the potential errors displayed).
+    The token will be saved in the Rucio DB, but only Rucio code will
+    be returned on the web page, or, in case of polling is True, successful
+    operation is confirmed waiting for the Rucio client to get the token automatically.
+    """
+
+    def OPTIONS(self):
+        """
+        HTTP Success:
+            200 OK
+
+        Allow cross-site scripting. Explicit for Authentication.
+        """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+        raise OK
+
+    @check_accept_header_wrapper(['application/octet-stream', 'text/html'])
+    def GET(self):
+        """
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+
+        :param QUERY_STRING: the URL query string itself
+
+        :returns: "Rucio-Auth-Token" as a variable-length string header.
+        """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+
+        header('Content-Type', 'text/html')
+        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        header('Cache-Control', 'post-check=0, pre-check=0', False)
+        header('Pragma', 'no-cache')
+
+        query_string = ctx.env.get('QUERY_STRING')
+        ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
+        if ip is None:
+            ip = ctx.ip
+
+        try:
+            result = get_token_oidc(query_string, ip)
+
+        except AccessDenied:
+            render = template.render(join(dirname(__file__), '../auth_templates/'))
+            return render.auth_crash('contact')
+            raise generate_http_error(401, 'CannotAuthorize', 'Cannot authorize token request.')
+        except RucioException as error:
+            render = template.render(join(dirname(__file__), '../auth_templates/'))
+            return render.auth_crash('internal_error')
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            render = template.render(join(dirname(__file__), '../auth_templates/'))
+            return render.auth_crash('internal_error')
+            raise InternalError(error)
+
+        render = template.render(join(dirname(__file__), '../auth_templates/'))
+        if not result:
+            return render.auth_crash('no_result')
+            raise generate_http_error(401, 'CannotAuthorize', 'Cannot authorize token request.')
+        if 'fetchcode' in result:
+            authcode = result['fetchcode']
+            return render.auth_granted(authcode)
+        elif 'polling' in result and result['polling'] is True:
+            authcode = "allok"
+            return render.auth_granted(authcode)
+        else:
+            return render.auth_crash('bad_request')
+            raise BadRequest()
+
+
+class TokenOIDC(RucioController):
+    """
+    Authenticate a Rucio account temporarily via ID,
+    access (eventually save new refresh token)
+    received from an Identity Provider.
+    """
+
+    def OPTIONS(self):
+        """
+        HTTP Success:
+            200 OK
+
+        Allow cross-site scripting. Explicit for Authentication.
+        """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+        raise OK
+
+    @check_accept_header_wrapper(['application/octet-stream'])
+    def GET(self):
+        """
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+
+        :param QUERY_STRING: the URL query string itself
+
+        :returns: "Rucio-Auth-Token" as a variable-length string header.
+        """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+
+        header('Content-Type', 'application/octet-stream')
+        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        header('Cache-Control', 'post-check=0, pre-check=0', False)
+        header('Pragma', 'no-cache')
+
+        query_string = ctx.env.get('QUERY_STRING')
+        ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
+        if ip is None:
+            ip = ctx.ip
+
+        try:
+            result = get_token_oidc(query_string, ip)
+
+        except AccessDenied:
+            raise generate_http_error(401, 'CannotAuthorize', 'Cannot authorize token request.')
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+
+        if not result:
+            raise generate_http_error(401, 'CannotAuthorize', 'Cannot authorize token request.')
+        if 'token' in result and 'webhome' not in result:
+            header('X-Rucio-Auth-Token', result['token'].token)  # pylint: disable=no-member
+            header('X-Rucio-Auth-Token-Expires', date_to_str(result['token'].expired_at))  # pylint: disable=no-member
+            return str()
+        elif 'webhome' in result:
+            webhome = result['webhome']
+            if webhome is None:
+                header('Content-Type', 'text/html')
+                render = template.render(join(dirname(__file__), '../auth_templates/'))
+                return render.auth_crash('unknown_identity')
+            # header('X-Rucio-Auth-Token', result[3].token)
+            setcookie('x-rucio-auth-token', value=result['token'].token, path='/')
+            setcookie('rucio-auth-token-created-at', value=int(time.time()), path='/')
+            return seeother(webhome)
+        else:
+            raise BadRequest()
 
 
 class GSS(RucioController):
@@ -439,6 +796,105 @@ class SSHChallengeToken(RucioController):
         header('X-Rucio-SSH-Challenge-Token', result.token)
         header('X-Rucio-SSH-Challenge-Token-Expires', date_to_str(result.expired_at))
         return str()
+
+
+class SAML(RucioController):
+    """
+    Authenticate a Rucio account temporarily via CERN SSO.
+    """
+
+    def OPTIONS(self):
+        """
+        HTTP Success:
+            200 OK
+
+        Allow cross-site scripting. Explicit for Authentication.
+        """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+        header('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
+        raise OK
+
+    @check_accept_header_wrapper(['application/octet-stream'])
+    def GET(self):
+        """
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+
+        :param Rucio-Account: Account identifier as a string.
+        :param Rucio-Username: Username as a string.
+        :param Rucio-Password: Password as a string.
+        :param Rucio-AppID: Application identifier as a string.
+        :returns: "X-Rucio-SAML-Auth-URL" as a variable-length string header.
+        """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+        header('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
+
+        header('Content-Type', 'application/octet-stream')
+        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        header('Cache-Control', 'post-check=0, pre-check=0', False)
+        header('Pragma', 'no-cache')
+
+        saml_nameid = cookies().get('saml-nameid')
+        account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
+        appid = ctx.env.get('HTTP_X_RUCIO_APPID')
+        if appid is None:
+            appid = 'unknown'
+        ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
+        if ip is None:
+            ip = ctx.ip
+
+        if saml_nameid:
+            try:
+                result = get_auth_token_saml(account, saml_nameid, appid, ip)
+            except AccessDenied:
+                raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
+            except RucioException as error:
+                raise generate_http_error(500, error.__class__.__name__, error.args[0])
+            except Exception as error:
+                print(format_exc())
+                raise InternalError(error)
+
+            if not result:
+                raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
+
+            header('X-Rucio-Auth-Token', result.token)
+            header('X-Rucio-Auth-Token-Expires', date_to_str(result.expired_at))
+            return str()
+
+        # Path to the SAML config folder
+        SAML_PATH = config_get('saml', 'config_path')
+
+        request = ctx.env
+        data = dict(param_input())
+        req = prepare_webpy_request(request, data)
+        auth = OneLogin_Saml2_Auth(req, custom_base_path=SAML_PATH)
+
+        header('X-Rucio-SAML-Auth-URL', auth.login())
+        return str()
+
+    def POST(self):
+        SAML_PATH = config_get('saml', 'config_path')
+        request = ctx.env
+        data = dict(param_input())
+        req = prepare_webpy_request(request, data)
+        auth = OneLogin_Saml2_Auth(req, custom_base_path=SAML_PATH)
+
+        auth.process_response()
+        errors = auth.get_errors()
+        if not errors:
+            if auth.is_authenticated():
+                setcookie('saml-nameid', value=auth.get_nameid(), path='/')
 
 
 class Validate(RucioController):

@@ -16,6 +16,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2016
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Brandon White <bjwhite@fnal.gov>, 2019-2020
 #
 # PY3K COMPATIBLE
 
@@ -68,7 +69,7 @@ def rse_update(once=False):
 
             # Select a bunch of rses for to update for this worker
             start = time.time()  # NOQA
-            rse_ids = get_updated_rse_counters(total_workers=heartbeat['nr_threads'] - 1,
+            rse_ids = get_updated_rse_counters(total_workers=heartbeat['nr_threads'],
                                                worker_number=heartbeat['assign_thread'])
             logging.debug('Index query time %f size=%d' % (time.time() - start, len(rse_ids)))
 

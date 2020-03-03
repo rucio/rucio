@@ -342,7 +342,7 @@ MESSAGE_OPERATION = {"type": "object",
 
 ACCOUNT_ATTRIBUTE = {"description": "Account attribute",
                      "type": "string",
-                     "pattern": r'^[a-z0-9-_]{1,30}$'}
+                     "pattern": r'^[a-zA-Z0-9-_\\/\\.]{1,30}$'}
 
 SCOPE_NAME_REGEXP = '/(.*)/(.*)'
 

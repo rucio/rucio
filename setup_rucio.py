@@ -18,6 +18,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 
 '''
 Setup.py which moves kerberos modules in extra dependencies to be buildthedocs compliant.
@@ -49,11 +50,11 @@ name = 'rucio'
 packages = find_packages('lib/')
 description = "Rucio Package"
 IsRelease = False
-requirements_files = ['tools/pip-requires', 'tools/pip-requires-client']
-data_files = [('rucio/etc/', glob.glob('etc/*.template')),
+requirements_files = ['etc/pip-requires', 'etc/pip-requires-client']
+data_files = [('rucio/etc/', glob.glob('etc/*.template') + ['etc/pip-requires', 'etc/pip-requires-client',
+                                                            'etc/pip-requires-test']),
               ('rucio/etc/web', glob.glob('etc/web/*.template')),
-              ('rucio/tools/', ['tools/pip-requires', 'tools/pip-requires-client', 'tools/pip-requires-test',
-                                'tools/bootstrap.py', 'tools/reset_database.py']),
+              ('rucio/tools/', ['tools/bootstrap.py', 'tools/reset_database.py']),
               ('rucio/etc/mail_templates/', glob.glob('etc/mail_templates/*.tmpl'))]
 
 scripts = glob.glob('bin/rucio*')
@@ -165,12 +166,16 @@ oracle_extras = ['cx_oracle==6.3.1']
 postgresql_extras = ['psycopg2-binary>=2.4.2,<2.8']
 mysql_extras = ['PyMySQL']
 kerberos_extras = ['kerberos>=1.3.0', 'pykerberos>=1.2.1', 'requests-kerberos>=0.12.0']
-dev_extras = parse_requirements(requirements_files=['tools/pip-requires-test', ])
+globus_extras = ['PyYAML==5.1.1', 'globus-sdk==1.8.0']
+saml_extras = ['python3-saml>=1.6.0']
+dev_extras = parse_requirements(requirements_files=['etc/pip-requires-test', ])
 requires = parse_requirements(requirements_files=requirements_files)
 extras_require = dict(oracle=oracle_extras,
                       postgresql=postgresql_extras,
                       mysql=mysql_extras,
                       kerberos=kerberos_extras,
+                      globus=globus_extras,
+                      saml=saml_extras,
                       dev=dev_extras)
 depend_links = parse_dependency_links(requirements_files=requirements_files)
 
@@ -222,7 +227,4 @@ setup(
     install_requires=requires,
     extras_require=extras_require,
     dependency_links=depend_links,
-    entry_points={'console_scripts': ['rucio-reaper=rucio.clis.daemons.reaper.reaper:main',
-                                      'rucio-dark-reaper=rucio.clis.daemons.reaper.dark:main',
-                                      'rucio-light-reaper=rucio.clis.daemons.reaper.light:main']}
 )

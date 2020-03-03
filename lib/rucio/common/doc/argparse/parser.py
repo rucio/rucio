@@ -10,7 +10,7 @@ def parser_navigate(parser_result, path, current_path=None):
     if isinstance(path, str):
         if path == '':
             return parser_result
-        path = re.split('\s+', path)
+        path = re.split('\s+', path)  # NOQA: W605
     current_path = current_path or []
     if len(path) == 0:
         return parser_result

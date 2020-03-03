@@ -15,6 +15,7 @@
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019-2020
 #
 # PY3K COMPATIBLE
 
@@ -28,6 +29,7 @@ import traceback
 import threading
 import time
 
+from datetime import datetime
 from sys import stdout, argv
 
 from rucio.db.sqla.constants import BadFilesStatus, BadPFNStatus, ReplicaState
@@ -35,7 +37,7 @@ from rucio.db.sqla.constants import BadFilesStatus, BadPFNStatus, ReplicaState
 from rucio.db.sqla.session import get_session
 from rucio.common.config import config_get
 from rucio.common.utils import chunks
-from rucio.common.exception import UnsupportedOperation, DataIdentifierNotFound
+from rucio.common.exception import UnsupportedOperation, DataIdentifierNotFound, ReplicaNotFound
 from rucio.core.did import get_metadata
 from rucio.core.replica import (get_bad_pfns, get_pfn_to_rse, declare_bad_file_replicas,
                                 get_did_from_pfns, update_replicas_states, bulk_add_bad_replicas,
@@ -74,12 +76,12 @@ def minos(bulk=1000, once=False, sleep_time=60):
     hb_thread = threading.current_thread()
     heartbeat.sanity_check(executable=executable, hostname=hostname)
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info(prepend_str + 'Minos starting')
 
     time.sleep(10)  # To prevent running on the same partition if all the daemons restart at the same time
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
 
     states_mapping = {BadPFNStatus.BAD: BadFilesStatus.BAD,
                       BadPFNStatus.SUSPICIOUS: BadFilesStatus.SUSPICIOUS,
@@ -91,7 +93,7 @@ def minos(bulk=1000, once=False, sleep_time=60):
     while not graceful_stop.is_set():
         start_time = time.time()
         heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-        prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+        prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
         pfns = []
         try:
             bad_replicas = {}
@@ -212,7 +214,7 @@ def minos(bulk=1000, once=False, sleep_time=60):
                             pfns = [entry['pfn'] for entry in chunk]
                             bulk_delete_bad_pfns(pfns=pfns, session=session)
                             session.commit()  # pylint: disable=no-member
-                        except UnsupportedOperation as error:
+                        except (UnsupportedOperation, ReplicaNotFound) as error:
                             session.rollback()  # pylint: disable=no-member
                             logging.error(prepend_str + 'Problem to bulk update PFNs. PFNs will be updated individually. Error : %s' % str(error))
                             for rep in chunk:
@@ -227,7 +229,10 @@ def minos(bulk=1000, once=False, sleep_time=60):
                                     if rep['rse_id'] in unavailable_states:
                                         logging.info(prepend_str + '%s is in unavailable state. Will be removed from the list of bad PFNs' % str(rep['pfn']))
                                         bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
-                                except DataIdentifierNotFound as error:
+                                    elif expires_at < datetime.now():
+                                        logging.info('%s PFN %s expiration time (%s) is older than now and is not in unavailable state. Removing the PFNs from bad_pfns', prepend_str, str(rep['pfn']), expires_at)
+                                        bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
+                                except (DataIdentifierNotFound, ReplicaNotFound) as error:
                                     logging.error(prepend_str + 'Will remove %s from the list of bad PFNs' % str(rep['pfn']))
                                     bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
                             session = get_session()

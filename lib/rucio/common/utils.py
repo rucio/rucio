@@ -19,38 +19,42 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2017
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Gabriele Fronze' <gfronze@cern.ch>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
+
 
 from __future__ import print_function
 
 import base64
 import datetime
 import errno
+import getpass
 import hashlib
 import imp
 import json
 import os
-import pwd
+import os.path
 import re
 import requests
 import socket
 import subprocess
+import tempfile
 import threading
 import time
 import zlib
 
-from getpass import getuser
 from logging import getLogger, Formatter
 from logging.handlers import RotatingFileHandler
 from uuid import uuid4 as uuid
-from six import string_types
+from six import string_types, PY3
 from xml.etree import ElementTree
 
 try:
@@ -152,9 +156,8 @@ def build_url(url, path=None, params=None, doseq=False):
     separated by '&' are generated for each element of the value sequence for the key.
     """
     complete_url = url
-    complete_url += "/"
     if path is not None:
-        complete_url += path
+        complete_url += "/" + path
     if params is not None:
         complete_url += "?"
         if isinstance(params, str):
@@ -162,6 +165,17 @@ def build_url(url, path=None, params=None, doseq=False):
         else:
             complete_url += urlencode(params, doseq=doseq)
     return complete_url
+
+
+def oidc_identity_string(sub, iss):
+    """
+    Transform IdP sub claim and issuers url into users identity string.
+    :param sub: users SUB claim from the Identity Provider
+    :param iss: issuer (IdP) https url
+
+    :returns: OIDC identity string "SUB=<usersid>, ISS=https://iam-test.ch/"
+    """
+    return 'SUB=' + str(sub) + ', ISS=' + str(iss)
 
 
 def generate_uuid():
@@ -179,10 +193,38 @@ def clean_headers(msg):
     return msg
 
 
+# GLOBALLY_SUPPORTED_CHECKSUMS = ['adler32', 'md5', 'sha256', 'crc32']
+GLOBALLY_SUPPORTED_CHECKSUMS = ['adler32', 'md5']
+CHECKSUM_ALGO_DICT = {}
+PREFERRED_CHECKSUM = GLOBALLY_SUPPORTED_CHECKSUMS[0]
+CHECKSUM_KEY = 'supported_checksums'
+
+
+def is_checksum_valid(checksum_name):
+    """
+    A simple function to check wether a checksum algorithm is supported.
+    Relies on GLOBALLY_SUPPORTED_CHECKSUMS to allow for expandability.
+
+    :param checksum_name: The name of the checksum to be verified.
+    :returns: True if checksum_name is in GLOBALLY_SUPPORTED_CHECKSUMS list, False otherwise.
+    """
+
+    return checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS
+
+
+def set_checksum_value(file, checksum_names_list):
+    for checksum_name in checksum_names_list:
+        if checksum_name in file['metadata'].keys() and file['metadata'][checksum_name]:
+            file['checksum'] = '%s:%s' % (checksum_name.upper(), str(file['metadata'][checksum_name]))
+            if checksum_name == PREFERRED_CHECKSUM:
+                break
+
+
 def adler32(file):
     """
     An Adler-32 checksum is obtained by calculating two 16-bit checksums A and B and concatenating their bits into a 32-bit integer. A is the sum of all bytes in the stream plus one, and B is the sum of the individual values of A from each step.
 
+    :param file: file name
     :returns: Hexified string, padded to 8 values.
     """
 
@@ -203,11 +245,14 @@ def adler32(file):
     return str('%08x' % adler)
 
 
+CHECKSUM_ALGO_DICT['adler32'] = adler32
+
+
 def md5(file):
     """
     Runs the MD5 algorithm (RFC-1321) on the binary content of the file named file and returns the hexadecimal digest
 
-    :param string: file name
+    :param file: file name
     :returns: string of 32 hexadecimal digits
     """
     hash_md5 = hashlib.md5()
@@ -220,12 +265,60 @@ def md5(file):
     return hash_md5.hexdigest()
 
 
+CHECKSUM_ALGO_DICT['md5'] = md5
+
+
+def sha256(file):
+    """
+    Runs the SHA256 algorithm on the binary content of the file named file and returns the hexadecimal digest
+
+    :param file: file name
+    :returns: string of 32 hexadecimal digits
+    """
+    with open(file, "rb") as f:
+        bytes = f.read()  # read entire file as bytes
+        readable_hash = hashlib.sha256(bytes).hexdigest()
+        print(readable_hash)
+        return readable_hash
+
+
+CHECKSUM_ALGO_DICT['sha256'] = sha256
+
+
+def crc32(file):
+    """
+    Runs the CRC32 algorithm on the binary content of the file named file and returns the hexadecimal digest
+
+    :param file: file name
+    :returns: string of 32 hexadecimal digits
+    """
+    prev = 0
+    for eachLine in open(file, "rb"):
+        prev = zlib.crc32(eachLine, prev)
+    return "%X" % (prev & 0xFFFFFFFF)
+
+
+CHECKSUM_ALGO_DICT['crc32'] = crc32
+
+
 def str_to_date(string):
     """ Converts a RFC-1123 string to the corresponding datetime value.
 
     :param string: the RFC-1123 string to convert to datetime value.
     """
     return datetime.datetime.strptime(string, DATE_FORMAT) if string else None
+
+
+def val_to_space_sep_str(vallist):
+    """ Converts a list of values into a string of space separated values
+
+    :param vallist: the list of values to to convert into string
+    :return: the string of space separated values or the value initially passed as parameter
+    """
+    if isinstance(vallist, list):
+        return u" ".join(vallist)
+    else:
+        return unicode(vallist)
 
 
 def date_to_str(date):
@@ -492,15 +585,28 @@ def construct_surl_BelleII(dsn, filename):
         return '%s/%s' % (dsn, filename)
 
 
-def construct_surl(dsn, filename, naming_convention=None):
-    if naming_convention == 'T0':
-        return construct_surl_T0(dsn, filename)
-    elif naming_convention == 'DQ2':
-        return construct_surl_DQ2(dsn, filename)
-    elif naming_convention == 'BelleII':
-        return construct_surl_BelleII(dsn, filename)
+_SURL_ALGORITHMS = {}
+_DEFAULT_SURL = 'DQ2'
 
-    return construct_surl_DQ2(dsn, filename)
+
+def register_surl_algorithm(surl_callable, name=None):
+    if name is None:
+        name = surl_callable.__name__
+    _SURL_ALGORITHMS[name] = surl_callable
+
+
+register_surl_algorithm(construct_surl_T0, 'T0')
+register_surl_algorithm(construct_surl_DQ2, 'DQ2')
+register_surl_algorithm(construct_surl_BelleII, 'BelleII')
+
+
+def construct_surl(dsn, filename, naming_convention=None):
+    # ensure that policy package is loaded in case it registers its own algorithms
+    import rucio.common.schema  # noqa: F401
+
+    if naming_convention is None or naming_convention not in _SURL_ALGORITHMS:
+        naming_convention = _DEFAULT_SURL
+    return _SURL_ALGORITHMS[naming_convention](dsn, filename)
 
 
 def __strip_dsn(dsn):
@@ -544,9 +650,9 @@ def clean_surls(surls):
     for surl in surls:
         if surl.startswith('srm'):
             surl = re.sub(':[0-9]+/', '/', surl)
-            surl = re.sub('/srm/managerv1\?SFN=', '', surl)
-            surl = re.sub('/srm/v2/server\?SFN=', '', surl)
-            surl = re.sub('/srm/managerv2\?SFN=', '', surl)
+            surl = re.sub('/srm/managerv1\?SFN=', '', surl)  # NOQA: W605
+            surl = re.sub('/srm/v2/server\?SFN=', '', surl)  # NOQA: W605
+            surl = re.sub('/srm/managerv2\?SFN=', '', surl)  # NOQA: W605
         res.append(surl)
     res.sort()
     return res
@@ -616,24 +722,18 @@ def get_tmp_dir():
 
     :return: A path.
     """
-    user, tmp_dir = None, None
+    base_dir = os.path.abspath(tempfile.gettempdir())
     try:
-        user = pwd.getpwuid(os.getuid()).pw_name
+        return os.path.join(base_dir, getpass.getuser())
     except Exception:
         pass
 
-    for env_var in ('TMP', 'TMPDIR', 'TEMP'):
-        if env_var in os.environ:
-            tmp_dir = os.environ[env_var]
-            break
+    try:
+        return os.path.join(base_dir, str(os.getuid()))
+    except Exception:
+        pass
 
-    if not user:
-        user = getuser()
-
-    if not tmp_dir:
-        return '/tmp/' + user + '/'
-
-    return tmp_dir + '/' + user + '/'
+    return base_dir
 
 
 def is_archive(name):
@@ -642,7 +742,7 @@ def is_archive(name):
 
     :return: A boolean.
     '''
-    regexp = '^.*\.(zip|zipx|tar.gz|tgz|tar.Z|tar.bz2|tbz2)(\.\d+)*$'
+    regexp = r'^.*\.(zip|zipx|tar.gz|tgz|tar.Z|tar.bz2|tbz2)(\.\d+)*$'
     if re.match(regexp, name, re.I):
         return True
     return False
@@ -706,6 +806,8 @@ def ssh_sign(private_key, message):
     :param message: The message to sign as a string.
     :return: Base64 encoded signature as a string.
     """
+    if PY3 and isinstance(message, str):
+        message = message.encode()
     if not EXTRA_MODULES['paramiko']:
         raise MissingModuleException('The paramiko module is not installed or faulty.')
     sio_private_key = StringIO(private_key)
@@ -713,7 +815,10 @@ def ssh_sign(private_key, message):
     sio_private_key.close()
     signature_stream = priv_k.sign_ssh_data(message)
     signature_stream.rewind()
-    return base64.b64encode(signature_stream.get_remainder())
+    base64_encoded = base64.b64encode(signature_stream.get_remainder())
+    if PY3:
+        base64_encoded = base64_encoded.decode()
+    return base64_encoded
 
 
 def make_valid_did(lfn_dict):
@@ -833,6 +938,8 @@ def parse_did_filter_from_string(input_string):
                     key = 'length.lt'
             elif '=' in option:
                 key, value = option.split('=')
+                if key == 'created_after' or key == 'created_before':
+                    value = datetime.datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%fZ')
 
             if key == 'type':
                 if value.upper() in ['ALL', 'COLLECTION', 'CONTAINER', 'DATASET', 'FILE']:
@@ -846,12 +953,15 @@ def parse_did_filter_from_string(input_string):
                 except ValueError:
                     raise ValueError('Length has to be an integer value.')
                 filters[key] = value
-            else:
+            elif isinstance(value, string_types):
                 if value.lower() == 'true':
                     value = '1'
                 elif value.lower() == 'false':
                     value = '0'
                 filters[key] = value
+            else:
+                filters[key] = value
+
     return filters, type
 
 
@@ -1045,3 +1155,50 @@ def api_update_return_dict(dictionary):
         dictionary['scope'] = dictionary['scope'].external
 
     return dictionary
+
+
+def get_parsed_throttler_mode(throttler_mode):
+    """ Parse the conveyor-throttler mode string. """
+    direction = None
+    all_activities = None
+    if throttler_mode == 'DEST_PER_ACT':
+        direction = 'destination'
+        all_activities = False
+    elif throttler_mode == 'DEST_PER_ALL_ACT':
+        direction = 'destination'
+        all_activities = True
+    elif throttler_mode == 'SRC_PER_ACT':
+        direction = 'source'
+        all_activities = False
+    elif throttler_mode == 'SRC_PER_ALL_ACT':
+        direction = 'source'
+        all_activities = True
+    return (direction, all_activities)
+
+
+def query_bunches(query, bunch_by):
+    """
+    Queries output by yield_per sqlalchemy function
+    (which in a for loop returns rows one by one).
+    Groups the query rows in bunches of bunch_by
+    elements and returns list of bunches.
+    :param query: sqlalchemy session query
+    :param bunch_by: integer number
+    :returns: [[bunch_of_tuples_1],[bunch_of_tuples_2],...]
+
+    """
+    filtered_bunches = []
+    item_bunch = []
+    for i in query.yield_per(bunch_by):
+        # i is either tuple of one element (token/model object etc.)
+        if not isinstance(i, tuple) and not isinstance(i, list):
+            item_bunch.append(i)
+        # or i is a tuple with the column elements per row
+        else:
+            item_bunch += i
+        if len(item_bunch) % bunch_by == 0:
+            filtered_bunches.append(item_bunch)
+            item_bunch = []
+    if item_bunch:
+        filtered_bunches.append(item_bunch)
+    return filtered_bunches

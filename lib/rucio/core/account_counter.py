@@ -11,17 +11,17 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Brandon White, <bjwhite@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
 from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy.sql.expression import bindparam, text
 
 from rucio.common.exception import CounterNotFound
 import rucio.core.account
 import rucio.core.rse
 
-from rucio.db.sqla import models
+from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.session import read_session, transactional_session
 
 MAX_COUNTERS = 10
@@ -122,15 +122,12 @@ def get_updated_account_counters(total_workers, worker_number, session=None):
     query = session.query(models.UpdatedAccountCounter.account, models.UpdatedAccountCounter.rse_id).\
         distinct(models.UpdatedAccountCounter.account, models.UpdatedAccountCounter.rse_id)
 
-    if total_workers > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number),
-                          bindparam('total_workers', total_workers)]
-            query = query.filter(text('ORA_HASH(CONCAT(account, rse_id), :total_workers) = :worker_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(concat(account, rse_id)), %s) = %s' % (total_workers + 1, worker_number)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(concat(account, rse_id)))::bit(32)::int), %s) = %s' % (total_workers + 1, worker_number)))
+    if session.bind.dialect.name == 'oracle':
+        hash_variable = 'CONCAT(account, rse_id)'''
+    else:
+        hash_variable = 'concat(account, rse_id)'
+
+    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable=hash_variable)
 
     return query.all()
 

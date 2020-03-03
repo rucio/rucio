@@ -55,9 +55,9 @@ class TestBoolean:
                 result[res['key']] = res['value']
 
         assert_equal(result['teststringtrue'], True)
-        assert_equal(result['testinttrue'], True)
+        assert_equal(result['testinttrue'], '1')
         assert_equal(result['teststringfalse'], False)
-        assert_equal(result['testintfalse'], False)
+        assert_equal(result['testintfalse'], '0')
 
     def test_booleanstring_rse_attribute(self):
         self.rse_client.add_rse_attribute(self.rse, 'teststringtrue', 'true')
@@ -69,6 +69,6 @@ class TestBoolean:
         result = self.rse_client.list_rse_attributes(self.rse)
 
         assert_equal(result['teststringtrue'], True)
-        assert_equal(result['testinttrue'], True)
+        assert_equal(result['testinttrue'], '1')
         assert_equal(result['teststringfalse'], False)
-        assert_equal(result['testintfalse'], False)
+        assert_equal(result['testintfalse'], '0')

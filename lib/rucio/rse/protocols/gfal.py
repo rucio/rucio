@@ -1,4 +1,4 @@
-# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2014-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,12 +16,13 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2016-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2016-2019
 # - Tobias Wegner <twegner@cern.ch>, 2017
 # - Nicolo Magini <Nicolo.Magini@cern.ch>, 2018-2019
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Gabriele Fronze' <gfronze@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -40,6 +41,7 @@ from threading import Timer
 
 from rucio.common import exception, config
 from rucio.common.constraints import STRING_TYPES
+from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, PREFERRED_CHECKSUM
 from rucio.rse.protocols import protocol
 
 try:
@@ -182,10 +184,11 @@ class Default(protocol.RSEProtocol):
         """
 
         self.__ctx = gfal2.creat_context()  # pylint: disable=no-member
-        # self.__ctx.set_opt_string("X509", "CERT", proxy)
-        # self.__ctx.set_opt_string("X509", "KEY", proxy)
         self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
         self.__ctx.set_opt_string("XROOTD PLUGIN", "XRD.WANTPROT", "gsi,unix")
+        self.__ctx.set_opt_boolean("XROOTD PLUGIN", "NORMALIZE_PATH", False)
+        if self.auth_token:
+            self.__ctx.set_opt_string("BEARER", "TOKEN", self.auth_token)
 
     def get(self, path, dest, transfer_timeout=None):
         """
@@ -333,13 +336,15 @@ class Default(protocol.RSEProtocol):
 
             :raises ServiceUnavailable: if some generic error occured in the library.
 
-            :returns: a dict with two keys, filesize and adler32 of the file provided in path.
+            :returns: a dict with two keys, filesize and an element of GLOBALLY_SUPPORTED_CHECKSUMS.
         """
         ret = {}
         ctx = self.__ctx
 
+        path = str(path)
+
         try:
-            stat_str = str(ctx.stat(str(path)))
+            stat_str = str(ctx.stat(path))
         except Exception as error:
             msg = 'Error while processing gfal stat call. Error: %s'
             raise exception.ServiceUnavailable(msg % str(error))
@@ -349,15 +354,25 @@ class Default(protocol.RSEProtocol):
             msg = 'gfal stat call result has unknown format. Result: %s'
             raise exception.ServiceUnavailable(msg % stat_str)
 
-        ret['filesize'] = stat_str.split()[7]
+        ret['filesize'] = stats[7]
 
+        message = "\n"
         try:
-            ret['adler32'] = ctx.checksum(str(path), str('ADLER32'))
+            ret[PREFERRED_CHECKSUM] = ctx.checksum(path, str(PREFERRED_CHECKSUM.upper()))
+            return ret
         except Exception as error:
-            msg = 'Error while processing gfal checksum call. Error: %s'
-            raise exception.RSEChecksumUnavailable(msg % str(error))
+            message += 'Error while processing gfal checksum call (%s). Error: %s \n' % (PREFERRED_CHECKSUM, str(error))
 
-        return ret
+        for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
+            if checksum_name == PREFERRED_CHECKSUM:
+                continue
+            try:
+                ret[checksum_name] = ctx.checksum(path, str(checksum_name.upper()))
+                return ret
+            except Exception as error:
+                message += 'Error while processing gfal checksum call (%s). Error: %s \n' % (checksum_name, str(error))
+
+        raise exception.RSEChecksumUnavailable(message)
 
     def __gfal2_cancel(self):
         """
@@ -456,7 +471,6 @@ class Default(protocol.RSEProtocol):
         """
 
         ctx = self.__ctx
-
         try:
             if ctx.stat(str(path)):
                 return 0

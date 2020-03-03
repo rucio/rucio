@@ -8,7 +8,7 @@
 
  Authors:
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
- - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2015, 2017
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2019
 -->
 
 $var title: Dumps
@@ -41,8 +41,8 @@ $var script:
     <b>URL:</b> https://rucio-hadoop.cern.ch/datasets_per_rse</br>
     <b>URL params:</b> rse, date (optional)</br>
     <b>Example:</b> <a href="https://rucio-hadoop.cern.ch/datasets_per_rse?rse=CERN-PROD_DATADISK&date=27-03-2015">https://rucio-hadoop.cern.ch/datasets_per_rse?rse=CERN-PROD_DATADISK&date=27-03-2015</a></br>
-    <b>Format:</b> RSE, scope, name, size, creation date, update date, last accessed date, state</br>
-    <b>Notabene:</b> last accessed date can be empty; if no date provided, the latest available dump will be taken
+    <b>Format:</b> RSE, scope, name, account, size, creation date, update date, last accessed date, rule id, state</br>
+    <b>Notabene:</b> last accessed date can be empty; if no date provided, the latest available dump will be taken; account is 'None' and rule id is empty if there are no rules for this datasets; accounts and rule ids will be given as a comma separated list sorted in the same order if there is more that one rule
   </div>
   <div id="suspicious_files_dumps" class="panel">
     <h4>Suspicious files</h4>

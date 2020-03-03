@@ -16,31 +16,35 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
 # - Edgar Fajardo <emfajard@ucsd.edu>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 
 try:
     from ConfigParser import NoOptionError, NoSectionError
 except ImportError:
     from configparser import NoOptionError, NoSectionError
 
-from rucio.common import config
+from rucio.common import config, exception
+
+import importlib
 
 if config.config_has_section('policy'):
     try:
-        POLICY = config.config_get('policy', 'schema')
+        POLICY = config.config_get('policy', 'package') + ".schema"
     except (NoOptionError, NoSectionError) as error:
-        POLICY = 'generic'
+        # fall back to old system for now
+        try:
+            POLICY = config.config_get('policy', 'schema')
+        except (NoOptionError, NoSectionError) as error:
+            POLICY = 'generic'
+        POLICY = 'rucio.common.schema.' + POLICY.lower()
 else:
-    POLICY = 'generic'
+    POLICY = 'rucio.common.schema.generic'
 
-if POLICY.lower() == 'generic':
-    from .generic import *  # NOQA pylint:disable=wildcard-import
-elif POLICY.lower() == 'atlas':
-    from .atlas import *  # NOQA pylint:disable=wildcard-import
-elif POLICY.lower() == 'cms':
-    from .cms import *  # NOQA pylint:disable=wildcard-import
-elif POLICY.lower() == 'icecube':
-    from .icecube import *  # NOQA pylint:disable=wildcard-import
-elif POLICY.lower() == 'belleii':
-    from .belleii import *  # NOQA pylint:disable=wildcard-import
-else:
-    from .generic import *  # NOQA pylint:disable=wildcard-import
+try:
+    module = importlib.import_module(POLICY)
+except (ImportError) as error:
+    raise exception.PolicyPackageNotFound('Module ' + POLICY + ' not found')
+
+for i in dir(module):
+    if i[:1] != '_':
+        globals()[i] = getattr(module, i)

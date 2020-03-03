@@ -27,6 +27,7 @@ from __future__ import print_function
 from datetime import datetime, timedelta
 from json import dumps, loads
 
+import hashlib
 import xmltodict
 
 from nose.tools import assert_equal, assert_in, assert_raises
@@ -329,12 +330,12 @@ class TestReplicaCore:
         for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
                                      schemes=['MOCK'],
                                      domain='wan'):
-            assert_in('/i/prefer/the/wan', replica['pfns'].keys()[0])
+            assert_in('/i/prefer/the/wan', list(replica['pfns'].keys())[0])
 
         for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
                                      schemes=['MOCK'],
                                      domain='lan'):
-            assert_in('/i/prefer/the/lan', replica['pfns'].keys()[0])
+            assert_in('/i/prefer/the/lan', list(replica['pfns'].keys())[0])
 
         # test old client behaviour - get all WAN answers
         for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
@@ -391,7 +392,7 @@ class TestReplicaCore:
         add_replicas(rse_id=rse_id, files=[file_item], account=root)
 
         replicas = list(rc.list_replicas([{'scope': scope.external, 'name': name}]))
-        assert_in('http://', replicas[0]['pfns'].keys()[0])
+        assert_in('http://', list(replicas[0]['pfns'].keys())[0])
 
     def test_replica_no_site(self):
         """ REPLICA (CORE): Test listing replicas without site attribute """
@@ -420,20 +421,60 @@ class TestReplicaCore:
         add_replicas(rse_id=rse_id, files=files, account=root)
 
         replicas = [r for r in rc.list_replicas(dids=[{'scope': 'mock', 'name': f['name']} for f in files])]
-        assert_in('root://', replicas[0]['pfns'].keys()[0])
+        assert_in('root://', list(replicas[0]['pfns'].keys())[0])
 
         replicas = [r for r in rc.list_replicas(dids=[{'scope': 'mock', 'name': f['name']} for f in files],
                                                 client_location={'site': 'SOMEWHERE'})]
-        assert_in('root://', replicas[0]['pfns'].keys()[0])
+        assert_in('root://', list(replicas[0]['pfns'].keys())[0])
 
         del_rse_attribute(rse_id=rse_id, key='site')
 
         replicas = [r for r in rc.list_replicas(dids=[{'scope': 'mock', 'name': f['name']} for f in files])]
-        assert_in('root://', replicas[0]['pfns'].keys()[0])
+        assert_in('root://', list(replicas[0]['pfns'].keys())[0])
 
         replicas = [r for r in rc.list_replicas(dids=[{'scope': 'mock', 'name': f['name']} for f in files],
                                                 client_location={'site': 'SOMEWHERE'})]
-        assert_in('root://', replicas[0]['pfns'].keys()[0])
+        assert_in('root://', list(replicas[0]['pfns'].keys())[0])
+
+    def test_replica_mixed_protocols(self):
+        """ REPLICA (CORE): Test adding replicas with mixed protocol """
+
+        rse = 'APERTURE_%s' % rse_name_generator()
+        rse_id = add_rse(rse)
+
+        add_protocol(rse_id, {'scheme': 'root',
+                              'hostname': 'root.aperture.com',
+                              'port': 1409,
+                              'prefix': '//test/chamber/',
+                              'impl': 'rucio.rse.protocols.xrootd.Default',
+                              'domains': {
+                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+        add_protocol(rse_id, {'scheme': 'http',
+                              'hostname': 'root.aperture.com',
+                              'port': 1409,
+                              'prefix': '//test/chamber/',
+                              'impl': 'rucio.rse.protocols.xrootd.Default',
+                              'domains': {
+                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+
+        tmp_scope = InternalScope('mock')
+        root = InternalAccount('root')
+
+        files = []
+
+        name = 'element_%s' % generate_uuid()
+        hstr = hashlib.md5(('%s:%s' % (tmp_scope, name)).encode('utf-8')).hexdigest()
+        pfn = 'root://root.aperture.com:1409//test/chamber/mock/%s/%s/%s' % (hstr[0:2], hstr[2:4], name)
+        files.append({'scope': tmp_scope, 'name': name, 'bytes': 1234, 'adler32': 'deadbeef', 'pfn': pfn})
+
+        name = 'element_%s' % generate_uuid()
+        hstr = hashlib.md5(('%s:%s' % (tmp_scope, name)).encode('utf-8')).hexdigest()
+        pfn = 'http://root.aperture.com:1409//test/chamber/mock/%s/%s/%s' % (hstr[0:2], hstr[2:4], name)
+        files.append({'scope': tmp_scope, 'name': name, 'bytes': 1234, 'adler32': 'deadbeef', 'pfn': pfn})
+
+        add_replicas(rse_id=rse_id, files=files, account=root)
 
     def test_set_tombstone(self):
         """ REPLICA (CORE): set tombstone on replica """
@@ -581,7 +622,7 @@ class TestReplicaClients:
         result = TestApp(rep_app.wsgifunc(*mw)).get('/bad/states', headers=headers2, params=data, expect_errors=True)
         assert_equal(result.status, 200)
         tot_files = []
-        for line in result.body.split('\n'):
+        for line in result.body.decode().split('\n'):
             if line != '':
                 tot_files.append(dumps(line))
         nb_tot_files = len(tot_files)
@@ -590,7 +631,7 @@ class TestReplicaClients:
         result = TestApp(rep_app.wsgifunc(*mw)).get('/bad/states', headers=headers2, params=data, expect_errors=True)
         assert_equal(result.status, 200)
         tot_bad_files = []
-        for line in result.body.split('\n'):
+        for line in result.body.decode().split('\n'):
             if line != '':
                 tot_bad_files.append(dumps(line))
         nb_tot_bad_files1 = len(tot_bad_files)
@@ -599,7 +640,7 @@ class TestReplicaClients:
         result = TestApp(rep_app.wsgifunc(*mw)).get('/bad/states', headers=headers2, params=data, expect_errors=True)
         assert_equal(result.status, 200)
         tot_suspicious_files = []
-        for line in result.body.split('\n'):
+        for line in result.body.decode().split('\n'):
             if line != '':
                 tot_suspicious_files.append(dumps(line))
         nb_tot_suspicious_files = len(tot_suspicious_files)
@@ -608,7 +649,7 @@ class TestReplicaClients:
         result = TestApp(rep_app.wsgifunc(*mw)).get('/bad/states', headers=headers2, params=data, expect_errors=True)
         assert_equal(result.status, 200)
         tot_temporary_unavailable_files = []
-        for line in result.body.split('\n'):
+        for line in result.body.decode().split('\n'):
             if line != '':
                 tot_temporary_unavailable_files.append(dumps(line))
         nb_tot_temporary_unavailable_files = len(tot_temporary_unavailable_files)
@@ -620,7 +661,7 @@ class TestReplicaClients:
         result = TestApp(rep_app.wsgifunc(*mw)).get('/bad/states', headers=headers2, params=data, expect_errors=True)
         assert_equal(result.status, 200)
         tot_bad_files = []
-        for line in result.body.split('\n'):
+        for line in result.body.decode().split('\n'):
             if line != '':
                 tot_bad_files.append(dumps(line))
         nb_tot_bad_files = len(tot_bad_files)
@@ -630,7 +671,7 @@ class TestReplicaClients:
         result = TestApp(rep_app.wsgifunc(*mw)).get('/bad/summary', headers=headers2, params=data, expect_errors=True)
         assert_equal(result.status, 200)
         nb_tot_bad_files2 = 0
-        for line in result.body.split('\n'):
+        for line in result.body.decode().split('\n'):
             if line != '':
                 line = loads(line)
                 nb_tot_bad_files2 += int(line.get('BAD', 0))
@@ -740,7 +781,7 @@ class TestReplicaClients:
         # Listing replicas on deterministic RSE
         list_rep = []
         for replica in self.replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], unavailable=True):
-            pfn = replica['pfns'].keys()[0]
+            pfn = list(replica['pfns'].keys())[0]
             list_rep.append(pfn)
 
         # Submit bad PFNs
@@ -775,7 +816,7 @@ class TestReplicaClients:
         # Check the state in the replica table
         for did in files:
             rep = get_replicas_state(scope=InternalScope(did['scope']), name=did['name'])
-            assert_equal(str(rep.keys()[0]), 'TEMPORARY_UNAVAILABLE')
+            assert_equal(str(list(rep.keys())[0]), 'TEMPORARY_UNAVAILABLE')
 
         rep = []
         for did in files:
@@ -787,7 +828,7 @@ class TestReplicaClients:
         # Check the state in the replica table
         for did in files:
             rep = get_replicas_state(scope=InternalScope(did['scope']), name=did['name'])
-            assert_equal(str(rep.keys()[0]), 'AVAILABLE')
+            assert_equal(str(list(rep.keys())[0]), 'AVAILABLE')
 
     def test_set_tombstone(self):
         """ REPLICA (CLIENT): set tombstone on replica """
@@ -865,8 +906,8 @@ class TestReplicaMetalink:
             for r in replica['rses']:
                 pfns.extend(replica['rses'][r])
         for result in self.replica_client.get_did_from_pfns(pfns, rse):
-            pfn = result.keys()[0]
-            assert_equal(input[pfn], result.values()[0])
+            pfn = list(result.keys())[0]
+            assert_equal(input[pfn], list(result.values())[0])
 
     def test_get_did_from_pfns_deterministic(self):
         """ REPLICA (CLIENT): Get list of DIDs associated to PFNs for deterministic sites"""
@@ -882,10 +923,10 @@ class TestReplicaMetalink:
         files = [{'scope': tmp_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         p = rsemgr.create_protocol(rse_info, 'read', scheme='srm')
         for f in files:
-            pfn = p.lfns2pfns(lfns={'scope': f['scope'].external, 'name': f['name']}).values()[0]
+            pfn = list(p.lfns2pfns(lfns={'scope': f['scope'].external, 'name': f['name']}).values())[0]
             pfns.append(pfn)
             input[pfn] = {'scope': f['scope'].external, 'name': f['name']}
         add_replicas(rse_id=rse_id, files=files, account=root, ignore_availability=True)
         for result in self.replica_client.get_did_from_pfns(pfns, rse):
-            pfn = result.keys()[0]
-            assert_equal(input[pfn], result.values()[0])
+            pfn = list(result.keys())[0]
+            assert_equal(input[pfn], list(result.values())[0])

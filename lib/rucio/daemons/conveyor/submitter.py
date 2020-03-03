@@ -22,6 +22,7 @@
 # - Tomas Kouba <tomas.kouba@cern.ch>, 2014
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2016
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Brandon White <bjwhite@fnal.gov>, 2019-2020
 #
 # PY3K COMPATIBLE
 
@@ -64,6 +65,8 @@ logging.basicConfig(stream=sys.stdout,
 graceful_stop = threading.Event()
 
 USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
+TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)
+TRANSFER_TYPE = config_get('conveyor', 'transfertype', False, 'single')
 
 
 def submitter(once=False, rses=None, mock=False,
@@ -117,19 +120,19 @@ def submitter(once=False, rses=None, mock=False,
     hb_thread = threading.current_thread()
     heartbeat.sanity_check(executable=executable, hostname=hostname)
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info('%s Submitter starting with timeout %s', prepend_str, timeout)
 
     time.sleep(10)  # To prevent running on the same partition if all the poller restart at the same time
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info('%s Transfer submitter started', prepend_str)
 
     while not graceful_stop.is_set():
 
         try:
             heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
-            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'] + 1, heart_beat['nr_threads'])
+            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
 
             if activities is None:
                 activities = [None]
@@ -175,18 +178,40 @@ def submitter(once=False, rses=None, mock=False,
 
                 logging.info('%s Starting to submit transfers for %s', prepend_str, activity)
 
-                for external_host in grouped_jobs:
-                    if not user_transfer:
-                        for job in grouped_jobs[external_host]:
-                            # submit transfers
-                            submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter',
-                                            logging_prepend_str=prepend_str, timeout=timeout)
-                    else:
-                        for _, jobs in iteritems(grouped_jobs[external_host]):
-                            # submit transfers
-                            for job in jobs:
+                if TRANSFER_TOOL == 'fts3':
+                    for external_host in grouped_jobs:
+                        if not user_transfer:
+                            for job in grouped_jobs[external_host]:
+                                # submit transfers
                                 submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter',
-                                                logging_prepend_str=prepend_str, timeout=timeout, user_transfer_job=user_transfer)
+                                                logging_prepend_str=prepend_str, timeout=timeout)
+                        else:
+                            for _, jobs in iteritems(grouped_jobs[external_host]):
+                                # submit transfers
+                                for job in jobs:
+                                    submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter',
+                                                    logging_prepend_str=prepend_str, timeout=timeout, user_transfer_job=user_transfer)
+                elif TRANSFER_TOOL == 'globus':
+                    if TRANSFER_TYPE == 'bulk':
+                        # build bulk job file list per external host to send to submit_transfer
+                        for external_host in grouped_jobs:
+                            # pad the job with job_params; irrelevant for globus but needed for further rucio parsing
+                            submitjob = {'files': [], 'job_params': grouped_jobs[''][0].get('job_params')}
+                            for job in grouped_jobs[external_host]:
+                                submitjob.get('files').append(job.get('files')[0])
+                            logging.debug('submitjob: %s' % submitjob)
+                            submit_transfer(external_host=external_host, job=submitjob, submitter='transfer_submitter', logging_prepend_str=prepend_str, timeout=timeout)
+                    else:
+                        # build single job files and individually send to submit_transfer
+                        job_params = grouped_jobs[''][0].get('job_params') if grouped_jobs else None
+                        for external_host in grouped_jobs:
+                            for job in grouped_jobs[external_host]:
+                                for file in job['files']:
+                                    singlejob = {'files': [file], 'job_params': job_params}
+                                    logging.debug('singlejob: %s' % singlejob)
+                                    submit_transfer(external_host=external_host, job=singlejob, submitter='transfer_submitter', logging_prepend_str=prepend_str, timeout=timeout)
+                else:
+                    logging.error(prepend_str + 'Unknown transfer tool')
 
                 if len(transfers) < group_bulk:
                     logging.info('%s Only %s transfers for %s which is less than group bulk %s, sleep %s seconds', prepend_str, len(transfers), activity, group_bulk, sleep_time)

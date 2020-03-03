@@ -15,9 +15,10 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2019
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2017
-# - Martin Barisits <martin.barisits@cern.ch>, 2014-2016
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2019
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Brandon White <bjwhite@fnal.gov>, 2019-2020
 #
 # PY3K COMPATIBLE
 
@@ -25,10 +26,10 @@ import json
 
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.sql.expression import bindparam, text
-
 
 from rucio.common.exception import InvalidObject, RucioException
+from rucio.common.utils import APIEncoder
+from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla.models import Message, MessageHistory
 from rucio.db.sqla.session import transactional_session
 
@@ -46,7 +47,7 @@ def add_message(event_type, payload, session=None):
     """
 
     try:
-        payload = json.dumps(payload)
+        payload = json.dumps(payload, cls=APIEncoder)
     except TypeError as e:
         raise InvalidObject('Invalid JSON for payload: %(e)s' % locals())
 
@@ -76,15 +77,7 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
     messages = []
     try:
         subquery = session.query(Message.id)
-        if total_threads and (total_threads - 1) > 0:
-            if session.bind.dialect.name == 'oracle':
-                bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
-                subquery = subquery.filter(text('ORA_HASH(id, :total_threads) = :thread_number', bindparams=bindparams))
-            elif session.bind.dialect.name == 'mysql':
-                subquery = subquery.filter(text('mod(md5(id), %s) = %s' % (total_threads - 1, thread)))
-            elif session.bind.dialect.name == 'postgresql':
-                subquery = subquery.filter(text('mod(abs((\'x\'||md5(id::text))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
-
+        subquery = filter_thread_work(session=session, query=subquery, total_threads=total_threads, thread_id=thread)
         if event_type:
             subquery = subquery.filter_by(event_type=event_type)
         else:

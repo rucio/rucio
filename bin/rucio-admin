@@ -18,7 +18,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012-2017
 # - Vincent Garonne, <vgaronne@gmail.com>, 2012-2018
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2017
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2020
 # - Wen Guan, <wguan.icedew@gmail.com>, 2014
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2014
 # - David Cameron, <d.g.cameron@gmail.com>, 2014-2015
@@ -28,13 +28,18 @@
 # - Nicolo Magini, <Nicolo.Magini@cern.ch>, 2018
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis, <dimitrios.christidis@cern.ch>, 2019
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
+from __future__ import division
 from __future__ import print_function
 
 import argparse
+import datetime
 import json
+import math
 import logging
 import os
 import signal
@@ -48,7 +53,6 @@ except ImportError:
     from configparser import NoOptionError, NoSectionError
 
 from functools import wraps
-from itertools import groupby
 
 import argcomplete
 import tabulate
@@ -57,7 +61,7 @@ from rucio.client import Client
 from rucio.common.config import config_get
 from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject, ReplicaNotFound,
                                     RSENotFound, RSEOperationNotSupported, InvalidRSEExpression, DuplicateContent, RuleNotFound, CannotAuthenticate,
-                                    Duplicate, ReplicaIsLocked)
+                                    Duplicate, ReplicaIsLocked, ConfigNotFound)
 from rucio.common.utils import chunks, construct_surl, sizefmt, get_bytes_value_from_string, render_json, parse_response
 from rucio import version
 from rucio.rse import rsemanager as rsemgr
@@ -179,6 +183,10 @@ def exception_handler(function):
             logger.error(error)
             logger.error('This means that the replica does not exist.')
             return FAILURE
+        except ConfigNotFound as error:
+            logger.error(error)
+            logger.error('This means that the configuration section you are looking for does not exist.')
+            return FAILURE
         except Exception as error:
             logger.error(error)
             logger.error('Rucio exited with an unexpected/unknown error, please provide the traceback below to the developers.')
@@ -191,13 +199,24 @@ def get_client(args):
     """
     Returns a new client object.
     """
-    if args.auth_strategy == 'userpass':
+    auth_type = args.auth_strategy.lower() if args.auth_strategy else args.auth_strategy
+
+    if auth_type == 'userpass':
         creds = {'username': args.username, 'password': args.password}
+    elif auth_type == 'oidc':
+        creds = {'oidc_auto': args.oidc_auto,
+                 'oidc_scope': args.oidc_scope,
+                 'oidc_audience': args.oidc_audience,
+                 'oidc_polling': args.oidc_polling,
+                 'oidc_refresh_lifetime': args.oidc_refresh_lifetime,
+                 'oidc_issuer': args.oidc_issuer.lower()}
+        if args.oidc_auto:
+            creds['oidc_username'] = args.oidc_username
+            creds['oidc_password'] = args.oidc_password
     else:
         creds = None
 
     try:
-        auth_type = args.auth_strategy.lower() if args.auth_strategy else args.auth_strategy
         client = Client(rucio_host=args.host, auth_host=args.auth_host,
                         account=args.issuer,
                         auth_type=auth_type, creds=creds,
@@ -362,6 +381,7 @@ def set_limits(args):
     Set account limit for an account and rse.
     """
     client = get_client(args)
+    locality = args.locality.lower()
     byte_limit = None
     limit_input = args.bytes.lower()
 
@@ -376,7 +396,7 @@ def set_limits(args):
                 logger.error('The limit could not be set. Either you misspelled infinity or your input could not be converted to integer or you used a wrong pattern. Please use a format like 10GB with B,KB,MB,GB,TB,PB as units (not case sensistive)')
                 return FAILURE
 
-    client.set_account_limit(account=args.account, rse=args.rse, bytes=byte_limit)
+    client.set_account_limit(account=args.account, rse=args.rse, bytes=byte_limit, locality=locality)
     print('Set account limit for account %s on RSE %s: %s' % (args.account, args.rse, sizefmt(byte_limit, True)))
     return SUCCESS
 
@@ -390,7 +410,8 @@ def get_limits(args):
 
     """
     client = get_client(args)
-    limits = client.get_account_limit(account=args.account, rse=args.rse)
+    locality = args.locality.lower()
+    limits = client.get_account_limits(account=args.account, rse_expression=args.rse, locality=locality)
     for rse in limits:
         print('Quota on %s for %s : %s' % (rse, args.account, sizefmt(limits[rse], True)))
     return SUCCESS
@@ -404,7 +425,7 @@ def delete_limits(args):
     Delete account limit for an account and rse.
     """
     client = get_client(args)
-    client.delete_account_limit(account=args.account, rse=args.rse)
+    client.delete_account_limit(account=args.account, rse=args.rse, locality=args.locality)
     print('Deleted account limit for account %s and RSE %s' % (args.account, args.rse))
     return SUCCESS
 
@@ -484,6 +505,25 @@ def list_rses(args):
     rses = client.list_rses()
     for rse in rses:
         print('%(rse)s' % rse)
+    return SUCCESS
+
+
+@exception_handler
+def update_rse(args):
+    """
+    %(prog)s update [options] <field1=value1 field2=value2 ...>
+
+    Update the settings of the RSE ('availability_read', 'availability_write', 'availability_delete', 'latitude', 'longitude', 'time_zone', 'rse_type',
+    'volatile', 'deterministic', 'region_code', 'country_name', 'city', or 'staging_area')
+    """
+    client = get_client(args)
+    if args.value in ['true', 'True', 'TRUE', '1']:
+        args.value = True
+    if args.value in ['false', 'False', 'FALSE', '0']:
+        args.value = False
+    params = {'name': args.rse, args.param: args.value}
+    client.update_rse(args.rse, parameters=params)
+    print('Updated RSE %s settings %s to %s' % (args.rse, args.param, args.value))
     return SUCCESS
 
 
@@ -920,26 +960,60 @@ def declare_bad_file_replicas(args):
         for pfn in bad_files_pfns:
             print(pfn)
 
-    # Group file list in separate sublists for different schemes
-    bad_files_pfns.sort()
-    bad_files_pfns_grouped = groupby(bad_files_pfns, lambda f: f[:f.find('://')])
-    all_non_declared = {}
+    chunk_size = 10000
+    tot_files = len(bad_files)
+    cnt = 0
+    nchunk = math.ceil(tot_files / chunk_size)
+    for chunk in chunks(bad_files_pfns, chunk_size):
+        cnt += 1
+        client.add_bad_pfns(pfns=chunk, reason=args.reason, state='BAD', expires_at=None)
+        ndeclared = len(chunk)
+        print('Chunk %s/%s : %s replicas successfully declared' % (int(cnt), int(nchunk), ndeclared))
+    print('--------------------------------')
+    print('Summary')
+    print('%s replicas successfully declared' % tot_files)
 
-    for sublist in bad_files_pfns_grouped:
-        for chunk in chunks(list(sublist[1]), 500):
-            non_declared = client.declare_bad_file_replicas(pfns=chunk, reason=args.reason)
-            for rse in non_declared:
-                if rse not in all_non_declared:
-                    all_non_declared[rse] = []
-                all_non_declared[rse] += non_declared[rse]
+    return SUCCESS
 
-    if non_declared:
-        for rse in non_declared:
-            for pfn in non_declared[rse]:
-                logger.error('%s : PFN %s cannot be declared.' % (rse, pfn))
-        return FAILURE
 
-    logger.info('PFNs got declared bad.')
+@exception_handler
+def declare_temporary_unavailable_replicas(args):
+    """
+    %(prog)s show [options] <field1=value1 field2=value2 ...>
+
+    Declare a list of temporary unavailable replicas.
+
+    """
+    client = get_client(args)
+    bad_files = []
+    if args.inputfile:
+        with open(args.inputfile) as infile:
+            for line in infile:
+                bad_file = line.rstrip('\n')
+                if '://' not in bad_file:
+                    print('%s is not a valid PFN. Aborting', bad_file)
+                    return FAILURE
+                if bad_file != '':
+                    bad_files.append(bad_file)
+    else:
+        bad_files = args.listbadfiles
+
+    if args.expiration_date:
+        expiration_date = (datetime.datetime.now() + datetime.timedelta(hours=args.expiration_date)).isoformat()
+
+    chunk_size = 10000
+    tot_files = len(bad_files)
+    cnt = 0
+    nchunk = math.ceil(tot_files / chunk_size)
+    for chunk in chunks(bad_files, chunk_size):
+        cnt += 1
+        client.add_bad_pfns(pfns=chunk, reason=args.reason, state='TEMPORARY_UNAVAILABLE', expires_at=expiration_date)
+        ndeclared = len(chunk)
+        print('Chunk %s/%s : %s replicas successfully declared' % (int(cnt), int(nchunk), ndeclared))
+    print('--------------------------------')
+    print('Summary')
+    print('%s replicas successfully declared' % tot_files)
+
     return SUCCESS
 
 
@@ -1090,6 +1164,22 @@ def get_parser():
     # Options for the userpass auth_strategy
     oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
     oparser.add_argument('-pwd', '--password', dest='password', default=None, help='password')
+    # Options for defining the OIDC scope# Options for defining remaining OIDC parameters
+    oparser.add_argument('--oidc-user', dest='oidc_username', default=None, help='OIDC username')
+    oparser.add_argument('--oidc-password', dest='oidc_password', default=None, help='OIDC password')
+    oparser.add_argument('--oidc-scope', dest='oidc_scope', default='openid profile', help='Defines which (OIDC) information user will share with Rucio. '
+                         + 'Rucio requires at least -sc="openid profile". To request refresh token for Rucio, scope must include "openid offline_access" and '  # NOQA: W503
+                         + 'there must be no active access token saved on the side of the currently used Rucio Client.')  # NOQA: W503
+    oparser.add_argument('--oidc-audience', dest='oidc_audience', default='rucio', help='Defines which audience are tokens requested for.')
+    oparser.add_argument('--oidc-auto', dest='oidc_auto', default=False, action='store_true', help='If not specified, username and password credentials are not required and users will be given a URL '
+                         + 'to use in their browser. If specified, the users explicitly trust Rucio with their IdP credentials.')  # NOQA: W503
+    oparser.add_argument('--oidc-polling', dest='oidc_polling', default=False, action='store_true', help='If not specified, user will be asked to enter a code returned by the browser to the command line. '
+                         + 'If --polling is set, Rucio Client should get the token without any further interaction of the user. This option is active only if --auto is *not* specified.')  # NOQA: W503
+    oparser.add_argument('--oidc-refresh-lifetime', dest='oidc_refresh_lifetime', default=None, help='Max lifetime in hours for this an access token will be refreshed by asynchronous Rucio daemon. '
+                         + 'If not specified, refresh will be stopped after 4 days. This option is effective only if --oidc-scope includes offline_access scope for a refresh token to be granted to Rucio.')  # NOQA: W503
+    oparser.add_argument('--oidc-issuer', dest='oidc_issuer', default=config_get('oidc', 'admin_issuer', False, ''),
+                         help='Defines which Identity Provider is goign to be used. The issuer string must correspond '
+                         + 'to the keys configured in the /etc/idpsecrets.json auth server configuration file.')  # NOQA: W503
 
     # Options for the x509  auth_strategy
     oparser.add_argument('--certificate', dest='certificate', default=None, help='Client certificate file')
@@ -1282,6 +1372,7 @@ def get_parser():
     set_account_limits_parser.add_argument('account', action='store', help='Account name')
     set_account_limits_parser.add_argument('rse', action='store', help='RSE boolean expression')
     set_account_limits_parser.add_argument('bytes', action='store', help='Value can be specified in bytes ("10000"), with a storage unit ("10GB"), or "infinity"')
+    set_account_limits_parser.add_argument('locality', action='store', nargs='?', default='local', choices=['local', 'global'], help='Global or local limit scope. Default: "local"')
 
     # The account-limit subparser
     get_account_limits_parser = account_subparser.add_parser('get-limits',
@@ -1298,6 +1389,7 @@ def get_parser():
     get_account_limits_parser.set_defaults(which='get_limits')
     get_account_limits_parser.add_argument('account', action='store', help='Account name')
     get_account_limits_parser.add_argument('rse', action='store', help='The RSE name')
+    get_account_limits_parser.add_argument('locality', action='store', nargs='?', default='local', choices=['local', 'global'], help='Global or local limit scope. Default: "local"')
 
     # The delete_quota command
     delete_account_limits_parser = account_subparser.add_parser('delete-limits',
@@ -1315,6 +1407,7 @@ def get_parser():
     delete_account_limits_parser.set_defaults(which='delete_limits')
     delete_account_limits_parser.add_argument('account', action='store', help='Account name')
     delete_account_limits_parser.add_argument('rse', action='store', help='RSE name')
+    delete_account_limits_parser.add_argument('locality', action='store', nargs='?', default='local', choices=['local', 'global'], help='Global or local limit scope. Default: "local"')
 
     # Ban/unban operations not implemented yet
     ban_account_limits_parser = account_subparser.add_parser('ban',
@@ -1394,7 +1487,7 @@ def get_parser():
                                                                '\n')
     identity_add_parser.set_defaults(which='identity_add')
     identity_add_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
-    identity_add_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH'], help='Authentication type [X509|GSS|USERPASS|SSH]', required=True)
+    identity_add_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC'], help='Authentication type [X509|GSS|USERPASS|SSH|SAML|OIDC]', required=True)
     identity_add_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
     identity_add_parser.add_argument('--email', dest='email', action='store', help='Email address associated with the identity', required=True)
     identity_add_parser.add_argument('--password', dest='password', action='store', help='Password if authtype is USERPASS', required=False)
@@ -1414,7 +1507,7 @@ def get_parser():
                                                                   '\n')
     identity_delete_parser.set_defaults(which='identity_delete')
     identity_delete_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
-    identity_delete_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH'], help='Authentication type [X509|GSS|USERPASS|SSH]', required=True)
+    identity_delete_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC'], help='Authentication type [X509|GSS|USERPASS|SSH|SAML|OIDC]', required=True)
     identity_delete_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
 
     # The RSE subparser
@@ -1456,6 +1549,22 @@ def get_parser():
     add_rse_parser.set_defaults(which='add_rse')
     add_rse_parser.add_argument('rse', action='store', help='RSE name')
     add_rse_parser.add_argument('--non-deterministic', action='store_true', help='Create RSE in non-deterministic mode')
+
+    # The update_rse command
+    update_rse_parser = rse_subparser.add_parser('update',
+                                                 help='Update RSE settings.',
+                                                 formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                 epilog='Example Usage\n'
+                                                        '"""""""""""""\n'
+                                                        '::\n'
+                                                        '\n'
+                                                        '    $ rucio-admin rse update --param availability_write --value False\n'
+                                                        '\n'
+                                                        '\n')
+    update_rse_parser.set_defaults(which='update_rse')
+    update_rse_parser.add_argument('--rse', dest='rse', action='store', help='RSE name')
+    update_rse_parser.add_argument('--setting', dest='param', action='store', help="One of availability_read, availability_write, availability_delete, latitude, longitude, time_zone, region_code, country_name, or city")
+    update_rse_parser.add_argument('--value', dest='value', action='store', help='Value for the new setting configuration.')
 
     # The info_rse command
     info_rse_parser = rse_subparser.add_parser('info',
@@ -1551,8 +1660,7 @@ def get_parser():
                                                                '\n'
                                                                'Note::\n'
                                                                '\n'
-                                                               '    --distance can be set in range (0-11), 0 is the closest\n'
-                                                               '    --ranking can be set in range (0-13), 13 is the best\n'
+                                                               '    --distance and --ranking can range (0-11), 0 is the closest\n'
                                                                'Note: order of RSEs is fixed: source, destination\n'
                                                                '\n')
     add_distance_rses_parser.set_defaults(which='add_distance_rses')
@@ -1907,6 +2015,22 @@ def get_parser():
     declare_bad_file_replicas_parser.add_argument('--inputfile', dest='inputfile', nargs='?', action='store', help='File containing list of bad items')
     declare_bad_file_replicas_parser.add_argument('--allow-collection', dest='allow_collection', action='store_true', help='Allow passing a collection DID as bad item')
 
+    # The declare-temporary-unavailable command
+    declare_temporary_unavailable_replicas_parser = rep_subparser.add_parser('declare-temporary-unavailable',
+                                                                             help='Declare temporary unavailable replicas',
+                                                                             formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                                             epilog='Usage example\n'
+                                                                                    '"""""""""""""\n'
+                                                                                    '::\n'
+                                                                                    '\n'
+                                                                                    '    $ rucio-admin replicas declare-temporary-unavailable\n'
+                                                                                    '    srm://se.bfg.uni-freiburg.de/pnfs/bfg.uni-freiburg.de/data/atlasdatadisk/rucio/user/jdoe/e2/a7/jdoe.TXT.txt --expiration-date 168 --reason \'test only\'\n')
+    declare_temporary_unavailable_replicas_parser.set_defaults(which='declare_temporary_unavailable_replicas')
+    declare_temporary_unavailable_replicas_parser.add_argument(dest='listbadfiles', action='store', nargs='*', help='List of replicas. Each needs to be a proper PFN including the protocol')
+    declare_temporary_unavailable_replicas_parser.add_argument('--reason', dest='reason', required=True, action='store', help='Reason')
+    declare_temporary_unavailable_replicas_parser.add_argument('--inputfile', dest='inputfile', nargs='?', action='store', help='File containing list of replicas')
+    declare_temporary_unavailable_replicas_parser.add_argument('--expiration-date', dest='expiration_date', action='store', type=int, default=24, help='Timeout in hours when the replicas will become available again. Default 24')
+
     # The list-pfns command
     list_pfns_parser = rep_subparser.add_parser('list-pfns',
                                                 help='List the possible PFN for a file at a site.',
@@ -1968,6 +2092,7 @@ if __name__ == '__main__':
                 'identity_add': identity_add,
                 'identity_delete': identity_delete,
                 'add_rse': add_rse,
+                'update_rse': update_rse,
                 'set_attribute_rse': set_attribute_rse,
                 'get_attribute_rse': get_attribute_rse,
                 'delete_attribute_rse': delete_attribute_rse,
@@ -1989,6 +2114,7 @@ if __name__ == '__main__':
                 'update_subscription': update_subscription,
                 'reevaluate_did_for_subscription': reevaluate_did_for_subscription,
                 'declare_bad_file_replicas': declare_bad_file_replicas,
+                'declare_temporary_unavailable_replicas': declare_temporary_unavailable_replicas,
                 'list_pfns': list_pfns,
                 'import': import_data,
                 'export': export_data,

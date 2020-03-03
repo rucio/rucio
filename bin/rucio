@@ -16,7 +16,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2019
 # - Vincent Garonne, <vgaronne@gmail.com>, 2012-2018
-# - Martin Barisits, <martin.barisits@cern.ch>, 2012-2018
+# - Martin Barisits, <martin.barisits@cern.ch>, 2012-2019
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2017
 # - Yun-Pin Sun, <winter0128@gmail.com>, 2012-2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
@@ -32,6 +32,8 @@
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -241,13 +243,24 @@ def get_client(args):
     """
     Returns a new client object.
     """
-    if args.auth_strategy == 'userpass':
+    auth_type = args.auth_strategy.lower() if args.auth_strategy else None
+
+    if auth_type in ['userpass', 'saml']:
         creds = {'username': args.username, 'password': args.password}
+    elif auth_type == 'oidc':
+        creds = {'oidc_auto': args.oidc_auto,
+                 'oidc_scope': args.oidc_scope,
+                 'oidc_audience': args.oidc_audience,
+                 'oidc_polling': args.oidc_polling,
+                 'oidc_refresh_lifetime': args.oidc_refresh_lifetime,
+                 'oidc_issuer': args.oidc_issuer.lower()}
+        if args.oidc_auto:
+            creds['oidc_username'] = args.oidc_username
+            creds['oidc_password'] = args.oidc_password
     else:
         creds = None
 
     try:
-        auth_type = args.auth_strategy.lower() if args.auth_strategy else args.auth_strategy
         client = Client(rucio_host=args.host, auth_host=args.auth_host,
                         account=args.account,
                         auth_type=auth_type, creds=creds,
@@ -1487,8 +1500,7 @@ def list_rse_usage(args):
     for usage in select_usages:
         print('------')
         for elem in usage:
-            if (elem in ['free', 'total'] and usage['source'] != 'storage' or
-                    elem == 'files' and usage['source'] != 'rucio'):
+            if (elem in ['free', 'total'] and usage['source'] != 'storage' or elem == 'files' and usage['source'] != 'rucio'):
                 continue
             elif elem in ['used', 'free', 'total']:
                 print('  {0}: {1}'.format(elem, sizefmt(usage[elem], args.human)))
@@ -1524,13 +1536,22 @@ def list_account_limits(args):
     client = get_client(args)
     table = []
     if args.rse:
-        limits = client.get_account_limit(account=args.limit_account, rse=args.rse)
+        limits = client.get_local_account_limit(account=args.limit_account, rse=args.rse)
     else:
-        limits = client.get_account_limits(account=args.limit_account)
+        limits = client.get_local_account_limits(account=args.limit_account)
     for limit in list(limits.items()):
         table.append([limit[0], sizefmt(limit[1], args.human)])
     table.sort()
     print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'LIMIT']))
+
+    table = []
+    limits = client.get_global_account_limits(account=args.limit_account)
+    for limit in list(limits.items()):
+        if (args.rse and args.rse in limit[1]['resolved_rses']) or not args.rse:
+            table.append([limit[0], sizefmt(limit[1]['limit'], args.human)])
+    table.sort()
+    print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE EXPRESSION', 'LIMIT']))
+
     return SUCCESS
 
 
@@ -1545,14 +1566,24 @@ def list_account_usage(args):
     client = get_client(args)
     table = []
     if args.rse:
-        usage = client.get_account_usage(account=args.usage_account, rse=args.rse)
+        usage = client.get_local_account_usage(account=args.usage_account, rse=args.rse)
     else:
-        usage = client.get_account_usage(account=args.usage_account)
+        usage = client.get_local_account_usage(account=args.usage_account)
     for item in usage:
         remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
         table.append([item['rse'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
     table.sort()
     print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
+
+    table = []
+    usage = client.get_global_account_usage(account=args.usage_account)
+    for item in usage:
+        if (args.rse and args.rse in item['resolved_rses']) or not args.rse:
+            remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
+            table.append([item['rse_expression'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
+    table.sort()
+    print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE EXPRESSION', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
+
     return SUCCESS
 
 
@@ -1631,9 +1662,25 @@ def get_parser():
     oparser.add_argument('--robot', '-R', dest="human", default=True, action='store_false', help="All output in bytes and without the units. This output format is preferred by parsers and scripts.")
     oparser.add_argument('--user-agent', '-U', dest="user_agent", default='rucio-clients', action='store', help="Rucio User Agent")
 
-    # Options for the userpass auth_strategy
+    # Options for the userpass or OIDC auth_strategy
     oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
     oparser.add_argument('-pwd', '--password', dest='password', default=None, help='password')
+    # Options for defining remaining OIDC parameters
+    oparser.add_argument('--oidc-user', dest='oidc_username', default=None, help='OIDC username')
+    oparser.add_argument('--oidc-password', dest='oidc_password', default=None, help='OIDC password')
+    oparser.add_argument('--oidc-scope', dest='oidc_scope', default='openid profile', help='Defines which (OIDC) information user will share with Rucio. '
+                         + 'Rucio requires at least -sc="openid profile". To request refresh token for Rucio, scope must include "openid offline_access" and '  # NOQA: W503
+                         + 'there must be no active access token saved on the side of the currently used Rucio Client.')  # NOQA: W503
+    oparser.add_argument('--oidc-audience', dest='oidc_audience', default='rucio', help='Defines which audience are tokens requested for.')
+    oparser.add_argument('--oidc-auto', dest='oidc_auto', default=False, action='store_true', help='If not specified, username and password credentials are not required and users will be given a URL '
+                         + 'to use in their browser. If specified, the users explicitly trust Rucio with their IdP credentials.')  # NOQA: W503
+    oparser.add_argument('--oidc-polling', dest='oidc_polling', default=False, action='store_true', help='If not specified, user will be asked to enter a code returned by the browser to the command line. '
+                         + 'If --polling is set, Rucio Client should get the token without any further interaction of the user. This option is active only if --auto is *not* specified.')  # NOQA: W503
+    oparser.add_argument('--oidc-refresh-lifetime', dest='oidc_refresh_lifetime', default=None, help='Max lifetime in hours for this an access token will be refreshed by asynchronous Rucio daemon. '
+                         + 'If not specified, refresh will be stopped after 4 days. This option is effective only if --oidc-scope includes offline_access scope for a refresh token to be granted to Rucio.')  # NOQA: W503
+    oparser.add_argument('--oidc-issuer', dest='oidc_issuer', default=config_get('oidc', 'admin_issuer', False, ''),
+                         help='Defines which Identity Provider is goign to be used. The issuer string must correspond '
+                         + 'to the keys configured in the /etc/idpsecrets.json auth server configuration file.')  # NOQA: W503
 
     # Options for the x509  auth_strategy
     oparser.add_argument('--certificate', dest='certificate', default=None, help='Client certificate file.')

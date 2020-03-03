@@ -76,7 +76,7 @@ class Meta(RucioController):
         :param Rucio-Auth-Token: as an 32 character hex string.
         :params Rucio-Account: account belonging to the new scope.
         """
-        json_data = data()
+        json_data = data().decode()
         try:
             params = json_data and loads(json_data)
             if params and 'value_type' in params:
@@ -137,7 +137,7 @@ class Values(RucioController):
         :param Rucio-Auth-Token: as an 32 character hex string.
         :params Rucio-Account: account belonging to the new scope.
         """
-        json_data = data()
+        json_data = data().decode()
         try:
             params = loads(json_data)
             value = params['value']

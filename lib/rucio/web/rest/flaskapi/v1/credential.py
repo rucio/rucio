@@ -110,13 +110,14 @@ class SignURL(MethodView):
             print(format_exc())
             return error, 500
 
-        svc, operation, url = None, None, None
+        rse, svc, operation, url = None, None, None, None
         try:
             params = parse_qs(request.query[1:])
             lifetime = params.get('lifetime', [600])[0]
             service = params.get('svc', ['gcs'])[0]
             operation = params.get('op', ['read'])[0]
             url = params.get('url', [None])[0]
+            rse = params.get('rse', [None])[0]
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -126,11 +127,14 @@ class SignURL(MethodView):
         if url is None:
             return generate_http_error_flask(400, 'ValueError', 'Parameter "url" not found')
 
+        if rse is None:
+            return generate_http_error_flask(400, 'ValueError', 'Parameter "rse" not found')
+
         if operation not in ['read', 'write', 'delete']:
             return generate_http_error_flask(400, 'ValueError', 'Parameter "op" must be either empty(=read), read, write, or delete.')
 
         try:
-            result = get_signed_url(account, appid, ip, service=service, operation=operation, url=url, lifetime=lifetime)
+            result = get_signed_url(account, appid, ip, rse=rse, service=service, operation=operation, url=url, lifetime=lifetime)
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:

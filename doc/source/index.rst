@@ -1,8 +1,3 @@
-g.. Rucio documentation master file, created by
-   sphinx-quickstart on Fri Oct 27 14:25:40 2017.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 Welcome to Rucio's documentation!
 =================================
 
@@ -76,6 +71,7 @@ Operator Documentation
     installing_daemons
     man/daemons
     monitoring
+    policy_packages
 
 
 Rucio Tutorial
@@ -84,8 +80,7 @@ Rucio Tutorial
 .. toctree::
     :maxdepth: 1
 
-    installing_demo
-    rucio_demo
+    demo_environment
     cli_examples
     cli_admin_examples
 

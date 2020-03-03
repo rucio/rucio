@@ -18,6 +18,7 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 
 from datetime import datetime, timedelta
 
@@ -25,8 +26,8 @@ from nose.tools import assert_not_equal
 
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
-from rucio.core.account_limit import set_account_limit
-from rucio.core.did import add_dids, attach_dids, list_expired_dids, get_did
+from rucio.core.account_limit import set_local_account_limit
+from rucio.core.did import add_dids, attach_dids, list_expired_dids, get_did, add_did_meta
 from rucio.core.replica import get_replica
 from rucio.core.rule import add_rules, list_rules
 from rucio.core.rse import get_rse_id, add_rse
@@ -47,7 +48,7 @@ class TestUndertaker:
         rse = 'MOCK'
         rse_id = get_rse_id('MOCK')
 
-        set_account_limit(jdoe, rse_id, -1)
+        set_local_account_limit(jdoe, rse_id, -1)
 
         dsns1 = [{'name': 'dsn_%s' % generate_uuid(),
                   'scope': tmp_scope,
@@ -63,6 +64,14 @@ class TestUndertaker:
                              'grouping': 'DATASET'}]} for i in range(nbdatasets)]
 
         add_dids(dids=dsns1 + dsns2, account=root)
+
+        # Add generic metadata on did
+        test_metadata = {"test_key": "test_value"}
+        try:
+            add_did_meta(tmp_scope, dsns1[0]['name'], test_metadata)
+        except NotImplementedError:
+            # add_did_meta is not Implemented for Oracle < 12
+            pass
 
         replicas = list()
         for dsn in dsns1 + dsns2:
@@ -87,7 +96,7 @@ class TestUndertaker:
         root = InternalAccount('root')
 
         # Add quota
-        set_account_limit(jdoe, get_rse_id('MOCK'), -1)
+        set_local_account_limit(jdoe, get_rse_id('MOCK'), -1)
 
         dsn = {'name': 'dsn_%s' % generate_uuid(),
                'scope': tmp_scope,
@@ -114,7 +123,7 @@ class TestUndertaker:
         rse = 'LOCALGROUPDISK_%s' % rse_name_generator()
         rse_id = add_rse(rse)
 
-        set_account_limit(jdoe, rse_id, -1)
+        set_local_account_limit(jdoe, rse_id, -1)
 
         dsns2 = [{'name': 'dsn_%s' % generate_uuid(),
                   'scope': tmp_scope,

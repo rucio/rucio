@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
@@ -25,6 +25,8 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Tobias Wegner <twegner@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Brandon White, <bjwhite@fnal.gov>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -42,7 +44,7 @@ from sqlalchemy import and_, or_, exists, String, cast, type_coerce, JSON
 from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError, InvalidRequestError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
-from sqlalchemy.sql.expression import bindparam, case, text, Insert, select, true
+from sqlalchemy.sql.expression import bindparam, case, text, select, true
 
 import rucio.core.rule
 import rucio.core.replica  # import add_replicas
@@ -54,7 +56,7 @@ from rucio.core import account_counter, rse_counter, config as config_core
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
 from rucio.core.naming_convention import validate_name
-from rucio.db.sqla import models
+from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, RuleState
 from rucio.db.sqla.enum import EnumSymbol
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
@@ -88,28 +90,25 @@ def list_expired_dids(worker_number=None, total_workers=None, limit=None, sessio
         order_by(models.DataIdentifier.expired_at).\
         with_hint(models.DataIdentifier, "index(DIDS DIDS_EXPIRED_AT_IDX)", 'oracle')
 
-    if worker_number and total_workers and total_workers - 1 > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('worker_number', worker_number - 1), bindparam('total_workers', total_workers - 1)]
-            query = query.filter(text('ORA_HASH(name, :total_workers) = :worker_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(name), %s) = %s' % (total_workers - 1, worker_number - 1)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_workers - 1, worker_number - 1)))
-        elif session.bind.dialect.name == 'sqlite':
-            row_count = 0
-            dids = list()
-            for scope, name, did_type, created_at, purge_replicas in query.yield_per(10):
-                if int(md5(name).hexdigest(), 16) % total_workers == worker_number - 1:
-                    dids.append({'scope': scope,
-                                 'name': name,
-                                 'did_type': did_type,
-                                 'created_at': created_at,
-                                 'purge_replicas': purge_replicas})
-                    row_count += 1
-                if limit and row_count >= limit:
-                    return dids
-            return dids
+    if session.bind.dialect.name in ['oracle', 'mysql', 'postgresql']:
+        query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
+    elif session.bind.dialect.name == 'sqlite' and worker_number and total_workers and total_workers > 0:
+        row_count = 0
+        dids = list()
+        for scope, name, did_type, created_at, purge_replicas in query.yield_per(10):
+            if int(md5(name).hexdigest(), 16) % total_workers == worker_number:
+                dids.append({'scope': scope,
+                             'name': name,
+                             'did_type': did_type,
+                             'created_at': created_at,
+                             'purge_replicas': purge_replicas})
+                row_count += 1
+            if limit and row_count >= limit:
+                return dids
+        return dids
+    else:
+        if worker_number and total_workers:
+            raise exception.DatabaseException('The database type %s returned by SQLAlchemy is invalid.' % session.bind.dialect.name)
 
     if limit:
         query = query.limit(limit)
@@ -208,6 +207,7 @@ def add_dids(dids, account, session=None):
                 or match('.*IntegrityError.*UNIQUE constraint failed: dids.scope, dids.name.*', error.args[0]) \
                 or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
                 or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+                or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
                 or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
             raise exception.DataIdentifierAlreadyExists('Data Identifier already exists!')
 
@@ -216,6 +216,7 @@ def add_dids(dids, account, session=None):
                 or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', error.args[0]) \
                 or match('.*IntegrityError.*02291.*integrity constraint.*DIDS_SCOPE_FK.*violated - parent key not found.*', error.args[0]) \
                 or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint.*', error.args[0]) \
+                or match('.*ForeignKeyViolation.*insert or update on table.*violates foreign key constraint.*', error.args[0]) \
                 or match('.*sqlite3.IntegrityError.*foreign key constraint failed', error.args[0]):
             raise exception.ScopeNotFound('Scope not found!')
 
@@ -343,7 +344,7 @@ def __add_files_to_dataset(scope, name, files, account, rse_id, ignore_duplicate
     # Get metadata from dataset
     try:
         dataset_meta = validate_name(scope=scope, name=name, did_type='D')
-    except:
+    except Exception:
         dataset_meta = None
 
     if rse_id:
@@ -390,6 +391,7 @@ def __add_files_to_dataset(scope, name, files, account, rse_id, ignore_duplicate
         elif match('.*IntegrityError.*ORA-00001: unique constraint .*CONTENTS_PK.*violated.*', error.args[0]) \
                 or match('.*IntegrityError.*UNIQUE constraint failed: contents.scope, contents.name, contents.child_scope, contents.child_name.*', error.args[0])\
                 or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+                or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
                 or match('.*IntegrityError.*1062.*Duplicate entry .*for key.*PRIMARY.*', error.args[0]) \
                 or match('.*duplicate entry.*key.*PRIMARY.*', error.args[0]) \
                 or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
@@ -466,6 +468,7 @@ def __add_collections_to_container(scope, name, collections, account, session):
                 or match('.*IntegrityError.*1062.*Duplicate entry .*for key.*PRIMARY.*', error.args[0]) \
                 or match('.*columns scope, name, child_scope, child_name are not unique.*', error.args[0]) \
                 or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+                or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
                 or match('.*IntegrityError.* UNIQUE constraint failed: contents.scope, contents.name, contents.child_scope, contents.child_name.*', error.args[0]):
             raise exception.DuplicateContent(error.args)
         raise exception.RucioException(error.args)
@@ -567,6 +570,8 @@ def delete_dids(dids, account, expire_rules=False, session=None):
     parent_content_clause, did_clause = [], []
     collection_replica_clause, file_clause = [], []
     not_purge_replicas = []
+    did_followed_clause = []
+    metadata_to_delete = []
 
     for did in dids:
         logging.info('Removing did %(scope)s:%(name)s (%(did_type)s)' % did)
@@ -577,9 +582,10 @@ def delete_dids(dids, account, expire_rules=False, session=None):
             content_clause.append(and_(models.DataIdentifierAssociation.scope == did['scope'], models.DataIdentifierAssociation.name == did['name']))
             collection_replica_clause.append(and_(models.CollectionReplica.scope == did['scope'],
                                                   models.CollectionReplica.name == did['name']))
+            did_followed_clause.append(and_(models.DidsFollowed.scope == did['scope'], models.DidsFollowed.name == did['name']))
 
         # ATLAS LOCALGROUPDISK Archive policy
-        if did['did_type'] == DIDType.DATASET and did['scope'] != 'archive':
+        if did['did_type'] == DIDType.DATASET and did['scope'].external != 'archive':
             try:
                 rucio.core.rule.archive_localgroupdisk_datasets(scope=did['scope'], name=did['name'], session=session)
             except exception.UndefinedPolicy:
@@ -590,33 +596,20 @@ def delete_dids(dids, account, expire_rules=False, session=None):
 
             # Archive content
             # Disable for postgres
-            if session.bind.dialect.name != 'postgresql':
-                q = session.query(models.DataIdentifierAssociation.scope,
-                                  models.DataIdentifierAssociation.name,
-                                  models.DataIdentifierAssociation.child_scope,
-                                  models.DataIdentifierAssociation.child_name,
-                                  models.DataIdentifierAssociation.did_type,
-                                  models.DataIdentifierAssociation.child_type,
-                                  models.DataIdentifierAssociation.bytes,
-                                  models.DataIdentifierAssociation.adler32,
-                                  models.DataIdentifierAssociation.md5,
-                                  models.DataIdentifierAssociation.guid,
-                                  models.DataIdentifierAssociation.events,
-                                  models.DataIdentifierAssociation.rule_evaluation,
-                                  bindparam("did_created_at", did.get('created_at')),
-                                  models.DataIdentifierAssociation.created_at,
-                                  models.DataIdentifierAssociation.updated_at,
-                                  bindparam('deleted_at', datetime.utcnow())).\
-                    filter(and_(models.DataIdentifierAssociation.scope == did['scope'],
-                                models.DataIdentifierAssociation.name == did['name']))
-                ins = Insert(table=models.DataIdentifierAssociationHistory, inline=True).\
-                    from_select(('scope', 'name', 'child_scope', 'child_name', 'did_type',
-                                 'child_type', 'bytes', 'adler32', 'md5', 'guid', 'events',
-                                 'rule_evaluation', 'did_created_at', 'created_at', 'updated_at',
-                                 'deleted_at'), q)
-                session.execute(ins)
+            insert_content_history(content_clause=[and_(models.DataIdentifierAssociation.scope == did['scope'],
+                                                        models.DataIdentifierAssociation.name == did['name'])],
+                                   did_created_at=did.get('created_at'),
+                                   session=session)
+
         parent_content_clause.append(and_(models.DataIdentifierAssociation.child_scope == did['scope'], models.DataIdentifierAssociation.child_name == did['name']))
         rule_id_clause.append(and_(models.ReplicationRule.scope == did['scope'], models.ReplicationRule.name == did['name']))
+
+        if session.bind.dialect.name == 'oracle':
+            oracle_version = int(session.connection().connection.version.split('.')[0])
+            if oracle_version >= 12:
+                metadata_to_delete.append(and_(models.DidMeta.scope == did['scope'], models.DidMeta.name == did['name']))
+        else:
+            metadata_to_delete.append(and_(models.DidMeta.scope == did['scope'], models.DidMeta.name == did['name']))
 
         # Send message
         add_message('ERASE', {'account': account.external,
@@ -674,6 +667,19 @@ def delete_dids(dids, account, expire_rules=False, session=None):
             rowcount = session.query(models.CollectionReplica).filter(or_(*collection_replica_clause)).\
                 delete(synchronize_session=False)
 
+    # Remove generic did metadata
+    if metadata_to_delete:
+        if session.bind.dialect.name == 'oracle':
+            oracle_version = int(session.connection().connection.version.split('.')[0])
+            if oracle_version >= 12:
+                with record_timer_block('undertaker.did_meta'):
+                    rowcount = session.query(models.DidMeta).filter(or_(*metadata_to_delete)).\
+                        delete(synchronize_session=False)
+        else:
+            with record_timer_block('undertaker.did_meta'):
+                rowcount = session.query(models.DidMeta).filter(or_(*metadata_to_delete)).\
+                    delete(synchronize_session=False)
+
     # remove data identifier
     if existing_parent_dids:
         # Exit method early to give Judge time to remove locks (Otherwise, due to foreign keys, did removal does not work
@@ -684,6 +690,11 @@ def delete_dids(dids, account, expire_rules=False, session=None):
         with record_timer_block('undertaker.dids'):
             rowcount = session.query(models.DataIdentifier).filter(or_(*did_clause)).\
                 filter(or_(models.DataIdentifier.did_type == DIDType.CONTAINER, models.DataIdentifier.did_type == DIDType.DATASET)).\
+                delete(synchronize_session=False)
+
+    if did_followed_clause:
+        with record_timer_block('undertaker.dids'):
+            rowcount = session.query(models.DidsFollowed).filter(or_(*did_followed_clause)).\
                 delete(synchronize_session=False)
 
     if file_clause:
@@ -811,14 +822,7 @@ def list_new_dids(did_type, thread=None, total_threads=None, chunk_size=1000, se
         elif isinstance(did_type, EnumSymbol):
             query = query.filter_by(did_type=did_type)
 
-    if total_threads and (total_threads - 1) > 0:
-        if session.bind.dialect.name == 'oracle':
-            bindparams = [bindparam('thread_number', thread), bindparam('total_threads', total_threads - 1)]
-            query = query.filter(text('ORA_HASH(name, :total_threads) = :thread_number', bindparams=bindparams))
-        elif session.bind.dialect.name == 'mysql':
-            query = query.filter(text('mod(md5(name), %s) = %s' % (total_threads - 1, thread)))
-        elif session.bind.dialect.name == 'postgresql':
-            query = query.filter(text('mod(abs((\'x\'||md5(name))::bit(32)::int), %s) = %s' % (total_threads - 1, thread)))
+    query = filter_thread_work(session=session, query=query, total_threads=total_threads, thread_id=thread, hash_variable='name')
 
     row_count = 0
     for chunk in query.yield_per(10):
@@ -1562,11 +1566,11 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
                 continue
             if session.bind.dialect.name == 'postgresql':
                 query = query.filter(getattr(models.DataIdentifier, k).
-                                     like(v.replace('*', '%').replace('_', '\_'),
+                                     like(v.replace('*', '%').replace('_', '\_'),  # NOQA: W605
                                           escape='\\'))
             else:
                 query = query.filter(getattr(models.DataIdentifier, k).
-                                     like(v.replace('*', '%').replace('_', '\_'), escape='\\'))
+                                     like(v.replace('*', '%').replace('_', '\_'), escape='\\'))  # NOQA: W605
         elif k == 'created_before':
             created_before = str_to_date(v)
             query = query.filter(models.DataIdentifier.created_at <= created_before)
@@ -1829,3 +1833,210 @@ def list_archive_content(scope, name, session=None):
                    'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5}
     except NoResultFound:
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+
+
+@transactional_session
+def add_did_to_followed(scope, name, account, session=None):
+    """
+    Mark a did as followed by the given account
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param account: The account owner.
+    :param session: The database session in use.
+    """
+    return add_dids_to_followed(dids=[{'scope': scope, 'name': name}],
+                                account=account, session=session)
+
+
+@transactional_session
+def add_dids_to_followed(dids, account, session=None):
+    """
+    Bulk mark datasets as followed
+
+    :param dids: A list of dids.
+    :param account: The account owner.
+    :param session: The database session in use.
+    """
+    try:
+        for did in dids:
+            # Get the did details corresponding to the scope and name passed.
+            did = session.query(models.DataIdentifier).filter_by(scope=did['scope'], name=did['name']).one()
+            # Add the queried to the followed table.
+            new_did_followed = models.DidsFollowed(scope=did.scope, name=did.name, account=account,
+                                                   did_type=did.did_type)
+
+            new_did_followed.save(session=session, flush=False)
+
+        session.flush()
+    except IntegrityError as error:
+        raise exception.RucioException(error.args)
+
+
+@stream_session
+def get_users_following_did(scope, name, session=None):
+    """
+    Return list of users following a did
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param session: The database session in use.
+    """
+    try:
+        query = session.query(models.DidsFollowed).filter_by(scope=scope, name=name).all()
+
+        for user in query:
+            # Return a dictionary of users to be rendered as json.
+            yield {'user': user.account}
+
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (scope, name))
+
+
+@transactional_session
+def remove_did_from_followed(scope, name, account, session=None):
+    """
+    Mark a did as not followed
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param account: The account owner.
+    :param session: The database session in use.
+    """
+    return remove_dids_from_followed(dids=[{'scope': scope, 'name': name}],
+                                     account=account, session=session)
+
+
+@transactional_session
+def remove_dids_from_followed(dids, account, session=None):
+    """
+    Bulk mark datasets as not followed
+
+    :param dids: A list of dids.
+    :param account: The account owner.
+    :param session: The database session in use.
+    """
+    try:
+        for did in dids:
+            session.query(models.DidsFollowed).\
+                filter_by(scope=did['scope'], name=did['name'], account=account).\
+                delete(synchronize_session=False)
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (did['scope'], did['name']))
+
+
+@transactional_session
+def trigger_event(scope, name, event_type, payload, session=None):
+    """
+    Records changes occuring in the did to the FollowEvents table
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param event_type: The type of event affecting the did.
+    :param payload: Any message to be stored along with the event.
+    :param session: The database session in use.
+    """
+    try:
+        dids = session.query(models.DidsFollowed).filter_by(scope=scope, name=name).all()
+
+        for did in dids:
+            # Create a new event using teh specified parameters.
+            new_event = models.FollowEvents(scope=scope, name=name, account=did.account,
+                                            did_type=did.did_type, event_type=event_type, payload=payload)
+            new_event.save(session=session, flush=False)
+
+        session.flush()
+    except IntegrityError as error:
+        raise exception.RucioException(error.args)
+
+
+@read_session
+def create_reports(total_workers, worker_number, session=None):
+    """
+    Create a summary report of the events affecting a dataset, for its followers.
+
+    :param session: The database session in use.
+    """
+    # Query the FollowEvents table
+    query = session.query(models.FollowEvents)
+
+    # Use hearbeat mechanism to select a chunck of events based on the hashed account
+    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='account')
+
+    try:
+        events = query.order_by(models.FollowEvents.created_at).all()
+        # If events exist for an account then create a report.
+        if events:
+            body = '''
+                Hello,
+                This is an auto-generated report of the events that have affected the datasets you follow.
+
+                '''
+            account = None
+            for i, event in enumerate(events):
+                # Add each event to the message body.
+                body += "{}. Dataset: {} Event: {}\n".format(i + 1, event.name, event.event_type)
+                if event.payload:
+                    body += "Message: {}\n".format(event.payload)
+                body += "\n"
+                account = event.account
+                # Clean up the event after creating the report
+                session.query(models.FollowEvents).\
+                    filter_by(scope=event.scope, name=event.name, account=event.account).\
+                    delete(synchronize_session=False)
+
+            body += "Thank You."
+            # Get the email associated with the account.
+            email = session.query(models.Account.email).filter_by(account=account)
+            add_message('email', {'to': email,
+                                  'subject': 'Report of affected dataset(s)',
+                                  'body': body})
+
+    except NoResultFound:
+        raise exception.AccountNotFound("No email found for given account.")
+
+
+@transactional_session
+def insert_content_history(content_clause, did_created_at, session=None):
+    """
+    Insert into content history a list of did
+
+    :param content_clause: Content clause of the files to archive
+    :param did_created_at: Creation date of the did
+    :param session: The database session in use.
+    """
+    query = session.query(models.DataIdentifierAssociation.scope,
+                          models.DataIdentifierAssociation.name,
+                          models.DataIdentifierAssociation.child_scope,
+                          models.DataIdentifierAssociation.child_name,
+                          models.DataIdentifierAssociation.did_type,
+                          models.DataIdentifierAssociation.child_type,
+                          models.DataIdentifierAssociation.bytes,
+                          models.DataIdentifierAssociation.adler32,
+                          models.DataIdentifierAssociation.md5,
+                          models.DataIdentifierAssociation.guid,
+                          models.DataIdentifierAssociation.events,
+                          models.DataIdentifierAssociation.rule_evaluation,
+                          models.DataIdentifierAssociation.created_at,
+                          models.DataIdentifierAssociation.updated_at).\
+        filter(or_(*content_clause))
+
+    for cont in query.all():
+        models.DataIdentifierAssociationHistory(
+            scope=cont.scope,
+            name=cont.name,
+            child_scope=cont.child_scope,
+            child_name=cont.child_name,
+            did_type=cont.did_type,
+            child_type=cont.child_type,
+            bytes=cont.bytes,
+            adler32=cont.adler32,
+            md5=cont.md5,
+            guid=cont.guid,
+            events=cont.events,
+            rule_evaluation=cont.rule_evaluation,
+            updated_at=cont.updated_at,
+            created_at=cont.created_at,
+            did_created_at=did_created_at,
+            deleted_at=datetime.utcnow()
+        ).save(session=session, flush=False)

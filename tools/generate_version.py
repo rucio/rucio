@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2019
 
 import os
 import subprocess
@@ -23,7 +23,7 @@ if os.path.isdir('.git'):
     else:
         GIT_VERSION_CMD = 'git describe --abbrev=4'
         GIT_VERSION = run_git_command(GIT_VERSION_CMD)
-    BRANCH_NICK_CMD = 'git branch | grep -Ei "\* (.*)" | cut -f2 -d" "'
+    BRANCH_NICK_CMD = 'git branch | grep -Ei "\* (.*)" | cut -f2 -d" "'  # NOQA: W605
     BRANCH_NICK = run_git_command(BRANCH_NICK_CMD)
     REVID_CMD = "git rev-parse HEAD"
     REVID = run_git_command(REVID_CMD)
