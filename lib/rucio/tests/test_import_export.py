@@ -26,8 +26,6 @@ from nose.tools import assert_equal, assert_true, assert_raises, assert_in
 from nose import SkipTest
 from paste.fixture import TestApp
 
-import json
-
 from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import RSEType, AccountType, IdentityType, AccountStatus
 from rucio.client.importclient import ImportClient
