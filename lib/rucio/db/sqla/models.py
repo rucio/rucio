@@ -1343,9 +1343,9 @@ class DidsFollowed(BASE, ModelBase):
 class FollowEvents(BASE, ModelBase):
     """Represents the events affecting the datasets which are followed"""
     __tablename__ = 'dids_followed_events'
-    scope = Column(String(SCOPE_LENGTH))
+    scope = Column(InternalScopeString(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
-    account = Column(String(25))
+    account = Column(InternalAccountString(25))
     did_type = Column(DIDType.db_type(name='DIDS_FOLLOWED_EVENTS_TYPE_CHK'))
     event_type = Column(String(1024))
     payload = Column(Text)

@@ -32,7 +32,7 @@ def String(*arg, **kw):
 
 # Alembic revision identifiers
 revision = 'a118956323f8'
-down_revision = '2cbee484dcf9'
+down_revision = 'd1189a09c6e0'
 
 
 def upgrade():
