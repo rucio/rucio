@@ -20,6 +20,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Luc Goossens, <luc.goossens@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -130,11 +131,12 @@ def get_did_from_pfns(pfns, rse):
             r[k]['scope'] = r[k]['scope'].external
         yield r
 
-
 def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                   ignore_availability=True, all_states=False, rse_expression=None,
                   client_location=None, domain=None, signature_lifetime=None,
-                  resolve_archives=True, resolve_parents=False, issuer=None):
+                  resolve_archives=True, resolve_parents=False, 
+                  updated_after=None,
+                  issuer=None):
     """
     List file replicas for a list of data identifiers.
 
@@ -149,6 +151,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param signature_lifetime: If supported, in seconds, restrict the lifetime of the signed PFN.
     :param resolve_archives: When set to True, find archives which contain the replicas.
     :param resolve_parents: When set to True, find all parent datasets which contain the replicas.
+    :param updated_after: datetime object (UTC time), only return replicas updated after this time
     :param issuer: The issuer account.
     """
     validate_schema(name='r_dids', obj=dids)
@@ -168,7 +171,8 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                                      all_states=all_states, rse_expression=rse_expression,
                                      client_location=client_location, domain=domain,
                                      sign_urls=sign_urls, signature_lifetime=signature_lifetime,
-                                     resolve_archives=resolve_archives, resolve_parents=resolve_parents)
+                                     resolve_archives=resolve_archives, resolve_parents=resolve_parents,
+                                     updated_after=updated_after)
 
     for rep in replicas:
         # 'rses' and 'states' use rse_id as the key. This needs updating to be rse.
