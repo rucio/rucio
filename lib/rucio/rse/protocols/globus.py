@@ -17,11 +17,11 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 
 import hashlib
+import imp
 import logging
 import sys
 
 from rucio.transfertool.globusLibrary import getTransferClient, send_delete_task
-from globus_sdk.exc import TransferAPIError
 from rucio.common.config import config_get
 from rucio.core.rse import get_rse_attribute
 
@@ -44,6 +44,19 @@ if getattr(rsemanager, 'CLIENT_MODE', None):
 
 if getattr(rsemanager, 'SERVER_MODE', None):
     from rucio.core import replica
+
+# Extra modules: Only imported if available
+EXTRA_MODULES = {'globus_sdk': False}
+
+for extra_module in EXTRA_MODULES:
+    try:
+        imp.find_module(extra_module)
+        EXTRA_MODULES[extra_module] = True
+    except ImportError:
+        EXTRA_MODULES[extra_module] = False
+
+if EXTRA_MODULES['globus_sdk']:
+    from globus_sdk.exc import TransferAPIError
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging,
