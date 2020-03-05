@@ -20,7 +20,7 @@
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-# - Luc Goossens, <luc.goossens@cern.ch>, 2020
+# - Luc Goossens <luc.goossens@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -95,8 +95,6 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-
-
     def list_replicas(self, dids, schemes=None, unavailable=False,
                       all_states=False, metalink=False, rse_expression=None,
                       client_location=None, sort=None, domain=None,
@@ -142,14 +140,12 @@ class ReplicaClient(BaseClient):
         if sort:
             data['sort'] = sort
 
-            
-        if updated_after :
-            if isinstance(updated_after, datetime) :
+        if updated_after:
+            if isinstance(updated_after, datetime):
                 # encode in UTC string with format '%Y-%m-%dT%H:%M:%S'  e.g. '2020-03-02T12:01:38'
                 data['updated_after'] = updated_after.strftime('%Y-%m-%dT%H:%M:%S')
-            else :
+            else:
                 data['updated_after'] = updated_after
-
 
         data['resolve_archives'] = resolve_archives
 

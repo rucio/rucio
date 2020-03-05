@@ -21,7 +21,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Luc Goossens, <luc.goossens@cern.ch>, 2020
+# - Luc Goossens <luc.goossens@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -360,14 +360,14 @@ class ListReplicas(RucioController):
                 # hardcoded default of 10 minutes if config is not parseable
                 signature_lifetime = config_get('credentials', 'signature_lifetime', raise_exception=False, default=600)
 
-            if 'updated_after' in params :
-                if isinstance(params['updated_after'],(int,float)) :
+            if 'updated_after' in params:
+                if isinstance(params['updated_after'], (int, float)):
                     # convert from epoch time stamp to datetime object
-                    updated_after = datetime.utcfromtimestamp(params['updated_after']) 
-                else :
+                    updated_after = datetime.utcfromtimestamp(params['updated_after'])
+                else:
                     # attempt UTC format '%Y-%m-%dT%H:%M:%S' conversion
-                    updated_after = datetime.strptime(params['updated_after'],'%Y-%m-%dT%H:%M:%S')
-                
+                    updated_after = datetime.strptime(params['updated_after'], '%Y-%m-%dT%H:%M:%S')
+
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
