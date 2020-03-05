@@ -27,7 +27,7 @@
 # - Jaroslav Guenther, <jaroslav.guenther@gmail.com>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White, <bjwhite@fnal.gov>, 2019
-# - Luc Goossens, <luc.goossens@cern.ch>, 2020
+# - Luc Goossens <luc.goossens@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -665,7 +665,7 @@ def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, update
     if rse_clause is not None:
         replica_query = replica_query.filter(or_(*rse_clause))
 
-    if updated_after :
+    if updated_after:
         replica_query = replica_query.filter(models.RSEFileAssociation.updated_at >= updated_after)
 
     for replica in replica_query.yield_per(500):
@@ -679,23 +679,23 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, updat
     :param session: The database session in use.
     """
     for replica_condition in chunks(file_clause, 50):
-        
+
         filters = [models.RSEFileAssociation.rse_id == models.RSE.id,
                    models.RSE.deleted == false(),
                    or_(*replica_condition),
-                  ]
+                   ]
 
-        if state_clause :
+        if state_clause is not None:
             filters.append(state_clause)
-            
-        if rse_clause :
+
+        if rse_clause is not None:
             filters.append(or_(*rse_clause))
-        
-        if updated_after :
+
+        if updated_after:
             filters.append(models.RSEFileAssociation.updated_at >= updated_after)
-            
+
         whereclause = and_(*filters)
-            
+
         replica_query = select(columns=(models.RSEFileAssociation.scope,
                                         models.RSEFileAssociation.name,
                                         models.RSEFileAssociation.bytes,
@@ -1094,7 +1094,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                   ignore_availability=True, all_states=False, pfns=True,
                   rse_expression=None, client_location=None, domain=None,
                   sign_urls=False, signature_lifetime=None, resolve_archives=True,
-                  resolve_parents=False, 
+                  resolve_parents=False,
                   updated_after=None,
                   session=None):
     """
@@ -1129,7 +1129,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
             rse_clause.append(models.RSEFileAssociation.rse_id == rse['id'])
     for f in _list_replicas(dataset_clause, file_clause, state_clause, pfns,
                             schemes, files, rse_clause, rse_expression, client_location, domain,
-                            sign_urls, signature_lifetime, constituents, resolve_parents, 
+                            sign_urls, signature_lifetime, constituents, resolve_parents,
                             updated_after,
                             session):
         yield f

@@ -20,7 +20,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
-# - Luc Goossens, <luc.goossens@cern.ch>, 2020
+# - Luc Goossens <luc.goossens@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -131,10 +131,11 @@ def get_did_from_pfns(pfns, rse):
             r[k]['scope'] = r[k]['scope'].external
         yield r
 
+
 def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                   ignore_availability=True, all_states=False, rse_expression=None,
                   client_location=None, domain=None, signature_lifetime=None,
-                  resolve_archives=True, resolve_parents=False, 
+                  resolve_archives=True, resolve_parents=False,
                   updated_after=None,
                   issuer=None):
     """
