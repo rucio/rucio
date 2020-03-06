@@ -346,6 +346,8 @@ def list_file_replicas(args):
 
     List file replicas
     """
+    if args.missing:
+        args.all_states = True
     client = get_client(args)
     protocols = None
     if args.protocols:
@@ -378,8 +380,7 @@ def list_file_replicas(args):
     else:
         if args.missing:
             for replica in replicas:
-                rses = list(replica['rses'].keys())
-                if args.selected_rse not in rses:
+                if replica['states'].get(args.selected_rse) != 'AVAILABLE':
                     table.append([replica['scope'], replica['name']])
             print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME']))
         elif args.link:
