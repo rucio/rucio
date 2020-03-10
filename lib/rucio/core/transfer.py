@@ -91,6 +91,7 @@ REGION_SHORT = make_region().configure('dogpile.cache.memcached',
                                        expiration_time=600,
                                        arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
 TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)
+WEBDAV_TRANSFER_MODE = config_get('conveyor', 'webdav_transfer_mode', False, None)
 
 
 def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None, user_transfer_job=False):
@@ -776,6 +777,11 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 if sign_url == 'gcs':
                     dest_url = re.sub('davs', 'gclouds', dest_url)
                     dest_url = re.sub('https', 'gclouds', dest_url)
+                    if source_protocol in ['davs', 'https']:
+                        source_url += '?copy_mode=push'
+                elif WEBDAV_TRANSFER_MODE:
+                    if source_protocol in ['davs', 'https']:
+                        source_url += '?copy_mode=%s' % WEBDAV_TRANSFER_MODE
 
                 # IV - get external_host + strict_copy
                 strict_copy = rse_attrs[dest_rse_id].get('strict_copy', False)
@@ -911,6 +917,15 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 # II - Build the source URL
                 source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values())[0]
+                sign_url = rse_attrs[dest_rse_id].get('sign_url', None)
+                if sign_url == 'gcs':
+                    dest_url = re.sub('davs', 'gclouds', dest_url)
+                    dest_url = re.sub('https', 'gclouds', dest_url)
+                    if source_protocol in ['davs', 'https']:
+                        source_url += '?copy_mode=push'
+                elif WEBDAV_TRANSFER_MODE:
+                    if source_protocol in ['davs', 'https']:
+                        source_url += '?copy_mode=%s' % WEBDAV_TRANSFER_MODE
 
                 # III - The transfer queued previously is a multihop, but this one is direct.
                 # Reset the sources, remove the multihop flag
