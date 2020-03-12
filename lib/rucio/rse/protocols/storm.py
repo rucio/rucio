@@ -136,29 +136,46 @@ class Default(protocol.RSEProtocol):
                 raise exception.ServiceUnavailable('Could not retrieve STORM WebDAV ETag: {}/n{}'.format(str(e), cmd))
             return rcode, output
 
-        # retrieve etag primarily with requests
-        etag_meta = None
+        # using prefix from AGIS primarily (ATLAS spec.)
+        target = None
         try:
-            rcode, etag_meta = requests_etag(pfn, 300)
+            target = self.pfn2path(pfn)
+            name = pfn.split('/')[-1]
+            if name not in target:
+                target = None
         except:
+            target = None
             pass
-        # but if requests do not work
-        if rcode != 207:
-            rcode, etag_meta = davix_etag(pfn, 300)
 
-        p_output = minidom.parseString(etag_meta)
-        # we need to strip off the quotation marks and the <timestamp> from the etag
-        # but since we can have multiple underscores, we have to rely on the uniqueness
-        # of the full LFN to make the split
-        target = p_output.getElementsByTagName('d:getetag')[0].childNodes[0].nodeValue.replace('"', '')
-        target_ending = '_' + target.split('_')[-1]
-        target = target.split(target_ending)[0]
+        # if AGIS setting failed
+        etag_meta = None
+        if not target:
+            # requests preferable
+            try:
+                rcode, etag_meta = requests_etag(pfn, 300)
+            except:
+                pass
+            # fallback to davix
+            if rcode != 207:
+                rcode, etag_meta = davix_etag(pfn, 300)
+
+            p_output = minidom.parseString(etag_meta)
+            # we need to strip off the quotation marks and the <timestamp> from the etag
+            # but since we can have multiple underscores, we have to rely on the uniqueness
+            # of the full LFN to make the split
+            target = p_output.getElementsByTagName('d:getetag')[0].childNodes[0].nodeValue.replace('"', '')
+            target_ending = '_' + target.split('_')[-1]
+            target = target.split(target_ending)[0]
 
         # make the symlink
         try:
             os.symlink(target, dest)
         except Exception as e:
             exception.ServiceUnavailable('Could not create symlink: %s for target %s' % (str(e), str(target)))
+
+    def pfn2path(self, pfn):
+        tmp = list(self.parse_pfns(pfn).values())[0]
+        return '/'.join([tmp['prefix'], tmp['path'], tmp['name']])
 
     def put(self, source, target, source_dir=None, transfer_timeout=None):
         """ Allows to store files inside the referred RSE.
