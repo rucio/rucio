@@ -31,7 +31,7 @@
 # - Nicolo Magini, <Nicolo.Magini@cern.ch>, 2018
 # - Frank Berghaus, <frank.berghaus@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2020
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
 #
@@ -358,6 +358,8 @@ def list_file_replicas(args):
 
     List file replicas
     """
+    if args.missing:
+        args.all_states = True
     client = get_client(args)
     protocols = None
     if args.protocols:
@@ -365,6 +367,8 @@ def list_file_replicas(args):
 
     table = []
     dids = []
+    if args.selected_rse:
+        client.get_rse(args.selected_rse)    # Raise an exception if RSE does not exist
     if args.missing and not args.selected_rse:
         print('Cannot use --missing without specifying a RSE')
         return FAILURE
@@ -390,8 +394,7 @@ def list_file_replicas(args):
     else:
         if args.missing:
             for replica in replicas:
-                rses = list(replica['rses'].keys())
-                if args.selected_rse not in rses:
+                if replica['states'].get(args.selected_rse) != 'AVAILABLE':
                     table.append([replica['scope'], replica['name']])
             print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME']))
         elif args.link:
