@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2019
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2020
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
@@ -47,6 +47,7 @@ from collections import OrderedDict
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
+from prometheus_client import Counter
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
 from rucio.common.config import config_get
@@ -80,6 +81,7 @@ REGION = make_region().configure('dogpile.cache.memcached',
                                  arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'),
                                             'distributed_lock': True})
 
+DELETION_COUNTER = Counter('rucio_daemons_reaper_deletion_done', 'Number of deleted replicas')
 
 def get_rses_to_process(rses, include_rses, exclude_rses):
     """
@@ -518,7 +520,7 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
                             delete_replicas(rse_id=rse_id, files=deleted_files)
                         logging.debug('%s delete_replicas successed on %s : %s replicas in %s seconds', prepend_str, rse_name, len(deleted_files), time.time() - del_start)
                         monitor.record_counter(counters='reaper.deletion.done', delta=len(deleted_files))
-
+                        DELETION_COUNTER.inc(len(deleted_files))
                 except Exception as error:
                     logging.critical('%s %s', prepend_str, str(traceback.format_exc()))
 
