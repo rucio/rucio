@@ -27,6 +27,7 @@
 # - Jaroslav Guenther, <jaroslav.guenther@gmail.com>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White, <bjwhite@fnal.gov>, 2019
+# - Luc Goossens <luc.goossens@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -629,7 +630,7 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, resolve_ar
     return file_clause, dataset_clause, state_clause, files, constituents
 
 
-def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, session):
+def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, updated_after, session):
     """
     List file replicas for a list of datasets.
 
@@ -664,11 +665,14 @@ def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, sessio
     if rse_clause is not None:
         replica_query = replica_query.filter(or_(*rse_clause))
 
+    if updated_after:
+        replica_query = replica_query.filter(models.RSEFileAssociation.updated_at >= updated_after)
+
     for replica in replica_query.yield_per(500):
         yield replica
 
 
-def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, session):
+def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, updated_after, session):
     """
     List file replicas for a list of files.
 
@@ -676,28 +680,21 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, sessi
     """
     for replica_condition in chunks(file_clause, 50):
 
-        if state_clause is None:
-            if rse_clause is None:
-                whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
-                                   models.RSE.deleted == false(),
-                                   or_(*replica_condition))
-            else:
-                whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
-                                   models.RSE.deleted == false(),
-                                   or_(*replica_condition),
-                                   or_(*rse_clause))
-        else:
-            if rse_clause is None:
-                whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
-                                   models.RSE.deleted == false(),
-                                   state_clause,
-                                   or_(*replica_condition))
-            else:
-                whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
-                                   models.RSE.deleted == false(),
-                                   state_clause,
-                                   or_(*replica_condition),
-                                   or_(*rse_clause))
+        filters = [models.RSEFileAssociation.rse_id == models.RSE.id,
+                   models.RSE.deleted == false(),
+                   or_(*replica_condition),
+                   ]
+
+        if state_clause is not None:
+            filters.append(state_clause)
+
+        if rse_clause is not None:
+            filters.append(or_(*rse_clause))
+
+        if updated_after:
+            filters.append(models.RSEFileAssociation.updated_at >= updated_after)
+
+        whereclause = and_(*filters)
 
         replica_query = select(columns=(models.RSEFileAssociation.scope,
                                         models.RSEFileAssociation.name,
@@ -741,10 +738,11 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, sessi
 def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                    schemes, files, rse_clause, rse_expression, client_location, domain,
                    sign_urls, signature_lifetime, constituents, resolve_parents,
+                   updated_after,
                    session):
 
-    files = [dataset_clause and _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, session),
-             file_clause and _list_replicas_for_files(file_clause, state_clause, files, rse_clause, session)]
+    files = [dataset_clause and _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, updated_after, session),
+             file_clause and _list_replicas_for_files(file_clause, state_clause, files, rse_clause, updated_after, session)]
 
     # we need to retain knowledge of the original domain selection by the user
     # in case we have to loop over replicas with a potential outgoing proxy
@@ -787,6 +785,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                                domain=domain, sign_urls=sign_urls,
                                                rse_expression=rse_expression,
                                                signature_lifetime=signature_lifetime,
+                                               updated_after=updated_after,
                                                session=session)
 
                 # is it the only instance (i.e., no RSE for the replica)?
@@ -1095,7 +1094,9 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                   ignore_availability=True, all_states=False, pfns=True,
                   rse_expression=None, client_location=None, domain=None,
                   sign_urls=False, signature_lifetime=None, resolve_archives=True,
-                  resolve_parents=False, session=None):
+                  resolve_parents=False,
+                  updated_after=None,
+                  session=None):
     """
     List file replicas for a list of data identifiers (DIDs).
 
@@ -1112,6 +1113,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param signature_lifetime: If supported, in seconds, restrict the lifetime of the signed PFN.
     :param resolve_archives: When set to true, find archives which contain the replicas.
     :param resolve_parents: When set to true, find all parent datasets which contain the replicas.
+    :param updated_after: datetime (UTC time), only return replicas updated after this time
     :param session: The database session in use.
     """
 
@@ -1127,7 +1129,9 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
             rse_clause.append(models.RSEFileAssociation.rse_id == rse['id'])
     for f in _list_replicas(dataset_clause, file_clause, state_clause, pfns,
                             schemes, files, rse_clause, rse_expression, client_location, domain,
-                            sign_urls, signature_lifetime, constituents, resolve_parents, session):
+                            sign_urls, signature_lifetime, constituents, resolve_parents,
+                            updated_after,
+                            session):
         yield f
 
 

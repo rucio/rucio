@@ -22,11 +22,13 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Luc Goossens <luc.goossens@cern.ch>, 2020
 
 from __future__ import print_function
 from datetime import datetime, timedelta
 from json import dumps, loads
 
+import time
 import hashlib
 import xmltodict
 
@@ -500,6 +502,40 @@ class TestReplicaCore:
         name = generate_uuid()
         with assert_raises(ReplicaNotFound):
             set_tombstone(rse_id, scope, name)
+
+    def test_list_replicas_with_updated_after(self):
+        """ REPLICA (CORE): Add and list file replicas with updated_after filter """
+        scope = InternalScope('mock')
+        root = InternalAccount('root')
+        mock = get_rse_id(rse='MOCK')
+        dsn = 'ds_ua_test_%s' % generate_uuid()
+        add_did(scope=scope, name=dsn, type='DATASET', account=root)
+        #
+        t0 = datetime.utcnow()
+        time.sleep(2)
+        lfn = '%s._%s.data' % (dsn, '0001')
+        add_replica(rse_id=mock, scope=scope, name=lfn, bytes=12345, account=root)
+        attach_dids(scope=scope, name=dsn, dids=[{'scope': scope, 'name': lfn}], account=root)
+        time.sleep(2)
+        t1 = datetime.utcnow()
+        time.sleep(2)
+        lfn = '%s._%s.data' % (dsn, '0002')
+        add_replica(rse_id=mock, scope=scope, name=lfn, bytes=12345, account=root)
+        attach_dids(scope=scope, name=dsn, dids=[{'scope': scope, 'name': lfn}], account=root)
+        time.sleep(2)
+        t2 = datetime.utcnow()
+        time.sleep(2)
+        lfn = '%s._%s.data' % (dsn, '0003')
+        add_replica(rse_id=mock, scope=scope, name=lfn, bytes=12345, account=root)
+        attach_dids(scope=scope, name=dsn, dids=[{'scope': scope, 'name': lfn}], account=root)
+        time.sleep(2)
+        t3 = datetime.utcnow()
+        #
+        assert_equal(len(list(list_replicas([{'scope': scope, 'name': dsn}], updated_after=None))), 3)
+        assert_equal(len(list(list_replicas([{'scope': scope, 'name': dsn}], updated_after=t0))), 3)
+        assert_equal(len(list(list_replicas([{'scope': scope, 'name': dsn}], updated_after=t1))), 2)
+        assert_equal(len(list(list_replicas([{'scope': scope, 'name': dsn}], updated_after=t2))), 1)
+        assert_equal(len(list(list_replicas([{'scope': scope, 'name': dsn}], updated_after=t3))), 0)
 
 
 class TestReplicaClients:

@@ -20,6 +20,7 @@
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Luc Goossens <luc.goossens@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -28,6 +29,7 @@ try:
 except ImportError:
     from urllib.parse import quote_plus
 
+from datetime import datetime
 from json import dumps, loads
 from requests.status_codes import codes
 
@@ -96,7 +98,8 @@ class ReplicaClient(BaseClient):
     def list_replicas(self, dids, schemes=None, unavailable=False,
                       all_states=False, metalink=False, rse_expression=None,
                       client_location=None, sort=None, domain=None,
-                      resolve_archives=True, resolve_parents=False):
+                      resolve_archives=True, resolve_parents=False,
+                      updated_after=None):
         """
         List file replicas for a list of data identifiers (DIDs).
 
@@ -114,6 +117,7 @@ class ReplicaClient(BaseClient):
         :param domain: Define the domain. None is fallback to 'wan', otherwise 'wan, 'lan', or 'all'
         :param resolve_archives: When set to True, find archives which contain the replicas.
         :param resolve_parents: When set to True, find all parent datasets which contain the replicas.
+        :param updated_after: epoch timestamp or datetime object (UTC time), only return replicas updated after this time
 
         :returns: A list of dictionaries with replica information.
 
@@ -135,6 +139,13 @@ class ReplicaClient(BaseClient):
 
         if sort:
             data['sort'] = sort
+
+        if updated_after:
+            if isinstance(updated_after, datetime):
+                # encode in UTC string with format '%Y-%m-%dT%H:%M:%S'  e.g. '2020-03-02T12:01:38'
+                data['updated_after'] = updated_after.strftime('%Y-%m-%dT%H:%M:%S')
+            else:
+                data['updated_after'] = updated_after
 
         data['resolve_archives'] = resolve_archives
 
