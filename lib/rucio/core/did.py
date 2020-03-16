@@ -2005,6 +2005,7 @@ def insert_content_history(content_clause, did_created_at, session=None):
     :param did_created_at: Creation date of the did
     :param session: The database session in use.
     """
+    new_did_created_at = did_created_at
     query = session.query(models.DataIdentifierAssociation.scope,
                           models.DataIdentifierAssociation.name,
                           models.DataIdentifierAssociation.child_scope,
@@ -2022,6 +2023,8 @@ def insert_content_history(content_clause, did_created_at, session=None):
         filter(or_(*content_clause))
 
     for cont in query.all():
+        if not did_created_at:
+            new_did_created_at = cont.created_at
         models.DataIdentifierAssociationHistory(
             scope=cont.scope,
             name=cont.name,
@@ -2037,6 +2040,6 @@ def insert_content_history(content_clause, did_created_at, session=None):
             rule_evaluation=cont.rule_evaluation,
             updated_at=cont.updated_at,
             created_at=cont.created_at,
-            did_created_at=did_created_at,
+            did_created_at=new_did_created_at,
             deleted_at=datetime.utcnow()
         ).save(session=session, flush=False)
