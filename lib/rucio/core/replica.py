@@ -1665,6 +1665,7 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
     for (scope, name, path, bytes, tombstone, state) in query.yield_per(1000):
         # Check if more than one replica is available
         replica_cnt = session.query(func.count(models.RSEFileAssociation.scope)).\
+            with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').\
             filter(and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id != rse_id)).one()
 
         if replica_cnt[0] > 1:
