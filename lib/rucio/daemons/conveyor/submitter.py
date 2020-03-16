@@ -23,6 +23,7 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2016
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -47,6 +48,7 @@ try:
 except Exception:
     from configparser import NoOptionError  # py3
 from six import iteritems
+from prometheus_client import Counter
 
 from rucio.common.config import config_get
 from rucio.common.schema import ACTIVITY
@@ -67,6 +69,8 @@ graceful_stop = threading.Event()
 USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
 TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)
 TRANSFER_TYPE = config_get('conveyor', 'transfertype', False, 'single')
+
+GET_TRANSFERS_COUNTER = Counter('rucio_daemons_conveyor_submitter_get_transfers', 'Number of transfers retrieved')
 
 
 def submitter(once=False, rses=None, mock=False,
@@ -166,6 +170,7 @@ def submitter(once=False, rses=None, mock=False,
                                             retry_other_fts=retry_other_fts)
                 record_timer('daemons.conveyor.transfer_submitter.get_transfers.per_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
                 record_counter('daemons.conveyor.transfer_submitter.get_transfers', len(transfers))
+                GET_TRANSFERS_COUNTER.inc(len(transfers))
                 record_timer('daemons.conveyor.transfer_submitter.get_transfers.transfers', len(transfers))
                 logging.info('%s Got %s transfers for %s in %s seconds', prepend_str, len(transfers), activity, time.time() - start_time)
 
