@@ -1279,6 +1279,12 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
 
     :returns: True is successful.
     """
+
+    def _expected_pfns(lfns, rse_settings, scheme, operation='write', domain='wan'):
+        p = rsemgr.create_protocol(rse_settings=rse_settings, operation='write', scheme=scheme, domain=domain)
+        expected_pfns = p.lfns2pfns(lfns)
+        return clean_surls(expected_pfns.values())
+
     replica_rse = get_rse(rse_id=rse_id, session=session)
 
     if replica_rse.volatile is True:
@@ -1301,9 +1307,10 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
             pfns.setdefault(scheme, []).append(file['pfn'])
 
     if pfns:
+        rse_settings = rsemgr.get_rse_info(rse=replica_rse['rse'], session=session)
         for scheme in pfns.keys():
-            p = rsemgr.create_protocol(rse_settings=rsemgr.get_rse_info(rse=replica_rse['rse'], session=session), operation='write', scheme=scheme)
             if not replica_rse.deterministic:
+                p = rsemgr.create_protocol(rse_settings=rse_settings, operation='write', scheme=scheme)
                 pfns[scheme] = p.parse_pfns(pfns=pfns[scheme])
                 for file in files:
                     if file['pfn'].startswith(scheme):
@@ -1312,12 +1319,17 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
             else:
                 # Check that the pfns match to the expected pfns
                 lfns = [{'scope': i['scope'], 'name': i['name']} for i in files if i['pfn'].startswith(scheme)]
-                expected_pfns = p.lfns2pfns(lfns)
-                expected_pfns = clean_surls(expected_pfns.values())
                 pfns[scheme] = clean_surls(pfns[scheme])
-                if pfns[scheme] != expected_pfns:
-                    print('ALERT: One of the PFNs provided does not match the Rucio expected PFN : got %s, expected %s (%s)' % (str(pfns), str(expected_pfns), str(lfns)))
-                    raise exception.InvalidPath('One of the PFNs provided does not match the Rucio expected PFN : got %s, expected %s (%s)' % (str(pfns), str(expected_pfns), str(lfns)))
+                expected_pfns_wan = _expected_pfns(lfns, rse_settings, scheme, operation='write', domain='wan')
+                # Check wan first
+                if expected_pfns_wan != pfns[scheme]:
+                    expected_pfns_lan = _expected_pfns(lfns, rse_settings, scheme, operation='write', domain='lan')
+                    # Check lan
+                    if expected_pfns_lan == pfns[scheme]:
+                        # Registration always with wan
+                        pfns[scheme] = expected_pfns_wan
+                    else:
+                        raise exception.InvalidPath('One of the PFNs provided does not match the Rucio expected PFN : got %s, expected %s (%s)' % (str(pfns), str(expected_pfns_wan), str(lfns)))
 
     nbfiles, bytes = __bulk_add_replicas(rse_id=rse_id, files=files, account=account, session=session)
     increase(rse_id=rse_id, files=nbfiles, bytes=bytes, session=session)
