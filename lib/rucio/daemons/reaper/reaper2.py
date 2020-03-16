@@ -83,6 +83,7 @@ REGION = make_region().configure('dogpile.cache.memcached',
 
 DELETION_COUNTER = Counter('rucio_daemons_reaper_deletion_done', 'Number of deleted replicas')
 
+
 def get_rses_to_process(rses, include_rses, exclude_rses):
     """
     Return the list of RSEs to process based on rses, include_rses and exclude_rses
