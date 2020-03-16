@@ -64,6 +64,7 @@ GRACEFUL_STOP = threading.Event()
 
 RECONNECT_COUNTER = Counter('rucio_daemons_hermes_reconnect', 'Counts Hermes reconnects to different ActiveMQ brokers', labelnames=('host',))
 
+
 def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
     '''
     Main loop to deliver emails via SMTP.

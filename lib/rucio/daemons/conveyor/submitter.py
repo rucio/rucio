@@ -72,6 +72,7 @@ TRANSFER_TYPE = config_get('conveyor', 'transfertype', False, 'single')
 
 GET_TRANSFERS_COUNTER = Counter('rucio_daemons_conveyor_submitter_get_transfers', 'Number of transfers retrieved')
 
+
 def submitter(once=False, rses=None, mock=False,
               bulk=100, group_bulk=1, group_policy='rule', source_strategy=None,
               activities=None, sleep_time=600, max_sources=4, retry_other_fts=False):
