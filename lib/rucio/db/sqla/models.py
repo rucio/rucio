@@ -1321,7 +1321,7 @@ class VO(BASE, ModelBase):
     vo = Column(String(3))
     description = Column(String(255))
     email = Column(String(255))
-    _table_args = (PrimaryKeyConstraint('vo', name='VO_PK'), )
+    _table_args = (PrimaryKeyConstraint('vo', name='VOS_PK'), )
 
 
 class DidsFollowed(BASE, ModelBase):

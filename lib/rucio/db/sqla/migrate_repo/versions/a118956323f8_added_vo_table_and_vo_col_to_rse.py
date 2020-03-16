@@ -21,7 +21,7 @@ import datetime
 
 import sqlalchemy as sa
 from alembic import context
-from alembic.op import (add_column, create_table, create_unique_constraint,
+from alembic.op import (add_column, create_primary_key, create_table, create_unique_constraint,
                         drop_column, drop_constraint, drop_table, bulk_insert)
 
 
@@ -44,12 +44,13 @@ def upgrade():
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         # add a vo table
         vos = create_table('vos',
-                           sa.Column('vo', String(3), primary_key=True),
+                           sa.Column('vo', String(3)),
                            sa.Column('description', String(255)),
                            sa.Column('email', String(255)),
                            sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
                            sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
                            schema=schema)
+        create_primary_key('VOS_PK', 'vos', ['vo'])
 
         # create base vo
         bulk_insert(vos, [{'vo': 'def',
