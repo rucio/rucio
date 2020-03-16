@@ -465,7 +465,7 @@ def update_transfer_state(external_host, transfer_id, state, logging_prepend_str
 
 
 @transactional_session
-def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=[], session=None):
+def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=None, session=None):
     """
     Get a list of hops needed to transfer date from source_rse_id to dest_rse_id.
     Ideally, the list will only include one item (dest_rse_id) since no hops are needed.
@@ -476,6 +476,9 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=[
     :returns:                  List of hops in the format [{'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'source_scheme_priority': N, 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm', 'dest_scheme_priority': N}]
     :raises:                   NoDistance
     """
+
+    if multihop_rses is None:
+        multihop_rses = []
 
     # TODO: Might be problematic to always load the distance_graph, since it might be expensive
     # TODO: Have an rse_expression to specify the eligible hops
@@ -531,6 +534,8 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=[
 
             for out_v in distance_graph[current_node]:
                 # Check if the distance would be smaller
+                if distance_graph[current_node][out_v] is None:
+                    continue
                 if visited_nodes.get(out_v, {'distance': 9999})['distance'] > current_distance + distance_graph[current_node][out_v] + HOP_PENALTY\
                    and local_optimum > current_distance + distance_graph[current_node][out_v] + HOP_PENALTY:
                     # Check if the intermediate RSE is enabled for multihop
@@ -663,6 +668,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         try:
             list_hops = get_hops(source_rse_id, dest_rse_id, include_multihop=core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session), multihop_rses=multihop_rses, session=session)
             if len(list_hops) > 1:
+                logging.debug('From %s to %s requires multihop: %s', source_rse_id, dest_rse_id, list_hops)
                 multihop = True
                 multi_hop_dict[req_id] = (list_hops, dict_attributes, retry_count)
         except NoDistance:
