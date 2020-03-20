@@ -4,7 +4,7 @@ Installing Rucio server
 Prerequisites
 ~~~~~~~~~~~~~
 
-The Rucio server runs on Python 2.6 and 2.7 on any Unix-like platform.
+The Rucio server runs on Python 2.7, 3.6 and 3.7 on any Unix-like platform.
 
 Install via pip
 ~~~~~~~~~~~~~~~
