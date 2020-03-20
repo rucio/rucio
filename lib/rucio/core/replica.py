@@ -1686,12 +1686,12 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
 
         if replica_cnt[0] > 1:
             if state != ReplicaState.UNAVAILABLE:
-                total_bytes += bytes
                 if tombstone != OBSOLETE:
                     if only_delete_obsolete:
                         break
                     if needed_space is not None and total_bytes > needed_space:
                         break
+                total_bytes += bytes
 
                 total_files += 1
                 if total_files > limit:
@@ -1711,12 +1711,12 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
                             models.Request.name == name)).one()
 
             if request_cnt[0] == 0:
-                total_bytes += bytes
                 if tombstone != OBSOLETE:
                     if only_delete_obsolete:
                         break
                     if needed_space is not None and total_bytes > needed_space:
                         break
+                total_bytes += bytes
 
                 total_files += 1
                 if total_files > limit:
