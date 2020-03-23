@@ -241,10 +241,28 @@ class UploadClient:
                     success = True
                     file['upload_result'] = {0: True, 1: None, 'success': True, 'pfn': pfn}  # needs to be removed
                 except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:
-                    logger.warning('Upload attempt failed')
-                    logger.debug('Exception: %s' % str(error))
+                    logger.warning('_upload_item: Upload attempt failed')
+                    logger.debug('_upload_item: Exception: %s' % str(error))
                     state_reason = str(error)
                     summary_exception.append(error._message)
+
+                # fallback for the transtion period to the new _upload_item method
+                if not success:
+                    try:
+                        state = rsemgr.upload(rse_settings=rse_settings,
+                                              lfns=lfn,
+                                              source_dir=file['dirname'],
+                                              force_scheme=cur_scheme,
+                                              force_pfn=pfn,
+                                              transfer_timeout=file.get('transfer_timeout'),
+                                              delete_existing=delete_existing,
+                                              sign_service=sign_service)
+                        success = state['success']
+                        file['upload_result'] = state
+                    except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:
+                        logger.warning('rsemgr.upload: Upload attempt failed')
+                        logger.debug('rsemgr.upload: Exception: %s' % str(error))
+                        state_reason = str(error)
 
             if success:
                 num_succeeded += 1
