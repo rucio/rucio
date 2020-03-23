@@ -1179,7 +1179,7 @@ class Token(BASE, ModelBase):
     token = Column(String(3072))  # account-identity-appid-uuid -> max length: (+ 30 1 255 1 32 1 32)
     account = Column(InternalAccountString(25))
     refresh_token = Column(String(315), default=None)
-    refresh = Column(Boolean, default=False)
+    refresh = Column(Boolean(name='TOKENS_REFRESH_CHK'), default=False)
     refresh_start = Column(DateTime, default=None)
     refresh_expired_at = Column(DateTime, default=None)
     refresh_lifetime = Column(Integer())
