@@ -17,10 +17,11 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
-from rucio.common.config import __CONFIGFILES as __RUCIOCONFIGFILES
+from rucio.common.config import get_config_dirs
 from rucio.common.dumper import DUMPS_CACHE_DIR
 from rucio.common.dumper import http_download_to_file, gfal_download_to_file, ddmendpoint_url, temp_file
 
@@ -50,8 +51,8 @@ except ImportError as e:
 
 CHUNK_SIZE = 10485760
 
-__DUMPERCONFIGDIRS = ('/'.join(cfg.split('/')[:-1]) + '/auditor' for cfg in __RUCIOCONFIGFILES)
-__DUMPERCONFIGDIRS = [cfg for cfg in __DUMPERCONFIGDIRS if os.path.isdir(cfg)]
+__DUMPERCONFIGDIRS = (os.path.join(confdir, 'auditor') for confdir in get_config_dirs())
+__DUMPERCONFIGDIRS = list(filter(os.path.exists, __DUMPERCONFIGDIRS))
 
 
 class Parser(ConfigParser.RawConfigParser, object):
