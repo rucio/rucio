@@ -19,6 +19,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -213,15 +214,18 @@ def get_rse_credentials(path_to_credentials_file=None):
 
 __CONFIG = ConfigParser.SafeConfigParser(os.environ)
 
-__CONFIGFILES = list()
+if 'RUCIO_CONFIG' in os.environ:
+    __CONFIGFILES = [os.environ['RUCIO_CONFIG']]
+else:
+    __CONFIGFILES = list()
 
-if 'RUCIO_HOME' in os.environ:
-    __CONFIGFILES.append('%s/etc/rucio.cfg' % os.environ['RUCIO_HOME'])
+    if 'RUCIO_HOME' in os.environ:
+        __CONFIGFILES.append('%s/etc/rucio.cfg' % os.environ['RUCIO_HOME'])
 
-__CONFIGFILES.append('/opt/rucio/etc/rucio.cfg')
+    __CONFIGFILES.append('/opt/rucio/etc/rucio.cfg')
 
-if 'VIRTUAL_ENV' in os.environ:
-    __CONFIGFILES.append('%s/etc/rucio.cfg' % os.environ['VIRTUAL_ENV'])
+    if 'VIRTUAL_ENV' in os.environ:
+        __CONFIGFILES.append('%s/etc/rucio.cfg' % os.environ['VIRTUAL_ENV'])
 
 __HAS_CONFIG = False
 for configfile in __CONFIGFILES:
@@ -233,8 +237,6 @@ if not __HAS_CONFIG:
 
     if 'sphinx' not in sys.modules:
         # test to not fail when build the API doc
-        raise Exception('Could not load rucio configuration file rucio.cfg.'
-                        'Rucio looks in the following directories for a configuration file, in order:'
-                        '\n\t${RUCIO_HOME}/etc/rucio.cfg'
-                        '\n\t/opt/rucio/etc/rucio.cfg'
-                        '\n\t${VIRTUAL_ENV}/etc/rucio.cfg')
+        raise Exception('Could not load Rucio configuration file.'
+                        'Rucio looked in the following paths for a configuration file, in order:'
+                        '\n\t' + '\n\t'.join(__CONFIGFILES))  # __CONFIGFILES always contains at least one item
