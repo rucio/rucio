@@ -225,7 +225,7 @@ class Config:
             self.configfile = os.environ['RUCIO_CONFIG']
         else:
             configs = [os.path.join(confdir, 'rucio.cfg') for confdir in get_config_dirs()]
-            self.configfile = next(filter(os.path.exists, configs), None)
+            self.configfile = next(iter(filter(os.path.exists, configs)), None)
             if self.configfile is None:
                 raise RuntimeError('Could not load Rucio configuration file.'
                                    'Rucio looked in the following paths for a configuration file, in order:'
