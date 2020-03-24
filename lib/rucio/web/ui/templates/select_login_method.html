@@ -1,0 +1,148 @@
+$def with (oidc_issuers, saml_support, buttons = ["btn btn-block btn-outline-warning btn-lg", "btn btn-block btn-outline-info btn-lg", "btn btn-block btn-outline-danger btn-lg", "btn btn-block btn-outline-success btn-lg", "btn btn-block btn-outline-warning btn-lg", "btn btn-block btn-outline-info btn-lg"], original_buttons = ["btn btn-block btn-outline-warning btn-lg", "btn btn-block btn-outline-info btn-lg", "btn btn-block btn-outline-danger btn-lg", "btn btn-block btn-outline-success btn-lg", "btn btn-block btn-outline-warning btn-lg", "btn btn-block btn-outline-info btn-lg"], cnt=0)
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Jaroslav Guenther, <jaroslav.guenther@gmail.com>, 2019
+-->
+
+
+<style>
+
+
+.card{
+  margin: 0 auto;
+  width: 435px;
+}
+
+img {
+  width: 400px;
+}
+
+@font-face {
+  font-family: 'icomoon';
+  src:  url('/media/fonts/icomoon.eot');
+  src:  url('/media/fonts/icomoon.eot') format('embedded-opentype'),
+    url('/media/fonts/icomoon.ttf') format('truetype'),
+    url('/media/fonts/icomoon.woff') format('woff'),
+    url('/media/fonts/icomoon.svg') format('svg');
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+
+[class^="icon-"], [class*=" icon-"] {
+  /* use !important to prevent issues with browser extensions that change fonts */
+  font-family: 'icomoon' !important;
+  speak: none;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+
+  /* Better Font Rendering =========== */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.icon-certificate:before {
+  content: "\e900";
+}
+.icon-rucio:before {
+  content: "\e901";
+}
+.icon-openid:before {
+  content: "\e902";
+}
+.icon-cern:before {
+  content: "\e903";
+}
+
+.btn-outline-cern {
+  color:#0033A0 !important;
+  background-color:transparent !important;
+  border-color:#0033A0 !important;
+}
+
+.btn-outline-cern:hover {
+  color:#fff !important;
+  background-color:transparent !important;
+  background-color:#0033A0 !important;
+  border-color:#0033A0 !important;;
+}
+
+.btn-outline-rucio {
+  color:black !important;
+  background-color:transparent !important;
+  border-color:black !important;
+}
+
+.btn-outline-rucio:hover {
+  color:#fff !important;
+  background-color:transparent !important;
+  background-color:black !important;
+  border-color:black !important;;
+}
+.vertical-align-middle {
+    vertical-align: middle;
+}
+
+.padding-bottom-2 {
+    padding-bottom: 2px;
+}
+
+.vertical-align-middle > i{ vertical-align: middle !important; }
+
+</style>
+
+<!DOCTYPE html>
+<html>
+<body>
+
+
+<link href="//maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
+<script src="//maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.0.8/css/all.css">
+
+<div class="container">
+  <div class="row">
+<div class="card">
+<article class="card-body">
+  <h4 class="card-title text-center mb-4 mt-1"><img src="/media/RucioUI.png" width="450px"></h4>
+  <hr>
+  <p class="text-success text-center">Choose Login Method</p>
+  <p>
+    <a href="" class="btn btn-block btn-outline-primary btn-lg" role="button" onclick="this.href='/ui/x509?account='+document.getElementById('accountname').value" height="auto"><i class="fab fa-2x icon-certificate vertical-align-middle"></i><span class="inline-block padding-bottom-2">   X509 Certificate</span></a>
+    <a href="" class="btn btn-block btn-outline-rucio btn-lg" role="button" onclick="this.href='/ui/login?account='+document.getElementById('accountname').value" height="auto"> <i class="fab fa-2x icon-rucio vertical-align-middle"></i><span class="inline-block padding-bottom-2">   Rucio Userpass</span></a>
+    $if saml_support == True:
+        <a href="" class="btn btn-block btn-outline-cern btn-lg" role="button" onclick="this.href='/ui/saml?account='+document.getElementById('accountname').value" height="auto"> <i class="fab fa-2x icon-cern vertical-align-middle"></i><span class="inline-block padding-bottom-2">   CERN SSO Log-In</span></a>
+    $for idp in oidc_issuers:
+        $buttons.append(buttons[0])
+        <a href="" class="$buttons[0]" role="button" onclick="this.href='/ui/oidc?account='+document.getElementById('accountname').value+'&issuer='+&quot;$idp&quot;" height="auto"> <i class="fa-2x icon-openid vertical-align-middle"></i><span class="inline-block padding-bottom-2"> $idp</span></a>
+        $buttons.remove(buttons[0])
+  </p>
+  <form>
+  <div class="form-group">
+  <div class="input-group">
+    <div class="input-group-prepend">
+        <span class="input-group-text"> <i class="fa fa-user"></i> </span>
+     </div>
+    <input name="accountname" class="form-control" placeholder="Optionally specify Rucio account name ..." type="accountname" id="accountname" value="">
+  </div> <!-- input-group.// -->
+  </div> <!-- form-group// -->
+  </form>
+</article>
+</div>
+</div> <!--container end.//-->
+
+</body>
+</html>
+

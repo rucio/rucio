@@ -34,10 +34,12 @@ from tarfile import open, TarError
 from gzip import GzipFile
 from requests import get, ConnectionError
 from web import application, header, input as param_input, seeother, template
+from web import cookies
 
+from rucio.api.authentication import get_auth_token_x509
 from rucio.common.config import config_get
 from rucio.common.utils import generate_http_error
-from rucio.web.ui.common.utils import get_token, log_in, authenticate, saml_authentication
+from rucio.web.ui.common.utils import get_token, authenticate, userpass_auth, x509token_auth, saml_auth, oidc_auth, finalize_auth
 
 
 COMMON_URLS = (
@@ -74,7 +76,11 @@ COMMON_URLS = (
     '/logfiles/load', 'LoadLogfile',
     '/logfiles/extract', 'ExtractLogfile',
     '/login', 'Login',
-    '/saml', 'SAML'
+    '/saml', 'SAML',
+    '/oidc', 'OIDC',
+    '/oidc_final', 'FinalizeOIDC',
+    '/x509', 'X509'
+
 )
 
 POLICY = config_get('policy', 'permission')
@@ -168,12 +174,39 @@ class Auth(object):
     """ Local Auth Proxy """
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
-        token = get_token()
+        token = get_token(get_auth_token_x509)
         if token:
             header('X-Rucio-Auth-Token', token)
             return str()
         else:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot get token')
+
+
+class X509(object):
+    """ Local X509 Authentication for Rucio UI """
+    def GET(self):  # pylint:disable=no-self-use,invalid-name
+        """ GET """
+        data = param_input()
+        return x509token_auth(data)
+
+
+class OIDC(object):
+    """ Local Open ID Connect Authentication for Rucio UI """
+    def GET(self):  # pylint:disable=no-self-use,invalid-name
+        """ GET """
+        data = param_input()
+        try:
+            return oidc_auth(data.account, data.issuer)
+        except:
+            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot get token OIDC auth url from the server.')
+
+
+class FinalizeOIDC(object):
+    """ Local finalization of Open ID Connect Authentication for Rucio UI """
+    def GET(self):  # pylint:disable=no-self-use,invalid-name
+        """ GET """
+        session_token = cookies().get('x-rucio-auth-token')
+        return finalize_auth(session_token, 'OIDC')
 
 
 class Accounting(object):
@@ -300,16 +333,21 @@ class ListRulesRedirect(object):
 
 
 class Login(object):
-    """ Login page """
+    """ Rucio userpass login page """
     def GET(self):
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
-        return render.login()
+        data = param_input()
+        if hasattr(data, 'account') and data.account:
+            account = data.account
+        else:
+            account = None
+        return render.login(account)
 
     def POST(self):
         """ POST """
         data = param_input()
-        return log_in(data, None)
+        return userpass_auth(data, None)
 
 
 class Rule(object):
@@ -419,13 +457,13 @@ class SAML(object):
     """ Login with SAML """
     def GET(self):
         """ GET """
-        render = template.render(join(dirname(__file__), 'templates/'))
-        return saml_authentication("GET", render.atlas_index())
+        data = param_input()
+        return saml_auth("GET", data=data)
 
     def POST(self):
         """ POST """
-        render = template.render(join(dirname(__file__), 'templates/'))
-        return saml_authentication("POST", render.atlas_index())
+        data = param_input()
+        return saml_auth("POST", data=data)
 
 
 class Search(object):

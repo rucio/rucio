@@ -10,31 +10,44 @@
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 # - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019
 
-from json import dumps
+from json import dumps, load
 from os.path import dirname, join
 from time import time
 from web import cookies, ctx, input, setcookie, template, seeother
 
 from rucio import version
-from rucio.api import authentication, identity
+from rucio.api import authentication as auth, identity
 from rucio.api.account import get_account_info, list_account_attributes
 from rucio.common.config import config_get
 from rucio.db.sqla.constants import AccountType
 
 try:
-    AUTH_TYPE = config_get('webui', 'auth_type')
-    if AUTH_TYPE == 'saml':
-        from onelogin.saml2.auth import OneLogin_Saml2_Auth
+    from onelogin.saml2.auth import OneLogin_Saml2_Auth
+    SAML_SUPPORT = True
 except:
-    AUTH_TYPE = 'x509'
+    SAML_SUPPORT = False
 
-try:
-    AUTH_ISSUER = config_get('webui', 'auth_issuer')
-except:
-    if AUTH_TYPE == 'oidc':
-        render = template.render(join(dirname(__file__), '../templates'))
-        render.problem("Please specify auth_issuer in the [webui] section of the Rucio configuration.")
-    AUTH_ISSUER = None
+RENDERER = template.render(join(dirname(__file__), '../templates'))
+# check if there is preferred server side config for webui authentication
+AUTH_TYPE = config_get('webui', 'auth_type', False, None)
+if AUTH_TYPE == 'oidc':
+    try:
+        AUTH_ISSUER_WEBUI = config_get('webui', 'auth_issuer')
+    except:
+        RENDERER.problem("Please specify auth_issuer in the [webui] section of the Rucio configuration.")
+
+# if no specific config on the server side - we collect information
+# about all authentication options, in particular OIDC
+AUTH_ISSUERS = []
+if not AUTH_TYPE:
+    IDPSECRETS = config_get('oidc', 'idpsecrets', False, None)
+    try:
+        with open(IDPSECRETS) as client_secret_file:
+            client_secrets = load(client_secret_file)
+            for iss in client_secrets:
+                AUTH_ISSUERS.append(iss.upper())
+    except:
+        AUTH_ISSUERS = []
 
 
 def prepare_webpy_request(request, data):
@@ -58,23 +71,27 @@ def prepare_webpy_request(request, data):
     return None
 
 
-def set_cookies(token, cookie_accounts, attribs, ui_account=None):
-    # if there was no valid session token write the new token to a cookie.
-    if token:
-        setcookie('x-rucio-auth-token', value=token, path='/')
-        setcookie('rucio-auth-token-created-at', value=long(time()), path='/')
+def set_cookies(cookie_dict):
+    """
+    Sets multiple cookies at once.
+    :param cookie_dict: dictionary {'coookie_1_name': value, ... }
+    :returns: None
+    """
+    for cookie_key in cookie_dict:
+        if cookie_dict[cookie_key]:
+            setcookie(cookie_key, value=cookie_dict[cookie_key], path='/')
+    return None
 
-    if cookie_accounts:
-        values = ""
-        for acc in cookie_accounts:
-            values += acc + " "
-        setcookie('rucio-available-accounts', value=values[:-1], path='/')
 
-    if attribs:
-        setcookie('rucio-account-attr', value=dumps(attribs), path='/')
-
-    if ui_account:
-        setcookie('rucio-selected-account', value=ui_account, path='/')
+def redirect_to_last_known_url():
+    """
+    Checks if there is preferred path in cookie and redirects to it.
+    :returns: redirect to last known path
+    """
+    path = cookies().get('rucio-requested-path')
+    if not path:
+        path = '/'
+    return seeother(path)
 
 
 def __to_js(var, value):
@@ -83,156 +100,30 @@ def __to_js(var, value):
     :param var: The name of the javascript var.
     :param value: The value to set.
     """
-
     return '<script type="text/javascript">var %s = "%s";</script>' % (var, value)
 
-    return join(dirname(file), 'templates/')
 
-
-def get_token():
-    account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
-    dn = ctx.env.get('SSL_CLIENT_S_DN')
-    try:
-        token = authentication.get_auth_token_x509(account,
-                                                   dn,
-                                                   'webui',
-                                                   ctx.env.get('REMOTE_ADDR')).token
-        return token
-    except:
-        return False
-
-
-def check_token(rendered_tpl):
-    attribs = None
-    token = None
-    js_token = ""
-    js_account = ""
-    def_account = None
-    accounts = None
-    cookie_accounts = None
-    rucio_ui_version = version.version_string()
-    policy = config_get('policy', 'permission')
-
+def select_account_name(identitystr, identity_type):
+    """
+    Looks for account corresponding to the provided identity.
+    :param identitystr: identity string
+    :param identity_type: identity_type e.g. x509, saml, oidc, userpass
+    :returns: None or account string
+    """
+    accounts = identity.list_accounts_for_identity(identitystr, identity_type)
     ui_account = None
+    if len(accounts) == 0:
+        return None
+    # check if ui_account param is set
     if 'ui_account' in input():
         ui_account = input()['ui_account']
-
-    render = template.render(join(dirname(__file__), '../templates'))
-    if ctx.env.get('SSL_CLIENT_VERIFY') != 'SUCCESS':
-        return render.problem("No certificate provided. Please authenticate with a certificate registered in Rucio.")
-
-    dn = ctx.env.get('SSL_CLIENT_S_DN')
-
-    if not dn.startswith('/'):
-        dn = '/%s' % '/'.join(dn.split(',')[::-1])
-
-    msg = "Your certificate (%s) is not mapped to any rucio account." % dn
-    msg += "<br><br><font color=\"red\">First, please make sure it is correctly registered in <a href=\"https://voms2.cern.ch:8443/voms/atlas\">VOMS</a> and be patient until it has been fully propagated through the system.</font>"
-    msg += "<br><br>Then, if it is still not working please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>."
-
-    # try to get and check the rucio session token from cookie
-    session_token = cookies().get('x-rucio-auth-token')
-    validate_token = authentication.validate_auth_token(session_token)
-
-    # check if ui_account param is set and if yes, force new token
+    # if yes check if the accounts provided for users identity include this account
     if ui_account:
-        accounts = identity.list_accounts_for_identity(dn, 'x509')
-
-        if len(accounts) == 0:
-            return render.problem(msg)
-
         if ui_account not in accounts:
-            return render.problem("The rucio account (%s) you selected is not mapped to your certificate (%s). Please select another account or none at all to automatically use your default account." % (ui_account, dn))
-
-        cookie_accounts = accounts
-        if (validate_token is None) or (validate_token['account'] != ui_account):
-            try:
-                token = authentication.get_auth_token_x509(ui_account,
-                                                           dn,
-                                                           'webui',
-                                                           ctx.env.get('REMOTE_ADDR')).token
-            except:
-                return render.problem(msg)
-
-        attribs = list_account_attributes(ui_account)
-        js_token = __to_js('token', token)
-        js_account = __to_js('account', def_account)
+            return None
+        else:
+            return ui_account
     else:
-        # if there is no session token or if invalid: get a new one.
-        if validate_token is None:
-            # get all accounts for an identity. Needed for account switcher in UI.
-            accounts = identity.list_accounts_for_identity(dn, 'x509')
-            if len(accounts) == 0:
-                return render.problem(msg)
-
-            cookie_accounts = accounts
-
-            # try to set the default account to the user account, if not available take the first account.
-            def_account = accounts[0]
-            for account in accounts:
-                account_info = get_account_info(account)
-                if account_info.account_type == AccountType.USER:
-                    def_account = account
-                    break
-
-            selected_account = cookies().get('rucio-selected-account')
-            if (selected_account):
-                def_account = selected_account
-            try:
-                token = authentication.get_auth_token_x509(def_account,
-                                                           dn,
-                                                           'webui',
-                                                           ctx.env.get('REMOTE_ADDR')).token
-            except:
-                return render.problem(msg)
-
-            attribs = list_account_attributes(def_account)
-            # write the token and account to javascript variables, that will be used in the HTML templates.
-            js_token = __to_js('token', token)
-            js_account = __to_js('account', def_account)
-
-    set_cookies(token, cookie_accounts, attribs, ui_account)
-
-    return render.base(js_token, js_account, rucio_ui_version, policy, rendered_tpl)
-
-
-def log_in(data, rendered_tpl):
-    attribs = None
-    token = None
-    js_token = ""
-    js_account = ""
-    def_account = None
-    accounts = None
-    cookie_accounts = None
-    rucio_ui_version = version.version_string()
-    policy = config_get('policy', 'permission')
-
-    render = template.render(join(dirname(__file__), '../templates'))
-
-    # # try to get and check the rucio session token from cookie
-    session_token = cookies().get('x-rucio-auth-token')
-    validate_token = authentication.validate_auth_token(session_token)
-
-    # if token is valid, render the requested page.
-    if validate_token and not data:
-        token = session_token
-        js_token = __to_js('token', token)
-        js_account = __to_js('account', def_account)
-
-        return render.base(js_token, js_account, rucio_ui_version, policy, rendered_tpl)
-
-    else:
-        # if there is no session token or if invalid: get a new one.
-        # if user tries to access a page through URL without logging in, then redirect to login page.
-        if rendered_tpl:
-            return render.login()
-
-        # get all accounts for an identity. Needed for account switcher in UI.
-        accounts = identity.list_accounts_for_identity(data.username, 'userpass')
-        if len(accounts) == 0:
-            return render.problem('No accounts for the given identity.')
-
-        cookie_accounts = accounts
         # try to set the default account to the user account, if not available take the first account.
         def_account = accounts[0]
         for account in accounts:
@@ -240,222 +131,265 @@ def log_in(data, rendered_tpl):
             if account_info.account_type == AccountType.USER:
                 def_account = account
                 break
-
         selected_account = cookies().get('rucio-selected-account')
         if (selected_account):
             def_account = selected_account
-
-        try:
-            token = authentication.get_auth_token_user_pass(def_account,
-                                                            data.username,
-                                                            data.password.encode("ascii"),
-                                                            'webui',
-                                                            ctx.env.get('REMOTE_ADDR')).token
-
-        except:
-            return render.problem('Cannot get auth token')
-
-        attribs = list_account_attributes(def_account)
-        # write the token and account to javascript variables, that will be used in the HTML templates.
-        js_token = __to_js('token', token)
-        js_account = __to_js('account', def_account)
-
-    set_cookies(token, cookie_accounts, attribs)
-
-    return seeother('/')
+        ui_account = def_account
+    return ui_account
 
 
-def saml_authentication(method, rendered_tpl):
+def get_token(token_method, acc=None, idt=None, pwd=None):
+    """
+    Gets a token with the token_methosd provided.
+    :param token_method: the method to get the token
+    :param acc: Rucio account string
+    :param idt: Rucio identity string
+    :param pwd: Rucio password string (in case of userpass auth_type)
+    :returns: None or token string
+    """
+    if not acc:
+        acc = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
+    if not idt:
+        idt = ctx.env.get('SSL_CLIENT_S_DN')
+    if not (acc and idt):
+        return None
+    try:
+        if pwd:
+            token = token_method(acc, idt, pwd, 'webui', ctx.env.get('REMOTE_ADDR')).token
+        else:
+            token = token_method(acc, idt, 'webui', ctx.env.get('REMOTE_ADDR')).token
+        return token
+    except:
+        return None
+
+
+def validate_webui_token(from_cookie=True, session_token=None):
+    """
+    Validates token and returns token validation dictionary.
+    :param from_cookie: Token is looked up in cookies if True, otherwise session_token must be provided
+    :param session_token:  token string
+    :returns: None or token validation dictionary
+    """
+    if from_cookie:
+        session_token = cookies().get('x-rucio-auth-token')
+    valid_token_dict = auth.validate_auth_token(session_token)
+    if not valid_token_dict or not session_token:
+        return None
+    else:
+        valid_token_dict['token'] = session_token
+        return valid_token_dict
+
+
+def access_granted(valid_token_dict, rendered_tpl=None):
+    """
+    Assuming validated token dictionary is provided, renders required template page.
+    :param valid_token_dict: token validation dictionary
+    :param rendered_tpl:  rendered template
+    :returns: rendered base temmplate with rendered_tpl content
+    """
+    js_account = __to_js('account', valid_token_dict['account'])
+    js_token = __to_js('token', valid_token_dict['token'])
+    rucio_ui_version = version.version_string()
+    policy = config_get('policy', 'permission')
+    return RENDERER.base(js_token, js_account, rucio_ui_version, policy, rendered_tpl)
+
+
+def finalize_auth(token, identity_type, cookie_dict_extra=None):
+    """
+    Finalises login. Validates provided token, sets cookies
+    and redirects to the final page.
+    :param token: token string
+    :param identity_type:  identity_type e.g. x509, userpass, oidc, saml
+    :param cookie_dict_extra: extra cookies to set, dictionary expected
+    :returns: redirects to the final page or renders a page with an error message.
+    """
+    valid_token_dict = validate_webui_token(from_cookie=False, session_token=token)
+    if not valid_token_dict:
+        return RENDERER.problem("It was not possible to validate and finalize your login with the provided token.")
+    try:
+        attribs = list_account_attributes(valid_token_dict['account'])
+        accounts = identity.list_accounts_for_identity(valid_token_dict['identity'], identity_type)
+        accvalues = ""
+        for acc in accounts:
+            accvalues += acc + " "
+        accounts = accvalues[:-1]
+
+        cookie_dict = {'x-rucio-auth-token': token,
+                       'rucio-auth-token-created-at': long(time()),
+                       'rucio-available-accounts': accounts,
+                       'rucio-account-attr': dumps(attribs),
+                       'rucio-selected-account': valid_token_dict['account']}
+        if cookie_dict_extra and isinstance(cookie_dict_extra, dict):
+            cookie_dict.update(cookie_dict_extra)
+        set_cookies(cookie_dict)
+        return redirect_to_last_known_url()
+    except:
+        return RENDERER.problem("It was not possible to validate and finalize your login with the provided token.")
+
+
+# AUTH_TYPE SPECIFIC METHODS FOLLOW:
+
+
+def x509token_auth(data=None):
+    """
+    Manages login via X509 certificate.
+    :param data: data object containing account string can be provided
+    :returns: final page or a page with an error message
+    """
+    # checking if Rucio auth server succeeded to verify the certificate
+    if ctx.env.get('SSL_CLIENT_VERIFY') != 'SUCCESS':
+        return RENDERER.problem("No certificate provided. Please authenticate with a certificate registered in Rucio.")
+    dn = ctx.env.get('SSL_CLIENT_S_DN')
+    if not dn.startswith('/'):
+        dn = '/%s' % '/'.join(dn.split(',')[::-1])
+    if hasattr(data, 'account') and data.account:
+        ui_account = data.account
+    else:
+        ui_account = select_account_name(dn, 'x509')
+    msg = "<br><br>Your certificate (%s) is not mapped to (possibly any) rucio account: %s." % (dn, ui_account)
+    msg += "<br><br><font color=\"red\">First, please make sure it is correctly registered in <a href=\"https://voms2.cern.ch:8443/voms/atlas\">VOMS</a> and be patient until it has been fully propagated through the system.</font>"
+    msg += "<br><br>Then, if it is still not working please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>."
+    if not ui_account:
+        return RENDERER.problem(msg)
+    token = get_token(auth.get_auth_token_x509, acc=ui_account, idt=dn)
+    if not token:
+        return RENDERER.problem(msg)
+    return finalize_auth(token, 'x509')
+
+
+def userpass_auth(data, rendered_tpl):
+    """
+    Manages login via Rucio USERPASS method.
+    :param data: data object containing account, username and password string
+    :param rendered_tpl: rendered page template
+    :returns: final page or a page with an error message
+    """
+    if not data:
+        return RENDERER.problem("No input credentials were provided.")
+    else:
+        # if user tries to access a page through URL without logging in, then redirect to login page.
+        if rendered_tpl:
+            return RENDERER.login(None)
+        if hasattr(data, 'account') and data.account:
+            ui_account = data.account
+        else:
+            ui_account = select_account_name(data.username, 'userpass')
+        if not ui_account:
+            return RENDERER.problem(('Cannot get find any account associated with %s identity.' % (data.username)))
+        token = get_token(auth.get_auth_token_user_pass, acc=ui_account, idt=data.username, pwd=data.password.encode("ascii"))
+        if not token:
+            return RENDERER.problem(('Cannot get auth token. It is possible that the presented identity %s is not mapped to any Rucio account %s.') % (data.username, ui_account))
+    return finalize_auth(token, 'userpass')
+
+
+def saml_auth(method, data=None):
     """
     Login with SAML
     :param method: method type, GET or POST
+    :param data: data object containing account string can be provided
     :param rendered_tpl: page to be rendered
+    :returns: rendered final page or a page with error message
     """
-
-    attribs = None
-    token = None
-    js_token = ""
-    js_account = ""
-    def_account = None
-    accounts = None
-    cookie_accounts = None
-    rucio_ui_version = version.version_string()
-    policy = config_get('policy', 'permission')
-
-    # Initialize variables for sending SAML request
     SAML_PATH = join(dirname(__file__), 'saml/')
-    request = ctx.env
-    data = dict(input())
-    req = prepare_webpy_request(request, data)
-    auth = OneLogin_Saml2_Auth(req, custom_base_path=SAML_PATH)
-
+    req = prepare_webpy_request(ctx.env, dict(input()))
+    samlauth = OneLogin_Saml2_Auth(req, custom_base_path=SAML_PATH)
     saml_user_data = cookies().get('saml-user-data')
-
-    render = template.render(join(dirname(__file__), '../templates'))
-
-    session_token = cookies().get('x-rucio-auth-token')
-    validate_token = authentication.validate_auth_token(session_token)
-
+    ui_account = None
+    if hasattr(data, 'account') and data.account:
+        ui_account = data.account
     if method == "GET":
         # If user data is not present, redirect to IdP for authentication
         if not saml_user_data:
-            return seeother(auth.login())
-
-        # If user data is present and token is valid, render the required page
-        elif validate_token:
-            js_token = __to_js('token', session_token)
-            js_account = __to_js('account', def_account)
-
-            return render.base(js_token, js_account, rucio_ui_version, policy, rendered_tpl)
-
+            return seeother(samlauth.login())
         # If user data is present but token is not valid, create a new one
         saml_nameid = cookies().get('saml-nameid')
-        accounts = identity.list_accounts_for_identity(saml_nameid, 'saml')
-
-        cookie_accounts = accounts
-        try:
-            token = authentication.get_auth_token_saml(def_account,
-                                                       saml_nameid,
-                                                       'webui',
-                                                       ctx.env.get('REMOTE_ADDR')).token
-
-        except:
-            return render.problem('Cannot get auth token')
-
-        attribs = list_account_attributes(def_account)
-        # write the token and account to javascript variables, that will be used in the HTML templates.
-        js_token = __to_js('token', token)
-        js_account = __to_js('account', def_account)
-
-        set_cookies(token, cookie_accounts, attribs)
-
-        return render.base(js_token, js_account, rucio_ui_version, policy, rendered_tpl)
+        if not ui_account:
+            ui_account = select_account_name(saml_nameid, 'saml')
+        if not ui_account:
+            return RENDERER.problem('Cannot get find any account associated with %s identity.' % (saml_nameid))
+        token = get_token(auth.get_auth_token_saml, acc=ui_account, idt=saml_nameid)
+        if not token:
+            return RENDERER.problem(('Cannot get auth token. It is possible that the presented identity %s is not mapped to any Rucio account %s.') % (saml_nameid, ui_account))
+        return finalize_auth(token, 'saml')
 
     # If method is POST, check the received SAML response and redirect to home if valid
-    auth.process_response()
-    errors = auth.get_errors()
+    samlauth.process_response()
+    errors = samlauth.get_errors()
     if not errors:
-        if auth.is_authenticated():
-            setcookie('saml-user-data', value=auth.get_attributes(), path='/')
-            setcookie('saml-session-index', value=auth.get_session_index(), path='/')
-            setcookie('saml-nameid', value=auth.get_nameid(), path='/')
-            saml_nameid = auth.get_nameid()
+        if samlauth.is_authenticated():
+            cookie_extra = {'saml-nameid': samlauth.get_nameid()}
+            cookie_extra['saml-user-data'] = samlauth.get_attributes()
+            cookie_extra['saml-session-index'] = samlauth.get_session_index()
+            if not ui_account:
+                ui_account = select_account_name(saml_nameid, 'saml')
+            if not ui_account:
+                return RENDERER.problem('Cannot get find any account associated with %s identity.' % (saml_nameid))
+            token = get_token(auth.get_auth_token_saml, acc=ui_account, idt=cookie_extra['saml-nameid'])
+            if not token:
+                return RENDERER.problem(('Cannot get auth token. It is possible that the presented identity %s is not mapped to any Rucio account %s.') % (saml_nameid, ui_account))
+            return finalize_auth(token, 'saml', cookie_extra)
 
-            accounts = identity.list_accounts_for_identity(saml_nameid, 'saml')
-            cookie_accounts = accounts
-            # try to set the default account to the user account, if not available take the first account.
-            def_account = accounts[0]
-            for account in accounts:
-                account_info = get_account_info(account)
-                if account_info.account_type == AccountType.USER:
-                    def_account = account
-                    break
+        return RENDERER.problem("Not authenticated")
 
-            selected_account = cookies().get('rucio-selected-account')
-            if (selected_account):
-                def_account = selected_account
-
-            try:
-                token = authentication.get_auth_token_saml(def_account,
-                                                           saml_nameid,
-                                                           'webui',
-                                                           ctx.env.get('REMOTE_ADDR')).token
-
-            except:
-                return render.problem('Cannot get auth token')
-
-            attribs = list_account_attributes(def_account)
-            # write the token and account to javascript variables, that will be used in the HTML templates.
-            js_token = __to_js('token', token)
-            js_account = __to_js('account', def_account)
-
-            set_cookies(token, cookie_accounts, attribs)
-
-            return seeother("/")
-
-        return render.problem("Not authenticated")
-
-    return render.problem("Error while processing SAML")
+    return RENDERER.problem("Error while processing SAML")
 
 
-def oidc(validate_token, session_token, render, rendered_tpl):
+def oidc_auth(account, issuer):
     """
-    Used to finalise login once a token was put in a session cookie
-    via web/rest/oidc_token endpoint.
-    :param validate_token: dictionary as returned from the
-                           authentication.validate_auth_token after token validation
-    :param session_token: token string from the current cookie session
-    :param render: template renderer object
-    :param rendered_tpl: page to be rendered
-
-    :returns: rendered web page
-
+    Open ID Connect Login
+    :param account: Rucio account string
+    :param issuer: issuer key (e.g. xdc, wlcg) as in the idpsecrets.json file
+    :returns: rendered final page or a page with error message
     """
-    if not validate_token or not session_token:
-        return render.problem('No valid token found.')
-    try:
-        js_token = __to_js('token', session_token)
-        js_account = __to_js('account', validate_token['account'])
-        attribs = cookies().get('rucio-account-attr')
-        if not attribs:
-            attribs = list_account_attributes(validate_token['account'])
-        accounts = identity.list_accounts_for_identity(validate_token['identity'], 'OIDC')
-        if len(accounts) == 0:
-            return render.problem('No accounts for the given identity.')
 
-        set_cookies(session_token, accounts, attribs, ui_account=validate_token['account'])
-        rucio_ui_version = version.version_string()
-        policy = config_get('policy', 'permission')
-        return render.base(js_token, js_account, rucio_ui_version, policy, rendered_tpl)
-    except:
-        return render.problem('Could not finalise login with your token.')
+    if not account:
+        account = 'webui'
+    if not issuer:
+        return RENDERER.problem("Please provide IdP issuer.")
+    kwargs = {'audience': 'rucio',
+              'auth_scope': 'openid profile',
+              'issuer': issuer.lower(),
+              'auto': True,
+              'polling': False,
+              'refresh_lifetime': None,
+              'ip': None,
+              'webhome': ctx.realhome + '/oidc_final'}
+    auth_url = auth.get_auth_oidc(account, **kwargs)
+    if not auth_url:
+        return RENDERER.problem("It was not possible to get the OIDC authentication url from the Rucio auth server. "
+                                + "In case you provided your account name, make sure it is known to Rucio.")   # NOQA: W503
+    return seeother(auth_url)
 
 
 def authenticate(rendered_tpl):
-    """ Select the auth type defined in config """
+    """
+    Authentication management method.
+    :param rendered_tpl: rendered page template
+    :returns: rendered final page or a page with error message
+    """
+    global AUTH_ISSUERS, SAML_SUPPORT, AUTH_TYPE, RENDERER
+    valid_token_dict = validate_webui_token()
+    if not valid_token_dict:
+        # remember fullpath in cookie to return to after login
+        setcookie('rucio-requested-path', value=unicode(ctx.fullpath), expires=120, path='/')
+    else:
+        return access_granted(valid_token_dict, rendered_tpl)
 
-    session_token = cookies().get('x-rucio-auth-token')
-    validate_token = authentication.validate_auth_token(session_token)
-
-    render = template.render(join(dirname(__file__), '../templates'))
-
-    if AUTH_TYPE == 'x509':
-        return check_token(rendered_tpl)
-
-    elif AUTH_TYPE == 'userpass':
-        if validate_token:
-            return log_in(None, rendered_tpl)
-
-        return seeother('/login')
-
-    elif AUTH_TYPE == 'oidc':
-        if not validate_token:
-            kwargs = {'audience': 'rucio',
-                      'auth_scope': 'openid profile',
-                      'issuer': AUTH_ISSUER,
-                      'auto': True,
-                      'polling': False,
-                      'refresh_lifetime': None,
-                      'ip': None,
-                      'webhome': ctx.realhome + ctx.fullpath}
-
-            # account should be an input from the user !!! - TO-DO
-            auth_url = authentication.get_auth_oidc('webui', **kwargs)
-            return seeother(auth_url)
-
-        else:
-            return oidc(validate_token, session_token, render, rendered_tpl)
-
-    elif AUTH_TYPE == 'x509_userpass':
-        if ctx.env.get('SSL_CLIENT_VERIFY') == 'SUCCESS':
-            return check_token(rendered_tpl)
-
-        elif validate_token:
-            return log_in(None, rendered_tpl)
-
-        return render.no_certificate()
-
-    elif AUTH_TYPE == 'saml':
-        return saml_authentication("GET", rendered_tpl)
-
-    return render.problem('Invalid auth type')
+    # login without any known server config
+    if not AUTH_TYPE:
+        return RENDERER.select_login_method(AUTH_ISSUERS, SAML_SUPPORT)
+    # for AUTH_TYPE predefined by the server continue
+    else:
+        if AUTH_TYPE == 'userpass':
+            return seeother('/login')
+        elif AUTH_TYPE == 'x509':
+            return x509token_auth(None)
+        elif AUTH_TYPE == 'x509_userpass':
+            if ctx.env.get('SSL_CLIENT_VERIFY') == 'SUCCESS':
+                return x509token_auth(None)
+            return RENDERER.no_certificate()
+        elif AUTH_TYPE == 'oidc':
+            return oidc_auth(None, AUTH_ISSUER_WEBUI)
+        elif AUTH_TYPE == 'saml':
+            return saml_auth("GET", rendered_tpl)
+        return RENDERER.problem('Invalid auth type')
