@@ -10,7 +10,9 @@
 
 from __future__ import print_function
 
+import time
 import traceback
+from datetime import datetime
 
 from mock import MagicMock, patch
 from nose.tools import assert_true, assert_false
@@ -21,7 +23,7 @@ from rucio.common.exception import Duplicate
 from rucio.common.types import InternalAccount
 from rucio.db.sqla.constants import IdentityType
 from rucio.core.oidc import get_auth_oidc, get_token_oidc
-from rucio.core.authentication import redirect_auth_oidc
+from rucio.core.authentication import redirect_auth_oidc, validate_auth_token
 from rucio.common.exception import (CannotAuthenticate, DatabaseException)
 from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
@@ -111,7 +113,6 @@ class TestAuthCoreAPIoidc():
             add_account(self.accountstring, 'USER', 'rucio@email.com', 'root')
         except Duplicate:
             pass
-
         try:
             add_account_identity('SUB=knownsub, ISS=https://test_issuer/', IdentityType.OIDC, InternalAccount(self.accountstring), 'rucio_test@test.com')
         except DatabaseException:
@@ -498,3 +499,79 @@ class TestAuthCoreAPIoidc():
         for token in db_token:
             assert_true(token.token == access_token)
             assert_true(token.refresh_token == refresh_token)
+
+    @patch('rucio.core.oidc.JWS')
+    @patch('rucio.core.oidc.__get_rucio_jwt_dict')
+    @patch('rucio.core.oidc.OIDC_CLIENTS')
+    def test_validate_and_save_external_token_success(self, mock_oidc_clients, mock_jwt_dict, mock_jws):
+        """ OIDC validate externally provided token with correct audience, scope and issuer - success
+
+            Runs the Test:
+
+            - mocking the OIDC client, and token validation dictionary pretending
+              the externally passed token is valid (time, issuer, audience, scope all as expected)
+            - calling the validate_auth_token core function (which is being called
+              e.g. when trying to validate tokens passed to rucio in the header of a request
+
+            End:
+
+            - checking if the external token has been saved in the DB
+
+        """
+
+        mock_oidc_clients.return_value = {'https://test_issuer/': MockClientOIDC() }
+        token_validate_dict = {'account': InternalAccount(self.accountstring) ,
+                               'identity': 'SUB=knownsub, ISS=https://test_issuer/',
+                               'lifetime': datetime.utcfromtimestamp(time.time() + 60),
+                               'audience': 'rucio',
+                               'authz_scope': 'openid profile'}
+        mock_jwt_dict.return_value = token_validate_dict
+
+        # mocking the token response
+        access_token = rndstr() + '.' + rndstr() + '.' + rndstr()
+        # trying to validate a token that does not exist in the Rucio DB
+        value = validate_auth_token(access_token)
+        # checking if validation went OK (we bypassed it with the dictionary above)
+        assert_true(value == token_validate_dict)
+        # most importantly, check that the token was saved in Rucio DB
+        db_token = get_token_row(access_token, accountstring=self.accountstring)
+        assert_false(not db_token)
+        for token in db_token:
+            assert_true(token.token == access_token)
+
+    @patch('rucio.core.oidc.JWS')
+    @patch('rucio.core.oidc.__get_rucio_jwt_dict')
+    @patch('rucio.core.oidc.OIDC_CLIENTS')
+    def test_validate_and_save_external_token_fail(self, mock_oidc_clients, mock_jwt_dict, mock_jws):
+        """ OIDC validate externally provided token with correct audience, scope and issuer - failure
+
+            Runs the Test:
+
+            - mocking the OIDC client, and token validation dictionary pretending
+              the externally passed token has invalid audience
+            - calling the validate_auth_token core function (which is being called
+              e.g. when trying to validate tokens passed to rucio in the header of a request
+
+            End:
+
+            - checking if the external token was not saved in the DB
+
+        """
+
+        mock_oidc_clients.return_value = {'https://test_issuer/': MockClientOIDC() }
+        token_validate_dict = {'account': InternalAccount(self.accountstring) ,
+                               'identity': 'SUB=knownsub, ISS=https://test_issuer/',
+                               'lifetime': datetime.utcfromtimestamp(time.time() + 60),
+                               'audience': 'unknown_audience',
+                               'authz_scope': 'openid profile'}
+        mock_jwt_dict.return_value = token_validate_dict
+
+        # mocking the token response
+        access_token = rndstr() + '.' + rndstr() + '.' + rndstr()
+        # trying to validate a token that does not exist in the Rucio DB
+        value = validate_auth_token(access_token)
+        # checking if validation went OK (we bypassed it with the dictionary above)
+        assert_true(value is None)
+        # most importantly, check that the token was saved in Rucio DB
+        db_token = get_token_row(access_token, accountstring=self.accountstring)
+        assert_true(not db_token)
