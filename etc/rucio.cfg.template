@@ -77,6 +77,8 @@ saml_email = ph-adp-ddm-lab@cern.ch
 carbon_server = rucio-graphite-int.cern.ch
 carbon_port = 8125
 user_scope = your_username
+enable_metrics = False
+metrics_port = 8080
 
 [conveyor]
 scheme = srm,gsiftp,root,http,https
