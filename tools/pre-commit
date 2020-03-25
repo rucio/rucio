@@ -25,9 +25,10 @@ def main():
     if currentbranch == 'master' or currentbranch == 'next' or currentbranch == 'hotfix':
         print("You are trying to commit on your master/next/hotfix, that's probably a mistake. Exiting...")
         sys.exit(1)
-    modified = re.compile(r'^[AM]+\s+(?P<name>.*\.py)', re.MULTILINE)
+    modified = re.compile(r'^[AM]+\s+(?P<name>(.*\.py)|(bin/.*))', re.MULTILINE)
     files = subprocess.check_output(('git', 'status', '--porcelain')).decode(encoding='UTF-8')
-    files = modified.findall(files)
+    files = list(map(lambda groups: groups[0], modified.findall(files)))
+    os.environ['PYTHONPATH'] = os.path.join(os.environ['PWD'], 'lib')
     tempdir = tempfile.mkdtemp()
     for name in files:
         filename = os.path.join(tempdir, name)
