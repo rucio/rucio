@@ -2255,8 +2255,8 @@ if __name__ == '__main__':
     arguments = sys.argv[1:]
     # set the configuration before anything else, if the config parameter is present
     for argi in range(len(arguments)):
-        if arguments[argi] == '--config' and argi+1 < len(arguments):
-            os.environ['RUCIO_CONFIG'] = arguments[argi+1]
+        if arguments[argi] == '--config' and (argi + 1) < len(arguments):
+            os.environ['RUCIO_CONFIG'] = arguments[argi + 1]
 
     oparser = get_parser()
     argcomplete.autocomplete(oparser)
