@@ -183,12 +183,14 @@ class Default(protocol.RSEProtocol):
             if lfn.get('path'):
                 pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'],
                                                          '://',
+                                                         self.attributes['hostname'],
                                                          prefix,
                                                          lfn['path'] if not lfn['path'].startswith('/') else lfn['path'][1:]
                                                          ])
             else:
                 pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'],
                                                          '://',
+                                                         self.attributes['hostname'],
                                                          prefix,
                                                          self._get_path(scope=scope, name=name)
                                                          ])
