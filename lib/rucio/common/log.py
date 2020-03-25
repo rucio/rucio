@@ -7,27 +7,28 @@
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2013
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
 from logging import getLogger, Formatter, DEBUG
 from logging.config import fileConfig
 from logging.handlers import RotatingFileHandler
-from os import environ
-from os.path import exists
 from time import time
+import os
 
 from json import dumps
 from uuid import uuid4 as uuid
 from web import ctx
+from rucio.common.config import get_config_dirs
 
 # try to configure the logger from the config file. Otherwise fall back to default values.
-configfile = '/opt/rucio/etc/web/logging.conf'
-if 'RUCIO_HOME' in environ:
-    configfile = '%s/etc/web/logging.conf' % environ['RUCIO_HOME']
 
-if exists(configfile):
-    fileConfig(configfile)
+configfiles = (os.path.join(confdir, 'web', 'logging.conf') for confdir in get_config_dirs())
+configfiles = list(filter(os.path.exists, configfiles))
+
+if len(configfiles) != 0:
+    fileConfig(configfiles[0])
     logger = getLogger('rucio')
 else:
     logger = getLogger('rucio')
