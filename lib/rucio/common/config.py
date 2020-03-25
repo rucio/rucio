@@ -23,12 +23,7 @@
 #
 # PY3K COMPATIBLE
 
-"""
-Get the configuration file from /opt/rucio/etc/rucio.cfg
-If it is not there, get it from $RUCIO_HOME
-If it is not there, get it from $VIRTUAL_ENV
-If it is not there, except.
-"""
+"""Provides functions to access the local configuration. The configuration locations are provided by get_config_dirs."""
 
 import os
 import json
@@ -159,7 +154,12 @@ def config_set(section, option, value):
 
 
 def get_config_dirs():
-    """Returns all configuration directories in order."""
+    """
+    Returns all available configuration directories in order:
+    - $RUCIO_HOME/etc/
+    - $VIRTUAL_ENV/etc/
+    - /opt/rucio/
+    """
     configdirs = []
 
     if 'RUCIO_HOME' in os.environ:
@@ -213,6 +213,10 @@ def get_config():
 
 
 class Config:
+    """
+    The configuration class reading the config file on init, located by using
+    get_config_dirs or the use of the RUCIO_CONFIG environment variable.
+    """
     def __init__(self):
         if sys.version_info < (3, 2):
             self.parser = ConfigParser.SafeConfigParser(os.environ)
