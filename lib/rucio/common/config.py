@@ -190,10 +190,8 @@ def get_rse_credentials(path_to_credentials_file=None):
     if path_to_credentials_file:  # Use specific file for this connect
         path = path_to_credentials_file
     else:  # Use file defined in th RSEMgr
-        if 'RUCIO_HOME' in os.environ:
-            path = '%s/etc/rse-accounts.cfg' % os.environ['RUCIO_HOME']
-        else:
-            path = '/opt/rucio/etc/rse-accounts.cfg'
+        path = (os.path.join(confdir, 'rse-accounts.cfg') for confdir in get_config_dirs())
+        path = next(iter(filter(os.path.exists, path)), None)
     try:
         # Load all user credentials
         with open(path) as cred_file:
