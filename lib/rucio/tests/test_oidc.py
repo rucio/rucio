@@ -519,8 +519,8 @@ class TestAuthCoreAPIoidc():
 
         """
 
-        mock_oidc_clients.return_value = {'https://test_issuer/': MockClientOIDC() }
-        token_validate_dict = {'account': InternalAccount(self.accountstring) ,
+        mock_oidc_clients.return_value = {'https://test_issuer/': MockClientOIDC()}
+        token_validate_dict = {'account': InternalAccount(self.accountstring),
                                'identity': 'SUB=knownsub, ISS=https://test_issuer/',
                                'lifetime': datetime.utcfromtimestamp(time.time() + 60),
                                'audience': 'rucio',
@@ -558,8 +558,8 @@ class TestAuthCoreAPIoidc():
 
         """
 
-        mock_oidc_clients.return_value = {'https://test_issuer/': MockClientOIDC() }
-        token_validate_dict = {'account': InternalAccount(self.accountstring) ,
+        mock_oidc_clients.return_value = {'https://test_issuer/': MockClientOIDC()}
+        token_validate_dict = {'account': InternalAccount(self.accountstring),
                                'identity': 'SUB=knownsub, ISS=https://test_issuer/',
                                'lifetime': datetime.utcfromtimestamp(time.time() + 60),
                                'audience': 'unknown_audience',
