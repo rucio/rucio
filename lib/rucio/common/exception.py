@@ -974,11 +974,11 @@ class NoDistance(RucioException):
         self.error_code = 92
 
 
-class SubscriptionNWrongParameter(RucioException):
+class SubscriptionWrongParameter(RucioException):
     """
     RucioException
     """
     def __init__(self, *args, **kwargs):
-        super(SubscriptionNWrongParameter, self).__init__(*args, **kwargs)
+        super(SubscriptionWrongParameter, self).__init__(*args, **kwargs)
         self._message = "Subscription wrong parameters"
         self.error_code = 93
