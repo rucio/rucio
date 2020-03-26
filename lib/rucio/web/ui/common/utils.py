@@ -9,6 +9,10 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2019
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 # - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019
+#
+# TO-DO !!! Remove passing data with account and other params to the functions
+# catch these from the webpy input() storage object
+# will allow to remove also lines around each use of select_account_name
 
 from json import dumps, load
 from os.path import dirname, join
@@ -118,6 +122,8 @@ def select_account_name(identitystr, identity_type):
     if 'ui_account' in input():
         ui_account = input()['ui_account']
     # if yes check if the accounts provided for users identity include this account
+    if not ui_account and 'account' in input():
+        ui_account = input()['account']
     if ui_account:
         if ui_account not in accounts:
             return None
@@ -215,6 +221,7 @@ def finalize_auth(token, identity_type, cookie_dict_extra=None):
         accounts = accvalues[:-1]
 
         cookie_dict = {'x-rucio-auth-token': token,
+                       'x-rucio-auth-type': identity_type,
                        'rucio-auth-token-created-at': long(time()),
                        'rucio-available-accounts': accounts,
                        'rucio-account-attr': dumps(attribs),
@@ -317,14 +324,17 @@ def saml_auth(method, data=None):
     errors = samlauth.get_errors()
     if not errors:
         if samlauth.is_authenticated():
-            cookie_extra = {'saml-nameid': samlauth.get_nameid()}
+            saml_nameid = samlauth.get_nameid()
+            cookie_extra = {'saml-nameid': saml_nameid}
             cookie_extra['saml-user-data'] = samlauth.get_attributes()
             cookie_extra['saml-session-index'] = samlauth.get_session_index()
+            # WHY THIS ATTEMPTS TO GET A NEW TOKEN ?
+            # WE SHOULD HAVE IT/GET IT FROM COOKIE OR DB AND JUST REDIRECT, NO ?
             if not ui_account:
                 ui_account = select_account_name(saml_nameid, 'saml')
             if not ui_account:
                 return RENDERER.problem('Cannot get find any account associated with %s identity.' % (saml_nameid))
-            token = get_token(auth.get_auth_token_saml, acc=ui_account, idt=cookie_extra['saml-nameid'])
+            token = get_token(auth.get_auth_token_saml, acc=ui_account, idt=saml_nameid)
             if not token:
                 return RENDERER.problem(('Cannot get auth token. It is possible that the presented identity %s is not mapped to any Rucio account %s.') % (saml_nameid, ui_account))
             return finalize_auth(token, 'saml', cookie_extra)

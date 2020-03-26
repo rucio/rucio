@@ -39,7 +39,7 @@ from web import cookies
 from rucio.api.authentication import get_auth_token_x509
 from rucio.common.config import config_get
 from rucio.common.utils import generate_http_error
-from rucio.web.ui.common.utils import get_token, authenticate, userpass_auth, x509token_auth, saml_auth, oidc_auth, finalize_auth
+from rucio.web.ui.common.utils import get_token, authenticate, userpass_auth, x509token_auth, saml_auth, oidc_auth, finalize_auth, AUTH_ISSUERS, SAML_SUPPORT
 
 
 COMMON_URLS = (
@@ -171,15 +171,27 @@ class AtlasIndex(object):
 
 
 class Auth(object):
-    """ Local Auth Proxy """
+    """ Local Auth Proxy
+    serves for changes of account on WebUI when new authentication
+    token for newly selected account has to be found.
+    For x509 request a new token directly as all necessary input
+    is present in the browser. For all other authenticatino mechanisms,
+    redirect to select_login_method page.
+    """
     def GET(self):  # pylint:disable=no-self-use,invalid-name
         """ GET """
-        token = get_token(get_auth_token_x509)
-        if token:
-            header('X-Rucio-Auth-Token', token)
-            return str()
+        # get info about x509 or not and decide
+        auth_type = cookies().get('x-rucio-auth-type')
+        if str(auth_type).lower() == 'x509':
+            token = get_token(get_auth_token_x509)
+            if token:
+                header('X-Rucio-Auth-Token', token)
+                return str()
+            else:
+                raise generate_http_error(401, 'CannotAuthenticate', 'Cannot get token')
         else:
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot get token')
+            render = template.render(join(dirname(__file__), 'templates/'))
+            return render.select_login_method(AUTH_ISSUERS, SAML_SUPPORT)
 
 
 class X509(object):
