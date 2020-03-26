@@ -43,7 +43,7 @@ from rucio.db.sqla.constants import DIDType, SubscriptionState
 from rucio.common.exception import (DatabaseException, DataIdentifierNotFound, InvalidReplicationRule, DuplicateRule, RSEBlacklisted,
                                     InvalidRSEExpression, InsufficientTargetRSEs, InsufficientAccountLimit, InputValidationError, RSEOverQuota,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime,
-                                    SubscriptionNWrongParameter, SubscriptionNotFound)
+                                    SubscriptionWrongParameter, SubscriptionNotFound)
 from rucio.common.config import config_get
 from rucio.common.schema import validate_schema
 from rucio.common.utils import chunks
@@ -147,16 +147,17 @@ def is_matching_subscription(subscription, did, metadata):
     return True
 
 
-def select_algorithm(algorithm, rule_ids):
+def select_algorithm(algorithm, rule_ids, params):
     """
     Method used in case of chained subscriptions
 
-    :param algorithm: Algorithm used for the chained rule. Now only associated_tape
-                      associated_tape : Choose the associated TAPE endpoint according to Belle II convention
+    :param algorithm: Algorithm used for the chained rule. Now only associated_site
+                      associated_site : Choose an associated endpoint according to the RSE attribute assoiciated_site
     :param rule_ids: List of parent rules
+    :param params: List of rules parameters to be used by the algorithm
     """
     selected_rses = {}
-    if algorithm == 'associated_tape':
+    if algorithm == 'associated_site':
         for rule_id in rule_ids:
             rule = get_rule(rule_id)
             logging.debug('In select_algorithm, %s', str(rule))
@@ -164,12 +165,20 @@ def select_algorithm(algorithm, rule_ids):
             if rse_exists(rse):
                 rse_id = get_rse_id(rse)
                 rse_attributes = list_rse_attributes(rse_id)
-                associated_tape = rse_attributes.get('associated_tape', None)
-                selected_rses[associated_tape] = {'source_replica_expression': rse, 'weight': None}
+                associated_sites = rse_attributes.get('associated_sites', None)
+                associated_site_idx = params.get('associated_site_idx', None)
+                if not associated_site_idx:
+                    raise SubscriptionWrongParameter('Missing parameter associated_site_idx')
+                if associated_sites:
+                    associated_sites = associated_sites.split(',')
+                    if associated_site_idx > len(associated_sites) + 1:
+                        raise SubscriptionWrongParameter('Parameter associated_site_idx is out of range')
+                    associated_site = associated_sites[associated_site_idx - 1]
+                    selected_rses[associated_site] = {'source_replica_expression': rse, 'weight': None}
             else:
-                raise SubscriptionNWrongParameter('Algorithm associated_tape only works with split_rule')
+                raise SubscriptionWrongParameter('Algorithm associated_site only works with split_rule')
             if rule['copies'] != 1:
-                raise SubscriptionNWrongParameter('Algorithm associated_tape only works with split_rule')
+                raise SubscriptionWrongParameter('Algorithm associated_site only works with split_rule')
     return selected_rses
 
 
@@ -250,10 +259,6 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                             if is_matching_subscription(subscription, did, metadata) is True:
                                 filter_string = loads(subscription['filter'])
                                 split_rule = filter_string.get('split_rule', False)
-                                if split_rule or split_rule == 'true':
-                                    split_rule = True
-                                elif split_rule == 'false':
-                                    split_rule = False
                                 stime = time.time()
                                 results[did_tag].append(subscription['id'])
                                 logging.info(prepend_str + '%s:%s matches subscription %s' % (did['scope'], did['name'], subscription['name']))
@@ -300,11 +305,14 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                     skip_rule_creation = False
 
                                     selected_rses = []
-                                    chained = rule_dict.get('chained', None)
-                                    if chained:
-                                        logging.debug('%s Chained subscription identified. Will use %s', prepend_str, str(created_rules[chained]))
+                                    chained_idx = rule_dict.get('chained_idx', None)
+                                    if chained_idx:
+                                        params = {}
+                                        if rule_dict.get('associated_site_idx', None):
+                                            params['associated_site_idx'] = rule_dict.get('associated_site_idx', None)
+                                        logging.debug('%s Chained subscription identified. Will use %s', prepend_str, str(created_rules[chained_idx]))
                                         algorithm = rule_dict.get('algorithm', None)
-                                        selected_rses = select_algorithm(algorithm, created_rules[chained])
+                                        selected_rses = select_algorithm(algorithm, created_rules[chained_idx], params)
                                     else:
                                         # In the case of chained subscription, don't use rseselector but use the rses returned by the algorithm
                                         if split_rule:
