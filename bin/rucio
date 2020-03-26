@@ -62,8 +62,6 @@ except ImportError:
 from functools import wraps
 
 from rucio.client.client import Client
-from rucio.client.uploadclient import UploadClient
-from rucio.client.downloadclient import DownloadClient
 from rucio import version
 from rucio.common.config import config_get
 from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject,
@@ -891,6 +889,7 @@ def upload(args):
         raise InputValidationError('Invalid input argument composition')
 
     client = get_client(args)
+    from rucio.client.uploadclient import UploadClient
     upload_client = UploadClient(client, logger)
     summary_file_path = 'rucio_upload.json' if args.summary else None
     upload_client.upload(items, summary_file_path)
@@ -938,6 +937,7 @@ def download(args):
         trace_pattern['usrdn'] = args.trace_usrdn
 
     client = get_client(args)
+    from rucio.client.downloadclient import DownloadClient
     download_client = DownloadClient(client=client, logger=logger, check_admin=args.allow_tape)
 
     result = None
