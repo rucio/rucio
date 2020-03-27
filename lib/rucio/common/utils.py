@@ -193,50 +193,42 @@ def all_required_items_present(scope, audience, required_scope, required_audienc
     :params sepatator: separator string, space by default
     :returns : True or False
     """
-    if isinstance(scope, list) and \
-       isinstance(audience, list) and \
-       isinstance(required_scope, list) and \
-       isinstance(required_audience, list):
-            scope = [str(it) for it in scope]
-            audience = [str(it) for it in audience]
-            required_scope = [str(it) for it in required_scope]
-            required_audience = [str(it) for it in required_audience]
-            req_scope_present = all(elem in scope for elem in required_scope)
-            req_audience_present = all(elem in audience for elem in required_audience)
-            return req_scope_present and req_audience_present
-    elif isinstance(scope, basestring) and \
-         isinstance(audience, basestring) and \
-         isinstance(required_scope, basestring) and \
-         isinstance(required_audience, basestring):
-            scope = str(scope)
-            audience = str(audience)
-            required_scope = str(required_scope)
-            required_audience = str(required_audience)
-            req_scope_present = all(elem in scope.split(sepatator) for elem in required_scope.split(sepatator))
-            req_audience_present = all(elem in audience.split(sepatator) for elem in required_audience.split(sepatator))
-            return req_scope_present and req_audience_present
-    elif isinstance(scope, list) and \
-         isinstance(audience, list) and \
-         isinstance(required_scope, basestring) and \
-         isinstance(required_audience, basestring):
-            scope = [str(it) for it in scope]
-            audience = [str(it) for it in audience]
-            required_scope = str(required_scope)
-            required_audience = str(required_audience)
-            req_scope_present = all(elem in scope for elem in required_scope.split(sepatator))
-            req_audience_present = all(elem in audience for elem in required_audience.split(sepatator))
-            return req_scope_present and req_audience_present
-    elif isinstance(scope, basestring) and \
-         isinstance(audience, basestring) and \
-         isinstance(required_scope, list) and \
-         isinstance(required_audience, list):
-            scope = str(scope)
-            audience = str(audience)
-            required_scope = [str(it) for it in required_scope]
-            required_audience = [str(it) for it in required_audience]
-            req_scope_present = all(elem in scope.split(sepatator) for elem in required_scope)
-            req_audience_present = all(elem in audience.split(sepatator) for elem in required_audience)
-            return req_scope_present and req_audience_present
+    if (isinstance(scope, list) and isinstance(audience, list) and  # NOQA: W504
+        isinstance(required_scope, list) and isinstance(required_audience, list)):
+        scope = [str(it) for it in scope]
+        audience = [str(it) for it in audience]
+        required_scope = [str(it) for it in required_scope]
+        required_audience = [str(it) for it in required_audience]
+        req_scope_present = all(elem in scope for elem in required_scope)
+        req_audience_present = all(elem in audience for elem in required_audience)
+        return req_scope_present and req_audience_present
+    elif (isinstance(scope, basestring) and isinstance(audience, basestring) and  # NOQA: W504
+          isinstance(required_scope, basestring) and isinstance(required_audience, basestring)):
+        scope = str(scope)
+        audience = str(audience)
+        required_scope = str(required_scope)
+        required_audience = str(required_audience)
+        req_scope_present = all(elem in scope.split(sepatator) for elem in required_scope.split(sepatator))
+        req_audience_present = all(elem in audience.split(sepatator) for elem in required_audience.split(sepatator))
+        return req_scope_present and req_audience_present
+    elif (isinstance(scope, list) and isinstance(audience, list) and  # NOQA: W504
+          isinstance(required_scope, basestring) and isinstance(required_audience, basestring)):
+        scope = [str(it) for it in scope]
+        audience = [str(it) for it in audience]
+        required_scope = str(required_scope)
+        required_audience = str(required_audience)
+        req_scope_present = all(elem in scope for elem in required_scope.split(sepatator))
+        req_audience_present = all(elem in audience for elem in required_audience.split(sepatator))
+        return req_scope_present and req_audience_present
+    elif (isinstance(scope, basestring) and isinstance(audience, basestring) and  # NOQA: W504
+          isinstance(required_scope, list) and isinstance(required_audience, list)):
+        scope = str(scope)
+        audience = str(audience)
+        required_scope = [str(it) for it in required_scope]
+        required_audience = [str(it) for it in required_audience]
+        req_scope_present = all(elem in scope.split(sepatator) for elem in required_scope)
+        req_audience_present = all(elem in audience.split(sepatator) for elem in required_audience)
+        return req_scope_present and req_audience_present
     else:
         return False
 
