@@ -96,6 +96,9 @@ REGION_SHORT = make_region().configure('dogpile.cache.memcached',
                                        arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
 TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)
 ALLOW_USER_OIDC_TOKENS = config_get('conveyor', 'allow_user_oidc_tokens', False, False)
+REQUEST_OIDC_SCOPE = config_get('conveyor', 'request_oidc_scope', False, 'fts:submit-transfer')
+REQUEST_OIDC_AUDIENCE = config_get('conveyor', 'request_oidc_audience', False, 'fts:example')
+
 WEBDAV_TRANSFER_MODE = config_get('conveyor', 'webdav_transfer_mode', False, None)
 
 
@@ -133,10 +136,11 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
         transfer_token = None
         if use_oidc:
             account = job_params.get('account', None)
+            getadmintoken = False
             if ALLOW_USER_OIDC_TOKENS is False:
-                account = InternalAccount('ddmadmin')
+                getadmintoken = True
             # find the appropriate OIDC token and exchange it (for user accounts) if necessary
-            token_object = get_token_for_account_operation(account, req_audience='fts:example', req_scope='fts:submit-transfer')
+            token_object = get_token_for_account_operation(account, req_audience=REQUEST_OIDC_AUDIENCE, req_scope=REQUEST_OIDC_SCOPE, admin=getadmintoken)
             if token_object is not None:
                 transfer_token = token_object.token
         if not user_transfer_job:
