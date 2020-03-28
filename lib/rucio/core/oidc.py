@@ -451,7 +451,8 @@ def get_token_oidc(auth_query_string, ip=None, session=None):
     except Exception:
         # TO-DO catch different exceptions - InvalidGrant etc. ...
         record_counter(counters='IdP_authorization.access_token.exception')
-        raise CannotAuthenticate(traceback.format_exc())
+        return None
+        # raise CannotAuthenticate(traceback.format_exc())
 
 
 @transactional_session
@@ -465,7 +466,6 @@ def __get_admin_token_oidc(account, req_scope, req_audience, issuer, session=Non
     :param req_scope: the audience requested for the Rucio client's token
     :param req_audience: the scope requested for the Rucio client's token
     :param issuer: the Identity Provider nickname or the Rucio instance in use
-
     :param session: The database session in use.
     :returns: the new DB token object
     """
@@ -491,13 +491,16 @@ def __get_admin_token_oidc(account, req_scope, req_audience, issuer, session=Non
                 new_token = __save_validated_token(oidc_tokens['access_token'], validate_dict, extra_dict={}, session=session)
                 record_counter(counters='IdP_authorization.access_token.saved')
                 return new_token
-            raise RucioException("Rucio could not get a valid admin token from the Identity Provider.")
-        raise RucioException("Rucio could not get its admin access token from the Identity Provider.")
+            return None
+            # raise RucioException("Rucio could not get a valid admin token from the Identity Provider.")
+        return None
+        # raise RucioException("Rucio could not get its admin access token from the Identity Provider.")
 
     except Exception:
         # TO-DO catch different exceptions - InvalidGrant etc. ...
         record_counter(counters='IdP_authorization.access_token.exception')
-        raise CannotAuthenticate(traceback.format_exc())
+        return None
+        # raise CannotAuthenticate(traceback.format_exc())
 
 
 @transactional_session
@@ -686,8 +689,8 @@ def __exchange_token_oidc(subject_token_object, session=None, **kwargs):
         return new_token
 
     except Exception:
-        raise CannotAuthorize(traceback.format_exc())
-        # return None
+        # raise CannotAuthorize(traceback.format_exc())
+        return None
 
 
 @transactional_session
