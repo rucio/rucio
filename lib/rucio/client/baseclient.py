@@ -392,9 +392,8 @@ class BaseClient(object):
         headers = {'X-Rucio-Account': self.account,
                    'X-Rucio-Client-Authorize-Auto': str(self.creds['oidc_auto']),
                    'X-Rucio-Client-Authorize-Polling': str(self.creds['oidc_polling']),
-                   'X-Rucio-Client-Authorize-Scope': oidc_scope,
+                   'X-Rucio-Client-Authorize-Scope': str(self.creds['oidc_scope']),
                    'X-Rucio-Client-Authorize-Refresh-Lifetime': str(self.creds['oidc_refresh_lifetime'])}
-
         if self.creds['oidc_audience']:
             headers['X-Rucio-Client-Authorize-Audience'] = str(self.creds['oidc_audience'])
         if self.creds['oidc_issuer']:

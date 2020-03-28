@@ -202,8 +202,8 @@ class OIDC(RucioController):
         header('Pragma', 'no-cache')
 
         account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT', 'webui')
-        auth_scope = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_SCOPE', None)
-        audience = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_AUDIENCE', None)
+        auth_scope = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_SCOPE', "")
+        audience = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_AUDIENCE', "")
         auto = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_AUTO', False)
         issuer = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_ISSUER', None)
         polling = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_POLLING', False)

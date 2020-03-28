@@ -193,6 +193,14 @@ def all_required_items_present(scope, audience, required_scope, required_audienc
     :params sepatator: separator string, space by default
     :returns : True or False
     """
+    if not scope:
+        scope = ""
+    if not audience:
+        audience = ""
+    if not required_scope:
+        required_scope = ""
+    if not required_audience:
+        required_audience = ""
     if (isinstance(scope, list) and isinstance(audience, list) and  # NOQA: W504
         isinstance(required_scope, list) and isinstance(required_audience, list)):
         scope = [str(it) for it in scope]
