@@ -520,13 +520,19 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
             req_scope = EXPECTED_OIDC_SCOPE
         if not req_audience:
             req_audience = EXPECTED_OIDC_AUDIENCE
+
         # get all identities for the corresponding account
-        identities = session.query(models.IdentityAccountAssociation.identity)\
-                            .filter_by(identity_type=IdentityType.OIDC, account=account).all()
+        identities_list = session.query(models.IdentityAccountAssociation.identity)\
+                                 .filter(models.IdentityAccountAssociation.identity_type == IdentityType.OIDC,
+                                         models.IdentityAccountAssociation.account == account).all()
+        identities = []
+        for identity in identities_list:
+            identities.append(identity[0])
         # get all active/valid OIDC tokens
         account_tokens = session.query(models.Token).filter(models.Token.identity.in_(identities),
                                                             models.Token.account == account,
-                                                            models.Token.expired_at > datetime.utcnow()).all()
+                                                            models.Token.expired_at > datetime.utcnow()).with_for_update(skip_locked=True).all()
+
         # for Rucio Admin account we ask IdP for a token via client_credential grant
         # for each user account OIDC identity there is an OIDC issuer that must be, by construction,
         # supported by Rucio server (have OIDC admin client registered as well)
@@ -535,14 +541,16 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
         if admin:
             admin_issuer = None
             admin_identity = None
+            admin_account = None
             for account_token in account_tokens:
                 admin_issuer = account_token.identity.split(", ")[1].split("=")[1]
                 # assuming the requesting account is using Rucio supported IdPs, we check if any token of this admin identity
                 # has already a token with the requested scopes and audiences
                 admin_identity = oidc_identity_string(OIDC_ADMIN_CLIENTS[admin_issuer].client_id, admin_issuer)
-                admin_account = session.query(models.IdentityAccountAssociation.account)\
+                admin_account = session.query(models.IdentityAccountAssociation)\
                                        .filter_by(identity_type=IdentityType.OIDC, identity=admin_identity).first()
-                admin_account = admin_account[0]
+
+                admin_account = admin_account.account
                 admin_account_tokens = session.query(models.Token).filter(models.Token.identity == admin_identity,
                                                                           models.Token.account == admin_account,
                                                                           models.Token.expired_at > datetime.utcnow()).all()
@@ -554,9 +562,11 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
             if not admin_issuer:
                 admin_issuer = OIDC_ADMIN_CLIENTS.keys()[0]
             admin_identity = oidc_identity_string(OIDC_ADMIN_CLIENTS[admin_issuer].client_id, admin_issuer)
-            admin_account = session.query(models.IdentityAccountAssociation.account)\
-                                   .filter_by(identity_type=IdentityType.OIDC, identity=admin_identity).first()
-            admin_account = admin_account[0]
+            admin_account = session.query(models.IdentityAccountAssociation)\
+                                   .filter(models.IdentityAccountAssociation.identity_type == IdentityType.OIDC,
+                                           models.IdentityAccountAssociation.identity == admin_identity).first()
+            admin_account = admin_account.account
+
             # now we know who is the admin account to be used with the issuer likely the same as the original account
             # we can check if there are tokens with those scopes and sudiences existing and return them
             # openid scope is not supported for client_credentials auth flow - removing it if being asked for
@@ -597,7 +607,7 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
             return exchanged_token
 
     except Exception:
-        # raise CannotAuthorize(traceback.format_exc())
+        # raise CannotAuthorize(traceback.format_exc(), type(admin_account), admin_account)
         return None
 
 
