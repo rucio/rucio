@@ -143,8 +143,8 @@ def __get_init_oidc_client(token_object=None, token_type=None, **kwargs):
                      "response_type": "code",
                      "state": kwargs.get('state', rndstr()),
                      "nonce": kwargs.get('nonce', rndstr())}
-        auth_args["scope"] = token_object.oidc_scope if token_object else kwargs.get('scope', None)
-        auth_args["audience"] = token_object.audience if token_object else kwargs.get('audience', None)
+        auth_args["scope"] = token_object.oidc_scope if token_object else kwargs.get('scope', " ")
+        auth_args["audience"] = token_object.audience if token_object else kwargs.get('audience', " ")
 
         if token_object:
             issuer = token_object.identity.split(", ")[1].split("=")[1]
@@ -503,12 +503,14 @@ def __get_admin_token_oidc(account, req_scope, req_audience, issuer, session=Non
 @transactional_session
 def get_token_for_account_operation(account, req_audience=None, req_scope=None, admin=False, session=None):
     """
-    Looks-up a JWT token corresponding to the account OIDC identity (randomly chosen) in the DB.
+    Looks-up a JWT token with the required scope and audience claims with the account OIDC issuer.
     If tokens are found, and none contains the requested audience and scope a new token is requested
-    (via token exchange or client credential grants)
-    :param account: Rucio account name in order to lookup the corresponding OIDC token
-    :param req_audience: audience required to be present in the token (e.g. EXPECTED_OIDC_AUDIENCE, 'fts:atlas')
+    (via token exchange or client credential grants in case admin = True)
+    :param account: Rucio account name in order to lookup the issuer and corresponding valid tokens
+    :param req_audience: audience required to be present in the token (e.g. 'fts:atlas')
     :param req_scope: scope requested to be present in the token (e.g. fts:submit-transfer)
+    :param admin: If True tokens will be requested for the Rucio admin root account,
+                  preferably with the same issuer as the requesting account OIDC identity
     :param session: DB session in use
 
     :return: Token or None, throws an exception in case of problems
@@ -538,9 +540,9 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
                 # assuming the requesting account is using Rucio supported IdPs, we check if any token of this admin identity
                 # has already a token with the requested scopes and audiences
                 admin_identity = oidc_identity_string(OIDC_ADMIN_CLIENTS[admin_issuer].client_id, admin_issuer)
-                admin_account = session.query(models.IdentityAccountAssociation)\
+                admin_account = session.query(models.IdentityAccountAssociation.account)\
                                        .filter_by(identity_type=IdentityType.OIDC, identity=admin_identity).first()
-                admin_account = admin_account.account
+                admin_account = admin_account[0]
                 admin_account_tokens = session.query(models.Token).filter(models.Token.identity == admin_identity,
                                                                           models.Token.account == admin_account,
                                                                           models.Token.expired_at > datetime.utcnow()).all()
@@ -552,9 +554,9 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
             if not admin_issuer:
                 admin_issuer = OIDC_ADMIN_CLIENTS.keys()[0]
             admin_identity = oidc_identity_string(OIDC_ADMIN_CLIENTS[admin_issuer].client_id, admin_issuer)
-            admin_account = session.query(models.IdentityAccountAssociation)\
+            admin_account = session.query(models.IdentityAccountAssociation.account)\
                                    .filter_by(identity_type=IdentityType.OIDC, identity=admin_identity).first()
-            admin_account = admin_account.account
+            admin_account = admin_account[0]
             # now we know who is the admin account to be used with the issuer likely the same as the original account
             # we can check if there are tokens with those scopes and sudiences existing and return them
             # openid scope is not supported for client_credentials auth flow - removing it if being asked for
@@ -575,28 +577,21 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
         else:
             if not account_tokens:
                 return None
-            # in the future, this function should be called only if OIDC
-            # tokens are explicitly requested in which case an exception could then be thrown
-            # raise CannotAuthorize("Rucio could not exchange any subject token since it did not find any "
-            #                      + "valid token associated with OIDC identity of account %s" % account)  # NOQA: W503
-
-            # check if Rucio does not have a token with such audience and scope already
             subject_token = None
             for token in account_tokens:
-                if hasattr(token, 'audience') and hasattr(token, 'oidc_scope') and\
-                   all_required_items_present(token.oidc_scope, token.audience, req_scope, req_audience):
-                    return token
+                if hasattr(token, 'audience') and hasattr(token, 'oidc_scope'):
+                    if all_required_items_present(token.oidc_scope, token.audience, req_scope, req_audience):
+                        return token
                 # from available tokens select preferentially the one which are being refreshed
-                if 'offline_access' in token.oidc_scope:
+                if hasattr(token, 'oidc_scope') and ('offline_access' in str(token['oidc_scope'])):
                     subject_token = token
-
             # if not proceed with token exchange
             if not subject_token:
                 subject_token = random.choice(account_tokens)
-
             exchanged_token = __exchange_token_oidc(subject_token,
                                                     scope=req_scope,
                                                     audience=req_audience,
+                                                    identity=subject_token.identity,
                                                     refresh_lifetime=subject_token.refresh_lifetime,
                                                     account=account, session=session)
             return exchanged_token
@@ -625,6 +620,7 @@ def __exchange_token_oidc(subject_token_object, session=None, **kwargs):
     jwt_row_dict['account'] = kwargs.get('account', None)
     jwt_row_dict['authz_scope'] = kwargs.get('scope', None)
     jwt_row_dict['audience'] = kwargs.get('audience', None)
+    jwt_row_dict['identity'] = kwargs.get('identity', None)
     extra_dict['ip'] = kwargs.get('ip', None)
 
     if not grant_type:
@@ -639,7 +635,7 @@ def __exchange_token_oidc(subject_token_object, session=None, **kwargs):
                 "scope": jwt_row_dict['authz_scope'],
                 "audience": jwt_row_dict['audience'],
                 "grant_type": grant_type}
-        # exchange access token for a new one
+        # exchange , access token for a new one
         oidc_token_response = oidc_dict['client'].do_any(Message,
                                                          endpoint=oidc_client.provider_info["token_endpoint"],
                                                          state=oidc_dict['state'],
