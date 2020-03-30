@@ -25,6 +25,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Gabriele Fronze' <gfronze@cern.ch>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -320,7 +321,9 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                     grouped_transfers[external_host][scope_str] = {}
                     grouped_jobs[external_host][scope_str] = []
 
-        job_params = {'verify_checksum': verify_checksum,
+        job_params = {'account': transfer['account'],
+                      'use_oidc': transfer.get('use_oidc', False),
+                      'verify_checksum': verify_checksum,
                       'copy_pin_lifetime': transfer['copy_pin_lifetime'] if transfer['copy_pin_lifetime'] else -1,
                       'bring_online': transfer['bring_online'] if transfer['bring_online'] else None,
                       'job_metadata': {'issuer': 'rucio'},  # finaly job_meta will like this. currently job_meta will equal file_meta to include request_id and etc.
