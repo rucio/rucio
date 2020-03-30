@@ -116,7 +116,7 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
     token = '%(account)s-%(username)s-%(appid)s-%(tuid)s' % locals()
-    new_token = models.Token(account=db_account, token=token, ip=ip)
+    new_token = models.Token(account=db_account, identity=username, token=token, ip=ip)
     new_token.save(session=session)
     session.expunge(new_token)
 
@@ -152,7 +152,7 @@ def get_auth_token_x509(account, dn, appid, ip=None, session=None):
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
     token = '%(account)s-%(dn)s-%(appid)s-%(tuid)s' % locals()
-    new_token = models.Token(account=account, token=token, ip=ip)
+    new_token = models.Token(account=account, identity=dn, token=token, ip=ip)
     new_token.save(session=session)
     session.expunge(new_token)
 
@@ -328,7 +328,7 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None, session=None):
 
     tuid = generate_uuid()  # NOQA
     token = '%(account)s-%(saml_nameid)s-%(appid)s-%(tuid)s' % locals()
-    new_token = models.Token(account=account, token=token, ip=ip)
+    new_token = models.Token(account=account, identity=saml_nameid, token=token, ip=ip)
     new_token.save(session=session)
     session.expunge(new_token)
 
