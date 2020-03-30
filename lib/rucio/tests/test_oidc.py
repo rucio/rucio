@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 from mock import MagicMock, patch
 from nose.tools import assert_true, assert_false
 from oic import rndstr
-from rucio.api.account import add_account
+from rucio.core.account import add_account
 from rucio.core.identity import add_account_identity
 from rucio.common.exception import Duplicate
 from rucio.common.types import InternalAccount
@@ -28,7 +28,7 @@ from rucio.core.authentication import redirect_auth_oidc
 from rucio.common.exception import (CannotAuthenticate, DatabaseException)
 from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
-
+from rucio.db.sqla.constants import AccountType
 try:
     # Python 2
     from urlparse import urlparse, parse_qs
@@ -95,7 +95,7 @@ def save_validated_token(token, valid_dict, extra_dict=None, session=None):
                                  refresh_start=extra_dict.get('refresh_start', None),
                                  ip=extra_dict.get('ip', None))
         new_token.save(session=session)
-        session.commit()
+        session.commit()  # pylint: disable=no-member
         return new_token
     except Exception as error:
         raise Exception(error.args)
@@ -249,20 +249,20 @@ class TestAuthCoreAPIoidc():
         self.adminClientSUB = str('adminclientSUB' + rndstr()).lower()
         self.adminClientSUB_otherISS = str('adminclientSUB_otherISS' + rndstr()).lower()
         try:
-            add_account(self.accountstring, 'USER', 'rucio@email.com', 'root')
+            add_account(InternalAccount(self.accountstring), AccountType.from_sym('USER'), 'rucio@email.com', session=self.db_session)
         except Duplicate:
             pass
         try:
-            add_account(self.adminaccountstring, 'SERVICE', 'rucio@email.com', 'root')
+            add_account(InternalAccount(self.adminaccountstring), AccountType.from_sym('SERVICE'), 'rucio@email.com', session=self.db_session)
         except Duplicate:
             pass
 
         try:
-            add_account_identity('SUB=knownsub, ISS=https://test_issuer/', IdentityType.OIDC, InternalAccount(self.accountstring), 'rucio_test@test.com')
-            add_account_identity('SUB=%s, ISS=https://test_issuer/' % self.adminaccSUB, IdentityType.OIDC, InternalAccount(self.adminaccountstring), 'rucio_test@test.com')
-            add_account_identity('SUB=%s, ISS=https://test_other_issuer/' % self.adminaccSUB_otherISS, IdentityType.OIDC, InternalAccount(self.adminaccountstring), 'rucio_test@test.com')
-            add_account_identity('SUB=%s, ISS=https://test_issuer/' % self.adminClientSUB, IdentityType.OIDC, InternalAccount(self.adminaccountstring), 'rucio_test@test.com')
-            add_account_identity('SUB=%s, ISS=https://test_other_issuer/' % self.adminClientSUB_otherISS, IdentityType.OIDC, InternalAccount(self.adminaccountstring), 'rucio_test@test.com')
+            add_account_identity('SUB=knownsub, ISS=https://test_issuer/', IdentityType.OIDC, InternalAccount(self.accountstring), 'rucio_test@test.com', session=self.db_session)
+            add_account_identity('SUB=%s, ISS=https://test_issuer/' % self.adminaccSUB, IdentityType.OIDC, InternalAccount(self.adminaccountstring), 'rucio_test@test.com', session=self.db_session)
+            add_account_identity('SUB=%s, ISS=https://test_other_issuer/' % self.adminaccSUB_otherISS, IdentityType.OIDC, InternalAccount(self.adminaccountstring), 'rucio_test@test.com', session=self.db_session)
+            add_account_identity('SUB=%s, ISS=https://test_issuer/' % self.adminClientSUB, IdentityType.OIDC, InternalAccount(self.adminaccountstring), 'rucio_test@test.com', session=self.db_session)
+            add_account_identity('SUB=%s, ISS=https://test_other_issuer/' % self.adminClientSUB_otherISS, IdentityType.OIDC, InternalAccount(self.adminaccountstring), 'rucio_test@test.com', session=self.db_session)
         except DatabaseException:
             pass
 
@@ -792,6 +792,7 @@ class TestAuthCoreAPIoidc():
                         'token': preexisting_access_token_strpart}
         expected_preexisting_access_token_object = create_preexisting_exchange_token(request_args, session=self.db_session)
         expected_preexisting_access_token = expected_preexisting_access_token_object.token
+        self.db_session.expunge(expected_preexisting_access_token_object)
         db_token = get_token_row(expected_preexisting_access_token, accountstring=final_token_account, session=self.db_session)
         assert_false(not db_token)
         # ---------------------------
@@ -948,6 +949,8 @@ class TestAuthCoreAPIoidc():
         expected_preexisting_access_token_object_2 = create_preexisting_exchange_token(request_args, session=self.db_session)
         expected_preexisting_access_token_1 = expected_preexisting_access_token_object_1.token
         expected_preexisting_access_token_2 = expected_preexisting_access_token_object_2.token
+        self.db_session.expunge(expected_preexisting_access_token_object_1)
+        self.db_session.expunge(expected_preexisting_access_token_object_2)
         db_token = get_token_row(expected_preexisting_access_token_1, accountstring=final_token_account, session=self.db_session)
         assert_false(not db_token)
         db_token = get_token_row(expected_preexisting_access_token_2, accountstring=final_token_account, session=self.db_session)
@@ -1097,6 +1100,7 @@ class TestAuthCoreAPIoidc():
                         'token': preexisting_access_token_strpart_2}
         preexisting_access_token_object = create_preexisting_exchange_token(request_args, session=self.db_session)
         preexisting_access_token = preexisting_access_token_object.token
+        self.db_session.expunge(preexisting_access_token_object)
         db_token = get_token_row(preexisting_access_token, accountstring=final_token_account, session=self.db_session)
         assert_false(not db_token)
         # ---------------------------
@@ -1175,6 +1179,7 @@ class TestAuthCoreAPIoidc():
                         'token': preexisting_access_token_strpart_2}
         preexisting_access_token_object_2 = create_preexisting_exchange_token(request_args, session=self.db_session)
         preexisting_access_token = preexisting_access_token_object_2.token
+        self.db_session.expunge(preexisting_access_token_object_2)
         db_token = get_token_row(preexisting_access_token, accountstring=final_token_account, session=self.db_session)
         assert_false(not db_token)
         # ---------------------------
@@ -1187,6 +1192,7 @@ class TestAuthCoreAPIoidc():
                         'token': preexisting_final_access_token_strpart_1}
         preexisting_final_access_token_object_1 = create_preexisting_exchange_token(request_args, session=self.db_session)
         preexisting_final_access_token = preexisting_final_access_token_object_1.token
+        self.db_session.expunge(preexisting_final_access_token_object_1)
         db_token = get_token_row(preexisting_final_access_token, accountstring=final_token_account, session=self.db_session)
         assert_false(not db_token)
         # mocking additional objects
@@ -1258,6 +1264,7 @@ class TestAuthCoreAPIoidc():
                         'token': preexisting_final_access_token_strpart_2}
         preexisting_final_access_token_object_2 = create_preexisting_exchange_token(request_args, session=self.db_session)
         preexisting_final_access_token = preexisting_final_access_token_object_2.token
+        self.db_session.expunge(preexisting_final_access_token_object_2)
         db_token = get_token_row(preexisting_final_access_token, accountstring=final_token_account, session=self.db_session)
         assert_false(not db_token)
         # ---------------------------
