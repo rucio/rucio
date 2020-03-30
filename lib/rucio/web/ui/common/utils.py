@@ -430,8 +430,8 @@ def authenticate(rendered_tpl):
 
     elif AUTH_TYPE == 'oidc':
         if not validate_token:
-            kwargs = {'audience': 'rucio',
-                      'auth_scope': 'openid profile',
+            kwargs = {'audience': None,
+                      'auth_scope': None,
                       'issuer': AUTH_ISSUER,
                       'auto': True,
                       'polling': False,

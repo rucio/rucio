@@ -390,14 +390,17 @@ class BaseClient(object):
         """
         oidc_scope = str(self.creds['oidc_scope'])
         headers = {'X-Rucio-Account': self.account,
-                   'X-Rucio-Client-Authorize-Scope': oidc_scope,
-                   'X-Rucio-Client-Authorize-Audience': str(self.creds['oidc_audience']),
                    'X-Rucio-Client-Authorize-Auto': str(self.creds['oidc_auto']),
-                   'X-Rucio-Client-Authorize-Issuer': str(self.creds['oidc_issuer']),
                    'X-Rucio-Client-Authorize-Polling': str(self.creds['oidc_polling']),
+                   'X-Rucio-Client-Authorize-Scope': str(self.creds['oidc_scope']),
                    'X-Rucio-Client-Authorize-Refresh-Lifetime': str(self.creds['oidc_refresh_lifetime'])}
+        if self.creds['oidc_audience']:
+            headers['X-Rucio-Client-Authorize-Audience'] = str(self.creds['oidc_audience'])
+        if self.creds['oidc_issuer']:
+            headers['X-Rucio-Client-Authorize-Issuer'] = str(self.creds['oidc_issuer'])
         if self.creds['oidc_auto']:
             userpass = {'username': self.creds['oidc_username'], 'password': self.creds['oidc_password']}
+        print(headers)
         for retry in range(self.AUTH_RETRIES + 1):
             try:
                 start = time.time()
@@ -405,10 +408,11 @@ class BaseClient(object):
                 request_auth_url = build_url(self.auth_host, path='auth/oidc')
                 # requesting authorization URL specific to the user & Rucio OIDC Client
                 OIDC_auth_res = self.session.get(request_auth_url, headers=headers, verify=self.ca_cert)
+                print(OIDC_auth_res.text, OIDC_auth_res.headers)
                 # with the obtained authorization URL we will contact the Identity Provider to get to the login page
                 if 'X-Rucio-OIDC-Auth-URL' not in OIDC_auth_res.headers:
                     print("Rucio Client did not succeed to get AuthN/Z URL from the Rucio Auth Server. \
-                           \nThis could be due to wrongly requested/configured issuer or unknown scope string")
+                           \nThis could be due to wrongly requested/configured scope, audience of issuer.")
                     return False
                 auth_url = OIDC_auth_res.headers['X-Rucio-OIDC-Auth-URL']
                 if not self.creds['oidc_auto']:
@@ -809,10 +813,10 @@ class BaseClient(object):
             if self.creds['username'] is None or self.creds['password'] is None:
                 raise NoAuthInformation('No username or password passed')
         elif self.auth_type == 'oidc':
-            if self.creds['oidc_auto'] and (self.creds['oidc_username'] is None or self.creds['oidc_password'] is None or self.creds['oidc_scope'] is None):
-                raise NoAuthInformation('For automatic OIDC log-in with your Identity Provider, username, password and scope are required.')
-            if not self.creds['oidc_auto'] and self.creds['oidc_scope'] is None:
-                raise NoAuthInformation('To get the authentication URL to be used in your browser, please provide a OIDC scope parameter (minimum oidc_scope=\'openid profile\').')
+            if self.creds['oidc_auto'] and (self.creds['oidc_username'] is None or self.creds['oidc_password'] is None):
+                raise NoAuthInformation('For automatic OIDC log-in with your Identity Provider username and password are required.')
+            if not self.creds['oidc_scope']:
+                raise NoAuthInformation('For OIDC log-in you need to provide a scope parameter. The minimal expected by Rucio server is usually "openid profile"')
         elif self.auth_type == 'x509':
             if self.creds['client_cert'] is None:
                 raise NoAuthInformation('The path to the client certificate is required')
