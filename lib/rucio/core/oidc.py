@@ -162,8 +162,11 @@ def __get_init_oidc_client(token_object=None, token_type=None, **kwargs):
                 oidc_client.grant[auth_args['state']].tokens.append(Token(resp))
         else:
             secrets, client_secret = {}, {}
-            with open(IDPSECRETS) as client_secret_file:
-                secrets = json.load(client_secret_file)
+            try:
+                with open(IDPSECRETS) as client_secret_file:
+                    secrets = json.load(client_secret_file)
+            except:
+                raise CannotAuthenticate("Rucio server is missing information from the idpsecrets.json file.")
             if 'issuer_id' in kwargs:
                 client_secret = secrets[kwargs.get('issuer_id', ADMIN_ISSUER_ID)]
             elif 'issuer' in kwargs:

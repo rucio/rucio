@@ -1,3 +1,4 @@
+$def with (account)
 <!--
  Copyright European Organization for Nuclear Research (CERN)
 
@@ -89,23 +90,25 @@
               </label>
             </div>
           </div>
+          $if not account:
+              <div class="row">
+                <div class="large-6 columns center">
+                  <label>Rucio account name (optional)
+                    <input type="account" name="account" placeholder="account name ..." id="account"/ >
+                  </label>
+                </div>
+              </div>
           <br>
           <div class="row">
             <div class="large-6 columns center">
               <input class="button small postfix" id="login_button" type="submit" name="submit" value="Login" onclick="display_spinner()">
             </div>
-          </div>        
-        </form>
-        <center><p>OR</p></center>
-        <div class="row">
-          <div class="large-6 columns center">
-            <a href="/ui/saml" class="button small postfix" id="saml_button" onclick="display_spinner()">Login with CERN SSO</a>
           </div>
-        </div>  
+        </form>
       </div>
     </div>
     <div id="loader"></div>
   </div>
-  
+
 </body>
 </html>
