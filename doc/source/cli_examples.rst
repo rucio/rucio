@@ -61,6 +61,44 @@ If you try to authenticate with an account that is not mapped with your credenti
 
 
 
+Open ID Connect authentication examples
+=======================================
+
+There are 3 CLI login options. The latter two were introduced in order to avoid typing the password in the Rucio CLI. The default issuer should be defined as admin_issuer in the oidc section of rucio.cfg file (and should correspond to one IdP nickname defined in the `idpsecrets.json` file). If you wish to use another issuer, you can specify it using the ``--issuer=<IdP nickname>`` option.
+
+Automatic login::
+  rucio -a=guenther -S=OIDC --oidc-user=guenther --oidc-password=<password> --oidc-auto -v whoami
+
+Login via user's browser + fetch code::
+
+  rucio -a=guenther -S=OIDC -v whoami
+
+Login via user's browser + polling Rucio auth server::
+
+  rucio -a=guenther -S=OIDC --oidc-polling -v whoami
+
+Automatic token refresh. Assuming the rucio-oauth-manager daemon is running on the Rucio server side, one can also grant Rucio a refresh token and specify the time for which Rucio should act on behalf of the user (in hours) using the ``--refresh-lifetime`` option::
+
+  rucio -a=guenther -S=OIDC --oidc-scope="openid profile offline_access" --oidc-refresh-lifetime=24 -v whoami
+
+In order to authenticate a user with Rucio using a JSON web token not issued via the Rucio login mechanis (CLI, WebUI), one has to make sure that:
+- the minimum scope 'openid profile' and audience 'rucio' are included in such token
+- token issuer is known to Rucio Authentication server
+- the identity of the token ("SUB=<user sub claim>, ISS=<issuer url>") is assigned to an existing Rucio account (pre-provisioned)
+If so, one can directly present the token to the Rucio REST endpoint in the 'X-Rucio-Auth-Token' header, e.g.::
+
+  $ python
+  $ import requests
+  $ s=requests.session()
+  $ your_token=<your access token string>
+  $ headers={'X-Rucio-Auth-Token': your_token}
+  $ address='https://<Rucio Auth Server Name>/accounts/guenther'
+  $ result=s.get(address, headers=headers, verify=False)
+  $ result.text
+  >>> u'{"status": "ACTIVE", "account": "guenther", "account_type": "USER", "created_at": "2019-11-13T13:01:58", "suspended_at": null, "updated_at": "2019-11-13T13:01:58", "deleted_at": null, "email": "jaroslav.guenther@gmail.com"}'
+
+
+
 Querrying basic information about RSEs
 ======================================
 

@@ -972,3 +972,23 @@ class NoDistance(RucioException):
         super(NoDistance, self).__init__(*args, **kwargs)
         self._message = 'Cannot found a distance between 2 RSEs'
         self.error_code = 92
+
+
+class PolicyPackageNotFound(RucioException):
+    """
+    The policy package specified in the config file cannot be loaded.
+    """
+    def __init__(self, *args, **kwargs):
+        super(PolicyPackageNotFound, self).__init__(*args, **kwargs)
+        self._message = 'The specified policy package cannot be loaded'
+        self.error_code = 93
+
+
+class CannotAuthorize(RucioException):
+    """
+    Failed to authorize an operation.
+    """
+    def __init__(self, *args, **kwargs):
+        super(CannotAuthorize, self).__init__(*args, **kwargs)
+        self._message = 'Can not authorize operation.'
+        self.error_code = 94

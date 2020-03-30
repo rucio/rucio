@@ -25,8 +25,10 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - maatthias <maatthias@gmail.com>, 2019
 # - Gabriele <sucre.91@hotmail.it>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
+
 
 from __future__ import division
 
@@ -46,9 +48,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import false
 
 from rucio.common import constants
-from rucio.common.exception import (RucioException, UnsupportedOperation,
-                                    InvalidRSEExpression, RSEProtocolNotSupported,
-                                    RequestNotFound, NoDistance)
+from rucio.common.exception import (InvalidRSEExpression, NoDistance,
+                                    RequestNotFound, RSEProtocolNotSupported,
+                                    RucioException, UnsupportedOperation)
+from rucio.common.config import config_get
 from rucio.common.rse_attributes import get_rse_attributes
 from rucio.common.types import InternalAccount
 from rucio.common.utils import construct_surl
@@ -56,6 +59,7 @@ from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.config import get as core_config_get
 from rucio.core.monitor import record_counter, record_timer
+from rucio.core.oidc import get_token_for_account_operation
 from rucio.core.replica import add_replicas
 from rucio.core.request import queue_requests, set_requests_state
 from rucio.core.rse import get_rse_name, list_rses, get_rse_supported_checksums
@@ -65,7 +69,7 @@ from rucio.db.sqla.constants import DIDType, RequestState, FTSState, RSEType, Re
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.fts3 import FTS3Transfertool
-from rucio.common.config import config_get
+
 
 # Extra modules: Only imported if available
 EXTRA_MODULES = {'globus_sdk': False}
@@ -91,13 +95,13 @@ REGION_SHORT = make_region().configure('dogpile.cache.memcached',
                                        expiration_time=600,
                                        arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
 TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)
+ALLOW_USER_OIDC_TOKENS = config_get('conveyor', 'allow_user_oidc_tokens', False, False)
 WEBDAV_TRANSFER_MODE = config_get('conveyor', 'webdav_transfer_mode', False, None)
 
 
 def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None, user_transfer_job=False):
     """
     Submit transfer request to a transfertool.
-
     :param external_host:  External host name as string
     :param files:          List of Dictionary containing request file.
     :param transfertool:   Transfertool as a string.
@@ -123,11 +127,23 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
                 else:
                     job_file[key] = file[key]
             job_files.append(job_file)
+
+        # getting info about account and OIDC support of the RSEs
+        use_oidc = job_params.get('use_oidc', False)
+        transfer_token = None
+        if use_oidc:
+            account = job_params.get('account', None)
+            if ALLOW_USER_OIDC_TOKENS is False:
+                account = InternalAccount('ddmadmin')
+            # find the appropriate OIDC token and exchange it (for user accounts) if necessary
+            token_object = get_token_for_account_operation(account, req_audience='fts:example', req_scope='fts:submit-transfer')
+            if token_object is not None:
+                transfer_token = token_object.token
         if not user_transfer_job:
-            transfer_id = FTS3Transfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
+            transfer_id = FTS3Transfertool(external_host=external_host, token=transfer_token).submit(files=job_files, job_params=job_params, timeout=timeout)
         else:
             # if no valid USER TRANSFER cases --> go with std submission
-            transfer_id = FTS3Transfertool(external_host=external_host).submit(files=job_files, job_params=job_params, timeout=timeout)
+            transfer_id = FTS3Transfertool(external_host=external_host, token=transfer_token).submit(files=job_files, job_params=job_params, timeout=timeout)
         record_timer('core.request.submit_transfers_fts3', (time.time() - start_time) * 1000 / len(files))
     elif transfertool == 'globus':
         logging.debug('... Starting globus xfer ...')
@@ -152,7 +168,6 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
 def prepare_sources_for_transfers(transfers, session=None):
     """
     Prepare the sources for transfers.
-
     :param transfers:  Dictionary containing request transfer info.
     :param session:    Database session to use.
     """
@@ -198,7 +213,6 @@ def prepare_sources_for_transfers(transfers, session=None):
 def set_transfers_state(transfers, submitted_at, session=None):
     """
     Update the transfer info of a request.
-
     :param transfers:  Dictionary containing request transfer info.
     :param session:    Database session to use.
     """
@@ -250,7 +264,6 @@ def set_transfers_state(transfers, submitted_at, session=None):
 def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeout=None):
     """
     Query the status of a transfer.
-
     :param request_host:  Name of the external host.
     :param transfer_ids:  List of (External-ID as a 32 character hex string)
     :param transfertool:  Transfertool name as a string.
@@ -306,7 +319,6 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeou
 def set_transfer_update_time(external_host, transfer_id, update_time=datetime.datetime.utcnow(), session=None):
     """
     Update the state of a request. Fails silently if the transfer_id does not exist.
-
     :param external_host:  Selected external host as string in format protocol://fqdn:port
     :param transfer_id:    External transfer job id as a string.
     :param update_time:    Time stamp.
@@ -327,7 +339,6 @@ def set_transfer_update_time(external_host, transfer_id, update_time=datetime.da
 def query_latest(external_host, state, last_nhours=1):
     """
     Query the latest transfers in last n hours with state.
-
     :param external_host:  FTS host name as a string.
     :param state:          FTS job state as a string or a dictionary.
     :param last_nhours:    Latest n hours as an integer.
@@ -363,7 +374,6 @@ def query_latest(external_host, state, last_nhours=1):
 def touch_transfer(external_host, transfer_id, session=None):
     """
     Update the timestamp of requests in a transfer. Fails silently if the transfer_id does not exist.
-
     :param request_host:   Name of the external host.
     :param transfer_id:    External transfer job id as a string.
     :param session:        Database session to use.
@@ -387,7 +397,6 @@ def update_transfer_state(external_host, transfer_id, state, logging_prepend_str
     """
     Used by poller to update the internal state of transfer,
     after the response by the external transfertool.
-
     :param request_host:          Name of the external host.
     :param transfer_id:           External transfer job id as a string.
     :param state:                 Request state as a string.
@@ -460,7 +469,6 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
     """
     Get a list of hops needed to transfer date from source_rse_id to dest_rse_id.
     Ideally, the list will only include one item (dest_rse_id) since no hops are needed.
-
     :param source_rse_id:      Source RSE id of the transfer.
     :param dest_rse_id:        Dest RSE id of the transfer.
     :param include_multihop:   If no direct link can be made, also include multihop transfers.
@@ -589,7 +597,6 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                               bring_online=43200, retry_other_fts=False, failover_schemes=None, session=None):
     """
     Get transfer requests and the associated source replicas
-
     :param total_workers:         Number of total workers.
     :param worker_number:         Id of the executing worker.
     :param limit:                 Limit.
@@ -628,7 +635,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
     except InvalidRSEExpression:
         multihop_rses = []
 
-    for req_id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, previous_attempt_id, dest_rse_id, source_rse_id, rse, deterministic, rse_type, path, retry_count, src_url, ranking, link_ranking in req_sources:
+    for req_id, rule_id, scope, name, md5, adler32, bytes, activity, attributes, previous_attempt_id, dest_rse_id, account, source_rse_id, rse, deterministic, rse_type, path, retry_count, src_url, ranking, link_ranking in req_sources:
 
         multihop = False
 
@@ -856,6 +863,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 transfers[req_id] = {'request_id': req_id,
                                      'schemes': __add_compatible_schemes(schemes=[destination_protocol], allowed_schemes=current_schemes),
+                                     'account': account,
                                      # 'src_urls': [source_url],
                                      'sources': [(rse, source_url, source_rse_id, ranking if ranking is not None else 0, link_ranking)],
                                      'dest_urls': [dest_url],
@@ -1011,6 +1019,27 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         except Exception:
             logging.critical("Exception happened when trying to get transfer for request %s: %s" % (req_id, traceback.format_exc()))
             break
+
+    # checking OIDC AuthN/Z support per destination and soucre RSEs;
+    # assumes use of boolean 'oidc_support' RSE attribute
+    for req_id in transfers:
+        use_oidc = False
+        dest_rse_id = transfers[req_id]['file_metadata']['dest_rse_id']
+        if dest_rse_id in rse_attrs and 'oidc_support' in rse_attrs[dest_rse_id]:
+            use_oidc = rse_attrs[dest_rse_id]['oidc_support']
+        else:
+            transfers[req_id]['use_oidc'] = use_oidc
+            continue
+        for source in transfers[req_id]['sources']:
+            source_rse_id = source[2]
+            if 'oidc_support' in rse_attrs[source_rse_id]:
+                use_oidc = use_oidc and rse_attrs[source_rse_id]['oidc_support']
+            else:
+                use_oidc = False
+            if not use_oidc:
+                break
+        # OIDC token will be requested for the account of this tranfer
+        transfers[req_id]['use_oidc'] = use_oidc
 
     for req_id in copy.deepcopy(transfers):
         # If the transfer is a multihop, need to create the intermediate replicas, intermediate requests and the transfers
@@ -1200,7 +1229,6 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
                                                  limit=None, activity=None, older_than=None, rses=None, session=None):
     """
     List requests with source replicas
-
     :param total_workers:     Number of total workers.
     :param worker_number:     Id of the executing worker.
     :param limit:            Integer of requests to retrieve.
@@ -1221,7 +1249,8 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
                                  models.Request.attributes,
                                  models.Request.previous_attempt_id,
                                  models.Request.dest_rse_id,
-                                 models.Request.retry_count)\
+                                 models.Request.retry_count,
+                                 models.Request.account)\
         .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
         .filter(models.Request.state == RequestState.QUEUED)\
         .filter(models.Request.request_type == RequestType.TRANSFER)\
@@ -1253,6 +1282,7 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
                           sub_requests.c.attributes,
                           sub_requests.c.previous_attempt_id,
                           sub_requests.c.dest_rse_id,
+                          sub_requests.c.account,
                           models.RSEFileAssociation.rse_id,
                           models.RSE.rse,
                           models.RSE.deterministic,
@@ -1290,7 +1320,6 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
 def __set_transfer_state(external_host, transfer_id, new_state, session=None):
     """
     Update the state of a transfer. Fails silently if the transfer_id does not exist.
-
     :param external_host:  Selected external host as string in format protocol://fqdn:port
     :param transfer_id:    External transfer job id as a string.
     :param new_state:      New state as string.
@@ -1336,7 +1365,6 @@ def __get_unavailable_rse_ids(operation, session=None):
 def __add_compatible_schemes(schemes, allowed_schemes):
     """
     Add the compatible schemes to a list of schemes
-
     :param schemes:           Schemes as input.
     :param allowed_schemes:   Allowed schemes, only these can be in the output.
     :returns:                 List of schemes
@@ -1358,7 +1386,6 @@ def __add_compatible_schemes(schemes, allowed_schemes):
 def __load_distance_edges_node(rse_id, session=None):
     """
     Loads the outgoing edges of the distance graph for one node.
-
     :param rse_id:    RSE id to load the edges for.
     :param session:   The DB Session to use.
     :returns:         Dictionary based graph object.
@@ -1383,7 +1410,6 @@ def __load_distance_edges_node(rse_id, session=None):
 def __load_rse_settings(rse_id, session=None):
     """
     Loads the RSE settings from cache.
-
     :param rse_id:    RSE id to load the settings from.
     :param session:   The DB Session to use.
     :returns:         Dict of RSE Settings

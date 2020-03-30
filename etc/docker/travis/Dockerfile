@@ -74,6 +74,7 @@ RUN if [ "$python" == "3.6" ] ; then pip3.6 install .[oracle,postgresql,mysql,ke
 
 RUN cp etc/docker/travis/aliases-py27.conf etc/web/aliases-py27.conf
 RUN cp etc/docker/travis/google-cloud-storage-test.json etc/google-cloud-storage-test.json
+RUN cp etc/docker/travis/idpsecrets.json etc/idpsecrets.json
 
 RUN mkdir -p /var/log/rucio/trace
 RUN chmod -R 777 /var/log/rucio

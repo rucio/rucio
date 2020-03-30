@@ -26,8 +26,10 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Gabriele Fronze' <gfronze@cern.ch>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
+
 
 from __future__ import print_function
 
@@ -154,9 +156,8 @@ def build_url(url, path=None, params=None, doseq=False):
     separated by '&' are generated for each element of the value sequence for the key.
     """
     complete_url = url
-    complete_url += "/"
     if path is not None:
-        complete_url += path
+        complete_url += "/" + path
     if params is not None:
         complete_url += "?"
         if isinstance(params, str):
@@ -164,6 +165,17 @@ def build_url(url, path=None, params=None, doseq=False):
         else:
             complete_url += urlencode(params, doseq=doseq)
     return complete_url
+
+
+def oidc_identity_string(sub, iss):
+    """
+    Transform IdP sub claim and issuers url into users identity string.
+    :param sub: users SUB claim from the Identity Provider
+    :param iss: issuer (IdP) https url
+
+    :returns: OIDC identity string "SUB=<usersid>, ISS=https://iam-test.ch/"
+    """
+    return 'SUB=' + str(sub) + ', ISS=' + str(iss)
 
 
 def generate_uuid():
@@ -295,6 +307,18 @@ def str_to_date(string):
     :param string: the RFC-1123 string to convert to datetime value.
     """
     return datetime.datetime.strptime(string, DATE_FORMAT) if string else None
+
+
+def val_to_space_sep_str(vallist):
+    """ Converts a list of values into a string of space separated values
+
+    :param vallist: the list of values to to convert into string
+    :return: the string of space separated values or the value initially passed as parameter
+    """
+    if isinstance(vallist, list):
+        return u" ".join(vallist)
+    else:
+        return unicode(vallist)
 
 
 def date_to_str(date):
@@ -561,15 +585,28 @@ def construct_surl_BelleII(dsn, filename):
         return '%s/%s' % (dsn, filename)
 
 
-def construct_surl(dsn, filename, naming_convention=None):
-    if naming_convention == 'T0':
-        return construct_surl_T0(dsn, filename)
-    elif naming_convention == 'DQ2':
-        return construct_surl_DQ2(dsn, filename)
-    elif naming_convention == 'BelleII':
-        return construct_surl_BelleII(dsn, filename)
+_SURL_ALGORITHMS = {}
+_DEFAULT_SURL = 'DQ2'
 
-    return construct_surl_DQ2(dsn, filename)
+
+def register_surl_algorithm(surl_callable, name=None):
+    if name is None:
+        name = surl_callable.__name__
+    _SURL_ALGORITHMS[name] = surl_callable
+
+
+register_surl_algorithm(construct_surl_T0, 'T0')
+register_surl_algorithm(construct_surl_DQ2, 'DQ2')
+register_surl_algorithm(construct_surl_BelleII, 'BelleII')
+
+
+def construct_surl(dsn, filename, naming_convention=None):
+    # ensure that policy package is loaded in case it registers its own algorithms
+    import rucio.common.schema  # noqa: F401
+
+    if naming_convention is None or naming_convention not in _SURL_ALGORITHMS:
+        naming_convention = _DEFAULT_SURL
+    return _SURL_ALGORITHMS[naming_convention](dsn, filename)
 
 
 def __strip_dsn(dsn):
@@ -1137,3 +1174,31 @@ def get_parsed_throttler_mode(throttler_mode):
         direction = 'source'
         all_activities = True
     return (direction, all_activities)
+
+
+def query_bunches(query, bunch_by):
+    """
+    Queries output by yield_per sqlalchemy function
+    (which in a for loop returns rows one by one).
+    Groups the query rows in bunches of bunch_by
+    elements and returns list of bunches.
+    :param query: sqlalchemy session query
+    :param bunch_by: integer number
+    :returns: [[bunch_of_tuples_1],[bunch_of_tuples_2],...]
+
+    """
+    filtered_bunches = []
+    item_bunch = []
+    for i in query.yield_per(bunch_by):
+        # i is either tuple of one element (token/model object etc.)
+        if not isinstance(i, tuple) and not isinstance(i, list):
+            item_bunch.append(i)
+        # or i is a tuple with the column elements per row
+        else:
+            item_bunch += i
+        if len(item_bunch) % bunch_by == 0:
+            filtered_bunches.append(item_bunch)
+            item_bunch = []
+    if item_bunch:
+        filtered_bunches.append(item_bunch)
+    return filtered_bunches

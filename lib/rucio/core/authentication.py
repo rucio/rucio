@@ -22,28 +22,31 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
-import base64
 import datetime
 import hashlib
 import random
 import sys
+import traceback
+from base64 import b64decode, b64encode
 
 import paramiko
 import six
-
-from base64 import b64encode
-
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
-
-from rucio.common.utils import generate_uuid
+from rucio.common.exception import CannotAuthenticate, RucioException
+from rucio.common.utils import generate_uuid, query_bunches
 from rucio.core.account import account_exists
+from rucio.core.oidc import validate_jwt
+from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
+from sqlalchemy import and_, or_
+from sqlalchemy.sql.expression import true
 
 
 def token_key_generator(namespace, fni, **kwargs):
@@ -60,23 +63,6 @@ TOKENREGION = make_region(
     'dogpile.cache.memory',
     expiration_time=3600
 )
-
-
-@read_session
-def exist_identity_account(identity, type, account, session=None):
-    """
-    Check if an identity is mapped to an account.
-
-    :param identity: The user identity as string.
-    :param type: The type of identity as a string, e.g. userpass, x509, gss, saml...
-    :param account: The account identifier as a string.
-    :param session: The database session in use.
-
-    :returns: True if identity is mapped to account, otherwise False
-    """
-    return session.query(models.IdentityAccountAssociation).filter_by(identity=identity,
-                                                                      identity_type=type,
-                                                                      account=account).first() is not None
 
 
 @transactional_session
@@ -249,7 +235,7 @@ def get_auth_token_ssh(account, signature, appid, ip=None, session=None):
     # try all available SSH identities for the account with the provided signature
     match = False
     for identity in identities:
-        pub_k = paramiko.RSAKey(data=base64.b64decode(identity['identity'].split()[1]))
+        pub_k = paramiko.RSAKey(data=b64decode(identity['identity'].split()[1]))
         for challenge_token in active_challenge_tokens:
             if pub_k.verify_ssh_sig(str(challenge_token['token']).encode(),
                                     paramiko.Message(signature)):
@@ -349,30 +335,115 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None, session=None):
     return new_token
 
 
-def validate_auth_token(token):
+@transactional_session
+def redirect_auth_oidc(auth_code, fetchtoken=False, session=None):
     """
-    Validate an authentication token.
+    Finds the Authentication URL in the Rucio DB oauth_requests table
+    and redirects user's browser to this URL.
 
-    :param token: Authentication token as a variable-length string.
+    :param auth_code: Rucio assigned code to redirect
+                      authorization securely to IdP via Rucio Auth server through a browser.
+    :param fetchtoken: If True, valid token temporarily saved in the oauth_requests table
+                       will be returned. If False, redirection URL is returned.
     :param session: The database session in use.
 
-    :returns: Tuple(account identifier, token lifetime) if successful, None otherwise.
+    :returns: result of the query (authorization URL or a
+              token if a user asks with the correct code) or None.
+              Exception thrown in case of an unexpected crash.
+
     """
-    if not token:
-        return
+    try:
+        redirect_result = session.query(models.OAuthRequest.redirect_msg).filter_by(access_msg=auth_code).first()
 
-    # Be gentle with bash variables, there can be whitespace
-    token = token.strip()
+        if isinstance(redirect_result, tuple):
+            if 'http' not in redirect_result[0] and fetchtoken:
+                # in this case the function check if the value is a valid token
+                vdict = validate_auth_token(redirect_result[0], session=session)
+                if vdict:
+                    return redirect_result[0]
+                return None
+            elif 'http' in redirect_result[0] and not fetchtoken:
+                # return redirection URL
+                return redirect_result[0]
+            return None
+        return None
+    except:
+        raise CannotAuthenticate(traceback.format_exc())
 
-    # Check if token ca be found in cache region
-    value = TOKENREGION.get(token)
-    if value is NO_VALUE:  # no cached entry found
-        value = query_token(token)
-        value and TOKENREGION.set(token, value)
-    elif value.get('lifetime', datetime.datetime(1970, 1, 1)) < datetime.datetime.utcnow():  # check if expired
-        TOKENREGION.delete(token)
-        return
-    return value
+
+@transactional_session
+def delete_expired_tokens(total_workers, worker_number, limit=1000, session=None):
+    """
+    Delete expired tokens.
+
+    :param total_workers:      Number of total workers.
+    :param worker_number:      id of the executing worker.
+    :param limit:              Maximum number of tokens to delete.
+    :param session:            Database session in use.
+
+    :returns: number of deleted rows
+    """
+
+    # get expired tokens
+    try:
+        # delete all expired tokens except tokens which have refresh token that is still valid
+        query = session.query(models.Token.token).filter(and_(models.Token.expired_at <= datetime.datetime.utcnow()))\
+                                                 .filter(or_(models.Token.refresh_expired_at.__eq__(None),
+                                                             models.Token.refresh_expired_at <= datetime.datetime.utcnow()))\
+                                                 .order_by(models.Token.expired_at)
+
+        query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='token')
+
+        # limiting the number of tokens deleted at once
+        filtered_tokens_query = query.limit(limit)
+        # remove expired tokens
+        deleted_tokens = 0
+        filtered_bunches = query_bunches(filtered_tokens_query, 10)
+        for items in filtered_bunches:
+            deleted_tokens += session.query(models.Token.token)\
+                                     .filter(models.Token.token.in_(items))\
+                                     .with_for_update(skip_locked=True)\
+                                     .delete(synchronize_session='fetch')
+
+    except Exception as error:
+        raise RucioException(error.args)
+
+    return deleted_tokens
+
+
+@read_session
+def get_tokens_for_refresh(total_workers, worker_number, refreshrate=3600, limit=1000, session=None):
+    """
+    Get tokens which expired or will expire before (now + refreshrate)
+    next run of this function and which have valid refresh token.
+
+    :param total_workers:      Number of total workers.
+    :param worker_number:      id of the executing worker.
+    :param limit:              Maximum number of tokens to refresh per call.
+    :param session:            Database session in use.
+
+    :return: filtered_tokens, list of tokens eligible for refresh. Throws an Exception otherwise.
+    """
+    try:
+        # get tokens for refresh that expire in the next <refreshrate> seconds
+        expiration_future = datetime.datetime.utcnow() + datetime.timedelta(seconds=refreshrate)
+        query = session.query(models.Token.token).filter(and_(models.Token.refresh == true(),
+                                                              models.Token.refresh_expired_at > datetime.datetime.utcnow(),
+                                                              models.Token.expired_at < expiration_future))\
+                                                 .order_by(models.Token.expired_at)
+        query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='token')
+
+        # limiting the number of tokens for refresh
+        filtered_tokens_query = query.limit(limit)
+        filtered_tokens = []
+        filtered_bunches = query_bunches(filtered_tokens_query, 10)
+        for items in filtered_bunches:
+            filtered_tokens += session.query(models.Token).filter(models.Token.token.in_(items)).with_for_update(skip_locked=True).all()
+
+    except Exception as error:
+        raise RucioException(error.args)
+
+    return filtered_tokens
 
 
 @read_session
@@ -384,17 +455,67 @@ def query_token(token, session=None):
     :param token: Authentication token as a variable-length string.
     :param session: The database session in use.
 
-    :returns: Tuple(account identifier, token lifetime) if successful, None otherwise.
+    :returns: dictionary { account: <account name>,
+                           identity: <identity>,
+                           lifetime: <token lifetime>,
+                           audience: <audience>,
+                           authz_scope: <authz_scope> }
+              if successful, None otherwise.
     """
     # Query the DB to validate token
     ret = session.query(models.Token.account,
                         models.Token.identity,
-                        models.Token.expired_at).\
+                        models.Token.expired_at,
+                        models.Token.audience,
+                        models.Token.oidc_scope).\
         filter(models.Token.token == token,
                models.Token.expired_at > datetime.datetime.utcnow()).\
         all()
     if ret:
         return {'account': ret[0][0],
                 'identity': ret[0][1],
-                'lifetime': ret[0][2]}
+                'lifetime': ret[0][2],
+                'audience': ret[0][3],
+                'authz_scope': ret[0][4]}
     return None
+
+
+@transactional_session
+def validate_auth_token(token, session=None):
+    """
+    Validate an authentication token.
+
+    :param token: Authentication token as a variable-length string.
+
+    :returns: dictionary { account: <account name>,
+                           identity: <identity>,
+                           lifetime: <token lifetime>,
+                           audience: <audience>,
+                           authz_scope: <authz_scope> }
+              if successful, None otherwise.
+    """
+    if not token:
+        return None
+
+    # Be gentle with bash variables, there can be whitespace
+    token = token.strip()
+
+    # Check if token ca be found in cache region
+    value = TOKENREGION.get(token)
+    if value is NO_VALUE:  # no cached entry found
+        value = query_token(token, session=session)
+        if not value:
+            # identify JWT access token and validte
+            # & save it in Rucio if scope and audience are correct
+            if len(token.split(".")) == 3:
+                value = validate_jwt(token, session=session)
+                if not value:
+                    return None
+            else:
+                return None
+        # save token in the cache
+        TOKENREGION.set(token, value)
+    if value.get('lifetime', datetime.datetime(1970, 1, 1)) < datetime.datetime.utcnow():  # check if expired
+        TOKENREGION.delete(token)
+        return None
+    return value

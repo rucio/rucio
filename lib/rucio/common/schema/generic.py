@@ -17,6 +17,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -343,7 +344,7 @@ MESSAGE_OPERATION = {"type": "object",
 
 ACCOUNT_ATTRIBUTE = {"description": "Account attribute",
                      "type": "string",
-                     "pattern": r'^[a-z0-9-_]{1,30}$'}
+                     "pattern": r'^[a-zA-Z0-9-_\\/\\.]{1,30}$'}
 
 SCOPE_NAME_REGEXP = '/(.*)/(.*)'
 

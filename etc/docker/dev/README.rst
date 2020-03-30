@@ -25,12 +25,12 @@ The second step is to fork the `main Rucio repository on GitHub <https://github.
     git remote add upstream git@github.com:rucio/rucio.git
     git fetch --all
 
-Now, ensure that the `.git/config` is proper, i.e., mentioning your full name and email address, and create the `.githubtoken` file that contains a full access token from `Github Account Settings<https://github.com/settings/tokens>`_.
+Now, ensure that the `.git/config` is proper, i.e., mentioning your full name and email address, and create the `.githubtoken` file that contains a full access token from `Github Account Settings <https://github.com/settings/tokens>`_.
 
 Next, startup the Rucio development environment with docker-compose. There are three different types: a standard one to just run the unittests and do basic development, which includes just Rucio without any transfer capabilities. One slightly larger one, which includes the File Transfer Service (FTS) and three XrootD storage servers to develop upload/download and transfers capabilities. And a third large one, which adds the full monitoring stack with Logstash, Elasticsearch, Kibana and Grafana.
 
 Using the standard environment
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Run the containers using docker-compose (again might need `sudo`)::
 
@@ -89,19 +89,23 @@ Again run the containers using docker-compose::
 
     docker-compose --file etc/docker/dev/docker-compose-storage-monit.yml up -d
 
+
 Now you will have the same containers as before plus a full monitoring stack with Logstash, Elasticsearch, Kibana and Grafana.
 
 To create some events and write them to Elasticsearch first run again the tests as before::
 
     tools/run_tests_docker.sh -ir
 
+
 Then you will have to run the transfer daemons (conveyor-*) and messaging daemon (hermes) to send the events to ActiveMQ. There a script for that which repeats these daemons in single execution mode from the section in a loop::
 
     run_daemons
 
+
 When all the daemons ran you will be able to find the events in Kibana. If you run the docker environment on you local machine you can access Kibana at http://localhost:5601. The necessary index pattern will be added automatically. There is also one dashboard available in Kibana. If it is running on remote machine you can SSH forward it::
 
     ssh -L 5601:127.0.0.1:5601 <hostname>
+
 
 Additionally, there is also a Grafana server running with one simple dashboard. You can access it at http://localhost:3000. The default credentials are "admin/admin".
 
@@ -109,9 +113,11 @@ If you would like to continously create some transfers and events there are scri
 
     create_monit_data
 
+
 And in the other run::
 
     run_daemons
+
 
 Development
 -----------
@@ -121,6 +127,7 @@ The idea for containerised development is that you use your host machine to edit
     cd ~/dev/rucio
     emacs <file>
 
+
 To see your changes in action the recommended way is to jump twice into the container in parallel. One terminal to follow the output of the Rucio server with a shortcut to tail the logfiles (`logshow`), and one terminal to actually run interactive commands:
 
 From your host, get a separate Terminal 1 (the Rucio "server log show")::
@@ -128,10 +135,12 @@ From your host, get a separate Terminal 1 (the Rucio "server log show")::
    docker exec -it dev_rucio_1 /bin/bash
    logshow
 
+
 Terminal 1 can now be left open, and then from your host go into a new Terminal 2 (the "interactive" terminal)::
 
     docker exec -it dev_rucio_1 /bin/bash
     rucio whoami
+
 
 The command will output in Terminal 2, and at the same time the server debug output will be shown in Terminal 1.
 
@@ -139,6 +148,7 @@ The same `logshow` is also available in the FTS container::
 
     docker exec -it dev_fts_1 /bin/bash
     logshow
+
 
 Development tricks
 ------------------
@@ -149,6 +159,7 @@ Server changes
 If you edit server-side files, e.g. in `lib/rucio/web`, and your changes are not showing up then it is usually helpful to flush the memcache and force the webserver to restart without having to restart the container. Inside the container execute::
 
     echo 'flush_all' | nc localhost 11211 && httpd -k graceful
+
 
 Database access
 ~~~~~~~~~~~~~~~
@@ -162,10 +173,40 @@ You can reclaim this with::
 
     docker system prune -f --volumes
 
+
 Where do I find the Dockerfile
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This container can be found on Dockerhub as `rucio/rucio-dev`, and the corresponding `Dockerfile <https://github.com/rucio/containers/tree/master/dev>`_ is also available. It provides a Rucio environment which allows you to mount your local code in the containers `bin`, `lib`, and `tools` directory. The container is set up to run against a PostgreSQL database with fsync and most durability features for the WAL disabled to improve testing IO throughput. Tests and checks can be run against the development code without having to rebuild the container.
+
+
+I need a Docker based on another branch (not rucio/master)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In such case, you can download the Rucio container files and e.g. choose to modify the dev container before build::
+
+  cd /opt
+  sudo git clone https://github.com/rucio/containers
+  cd ../containers/dev
+
+
+Change anything you need, e.g. the code branch cloned to your docker container::
+
+  # from
+  RUN git clone https://github.com/rucio/rucio.git /tmp/rucio
+  # to e.g.:
+  RUN git clone --single-branch --branch next https://github.com/rucio/rucio.git /tmp/rucio
+
+
+# build your docker
+sudo docker build -t rucio/rucio-dev .
+
+Compose as usual using docker-compose::
+
+  cd /opt/rucio
+  sudo docker-compose --file etc/docker/dev/docker-compose.yml up -d
+
+
 
 Start the daemons
 ~~~~~~~~~~~~~~~~~~~
@@ -174,10 +215,12 @@ Daemons are not running in the docker environment, but all daemons support singl
 
    tools/run_tests_docker.sh -ir
 
+
 Some files are created. Let's add them to a new dataset::
 
    rucio add-dataset test:mynewdataset
    rucio attach test:mynewdataset test:file1 test:file2 test:file3 test:file4
+
 
 If you run the command below, the files are not in the RSE XRD3, but only in XRD1 and 2.::
 
@@ -191,15 +234,18 @@ If you run the command below, the files are not in the RSE XRD3, but only in XRD
    > | test    | file4  | 10.486 MB  | 65786e49  | XRD2: root://xrd2:1095//rucio/test/2b/c2/file4 |
    > +---------+--------+------------+-----------+------------------------------------------------+
 
+
 So let's add a new rule on our new dataset to oblige Rucio to create replicas also on XRD3::
 
     rucio add-rule test:mynewdataset 1 XRD3
     > 1aadd685d891400dba050ad43e71fea9
 
+
 Now we can check the status of the rule. We will see there are 4 files in `Replicating` state::
 
    rucio rule-info 1aadd685d891400dba050ad43e71fea9|grep Locks
    > Locks OK/REPLICATING/STUCK: 0/4/0
+
 
 Now we can run the daemons. First the rule evaluation daemon (judge-evaluator) will pick up our rule. Then the transfer submitter daemon (conveyor-submitter) will send the newly created transfers requests to the FTS server. After that, the transfer state check daemon (conveyor-poller) will retrieve from FTS the transfer state information. Finally, the transfer sign-off daemon (conveyor-finisher) updates the internal state of the Rucio catalogue to reflect the changes.::
 
@@ -208,10 +254,12 @@ Now we can run the daemons. First the rule evaluation daemon (judge-evaluator) w
    rucio-conveyor-poller --run-once
    rucio-conveyor-finisher --run-once
 
+
 If we see the state of the rule now, we see the locks are OK::
 
    rucio rule-info 1aadd685d891400dba050ad43e71fea9|grep Locks
    > Locks OK/REPLICATING/STUCK: 4/0/0
+
 
 And if we look at the replicas of the dataset, we see the there are replicas of the files also in XRD3::
 
@@ -228,3 +276,4 @@ And if we look at the replicas of the dataset, we see the there are replicas of 
    > | test    | file4  | 10.486 MB  | 65786e49  | XRD2: root://xrd2:1095//rucio/test/2b/c2/file4 |
    > | test    | file4  | 10.486 MB  | 65786e49  | XRD3: root://xrd3:1096//rucio/test/2b/c2/file4 |
    > +---------+--------+------------+-----------+------------------------------------------------+
+

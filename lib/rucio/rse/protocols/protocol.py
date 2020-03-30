@@ -226,6 +226,9 @@ class RSEDeterministicTranslation(object):
 
             :returns: RSE specific URI of the physical file
         """
+        # ensure that policy package is loaded in case it registers algorithms
+        import rucio.common.schema  # noqa: F401
+
         algorithm = self.rse_attributes.get('lfn2pfn_algorithm', 'default')
         if algorithm == 'default':
             algorithm = RSEDeterministicTranslation._DEFAULT_LFN2PFN
@@ -244,6 +247,8 @@ class RSEProtocol(object):
 
             :param props: Properties of the requested protocol
         """
+        self.auth_token = protocol_attr['auth_token']
+        protocol_attr.pop('auth_token')
         self.attributes = protocol_attr
         self.translator = None
         self.renaming = True
