@@ -400,7 +400,6 @@ class BaseClient(object):
             headers['X-Rucio-Client-Authorize-Issuer'] = str(self.creds['oidc_issuer'])
         if self.creds['oidc_auto']:
             userpass = {'username': self.creds['oidc_username'], 'password': self.creds['oidc_password']}
-        print(headers)
         for retry in range(self.AUTH_RETRIES + 1):
             try:
                 start = time.time()
@@ -408,7 +407,6 @@ class BaseClient(object):
                 request_auth_url = build_url(self.auth_host, path='auth/oidc')
                 # requesting authorization URL specific to the user & Rucio OIDC Client
                 OIDC_auth_res = self.session.get(request_auth_url, headers=headers, verify=self.ca_cert)
-                print(OIDC_auth_res.text, OIDC_auth_res.headers)
                 # with the obtained authorization URL we will contact the Identity Provider to get to the login page
                 if 'X-Rucio-OIDC-Auth-URL' not in OIDC_auth_res.headers:
                     print("Rucio Client did not succeed to get AuthN/Z URL from the Rucio Auth Server. \
@@ -475,7 +473,6 @@ class BaseClient(object):
                 break
             except RequestException:
                 LOG.warning('RequestException: %s', str(traceback.format_exc()))
-                print(traceback.format_exc())
                 self.ca_cert = False
                 if retry > self.request_retries:
                     raise
