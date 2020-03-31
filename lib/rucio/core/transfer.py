@@ -25,7 +25,7 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - maatthias <maatthias@gmail.com>, 2019
 # - Gabriele <sucre.91@hotmail.it>, 2019
-# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 #
 # PY3K COMPATIBLE
 

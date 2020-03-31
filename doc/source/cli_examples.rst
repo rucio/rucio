@@ -64,25 +64,26 @@ If you try to authenticate with an account that is not mapped with your credenti
 Open ID Connect authentication examples
 =======================================
 
-There are 3 CLI login options. The latter two were introduced in order to avoid typing the password in the Rucio CLI. The default issuer should be defined as admin_issuer in the oidc section of rucio.cfg file (and should correspond to one IdP nickname defined in the `idpsecrets.json` file). If you wish to use another issuer, you can specify it using the ``--issuer=<IdP nickname>`` option.
+There are 3 CLI login options. The latter two were introduced in order to avoid typing the password in the Rucio CLI. The default Identity Provider (IdP)/issuer is configured on the side of Rucio server. In case multiple IdPs are supported, user can specify which one he desires to use by ``--oidc-issuer=<IdP nickname>`` option (where IdP nickname is the key under which issuers are configured on Rucio server side in the `idpsecrets.json` file). In the following examples we assume that user does not want to use the rucio account name specified in the rucio.cfg file on the client side (if so ``-a`` parameter can be ommitted). Furthermore, we use the same default issuer as configured on Rucio server side.
 
-Automatic login::
-  rucio -a=guenther -S=OIDC --oidc-user=guenther --oidc-password=<password> --oidc-auto -v whoami
+Automatic login (assuming the same issuer as configured o)::
+  rucio -a=<rucio_account_name> -S=OIDC --oidc-user=<idp_username> --oidc-password=<idp_password> --oidc-auto -v whoami
 
 Login via user's browser + fetch code::
 
-  rucio -a=guenther -S=OIDC -v whoami
+  rucio -a=<rucio_account_name> -S=OIDC -v whoami
 
 Login via user's browser + polling Rucio auth server::
 
-  rucio -a=guenther -S=OIDC --oidc-polling -v whoami
+  rucio -a=<rucio_account_name> -S=OIDC --oidc-polling -v whoami
 
 Automatic token refresh. Assuming the rucio-oauth-manager daemon is running on the Rucio server side, one can also grant Rucio a refresh token and specify the time for which Rucio should act on behalf of the user (in hours) using the ``--refresh-lifetime`` option::
 
-  rucio -a=guenther -S=OIDC --oidc-scope="openid profile offline_access" --oidc-refresh-lifetime=24 -v whoami
+  rucio -a=<rucio_account_name> -S=OIDC --oidc-scope="openid profile offline_access" --oidc-refresh-lifetime=24 -v whoami
 
 In order to authenticate a user with Rucio using a JSON web token not issued via the Rucio login mechanis (CLI, WebUI), one has to make sure that:
-- the minimum scope 'openid profile' and audience 'rucio' are included in such token
+- in case ``--oidc-scope`` is specified explicitly, it is no less than the minimum scope (e.g. 'openid profile') required by the Rucio Auth server (configured there in the rucio.cfg file).
+- same as above is true for the explicit use of ``--oidc-audience`` parameter
 - token issuer is known to Rucio Authentication server
 - the identity of the token ("SUB=<user sub claim>, ISS=<issuer url>") is assigned to an existing Rucio account (pre-provisioned)
 If so, one can directly present the token to the Rucio REST endpoint in the 'X-Rucio-Auth-Token' header, e.g.::
@@ -90,7 +91,7 @@ If so, one can directly present the token to the Rucio REST endpoint in the 'X-R
   $ python
   $ import requests
   $ s=requests.session()
-  $ your_token=<your access token string>
+  $ your_token=<your JWT access token string>
   $ headers={'X-Rucio-Auth-Token': your_token}
   $ address='https://<Rucio Auth Server Name>/accounts/guenther'
   $ result=s.get(address, headers=headers, verify=False)

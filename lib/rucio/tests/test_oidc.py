@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019
+# - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019-2020
 
 from __future__ import print_function
 
