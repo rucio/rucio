@@ -299,14 +299,14 @@ This is not obligatory section, if not filled a user will get directed to a page
 
 In order to ensure the correct lifetime management of the tokens and auth sessions, one also has to run the rucio-oauth-daemon run on the server!
 
-Rucio servers may run also conveyor daemons, to configure these to use OIDC authentication the following parameters must be configured in the rucio.cfg file::
+Rucio servers may run also conveyor daemon, which is responsible for submission of the transfers created in connection with existing Rucio rule. In case both, the source and destination RSEs have attribute {'oidc_supported': True} assigned, the Rucio account which created such a rule will be used to request a JWT token for OAuth2 authentication with FTS. The issuer of user's token will be used to get a valid OIDC token with the requested audience and scope for FTS transfer. This new token will have either the same identity of the user (received after user's token exchange with IdP) or it will have the identity of the Rucio Admin IAM client (client_id will be in the 'sub' claim) (received after client credentials token flow of the admin). If in any of the two formely mentioned cases, valid token is present in Rucio DB beforehand, it will be used in the header of the transfer request to FTS and no new token demand will be made to IdP. The OIDC authentication mechanism shall be configured by the following parameters in the rucio.cfg file::
 
   [conveyor]
   allow_user_oidc_tokens = False
   request_oidc_scope = 'fts:submit-transfer'
   request_oidc_audience = 'fts'
 
-If 'allow_user_oidc_tokens' is se to True the system will attempt to exchange a valid OIDC token (if any) of the account that owns the transfer for a token that has the 'request_oidc_scope' and 'request_oidc_audience'. If set to False, the system will use the IdP issuer of the account that own the transfer, will get a Rucio admin client token with the 'request_oidc_scope' and 'request_oidc_audience' and authenticate against FTS with the Rucio admin client credentials on behalf of the user. The allowed scopes and audiences have to be again also configured correspondingly for your clients at the IdP side (usually through IdP web interface).
+If 'allow_user_oidc_tokens' is se to True the system will attempt to exchange a valid OIDC token (if any) of the account that owns the rule/transfer for a token that has the 'request_oidc_scope' and 'request_oidc_audience'. If set to False, the system will use the IdP issuer of the account that owns the transfer, will get a Rucio admin client token with the 'request_oidc_scope' and 'request_oidc_audience' and authenticate against FTS with the Rucio admin client credentials on behalf of the user. The allowed scopes and audiences have to be again also configured correspondingly for your clients at the IdP side (usually through IdP web interface).
 
 
 

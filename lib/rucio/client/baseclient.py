@@ -24,7 +24,7 @@
 # - Tobias Wegner <twegner@cern.ch>, 2017
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2017-2018
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
-# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019-2020
 #
 # PY3K COMPATIBLE
 
