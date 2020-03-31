@@ -115,7 +115,7 @@ def has_permission(issuer, action, kwargs):
             'del_account_identity': perm_del_account_identity,
             'del_identity': perm_del_identity,
             'remove_did_from_followed': perm_remove_did_from_followed,
-            'remove_dids_from_followed': perm_remove_dids_from_followed}
+            'remove_dids_from_followed': perm_remove_dids_from_followed,
             'add_vo': perm_add_vo}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
