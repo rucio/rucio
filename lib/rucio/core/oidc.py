@@ -36,7 +36,7 @@ from rucio.common.config import config_get
 from rucio.common.exception import (CannotAuthenticate, CannotAuthorize,
                                     RucioException)
 from rucio.common.types import InternalAccount
-from rucio.common.utils import (all_required_items_present, build_url, oidc_identity_string,
+from rucio.common.utils import (all_oidc_req_claims_present, build_url, oidc_identity_string,
                                 query_bunches, val_to_space_sep_str)
 from rucio.core.account import account_exists
 from rucio.core.identity import exist_identity_account, get_default_account
@@ -240,7 +240,7 @@ def get_auth_oidc(account, session=None, **kwargs):
     if not audience:
         audience = EXPECTED_OIDC_AUDIENCE
     # checking that minimal audience and scope requirements (required by Rucio) are satisfied !
-    if not all_required_items_present(auth_scope, audience, EXPECTED_OIDC_SCOPE, EXPECTED_OIDC_AUDIENCE):
+    if not all_oidc_req_claims_present(auth_scope, audience, EXPECTED_OIDC_SCOPE, EXPECTED_OIDC_AUDIENCE):
         raise CannotAuthenticate("Requirements of scope and audience do not satisfy minimal requirements of the Rucio server.")
     issuer_id = kwargs.get('issuer', ADMIN_ISSUER_ID)
     if not issuer_id:
@@ -562,7 +562,7 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
                                                                           models.Token.expired_at > datetime.utcnow()).all()
                 for admin_token in admin_account_tokens:
                     if hasattr(admin_token, 'audience') and hasattr(admin_token, 'oidc_scope') and\
-                       all_required_items_present(admin_token.oidc_scope, admin_token.audience, req_scope, req_audience):
+                       all_oidc_req_claims_present(admin_token.oidc_scope, admin_token.audience, req_scope, req_audience):
                         return admin_token
             # e.g. if there were no account_tokens - so no loop above
             if not admin_issuer:
@@ -584,7 +584,7 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
             # check if Rucio does not have a token with such audience and scope already
             for admin_token in admin_account_tokens:
                 if hasattr(admin_token, 'audience') and hasattr(admin_token, 'oidc_scope'):
-                    if all_required_items_present(admin_token.oidc_scope, admin_token.audience, req_scope, req_audience):
+                    if all_oidc_req_claims_present(admin_token.oidc_scope, admin_token.audience, req_scope, req_audience):
                         return admin_token
             # if not found request a new one
             new_admin_token = __get_admin_token_oidc(admin_account, req_scope, req_audience, admin_issuer, session=session)
@@ -596,7 +596,7 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
             subject_token = None
             for token in account_tokens:
                 if hasattr(token, 'audience') and hasattr(token, 'oidc_scope'):
-                    if all_required_items_present(token.oidc_scope, token.audience, req_scope, req_audience):
+                    if all_oidc_req_claims_present(token.oidc_scope, token.audience, req_scope, req_audience):
                         return token
                 # from available tokens select preferentially the one which are being refreshed
                 if hasattr(token, 'oidc_scope') and ('offline_access' in str(token['oidc_scope'])):
@@ -981,7 +981,7 @@ def validate_jwt(json_web_token, session=None):
         record_counter(counters='JSONWebToken.valid')
         # if token is valid and coming from known issuer --> check aud and scope and save it if unknown
         if token_dict['authz_scope'] and token_dict['audience']:
-            if all_required_items_present(token_dict['authz_scope'], token_dict['audience'], EXPECTED_OIDC_SCOPE, EXPECTED_OIDC_AUDIENCE):
+            if all_oidc_req_claims_present(token_dict['authz_scope'], token_dict['audience'], EXPECTED_OIDC_SCOPE, EXPECTED_OIDC_AUDIENCE):
                 # save the token in Rucio DB giving the permission to use it for Rucio operations
                 __save_validated_token(json_web_token, token_dict, session=session)
             else:

@@ -19,12 +19,12 @@ img {
 }
 
 @font-face {
-  font-family: 'icomoon';
-  src:  url('/media/fonts/icomoon.eot');
-  src:  url('/media/fonts/icomoon.eot') format('embedded-opentype'),
-    url('/media/fonts/icomoon.ttf') format('truetype'),
-    url('/media/fonts/icomoon.woff') format('woff'),
-    url('/media/fonts/icomoon.svg') format('svg');
+  font-family: 'login_icons';
+  src:  url('/media/fonts/login_icons.eot');
+  src:  url('/media/fonts/login_icons.eot') format('embedded-opentype'),
+    url('/media/fonts/login_icons.ttf') format('truetype'),
+    url('/media/fonts/login_icons.woff') format('woff'),
+    url('/media/fonts/login_icons.svg') format('svg');
   font-weight: normal;
   font-style: normal;
   font-display: block;
@@ -32,7 +32,7 @@ img {
 
 [class^="icon-"], [class*=" icon-"] {
   /* use !important to prevent issues with browser extensions that change fonts */
-  font-family: 'icomoon' !important;
+  font-family: 'login_icons' !important;
   speak: none;
   font-style: normal;
   font-weight: normal;
