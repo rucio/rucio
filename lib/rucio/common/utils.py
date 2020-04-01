@@ -178,7 +178,7 @@ def oidc_identity_string(sub, iss):
     return 'SUB=' + str(sub) + ', ISS=' + str(iss)
 
 
-def all_required_items_present(scope, audience, required_scope, required_audience, sepatator=" "):
+def all_oidc_req_claims_present(scope, audience, required_scope, required_audience, sepatator=" "):
     """
     Checks if both of the following statements are true:
     - all items in required_scope are present in scope string
