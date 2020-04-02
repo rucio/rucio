@@ -96,7 +96,6 @@ def save_validated_token(token, valid_dict, extra_dict=None, session=None):
                                  refresh_start=extra_dict.get('refresh_start', None),
                                  ip=extra_dict.get('ip', None))
         new_token.save(session=session)
-        session.commit()  # pylint: disable=no-member
         return new_token
     except Exception as error:
         raise Exception(error.args)
@@ -268,6 +267,7 @@ class TestAuthCoreAPIoidc():
         self.accountstring = 'test_' + rndstr()
         self.accountstring = self.accountstring.lower()
         self.adminaccountstring = 'admin_' + rndstr()
+        print("ADMIN ACOUNT STRING: ", self.adminaccountstring)
         self.adminaccountstring = self.adminaccountstring.lower()
         self.adminaccSUB = str('adminSUB' + rndstr()).lower()
         self.adminaccSUB_otherISS = str('adminSUB_otherISS' + rndstr()).lower()
@@ -425,7 +425,7 @@ class TestAuthCoreAPIoidc():
             # check if DB entry exists
             oauth_session_row = get_oauth_session_row(self.accountstring, state=auth_init_response['state'], session=self.db_session)
             assert_false(not oauth_session_row)
-            get_token_oidc(auth_init_response['auth_query_string'])
+            get_token_oidc(auth_init_response['auth_query_string'], session=self.db_session)
         except CannotAuthenticate:
             assert_true("Unknown AuthZ code provided" in traceback.format_exc())
 
@@ -893,7 +893,6 @@ class TestAuthCoreAPIoidc():
                         'token': preexisting_access_token_strpart}
         expected_preexisting_access_token_object = create_preexisting_exchange_token(request_args, session=self.db_session)
         expected_preexisting_access_token = expected_preexisting_access_token_object.token
-        self.db_session.expunge(expected_preexisting_access_token_object)
         db_token = get_token_row(expected_preexisting_access_token, accountstring=final_token_account, session=self.db_session)
         assert_false(not db_token)
         # ---------------------------
@@ -1026,8 +1025,6 @@ class TestAuthCoreAPIoidc():
         expected_preexisting_access_token_object_2 = create_preexisting_exchange_token(request_args, session=self.db_session)
         expected_preexisting_access_token_1 = expected_preexisting_access_token_object_1.token
         expected_preexisting_access_token_2 = expected_preexisting_access_token_object_2.token
-        self.db_session.expunge(expected_preexisting_access_token_object_1)
-        self.db_session.expunge(expected_preexisting_access_token_object_2)
         db_token = get_token_row(expected_preexisting_access_token_1, accountstring=final_token_account, session=self.db_session)
         assert_false(not db_token)
         db_token = get_token_row(expected_preexisting_access_token_2, accountstring=final_token_account, session=self.db_session)
@@ -1150,7 +1147,6 @@ class TestAuthCoreAPIoidc():
                         'token': preexisting_access_token_strpart_2}
         preexisting_access_token_object = create_preexisting_exchange_token(request_args, session=self.db_session)
         preexisting_access_token = preexisting_access_token_object.token
-        self.db_session.expunge(preexisting_access_token_object)
         db_token = get_token_row(preexisting_access_token, accountstring=final_token_account, session=self.db_session)
         assert_false(not db_token)
         # ---------------------------
@@ -1228,7 +1224,6 @@ class TestAuthCoreAPIoidc():
                         'token': preexisting_access_token_strpart_2}
         preexisting_access_token_object_2 = create_preexisting_exchange_token(request_args, session=self.db_session)
         preexisting_access_token = preexisting_access_token_object_2.token
-        self.db_session.expunge(preexisting_access_token_object_2)
         db_token = get_token_row(preexisting_access_token, accountstring=final_token_account, session=self.db_session)
         assert_false(not db_token)
         # ---------------------------
@@ -1241,7 +1236,6 @@ class TestAuthCoreAPIoidc():
                         'token': preexisting_final_access_token_strpart_1}
         preexisting_final_access_token_object_1 = create_preexisting_exchange_token(request_args, session=self.db_session)
         preexisting_final_access_token = preexisting_final_access_token_object_1.token
-        self.db_session.expunge(preexisting_final_access_token_object_1)
         db_token = get_token_row(preexisting_final_access_token, accountstring=final_token_account, session=self.db_session)
         assert_false(not db_token)
         # mocking additional objects
@@ -1312,7 +1306,6 @@ class TestAuthCoreAPIoidc():
                         'token': preexisting_final_access_token_strpart_2}
         preexisting_final_access_token_object_2 = create_preexisting_exchange_token(request_args, session=self.db_session)
         preexisting_final_access_token = preexisting_final_access_token_object_2.token
-        self.db_session.expunge(preexisting_final_access_token_object_2)
         db_token = get_token_row(preexisting_final_access_token, accountstring=final_token_account, session=self.db_session)
         assert_false(not db_token)
         # ---------------------------
@@ -1469,7 +1462,6 @@ class TestAuthCoreAPIoidc():
                         'token': preexisting_access_token_strpart_2}
         preexisting_access_token_object = create_preexisting_exchange_token(request_args, session=self.db_session)
         preexisting_access_token = preexisting_access_token_object.token
-        self.db_session.expunge(preexisting_access_token_object)
         db_token = get_token_row(preexisting_access_token, accountstring=final_token_account, session=self.db_session)
         assert_false(not db_token)
         # ---------------------------
@@ -1547,7 +1539,6 @@ class TestAuthCoreAPIoidc():
                         'token': preexisting_access_token_strpart_2}
         preexisting_access_token_object_2 = create_preexisting_exchange_token(request_args, session=self.db_session)
         preexisting_access_token = preexisting_access_token_object_2.token
-        self.db_session.expunge(preexisting_access_token_object_2)
         db_token = get_token_row(preexisting_access_token, accountstring=final_token_account, session=self.db_session)
         assert_false(not db_token)
         # ---------------------------
@@ -1560,7 +1551,6 @@ class TestAuthCoreAPIoidc():
                         'token': preexisting_final_access_token_strpart_1}
         preexisting_final_access_token_object_1 = create_preexisting_exchange_token(request_args, session=self.db_session)
         preexisting_final_access_token = preexisting_final_access_token_object_1.token
-        self.db_session.expunge(preexisting_final_access_token_object_1)
         db_token = get_token_row(preexisting_final_access_token, accountstring=final_token_account, session=self.db_session)
         assert_false(not db_token)
         # mocking additional objects
@@ -1631,7 +1621,6 @@ class TestAuthCoreAPIoidc():
                         'token': preexisting_final_access_token_strpart_2}
         preexisting_final_access_token_object_2 = create_preexisting_exchange_token(request_args, session=self.db_session)
         preexisting_final_access_token = preexisting_final_access_token_object_2.token
-        self.db_session.expunge(preexisting_final_access_token_object_2)
         db_token = get_token_row(preexisting_final_access_token, accountstring=final_token_account, session=self.db_session)
         assert_false(not db_token)
         # ---------------------------
@@ -1729,7 +1718,6 @@ class TestAuthCoreAPIoidc():
                         'token': preexisting_user_access_token_strpart}
         preexisting_user_access_token_object = create_preexisting_exchange_token(request_args, session=self.db_session)
         preexisting_user_access_token = preexisting_user_access_token_object.token
-        self.db_session.expunge(preexisting_user_access_token_object)
         db_token = get_token_row(preexisting_user_access_token, accountstring=final_token_account, session=self.db_session)
         assert_false(not db_token)
         # ---------------------------
@@ -1816,7 +1804,6 @@ class TestAuthCoreAPIoidc():
                         'token': preexisting_user_access_token_strpart}
         preexisting_user_access_token_object = create_preexisting_exchange_token(request_args, session=self.db_session)
         preexisting_user_access_token = preexisting_user_access_token_object.token
-        self.db_session.expunge(preexisting_user_access_token_object)
         db_token = get_token_row(preexisting_user_access_token, accountstring=final_token_account, session=self.db_session)
         assert_false(not db_token)
         # giving a user a filen token
@@ -1829,7 +1816,6 @@ class TestAuthCoreAPIoidc():
                         'token': final_access_token}
         preexisting_final_user_access_token_object = create_preexisting_exchange_token(request_args, session=self.db_session)
         preexisting_final_user_access_token = preexisting_final_user_access_token_object.token
-        self.db_session.expunge(preexisting_final_user_access_token_object)
         db_token = get_token_row(preexisting_final_user_access_token, accountstring=final_token_account, session=self.db_session)
         assert_false(not db_token)
         #
@@ -1952,8 +1938,6 @@ class TestAuthCoreAPIoidc():
         expected_preexisting_access_token_object_2 = create_preexisting_exchange_token(request_args, session=self.db_session)
         expected_preexisting_access_token_1 = expected_preexisting_access_token_object_1.token
         expected_preexisting_access_token_2 = expected_preexisting_access_token_object_2.token
-        self.db_session.expunge(expected_preexisting_access_token_object_1)
-        self.db_session.expunge(expected_preexisting_access_token_object_2)
         db_token = get_token_row(expected_preexisting_access_token_1, accountstring=final_token_account, session=self.db_session)
         assert_false(not db_token)
         db_token = get_token_row(expected_preexisting_access_token_2, accountstring=final_token_account, session=self.db_session)
