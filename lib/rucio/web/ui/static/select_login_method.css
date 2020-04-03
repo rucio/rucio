@@ -1,0 +1,94 @@
+/* Copyright European Organization for Nuclear Research (CERN)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * You may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Authors:
+ * - Jaroslav Guenther, <Jaroslav.Guenther@gmail.com>, 2020
+ */
+
+.card{
+  margin: 0 auto;
+  width: 435px;
+}
+
+img {
+  width: 400px;
+}
+
+@font-face {
+  font-family: 'login_icons';
+  src:  url('/media/fonts/login_icons.eot');
+  src:  url('/media/fonts/login_icons.eot') format('embedded-opentype'),
+    url('/media/fonts/login_icons.ttf') format('truetype'),
+    url('/media/fonts/login_icons.woff') format('woff'),
+    url('/media/fonts/login_icons.svg') format('svg');
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+
+[class^="icon-"], [class*=" icon-"] {
+  /* use !important to prevent issues with browser extensions that change fonts */
+  font-family: 'login_icons' !important;
+  speak: none;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+
+  /* Better Font Rendering =========== */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.icon-certificate:before {
+  content: "\e900";
+}
+.icon-rucio:before {
+  content: "\e901";
+}
+.icon-openid:before {
+  content: "\e902";
+}
+.icon-cern:before {
+  content: "\e903";
+}
+
+.btn-outline-cern {
+  color:#0033A0 !important;
+  background-color:transparent !important;
+  border-color:#0033A0 !important;
+}
+
+.btn-outline-cern:hover {
+  color:#fff !important;
+  background-color:transparent !important;
+  background-color:#0033A0 !important;
+  border-color:#0033A0 !important;;
+}
+
+.btn-outline-rucio {
+  color:black !important;
+  background-color:transparent !important;
+  border-color:black !important;
+}
+
+.btn-outline-rucio:hover {
+  color:#fff !important;
+  background-color:transparent !important;
+  background-color:black !important;
+  border-color:black !important;;
+}
+.vertical-align-middle {
+    vertical-align: middle;
+}
+
+.padding-bottom-2 {
+    padding-bottom: 2px;
+}
+
+.vertical-align-middle > i{ vertical-align: middle !important; }

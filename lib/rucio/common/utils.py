@@ -178,6 +178,69 @@ def oidc_identity_string(sub, iss):
     return 'SUB=' + str(sub) + ', ISS=' + str(iss)
 
 
+def all_oidc_req_claims_present(scope, audience, required_scope, required_audience, sepatator=" "):
+    """
+    Checks if both of the following statements are true:
+    - all items in required_scope are present in scope string
+    - all items in required_audience are present in audience
+    returns false otherwise. audience and scope must be both strings
+    or both lists. Similarly for required_* variables.
+    If this condition is satisfied, False is returned.
+    :params scope: list of strings or one string where items are separated by a separator input variable
+    :params audience: list of strings or one string where items are separated by a separator input variable
+    :params required_scope: list of strings or one string where items are separated by a separator input variable
+    :params required_audience: list of strings or one string where items are separated by a separator input variable
+    :params sepatator: separator string, space by default
+    :returns : True or False
+    """
+    if not scope:
+        scope = ""
+    if not audience:
+        audience = ""
+    if not required_scope:
+        required_scope = ""
+    if not required_audience:
+        required_audience = ""
+    if (isinstance(scope, list) and isinstance(audience, list) and  # NOQA: W504
+        isinstance(required_scope, list) and isinstance(required_audience, list)):
+        scope = [str(it) for it in scope]
+        audience = [str(it) for it in audience]
+        required_scope = [str(it) for it in required_scope]
+        required_audience = [str(it) for it in required_audience]
+        req_scope_present = all(elem in scope for elem in required_scope)
+        req_audience_present = all(elem in audience for elem in required_audience)
+        return req_scope_present and req_audience_present
+    elif (isinstance(scope, basestring) and isinstance(audience, basestring) and  # NOQA: W504
+          isinstance(required_scope, basestring) and isinstance(required_audience, basestring)):
+        scope = str(scope)
+        audience = str(audience)
+        required_scope = str(required_scope)
+        required_audience = str(required_audience)
+        req_scope_present = all(elem in scope.split(sepatator) for elem in required_scope.split(sepatator))
+        req_audience_present = all(elem in audience.split(sepatator) for elem in required_audience.split(sepatator))
+        return req_scope_present and req_audience_present
+    elif (isinstance(scope, list) and isinstance(audience, list) and  # NOQA: W504
+          isinstance(required_scope, basestring) and isinstance(required_audience, basestring)):
+        scope = [str(it) for it in scope]
+        audience = [str(it) for it in audience]
+        required_scope = str(required_scope)
+        required_audience = str(required_audience)
+        req_scope_present = all(elem in scope for elem in required_scope.split(sepatator))
+        req_audience_present = all(elem in audience for elem in required_audience.split(sepatator))
+        return req_scope_present and req_audience_present
+    elif (isinstance(scope, basestring) and isinstance(audience, basestring) and  # NOQA: W504
+          isinstance(required_scope, list) and isinstance(required_audience, list)):
+        scope = str(scope)
+        audience = str(audience)
+        required_scope = [str(it) for it in required_scope]
+        required_audience = [str(it) for it in required_audience]
+        req_scope_present = all(elem in scope.split(sepatator) for elem in required_scope)
+        req_audience_present = all(elem in audience.split(sepatator) for elem in required_audience)
+        return req_scope_present and req_audience_present
+    else:
+        return False
+
+
 def generate_uuid():
     return str(uuid()).replace('-', '').lower()
 
