@@ -24,7 +24,7 @@
 # - Tobias Wegner <twegner@cern.ch>, 2017
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2017-2018
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
-# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019-2020
 #
 # PY3K COMPATIBLE
 
@@ -390,12 +390,14 @@ class BaseClient(object):
         """
         oidc_scope = str(self.creds['oidc_scope'])
         headers = {'X-Rucio-Account': self.account,
-                   'X-Rucio-Client-Authorize-Scope': oidc_scope,
-                   'X-Rucio-Client-Authorize-Audience': str(self.creds['oidc_audience']),
                    'X-Rucio-Client-Authorize-Auto': str(self.creds['oidc_auto']),
-                   'X-Rucio-Client-Authorize-Issuer': str(self.creds['oidc_issuer']),
                    'X-Rucio-Client-Authorize-Polling': str(self.creds['oidc_polling']),
+                   'X-Rucio-Client-Authorize-Scope': str(self.creds['oidc_scope']),
                    'X-Rucio-Client-Authorize-Refresh-Lifetime': str(self.creds['oidc_refresh_lifetime'])}
+        if self.creds['oidc_audience']:
+            headers['X-Rucio-Client-Authorize-Audience'] = str(self.creds['oidc_audience'])
+        if self.creds['oidc_issuer']:
+            headers['X-Rucio-Client-Authorize-Issuer'] = str(self.creds['oidc_issuer'])
         if self.creds['oidc_auto']:
             userpass = {'username': self.creds['oidc_username'], 'password': self.creds['oidc_password']}
         for retry in range(self.AUTH_RETRIES + 1):
@@ -408,7 +410,7 @@ class BaseClient(object):
                 # with the obtained authorization URL we will contact the Identity Provider to get to the login page
                 if 'X-Rucio-OIDC-Auth-URL' not in OIDC_auth_res.headers:
                     print("Rucio Client did not succeed to get AuthN/Z URL from the Rucio Auth Server. \
-                           \nThis could be due to wrongly requested/configured issuer or unknown scope string")
+                           \nThis could be due to wrongly requested/configured scope, audience of issuer.")
                     return False
                 auth_url = OIDC_auth_res.headers['X-Rucio-OIDC-Auth-URL']
                 if not self.creds['oidc_auto']:
@@ -471,7 +473,6 @@ class BaseClient(object):
                 break
             except RequestException:
                 LOG.warning('RequestException: %s', str(traceback.format_exc()))
-                print(traceback.format_exc())
                 self.ca_cert = False
                 if retry > self.request_retries:
                     raise
@@ -809,10 +810,10 @@ class BaseClient(object):
             if self.creds['username'] is None or self.creds['password'] is None:
                 raise NoAuthInformation('No username or password passed')
         elif self.auth_type == 'oidc':
-            if self.creds['oidc_auto'] and (self.creds['oidc_username'] is None or self.creds['oidc_password'] is None or self.creds['oidc_scope'] is None):
-                raise NoAuthInformation('For automatic OIDC log-in with your Identity Provider, username, password and scope are required.')
-            if not self.creds['oidc_auto'] and self.creds['oidc_scope'] is None:
-                raise NoAuthInformation('To get the authentication URL to be used in your browser, please provide a OIDC scope parameter (minimum oidc_scope=\'openid profile\').')
+            if self.creds['oidc_auto'] and (self.creds['oidc_username'] is None or self.creds['oidc_password'] is None):
+                raise NoAuthInformation('For automatic OIDC log-in with your Identity Provider username and password are required.')
+            if not self.creds['oidc_scope']:
+                raise NoAuthInformation('For OIDC log-in you need to provide a scope parameter. The minimal expected by Rucio server is usually "openid profile"')
         elif self.auth_type == 'x509':
             if self.creds['client_cert'] is None:
                 raise NoAuthInformation('The path to the client certificate is required')
