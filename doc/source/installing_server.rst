@@ -274,8 +274,10 @@ After this is done, please make sure your `rucio.cfg` file contains the followin
    [oidc]
    idpsecrets = /path/to/your/idpsecrets.json
    admin_issuer = <IdP_nickname>
+   expected_audience = '<rucio>'
+   expected_scope = 'openid profile'
 
-Where <IdP_nickname> stands for your preferred IdP (e.g. "wlcg"). The IdP specified under admin_issuer will be contacted to get information about Rucio Users (SCIM) and to request tokens for the Rucio 'root' account.
+Parameters 'idpsecrets' and 'admin_issuer' have to be present. <IdP_nickname> stands for your preferred IdP (e.g. "wlcg"). The IdP specified under admin_issuer will be contacted to get information about Rucio Users (SCIM) and to request tokens for the Rucio 'root' account. The expected_scope and expected_audence parameters are optional and if not filled, the Rucio server will set them to 'openid profile' and 'rucio' respectively. The expected scopes and audiences have to be configured correspondinly on the side of your registered clienst at your IdP (usually you can control accepted scopes and audiences for your clients via an IdP web interface).
 
 To finalise the process, one should assign the OIDC identities to the relevant Rucio admin_account_name (e.g. 'root', 'ddmadmin'). This identity ID is composed of the IAM account sub claim and issuer url such as demonstrated below::
 
@@ -287,12 +289,24 @@ A second identity has to be added to the same admin_account_name representing th
 
 Note: In case you can not/will not run the Rucio check_scim probe script in order to sync Rucio accounts with their IAM identities, you should assign the appropriate OIDC identity manually (as in the example above) to each Rucio account which is meant to use the OIDC authN/Z.
 
-In case you wish to use OIDC in order to login to the Rucio WebUI, one has to configure also another block in the `rucio.cfg` file::
+In case you wish to use OIDC by default in order to login to the Rucio WebUI, one has to configure also another block in the `rucio.cfg` file::
 
    [webui]
    auth_type = oidc
    auth_issuer = <IdP nickname from the idpsecrets.json file>
 
+This is not obligatory section, if not filled a user will get directed to a page with login choices.
 
-At last, one should also make sure the rucio-oauth-daemon is running.
+In order to ensure the correct lifetime management of the tokens and auth sessions, one also has to run the rucio-oauth-daemon run on the server!
+
+Rucio servers may run also conveyor daemon, which is responsible for submission of the transfers created in connection with existing Rucio rule. In case both, the source and destination RSEs have attribute {'oidc_supported': True} assigned, the Rucio account which created such a rule will be used to request a JWT token for OAuth2 authentication with FTS. The issuer of user's token will be used to get a valid OIDC token with the requested audience and scope for FTS transfer. This new token will have either the same identity of the user (received after user's token exchange with IdP) or it will have the identity of the Rucio Admin IAM client (client_id will be in the 'sub' claim) (received after client credentials token flow of the admin). If in any of the two formely mentioned cases, valid token is present in Rucio DB beforehand, it will be used in the header of the transfer request to FTS and no new token demand will be made to IdP. The OIDC authentication mechanism shall be configured by the following parameters in the rucio.cfg file::
+
+  [conveyor]
+  allow_user_oidc_tokens = False
+  request_oidc_scope = 'fts:submit-transfer'
+  request_oidc_audience = 'fts'
+
+If 'allow_user_oidc_tokens' is se to True the system will attempt to exchange a valid OIDC token (if any) of the account that owns the rule/transfer for a token that has the 'request_oidc_scope' and 'request_oidc_audience'. If set to False, the system will use the IdP issuer of the account that owns the transfer, will get a Rucio admin client token with the 'request_oidc_scope' and 'request_oidc_audience' and authenticate against FTS with the Rucio admin client credentials on behalf of the user. The allowed scopes and audiences have to be again also configured correspondingly for your clients at the IdP side (usually through IdP web interface).
+
+
 
