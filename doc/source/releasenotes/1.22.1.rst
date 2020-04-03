@@ -1,0 +1,23 @@
+======
+1.22.1
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Authentication & Authorisation: Fixes for multi IdP support for OAuth2/OIDC `#3410 <https://github.com/rucio/rucio/issues/3410>`_
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- WebUI: Selection page for authentication method if not specified in the rucio.cfg file `#3383 <https://github.com/rucio/rucio/issues/3383>`_
