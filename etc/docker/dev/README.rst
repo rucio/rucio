@@ -107,7 +107,7 @@ When all the daemons ran you will be able to find the events in Kibana. If you r
     ssh -L 5601:127.0.0.1:5601 <hostname>
 
 
-Additionally, there is also a Grafana server running with one simple dashboard. You can access it at http://localhost:3000. The default credentials are "admin/admin".
+Additionally, there is also a Grafana server running with one simple dashboard. You can access it at http://localhost:3000. The default credentials are "admin/admin". Also ActiveMQ web console can be accessed at http://localhost:8161.
 
 If you would like to continously create some transfers and events there are scripts available for that. Open two different shells and in one run::
 
