@@ -19,7 +19,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2013
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -992,3 +992,13 @@ class CannotAuthorize(RucioException):
         super(CannotAuthorize, self).__init__(*args, **kwargs)
         self._message = 'Can not authorize operation.'
         self.error_code = 94
+
+
+class SubscriptionWrongParameter(RucioException):
+    """
+    RucioException
+    """
+    def __init__(self, *args, **kwargs):
+        super(SubscriptionWrongParameter, self).__init__(*args, **kwargs)
+        self._message = "Subscription wrong parameters"
+        self.error_code = 95
