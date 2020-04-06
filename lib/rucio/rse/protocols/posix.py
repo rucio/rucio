@@ -8,6 +8,7 @@
 # Authors:
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2012-2014
 # - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
+# - David Cameron, <david.cameron@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -157,6 +158,43 @@ class Default(protocol.RSEProtocol):
                     raise exception.DestinationNotAccessible(e)
             else:
                 raise exception.ServiceUnavailable(e)
+
+    def lfns2pfns(self, lfns):
+        """ Returns fully qualified PFNs for the file referred by each lfn in
+            the lfns list.
+
+            :param lfns: List of lfns. If lfn['path'] is present it is used as
+                   the path to the file, otherwise the path is constructed
+                   deterministically.
+
+            :returns: Fully qualified PFNs.
+        """
+        pfns = {}
+        prefix = self.attributes['prefix']
+
+        if not prefix.startswith('/'):
+            prefix = ''.join(['/', prefix])
+        if not prefix.endswith('/'):
+            prefix = ''.join([prefix, '/'])
+
+        lfns = [lfns] if isinstance(lfns, dict) else lfns
+        for lfn in lfns:
+            scope, name = str(lfn['scope']), lfn['name']
+            if lfn.get('path'):
+                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'],
+                                                         '://',
+                                                         self.attributes['hostname'],
+                                                         prefix,
+                                                         lfn['path'] if not lfn['path'].startswith('/') else lfn['path'][1:]
+                                                         ])
+            else:
+                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'],
+                                                         '://',
+                                                         self.attributes['hostname'],
+                                                         prefix,
+                                                         self._get_path(scope=scope, name=name)
+                                                         ])
+        return pfns
 
     def pfn2path(self, pfn):
         tmp = list(self.parse_pfns(pfn).values())[0]
