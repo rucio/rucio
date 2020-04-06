@@ -1,0 +1,31 @@
+======
+1.22.2
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Infrastructure: Cannot access ActiveMQ Web Console `#3441 <https://github.com/rucio/rucio/issues/3441>`_
+- RSE Manager: Better handling of posix replica URLs `#3395 <https://github.com/rucio/rucio/issues/3395>`_
+- Subscriptions: Possibility to have chained subscriptions `#3388 <https://github.com/rucio/rucio/issues/3388>`_
+
+****
+Bugs
+****
+
+- Core & Internals: Fix Belle2 schema for RSE and RSE attributes `#3425 <https://github.com/rucio/rucio/issues/3425>`_
+
+-----
+WebUI
+-----
+
+****
+Bugs
+****
+
+- WebUI: DID page does not show replicas in TEMPORARY_UNAVAILABLE state `#3430 <https://github.com/rucio/rucio/issues/3430>`_
