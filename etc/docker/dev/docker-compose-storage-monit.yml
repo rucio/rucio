@@ -96,6 +96,7 @@ services:
        - ACTIVEMQ_CONFIG_SCHEDULERENABLED=true
     ports:
       - "61613:61613"
+      - "8161:8161"
   elasticsearch:
     image: elasticsearch:7.4.0
     hostname: elasticsearch
