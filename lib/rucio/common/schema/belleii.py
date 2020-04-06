@@ -62,7 +62,7 @@ NAME_LENGTH = 250
 
 NAME = {"description": "Data Identifier name",
         "type": "string",
-        "pattern": r"^[\/A-Za-z0-9][A-Za-z0-9\\.\\-\\_\/]{1,%s}$" % NAME_LENGTH}
+        "pattern": r"^/[A-Za-z0-9\.\-\_\+\/]{1,%s}$" % NAME_LENGTH}
 
 R_NAME = {"description": "Data Identifier name",
           "type": "string",
@@ -93,7 +93,7 @@ RSE_ATTRIBUTE = {"description": "RSE attribute",
 
 DEFAULT_RSE_ATTRIBUTE = {"description": "Default RSE attribute",
                          "type": "string",
-                         "pattern": r'([A-Z0-9]+([_-][A-Z0-9]+)*)'}
+                         "pattern": r'([A-Za-z0-9]+([_-][A-Za-z0-9]+)*)'}
 
 REPLICA_STATE = {"description": "Replica state",
                  "type": "string",
@@ -271,7 +271,7 @@ ATTACHMENT = {"description": "Attachement",
                              "name": NAME,
                              "rse": {"description": "RSE name",
                                      "type": ["string", "null"],
-                                     "pattern": "^([A-Z0-9]+([_-][A-Z0-9]+)*)$"},
+                                     "pattern": "^([A-Z])+((([A-Za-z0-9]+))*(-)?)*$"},
                              "dids": DIDS},
               "required": ["dids"],
               "additionalProperties": False}
