@@ -18,6 +18,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -136,7 +137,7 @@ class RequestsGet(RucioController):
             dst_rses = [dst_rse]
             src_rses = [src_rse]
 
-        for result in request.list_requests(src_rses, dst_rses, states, issuer=ctx.env.get('issuer')):
+        for result in request.list_requests(src_rses, dst_rses, states, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo')):
             result = result.to_dict()
             del result['_sa_instance_state']
             yield render_json(**result) + '\n'

@@ -10,6 +10,8 @@
  - Vincent Garonne,  <vincent.garonne@cern.ch> , 2011-2017
  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
  - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+ - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+
 '''
 
 import base64
@@ -124,14 +126,14 @@ class TestAuthCoreApi(object):
 
     def test_get_auth_token_saml_success(self):
         """AUTHENTICATION (CORE): SAML NameID (correct credentials)."""
-        root = InternalAccount('root')
+        root = InternalAccount('root', **self.vo)
         try:
             add_account_identity('ddmlab', IdentityType.SAML, root, email='ph-adp-ddm-lab@cern.ch')
         except Duplicate:
             pass  # might already exist, can skip
 
         try:
-            result = get_auth_token_saml(account='root', saml_nameid='ddmlab', appid='test', ip='127.0.0.1')
+            result = get_auth_token_saml(account='root', saml_nameid='ddmlab', appid='test', ip='127.0.0.1', **self.vo)
             assert_is_not_none(result)
         except:
             # FIXME: The WebUI isn't linked to CERN SSO yet so this needs to be fixed once it is linked
@@ -141,14 +143,14 @@ class TestAuthCoreApi(object):
 
     def test_get_auth_token_saml_fail(self):
         """AUTHENTICATION (CORE): SAML NameID (wrong credentials)."""
-        root = InternalAccount('root')
+        root = InternalAccount('root', **self.vo)
         try:
             add_account_identity('ddmlab', IdentityType.SAML, root, email='ph-adp-ddm-lab@cern.ch')
         except Duplicate:
             pass  # might already exist, can skip
 
         with assert_raises(AccessDenied):
-            get_auth_token_saml(account='root', saml_nameid='not_ddmlab', appid='test', ip='127.0.0.1')
+            get_auth_token_saml(account='root', saml_nameid='not_ddmlab', appid='test', ip='127.0.0.1', **self.vo)
 
         del_account_identity('ddmlab', IdentityType.SAML, root)
 
@@ -232,6 +234,7 @@ class TestAuthRestApi(object):
         options = []
 
         headers = {'X-Rucio-Account': 'root'}
+        headers.update(self.vo_header)
         userpass = {'username': 'ddmlab', 'password': 'secret'}
 
         result = TestApp(APP.wsgifunc(*options)).get('/saml', headers=headers, expect_errors=True)
@@ -252,6 +255,7 @@ class TestAuthRestApi(object):
         options = []
 
         headers = {'X-Rucio-Account': 'root'}
+        headers.update(self.vo_header)
         userpass = {'username': 'ddmlab', 'password': 'not_secret'}
 
         result = TestApp(APP.wsgifunc(*options)).get('/saml', headers=headers, expect_errors=True)

@@ -10,6 +10,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 
 import string
 import random
@@ -80,7 +81,7 @@ class TestCoreAccountLimits():
     def test_global_account_limits(self):
         """ ACCOUNT_LIMIT (CORE): Set, get and delete global account limits """
         expression = 'MOCK'
-        resolved_rse_ids = [get_rse_id('MOCK')]
+        resolved_rse_ids = [get_rse_id('MOCK', **self.vo)]
         resolved_rses = ['MOCK']
         limit = 10
         account_limit.set_global_account_limit(self.account, expression, limit, session=self.db_session)
@@ -170,7 +171,7 @@ class TestAccountClient():
         """ ACCOUNT_LIMIT (CLIENTS): Get global account limits """
         expression = 'MOCK'
         resolved_rses = ['MOCK']
-        resolved_rse_ids = [get_rse_id('MOCK')]
+        resolved_rse_ids = [get_rse_id('MOCK', **self.vo)]
         limit = 10
         account_limit.set_global_account_limit(self.account, expression, limit)
         results = self.client.get_global_account_limits(account=self.account.external)

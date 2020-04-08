@@ -9,6 +9,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2019
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 # - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019-2020
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 #
 # TO-DO !!! Remove passing data with account and other params to the functions
 # catch these from the webpy input() storage object
@@ -133,7 +134,7 @@ def select_account_name(identitystr, identity_type):
         # try to set the default account to the user account, if not available take the first account.
         def_account = accounts[0]
         for account in accounts:
-            account_info = get_account_info(account)
+            account_info = get_account_info(account, vo=vo)
             if account_info.account_type == AccountType.USER:
                 def_account = account
                 break

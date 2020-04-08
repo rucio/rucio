@@ -12,6 +12,7 @@
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -120,7 +121,7 @@ def exist_identity_account(identity, type, account, session=None):
 
     :param identity: The user identity as string.
     :param type: The type of identity as a string, e.g. userpass, x509, gss, saml, oidc ...
-    :param account: The account identifier as a string.
+    :param account: The account as an InternalAccount.
     :param session: The database session in use.
 
     :returns: True if identity is mapped to account, otherwise False

@@ -24,6 +24,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -1018,7 +1019,7 @@ class Follow(RucioController):
         header('Content-Type', 'application/json')
         try:
             # Get the users following a did and render it as json.
-            for user in get_users_following_did(scope=scope, name=name):
+            for user in get_users_following_did(scope=scope, name=name, vo=ctx.env.get('vo')):
                 yield render_json(**user) + '\n'
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
@@ -1049,7 +1050,7 @@ class Follow(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            add_did_to_followed(scope=scope, name=name, account=json_data['account'])
+            add_did_to_followed(scope=scope, name=name, account=json_data['account'], vo=ctx.env.get('vo'))
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except AccessDenied as error:
@@ -1082,7 +1083,7 @@ class Follow(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            remove_did_from_followed(scope=scope, name=name, account=json_data['account'], issuer=ctx.env.get('issuer'))
+            remove_did_from_followed(scope=scope, name=name, account=json_data['account'], issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException as error:

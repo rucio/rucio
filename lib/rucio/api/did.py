@@ -15,6 +15,7 @@
   - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
   - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
   - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+  - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 
   PY3K COMPATIBLE
 '''
@@ -566,7 +567,7 @@ def list_archive_content(scope, name, vo='def'):
         yield api_update_return_dict(d)
 
 
-def add_did_to_followed(scope, name, account, session=None):
+def add_did_to_followed(scope, name, account, session=None, vo='def'):
     """
     Mark a did as followed by the given account
 
@@ -575,12 +576,12 @@ def add_did_to_followed(scope, name, account, session=None):
     :param account: The account owner.
     :param session: The database session in use.
     """
-    scope = InternalScope(scope)
-    account = InternalAccount(account)
+    scope = InternalScope(scope, vo=vo)
+    account = InternalAccount(account, vo=vo)
     return did.add_did_to_followed(scope=scope, name=name, account=account, session=session)
 
 
-def add_dids_to_followed(dids, account, session=None):
+def add_dids_to_followed(dids, account, session=None, vo='def'):
     """
     Bulk mark datasets as followed
 
@@ -588,11 +589,11 @@ def add_dids_to_followed(dids, account, session=None):
     :param account: The account owner.
     :param session: The database session in use.
     """
-    account = InternalAccount(account)
+    account = InternalAccount(account, vo=vo)
     return did.add_dids_to_followed(dids=dids, account=account, session=session)
 
 
-def get_users_following_did(name, scope, session=None):
+def get_users_following_did(name, scope, session=None, vo='def'):
     """
     Return list of users following a did
 
@@ -600,11 +601,11 @@ def get_users_following_did(name, scope, session=None):
     :param name: The data identifier name.
     :param session: The database session in use.
     """
-    scope = InternalScope(scope)
+    scope = InternalScope(scope, vo=vo)
     return did.get_users_following_did(name=name, scope=scope, session=session)
 
 
-def remove_did_from_followed(scope, name, account, issuer, session=None):
+def remove_did_from_followed(scope, name, account, issuer, session=None, vo='def'):
     """
     Mark a did as not followed
 
@@ -615,15 +616,15 @@ def remove_did_from_followed(scope, name, account, issuer, session=None):
     :param issuer: The issuer account
     """
     kwargs = {'scope': scope, 'issuer': issuer}
-    if not rucio.api.permission.has_permission(issuer=issuer, action='remove_did_from_followed', kwargs=kwargs):
+    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='remove_did_from_followed', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not remove data identifiers from followed table' % (issuer))
 
-    scope = InternalScope(scope)
-    account = InternalAccount(account)
+    scope = InternalScope(scope, vo=vo)
+    account = InternalAccount(account, vo=vo)
     return did.remove_did_from_followed(scope=scope, name=name, account=account, session=session)
 
 
-def remove_dids_from_followed(dids, account, issuer, session=None):
+def remove_dids_from_followed(dids, account, issuer, session=None, vo='def'):
     """
     Bulk mark datasets as not followed
 
@@ -632,8 +633,8 @@ def remove_dids_from_followed(dids, account, issuer, session=None):
     :param session: The database session in use.
     """
     kwargs = {'dids': dids, 'issuer': issuer}
-    if not rucio.api.permission.has_permission(issuer=issuer, action='remove_dids_from_followed', kwargs=kwargs):
+    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='remove_dids_from_followed', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not bulk remove data identifiers from followed table' % (issuer))
 
-    account = InternalAccount(account)
+    account = InternalAccount(account, vo=vo)
     return did.remove_dids_from_followed(dids=dids, account=account, session=session)

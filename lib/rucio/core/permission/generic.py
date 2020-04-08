@@ -20,6 +20,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -371,7 +372,7 @@ def perm_add_did(issuer, kwargs):
     return _is_root(issuer)\
         or has_account_attribute(account=issuer, key='admin')\
         or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)\
-        or kwargs['scope'] == u'mock'
+        or kwargs['scope'].external == u'mock'
 
 
 def perm_add_dids(issuer, kwargs):
@@ -403,7 +404,7 @@ def perm_attach_dids(issuer, kwargs):
     return _is_root(issuer)\
         or has_account_attribute(account=issuer, key='admin')\
         or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)\
-        or kwargs['scope'] == 'mock'
+        or kwargs['scope'].external == 'mock'
 
 
 def perm_attach_dids_to_dids(issuer, kwargs):
@@ -437,7 +438,7 @@ def perm_create_did_sample(issuer, kwargs):
     return _is_root(issuer)\
         or has_account_attribute(account=issuer, key='admin')\
         or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)\
-        or kwargs['scope'] == 'mock'
+        or kwargs['scope'].external == 'mock'
 
 
 def perm_del_rule(issuer, kwargs):
@@ -948,7 +949,7 @@ def perm_remove_did_from_followed(issuer, kwargs):
     return _is_root(issuer)\
         or has_account_attribute(account=issuer, key='admin')\
         or kwargs['account'] == issuer\
-        or kwargs['scope'] == 'mock'
+        or kwargs['scope'].external == 'mock'
 
 
 def perm_remove_dids_from_followed(issuer, kwargs):

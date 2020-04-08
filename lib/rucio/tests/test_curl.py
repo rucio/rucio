@@ -19,6 +19,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2017
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 
 from __future__ import print_function
 
@@ -71,7 +72,7 @@ class TestCurlRucio(object):
 
     def test_get_auth_x509(self):
         """AUTH (CURL): Test auth token retrieval with via x509"""
-        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" %s -cert %s --key %s -X GET %s/auth/x509' % (self.cacert, self.vo_header, self.vo_header, self.usercert, self.userkey, self.auth_host)
+        cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" %s -cert %s --key %s -X GET %s/auth/x509' % (self.cacert, self.vo_header, self.usercert, self.userkey, self.auth_host)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, )

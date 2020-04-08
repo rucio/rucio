@@ -13,6 +13,7 @@
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 # - Robert Illingworth, <illingwo@fnal.gov>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -604,7 +605,7 @@ class TestReplicationRuleCore():
 
     def test_rule_add_fails_account_global_limit(self):
         """ REPLICATION RULE (CORE): Test if a rule fails correctly when global account limit conflict"""
-        scope = InternalScope('mock')
+        scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse3_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
@@ -1205,7 +1206,7 @@ class TestReplicationRuleClient():
 
     def test_approve_rule(self):
         """ REPLICATION RULE (CLIENT): Approve rule"""
-        scope = InternalScope('mock')
+        scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)

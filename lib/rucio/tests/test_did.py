@@ -24,6 +24,7 @@
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 
 from __future__ import print_function
 
@@ -183,9 +184,9 @@ class TestDIDCore:
 
     def test_add_did_to_followed(self):
         """ DATA IDENTIFIERS (CORE): Mark a did as followed """
-        tmp_scope = InternalScope('mock')
+        tmp_scope = InternalScope('mock', **self.vo)
         dsn = 'dsn_%s' % generate_uuid()
-        root = InternalAccount('root')
+        root = InternalAccount('root', **self.vo)
 
         add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
         add_did_to_followed(scope=tmp_scope, name=dsn, account=root)
@@ -198,9 +199,9 @@ class TestDIDCore:
 
     def test_get_users_following_did(self):
         """ DATA IDENTIFIERS (CORE): Get the list of users following a did """
-        tmp_scope = InternalScope('mock')
+        tmp_scope = InternalScope('mock', **self.vo)
         dsn = 'dsn_%s' % generate_uuid()
-        root = InternalAccount('root')
+        root = InternalAccount('root', **self.vo)
 
         add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
         add_did_to_followed(scope=tmp_scope, name=dsn, account=root)
