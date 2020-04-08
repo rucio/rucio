@@ -25,6 +25,7 @@
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -43,7 +44,6 @@ from rucio.client.ruleclient import RuleClient
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalScope, InternalAccount
 from rucio.common.utils import generate_uuid, md5, render_json
-from rucio.core.rse import add_rse_attribute, get_rse_id
 from rucio.daemons.abacus import account as abacus_account
 from rucio.tests.common import execute, account_name_generator, rse_name_generator, file_generator, scope_name_generator
 from rucio.rse import rsemanager as rsemgr
@@ -1274,7 +1274,7 @@ class TestBinRucio():
             global_left = global_limit - usage
             self.account_client.set_local_account_limit(account, rse, local_limit)
             self.account_client.set_global_account_limit(account, rse_exp, global_limit)
-            increase(rse_id, InternalAccount(account), 1, usage)
+            increase(rse_id, InternalAccount(account, **self.vo), 1, usage)
             abacus_account.run(once=True)
             cmd = 'rucio list-account-usage {0}'.format(account)
             exitcode, out, err = execute(cmd)

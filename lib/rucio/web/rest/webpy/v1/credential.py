@@ -17,6 +17,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -78,7 +79,7 @@ class SignURL(RucioController):
         :returns: Signed URL.
         """
 
-        vo = ctx.env.get('HTTP_X_RUCIO_VO')
+        vo = ctx.env.get('HTTP_X_RUCIO_VO', 'def')
         account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
         appid = ctx.env.get('HTTP_X_RUCIO_APPID')
         if appid is None:

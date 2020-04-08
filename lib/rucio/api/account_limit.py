@@ -9,6 +9,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -108,7 +109,7 @@ def get_global_account_limit(account, rse_expression, vo='def'):
     return {rse_expression: account_limit_core.get_global_account_limit(account=account, rse_expression=rse_expression)}
 
 
-def set_local_account_limit(account, rse, bytes, issuer, vo=vo):
+def set_local_account_limit(account, rse, bytes, issuer, vo='def'):
     """
     Set an account limit..
 

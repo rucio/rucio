@@ -19,6 +19,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -66,7 +67,7 @@ class RequestGet(MethodView):
                                                         name=name,
                                                         rse=rse,
                                                         issuer=f_request.environ.get('issuer'),
-                                                        vo=request.environ.get('vo')),
+                                                        vo=f_request.environ.get('vo')),
                              cls=APIEncoder)
             return Response(res, content_type="application/json")
         except Exception:
@@ -129,7 +130,7 @@ class RequestsGet(MethodView):
             src_rses = [src_rse]
 
         results = []
-        for result in request.list_requests(src_rses, dst_rses, states, issuer=f_request.environ.get('issuer')):
+        for result in request.list_requests(src_rses, dst_rses, states, issuer=f_request.environ.get('issuer'), vo=f_request.environ.get('vo')):
             result = result.to_dict()
             del result['_sa_instance_state']
             results.append(result)

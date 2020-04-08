@@ -23,6 +23,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 
 from __future__ import print_function
 from datetime import datetime, timedelta
@@ -449,7 +450,7 @@ class TestReplicaCore:
         """ REPLICA (CORE): Test adding replicas with mixed protocol """
 
         rse = 'APERTURE_%s' % rse_name_generator()
-        rse_id = add_rse(rse)
+        rse_id = add_rse(rse, **self.vo)
 
         add_protocol(rse_id, {'scheme': 'root',
                               'hostname': 'root.aperture.com',
@@ -468,8 +469,8 @@ class TestReplicaCore:
                                   'lan': {'read': 1, 'write': 1, 'delete': 1},
                                   'wan': {'read': 1, 'write': 1, 'delete': 1}}})
 
-        tmp_scope = InternalScope('mock')
-        root = InternalAccount('root')
+        tmp_scope = InternalScope('mock', **self.vo)
+        root = InternalAccount('root', **self.vo)
 
         files = []
 

@@ -20,6 +20,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -251,6 +252,8 @@ def list_rebalance_rule_candidates(rse_id, mode=None, session=None):
     :param session:      DB Session.
     """
 
+    vo = get_rse_vo(rse_id=rse_id)
+
     # dumps can be applied only for decommission since the dumps doesn't contain info from dids
     if mode == 'decommission':
         return _list_rebalance_rule_candidates_dump(rse_id, mode)
@@ -258,7 +261,7 @@ def list_rebalance_rule_candidates(rse_id, mode=None, session=None):
     # the rest is done with sql query
     from_date = datetime.utcnow() + timedelta(days=60)
     to_date = datetime.now() - timedelta(days=60)
-    allowed_accounts = [InternalAccount(a) for a in ('panda', 'root', 'ddmadmin')]
+    allowed_accounts = [InternalAccount(a, vo=vo) for a in ('panda', 'root', 'ddmadmin')]
     allowed_grouping = [RuleGrouping.DATASET, RuleGrouping.ALL]
     external_dsl = aliased(models.DatasetLock)
     count_locks = select([func.count()]).where(and_(external_dsl.scope == models.DatasetLock.scope,

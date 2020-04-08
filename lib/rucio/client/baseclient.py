@@ -26,6 +26,7 @@
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -692,7 +693,7 @@ class BaseClient(object):
         :returns: True if the token was successfully received. False otherwise.
         """
 
-        headers = {'X-Rucio-Account': self.account}
+        headers = {'X-Rucio-Account': self.account, 'X-Rucio-VO': self.vo}
         userpass = {'username': self.creds['username'], 'password': self.creds['password']}
         url = build_url(self.auth_host, path='auth/saml')
 

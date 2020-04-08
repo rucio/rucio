@@ -25,6 +25,7 @@
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -838,6 +839,7 @@ class SAML(RucioController):
         HTTP Error:
             401 Unauthorized
 
+        :param Rucio-VO: VO name as a string (Multi-VO only)
         :param Rucio-Account: Account identifier as a string.
         :param Rucio-Username: Username as a string.
         :param Rucio-Password: Password as a string.
@@ -857,6 +859,7 @@ class SAML(RucioController):
         header('Pragma', 'no-cache')
 
         saml_nameid = cookies().get('saml-nameid')
+        vo = ctx.env.get('HTTP_X_RUCIO_VO', 'def')
         account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
         appid = ctx.env.get('HTTP_X_RUCIO_APPID')
         if appid is None:
@@ -867,7 +870,7 @@ class SAML(RucioController):
 
         if saml_nameid:
             try:
-                result = get_auth_token_saml(account, saml_nameid, appid, ip)
+                result = get_auth_token_saml(account, saml_nameid, appid, ip, vo=vo)
             except AccessDenied:
                 raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
             except RucioException as error:

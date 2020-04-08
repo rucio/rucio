@@ -22,6 +22,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -50,7 +51,6 @@ from dogpile.cache.api import NO_VALUE
 from prometheus_client import Counter
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
-from rucio.db.sqla.constants import ReplicaState
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (DatabaseException, RSENotFound, ConfigNotFound, ReplicaUnAvailable, ReplicaNotFound, ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable, SourceNotFound)
 from rucio.common.utils import chunks
@@ -103,7 +103,7 @@ def get_rses_to_process(rses, include_rses, exclude_rses):
 
     if rses:
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            logging.warning('Ignoring argument rses, this is only available in a single-vo setup. Please try an RSE Expression with include_rses if it is required.')
+            logging.warning('Ignoring argument rses, this is only available in a single-VO setup. Please try an RSE Expression with include_rses if it is required.')
             rses = all_rses
         else:
             invalid = set(rses) - set([rse['rse'] for rse in all_rses])

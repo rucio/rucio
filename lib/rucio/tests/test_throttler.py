@@ -15,6 +15,7 @@
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -614,18 +615,23 @@ class TestThrottlerFIFO(object):
 class TestThrottlerFIFOSRCACT(object):
     @classmethod
     def setUpClass(cls):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            cls.vo = {'vo': 'tst'}
+        else:
+            cls.vo = {}
+
         cls.db_session = session.get_session()
         cls.dialect = cls.db_session.bind.dialect.name
         cls.dest_rse = 'MOCK'
         cls.dest_rse2 = 'MOCK5'
         cls.dest_rse3 = 'MOCK3'
         cls.source_rse = 'MOCK4'
-        cls.dest_rse_id = get_rse_id(cls.dest_rse)
-        cls.dest_rse_id2 = get_rse_id(cls.dest_rse2)
-        cls.dest_rse_id3 = get_rse_id(cls.dest_rse3)
-        cls.source_rse_id = get_rse_id(cls.source_rse)
-        cls.scope = InternalScope('mock')
-        cls.account = InternalAccount('root')
+        cls.dest_rse_id = get_rse_id(cls.dest_rse, **cls.vo)
+        cls.dest_rse_id2 = get_rse_id(cls.dest_rse2, **cls.vo)
+        cls.dest_rse_id3 = get_rse_id(cls.dest_rse3, **cls.vo)
+        cls.source_rse_id = get_rse_id(cls.source_rse, **cls.vo)
+        cls.scope = InternalScope('mock', **cls.vo)
+        cls.account = InternalAccount('root', **cls.vo)
         cls.user_activity = 'User Subscription'
         cls.user_activity2 = 'User Subscription2'
         cls.all_activities = 'all_activities'
@@ -724,14 +730,19 @@ class TestThrottlerFIFOSRCACT(object):
 class TestThrottlerFIFOSRCALLACT(object):
     @classmethod
     def setUpClass(cls):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            cls.vo = {'vo': 'tst'}
+        else:
+            cls.vo = {}
+
         cls.db_session = session.get_session()
         cls.dialect = cls.db_session.bind.dialect.name
         cls.dest_rse = 'MOCK'
         cls.source_rse = 'MOCK4'
-        cls.dest_rse_id = get_rse_id(cls.dest_rse)
-        cls.source_rse_id = get_rse_id(cls.source_rse)
-        cls.scope = InternalScope('mock')
-        cls.account = InternalAccount('root')
+        cls.dest_rse_id = get_rse_id(cls.dest_rse, **cls.vo)
+        cls.source_rse_id = get_rse_id(cls.source_rse, **cls.vo)
+        cls.scope = InternalScope('mock', **cls.vo)
+        cls.account = InternalAccount('root', **cls.vo)
         cls.user_activity = 'User Subscription'
         cls.all_activities = 'all_activities'
 
@@ -806,18 +817,23 @@ class TestThrottlerFIFOSRCALLACT(object):
 class TestThrottlerFIFODESTALLACT(object):
     @classmethod
     def setUpClass(cls):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            cls.vo = {'vo': 'tst'}
+        else:
+            cls.vo = {}
+
         cls.db_session = session.get_session()
         cls.dialect = cls.db_session.bind.dialect.name
         cls.dest_rse = 'MOCK'
         cls.dest_rse2 = 'MOCK5'
         cls.source_rse = 'MOCK4'
         cls.source_rse2 = 'MOCK3'
-        cls.dest_rse_id = get_rse_id(cls.dest_rse)
-        cls.dest_rse_id2 = get_rse_id(cls.dest_rse2)
-        cls.source_rse_id = get_rse_id(cls.source_rse)
-        cls.source_rse_id2 = get_rse_id(cls.source_rse2)
-        cls.scope = InternalScope('mock')
-        cls.account = InternalScope('root')
+        cls.dest_rse_id = get_rse_id(cls.dest_rse, **cls.vo)
+        cls.dest_rse_id2 = get_rse_id(cls.dest_rse2, **cls.vo)
+        cls.source_rse_id = get_rse_id(cls.source_rse, **cls.vo)
+        cls.source_rse_id2 = get_rse_id(cls.source_rse2, **cls.vo)
+        cls.scope = InternalScope('mock', **cls.vo)
+        cls.account = InternalScope('root', **cls.vo)
         cls.user_activity = 'User Subscription'
         cls.user_activity2 = 'User Subscription2'
         cls.all_activities = 'all_activities'
@@ -918,16 +934,21 @@ class TestThrottlerFIFODESTALLACT(object):
 class TestThrottlerGroupedFIFOSRCALLACT(object):
     @classmethod
     def setUpClass(cls):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            cls.vo = {'vo': 'tst'}
+        else:
+            cls.vo = {}
+
         cls.db_session = session.get_session()
         cls.dialect = cls.db_session.bind.dialect.name
         cls.dest_rse = 'MOCK'
         cls.source_rse = 'MOCK4'
         cls.dest_rse_2 = 'MOCK3'
-        cls.dest_rse_id = get_rse_id(cls.dest_rse)
-        cls.source_rse_id = get_rse_id(cls.source_rse)
-        cls.dest_rse_id_2 = get_rse_id(cls.dest_rse_2)
-        cls.scope = InternalScope('mock')
-        cls.account = InternalAccount('root')
+        cls.dest_rse_id = get_rse_id(cls.dest_rse, **cls.vo)
+        cls.source_rse_id = get_rse_id(cls.source_rse, **cls.vo)
+        cls.dest_rse_id_2 = get_rse_id(cls.dest_rse_2, **cls.vo)
+        cls.scope = InternalScope('mock', **cls.vo)
+        cls.account = InternalAccount('root', **cls.vo)
         cls.user_activity = 'User Subscription'
         cls.all_activities = 'all_activities'
 

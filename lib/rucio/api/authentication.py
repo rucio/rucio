@@ -19,6 +19,7 @@
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -223,7 +224,7 @@ def get_ssh_challenge_token(account, appid, ip=None, vo='def'):
     return authentication.get_ssh_challenge_token(account, appid, ip)
 
 
-def get_auth_token_saml(account, saml_nameid, appid, ip=None):
+def get_auth_token_saml(account, saml_nameid, appid, ip=None, vo='def'):
     """
     Authenticate a Rucio account temporarily via SSO.
 
@@ -237,10 +238,10 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None):
     """
 
     kwargs = {'account': account, 'saml_nameid': saml_nameid}
-    if not permission.has_permission(issuer=account, action='get_auth_token_saml', kwargs=kwargs):
+    if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_saml', kwargs=kwargs):
         raise exception.AccessDenied('User with identity %s can not log to account %s' % (saml_nameid, account))
 
-    account = InternalAccount(account)
+    account = InternalAccount(account, vo=vo)
 
     return authentication.get_auth_token_saml(account, saml_nameid, appid, ip)
 

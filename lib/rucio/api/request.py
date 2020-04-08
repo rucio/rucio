@@ -8,6 +8,7 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -143,7 +144,7 @@ def get_request_by_did(scope, name, rse, issuer, vo='def'):
     return api_update_return_dict(req)
 
 
-def list_requests(src_rses, dst_rses, states, issuer):
+def list_requests(src_rses, dst_rses, states, issuer, vo='def'):
     """
     List all requests in a specific state from a source RSE to a destination RSE.
 
@@ -152,11 +153,11 @@ def list_requests(src_rses, dst_rses, states, issuer):
     :param states: list of request states.
     :param issuer: Issuing account as a string.
     """
-    src_rse_ids = [get_rse_id(rse=rse) for rse in src_rses]
-    dst_rse_ids = [get_rse_id(rse=rse) for rse in dst_rses]
+    src_rse_ids = [get_rse_id(rse=rse, vo=vo) for rse in src_rses]
+    dst_rse_ids = [get_rse_id(rse=rse, vo=vo) for rse in dst_rses]
 
     kwargs = {'src_rse_id': src_rse_ids, 'dst_rse_id': dst_rse_ids, 'issuer': issuer}
-    if not permission.has_permission(issuer=issuer, action='list_requests', kwargs=kwargs):
+    if not permission.has_permission(issuer=issuer, vo=vo, action='list_requests', kwargs=kwargs):
         raise exception.AccessDenied('%(issuer)s cannot list requests from RSE %(src_rse)s to RSE %(dst_rse)s' % locals())
 
     for req in request.list_requests(src_rse_ids, dst_rse_ids, states):

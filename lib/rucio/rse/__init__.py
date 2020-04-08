@@ -19,6 +19,7 @@
 # - James Perry, <j.perry@epcc.ed.ac.uk>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White, <bjwhite@fnal.gov>, 2019
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -48,22 +49,22 @@ def get_rse_client(rse, vo='def', **kwarg):
     return client.get_rse(rse)
 
 
-def get_signed_url_client(rse, service, op, url):
+def get_signed_url_client(rse, service, op, url, vo='def'):
     '''
     get_signed_url_client
     '''
     from rucio.client.credentialclient import CredentialClient
-    return CredentialClient().get_signed_url(rse, service, op, url)
+    return CredentialClient(vo=vo).get_signed_url(rse, service, op, url)
 
 
-def get_signed_url_server(rse, service, op, url):
+def get_signed_url_server(rse, service, op, url, vo='def'):
     '''
     get_signed_url_server
     '''
     from rucio.core.rse import get_rse_id
     from rucio.core.credential import get_signed_url
 
-    rse_id = get_rse_id(rse=rse)
+    rse_id = get_rse_id(rse=rse, vo=vo)
     return get_signed_url(rse_id, service, op, url)
 
 

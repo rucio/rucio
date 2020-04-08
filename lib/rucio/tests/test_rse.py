@@ -24,6 +24,7 @@
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -192,23 +193,23 @@ class TestRSECoreApi(object):
         """ RSE (CORE): Test restore of RSE """
         # Restore deleted RSE
         rse_name = rse_name_generator()
-        rse_id = add_rse(rse_name)
+        rse_id = add_rse(rse_name, **self.vo)
         db_session = session.get_session()
         db_session.commit()
 
         del_rse(rse_id)
         db_session.commit()
         # Verify RSE was deleted
-        assert_equal(rse_exists(rse=rse_id), False)
+        assert_equal(rse_exists(rse=rse_name, **self.vo), False)
 
         restore_rse(rse_id=rse_id)
         db_session.commit()
         # Verify RSE was restored
-        assert rse_exists(rse=rse_name)
+        assert rse_exists(rse=rse_name, **self.vo)
 
         # Restoration of not deleted RSE:
         rse_name = rse_name_generator()
-        rse_id = add_rse(rse_name)
+        rse_id = add_rse(rse_name, **self.vo)
         with assert_raises(RSENotFound):
             restore_rse(rse_id=rse_id)
 

@@ -28,6 +28,7 @@
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White, <bjwhite@fnal.gov>, 2019
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -2392,7 +2393,7 @@ def list_dataset_replicas_vp(scope, name, deep=False, session=None):
         # and can be accessed from WAN
         accessible_replica_exists = False
         for reply in list_dataset_replicas(scope=scope, name=name, deep=deep, session=session):
-            rse_info = rsemgr.get_rse_info(rse=reply['rse'], session=session)
+            rse_info = rsemgr.get_rse_info(rse=reply['rse'], vo=scope.vo, session=session)
             if rse_info['rse_type'] == 'TAPE':
                 continue
             for prot in rse_info['protocols']:

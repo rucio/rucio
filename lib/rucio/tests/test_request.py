@@ -15,6 +15,7 @@
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -259,16 +260,21 @@ class TestRequestCoreRelease(object):
 
     @classmethod
     def setUpClass(cls):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            cls.vo = {'vo': 'tst'}
+        else:
+            cls.vo = {}
+
         cls.db_session = session.get_session()
         cls.dialect = cls.db_session.bind.dialect.name
         cls.dest_rse = 'MOCK'
         cls.source_rse = 'MOCK4'
         cls.source_rse2 = 'MOCK5'
-        cls.dest_rse_id = get_rse_id(cls.dest_rse)
-        cls.source_rse_id = get_rse_id(cls.source_rse)
-        cls.source_rse_id2 = get_rse_id(cls.source_rse2)
-        cls.scope = InternalScope('mock')
-        cls.account = InternalAccount('root')
+        cls.dest_rse_id = get_rse_id(cls.dest_rse, **cls.vo)
+        cls.source_rse_id = get_rse_id(cls.source_rse, **cls.vo)
+        cls.source_rse_id2 = get_rse_id(cls.source_rse2, **cls.vo)
+        cls.scope = InternalScope('mock', **cls.vo)
+        cls.account = InternalAccount('root', **cls.vo)
         cls.user_activity = 'User Subscription'
         cls.all_activities = 'all_activities'
 
@@ -1228,15 +1234,20 @@ class TestRequestCoreList(object):
 
     @classmethod
     def setUpClass(cls):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            cls.vo = {'vo': 'tst'}
+        else:
+            cls.vo = {}
+
         cls.db_session = session.get_session()
         cls.dest_rse = 'MOCK'
         cls.dest_rse2 = 'MOCK2'
         cls.source_rse = 'MOCK4'
         cls.source_rse2 = 'MOCK5'
-        cls.dest_rse_id = get_rse_id(cls.dest_rse)
-        cls.dest_rse_id2 = get_rse_id(cls.dest_rse2)
-        cls.source_rse_id = get_rse_id(cls.source_rse)
-        cls.source_rse_id2 = get_rse_id(cls.source_rse2)
+        cls.dest_rse_id = get_rse_id(cls.dest_rse, **cls.vo)
+        cls.dest_rse_id2 = get_rse_id(cls.dest_rse2, **cls.vo)
+        cls.source_rse_id = get_rse_id(cls.source_rse, **cls.vo)
+        cls.source_rse_id2 = get_rse_id(cls.source_rse2, **cls.vo)
 
     def setUp(self):
         self.db_session.query(models.Source).delete()
@@ -1271,20 +1282,25 @@ class TestRequestREST():
 
     @classmethod
     def setUpClass(cls):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            cls.vo = {'vo': 'tst'}
+        else:
+            cls.vo = {}
+
         cls.mw = []
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
         r1 = TestApp(auth_app.wsgifunc(*cls.mw)).get('/userpass', headers=headers1, expect_errors=True)
         cls.token = str(r1.header('X-Rucio-Auth-Token'))
         cls.source_rse = 'MOCK'
-        cls.source_rse_id = get_rse_id(cls.source_rse)
+        cls.source_rse_id = get_rse_id(cls.source_rse, **cls.vo)
         cls.source_rse2 = 'MOCK2'
-        cls.source_rse_id2 = get_rse_id(cls.source_rse2)
+        cls.source_rse_id2 = get_rse_id(cls.source_rse2, **cls.vo)
         cls.source_rse3 = 'MOCK5'
-        cls.source_rse_id3 = get_rse_id(cls.source_rse3)
+        cls.source_rse_id3 = get_rse_id(cls.source_rse3, **cls.vo)
         cls.dest_rse = 'MOCK3'
-        cls.dest_rse_id = get_rse_id(cls.dest_rse)
+        cls.dest_rse_id = get_rse_id(cls.dest_rse, **cls.vo)
         cls.dest_rse2 = 'MOCK4'
-        cls.dest_rse_id2 = get_rse_id(cls.dest_rse2)
+        cls.dest_rse_id2 = get_rse_id(cls.dest_rse2, **cls.vo)
         cls.db_session = session.get_session()
         cls.source_site = 'SITE1'
         cls.source_site2 = 'SITE2'
