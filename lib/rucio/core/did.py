@@ -25,8 +25,9 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Tobias Wegner <twegner@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
-# - Brandon White, <bjwhite@fnal.gov>, 2019
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
+# - Goossens Luc <luc.goossens@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -1142,6 +1143,9 @@ def get_did(scope, name, dynamic=False, session=None):
         else:
             if dynamic:
                 bytes, length, events = __resolve_bytes_length_events_did(scope=scope, name=name, session=session)
+                # replace None value for bytes with zero
+                if bytes is None:
+                    bytes = 0
             else:
                 bytes, length = result.bytes, result.length
             return {'scope': result.scope, 'name': result.name, 'type': result.did_type,
