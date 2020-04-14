@@ -19,6 +19,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch> 2018
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -96,7 +97,7 @@ class LifetimeException(MethodView):
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            exception_id = add_exception(dids=dids, account=request.environ.get('issuer'), , vo=request.environ.get('vo'),
+            exception_id = add_exception(dids=dids, account=request.environ.get('issuer'), vo=request.environ.get('vo'),
                                          pattern=pattern, comments=comments, expires_at=expires_at)
         except InvalidObject as error:
             return generate_http_error_flask(400, 'InvalidObject', error.args[0])

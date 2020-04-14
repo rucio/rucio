@@ -20,7 +20,6 @@
 
 from rucio.api import permission
 from rucio.common import exception
-from rucio.common.types import InternalAccount
 from rucio.core import credential
 from rucio.core.rse import get_rse_id
 
