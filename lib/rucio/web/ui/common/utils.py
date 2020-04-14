@@ -134,7 +134,7 @@ def select_account_name(identitystr, identity_type):
         # try to set the default account to the user account, if not available take the first account.
         def_account = accounts[0]
         for account in accounts:
-            account_info = get_account_info(account, vo=vo)
+            account_info = get_account_info(account)
             if account_info.account_type == AccountType.USER:
                 def_account = account
                 break

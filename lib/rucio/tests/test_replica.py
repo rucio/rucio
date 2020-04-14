@@ -513,9 +513,9 @@ class TestReplicaCore:
 
     def test_list_replicas_with_updated_after(self):
         """ REPLICA (CORE): Add and list file replicas with updated_after filter """
-        scope = InternalScope('mock')
-        root = InternalAccount('root')
-        mock = get_rse_id(rse='MOCK')
+        scope = InternalScope('mock', **self.vo)
+        root = InternalAccount('root', **self.vo)
+        mock = get_rse_id(rse='MOCK', **self.vo)
         dsn = 'ds_ua_test_%s' % generate_uuid()
         add_did(scope=scope, name=dsn, type='DATASET', account=root)
         #

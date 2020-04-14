@@ -18,11 +18,9 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
-
-import nose.tools
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 
 from rucio.common.config import config_get_bool
-from rucio.common.utils import execute, generate_uuid
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core import rse as rse_core
@@ -37,10 +35,8 @@ def test_reaper():
 
     if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
         vo = {'vo': 'tst'}
-        rse_expr = 'vo=tst&{}'.format(rse)
     else:
         vo = {}
-        rse_expr = rse
 
     nb_files = 30
     file_size = 2147483648  # 2G

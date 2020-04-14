@@ -1284,11 +1284,14 @@ class TestRequestREST():
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             cls.vo = {'vo': 'tst'}
+            cls.vo_header = {'X-Rucio-VO': 'tst'}
         else:
             cls.vo = {}
+            cls.vo_header = {}
 
         cls.mw = []
         headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(cls.vo_header)
         r1 = TestApp(auth_app.wsgifunc(*cls.mw)).get('/userpass', headers=headers1, expect_errors=True)
         cls.token = str(r1.header('X-Rucio-Auth-Token'))
         cls.source_rse = 'MOCK'
@@ -1319,6 +1322,7 @@ class TestRequestREST():
 
     def check_correct_api(self, params, expected_requests):
         headers = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(self.token)}
+        headers.update(self.vo_header)
         r = TestApp(request_app.wsgifunc(*self.mw)).get('/list', params=params, headers=headers, expect_errors=True)
         assert_equal(r.status, 200)
         requests = set()
@@ -1329,6 +1333,7 @@ class TestRequestREST():
 
     def check_error_api(self, params, exception_class, exception_message, code):
         headers = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(self.token)}
+        headers.update(self.vo_header)
         r = TestApp(request_app.wsgifunc(*self.mw)).get('/list', params=params, headers=headers, expect_errors=True)
         body = parse_response(r.body.decode())
         assert_equal(r.status, code)
