@@ -42,6 +42,7 @@ Individual contributors to the source code
 - Ruturaj Gujar <ruturaj.gujar23@gmail.com> 2019
 - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
+- Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 Organisations employing contributors
 ------------------------------------
