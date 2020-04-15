@@ -1961,6 +1961,7 @@ def get_source_replicas(scope, name, source_rses=None, session=None):
 
 @transactional_session
 def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_rses=None,
+                                           total_threads=None, thread_id=None,
                                            session=None):
     """
     Get file replicas for all files of a dataset.
@@ -1969,6 +1970,8 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
     :param name:           The name of the dataset.
     :param nowait:         Nowait parameter for the FOR UPDATE statement
     :param restrict_rses:  Possible RSE_ids to filter on.
+    :param total_threads:  Total threads
+    :param thread_id:      This thread
     :param session:        The db session in use.
     :returns:              (files in dataset, replicas in dataset)
     """
@@ -1985,6 +1988,10 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                       'oracle').\
             filter(models.DataIdentifierAssociation.scope == scope,
                    models.DataIdentifierAssociation.name == name)
+
+        if total_threads and total_threads > 1:
+            content_query = filter_thread_work(session=session, query=content_query, total_threads=total_threads,
+                                               thread_id=thread_id, hash_variable='child_name')
 
         for child_scope, child_name, bytes, md5, adler32 in content_query.yield_per(1000):
             files[(child_scope, child_name)] = {'scope': child_scope,
@@ -2072,6 +2079,10 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                                    .filter(models.DataIdentifierAssociation.scope == scope,
                                            models.DataIdentifierAssociation.name == name)
 
+    if total_threads and total_threads > 1:
+        query = filter_thread_work(session=session, query=query, total_threads=total_threads,
+                                   thread_id=thread_id, hash_variable='child_name')
+
     query = query.with_for_update(nowait=nowait, of=models.RSEFileAssociation.lock_cnt)
 
     for child_scope, child_name, bytes, md5, adler32, replica in query.yield_per(1000):
@@ -2094,13 +2105,17 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
 
 
 @transactional_session
-def get_source_replicas_for_dataset(scope, name, source_rses=None, session=None):
+def get_source_replicas_for_dataset(scope, name, source_rses=None,
+                                    total_threads=None, thread_id=None,
+                                    session=None):
     """
     Get file replicas for all files of a dataset.
 
     :param scope:          The scope of the dataset.
     :param name:           The name of the dataset.
     :param source_rses:    Possible source RSE_ids to filter on.
+    :param total_threads:  Total threads
+    :param thread_id:      This thread
     :param session:        The db session in use.
     :returns:              (files in dataset, replicas in dataset)
     """
@@ -2131,6 +2146,10 @@ def get_source_replicas_for_dataset(scope, name, source_rses=None, session=None)
                                                or_(*rse_clause)))\
                                .filter(models.DataIdentifierAssociation.scope == scope,
                                        models.DataIdentifierAssociation.name == name)
+
+    if total_threads and total_threads > 1:
+        query = filter_thread_work(session=session, query=query, total_threads=total_threads,
+                                   thread_id=thread_id, hash_variable='child_name')
 
     replicas = {}
 
