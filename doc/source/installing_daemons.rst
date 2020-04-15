@@ -4,7 +4,7 @@ Installing Rucio daemons
 Prerequisites
 ~~~~~~~~~~~~~
 
-The Rucio daemons run on Python 2.7 on any Unix-like platform.
+The Rucio daemons run on Python 2.7, 3.6 and 3.7 on any Unix-like platform.
 
 Install via pip
 ~~~~~~~~~~~~~~~
