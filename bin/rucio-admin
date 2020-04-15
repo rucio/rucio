@@ -27,7 +27,7 @@
 # - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017-2018
 # - Nicolo Magini, <Nicolo.Magini@cern.ch>, 2018
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Dimitrios Christidis, <dimitrios.christidis@cern.ch>, 2019
+# - Dimitrios Christidis, <dimitrios.christidis@cern.ch>, 2019-2020
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
 #
@@ -1000,7 +1000,7 @@ def declare_temporary_unavailable_replicas(args):
     else:
         bad_files = args.listbadfiles
 
-    if args.expiration_date:
+    if args.expiration_date is not None:
         expiration_date = (datetime.datetime.now() + datetime.timedelta(hours=args.expiration_date)).isoformat()
 
     chunk_size = 10000
