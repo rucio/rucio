@@ -4,9 +4,7 @@ Installing Rucio Clients
 Prerequisites
 ~~~~~~~~~~~~~
 
-Rucio clients runs on Python 2.6, 2.7.
-
-Platforms: Rucio should run on any Unix-like platform.
+Rucio clients run on Python 2.7, 3.6, 3.7 and 3.8 on any Unix-like platform.
 
 
 Python Dependencies
