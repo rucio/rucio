@@ -24,6 +24,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Luc Goossens <luc.goossens@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -136,6 +137,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     """
     rule_ids = []
 
+    grouping = {'ALL': RuleGrouping.ALL, 'NONE': RuleGrouping.NONE}.get(grouping, RuleGrouping.DATASET)
+
     with record_timer_block('rule.add_rule'):
         # 1. Resolve the rse_expression into a list of RSE-ids
         with record_timer_block('rule.add_rule.parse_rse_expression'):
@@ -221,8 +224,6 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
             # 4. Create the replication rule
             with record_timer_block('rule.add_rule.create_rule'):
-                grouping = {'ALL': RuleGrouping.ALL, 'NONE': RuleGrouping.NONE}.get(grouping, RuleGrouping.DATASET)
-
                 if meta is not None:
                     try:
                         meta = json.dumps(meta)
