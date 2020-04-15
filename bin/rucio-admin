@@ -1001,7 +1001,7 @@ def declare_temporary_unavailable_replicas(args):
         bad_files = args.listbadfiles
 
     if args.expiration_date is not None:
-        expiration_date = (datetime.datetime.now() + datetime.timedelta(hours=args.expiration_date)).isoformat()
+        expiration_date = (datetime.datetime.utcnow() + datetime.timedelta(hours=args.expiration_date)).isoformat()
 
     chunk_size = 10000
     tot_files = len(bad_files)
