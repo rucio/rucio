@@ -2960,3 +2960,34 @@ def set_tombstone(rse_id, scope, name, tombstone=OBSOLETE, session=None):
             raise exception.ReplicaIsLocked('Replica %s:%s on RSE %s is locked.' % (scope, name, get_rse_name(rse_id=rse_id, session=session)))
         except NoResultFound:
             raise exception.ReplicaNotFound('Replica %s:%s on RSE %s could not be found.' % (scope, name, get_rse_name(rse_id=rse_id, session=session)))
+
+
+@read_session
+def get_RSEcoverage_of_dataset(scope, name, session=None):
+    """
+    Get total bytes present on RSEs
+
+    :param scope:             Scope of the dataset
+    :param name:              Name of the dataset
+    :param session:           The db session.
+    :return:                  Dictionary { rse_id : <total bytes present at rse_id> }
+    """
+
+    query = session.query(models.RSEFileAssociation.rse_id, func.sum(models.DataIdentifierAssociation.bytes))
+
+    query = query.filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                              models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                              models.DataIdentifierAssociation.scope == scope,
+                              models.DataIdentifierAssociation.name == name,
+                              models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
+                              ))
+
+    query = query.group_by(models.RSEFileAssociation.rse_id)
+
+    result = {}
+
+    for rse_id, total in query:
+        if total:
+            result[rse_id] = total
+
+    return result

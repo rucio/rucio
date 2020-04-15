@@ -49,7 +49,7 @@ from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files
 from rucio.core.replica import (add_replica, add_replicas, delete_replicas, get_replicas_state,
                                 update_replica_lock_counter, get_replica, list_replicas,
                                 declare_bad_file_replicas, list_bad_replicas,
-                                update_replicas_paths, update_replica_state,
+                                update_replicas_paths, update_replica_state, get_RSEcoverage_of_dataset,
                                 get_replica_atime, touch_replica, get_bad_pfns, set_tombstone)
 from rucio.core.rse import add_rse, add_protocol, add_rse_attribute, del_rse_attribute, get_rse_id
 from rucio.client.ruleclient import RuleClient
@@ -536,6 +536,36 @@ class TestReplicaCore:
         assert_equal(len(list(list_replicas([{'scope': scope, 'name': dsn}], updated_after=t1))), 2)
         assert_equal(len(list(list_replicas([{'scope': scope, 'name': dsn}], updated_after=t2))), 1)
         assert_equal(len(list(list_replicas([{'scope': scope, 'name': dsn}], updated_after=t3))), 0)
+
+    def test_get_RSE_coverage_of_dataset(self):
+        """ REPLICA (CORE): test RSE coverage retrieval """
+        scope = InternalScope('mock')
+        root = InternalAccount('root')
+        mock1 = get_rse_id(rse='MOCK')
+        mock3 = get_rse_id(rse='MOCK3')
+        mock4 = get_rse_id(rse='MOCK4')
+        dsn = 'ds_cov_test_%s' % generate_uuid()
+        add_did(scope=scope, name=dsn, type='DATASET', account=root)
+
+        # test empty dataset
+        cov = get_RSEcoverage_of_dataset(scope=scope, name=dsn)
+        print(cov)
+        assert_equal(cov, {})
+
+        # add files/replicas
+        for i in range(1, 8):
+            add_replica(rse_id=mock1, scope=scope, name=dsn + '_%06d.data' % i, bytes=100, account=root)
+        for i in range(8, 11):
+            add_replica(rse_id=mock3, scope=scope, name=dsn + '_%06d.data' % i, bytes=100, account=root)
+        for i in range(11, 16):
+            add_replica(rse_id=mock4, scope=scope, name=dsn + '_%06d.data' % i, bytes=100, account=root)
+
+        attach_dids(scope=scope, name=dsn, dids=[{'scope': scope, 'name': dsn + '_%06d.data' % i} for i in range(1, 16)], account=root)
+        cov = get_RSEcoverage_of_dataset(scope=scope, name=dsn)
+        print(cov)
+        assert_equal(cov[mock1], 700)
+        assert_equal(cov[mock3], 300)
+        assert_equal(cov[mock4], 500)
 
 
 class TestReplicaClients:
