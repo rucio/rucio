@@ -27,7 +27,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
-# - Goossens Luc <luc.goossens@cern.ch>, 2020
+# - Luc Goossens <luc.goossens@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -975,6 +975,10 @@ def list_child_datasets(scope, name, session=None):
             result.extend(list_child_datasets(scope=child_scope, name=child_name, session=session))
         else:
             result.append({'scope': child_scope, 'name': child_name, 'type': child_type})
+
+    # remove duplicate entries
+    result = {(elem['scope'], elem['name']): elem for elem in result}.values()
+
     return result
 
 
