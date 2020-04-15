@@ -215,9 +215,9 @@ class TestDIDCore:
 
     def test_remove_did_from_followed(self):
         """ DATA IDENTIFIERS (CORE): Mark a did as not followed """
-        tmp_scope = InternalScope('mock')
+        tmp_scope = InternalScope('mock', **self.vo)
         dsn = 'dsn_%s' % generate_uuid()
-        root = InternalAccount('root')
+        root = InternalAccount('root', **self.vo)
 
         add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
         add_did_to_followed(scope=tmp_scope, name=dsn, account=root)
@@ -473,7 +473,7 @@ class TestDIDClients:
         with assert_raises(ScopeNotFound):
             self.did_client.add_dataset(scope='Nimportnawak', name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules)
 
-        files = [{'scope': tmp_scope, 'name': 'lfn.%(tmp_dsn)s.' % locals() + str(generate_uuid()), 'bytes': 724963570, 'adler32': '0cc737eb'}, ]
+        files = [{'scope': InternalScope(tmp_scope, **self.vo), 'name': 'lfn.%(tmp_dsn)s.' % locals() + str(generate_uuid()), 'bytes': 724963570, 'adler32': '0cc737eb'}, ]
         with assert_raises(DataIdentifierNotFound):
             self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules, files=files)
 
@@ -488,7 +488,7 @@ class TestDIDClients:
             # pfn = 'srm://mock2.com:2880/pnfs/rucio/disk-only/scratchdisk/rucio_tests/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
             pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
             file_meta = {'guid': str(generate_uuid()), 'events': 10}
-            files.append({'scope': tmp_scope, 'name': lfn,
+            files.append({'scope': InternalScope(tmp_scope, **self.vo), 'name': lfn,
                           'bytes': 724963570, 'adler32': '0cc737eb',
                           'pfn': pfn, 'meta': file_meta})
 
@@ -511,7 +511,7 @@ class TestDIDClients:
             # pfn = 'srm://mock2.com:2880/pnfs/rucio/disk-only/scratchdisk/rucio_tests/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
             pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
             file_meta = {'guid': str(generate_uuid()), 'events': 100}
-            files.append({'scope': tmp_scope, 'name': lfn,
+            files.append({'scope': InternalScope(tmp_scope, **self.vo), 'name': lfn,
                           'bytes': 724963570, 'adler32': '0cc737eb',
                           'pfn': pfn, 'meta': file_meta})
         rules = [{'copies': 1, 'rse_expression': 'CERN-PROD_TZERO', 'lifetime': timedelta(days=2)}]

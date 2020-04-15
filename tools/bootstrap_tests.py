@@ -26,7 +26,10 @@ from rucio.common.types import InternalAccount
 if __name__ == '__main__':
     if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
         vo = {'vo': 'tst'}
-        add_vo(new_vo='tst', issuer='super_root', description='A VO to test multi-vo features', email='N/A', vo='def')
+        try:
+            add_vo(new_vo='tst', issuer='super_root', description='A VO to test multi-vo features', email='N/A', vo='def')
+        except Duplicate:
+            print('VO tst already added' % locals())
     else:
         vo = {}
 
