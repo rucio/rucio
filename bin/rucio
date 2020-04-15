@@ -2009,7 +2009,7 @@ You can filter by key/value, e.g.::
 
     # The list_files command
     list_files_parser = subparsers.add_parser('list-files', help='List DID contents', description='List all the files in a Data IDentifier. The DID can be a container, dataset or a file.\
-                                                                  What is returned is a list of files in the DID with : <scope>:<name>\t<filesize>\t<checksum>\t<guid>')
+                                                                  What is returned is a list of files in the DID with : <scope>:<name>\t<guid>\t<checksum>\t<filesize>')
     list_files_parser.set_defaults(function=list_files)
     list_files_parser.add_argument('--csv', dest='csv', action='store_true', default=False, help='Comma Separated Value output. This output format is preferred for easy parsing and scripting.')
     list_files_parser.add_argument('--pfc', dest='LOCALPATH', action='store', default=False, help='Outputs the list of files in the dataset with the LOCALPATH prepended as a PoolFileCatalog')
