@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2017-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
 
 import os
 import re
@@ -39,7 +39,7 @@ sys.path.insert(0, os.path.abspath('lib/'))
 COPY_ARGS = sys.argv[1:]
 NAME = 'rucio-clients'
 IS_RELEASE = False
-PACKAGES = ['rucio', 'rucio.client', 'rucio.common',
+PACKAGES = ['rucio', 'rucio.client', 'rucio.common', 'rucio.common.schema', 
             'rucio.rse.protocols', 'rucio.rse', 'rucio.tests']
 REQUIREMENTS_FILES = ['etc/pip-requires-client']
 DESCRIPTION = "Rucio Client Lite Package"
