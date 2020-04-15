@@ -22,13 +22,13 @@ if os.path.isdir('.git'):
         GIT_VERSION = sys.argv[1]
     else:
         GIT_VERSION_CMD = 'git describe --abbrev=4'
-        GIT_VERSION = run_git_command(GIT_VERSION_CMD)
+        GIT_VERSION = run_git_command(GIT_VERSION_CMD).decode()
     BRANCH_NICK_CMD = 'git branch | grep -Ei "\* (.*)" | cut -f2 -d" "'  # NOQA: W605
-    BRANCH_NICK = run_git_command(BRANCH_NICK_CMD)
+    BRANCH_NICK = run_git_command(BRANCH_NICK_CMD).decode()
     REVID_CMD = "git rev-parse HEAD"
-    REVID = run_git_command(REVID_CMD)
+    REVID = run_git_command(REVID_CMD).decode()
     REVNO_CMD = "git --no-pager log --oneline | wc -l"
-    REVNO = run_git_command(REVNO_CMD)
+    REVNO = run_git_command(REVNO_CMD).decode()
     VERSION_FILE = open("lib/rucio/vcsversion.py", 'w')
     VERSION_FILE.write("""
 '''
