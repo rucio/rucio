@@ -135,13 +135,16 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
         use_oidc = job_params.get('use_oidc', False)
         transfer_token = None
         if use_oidc:
+            logging.debug('OAuth2/OIDC available at RSEs')
             account = job_params.get('account', None)
             getadmintoken = False
             if ALLOW_USER_OIDC_TOKENS is False:
                 getadmintoken = True
+            logging.debug('Attempting to get a token for account %s. Admin token option set to %s' % (account, getadmintoken))
             # find the appropriate OIDC token and exchange it (for user accounts) if necessary
             token_object = get_token_for_account_operation(account, req_audience=REQUEST_OIDC_AUDIENCE, req_scope=REQUEST_OIDC_SCOPE, admin=getadmintoken)
             if token_object is not None:
+                logging.debug('Access token has been granted.')
                 transfer_token = token_object.token
         if not user_transfer_job:
             transfer_id = FTS3Transfertool(external_host=external_host, token=transfer_token).submit(files=job_files, job_params=job_params, timeout=timeout)
