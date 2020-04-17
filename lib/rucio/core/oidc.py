@@ -507,10 +507,8 @@ def __get_admin_token_oidc(account, req_scope, req_audience, issuer, session=Non
 
 
 @read_session
-def get_admin_account_for_issuer(input_issuer=None, session=None):
+def get_admin_account_for_issuer(session=None):
     """ Gets admin account for the IdP issuer
-    :param input_issuer: the IdP issuer url, if None
-                   all admin account will be returned
     :returns : dictionary { 'issuer_1': (account, identity), ... }
     """
     issuer_account_dict = {}
@@ -910,11 +908,9 @@ def __get_keyvalues_from_claims(token, keys=None):
         if not keys:
             keys = claims.keys()
         for key in keys:
-            value = None
+            value = ''
             if key in claims:
                 value = val_to_space_sep_str(claims[key])
-            if not value:
-                raise CannotAuthenticate("Rucio did not succeed to decode \'%s\' value from the token." % key)
             resdict[key] = value
         return resdict
     except Exception:
@@ -941,8 +937,9 @@ def __get_rucio_jwt_dict(jwt, account=None, session=None):
             return None
         scope = None
         audience = None
-        if 'scope' in token_payload and 'aud' in token_payload:
+        if 'scope' in token_payload:
             scope = val_to_space_sep_str(token_payload['scope'])
+        if 'aud' in token_payload:
             audience = val_to_space_sep_str(token_payload['aud'])
         if not account:
             # this assumes token has been previously looked up in DB
