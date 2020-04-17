@@ -378,10 +378,13 @@ def val_to_space_sep_str(vallist):
     :param vallist: the list of values to to convert into string
     :return: the string of space separated values or the value initially passed as parameter
     """
-    if isinstance(vallist, list):
-        return u" ".join(vallist)
-    else:
-        return unicode(vallist)
+    try:
+        if isinstance(vallist, list):
+            return u" ".join(vallist)
+        else:
+            return unicode(vallist)
+    except:
+        return u''
 
 
 def date_to_str(date):
