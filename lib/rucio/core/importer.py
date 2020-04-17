@@ -16,11 +16,13 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
 from six import string_types
 from rucio.common.exception import RSEOperationNotSupported
+from rucio.common.types import InternalAccount
 from rucio.core import rse as rse_module, distance as distance_module, account as account_module, identity as identity_module
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RSEType, AccountType, IdentityType
@@ -186,8 +188,9 @@ def import_identities(identities, account_name, old_identities, old_identity_acc
 
 
 @transactional_session
-def import_accounts(accounts, session=None):
-    old_accounts = {account['account']: account for account in account_module.list_accounts(session=session)}
+def import_accounts(accounts, vo='def', session=None):
+    vo_filter = {'account': InternalAccount(account='*', vo=vo)}
+    old_accounts = {account['account']: account for account in account_module.list_accounts(filter=vo_filter, session=session)}
     missing_accounts = [account for account in accounts if account['account'] not in old_accounts]
     outdated_accounts = [account for account in accounts if account['account'] in old_accounts]
     to_be_removed_accounts = [old_account for old_account in old_accounts if old_account not in [account['account'] for account in accounts]]
@@ -245,4 +248,4 @@ def import_data(data, vo='def', session=None):
     # Accounts
     accounts = data.get('accounts')
     if accounts:
-        import_accounts(accounts, session=session)
+        import_accounts(accounts, vo=vo, session=session)

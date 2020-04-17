@@ -46,14 +46,11 @@ from rucio.web.rest.exporter import APP as export_app
 from rucio.web.rest.authentication import APP as auth_app
 
 
-def check_rse(rse_name, test_data):
-    if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-        vo = {'vo': 'tst'}
-    else:
-        vo = {}
-    rse_id = get_rse_id(rse=rse_name, **vo)
+def check_rse(rse_name, test_data, vo='def'):
+    rse_id = get_rse_id(rse=rse_name, vo=vo)
     rse = get_rse(rse_id=rse_id)
     assert_equal(rse['rse'], rse_name)
+    assert_equal(rse['vo'], vo)
     assert_equal(rse['rse_type'], test_data[rse_name]['rse_type'])
     assert_equal(rse['region_code'], test_data[rse_name]['region_code'])
     assert_equal(rse['country_name'], test_data[rse_name]['country_name'])
@@ -67,12 +64,8 @@ def check_rse(rse_name, test_data):
     assert_equal(rse['availability'], test_data[rse_name]['availability'])
 
 
-def check_protocols(rse, test_data):
-    if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-        vo = {'vo': 'tst'}
-    else:
-        vo = {}
-    rse_id = get_rse_id(rse=rse, **vo)
+def check_protocols(rse, test_data, vo='def'):
+    rse_id = get_rse_id(rse=rse, vo=vo)
     protocols = get_rse_protocols(rse_id)
     assert_equal(test_data[rse]['lfn2pfn_algorithm'], get_rse_attribute('lfn2pfn_algorithm', rse_id=rse_id, use_cache=False)[0])
     assert_equal(test_data[rse]['verify_checksum'], get_rse_attribute('verify_checksum', rse_id=rse_id, use_cache=False)[0])
@@ -313,8 +306,8 @@ class TestImporter(object):
         import_data(data=deepcopy(self.data1), **self.vo)
 
         # RSE that had not existed before
-        check_rse(self.new_rse, self.data1['rses'])
-        check_protocols(self.new_rse, self.data1['rses'])
+        check_rse(self.new_rse, self.data1['rses'], **self.vo)
+        check_protocols(self.new_rse, self.data1['rses'], **self.vo)
 
         new_rse_id = get_rse_id(rse=self.new_rse, **self.vo)
 
@@ -324,10 +317,10 @@ class TestImporter(object):
         assert_equal(limits['MinFreeSpace'], 20000)
 
         # RSE 1 that already exists
-        check_rse(self.old_rse_1, self.data1['rses'])
+        check_rse(self.old_rse_1, self.data1['rses'], **self.vo)
 
         # one protocol should be created, one should be updated
-        check_protocols(self.old_rse_1, self.data1['rses'])
+        check_protocols(self.old_rse_1, self.data1['rses'], **self.vo)
 
         # one protocol should be removed as it is not specified in the import data
         protocols = get_rse_protocols(self.old_rse_id_1)
@@ -363,8 +356,8 @@ class TestImporter(object):
         import_client.import_data(data=deepcopy(self.data1))
 
         # RSE that had not existed before
-        check_rse(self.new_rse, self.data1['rses'])
-        check_protocols(self.new_rse, self.data1['rses'])
+        check_rse(self.new_rse, self.data1['rses'], **self.vo)
+        check_protocols(self.new_rse, self.data1['rses'], **self.vo)
 
         new_rse_id = get_rse_id(rse=self.new_rse, **self.vo)
 
@@ -379,8 +372,8 @@ class TestImporter(object):
         assert_equal(limits['MinFreeSpace'], 20000)
 
         # RSE 1 that already exists
-        check_rse(self.old_rse_1, self.data1['rses'])
-        check_protocols(self.old_rse_1, self.data1['rses'])
+        check_rse(self.old_rse_1, self.data1['rses'], **self.vo)
+        check_protocols(self.old_rse_1, self.data1['rses'], **self.vo)
 
         attributes = list_rse_attributes(rse_id=self.old_rse_id_1)
         assert_equal(attributes['attr1'], 'test1')
@@ -418,8 +411,8 @@ class TestImporter(object):
         assert_equal(r2.status, 201, r2.body)
 
         # RSE that not existed before
-        check_rse(self.new_rse, self.data1['rses'])
-        check_protocols(self.new_rse, self.data1['rses'])
+        check_rse(self.new_rse, self.data1['rses'], **self.vo)
+        check_protocols(self.new_rse, self.data1['rses'], **self.vo)
 
         new_rse_id = get_rse_id(rse=self.new_rse, **self.vo)
 
@@ -434,8 +427,8 @@ class TestImporter(object):
         assert_equal(limits['MinFreeSpace'], 20000)
 
         # RSE 1 that already existed before
-        check_rse(self.old_rse_1, self.data1['rses'])
-        check_protocols(self.old_rse_1, self.data1['rses'])
+        check_rse(self.old_rse_1, self.data1['rses'], **self.vo)
+        check_protocols(self.old_rse_1, self.data1['rses'], **self.vo)
 
         attributes = list_rse_attributes(rse_id=self.old_rse_id_1)
         assert_equal(attributes['attr1'], 'test1')
@@ -567,7 +560,7 @@ class TestImporterSyncModes(object):
         import_rses(rses=deepcopy(data['rses']), rse_sync_method='append', **self.vo)
 
         # Check RSE that did not exist before exists now
-        check_rse(new_rse, data['rses'])
+        check_rse(new_rse, data['rses'], **self.vo)
 
         # Check that old_rse was not disabled after import
         assert_equal(get_rse_id(old_rse, include_deleted=False, **self.vo), old_rse_id)
@@ -669,7 +662,7 @@ class TestImporterSyncModes(object):
         import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', **self.vo)
 
         # Check RSE that did not exist before exists now
-        check_rse(new_rse, data['rses'])
+        check_rse(new_rse, data['rses'], **self.vo)
 
         # Check that old_rse was not disabled after import
         assert_equal(get_rse_id(old_rse, include_deleted=False, **self.vo), old_rse_id)
