@@ -800,9 +800,16 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     if source_protocol in ['davs', 'https']:
                         source_url += '?copy_mode=%s' % WEBDAV_TRANSFER_MODE
 
+                source_sign_url = rse_attrs[source_rse_id].get('sign_url', None)
+                if source_sign_url == 'gcs':
+                    source_url = re.sub('davs', 'gclouds', source_url)
+                    source_url = re.sub('https', 'gclouds', source_url)
+
                 # IV - get external_host + strict_copy
                 strict_copy = rse_attrs[dest_rse_id].get('strict_copy', False)
                 fts_hosts = rse_attrs[dest_rse_id].get('fts', None)
+                if source_sign_url == 'gcs':
+                    fts_hosts = rse_attrs[source_rse_id].get('fts', None)
                 source_globus_endpoint_id = rse_attrs[source_rse_id].get('globus_endpoint_id', None)
                 dest_globus_endpoint_id = rse_attrs[dest_rse_id].get('globus_endpoint_id', None)
 
@@ -945,6 +952,11 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 elif WEBDAV_TRANSFER_MODE:
                     if source_protocol in ['davs', 'https']:
                         source_url += '?copy_mode=%s' % WEBDAV_TRANSFER_MODE
+
+                source_sign_url = rse_attrs[source_rse_id].get('sign_url', None)
+                if source_sign_url == 'gcs':
+                    source_url = re.sub('davs', 'gclouds', source_url)
+                    source_url = re.sub('https', 'gclouds', source_url)
 
                 # III - The transfer queued previously is a multihop, but this one is direct.
                 # Reset the sources, remove the multihop flag
