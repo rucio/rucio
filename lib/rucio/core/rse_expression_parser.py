@@ -93,11 +93,9 @@ def parse_expression(expression, filter=None, session=None):
         for rse in list(result_tuple[0]):
             result.append(result_tuple[1][rse])
         # Don't cache the result if we only specified vo
-        vo_pattern = r'vo=[a-zA-Z0-9]+'
+        vo_pattern = r'^vo=[a-zA-Z0-9]+$'
         vo_match = re.search(vo_pattern, expression)
         if vo_match is None:
-            REGION.set(sha256(expression.encode()).hexdigest(), result)
-        elif expression[0:vo_match.span()[0]] + expression[vo_match.span()[1]:]:
             REGION.set(sha256(expression.encode()).hexdigest(), result)
 
     if not result:
