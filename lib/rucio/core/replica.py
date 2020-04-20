@@ -1,4 +1,4 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2020
 # - David Cameron <d.g.cameron@gmail.com>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
@@ -954,8 +954,9 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                                                      client_location['site'],  # option
                                                                      default='',               # empty string to circumvent exception
                                                                      session=session)
-                                    if root_proxy_internal:
+                                    if root_proxy_internal and not sign_urls:
                                         # don't forget to mangle gfal-style davs URL into generic https URL
+                                        # only mangle if there are no signatures involved
                                         pfn = 'root://' + root_proxy_internal + '//' + pfn.replace('davs://', 'https://')
 
                         # do we need to sign the URLs?
