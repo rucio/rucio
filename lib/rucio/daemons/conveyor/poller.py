@@ -1,4 +1,4 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
@@ -248,7 +248,6 @@ def poll_transfers(external_host, xfers, prepend_str='', request_ids=None, timeo
                 try:
                     logging.debug(prepend_str + 'Checking %s on %s' % (xfer, external_host))
                     status = transfer_core.bulk_query_transfers(external_host, [xfer, ], TRANSFER_TOOL, timeout)
-                    logging.debug(prepend_str + str(status))
                     if xfer in status and isinstance(status[xfer], Exception):
                         logging.error(prepend_str + 'Problem querying %s on %s . Error returned : %s' % (xfer, external_host, str(status[xfer])))
                 except Exception as err:
