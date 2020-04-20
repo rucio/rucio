@@ -1,0 +1,50 @@
+======
+1.22.3
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Core & Internals: Add "Globus Online Test" activity to schema (ATLAS) `#3498 <https://github.com/rucio/rucio/issues/3498>`_
+- Documentation: Documentation shows wrong Python versions for Server and Client `#3402 <https://github.com/rucio/rucio/issues/3402>`_
+- Documentation: Errors in documentation and example of list-files command `#3473 <https://github.com/rucio/rucio/issues/3473>`_
+- Rules: add get_RSE_coverage_of_dataset function `#3455 <https://github.com/rucio/rucio/issues/3455>`_
+- Rules: add "thread" support to lock and replica retrieval functions `#3456 <https://github.com/rucio/rucio/issues/3456>`_
+- Rules: list_child_datasets does not return a set `#3458 <https://github.com/rucio/rucio/issues/3458>`_
+
+****
+Bugs
+****
+
+- Authentication & Authorisation: OAuth2/OIDC: fix for token payload translation of empty values in claims `#3491 <https://github.com/rucio/rucio/issues/3491>`_
+- Release management: setup.py for main rucio package is not Python 3 compatible `#3347 <https://github.com/rucio/rucio/issues/3347>`_
+- Rules: get_did returns None for bytes instead of zero if dataset has no files yet `#3459 <https://github.com/rucio/rucio/issues/3459>`_
+- Rules: grouping value is corrupted in case of add_rule call with multiple kids `#3460 <https://github.com/rucio/rucio/issues/3460>`_
+- Transfers: Globus transfers fail when fts_hosts is empty string `#3076 <https://github.com/rucio/rucio/issues/3076>`_
+- Transfers: Fix source scheme in case of transfers from GCS `#3488 <https://github.com/rucio/rucio/issues/3488>`_
+
+-------
+Clients
+-------
+
+****
+Bugs
+****
+
+- Clients: Rucio client package imports rucio.common.schema which is not part of distribution `#3450 <https://github.com/rucio/rucio/issues/3450>`_
+- Clients: declare-temporary-unavailable is not properly handling the expiration date `#3477 <https://github.com/rucio/rucio/issues/3477>`_
+  
+-----
+WebUI
+-----
+
+****
+Bugs
+****
+
+- WebUI: OAuth2/OIDC: WebUI fix to url dev/prod mapping for the select login page `#3452 <https://github.com/rucio/rucio/issues/3452>`_
