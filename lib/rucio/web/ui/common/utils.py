@@ -145,9 +145,9 @@ def select_account_name(identitystr, identity_type):
     return ui_account
 
 
-def get_token(token_method, acc=None, idt=None, pwd=None):
+def get_token(token_method, acc=None, vo=None, idt=None, pwd=None):
     """
-    Gets a token with the token_methosd provided.
+    Gets a token with the token_method provided.
     :param token_method: the method to get the token
     :param acc: Rucio account string
     :param idt: Rucio identity string
@@ -156,15 +156,17 @@ def get_token(token_method, acc=None, idt=None, pwd=None):
     """
     if not acc:
         acc = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
+    if not vo:
+        vo = ctx.env.get('HTTP_X_RUCIO_VO', 'def')
     if not idt:
         idt = ctx.env.get('SSL_CLIENT_S_DN')
-    if not (acc and idt):
+    if not (acc and vo and idt):
         return None
     try:
         if pwd:
-            token = token_method(acc, idt, pwd, 'webui', ctx.env.get('REMOTE_ADDR')).token
+            token = token_method(acc, idt, pwd, 'webui', ctx.env.get('REMOTE_ADDR'), vo=vo).token
         else:
-            token = token_method(acc, idt, 'webui', ctx.env.get('REMOTE_ADDR')).token
+            token = token_method(acc, idt, 'webui', ctx.env.get('REMOTE_ADDR'), vo=vo).token
         return token
     except:
         return None
