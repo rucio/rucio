@@ -170,7 +170,7 @@ If you want to resolve a collection (CONTAINER or DATASET) into the list of its 
 
 You can resolve also the collections (CONTAINER or DATASET) into the list of files::
 
-  $ rucio list-content user.jdoe:user.jdoe.test.container.1234.1
+  $ rucio list-files user.jdoe:user.jdoe.test.container.1234.1
   +-----------------------+--------------------------------------+-------------+------------+----------+
   | SCOPE:NAME            | GUID                                 | ADLER32     | FILESIZE   | EVENTS   |
   |-----------------------+--------------------------------------+-------------+------------+----------|

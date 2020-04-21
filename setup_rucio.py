@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
@@ -102,7 +102,7 @@ if using_pip and using_git:
                        """}""" % (pkg_version, branch_nick, revid, revno))
     version_file.close()
 else:
-    pkg_version = version.version_string().decode()
+    pkg_version = version.version_string()
 
 cmdclass = {}
 
