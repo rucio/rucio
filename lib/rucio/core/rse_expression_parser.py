@@ -20,6 +20,7 @@
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Brandon White, <bjwhite@fnal.gov>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -91,7 +92,11 @@ def parse_expression(expression, filter=None, session=None):
         result = []
         for rse in list(result_tuple[0]):
             result.append(result_tuple[1][rse])
-        REGION.set(sha256(expression.encode()).hexdigest(), result)
+        # Don't cache the result if we only specified vo
+        vo_pattern = r'^vo=[a-zA-Z0-9]+$'
+        vo_match = re.search(vo_pattern, expression)
+        if vo_match is None:
+            REGION.set(sha256(expression.encode()).hexdigest(), result)
 
     if not result:
         raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
