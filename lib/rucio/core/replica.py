@@ -36,6 +36,7 @@ from collections import defaultdict
 from copy import deepcopy
 from curses.ascii import isprint
 from datetime import datetime, timedelta
+from itertools import chain
 from json import dumps
 from re import match
 from traceback import format_exc
@@ -2853,9 +2854,18 @@ def get_replicas_state(scope=None, name=None, session=None):
     :param session: The database session in use.
     """
 
-    query = session.query(models.RSEFileAssociation.rse_id, models.RSEFileAssociation.state).filter_by(scope=scope, name=name)
+    # listing non-archived replicas
+    query_repl = session.query(models.RSEFileAssociation.rse_id, models.RSEFileAssociation.state).filter_by(scope=scope, name=name)
+
+    # listing archive constituents
+    query_arch = session.query(models.RSEFileAssociation.rse_id,
+                               models.RSEFileAssociation.state).\
+        join(models.ConstituentAssociation, and_(models.ConstituentAssociation.scope == models.RSEFileAssociation.scope, models.ConstituentAssociation.name == models.RSEFileAssociation.name)).\
+        filter(models.ConstituentAssociation.child_scope == scope,
+               models.ConstituentAssociation.child_name == name)
+
     states = {}
-    for res in query.all():
+    for res in chain(query_repl.all(), query_arch.all()):
         rse_id, state = res
         if state not in states:
             states[state] = []
