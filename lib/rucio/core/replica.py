@@ -27,6 +27,7 @@
 # - Jaroslav Guenther, <jaroslav.guenther@gmail.com>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White, <bjwhite@fnal.gov>, 2019
+# - Luc Goossens <luc.goossens@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -629,7 +630,7 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, resolve_ar
     return file_clause, dataset_clause, state_clause, files, constituents
 
 
-def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, session):
+def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, updated_after, session):
     """
     List file replicas for a list of datasets.
 
@@ -664,11 +665,14 @@ def _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, sessio
     if rse_clause is not None:
         replica_query = replica_query.filter(or_(*rse_clause))
 
+    if updated_after:
+        replica_query = replica_query.filter(models.RSEFileAssociation.updated_at >= updated_after)
+
     for replica in replica_query.yield_per(500):
         yield replica
 
 
-def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, session):
+def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, updated_after, session):
     """
     List file replicas for a list of files.
 
@@ -676,28 +680,21 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, sessi
     """
     for replica_condition in chunks(file_clause, 50):
 
-        if state_clause is None:
-            if rse_clause is None:
-                whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
-                                   models.RSE.deleted == false(),
-                                   or_(*replica_condition))
-            else:
-                whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
-                                   models.RSE.deleted == false(),
-                                   or_(*replica_condition),
-                                   or_(*rse_clause))
-        else:
-            if rse_clause is None:
-                whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
-                                   models.RSE.deleted == false(),
-                                   state_clause,
-                                   or_(*replica_condition))
-            else:
-                whereclause = and_(models.RSEFileAssociation.rse_id == models.RSE.id,
-                                   models.RSE.deleted == false(),
-                                   state_clause,
-                                   or_(*replica_condition),
-                                   or_(*rse_clause))
+        filters = [models.RSEFileAssociation.rse_id == models.RSE.id,
+                   models.RSE.deleted == false(),
+                   or_(*replica_condition),
+                   ]
+
+        if state_clause is not None:
+            filters.append(state_clause)
+
+        if rse_clause is not None:
+            filters.append(or_(*rse_clause))
+
+        if updated_after:
+            filters.append(models.RSEFileAssociation.updated_at >= updated_after)
+
+        whereclause = and_(*filters)
 
         replica_query = select(columns=(models.RSEFileAssociation.scope,
                                         models.RSEFileAssociation.name,
@@ -741,10 +738,11 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, sessi
 def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                    schemes, files, rse_clause, rse_expression, client_location, domain,
                    sign_urls, signature_lifetime, constituents, resolve_parents,
+                   updated_after,
                    session):
 
-    files = [dataset_clause and _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, session),
-             file_clause and _list_replicas_for_files(file_clause, state_clause, files, rse_clause, session)]
+    files = [dataset_clause and _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, updated_after, session),
+             file_clause and _list_replicas_for_files(file_clause, state_clause, files, rse_clause, updated_after, session)]
 
     # we need to retain knowledge of the original domain selection by the user
     # in case we have to loop over replicas with a potential outgoing proxy
@@ -787,6 +785,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                                domain=domain, sign_urls=sign_urls,
                                                rse_expression=rse_expression,
                                                signature_lifetime=signature_lifetime,
+                                               updated_after=updated_after,
                                                session=session)
 
                 # is it the only instance (i.e., no RSE for the replica)?
@@ -1095,7 +1094,9 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                   ignore_availability=True, all_states=False, pfns=True,
                   rse_expression=None, client_location=None, domain=None,
                   sign_urls=False, signature_lifetime=None, resolve_archives=True,
-                  resolve_parents=False, session=None):
+                  resolve_parents=False,
+                  updated_after=None,
+                  session=None):
     """
     List file replicas for a list of data identifiers (DIDs).
 
@@ -1112,6 +1113,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param signature_lifetime: If supported, in seconds, restrict the lifetime of the signed PFN.
     :param resolve_archives: When set to true, find archives which contain the replicas.
     :param resolve_parents: When set to true, find all parent datasets which contain the replicas.
+    :param updated_after: datetime (UTC time), only return replicas updated after this time
     :param session: The database session in use.
     """
 
@@ -1127,7 +1129,9 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
             rse_clause.append(models.RSEFileAssociation.rse_id == rse['id'])
     for f in _list_replicas(dataset_clause, file_clause, state_clause, pfns,
                             schemes, files, rse_clause, rse_expression, client_location, domain,
-                            sign_urls, signature_lifetime, constituents, resolve_parents, session):
+                            sign_urls, signature_lifetime, constituents, resolve_parents,
+                            updated_after,
+                            session):
         yield f
 
 
@@ -1275,6 +1279,12 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
 
     :returns: True is successful.
     """
+
+    def _expected_pfns(lfns, rse_settings, scheme, operation='write', domain='wan'):
+        p = rsemgr.create_protocol(rse_settings=rse_settings, operation='write', scheme=scheme, domain=domain)
+        expected_pfns = p.lfns2pfns(lfns)
+        return clean_surls(expected_pfns.values())
+
     replica_rse = get_rse(rse_id=rse_id, session=session)
 
     if replica_rse.volatile is True:
@@ -1297,9 +1307,10 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
             pfns.setdefault(scheme, []).append(file['pfn'])
 
     if pfns:
+        rse_settings = rsemgr.get_rse_info(rse=replica_rse['rse'], session=session)
         for scheme in pfns.keys():
-            p = rsemgr.create_protocol(rse_settings=rsemgr.get_rse_info(rse=replica_rse['rse'], session=session), operation='write', scheme=scheme)
             if not replica_rse.deterministic:
+                p = rsemgr.create_protocol(rse_settings=rse_settings, operation='write', scheme=scheme)
                 pfns[scheme] = p.parse_pfns(pfns=pfns[scheme])
                 for file in files:
                     if file['pfn'].startswith(scheme):
@@ -1308,12 +1319,17 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
             else:
                 # Check that the pfns match to the expected pfns
                 lfns = [{'scope': i['scope'], 'name': i['name']} for i in files if i['pfn'].startswith(scheme)]
-                expected_pfns = p.lfns2pfns(lfns)
-                expected_pfns = clean_surls(expected_pfns.values())
                 pfns[scheme] = clean_surls(pfns[scheme])
-                if pfns[scheme] != expected_pfns:
-                    print('ALERT: One of the PFNs provided does not match the Rucio expected PFN : got %s, expected %s (%s)' % (str(pfns), str(expected_pfns), str(lfns)))
-                    raise exception.InvalidPath('One of the PFNs provided does not match the Rucio expected PFN : got %s, expected %s (%s)' % (str(pfns), str(expected_pfns), str(lfns)))
+                expected_pfns_wan = _expected_pfns(lfns, rse_settings, scheme, operation='write', domain='wan')
+                # Check wan first
+                if expected_pfns_wan != pfns[scheme]:
+                    expected_pfns_lan = _expected_pfns(lfns, rse_settings, scheme, operation='write', domain='lan')
+                    # Check lan
+                    if expected_pfns_lan == pfns[scheme]:
+                        # Registration always with wan
+                        pfns[scheme] = expected_pfns_wan
+                    else:
+                        raise exception.InvalidPath('One of the PFNs provided does not match the Rucio expected PFN : got %s, expected %s (%s)' % (str(pfns), str(expected_pfns_wan), str(lfns)))
 
     nbfiles, bytes = __bulk_add_replicas(rse_id=rse_id, files=files, account=account, session=session)
     increase(rse_id=rse_id, files=nbfiles, bytes=bytes, session=session)
@@ -1665,16 +1681,17 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
     for (scope, name, path, bytes, tombstone, state) in query.yield_per(1000):
         # Check if more than one replica is available
         replica_cnt = session.query(func.count(models.RSEFileAssociation.scope)).\
+            with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').\
             filter(and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id != rse_id)).one()
 
         if replica_cnt[0] > 1:
             if state != ReplicaState.UNAVAILABLE:
-                total_bytes += bytes
                 if tombstone != OBSOLETE:
                     if only_delete_obsolete:
                         break
                     if needed_space is not None and total_bytes > needed_space:
                         break
+                total_bytes += bytes
 
                 total_files += 1
                 if total_files > limit:
@@ -1694,12 +1711,12 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
                             models.Request.name == name)).one()
 
             if request_cnt[0] == 0:
-                total_bytes += bytes
                 if tombstone != OBSOLETE:
                     if only_delete_obsolete:
                         break
                     if needed_space is not None and total_bytes > needed_space:
                         break
+                total_bytes += bytes
 
                 total_files += 1
                 if total_files > limit:
@@ -1944,6 +1961,7 @@ def get_source_replicas(scope, name, source_rses=None, session=None):
 
 @transactional_session
 def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_rses=None,
+                                           total_threads=None, thread_id=None,
                                            session=None):
     """
     Get file replicas for all files of a dataset.
@@ -1952,6 +1970,8 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
     :param name:           The name of the dataset.
     :param nowait:         Nowait parameter for the FOR UPDATE statement
     :param restrict_rses:  Possible RSE_ids to filter on.
+    :param total_threads:  Total threads
+    :param thread_id:      This thread
     :param session:        The db session in use.
     :returns:              (files in dataset, replicas in dataset)
     """
@@ -1968,6 +1988,10 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                       'oracle').\
             filter(models.DataIdentifierAssociation.scope == scope,
                    models.DataIdentifierAssociation.name == name)
+
+        if total_threads and total_threads > 1:
+            content_query = filter_thread_work(session=session, query=content_query, total_threads=total_threads,
+                                               thread_id=thread_id, hash_variable='child_name')
 
         for child_scope, child_name, bytes, md5, adler32 in content_query.yield_per(1000):
             files[(child_scope, child_name)] = {'scope': child_scope,
@@ -2055,6 +2079,10 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                                    .filter(models.DataIdentifierAssociation.scope == scope,
                                            models.DataIdentifierAssociation.name == name)
 
+    if total_threads and total_threads > 1:
+        query = filter_thread_work(session=session, query=query, total_threads=total_threads,
+                                   thread_id=thread_id, hash_variable='child_name')
+
     query = query.with_for_update(nowait=nowait, of=models.RSEFileAssociation.lock_cnt)
 
     for child_scope, child_name, bytes, md5, adler32, replica in query.yield_per(1000):
@@ -2077,13 +2105,17 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
 
 
 @transactional_session
-def get_source_replicas_for_dataset(scope, name, source_rses=None, session=None):
+def get_source_replicas_for_dataset(scope, name, source_rses=None,
+                                    total_threads=None, thread_id=None,
+                                    session=None):
     """
     Get file replicas for all files of a dataset.
 
     :param scope:          The scope of the dataset.
     :param name:           The name of the dataset.
     :param source_rses:    Possible source RSE_ids to filter on.
+    :param total_threads:  Total threads
+    :param thread_id:      This thread
     :param session:        The db session in use.
     :returns:              (files in dataset, replicas in dataset)
     """
@@ -2114,6 +2146,10 @@ def get_source_replicas_for_dataset(scope, name, source_rses=None, session=None)
                                                or_(*rse_clause)))\
                                .filter(models.DataIdentifierAssociation.scope == scope,
                                        models.DataIdentifierAssociation.name == name)
+
+    if total_threads and total_threads > 1:
+        query = filter_thread_work(session=session, query=query, total_threads=total_threads,
+                                   thread_id=thread_id, hash_variable='child_name')
 
     replicas = {}
 
@@ -2943,3 +2979,34 @@ def set_tombstone(rse_id, scope, name, tombstone=OBSOLETE, session=None):
             raise exception.ReplicaIsLocked('Replica %s:%s on RSE %s is locked.' % (scope, name, get_rse_name(rse_id=rse_id, session=session)))
         except NoResultFound:
             raise exception.ReplicaNotFound('Replica %s:%s on RSE %s could not be found.' % (scope, name, get_rse_name(rse_id=rse_id, session=session)))
+
+
+@read_session
+def get_RSEcoverage_of_dataset(scope, name, session=None):
+    """
+    Get total bytes present on RSEs
+
+    :param scope:             Scope of the dataset
+    :param name:              Name of the dataset
+    :param session:           The db session.
+    :return:                  Dictionary { rse_id : <total bytes present at rse_id> }
+    """
+
+    query = session.query(models.RSEFileAssociation.rse_id, func.sum(models.DataIdentifierAssociation.bytes))
+
+    query = query.filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                              models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                              models.DataIdentifierAssociation.scope == scope,
+                              models.DataIdentifierAssociation.name == name,
+                              models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
+                              ))
+
+    query = query.group_by(models.RSEFileAssociation.rse_id)
+
+    result = {}
+
+    for rse_id, total in query:
+        if total:
+            result[rse_id] = total
+
+    return result

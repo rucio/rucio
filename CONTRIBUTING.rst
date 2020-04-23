@@ -47,7 +47,7 @@ Contributing
 
 **Step 3**: Commit your change. The commit command must include a specific message format::
 
-git commit -m "<component>: <change_message> #<issue number>"
+  git commit -m "<component>: <change_message> #<issue number>"
 
 Valid component names are listed in the `label list <https://github.com/rucio/rucio/labels>`_.
 

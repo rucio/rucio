@@ -11,6 +11,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2018
 # - Wen Guan, <wen.guan>, 2016
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -98,6 +99,7 @@ class IdentityType(DeclEnum):
     USERPASS = 'USERPASS', 'USERPASS'
     SSH = 'SSH', 'SSH'
     SAML = 'SAML', 'SAML'
+    OIDC = 'OIDC', 'OIDC'
 
 
 class KeyType(DeclEnum):

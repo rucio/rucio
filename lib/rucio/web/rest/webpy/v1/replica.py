@@ -21,6 +21,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Luc Goossens <luc.goossens@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -324,6 +325,7 @@ class ListReplicas(RucioController):
         dids, schemes, select, unavailable, limit = [], None, None, False, None
         ignore_availability, rse_expression, all_states, domain = False, None, False, None
         signature_lifetime, resolve_archives, resolve_parents = None, True, False
+        updated_after = None
         client_location = {}
 
         json_data = data()
@@ -351,11 +353,21 @@ class ListReplicas(RucioController):
                 resolve_archives = params['resolve_archives']
             if 'resolve_parents' in params:
                 resolve_parents = params['resolve_parents']
+
             if 'signature_lifetime' in params:
                 signature_lifetime = params['signature_lifetime']
             else:
                 # hardcoded default of 10 minutes if config is not parseable
                 signature_lifetime = config_get('credentials', 'signature_lifetime', raise_exception=False, default=600)
+
+            if 'updated_after' in params:
+                if isinstance(params['updated_after'], (int, float)):
+                    # convert from epoch time stamp to datetime object
+                    updated_after = datetime.utcfromtimestamp(params['updated_after'])
+                else:
+                    # attempt UTC format '%Y-%m-%dT%H:%M:%S' conversion
+                    updated_after = datetime.strptime(params['updated_after'], '%Y-%m-%dT%H:%M:%S')
+
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -389,6 +401,7 @@ class ListReplicas(RucioController):
                                        domain=domain, signature_lifetime=signature_lifetime,
                                        resolve_archives=resolve_archives,
                                        resolve_parents=resolve_parents,
+                                       updated_after=updated_after,
                                        issuer=ctx.env.get('issuer')):
 
                 # in first round, set the appropriate content type, and stream the header

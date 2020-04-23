@@ -1,0 +1,69 @@
+=========
+1.22.0rc2
+=========
+
+-----------------
+Release Candidate
+-----------------
+
+This is a release candidate! Only to be used in testing environments!
+
+--------------------
+Upgrade Instructions
+--------------------
+
+This feature release requires a database schema upgrade. Please consult the `documentation <https://rucio.readthedocs.io/en/latest/database.html>`_ about upgrading your database schema.
+
+The following changes are necessary and are covered by the ``alembic upgrade head`` command:
+
+1. OAuth2.0 and JWT feature support (Alembic revision ``d1189a09c6e0``)
+
+  - Update ``IDENTITIES_TYPE_CHK`` constraint in ``identities`` table
+  - Update ``ACCOUNT_MAP_ID_TYPE_CHK`` constraint in ``account_map`` table
+  - Add ``oidc_scope`` column to ``tokens`` table
+  - Add ``audience`` column to ``tokens`` table
+  - Add ``refresh_token`` column to ``tokens`` table
+  - Add ``refresh`` column to ``tokens`` table
+  - Add ``TOKENS_REFRESH_CHK`` constraint to ``tokens`` table
+  - Add ``refresh_start`` column to ``tokens`` table
+  - Add ``refresh_expired_at`` column to ``tokens`` table
+  - Add ``refresh_lifetime`` column to ``tokens`` table
+  - Add ``oauth_requests`` table
+  - Change size of ``token`` column in ``tokens`` table
+  
+2. Changes for Multi-VO functionality (Alembic revision ``a118956323f8``)
+
+  - Added ``vos`` table
+  - Insert default row to ``vos`` table
+  - Add ``vo`` column to ``rses`` table
+  - Add ``RSES_VOS_FK`` foreign key constraint to ``rses`` table
+  - Update ``RSES_RSE_UQ`` unique contraint in ``rses`` table
+ 
+-------
+General
+-------
+
+********
+Features
+********
+
+- Authentication & Authorisation: Rucio user authentication via OIDC protocol (XDC IAM), getting user info and JWT tokens `#2612 <https://github.com/rucio/rucio/issues/2612>`_
+- Core & Internals: Need VO table and VO column in RSE table `#2727 <https://github.com/rucio/rucio/issues/2727>`_
+- Deletion: Reaper 2.0 `#2412 <https://github.com/rucio/rucio/issues/2412>`_
+- Monitoring & Logging: Add support for prometheus in core.monitor `#3124 <https://github.com/rucio/rucio/issues/3124>`_
+- Release management: Add oidc auth templates to setup.py `#3348 <https://github.com/rucio/rucio/issues/3348>`_
+- Release management: Dependency upgrade for 1.22 `#3360 <https://github.com/rucio/rucio/issues/3360>`_
+- Release management: Better way to deal with configuration / permissions / policy `#533 <https://github.com/rucio/rucio/issues/533>`_
+
+************
+Enhancements
+************
+
+- Deletion: Protection of sources too strict in the reaper `#1637 <https://github.com/rucio/rucio/issues/1637>`_
+
+****
+Bugs
+****
+
+- Authentication & Authorisation: Fixes to OIDC AuthN/Z after first deployment on a testbed `#3337 <https://github.com/rucio/rucio/issues/3337>`_
+- Deletion: only_delete_obsolete is not working properly `#3399 <https://github.com/rucio/rucio/issues/3399>`_

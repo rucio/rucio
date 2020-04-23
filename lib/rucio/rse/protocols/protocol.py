@@ -16,7 +16,7 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2014
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2016
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2017
 # - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
 # - Tobias Wegner <twegner@cern.ch>, 2017
@@ -154,6 +154,28 @@ class RSEDeterministicTranslation(object):
         return '%s/%s' % (scope, name)
 
     @staticmethod
+    def __belleii(scope, name, rse, rse_attrs, protocol_attrs):
+        """
+        Given a LFN, convert it directly to a path using the mapping:
+
+            path -> path
+        This is valid only for the belleii convention where the scope can be determined
+        from the LFN using a determinitic function.
+
+        :param scope: Scope of the LFN.
+        :param name: File name of the LFN.
+        :param rse: RSE for PFN (ignored)
+        :param rse_attrs: RSE attributes for PFN (ignored)
+        :param protocol_attrs: RSE protocol attributes for PFN (ignored)
+        :returns: Path for use in the PFN generation.
+        """
+        del scope
+        del rse
+        del rse_attrs
+        del protocol_attrs
+        return name
+
+    @staticmethod
     def __ligo(scope, name, rse, rse_attrs, protocol_attrs):
         """
         Given a LFN, convert it directly to a path using the Caltech schema
@@ -182,6 +204,7 @@ class RSEDeterministicTranslation(object):
         cls.register(cls.__hash, "hash")
         cls.register(cls.__identity, "identity")
         cls.register(cls.__ligo, "ligo")
+        cls.register(cls.__belleii, "belleii")
         policy_module = None
         try:
             policy_module = config.config_get('policy', 'lfn2pfn_module')
@@ -203,6 +226,9 @@ class RSEDeterministicTranslation(object):
 
             :returns: RSE specific URI of the physical file
         """
+        # ensure that policy package is loaded in case it registers algorithms
+        import rucio.common.schema  # noqa: F401
+
         algorithm = self.rse_attributes.get('lfn2pfn_algorithm', 'default')
         if algorithm == 'default':
             algorithm = RSEDeterministicTranslation._DEFAULT_LFN2PFN
@@ -221,6 +247,8 @@ class RSEProtocol(object):
 
             :param props: Properties of the requested protocol
         """
+        self.auth_token = protocol_attr['auth_token']
+        protocol_attr.pop('auth_token')
         self.attributes = protocol_attr
         self.translator = None
         self.renaming = True

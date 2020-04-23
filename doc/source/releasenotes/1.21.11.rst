@@ -1,0 +1,21 @@
+======================
+1.21.11 (clients only)
+======================
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: StoRM protocol logging, exceptions and getting etag `#3285 <https://github.com/rucio/rucio/issues/3285>`_
+
+****
+Bugs
+****
+
+- Clients: rucio-admin script does not call the get_account_limits() with the correct local/global locality `#3324 <https://github.com/rucio/rucio/issues/3324>`_
+- Clients: Command-line option --rse does not validate the argument `#3368 <https://github.com/rucio/rucio/issues/3368>`_
+- Clients: Command-line option --missing might not return some results `#3371 <https://github.com/rucio/rucio/issues/3371>`_

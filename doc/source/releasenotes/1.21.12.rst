@@ -1,0 +1,28 @@
+=======
+1.21.12
+=======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Authentication & Authorisation: Update XRootD certs `#3361 <https://github.com/rucio/rucio/issues/3361>`_
+- Core & Internals: Add updated_after filtering for list_replicas `#3134 <https://github.com/rucio/rucio/issues/3134>`_
+- Core & Internals: Allow registration of "lan" replicas `#3312 <https://github.com/rucio/rucio/issues/3312>`_
+- Deletion: Add hint on query to get the number of replicas `#3389 <https://github.com/rucio/rucio/issues/3389>`_
+- Documentation: Include Globus Online starter doc `#3334 <https://github.com/rucio/rucio/issues/3334>`_
+- Modify RSEs regex for Belleii schema `#3313 <https://github.com/rucio/rucio/issues/3313>`_
+- Transfers: Possibility to specify push or pull mode for WebDAV transfers `#3378 <https://github.com/rucio/rucio/issues/3378>`_
+
+****
+Bugs
+****
+
+- Core & Internals: Partitioning algorithm wrong for thread_id=0 `#3355 <https://github.com/rucio/rucio/issues/3355>`_
+- Deletion: Bug in archive content history `#3364 <https://github.com/rucio/rucio/issues/3364>`_
+- Transfers: Remove explicit references to config.yml in globusLibrary.py `#3074 <https://github.com/rucio/rucio/issues/3074>`_
+- Transfers: Problems with get_hops `#3381 <https://github.com/rucio/rucio/issues/3381>`_

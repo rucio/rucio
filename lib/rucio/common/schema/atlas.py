@@ -46,7 +46,8 @@ ACTIVITY = {"description": "Activity name",
                      "Production Input", "Production Output",
                      "Analysis Input", "Analysis Output", "Staging",
                      "T0 Export", "T0 Tape", "Upload/Download (Job)",
-                     "Upload/Download (User)", "User Subscriptions"]}
+                     "Upload/Download (User)", "User Subscriptions",
+                     "Globus Online Test"]}
 
 SCOPE_LENGTH = 25
 
@@ -342,7 +343,7 @@ MESSAGE_OPERATION = {"type": "object",
 
 ACCOUNT_ATTRIBUTE = {"description": "Account attribute",
                      "type": "string",
-                     "pattern": r'^[a-z0-9-_]{1,30}$'}
+                     "pattern": r'^[a-zA-Z0-9-_\\/\\.]{1,30}$'}
 
 SCOPE_NAME_REGEXP = '/(.*)/(.*)'
 

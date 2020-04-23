@@ -11,14 +11,16 @@
 #
 # All configuration values have a default; values that are commented out
 # serve to show the default.
-
+#
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+
 import os
 import sys
 from mock import Mock as MagicMock
+
 
 sys.path.insert(len(sys.path), os.path.abspath('../../lib'))
 
@@ -32,8 +34,20 @@ class Mock(MagicMock):
     def __getitem__(cls, name):
         return Mock()
 
+    @classmethod
+    def __setitem__(cls, name, value):
+        pass
 
-MOCK_MODULES = ['pycurl', 'M2Crypto', 'fts3', 'fts3.rest', 'fts3.rest.client', 'fts3.rest.client.easy', 'fts3.rest.client.exceptions', 'builtins']
+    @classmethod
+    def __iter__(cls):
+        return iter([])
+
+
+MOCK_MODULES = ['oic', 'oic.oic', 'oic.oauth2', 'oic.oauth2.message', 'oic.utils',
+                'oic.utils.authn', 'oic.utils.authn.client', 'oic.oic.message',
+                'jkwest.jwe', 'jwkest.jws', 'jwkest.jwt', 'pycurl', 'M2Crypto',
+                'fts3', 'fts3.rest', 'fts3.rest.client', 'fts3.rest.client.easy',
+                'fts3.rest.client.exceptions', 'builtins']
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 # -- General configuration ------------------------------------------------

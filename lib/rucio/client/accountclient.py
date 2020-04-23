@@ -187,7 +187,7 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
             raise exc_cls(exc_msg)
 
-    def del_identity(self, account, identity, authtype, default=False):
+    def del_identity(self, account, identity, authtype):
         """
         Delete an identity's membership association with an account.
 
@@ -197,7 +197,7 @@ class AccountClient(BaseClient):
         :param default: If True, the account should be used by default with the provided identity.
         """
 
-        data = dumps({'identity': identity, 'authtype': authtype, 'default': default})
+        data = dumps({'identity': identity, 'authtype': authtype})
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'identities'])
 
         url = build_url(choice(self.list_hosts), path=path)
@@ -241,6 +241,23 @@ class AccountClient(BaseClient):
         else:
             exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
             raise exc_cls(exc_msg)
+
+    def get_account_limits(self, account, rse_expression, locality):
+        """
+        Return the correct account limits for the given locality.
+
+        :param account:        The account name.
+        :param rse_expression: Valid RSE expression
+        :param locality:       The scope of the account limit. 'local' or 'global'.
+        """
+
+        if locality == 'local':
+            return self.get_local_account_limit(account, rse_expression)
+        elif locality == 'global':
+            return self.get_global_account_limit(account, rse_expression)
+        else:
+            from rucio.common.exception import UnsupportedOperation
+            raise UnsupportedOperation('The provided locality (%s) for the account limit was invalid' % locality)
 
     def get_global_account_limit(self, account, rse_expression):
         """

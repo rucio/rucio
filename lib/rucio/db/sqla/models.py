@@ -24,6 +24,7 @@
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -644,6 +645,7 @@ class RSE(BASE, SoftModelBase):
     __tablename__ = 'rses'
     id = Column(GUID(), default=utils.generate_uuid)
     rse = Column(String(255))
+    vo = Column(String(3), nullable=False, server_default='def')
     rse_type = Column(RSEType.db_type(name='RSES_TYPE_CHK'), default=RSEType.DISK)
     deterministic = Column(Boolean(name='RSE_DETERMINISTIC_CHK'), default=True)
     volatile = Column(Boolean(name='RSE_VOLATILE_CHK'), default=False)
@@ -661,9 +663,10 @@ class RSE(BASE, SoftModelBase):
     usage = relationship("RSEUsage", order_by="RSEUsage.rse_id", backref="rses")
 #    replicas = relationship("RSEFileAssociation", order_by="RSEFileAssociation.rse_id", backref="rses")
     _table_args = (PrimaryKeyConstraint('id', name='RSES_PK'),
-                   UniqueConstraint('rse', name='RSES_RSE_UQ'),
+                   UniqueConstraint('rse', 'vo', name='RSES_RSE_UQ'),
                    CheckConstraint('RSE IS NOT NULL', name='RSES_RSE__NN'),
-                   CheckConstraint('RSE_TYPE IS NOT NULL', name='RSES_TYPE_NN'),)
+                   CheckConstraint('RSE_TYPE IS NOT NULL', name='RSES_TYPE_NN'),
+                   ForeignKeyConstraint(['vo'], ['vos.vo'], name='RSES_VOS_FK'), )
 
 
 class RSELimit(BASE, ModelBase):
@@ -1173,15 +1176,39 @@ class Subscription(BASE, ModelBase, Versioned):
 class Token(BASE, ModelBase):
     """Represents the authentication tokens and their lifetime"""
     __tablename__ = 'tokens'
-    token = Column(String(352))  # account-identity-appid-uuid -> max length: (+ 30 1 255 1 32 1 32)
+    token = Column(String(3072))  # account-identity-appid-uuid -> max length: (+ 30 1 255 1 32 1 32)
     account = Column(InternalAccountString(25))
+    refresh_token = Column(String(315), default=None)
+    refresh = Column(Boolean(name='TOKENS_REFRESH_CHK'), default=False)
+    refresh_start = Column(DateTime, default=None)
+    refresh_expired_at = Column(DateTime, default=None)
+    refresh_lifetime = Column(Integer())
+    oidc_scope = Column(String(2048), default=None)  # scopes define the specific actions applications can be allowed to do on a user's behalf
     identity = Column(String(2048))
+    audience = Column(String(315), default=None)
     expired_at = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=3600))  # one hour lifetime by default
     ip = Column(String(39), nullable=True)
     _table_args = (PrimaryKeyConstraint('token', name='TOKENS_TOKEN_PK'),  # not supported for primary key constraint mysql_length=255
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='TOKENS_ACCOUNT_FK'),
                    CheckConstraint('EXPIRED_AT IS NOT NULL', name='TOKENS_EXPIRED_AT_NN'),
                    Index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'account', 'expired_at'))
+
+
+class OAuthRequest(BASE, ModelBase):
+    """Represents the authentication session parameters of OAuth 2.0 requests"""
+    __tablename__ = 'oauth_requests'
+    account = Column(InternalAccountString(25))
+    state = Column(String(50))
+    nonce = Column(String(50))
+    access_msg = Column(String(2048))
+    redirect_msg = Column(String(2048))
+    refresh_lifetime = Column(Integer())
+    ip = Column(String(39), nullable=True)
+    expired_at = Column(DateTime, default=lambda: datetime.datetime.utcnow() + datetime.timedelta(seconds=600))  # 10 min lifetime by default
+    _table_args = (PrimaryKeyConstraint('state', name='OAUTH_REQUESTS_STATE_PK'),
+                   CheckConstraint('EXPIRED_AT IS NOT NULL', name='OAUTH_REQUESTS_EXPIRED_AT_NN'),
+                   Index('OAUTH_REQUESTS_ACC_EXP_AT_IDX', 'account', 'expired_at'),
+                   Index('OAUTH_REQUESTS_ACCESS_MSG_IDX', 'access_msg'))
 
 
 class Message(BASE, ModelBase):
@@ -1288,6 +1315,15 @@ class LifetimeExceptions(BASE, ModelBase):
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='LIFETIME_EXCEPT_ACCOUNT_FK'))
 
 
+class VO(BASE, ModelBase):
+    """Represents the VOS in a MultiVO setup"""
+    __tablename__ = 'vos'
+    vo = Column(String(3))
+    description = Column(String(255))
+    email = Column(String(255))
+    _table_args = (PrimaryKeyConstraint('vo', name='VOS_PK'), )
+
+
 class DidsFollowed(BASE, ModelBase):
     """Represents the datasets followed by an user"""
     __tablename__ = 'dids_followed'
@@ -1307,9 +1343,9 @@ class DidsFollowed(BASE, ModelBase):
 class FollowEvents(BASE, ModelBase):
     """Represents the events affecting the datasets which are followed"""
     __tablename__ = 'dids_followed_events'
-    scope = Column(String(SCOPE_LENGTH))
+    scope = Column(InternalScopeString(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
-    account = Column(String(25))
+    account = Column(InternalAccountString(25))
     did_type = Column(DIDType.db_type(name='DIDS_FOLLOWED_EVENTS_TYPE_CHK'))
     event_type = Column(String(1024))
     payload = Column(Text)
@@ -1354,6 +1390,7 @@ def register_models(engine):
               Message,
               MessageHistory,
               NamingConvention,
+              OAuthRequest,
               QuarantinedReplica,
               RSE,
               RSEAttrAssociation,
@@ -1376,7 +1413,8 @@ def register_models(engine):
               UpdatedAccountCounter,
               UpdatedDID,
               UpdatedRSECounter,
-              UpdatedCollectionReplica)
+              UpdatedCollectionReplica,
+              VO)
 
     for model in models:
         model.metadata.create_all(engine)   # pylint: disable=maybe-no-member
@@ -1413,6 +1451,7 @@ def unregister_models(engine):
               Message,
               MessageHistory,
               NamingConvention,
+              OAuthRequest,
               QuarantinedReplica,
               RSE,
               RSEAttrAssociation,
@@ -1435,7 +1474,8 @@ def unregister_models(engine):
               UpdatedAccountCounter,
               UpdatedDID,
               UpdatedRSECounter,
-              UpdatedCollectionReplica)
+              UpdatedCollectionReplica,
+              VO)
 
     for model in models:
         model.metadata.drop_all(engine)   # pylint: disable=maybe-no-member

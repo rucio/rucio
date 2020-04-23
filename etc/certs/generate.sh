@@ -24,17 +24,17 @@ openssl x509 -req -days 9999 -CAcreateserial -extfile <(printf "subjectAltName=D
 
 # XrootD Server 1
 openssl req -new -newkey rsa:2048 -nodes -keyout hostcert_xrd1.key.pem -subj "/CN=xrd1" > hostcert_xrd1.csr
-openssl x509 -req -days 9999 -CAcreateserial -extfile <(printf "subjectAltName=DNS:xrd1,DNS:localhost") -in hostcert_xrd1.csr -CA rucio_ca.pem -CAkey rucio_ca.key.pem -out hostcert_xrd1.pem -passin env:PASSPHRASE
+openssl x509 -req -days 9999 -CAcreateserial -extfile <(printf "subjectAltName=DNS:xrd1,DNS:localhost,DNS:xrd1.default.svc.cluster.local") -in hostcert_xrd1.csr -CA rucio_ca.pem -CAkey rucio_ca.key.pem -out hostcert_xrd1.pem -passin env:PASSPHRASE
 
 
 # XrootD Server 2
 openssl req -new -newkey rsa:2048 -nodes -keyout hostcert_xrd2.key.pem -subj "/CN=xrd2" > hostcert_xrd2.csr
-openssl x509 -req -days 9999 -CAcreateserial -extfile <(printf "subjectAltName=DNS:xrd2,DNS:localhost") -in hostcert_xrd2.csr -CA rucio_ca.pem -CAkey rucio_ca.key.pem -out hostcert_xrd2.pem -passin env:PASSPHRASE
+openssl x509 -req -days 9999 -CAcreateserial -extfile <(printf "subjectAltName=DNS:xrd2,DNS:localhost,DNS:xrd2.default.svc.cluster.local") -in hostcert_xrd2.csr -CA rucio_ca.pem -CAkey rucio_ca.key.pem -out hostcert_xrd2.pem -passin env:PASSPHRASE
 
 
 # XrootD Server 3
 openssl req -new -newkey rsa:2048 -nodes -keyout hostcert_xrd3.key.pem -subj "/CN=xrd3" > hostcert_xrd3.csr
-openssl x509 -req -days 9999 -CAcreateserial -extfile <(printf "subjectAltName=DNS:xrd3,DNS:localhost") -in hostcert_xrd3.csr -CA rucio_ca.pem -CAkey rucio_ca.key.pem -out hostcert_xrd3.pem -passin env:PASSPHRASE
+openssl x509 -req -days 9999 -CAcreateserial -extfile <(printf "subjectAltName=DNS:xrd3,DNS:localhost,DNS:xrd3.default.svc.cluster.local") -in hostcert_xrd3.csr -CA rucio_ca.pem -CAkey rucio_ca.key.pem -out hostcert_xrd3.pem -passin env:PASSPHRASE
 
 
 # MinIO Server

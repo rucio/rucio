@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2019
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2020
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
@@ -47,6 +47,7 @@ from collections import OrderedDict
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
+from prometheus_client import Counter
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
 from rucio.common.config import config_get
@@ -79,6 +80,8 @@ REGION = make_region().configure('dogpile.cache.memcached',
                                  expiration_time=600,
                                  arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'),
                                             'distributed_lock': True})
+
+DELETION_COUNTER = Counter('rucio_daemons_reaper_deletion_done', 'Number of deleted replicas')
 
 
 def get_rses_to_process(rses, include_rses, exclude_rses):
@@ -320,8 +323,9 @@ def __check_rse_usage(rse, rse_id, prepend_str):
         # If needed_free_space negative, nothing to delete except if some Epoch tombstoned replicas
         if needed_free_space <= 0:
             needed_free_space = 0 or obsolete
-
-        result = (max_being_deleted_files, needed_free_space, used, free, True)
+            result = (max_being_deleted_files, needed_free_space, used, free, True)
+        else:
+            result = (max_being_deleted_files, needed_free_space, used, free, False)
         REGION.set('rse_usage_%s' % rse_id, result)
         return result
     logging.debug('%s Using cached value for RSE usage on RSE %s', prepend_str, rse)
@@ -411,11 +415,11 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
                 max_being_deleted_files, needed_free_space, used, free, only_delete_obsolete = __check_rse_usage(rse['rse'], rse['id'], prepend_str)
                 # Check if greedy mode
                 if greedy:
-                    dict_rses[(rse['rse'], rse['id'])] = [1000000000000, max_being_deleted_files]
+                    dict_rses[(rse['rse'], rse['id'])] = [1000000000000, max_being_deleted_files, only_delete_obsolete]
                     tot_needed_free_space += 1000000000000
                 else:
                     if needed_free_space:
-                        dict_rses[(rse['rse'], rse['id'])] = [needed_free_space, max_being_deleted_files]
+                        dict_rses[(rse['rse'], rse['id'])] = [needed_free_space, max_being_deleted_files, only_delete_obsolete]
                         tot_needed_free_space += needed_free_space
                     else:
                         logging.debug('%s Nothing to delete on %s', prepend_str, rse['rse'])
@@ -469,6 +473,7 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
                 logging.debug('%s Total deletion workers for %s : %i', prepend_str, rse_hostname, tot_threads_for_hostname + 1)
                 # List and mark BEING_DELETED the files to delete
                 del_start_time = time.time()
+                only_delete_obsolete = dict_rses[(rse_name, rse_id)][2]
                 try:
                     with monitor.record_timer_block('reaper.list_unlocked_replicas'):
                         if only_delete_obsolete:
@@ -479,7 +484,7 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
                                                                    delay_seconds=delay_seconds,
                                                                    only_delete_obsolete=only_delete_obsolete,
                                                                    session=None)
-                    logging.debug('%s list_and_mark_unlocked_replicas  on %s for %s bytes in %s seconds: %s replicas', prepend_str, rse_name, needed_free_space, time.time() - del_start_time, len(replicas))
+                    logging.debug('%s list_and_mark_unlocked_replicas on %s for %s bytes in %s seconds: %s replicas', prepend_str, rse_name, needed_free_space, time.time() - del_start_time, len(replicas))
                     if len(replicas) < chunk_size:
                         logging.info('%s Not enough replicas to delete on %s (%s requested vs %s returned). Will skip any new attempts on this RSE until next cycle', prepend_str, rse_name, chunk_size, len(replicas))
                         REGION.set('pause_deletion_%s' % rse_id, True)
@@ -518,7 +523,7 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
                             delete_replicas(rse_id=rse_id, files=deleted_files)
                         logging.debug('%s delete_replicas successed on %s : %s replicas in %s seconds', prepend_str, rse_name, len(deleted_files), time.time() - del_start)
                         monitor.record_counter(counters='reaper.deletion.done', delta=len(deleted_files))
-
+                        DELETION_COUNTER.inc(len(deleted_files))
                 except Exception as error:
                     logging.critical('%s %s', prepend_str, str(traceback.format_exc()))
 

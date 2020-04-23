@@ -2,7 +2,7 @@ Configuration
 =============
 
 Prerequisites
-~~~~~~~~~~~
+~~~~~~~~~~~~~
 
 You need to have a Rucio server up and running with the root account created. Please refer to `installation documentation`_ for further information
 
@@ -22,7 +22,7 @@ You can choose from different types in the list USER, GROUP, SERVICE. Different 
 
   $ rucio-admin identity add --type X509 --id "/DC=blah/DC=blih/OU=Organic Units/OU=Users/CN=jdoe" --email jdoe@blahblih.com --account jdoe
 
-The list of possible identity types is X509, GSS, USERPASS, SSH::
+The list of possible identity types is X509, GSS, USERPASS, SSH, OIDC::
 
   $ rucio-admin account list-identities jdoe
   Identity: /DC=blah/DC=blih/OU=Organic Units/OU=Users/CN=jdoe,        type: X509
@@ -69,21 +69,21 @@ Creating new RSEs
 
 To create a new RSE::
 
-  $ rucio-admin rse add SITE3_DISK 
+  $ rucio-admin rse add SITE3_DISK
   Added new RSE: SITE3_DISK
 
 Then you can attach protocols to this RSE. In the following example, a file protocol is added to the site created previously::
 
-  $ rucio-admin rse add-protocol --hostname blahblih --scheme file --impl rucio.rse.protocols.posix.Default --domain-json '{"wan": {"read": 1, "write": 1, "third_party_copy": 0, "delete": 1}, "lan": {"read": 1, "write": 1, "third_party_copy": 0, "delete": 1}}' --prefix /tmp/SITE3_DISK/ SITE3_DISK
+  $ rucio-admin rse add-protocol --hostname blahblah --scheme file --impl rucio.rse.protocols.posix.Default --domain-json '{"wan": {"read": 1, "write": 1, "third_party_copy": 0, "delete": 1}, "lan": {"read": 1, "write": 1, "third_party_copy": 0, "delete": 1}}' --prefix /tmp/SITE3_DISK/ SITE3_DISK
 
 The different parameters are explained in more details if you use the --help option.
 
 Last step is to create RSE attributes that can be used to build RSE expressions::
 
-  $ rucio-admin rse set-attribute --rse SITE3_DISK --key tier --value 1 
-  Added new RSE attribute for SITE3_DISK: tier-1 
+  $ rucio-admin rse set-attribute --rse SITE3_DISK --key tier --value 1
+  Added new RSE attribute for SITE3_DISK: tier-1
   $ rucio-admin rse set-attribute --rse SITE3_DISK --key disk --value 1
-  Added new RSE attribute for SITE3_DISK: disk-1 
+  Added new RSE attribute for SITE3_DISK: disk-1
   $ rucio list-rses --expression "disk=1&tier=1"
   SITE3_DISK
 
@@ -144,7 +144,7 @@ The root account has all the privileges. You can define other admin accounts by 
   $ rucio-admin account list --filter "admin=1"
   jdoe
 
-The permissions are easily tunable by overloading the `generic permission file`_. 
+The permissions are easily tunable by overloading the `generic permission file`_.
 
    .. _`generic permission file`: https://github.com/rucio/rucio/blob/master/lib/rucio/core/permission/generic.py
 

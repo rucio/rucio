@@ -15,6 +15,8 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -41,6 +43,7 @@ from requests.packages.urllib3 import disable_warnings  # pylint: disable=import
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
+from prometheus_client import Counter, Summary
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer, DuplicateFileTransferSubmission
@@ -62,25 +65,46 @@ logging.basicConfig(stream=sys.stdout,
 REGION_SHORT = make_region().configure('dogpile.cache.memory',
                                        expiration_time=1800)
 
+SUBMISSION_COUNTER = Counter('rucio_transfertool_fts3_submission', 'Number of transfers submitted', labelnames=('state', 'host'))
+CANCEL_COUNTER = Counter('rucio_transfertool_fts3_cancel', 'Number of cancelled transfers', labelnames=('state', 'host'))
+UPDATE_COUNTER = Counter('rucio_transfertool_fts3_update', 'Number of updated transfers', labelnames=('state', 'host'))
+UPDATE_PRIORITY_COUNTER = Counter('rucio_transfertool_fts3_update_priority', 'Number of priority updates', labelnames=('state', 'host'))
+QUERY_COUNTER = Counter('rucio_transfertool_fts3_query', 'Number of queried transfers', labelnames=('state', 'host'))
+WHOAMI_COUNTER = Counter('rucio_transfertool_fts3_whoami', 'Number of whoami requests', labelnames=('state', 'host'))
+VERSION_COUNTER = Counter('rucio_transfertool_fts3_version', 'Number of version requests', labelnames=('state', 'host'))
+QUERY_LATEST_COUNTER = Counter('rucio_transfertool_fts3_query_latest', 'Number of latest status queries', labelnames=('state', 'host'))
+BULK_QUERY_COUNTER = Counter('rucio_transfertool_fts3_bulk_query', 'Number of bulk queries', labelnames=('state', 'host'))
+QUERY_DETAILS_COUNTER = Counter('rucio_transfertool_fts3_query_details', 'Number of detailed status queries', labelnames=('state', 'host'))
+SUBMISSION_TIMER = Summary('rucio_transfertool_fts3_submit_transfer', 'Timer for transfer submission', labelnames=('host',))
+
 
 class FTS3Transfertool(Transfertool):
     """
     FTS3 implementation of a Rucio transfertool
     """
 
-    def __init__(self, external_host):
+    def __init__(self, external_host, token=None):
         """
         Initializes the transfertool
 
         :param external_host:   The external host where the transfertool API is running
+        :param token: optional parameter to pass user's JWT
         """
         usercert = config_get('conveyor', 'usercert', False, None)
 
+        # token for OAuth 2.0 OIDC authorization scheme (working only with dCache + davs/https protocols as of Sep 2019)
+        self.token = token
         self.deterministic_id = config_get_bool('conveyor', 'use_deterministic_id', False, False)
         super(FTS3Transfertool, self).__init__(external_host)
+        self.headers = {'Content-Type': 'application/json'}
         if self.external_host.startswith('https://'):
-            self.cert = (usercert, usercert)
-            self.verify = False
+            if self.token:
+                self.cert = None
+                self.verify = False
+                self.headers['Authorization'] = 'Bearer ' + self.token
+            else:
+                self.cert = (usercert, usercert)
+                self.verify = False
         else:
             self.cert = None
             self.verify = True  # True is the default setting of a requests.* method
@@ -136,9 +160,11 @@ class FTS3Transfertool(Transfertool):
                                         verify=self.verify,
                                         cert=self.cert,
                                         data=params_str,
-                                        headers={'Content-Type': 'application/json'},
+                                        headers=self.headers,
                                         timeout=timeout)
             record_timer('transfertool.fts3.submit_transfer.%s' % self.__extract_host(self.external_host), (time.time() - start_time) * 1000 / len(files))
+            labels = {'host': self.__extract_host(self.external_host)}
+            SUBMISSION_TIMER.labels(**labels).observe((time.time() - start_time) * 1000 / len(files))
         except ReadTimeout as error:
             raise TransferToolTimeout(error)
         except JSONDecodeError as error:
@@ -148,9 +174,13 @@ class FTS3Transfertool(Transfertool):
 
         if post_result and post_result.status_code == 200:
             record_counter('transfertool.fts3.%s.submission.success' % self.__extract_host(self.external_host), len(files))
+            labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
+            SUBMISSION_COUNTER.labels(**labels).inc(len(files))
             transfer_id = str(post_result.json()['job_id'])
         elif post_result and post_result.status_code == 409:
             record_counter('transfertool.fts3.%s.submission.failure' % self.__extract_host(self.external_host), len(files))
+            labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
+            SUBMISSION_COUNTER.labels(**labels).inc(len(files))
             raise DuplicateFileTransferSubmission()
         else:
             if expected_transfer_id:
@@ -159,6 +189,8 @@ class FTS3Transfertool(Transfertool):
             else:
                 logging.warn("Failed to submit transfer to %s, error: %s", self.external_host, post_result.text if post_result is not None else post_result)
             record_counter('transfertool.fts3.%s.submission.failure' % self.__extract_host(self.external_host), len(files))
+            labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
+            SUBMISSION_COUNTER.labels(**labels).inc(len(files))
 
         if not transfer_id:
             raise TransferToolWrongAnswer('No transfer id returned by %s' % self.external_host)
@@ -182,14 +214,18 @@ class FTS3Transfertool(Transfertool):
         job = requests.delete('%s/jobs/%s' % (self.external_host, transfer_id),
                               verify=self.verify,
                               cert=self.cert,
-                              headers={'Content-Type': 'application/json'},
+                              headers=self.headers,
                               timeout=timeout)
 
         if job and job.status_code == 200:
             record_counter('transfertool.fts3.%s.cancel.success' % self.__extract_host(self.external_host))
+            labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
+            CANCEL_COUNTER.labels(**labels).inc()
             return job.json()
 
         record_counter('transfertool.fts3.%s.cancel.failure' % self.__extract_host(self.external_host))
+        labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
+        CANCEL_COUNTER.labels(**labels).inc()
         raise Exception('Could not cancel transfer: %s', job.content)
 
     def update_priority(self, transfer_id, priority, timeout=None):
@@ -210,14 +246,18 @@ class FTS3Transfertool(Transfertool):
                             verify=self.verify,
                             data=params_str,
                             cert=self.cert,
-                            headers={'Content-Type': 'application/json'},
+                            headers=self.headers,
                             timeout=timeout)  # TODO set to 3 in conveyor
 
         if job and job.status_code == 200:
             record_counter('transfertool.fts3.%s.update_priority.success' % self.__extract_host(self.external_host))
+            labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
+            UPDATE_PRIORITY_COUNTER.labels(**labels).inc()
             return job.json()
 
         record_counter('transfertool.fts3.%s.update_priority.failure' % self.__extract_host(self.external_host))
+        labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
+        UPDATE_PRIORITY_COUNTER.labels(**labels).inc()
         raise Exception('Could not update priority of transfer: %s', job.content)
 
     def query(self, transfer_ids, details=False, timeout=None):
@@ -242,13 +282,17 @@ class FTS3Transfertool(Transfertool):
         job = requests.get('%s/jobs/%s' % (self.external_host, transfer_id),
                            verify=self.verify,
                            cert=self.cert,
-                           headers={'Content-Type': 'application/json'},
+                           headers=self.headers,
                            timeout=timeout)  # TODO Set to 5 in conveyor
         if job and job.status_code == 200:
             record_counter('transfertool.fts3.%s.query.success' % self.__extract_host(self.external_host))
+            labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
+            QUERY_COUNTER.labels(**labels).inc()
             return [job.json()]
 
         record_counter('transfertool.fts3.%s.query.failure' % self.__extract_host(self.external_host))
+        labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
+        QUERY_COUNTER.labels(**labels).inc()
         raise Exception('Could not retrieve transfer information: %s', job.content)
 
     # Public methods, not part of the common interface specification (FTS3 specific)
@@ -265,13 +309,17 @@ class FTS3Transfertool(Transfertool):
         get_result = requests.get('%s/whoami' % self.external_host,
                                   verify=self.verify,
                                   cert=self.cert,
-                                  headers={'Content-Type': 'application/json'})
+                                  headers=self.headers)
 
         if get_result and get_result.status_code == 200:
             record_counter('transfertool.fts3.%s.whoami.success' % self.__extract_host(self.external_host))
+            labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
+            WHOAMI_COUNTER.labels(**labels).inc()
             return get_result.json()
 
         record_counter('transfertool.fts3.%s.whoami.failure' % self.__extract_host(self.external_host))
+        labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
+        WHOAMI_COUNTER.labels(**labels).inc()
         raise Exception('Could not retrieve credentials: %s', get_result.content)
 
     def version(self):
@@ -286,13 +334,17 @@ class FTS3Transfertool(Transfertool):
         get_result = requests.get('%s/' % self.external_host,
                                   verify=self.verify,
                                   cert=self.cert,
-                                  headers={'Content-Type': 'application/json'})
+                                  headers=self.headers)
 
         if get_result and get_result.status_code == 200:
             record_counter('transfertool.fts3.%s.version.success' % self.__extract_host(self.external_host))
+            labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
+            VERSION_COUNTER.labels(**labels).inc()
             return get_result.json()
 
         record_counter('transfertool.fts3.%s.version.failure' % self.__extract_host(self.external_host))
+        labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
+        VERSION_COUNTER.labels(**labels).inc()
         raise Exception('Could not retrieve version: %s', get_result.content)
 
     def query_latest(self, state, last_nhours=1):
@@ -309,7 +361,7 @@ class FTS3Transfertool(Transfertool):
             whoami = requests.get('%s/whoami' % (self.external_host),
                                   verify=self.verify,
                                   cert=self.cert,
-                                  headers={'Content-Type': 'application/json'})
+                                  headers=self.headers)
             if whoami and whoami.status_code == 200:
                 delegation_id = whoami.json()['delegation_id']
             else:
@@ -321,7 +373,7 @@ class FTS3Transfertool(Transfertool):
                                                                                   last_nhours),
                                 verify=self.verify,
                                 cert=self.cert,
-                                headers={'Content-Type': 'application/json'})
+                                headers=self.headers)
         except ReadTimeout as error:
             raise TransferToolTimeout(error)
         except JSONDecodeError as error:
@@ -331,6 +383,8 @@ class FTS3Transfertool(Transfertool):
 
         if jobs and (jobs.status_code == 200 or jobs.status_code == 207):
             record_counter('transfertool.fts3.%s.query_latest.success' % self.__extract_host(self.external_host))
+            labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
+            QUERY_LATEST_COUNTER.labels(**labels).inc()
             try:
                 jobs_json = jobs.json()
                 return jobs_json
@@ -342,6 +396,8 @@ class FTS3Transfertool(Transfertool):
                 logging.error("Failed to parse the jobs status %s" % (str(error)))
 
         record_counter('transfertool.fts3.%s.query.failure' % self.__extract_host(self.external_host))
+        labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
+        QUERY_LATEST_COUNTER.labels(**labels).inc()
 
     def bulk_query(self, transfer_ids, timeout=None):
         """
@@ -362,7 +418,7 @@ class FTS3Transfertool(Transfertool):
         jobs = fts_session.get('%s/jobs/%s?files=file_state,dest_surl,finish_time,start_time,staging_start,staging_finished,reason,source_surl,file_metadata' % (self.external_host, xfer_ids),
                                verify=self.verify,
                                cert=self.cert,
-                               headers={'Content-Type': 'application/json'},
+                               headers=self.headers,
                                timeout=timeout)
 
         if jobs is None:
@@ -372,6 +428,8 @@ class FTS3Transfertool(Transfertool):
         elif jobs.status_code == 200 or jobs.status_code == 207:
             try:
                 record_counter('transfertool.fts3.%s.bulk_query.success' % self.__extract_host(self.external_host))
+                labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
+                BULK_QUERY_COUNTER.labels(**labels).inc()
                 jobs_response = jobs.json()
                 responses = self.__bulk_query_responses(jobs_response)
             except ReadTimeout as error:
@@ -382,6 +440,8 @@ class FTS3Transfertool(Transfertool):
                 raise Exception("Failed to parse the job response: %s, error: %s" % (str(jobs), str(error)))
         else:
             record_counter('transfertool.fts3.%s.bulk_query.failure' % self.__extract_host(self.external_host))
+            labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
+            BULK_QUERY_COUNTER.labels(**labels).inc()
             for transfer_id in transfer_ids:
                 responses[transfer_id] = Exception('Could not retrieve transfer information: %s', jobs.content)
 
@@ -398,7 +458,7 @@ class FTS3Transfertool(Transfertool):
             result = requests.get('%s/ban/se' % self.external_host,
                                   verify=self.verify,
                                   cert=self.cert,
-                                  headers={'Content-Type': 'application/json'},
+                                  headers=self.headers,
                                   timeout=None)
         except Exception as error:
             raise Exception('Could not retrieve transfer information: %s', error)
@@ -417,7 +477,7 @@ class FTS3Transfertool(Transfertool):
             result = requests.get('%s/config/se' % (self.external_host),
                                   verify=self.verify,
                                   cert=self.cert,
-                                  headers={'Content-Type': 'application/json'},
+                                  headers=self.headers,
                                   timeout=None)
         except Exception:
             logging.warn('Could not get config of %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
@@ -476,7 +536,7 @@ class FTS3Transfertool(Transfertool):
                                    verify=self.verify,
                                    cert=self.cert,
                                    data=params_str,
-                                   headers={'Content-Type': 'application/json'},
+                                   headers=self.headers,
                                    timeout=None)
 
         except Exception:
@@ -515,7 +575,7 @@ class FTS3Transfertool(Transfertool):
                                        verify=self.verify,
                                        cert=self.cert,
                                        data=params_str,
-                                       headers={'Content-Type': 'application/json'},
+                                       headers=self.headers,
                                        timeout=None)
             except Exception:
                 logging.warn('Could not ban %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
@@ -529,7 +589,7 @@ class FTS3Transfertool(Transfertool):
                                          verify=self.verify,
                                          cert=self.cert,
                                          data=params_str,
-                                         headers={'Content-Type': 'application/json'},
+                                         headers=self.headers,
                                          timeout=None)
             except Exception:
                 logging.warn('Could not unban %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
@@ -562,7 +622,7 @@ class FTS3Transfertool(Transfertool):
                     get_result = requests.get('%s/whoami' % self.external_host,
                                               verify=self.verify,
                                               cert=self.cert,
-                                              headers={'Content-Type': 'application/json'},
+                                              headers=self.headers,
                                               timeout=5)
                 except ReadTimeout as error:
                     raise TransferToolTimeout(error)
@@ -769,11 +829,15 @@ class FTS3Transfertool(Transfertool):
         files = requests.get('%s/jobs/%s/files' % (self.external_host, transfer_id),
                              verify=self.verify,
                              cert=self.cert,
-                             headers={'Content-Type': 'application/json'},
+                             headers=self.headers,
                              timeout=5)
         if files and (files.status_code == 200 or files.status_code == 207):
             record_counter('transfertool.fts3.%s.query_details.success' % self.__extract_host(self.external_host))
+            labels = {'state': 'success', 'host': self.__extract_host(self.external_host)}
+            QUERY_DETAILS_COUNTER.labels(**labels).inc()
             return files.json()
 
         record_counter('transfertool.fts3.%s.query_details.failure' % self.__extract_host(self.external_host))
+        labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
+        QUERY_DETAILS_COUNTER.labels(**labels).inc()
         return

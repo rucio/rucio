@@ -8,7 +8,7 @@
 # Authors:
 # - Luis Rodrigues <lfrodrigues@gmail.com>, 2013
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2017
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2020
 # - Vincent Garonne vgaronne@gmail.com, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 #
@@ -22,6 +22,7 @@ from __future__ import division
 
 import time
 
+from prometheus_client import start_http_server
 from statsd import StatsClient
 
 from rucio.common.config import config_get
@@ -30,6 +31,11 @@ SERVER = config_get('monitor', 'carbon_server', raise_exception=False, default='
 PORT = config_get('monitor', 'carbon_port', raise_exception=False, default=8125)
 SCOPE = config_get('monitor', 'user_scope', raise_exception=False, default='rucio')
 CLIENT = StatsClient(host=SERVER, port=PORT, prefix=SCOPE)
+
+ENABLE_METRICS = config_get('monitor', 'enable_metrics', raise_exception=False, default=False)
+if ENABLE_METRICS:
+    METRICS_PORT = config_get('monitor', 'metrics_port', raise_exception=False, default=8080)
+    start_http_server(METRICS_PORT)
 
 
 def record_counter(counters, delta=1):

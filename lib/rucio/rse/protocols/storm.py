@@ -17,6 +17,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 
 import os
+import requests
 
 from exceptions import NotImplementedError
 from xml.dom import minidom
@@ -111,34 +112,70 @@ class Default(protocol.RSEProtocol):
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
          """
 
-        # storm prefix needs to be replaced by davs in order to get etag
-        pfn = 'davs' + pfn[5:]
+        # retrieve the TURL from the webdav etag, REQUESTS
+        def requests_etag(pfn, timeout):
+            x509 = os.environ.get('X509_USER_PROXY')
+            pfn = 'https' + pfn[:5]
+            session = requests.Session()
+            output = session.request('PROPFIND', pfn, verify=False, timeout=timeout, cert=(x509, x509))
+            session.close()
+            return output.status_code, output.text
 
-        # retrieve the TURL from the webdav etag, TODO: make it configurable
-        cmd = 'davix-http --capath /cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase/etc/grid-security-emi/certificates --cert $X509_USER_PROXY -X PROPFIND %s' % pfn
+        # retrieve the TURL from the webdav etag, DAVIX
+        def davix_etag(pfn, timeout):
+            pfn = 'davs' + pfn[5:]
+            cmd = 'davix-http --capath /cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase/etc/grid-security-emi/certificates --cert $X509_USER_PROXY -X PROPFIND %s' % pfn
+            try:
+                rcode, output = run_cmd_process(cmd, timeout=timeout)
+                if rcode != 0:
+                    if output:
+                        raise exception.ServiceUnavailable("{}/n{}".format(str(output), cmd))
+                    else:
+                        raise exception.ServiceUnavailable('Error message from subprocess davix-http call is missing./n{}'.format(cmd))
+            except Exception as e:
+                raise exception.ServiceUnavailable('Could not retrieve STORM WebDAV ETag: {}/n{}'.format(str(e), cmd))
+            return rcode, output
+
+        # using prefix from AGIS primarily (ATLAS spec.)
+        target = None
         try:
-            rcode, output = run_cmd_process(cmd, timeout=300)
-            if rcode != 0:
-                if output:
-                    raise exception.ServiceUnavailable(str(output))
-                else:
-                    raise exception.ServiceUnavailable('Error message from subprocess davix-http call is missing.')
-        except Exception as e:
-            raise exception.ServiceUnavailable('Could not retrieve STORM WebDAV ETag: %s' % str(e))
-        p_output = minidom.parseString(output)
+            target = self.pfn2path(pfn)
+            name = pfn.split('/')[-1]
+            if name not in target:
+                target = None
+        except:
+            target = None
+            pass
 
-        # we need to strip off the quotation marks and the <timestamp> from the etag
-        # but since we can have multiple underscores, we have to rely on the uniqueness
-        # of the full LFN to make the split
-        target = p_output.getElementsByTagName('d:getetag')[0].childNodes[0].nodeValue.replace('"', '')
-        target_ending = '_' + target.split('_')[-1]
-        target = target.split(target_ending)[0]
+        # if AGIS setting failed
+        etag_meta = None
+        if not target:
+            # requests preferable
+            try:
+                rcode, etag_meta = requests_etag(pfn, 300)
+            except:
+                pass
+            # fallback to davix
+            if rcode != 207:
+                rcode, etag_meta = davix_etag(pfn, 300)
+
+            p_output = minidom.parseString(etag_meta)
+            # we need to strip off the quotation marks and the <timestamp> from the etag
+            # but since we can have multiple underscores, we have to rely on the uniqueness
+            # of the full LFN to make the split
+            target = p_output.getElementsByTagName('d:getetag')[0].childNodes[0].nodeValue.replace('"', '')
+            target_ending = '_' + target.split('_')[-1]
+            target = target.split(target_ending)[0]
 
         # make the symlink
         try:
             os.symlink(target, dest)
         except Exception as e:
             exception.ServiceUnavailable('Could not create symlink: %s for target %s' % (str(e), str(target)))
+
+    def pfn2path(self, pfn):
+        tmp = list(self.parse_pfns(pfn).values())[0]
+        return '/'.join([tmp['prefix'], tmp['path'], tmp['name']])
 
     def put(self, source, target, source_dir=None, transfer_timeout=None):
         """ Allows to store files inside the referred RSE.

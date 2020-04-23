@@ -15,8 +15,10 @@
 # Verify for default SQLite:
 #   for i in `sqlite3 /tmp/rucio.db ".tables"`; do echo $i:; sqlite3 /tmp/rucio.db "select * from $i"; echo; done
 
-from rucio.db.sqla.util import build_database, create_root_account
+from rucio.db.sqla.util import (build_database, create_base_vo,
+                                create_root_account)
 
 if __name__ == '__main__':
     build_database()
+    create_base_vo()
     create_root_account()

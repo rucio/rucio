@@ -187,6 +187,8 @@ class Default(protocol.RSEProtocol):
         self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
         self.__ctx.set_opt_string("XROOTD PLUGIN", "XRD.WANTPROT", "gsi,unix")
         self.__ctx.set_opt_boolean("XROOTD PLUGIN", "NORMALIZE_PATH", False)
+        if self.auth_token:
+            self.__ctx.set_opt_string("BEARER", "TOKEN", self.auth_token)
 
     def get(self, path, dest, transfer_timeout=None):
         """
@@ -469,7 +471,6 @@ class Default(protocol.RSEProtocol):
         """
 
         ctx = self.__ctx
-
         try:
             if ctx.stat(str(path)):
                 return 0

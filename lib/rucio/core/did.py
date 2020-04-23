@@ -25,8 +25,9 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Tobias Wegner <twegner@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
-# - Brandon White, <bjwhite@fnal.gov>, 2019
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
+# - Luc Goossens <luc.goossens@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -974,6 +975,10 @@ def list_child_datasets(scope, name, session=None):
             result.extend(list_child_datasets(scope=child_scope, name=child_name, session=session))
         else:
             result.append({'scope': child_scope, 'name': child_name, 'type': child_type})
+
+    # remove duplicate entries
+    result = {(elem['scope'], elem['name']): elem for elem in result}.values()
+
     return result
 
 
@@ -1142,6 +1147,9 @@ def get_did(scope, name, dynamic=False, session=None):
         else:
             if dynamic:
                 bytes, length, events = __resolve_bytes_length_events_did(scope=scope, name=name, session=session)
+                # replace None value for bytes with zero
+                if bytes is None:
+                    bytes = 0
             else:
                 bytes, length = result.bytes, result.length
             return {'scope': result.scope, 'name': result.name, 'type': result.did_type,
@@ -2005,6 +2013,7 @@ def insert_content_history(content_clause, did_created_at, session=None):
     :param did_created_at: Creation date of the did
     :param session: The database session in use.
     """
+    new_did_created_at = did_created_at
     query = session.query(models.DataIdentifierAssociation.scope,
                           models.DataIdentifierAssociation.name,
                           models.DataIdentifierAssociation.child_scope,
@@ -2022,6 +2031,8 @@ def insert_content_history(content_clause, did_created_at, session=None):
         filter(or_(*content_clause))
 
     for cont in query.all():
+        if not did_created_at:
+            new_did_created_at = cont.created_at
         models.DataIdentifierAssociationHistory(
             scope=cont.scope,
             name=cont.name,
@@ -2037,6 +2048,6 @@ def insert_content_history(content_clause, did_created_at, session=None):
             rule_evaluation=cont.rule_evaluation,
             updated_at=cont.updated_at,
             created_at=cont.created_at,
-            did_created_at=did_created_at,
+            did_created_at=new_did_created_at,
             deleted_at=datetime.utcnow()
         ).save(session=session, flush=False)

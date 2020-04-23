@@ -9,6 +9,7 @@
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2016-2017
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+ - James Perry, <j.perry@epcc.ed.ac.uk>, 2019
 
  PY3K COMPATIBLE
 """
@@ -17,26 +18,37 @@ try:
     from ConfigParser import NoOptionError, NoSectionError
 except ImportError:
     from configparser import NoOptionError, NoSectionError
-from rucio.common import config
+from rucio.common import config, exception
+
+import importlib
 
 if config.config_has_section('permission'):
     try:
-        POLICY = config.config_get('permission', 'policy')
+        FALLBACK_POLICY = config.config_get('permission', 'policy')
     except (NoOptionError, NoSectionError) as error:
-        POLICY = 'generic'
+        FALLBACK_POLICY = 'generic'
 elif config.config_has_section('policy'):
     try:
-        POLICY = config.config_get('policy', 'permission')
+        FALLBACK_POLICY = config.config_get('policy', 'permission')
     except (NoOptionError, NoSectionError) as error:
-        POLICY = 'generic'
+        FALLBACK_POLICY = 'generic'
 else:
-    POLICY = 'generic'
+    FALLBACK_POLICY = 'generic'
 
-if POLICY.lower() == 'generic':
-    from .generic import *  # NOQA pylint:disable=wildcard-import
-elif POLICY.lower() == 'atlas':
-    from .atlas import *  # NOQA pylint:disable=wildcard-import
-elif POLICY.lower() == 'cms':
-    from .cms import *  # NOQA pylint:disable=wildcard-import
+if config.config_has_section('policy'):
+    try:
+        POLICY = config.config_get('policy', 'package') + ".permission"
+    except (NoOptionError, NoSectionError) as error:
+        # fall back to old system for now
+        POLICY = 'rucio.core.permission.' + FALLBACK_POLICY.lower()
 else:
-    from .generic import *  # NOQA pylint:disable=wildcard-import
+    POLICY = 'rucio.core.permission.generic'
+
+try:
+    module = importlib.import_module(POLICY)
+except (ImportError) as error:
+    raise exception.PolicyPackageNotFound('Module ' + POLICY + ' not found')
+
+for i in dir(module):
+    if i[:1] != '_' or i == '_is_root':
+        globals()[i] = getattr(module, i)

@@ -58,6 +58,8 @@ class UploadClient:
         self.logger = logger
         self.client = _client if _client else Client()
         self.client_location = detect_client_location()
+        # if token should be used, use only JWT tokens
+        self.auth_token = self.client.auth_token if len(self.client.auth_token.split(".")) == 3 else None
         self.tracing = tracing
         if not self.tracing:
             logger.debug('Tracing is turned off.')
@@ -107,7 +109,6 @@ class UploadClient:
         # and cache rse settings
         registered_dataset_dids = set()
         registered_file_dids = set()
-
         for file in files:
             rse = file['rse']
             if not self.rses.get(rse):
@@ -123,7 +124,6 @@ class UploadClient:
                 registered_dataset_dids.add(dataset_did_str)
 
             registered_file_dids.add('%s:%s' % (file['did_scope'], file['did_name']))
-
         wrong_dids = registered_file_dids.intersection(registered_dataset_dids)
         if len(wrong_dids):
             raise InputValidationError('DIDs used to address both files and datasets: %s' % str(wrong_dids))
@@ -132,7 +132,6 @@ class UploadClient:
         registered_dataset_dids = set()
         num_succeeded = 0
         summary = []
-
         for file in files:
             basename = file['basename']
             logger.info('Preparing upload for file %s' % basename)
@@ -156,7 +155,6 @@ class UploadClient:
 
             file_did = {'scope': file['did_scope'], 'name': file['did_name']}
             dataset_did_str = file.get('dataset_did_str')
-
             rse = file['rse']
             rse_settings = self.rses[rse]
             rse_sign_service = rse_settings.get('sign_url', None)
@@ -170,11 +168,10 @@ class UploadClient:
 
             if not no_register and not register_after_upload:
                 self._register_file(file, registered_dataset_dids)
-
             # if register_after_upload, file should be overwritten if it is not registered
             # otherwise if file already exists on RSE we're done
             if register_after_upload:
-                if rsemgr.exists(rse_settings, pfn if pfn else file_did):
+                if rsemgr.exists(rse_settings, pfn if pfn else file_did, auth_token=self.auth_token):
                     try:
                         self.client.get_did(file['did_scope'], file['did_name'])
                         logger.info('File already registered. Skipping upload.')
@@ -184,16 +181,16 @@ class UploadClient:
                         logger.info('File already exists on RSE. Previous left overs will be overwritten.')
                         delete_existing = True
             elif not is_deterministic and not no_register:
-                if rsemgr.exists(rse_settings, pfn):
+                if rsemgr.exists(rse_settings, pfn, auth_token=self.auth_token):
                     logger.info('File already exists on RSE with given pfn. Skipping upload. Existing replica has to be removed first.')
                     trace['stateReason'] = 'File already exists'
                     continue
-                elif rsemgr.exists(rse_settings, file_did):
+                elif rsemgr.exists(rse_settings, file_did, auth_token=self.auth_token):
                     logger.info('File already exists on RSE with different pfn. Skipping upload.')
                     trace['stateReason'] = 'File already exists'
                     continue
             else:
-                if rsemgr.exists(rse_settings, pfn if pfn else file_did):
+                if rsemgr.exists(rse_settings, pfn if pfn else file_did, auth_token=self.auth_token):
                     logger.info('File already exists on RSE. Skipping upload')
                     trace['stateReason'] = 'File already exists'
                     continue
@@ -243,7 +240,8 @@ class UploadClient:
                                           force_pfn=pfn,
                                           transfer_timeout=file.get('transfer_timeout'),
                                           delete_existing=delete_existing,
-                                          sign_service=sign_service)
+                                          sign_service=sign_service,
+                                          auth_token=self.auth_token)
                     success = state['success']
                     file['upload_result'] = state
                 except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:

@@ -8,7 +8,7 @@ Individual contributors to the source code
 - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2016
 - Graeme Stewart <graeme.andrew.stewart@cern.ch>, 2012
 - Yun-Pin Sun <winter0128@gmail.com>, 2012-2013
-- Cedric Serfon <cedric.serfon@cern.ch>, 2012-2019
+- Cedric Serfon <cedric.serfon@cern.ch>, 2012-2020
 - Luis Rodrigues <lfrodrigues@gmail.com>, 2013
 - WeiJen Chang <e4523744@gmail.com>, 2013-2014
 - Gancho Dimitrov <gancho.dimitrov@cern.ch>, 2013
@@ -42,6 +42,7 @@ Individual contributors to the source code
 - Ruturaj Gujar <ruturaj.gujar23@gmail.com> 2019
 - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
+- Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 Organisations employing contributors
 ------------------------------------

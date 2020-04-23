@@ -11,6 +11,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -23,6 +24,7 @@ from base64 import b64encode
 from re import match
 
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import asc
 
 from rucio.common import exception
 from rucio.core.account import account_exists
@@ -37,7 +39,7 @@ def add_identity(identity, type, email, password=None, session=None):
     Creates a user identity.
 
     :param identity: The identity key name. For example x509 DN, or a username.
-    :param type: The type of the authentication (x509, gss, userpass, ssh, saml)
+    :param type: The type of the authentication (x509, gss, userpass, ssh, saml, oidc)
     :param email: The Email address associated with the identity.
     :param password: If type==userpass, this sets the password.
     :param session: The database session in use.
@@ -72,7 +74,7 @@ def del_identity(identity, type, session=None):
     Deletes a user identity.
 
     :param identity: The identity key name. For example x509 DN, or a username.
-    :param type: The type of the authentication (x509, gss, userpass, saml).
+    :param type: The type of the authentication (x509, gss, userpass, saml, oidc).
     :param session: The database session in use.
     """
 
@@ -88,7 +90,7 @@ def add_account_identity(identity, type, account, email, default=False, password
     Adds a membership association between identity and account.
 
     :param identity: The identity key name. For example x509 DN, or a username.
-    :param type: The type of the authentication (x509, gss, userpass, ssh, saml).
+    :param type: The type of the authentication (x509, gss, userpass, ssh, saml, oidc).
     :param account: The account name.
     :param email: The Email address associated with the identity.
     :param default: If True, the account should be used by default with the provided identity.
@@ -112,12 +114,32 @@ def add_account_identity(identity, type, account, email, default=False, password
 
 
 @read_session
-def get_default_account(identity, type, session=None):
+def exist_identity_account(identity, type, account, session=None):
+    """
+    Check if an identity is mapped to an account.
+
+    :param identity: The user identity as string.
+    :param type: The type of identity as a string, e.g. userpass, x509, gss, saml, oidc ...
+    :param account: The account identifier as a string.
+    :param session: The database session in use.
+
+    :returns: True if identity is mapped to account, otherwise False
+    """
+    return session.query(models.IdentityAccountAssociation).filter_by(identity=identity,
+                                                                      identity_type=type,
+                                                                      account=account).first() is not None
+
+
+@read_session
+def get_default_account(identity, type, oldest_if_none=False, session=None):
     """
     Retrieves the default account mapped to an identity.
 
     :param identity: The identity key name. For example, x509DN, or a username.
-    :param type: The type of the authentication (x509, gss, userpass, saml).
+    :param type: The type of the authentication (x509, gss, userpass, saml, oidc).
+    :param oldest_if_none: If True and no default account it found the oldes known
+                           account of that identity will be chosen, if False and
+                           no default account is found, exception will be raised.
     :param session: The database session to use.
     :returns: The default account name, None otherwise.
     """
@@ -126,7 +148,14 @@ def get_default_account(identity, type, session=None):
                                                                      identity_type=type,
                                                                      is_default=True).first()
     if tmp is None:
-        raise exception.IdentityError('There is no default account for identity (%s, %s)' % (identity, type))
+        if oldest_if_none:
+            tmp = session.query(models.IdentityAccountAssociation)\
+                         .filter_by(identity=identity, identity_type=type)\
+                         .order_by(asc(models.IdentityAccountAssociation.created_at)).first()
+            if tmp is None:
+                raise exception.IdentityError('There is no account for identity (%s, %s)' % (identity, type))
+        else:
+            raise exception.IdentityError('There is no default account for identity (%s, %s)' % (identity, type))
 
     return tmp.account
 
@@ -137,7 +166,7 @@ def del_account_identity(identity, type, account, session=None):
     Removes a membership association between identity and account.
 
     :param identity: The identity key name. For example x509 DN, or a username.
-    :param type: The type of the authentication (x509, gss, userpass, saml).
+    :param type: The type of the authentication (x509, gss, userpass, saml, oidc).
     :param account: The account name.
     :param session: The database session in use.
     """
@@ -171,7 +200,7 @@ def list_accounts_for_identity(identity, type, session=None):
     Returns a list of all accounts for an identity.
 
     :param identity: The identity key name. For example x509 DN, or a username.
-    :param type: The type of the authentication (x509, gss, userpass, saml).
+    :param type: The type of the authentication (x509, gss, userpass, saml, oidc).
     :param session: The database session in use.
 
     returns: A list of all accounts for the identity.

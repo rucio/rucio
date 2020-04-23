@@ -136,6 +136,8 @@ class DownloadClient:
             logger.debug('Tracing is turned off.')
         self.is_human_readable = True
         self.client = client if client else Client()
+        # if token should be used, use only JWT tokens
+        self.auth_token = self.client.auth_token if len(self.client.auth_token.split(".")) == 3 else None
 
         self.client_location = detect_client_location()
 
@@ -542,7 +544,7 @@ class DownloadClient:
             logger.info('%sTrying to download with %s from %s: %s ' % (log_prefix, scheme, rse_name, did_str))
 
             try:
-                protocol = rsemgr.create_protocol(rse, operation='read', scheme=scheme)
+                protocol = rsemgr.create_protocol(rse, operation='read', scheme=scheme, auth_token=self.auth_token)
                 protocol.connect()
             except Exception as error:
                 logger.warning('%sFailed to create protocol for PFN: %s' % (log_prefix, pfn))
