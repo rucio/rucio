@@ -1,4 +1,4 @@
-# Copyright 2017-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2017-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2020
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
@@ -41,7 +41,8 @@ from rucio.web.rest.redirect import APP as redirect_app
 
 class TestROOTProxy(object):
 
-    def setup(self):
+    @classmethod
+    def setupClass(self):
 
         self.rc = ReplicaClient()
 
@@ -103,16 +104,16 @@ class TestROOTProxy(object):
                                                           'write': 1,
                                                           'delete': 1}}})
 
-    def tearDown(self):
+    @classmethod
+    def tearDownClass(self):
         for rse_id in [self.rse_with_proxy_id, self.rse_without_proxy_id]:
             delete_replicas(rse_id=rse_id, files=self.files)
         del_rse(self.rse_with_proxy_id)
         del_rse(self.rse_without_proxy_id)
 
-    def test_client_list_replicas(self):
-        """ ROOT (CLIENT): Test internal proxy prepend """
+    def test_client_list_replicas1(self):
+        """ ROOT (CLIENT): No proxy involved """
 
-        #  no proxy involved
         replicas = [r for r in self.rc.list_replicas(dids=[{'scope': 'mock',
                                                             'name': f['name'],
                                                             'type': 'FILE'} for f in self.files],
@@ -125,7 +126,9 @@ class TestROOTProxy(object):
         found_pfns = [list(replica['pfns'].keys())[0] for replica in replicas]
         assert_equal(sorted(found_pfns), sorted(expected_pfns))
 
-        #  outgoing proxy needs to be prepended
+    def test_client_list_replicas2(self):
+        """ ROOT (CLIENT): Outgoing proxy needs to be prepended"""
+
         replicas = [r for r in self.rc.list_replicas(dids=[{'scope': 'mock',
                                                             'name': f['name'],
                                                             'type': 'FILE'} for f in self.files],
@@ -138,7 +141,9 @@ class TestROOTProxy(object):
         found_pfns = [list(replica['pfns'].keys())[0] for replica in replicas]
         assert_equal(sorted(found_pfns), sorted(expected_pfns))
 
-        # outgoing proxy at destination does not matter
+    def test_client_list_replicas3(self):
+        """ ROOT (CLIENT): Outgoing proxy at destination does not matter"""
+
         replicas = [r for r in self.rc.list_replicas(dids=[{'scope': 'mock',
                                                             'name': f['name'],
                                                             'type': 'FILE'} for f in self.files],
@@ -151,7 +156,9 @@ class TestROOTProxy(object):
         found_pfns = [list(replica['pfns'].keys())[0] for replica in replicas]
         assert_equal(sorted(found_pfns), sorted(expected_pfns))
 
-        # outgoing proxy does not matter when staying at site
+    def test_client_list_replicas4(self):
+        """ ROOT (CLIENT): Outgoing proxy does not matter when staying at site"""
+
         replicas = [r for r in self.rc.list_replicas(dids=[{'scope': 'mock',
                                                             'name': f['name'],
                                                             'type': 'FILE'} for f in self.files],
