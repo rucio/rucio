@@ -34,6 +34,7 @@
 from __future__ import print_function
 
 import base64
+import copy
 import datetime
 import errno
 import getpass
@@ -176,6 +177,17 @@ def oidc_identity_string(sub, iss):
     :returns: OIDC identity string "SUB=<usersid>, ISS=https://iam-test.ch/"
     """
     return 'SUB=' + str(sub) + ', ISS=' + str(iss)
+
+
+def sqlalchemy_obj_to_dict(sqlalchemyresult):
+    """
+    Makes dictionary from SQLAlchemy query result object
+    :param sqlalchemyresult:
+    :returns: dictionary
+    """
+    res_dict = copy.deepcopy(dict(sqlalchemyresult.__dict__))
+    del res_dict['_sa_instance_state']
+    return res_dict
 
 
 def all_oidc_req_claims_present(scope, audience, required_scope, required_audience, sepatator=" "):

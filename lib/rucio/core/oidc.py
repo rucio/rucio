@@ -37,7 +37,7 @@ from rucio.common.exception import (CannotAuthenticate, CannotAuthorize,
                                     RucioException)
 from rucio.common.types import InternalAccount
 from rucio.common.utils import (all_oidc_req_claims_present, build_url, oidc_identity_string,
-                                query_bunches, val_to_space_sep_str)
+                                query_bunches, sqlalchemy_obj_to_dict, val_to_space_sep_str)
 from rucio.core.account import account_exists
 from rucio.core.identity import exist_identity_account, get_default_account
 from rucio.core.monitor import record_counter, record_timer
@@ -507,7 +507,7 @@ def __get_admin_token_oidc(account, req_scope, req_audience, issuer, session=Non
 
 
 @read_session
-def get_admin_account_for_issuer(session=None):
+def __get_admin_account_for_issuer(session=None):
     """ Gets admin account for the IdP issuer
     :returns : dictionary { 'issuer_1': (account, identity), ... }
     """
@@ -563,7 +563,7 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
         get_token_for_adminacc = False
         admin_identity = None
         admin_issuer = None
-        admin_iss_acc_idt_dict = get_admin_account_for_issuer(session=session)
+        admin_iss_acc_idt_dict = __get_admin_account_for_issuer(session=session)
 
         # check if preferred issuer exists - if multiple present last one is taken
         preferred_issuer = None
@@ -594,10 +594,11 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
             for admin_token in admin_account_tokens:
                 if hasattr(admin_token, 'audience') and hasattr(admin_token, 'oidc_scope') and\
                    all_oidc_req_claims_present(admin_token.oidc_scope, admin_token.audience, req_scope, req_audience):
-                    return admin_token
+                    return sqlalchemy_obj_to_dict(admin_token)
             # if not found request a new one
             new_admin_token = __get_admin_token_oidc(account, req_scope, req_audience, admin_issuer, session=session)
-            return new_admin_token
+            return sqlalchemy_obj_to_dict(new_admin_token)
+
         # Rucio server requests Rucio user to be represented by Rucio admin OIDC identity
         if admin and not get_token_for_adminacc:
             # we require any other account than admin to have valid OIDC token in the Rucio DB
@@ -630,11 +631,11 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
                 for admin_token in admin_account_tokens:
                     if hasattr(admin_token, 'audience') and hasattr(admin_token, 'oidc_scope') and\
                        all_oidc_req_claims_present(admin_token.oidc_scope, admin_token.audience, req_scope, req_audience):
-                        return admin_token
+                        return sqlalchemy_obj_to_dict(admin_token)
             # if no admin token existing was found for the issuer of the valid user token
             # we request a new one
             new_admin_token = __get_admin_token_oidc(admin_account, req_scope, req_audience, admin_issuer, session=session)
-            return new_admin_token
+            return sqlalchemy_obj_to_dict(new_admin_token)
         # Rucio server requests exchange token for a Rucio user
         if not admin and not get_token_for_adminacc:
             # we require any other account than admin to have valid OIDC token in the Rucio DB
@@ -651,7 +652,7 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
             for token in account_tokens:
                 if hasattr(token, 'audience') and hasattr(token, 'oidc_scope'):
                     if all_oidc_req_claims_present(token.oidc_scope, token.audience, req_scope, req_audience):
-                        return token
+                        return sqlalchemy_obj_to_dict(token)
                 # from available tokens select preferentially the one which are being refreshed
                 if hasattr(token, 'oidc_scope') and ('offline_access' in str(token['oidc_scope'])):
                     subject_token = token
@@ -664,8 +665,7 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
                                                     identity=subject_token.identity,
                                                     refresh_lifetime=subject_token.refresh_lifetime,
                                                     account=account, session=session)
-            return exchanged_token
-
+            return sqlalchemy_obj_to_dict(exchanged_token)
         return None
     except Exception:
         # raise CannotAuthorize(traceback.format_exc(), type(account), account)
