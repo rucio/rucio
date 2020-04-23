@@ -533,7 +533,7 @@ def get_token_for_account_operation(account, req_audience=None, req_scope=None, 
                   preferably with the same issuer as the requesting account OIDC identity
     :param session: DB session in use
 
-    :return: Token or None, throws an exception in case of problems
+    :return: token dictionary (from sqlalchemy Token object) or None, throws an exception in case of problems
     """
     try:
         if not req_scope:
