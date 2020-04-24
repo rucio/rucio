@@ -142,15 +142,13 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
                 getadmintoken = True
             logging.debug('Attempting to get a token for account %s. Admin token option set to %s' % (account, getadmintoken))
             # find the appropriate OIDC token and exchange it (for user accounts) if necessary
-            token_object = get_token_for_account_operation(account, req_audience=REQUEST_OIDC_AUDIENCE, req_scope=REQUEST_OIDC_SCOPE, admin=getadmintoken)
-            if token_object is not None:
+            token_dict = get_token_for_account_operation(account, req_audience=REQUEST_OIDC_AUDIENCE, req_scope=REQUEST_OIDC_SCOPE, admin=getadmintoken)
+            if token_dict is not None:
                 logging.debug('Access token has been granted.')
-                transfer_token = token_object.token
-        if not user_transfer_job:
-            transfer_id = FTS3Transfertool(external_host=external_host, token=transfer_token).submit(files=job_files, job_params=job_params, timeout=timeout)
-        else:
-            # if no valid USER TRANSFER cases --> go with std submission
-            transfer_id = FTS3Transfertool(external_host=external_host, token=transfer_token).submit(files=job_files, job_params=job_params, timeout=timeout)
+                if 'token' in token_dict:
+                    logging.debug('Access token used as transfer token.')
+                    transfer_token = token_dict['token']
+        transfer_id = FTS3Transfertool(external_host=external_host, token=transfer_token).submit(files=job_files, job_params=job_params, timeout=timeout)
         record_timer('core.request.submit_transfers_fts3', (time.time() - start_time) * 1000 / len(files))
     elif transfertool == 'globus':
         logging.debug('... Starting globus xfer ...')
