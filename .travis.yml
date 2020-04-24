@@ -78,8 +78,6 @@ matrix:
   - python: 3.6
     env: SUITE=syntax
   - python: 3.6
-    env:  SUITE=all RDBMS=oracle
-  - python: 3.6
     env:  SUITE=all RDBMS=mysql5
   - python: 3.6
     env:  SUITE=all RDBMS=mysql8
@@ -131,7 +129,9 @@ matrix:
     env:  SUITE=all RDBMS=sqlite
   - python: 3.8
     env:  SUITE=multi_vo RDBMS=sqlite
-#  allow_failures:
+  allow_failures:
+  - python: 3.6
+    env:  SUITE=all RDBMS=oracle
 
 notifications:
   slack:
