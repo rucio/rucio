@@ -175,7 +175,7 @@ class Default(protocol.RSEProtocol):
         else:
             return path
 
-    def connect(self):
+    def connect(self, logger=None):
         """
         Establishes the actual connection to the referred RSE.
         If we decide to use gfal, init should be done here.
@@ -189,6 +189,7 @@ class Default(protocol.RSEProtocol):
         self.__ctx.set_opt_boolean("XROOTD PLUGIN", "NORMALIZE_PATH", False)
         if self.auth_token:
             self.__ctx.set_opt_string("BEARER", "TOKEN", self.auth_token)
+        self.logger = logger
 
     def get(self, path, dest, transfer_timeout=None):
         """

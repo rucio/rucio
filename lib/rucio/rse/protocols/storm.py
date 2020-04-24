@@ -83,7 +83,7 @@ class Default(protocol.RSEProtocol):
         """
         raise NotImplementedError
 
-    def connect(self):
+    def connect(self, logger=None):
         """ Establishes the actual connection to the referred RSE.
 
             :param credentials Provide all necessary information to establish a connection
@@ -96,6 +96,7 @@ class Default(protocol.RSEProtocol):
 
             :raise RSEAccessDenied
         """
+        self.logger = logger
         pass
 
     def close(self):
@@ -170,6 +171,7 @@ class Default(protocol.RSEProtocol):
         # make the symlink
         try:
             os.symlink(target, dest)
+            self.logger.info('StoRM protocol: {}->{}'.format(target, dest))
         except Exception as e:
             exception.ServiceUnavailable('Could not create symlink: %s for target %s' % (str(e), str(target)))
 
