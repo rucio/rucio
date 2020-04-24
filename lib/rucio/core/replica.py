@@ -2854,15 +2854,26 @@ def get_replicas_state(scope=None, name=None, session=None):
     :param session: The database session in use.
     """
 
+    # is constituent
+    query_constituent = session.query(models.DataIdentifier.availability).\
+        filter(models.DataIdentifier.scope == scope,
+               models.DataIdentifier.name == name,
+               models.DataIdentifier.constituent == 1)
+    constituent_availability = list(query_constituent.all())
+
     # listing non-archived replicas
     query_repl = session.query(models.RSEFileAssociation.rse_id, models.RSEFileAssociation.state).filter_by(scope=scope, name=name)
 
     # listing archive constituents
-    query_arch = session.query(models.RSEFileAssociation.rse_id,
-                               models.RSEFileAssociation.state).\
-        join(models.ConstituentAssociation, and_(models.ConstituentAssociation.scope == models.RSEFileAssociation.scope, models.ConstituentAssociation.name == models.RSEFileAssociation.name)).\
-        filter(models.ConstituentAssociation.child_scope == scope,
-               models.ConstituentAssociation.child_name == name)
+    query_arch = None
+    if constituent_availability:
+        query_arch = session.query(models.RSEFileAssociation.rse_id,
+                                   models.RSEFileAssociation.state).\
+            join(models.ConstituentAssociation, and_(models.ConstituentAssociation.scope == models.RSEFileAssociation.scope, models.ConstituentAssociation.name == models.RSEFileAssociation.name)).\
+            filter(models.ConstituentAssociation.child_scope == scope,
+                   models.ConstituentAssociation.child_name == name)
+    else:
+        query_arch = session.query(false()).filter(false())
 
     states = {}
     for res in chain(query_repl.all(), query_arch.all()):
