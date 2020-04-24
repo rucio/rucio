@@ -13,6 +13,7 @@ services:
       - xrd1:xrd1
       - xrd2:xrd2
       - xrd3:xrd3
+      - minio:minio
     volumes:
       - ../../../tools:/opt/rucio/tools
       - ../../../bin:/opt/rucio/bin
@@ -79,3 +80,15 @@ services:
     volumes:
       - ../../certs/hostcert_xrd3.pem:/tmp/xrdcert.pem
       - ../../certs/hostcert_xrd3.key.pem:/tmp/xrdkey.pem
+  minio:
+    image: minio/minio
+    hostname: minio
+    environment:
+      - MINIO_ACCESS_KEY=admin
+      - MINIO_SECRET_KEY=password
+    ports:
+      - "127.0.0.1:9000:9000"
+    volumes:
+      - ../../certs/hostcert_minio.pem:/root/.minio/certs/public.crt
+      - ../../certs/hostcert_minio.key.pem:/root/.minio/certs/private.key
+    command: ["server", "/data"]
