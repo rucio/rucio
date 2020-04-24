@@ -13,6 +13,7 @@
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 # - Robert Illingworth, <illingwo@fnal.gov>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Luc Goossens <luc.goossens@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -44,6 +45,7 @@ from rucio.core.replica import add_replica, get_replica
 from rucio.core.rse import add_rse_attribute, add_rse, update_rse, get_rse_id, del_rse_attribute, set_rse_limits
 from rucio.core.rse_counter import get_counter as get_rse_counter
 from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_rule, reduce_rule, move_rule, list_rules
+from rucio.core.scope import add_scope
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.abacus.rse import rse_update
 from rucio.db.sqla import models, session
@@ -1015,6 +1017,108 @@ class TestReplicationRuleCore():
                  weight=None, lifetime=None, locked=False, subscription_id=None)
         assert(len(list(list_rules(filters={'scope': scope, 'name': archive['name']}))) == 0)
         assert(len(list(list_rules(filters={'scope': scope, 'name': files_in_archive[1]['name']}))) == 1)
+
+    def test_add_rule_overlapping_dids(self):
+        """ REPLICATION RULE (CORE): Test various overlap cases"""
+
+        def mktree(scope, account):
+            # container1213 = container12 + container13
+            # container12 = ds1 + ds2
+            # container13 = ds1 + ds3
+            # ds1 = file1 .. file10
+            # ds2 = file11 .. file20
+            # ds3 = file1, file2, file11, file12, file21 .. file25
+            # 11 replicas @ MOCK  -> file1 ..file7,   file21 .. file24
+            #  3 replicas @ MOCK3 -> file8 .. file10
+            #  6 replicas @ MOCK4 -> file11 .. file16
+            #  5 replicas @ MOCK5 -> file17 .. file20, file25
+            for i in range(1, 8):
+                add_replica(rse_id=get_rse_id('MOCK'), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
+            for i in range(8, 11):
+                add_replica(rse_id=get_rse_id('MOCK3'), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
+            for i in range(11, 17):
+                add_replica(rse_id=get_rse_id('MOCK4'), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
+            for i in range(17, 21):
+                add_replica(rse_id=get_rse_id('MOCK5'), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
+            for i in range(21, 25):
+                add_replica(rse_id=get_rse_id('MOCK'), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
+            for i in range(25, 26):
+                add_replica(rse_id=get_rse_id('MOCK5'), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
+
+            add_did(scope=scope, name='ds1', type='DATASET', account=account)
+            attach_dids(scope=scope, name='ds1', dids=[{'scope': scope, 'name': 'file_%06d.data' % i} for i in range(1, 10 + 1)], account=account)
+            add_did(scope=scope, name='ds2', type='DATASET', account=account)
+            attach_dids(scope=scope, name='ds2', dids=[{'scope': scope, 'name': 'file_%06d.data' % i} for i in range(11, 20 + 1)], account=account)
+            add_did(scope=scope, name='ds3', type='DATASET', account=account)
+            attach_dids(scope=scope, name='ds3', dids=[{'scope': scope, 'name': 'file_%06d.data' % i} for i in (range(21, 25 + 1) + [1, 2, 11, 12])], account=account)
+            add_did(scope=scope, name='container12', type='CONTAINER', account=account)
+            attach_dids(scope=scope, name='container12', dids=[{'scope': scope, 'name': 'ds1'}, {'scope': scope, 'name': 'ds2'}, ], account=account)
+            add_did(scope=scope, name='container13', type='CONTAINER', account=account)
+            attach_dids(scope=scope, name='container13', dids=[{'scope': scope, 'name': 'ds1'}, {'scope': scope, 'name': 'ds3'}, ], account=account)
+            add_did(scope=scope, name='container1213', type='CONTAINER', account=account)
+            attach_dids(scope=scope, name='container1213', dids=[{'scope': scope, 'name': 'container12'}, {'scope': scope, 'name': 'container13'}, ], account=account)
+
+        account = self.jdoe
+
+        # test1 : ALL grouping -> select MOCK for all 3 datasets
+        scope = InternalScope(('scope1_' + str(uuid()))[:24])  # scope field has max 25 chars
+        add_scope(scope, account)
+        mktree(scope, account)
+        rule_ids = add_rule(dids=[{'scope': scope, 'name': 'container1213'}], copies=1, rse_expression='MOCK|MOCK3|MOCK4|MOCK5', grouping='ALL',
+                            account=account, weight=None, lifetime=None, locked=False, subscription_id=None)
+        rule = get_rule(rule_ids[0])
+        print(rule['locks_ok_cnt'], rule['locks_replicating_cnt'])
+        assert(rule['locks_ok_cnt'] == 11)
+        assert(rule['locks_replicating_cnt'] == 14)
+        dsl1 = list(get_dataset_locks(scope, 'ds1'))
+        dsl2 = list(get_dataset_locks(scope, 'ds2'))
+        dsl3 = list(get_dataset_locks(scope, 'ds3'))
+        print(dsl1)
+        print(dsl2)
+        print(dsl3)
+        assert(len(dsl1) == 1 and dsl1[0]['rse'] == 'MOCK')
+        assert(len(dsl2) == 1 and dsl2[0]['rse'] == 'MOCK')
+        assert(len(dsl3) == 1 and dsl3[0]['rse'] == 'MOCK')
+
+        # test2 : DATASET grouping -> select MOCK for ds1, MOCK4 for ds2 and MOCK for ds3
+        scope = InternalScope(('scope2_' + str(uuid()))[:24])  # scope field has max 25 chars
+        add_scope(scope, account)
+        mktree(scope, account)
+        rule_ids = add_rule(dids=[{'scope': scope, 'name': 'container1213'}], copies=1, rse_expression='MOCK|MOCK3|MOCK4|MOCK5', grouping='DATASET',
+                            account=account, weight=None, lifetime=None, locked=False, subscription_id=None)
+        rule = get_rule(rule_ids[0])
+        print(rule['locks_ok_cnt'], rule['locks_replicating_cnt'])
+        assert(rule['locks_ok_cnt'] == 17)
+        assert(rule['locks_replicating_cnt'] == 8)
+        dsl1 = list(get_dataset_locks(scope, 'ds1'))
+        dsl2 = list(get_dataset_locks(scope, 'ds2'))
+        dsl3 = list(get_dataset_locks(scope, 'ds3'))
+        print(dsl1)
+        print(dsl2)
+        print(dsl3)
+        assert(len(dsl1) == 1 and dsl1[0]['rse'] == 'MOCK')
+        assert(len(dsl2) == 1 and dsl2[0]['rse'] == 'MOCK4')
+        assert(len(dsl3) == 1 and dsl3[0]['rse'] == 'MOCK')
+
+        # test3 : NONE grouping
+        scope = InternalScope(('scope3_' + str(uuid()))[:24])  # scope field has max 25 chars
+        add_scope(scope, account)
+        mktree(scope, account)
+        rule_ids = add_rule(dids=[{'scope': scope, 'name': 'container1213'}], copies=1, rse_expression='MOCK|MOCK3|MOCK4|MOCK5', grouping='NONE',
+                            account=account, weight=None, lifetime=None, locked=False, subscription_id=None)
+        rule = get_rule(rule_ids[0])
+        print(rule['locks_ok_cnt'], rule['locks_replicating_cnt'])
+        assert(rule['locks_ok_cnt'] == 25)
+        assert(rule['locks_replicating_cnt'] == 0)
+        dsl1 = list(get_dataset_locks(scope, 'ds1'))
+        dsl2 = list(get_dataset_locks(scope, 'ds2'))
+        dsl3 = list(get_dataset_locks(scope, 'ds3'))
+        print(dsl1)
+        print(dsl2)
+        print(dsl3)
+        assert(len(dsl1) == 0)
+        assert(len(dsl2) == 0)
+        assert(len(dsl3) == 0)
 
 
 class TestReplicationRuleClient():
