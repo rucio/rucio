@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2019
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2020
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 # - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019-2020
 #
@@ -157,6 +157,8 @@ def get_token(token_method, acc=None, idt=None, pwd=None):
         acc = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
     if not idt:
         idt = ctx.env.get('SSL_CLIENT_S_DN')
+        if not idt.startswith('/'):
+            idt = '/%s' % '/'.join(idt.split(',')[::-1])
     if not (acc and idt):
         return None
     try:
