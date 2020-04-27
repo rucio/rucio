@@ -36,6 +36,7 @@ from requests.status_codes import codes
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
 from rucio.common.utils import build_url, render_json
+from rucio.common.utils import set_replica_checksums
 
 
 class ReplicaClient(BaseClient):
@@ -167,7 +168,7 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def add_replica(self, rse, scope, name, bytes, adler32, pfn=None, md5=None, meta={}):
+    def add_replica(self, rse, scope, name, bytes, adler32=None, pfn=None, md5=None, meta={}):
         """
         Add file replicas to a RSE.
 
@@ -183,11 +184,10 @@ class ReplicaClient(BaseClient):
         :return: True if files were created successfully.
 
         """
-        dict = {'scope': scope, 'name': name, 'bytes': bytes, 'meta': meta, 'adler32': adler32}
-        if md5:
-            dict['md5'] = md5
-        if pfn:
-            dict['pfn'] = pfn
+        dict = {'scope': scope, 'name': name, 'bytes': bytes, 'meta': meta}
+
+        set_replica_checksums(dict, md5=md5, adler32=adler32, pfn=pfn)
+
         return self.add_replicas(rse=rse, files=[dict])
 
     def add_replicas(self, rse, files, ignore_availability=True):

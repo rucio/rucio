@@ -54,6 +54,7 @@ import rucio.core.lock
 from rucio.common import exception
 from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
 from rucio.common.types import InternalScope
+from rucio.common.utils import set_replica_checksums
 from rucio.core.config import get as config_get
 from rucio.core.credential import get_signed_url
 from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute
@@ -1362,9 +1363,10 @@ def add_replica(rse_id, scope, name, bytes, account, adler32=None, md5=None, dsn
 
     :returns: True is successful.
     """
-    file = {'scope': scope, 'name': name, 'bytes': bytes, 'adler32': adler32, 'md5': md5, 'meta': meta, 'rules': rules, 'tombstone': tombstone}
-    if pfn:
-        file['pfn'] = pfn
+    file = {'scope': scope, 'name': name, 'bytes': bytes, 'meta': meta, 'rules': rules, 'tombstone': tombstone}
+
+    set_replica_checksums(dict, md5=md5, adler32=adler32, pfn=pfn)
+
     return add_replicas(rse_id=rse_id, files=[file, ], account=account, session=session)
 
 
