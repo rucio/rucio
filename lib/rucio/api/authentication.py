@@ -262,7 +262,8 @@ def validate_auth_token(token):
     """
 
     auth = authentication.validate_auth_token(token)
-    vo = auth['account'].vo
-    auth = api_update_return_dict(auth)
-    auth['vo'] = vo
+    if auth is not None:
+        vo = auth['account'].vo
+        auth = api_update_return_dict(auth)
+        auth['vo'] = vo
     return auth
