@@ -233,6 +233,12 @@ def poll_transfers(external_host, xfers, prepend_str='', request_ids=None, timeo
     :param timeout:          Timeout.
     """
     try:
+        if TRANSFER_TOOL == 'mock':
+            logging.debug(prepend_str + 'Setting %s transfer requests status to DONE per mock tool' % (len(xfers)))
+            for task_id in xfers:
+                ret = transfer_core.update_transfer_state(external_host=None, transfer_id=task_id, state=RequestState.DONE)
+                record_counter('daemons.conveyor.poller.update_request_state.%s' % ret)
+            return
         try:
             tss = time.time()
             logging.info(prepend_str + 'Polling %i transfers against %s with timeout %s' % (len(xfers), external_host, timeout))
