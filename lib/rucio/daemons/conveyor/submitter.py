@@ -183,7 +183,7 @@ def submitter(once=False, rses=None, mock=False,
 
                 logging.info('%s Starting to submit transfers for %s', prepend_str, activity)
 
-                if TRANSFER_TOOL == 'fts3':
+                if TRANSFER_TOOL in ['fts3', 'mock']:
                     for external_host in grouped_jobs:
                         if not user_transfer:
                             for job in grouped_jobs[external_host]:
