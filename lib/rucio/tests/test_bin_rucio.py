@@ -67,7 +67,7 @@ class TestBinRucio():
         self.auth_host = config_get('client', 'auth_host')
         self.user = 'data13_hip'
         self.def_rse = 'MOCK4'
-        self.rse_client = RSEClient(**self.vo)
+        self.rse_client = RSEClient()
         self.def_rse_id = self.rse_client.get_rse(rse=self.def_rse)['id']
         self.did_client = DIDClient()
         self.replica_client = ReplicaClient()

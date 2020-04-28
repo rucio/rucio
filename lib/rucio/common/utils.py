@@ -1209,6 +1209,12 @@ def api_update_return_dict(dictionary):
             import rucio.core.rse
             dictionary['rse'] = rucio.core.rse.get_rse_name(rse_id=dictionary['rse_id'])
 
+    if 'rse_expression' in dictionary.keys():
+        if not copied:
+            dictionary = dictionary.copy()
+            copied = True
+        dictionary['rse_expression'] = api_update_rse_expression(dictionary['rse_expression'])
+
     if 'account' in dictionary.keys():
         if not copied:
             dictionary = dictionary.copy()
@@ -1222,6 +1228,23 @@ def api_update_return_dict(dictionary):
         dictionary['scope'] = dictionary['scope'].external
 
     return dictionary
+
+
+def api_update_rse_expression(rse_expression):
+    vo_pattern = '(?<=vo=)[a-zA-Z0-9]{1,3}(?=&|$)'
+    vo_match = re.search(vo_pattern, rse_expression)
+    if vo_match:
+        vo = vo_match.group(0)
+        if rse_expression == 'vo={}'.format(vo):
+            return ''
+        expr_pattern = '(?<=vo={}&\\().+(?=\\))'.format(vo)
+        expr_match = re.search(expr_pattern, rse_expression)
+        if expr_match:
+            return expr_match.group(0)
+        else:
+            return rse_expression
+    else:
+        return rse_expression
 
 
 def get_parsed_throttler_mode(throttler_mode):
