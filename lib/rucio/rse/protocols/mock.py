@@ -49,7 +49,7 @@ class Default(protocol.RSEProtocol):
         """
         return pfn in self.files
 
-    def connect(self):
+    def connect(self, logger=None):
         """ Establishes the actual connection to the referred RSE.
 
             :param credentials Provide all necessary information to establish a connection
