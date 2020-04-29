@@ -544,8 +544,8 @@ class DownloadClient:
             logger.info('%sTrying to download with %s from %s: %s ' % (log_prefix, scheme, rse_name, did_str))
 
             try:
-                protocol = rsemgr.create_protocol(rse, operation='read', scheme=scheme, auth_token=self.auth_token)
-                protocol.connect(logger=logger)
+                protocol = rsemgr.create_protocol(rse, operation='read', scheme=scheme, auth_token=self.auth_token, logger=logger)
+                protocol.connect()
             except Exception as error:
                 logger.warning('%sFailed to create protocol for PFN: %s' % (log_prefix, pfn))
                 logger.debug('scheme: %s, exception: %s' % (scheme, error))
