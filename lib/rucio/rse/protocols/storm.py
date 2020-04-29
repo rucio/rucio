@@ -83,7 +83,7 @@ class Default(protocol.RSEProtocol):
         """
         raise NotImplementedError
 
-    def connect(self, logger=None):
+    def connect(self):
         """ Establishes the actual connection to the referred RSE.
 
             :param credentials Provide all necessary information to establish a connection
@@ -96,7 +96,6 @@ class Default(protocol.RSEProtocol):
 
             :raise RSEAccessDenied
         """
-        self.logger = logger
         pass
 
     def close(self):
