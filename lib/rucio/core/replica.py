@@ -29,6 +29,7 @@
 # - Brandon White, <bjwhite@fnal.gov>, 2019
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -53,7 +54,7 @@ import rucio.core.did
 import rucio.core.lock
 
 from rucio.common import exception
-from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
+from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query, add_vo_to_rse_expression
 from rucio.common.types import InternalScope
 from rucio.core.config import get as config_get
 from rucio.core.credential import get_signed_url
@@ -741,7 +742,7 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, updat
 def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                    schemes, files, rse_clause, rse_expression, client_location, domain,
                    sign_urls, signature_lifetime, constituents, resolve_parents,
-                   updated_after,
+                   updated_after, vo,
                    session):
 
     files = [dataset_clause and _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, updated_after, session),
@@ -756,7 +757,8 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
     if domain is None:
         if client_location and 'site' in client_location and client_location['site']:
             try:
-                local_rses = [rse['id'] for rse in parse_expression('site=%s' % client_location['site'], session=session)]
+                rse_expression = add_vo_to_rse_expression('site=%s' % client_location['site'], vo=vo)
+                local_rses = [rse['id'] for rse in parse_expression(rse_expression, session=session)]
             except Exception:
                 pass  # do not hard fail if site cannot be resolved or is empty
 
@@ -1130,10 +1132,14 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     if rse_expression:
         for rse in parse_expression(expression=rse_expression, session=session):
             rse_clause.append(models.RSEFileAssociation.rse_id == rse['id'])
+    if dids:
+        vo = dids[0]['scope'].vo
+    else:
+        vo = 'def'
     for f in _list_replicas(dataset_clause, file_clause, state_clause, pfns,
                             schemes, files, rse_clause, rse_expression, client_location, domain,
                             sign_urls, signature_lifetime, constituents, resolve_parents,
-                            updated_after,
+                            updated_after, vo,
                             session):
         yield f
 
