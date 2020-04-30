@@ -22,6 +22,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -157,7 +158,7 @@ def is_matching_subscription(subscription, did, metadata):
     return True
 
 
-def select_algorithm(algorithm, rule_ids, params):
+def select_algorithm(algorithm, rule_ids, params, vo):
     """
     Method used in case of chained subscriptions
 
@@ -165,6 +166,7 @@ def select_algorithm(algorithm, rule_ids, params):
                       associated_site : Choose an associated endpoint according to the RSE attribute assoiciated_site
     :param rule_ids: List of parent rules
     :param params: List of rules parameters to be used by the algorithm
+    :param vo: The vo on which to look for RSEs
     """
     selected_rses = {}
     if algorithm == 'associated_site':
@@ -172,8 +174,8 @@ def select_algorithm(algorithm, rule_ids, params):
             rule = get_rule(rule_id)
             logging.debug('In select_algorithm, %s', str(rule))
             rse = rule['rse_expression']
-            if rse_exists(rse):
-                rse_id = get_rse_id(rse)
+            if rse_exists(rse, vo=vo):
+                rse_id = get_rse_id(rse, vo=vo)
                 rse_attributes = list_rse_attributes(rse_id)
                 associated_sites = rse_attributes.get('associated_sites', None)
                 associated_site_idx = params.get('associated_site_idx', None)
@@ -260,6 +262,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                 did_success = True
                 if did['did_type'] == str(DIDType.DATASET) or did['did_type'] == str(DIDType.CONTAINER):
                     did_tag = '%s:%s' % (did['scope'].internal, did['name'])
+                    vo = did['scope'].vo
                     results[did_tag] = []
                     try:
                         metadata = get_metadata(did['scope'], did['name'])
@@ -322,7 +325,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                             params['associated_site_idx'] = rule_dict.get('associated_site_idx', None)
                                         logging.debug('%s Chained subscription identified. Will use %s', prepend_str, str(created_rules[chained_idx]))
                                         algorithm = rule_dict.get('algorithm', None)
-                                        selected_rses = select_algorithm(algorithm, created_rules[chained_idx], params)
+                                        selected_rses = select_algorithm(algorithm, created_rules[chained_idx], params, vo)
                                     else:
                                         # In the case of chained subscription, don't use rseselector but use the rses returned by the algorithm
                                         if split_rule:
