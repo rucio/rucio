@@ -20,6 +20,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -239,7 +240,7 @@ class HeaderRedirector(MethodView):
                             return 'no redirection possible - no valid RSE for HTTP redirection found', 404
 
                         elif site:
-                            rep = site_selector(dictreplica, site)
+                            rep = site_selector(dictreplica, site, vo)
                             if rep:
                                 selected_url = rep[0]
                             else:
