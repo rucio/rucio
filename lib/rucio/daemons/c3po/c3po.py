@@ -16,6 +16,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2015-2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -45,6 +46,7 @@ from rucio.client import Client
 from rucio.common.config import config_get, config_get_options
 from rucio.common.exception import RucioException
 from rucio.common.types import InternalScope
+from rucio.common.utils import add_vo_to_rse_expression
 from rucio.daemons.c3po.collectors.free_space import FreeSpaceCollector
 from rucio.daemons.c3po.collectors.jedi_did import JediDIDCollector
 from rucio.daemons.c3po.collectors.workload import WorkloadCollector
@@ -166,6 +168,8 @@ def place_replica(once=False,
                 return
             client = Client(auth_type='x509_proxy', account='c3po', creds={'client_proxy': '/opt/rucio/etc/ddmadmin.long.proxy'})
 
+        vo = client.vo
+        dest_rse_expr = add_vo_to_rse_expression(dest_rse_expr, vo=vo)
         instances = {}
         for algorithm in algorithms:
             module_path = 'rucio.daemons.c3po.algorithms.' + algorithm
@@ -215,7 +219,7 @@ def place_replica(once=False,
             for _ in range(0, len_dids):
                 did = did_queue.get()
                 if isinstance(did[0], string_types):
-                    did[0] = InternalScope(did[0])
+                    did[0] = InternalScope(did[0], vo=vo)
                 for algorithm, instance in instances.items():
                     logging.info('(%s:%s) Retrieved %s:%s from queue. Run placement algorithm' % (algorithm, instance_id, did[0], did[1]))
                     decision = instance.place(did)
