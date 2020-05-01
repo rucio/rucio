@@ -510,7 +510,7 @@ def reaper(rses, include_rses, exclude_rses, include_dids=None, exclude_dids=Non
                             file_replicas = check_replicas
                         else:
                             for replica in check_replicas:
-                                did = '%s:%s' % (replica['scope'] ,replica['name'])
+                                did = '%s:%s' % (replica['scope'], replica['name'])
                                 if exclude_dids and exclude_dids in did:
                                     continue
                                 if include_dids and include_dids in did:
@@ -573,7 +573,7 @@ def stop(signum=None, frame=None):
 
 
 def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=None,
-        exclude_rses=None, include_rses=None,  exclude_dids=None, include_dids=None, delay_seconds=0, sleep_time=60):
+        exclude_rses=None, include_rses=None, exclude_dids=None, include_dids=None, delay_seconds=0, sleep_time=60):
     """
     Starts up the reaper threads.
 
