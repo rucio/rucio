@@ -46,6 +46,10 @@ def get_parser():
                         help='RSE expression to exclude')
     parser.add_argument('--include-rses', action="store", default=None, type=str,
                         help='RSE expression to include')
+    parser.add_argument('--exclude-dids', action="store", default=None, type=str,
+                        help='DID pattern to exclude')
+    parser.add_argument('--include-dids', action="store", default=None, type=str,
+                        help='DID pattern to require')
     parser.add_argument('--rses', nargs='+', type=str,
                         help='Explicit list of RSEs to include. If empty, it considers all RSEs')
     parser.add_argument("--delay-seconds", action="store", default=600, type=int,
@@ -68,6 +72,8 @@ if __name__ == "__main__":
             chunk_size=args.chunk_size,
             include_rses=args.include_rses,
             exclude_rses=args.exclude_rses,
+            include_dids=args.include_dids,
+            exclude_dids=args.exclude_dids,
             rses=args.rses,
             once=args.run_once,
             greedy=args.greedy,
