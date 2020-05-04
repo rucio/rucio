@@ -35,6 +35,7 @@ along with some of the default methods for LFN2PFN translations.
 """
 
 import hashlib
+import logging
 
 try:
     # PY2
@@ -242,7 +243,7 @@ RSEDeterministicTranslation._module_init_()  # pylint: disable=protected-access
 class RSEProtocol(object):
     """ This class is virtual and acts as a base to inherit new protocols from. It further provides some common functionality which applies for the amjority of the protocols."""
 
-    def __init__(self, protocol_attr, rse_settings):
+    def __init__(self, protocol_attr, rse_settings, logger=None):
         """ Initializes the object with information about the referred RSE.
 
             :param props: Properties of the requested protocol
@@ -254,6 +255,7 @@ class RSEProtocol(object):
         self.renaming = True
         self.overwrite = False
         self.rse = rse_settings
+        self.logger = logger
         if self.rse['deterministic']:
             self.translator = RSEDeterministicTranslation(self.rse['rse'], rse_settings, self.attributes)
             if getattr(rsemanager, 'CLIENT_MODE', None) and \
@@ -265,6 +267,9 @@ class RSEProtocol(object):
                 setattr(self, 'lfns2pfns', self.__lfns2pfns_client)
             if getattr(rsemanager, 'SERVER_MODE', None):
                 setattr(self, '_get_path', self._get_path_nondeterministic_server)
+        if not self.logger:
+            self.logger = logging.getLogger('%s.null' % __name__)
+            self.logger.disabled = True
 
     def lfns2pfns(self, lfns):
         """
