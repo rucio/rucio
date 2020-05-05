@@ -14,8 +14,10 @@
 #
 # Authors:
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from sqlalchemy.exc import DatabaseError, IntegrityError
+from sqlalchemy.orm.exc import NoResultFound
 
 from rucio.common import exception
 from rucio.common.types import InternalAccount
@@ -98,3 +100,23 @@ def list_vos(session=None):
         vos.append(vo_dict)
 
     return vos
+
+
+@transactional_session
+def update_vo(vo, parameters, session=None):
+    """
+    Update VO properties (email, description).
+
+    :param vo: The VO to update.
+    :param parameters: A dictionary with the new properties.
+    :param session: The db session in use.
+    """
+    try:
+        query = session.query(models.VO).filter_by(vo=vo).one()
+    except NoResultFound:
+        raise exception.VONotFound('VO {} not found'.format(vo))
+    param = {}
+    for key in parameters:
+        if key in ['email', 'description']:
+            param[key] = parameters[key]
+    query.update(param)
