@@ -21,6 +21,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -116,7 +117,10 @@ def has_permission(issuer, action, kwargs):
             'del_identity': perm_del_identity,
             'remove_did_from_followed': perm_remove_did_from_followed,
             'remove_dids_from_followed': perm_remove_dids_from_followed,
-            'add_vo': perm_add_vo}
+            'add_vo': perm_add_vo,
+            'list_vos': perm_list_vos,
+            'recover_vo_root_identity': perm_recover_vo_root_identity,
+            'update_vo': perm_update_vo}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -970,6 +974,39 @@ def perm_remove_dids_from_followed(issuer, kwargs):
 def perm_add_vo(issuer, kwargs):
     """
     Checks if an account can add a VO.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return (issuer.internal == 'super_root')
+
+
+def perm_list_vos(issuer, kwargs):
+    """
+    Checks if an account can list a VO.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return (issuer.internal == 'super_root')
+
+
+def perm_recover_vo_root_identity(issuer, kwargs):
+    """
+    Checks if an account can recover identities for VOs.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return (issuer.internal == 'super_root')
+
+
+def perm_update_vo(issuer, kwargs):
+    """
+    Checks if an account can update a VO.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
