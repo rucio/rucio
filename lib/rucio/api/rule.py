@@ -10,6 +10,7 @@
   - Martin Barisits, <martin.barisits@cern.ch>, 2013-2018
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
   - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+  - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 
   PY3K COMPATIBLE
 '''
@@ -126,6 +127,10 @@ def list_replication_rules(filters={}, vo='def'):
     :param filters: dictionary of attributes by which the results should be filtered.
     :param vo: The VO to act on.
     """
+    # If filters is empty, create a new dict to avoid overwriting the function's default
+    if not filters:
+        filters = {}
+
     if 'scope' in filters:
         scope = filters['scope']
     else:
