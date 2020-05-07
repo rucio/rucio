@@ -15,22 +15,26 @@
 # Authors:
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
-from nose.tools import assert_equal, assert_false, assert_in, assert_raises, assert_true
+from nose.tools import assert_equal, assert_false, assert_in, assert_not_in, assert_raises, assert_true
 from random import choice
 from string import ascii_uppercase
 
 from rucio.api import vo as vo_api
 from rucio.api.account import add_account, list_accounts
+from rucio.api.account_limit import set_local_account_limit
 from rucio.api.did import add_did, list_dids
 from rucio.api.identity import list_accounts_for_identity
 from rucio.api.rse import add_rse, list_rses
 from rucio.api.scope import add_scope, list_scopes
+from rucio.api.subscription import add_subscription, list_subscriptions
 from rucio.client.accountclient import AccountClient
+from rucio.client.accountlimitclient import AccountLimitClient
 from rucio.client.client import Client
 from rucio.client.didclient import DIDClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.scopeclient import ScopeClient
+from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.client.uploadclient import UploadClient
 from rucio.common.config import config_get_bool
 from rucio.common.exception import AccessDenied, Duplicate
@@ -190,3 +194,97 @@ class TestMultiVoClients(object):
         assert_false(tst in scope_list_new)
         assert_true(new in scope_list_new)
         assert_true(shr in scope_list_new)
+
+    def test_subscriptions_at_different_vos(self):
+        """ MULTI VO (CLIENT): Test that subscriptions from 2nd vo don't interfere """
+
+        account_client = AccountClient()
+        usr_uuid = str(generate_uuid()).lower()[:16]
+        shr_acc = 'shr-%s' % usr_uuid
+        account_client.add_account(shr_acc, 'USER', 'rucio@email.com')
+        add_account(shr_acc, 'USER', 'rucio@email.com', 'root', **self.new_vo)
+
+        scope_client = ScopeClient()
+        scope_uuid = str(generate_uuid()).lower()[:16]
+        tst_scope = 'tst_%s' % scope_uuid
+        new_scope = 'new_%s' % scope_uuid
+        scope_client.add_scope('root', tst_scope)
+        add_scope(new_scope, 'root', 'root', **self.new_vo)
+
+        did_client = DIDClient()
+        did_uuid = str(generate_uuid()).lower()[:16]
+        tst_did = 'tstset_%s' % did_uuid
+        new_did = 'newset_%s' % did_uuid
+
+        rse_client = RSEClient()
+        rse_str = ''.join(choice(ascii_uppercase) for x in range(10))
+        tst_rse1 = 'TST1_%s' % rse_str
+        tst_rse2 = 'TST2_%s' % rse_str
+        new_rse1 = 'NEW1_%s' % rse_str
+        new_rse2 = 'NEW2_%s' % rse_str
+        rse_client.add_rse(tst_rse1)
+        rse_client.add_rse(tst_rse2)
+        add_rse(new_rse1, 'root', **self.new_vo)
+        add_rse(new_rse2, 'root', **self.new_vo)
+
+        acc_lim_client = AccountLimitClient()
+        acc_lim_client.set_local_account_limit(shr_acc, tst_rse1, 10)
+        acc_lim_client.set_local_account_limit(shr_acc, tst_rse2, 10)
+        set_local_account_limit(shr_acc, new_rse1, 10, 'root', **self.new_vo)
+        set_local_account_limit(shr_acc, new_rse2, 10, 'root', **self.new_vo)
+
+        did_client.add_did(tst_scope, tst_did, 'DATASET', rse=tst_rse1)
+        add_did(new_scope, new_did, 'DATASET', 'root', rse=new_rse1, **self.new_vo)
+
+        sub_client = SubscriptionClient()
+        sub_str = generate_uuid()
+        tst_sub = 'tstsub_' + sub_str
+        new_sub = 'newsub_' + sub_str
+        shr_sub = 'shrsub_' + sub_str
+
+        tst_sub_id = sub_client.add_subscription(tst_sub, shr_acc, {},
+                                                 [{'copies': 1, 'rse_expression': tst_rse2, 'weight': 0,
+                                                   'activity': 'User Subscriptions'}],
+                                                 '', None, False, False)
+        shr_tst_sub_id = sub_client.add_subscription(shr_sub, shr_acc, {},
+                                                     [{'copies': 1, 'rse_expression': tst_rse2, 'weight': 0,
+                                                       'activity': 'User Subscriptions'}],
+                                                     '', None, False, False)
+        new_sub_id = add_subscription(new_sub, shr_acc, {},
+                                      [{'copies': 1, 'rse_expression': new_rse2, 'weight': 0, 'activity': 'User Subscriptions'}],
+                                      '', False, False, False, 0, 'root', **self.new_vo)
+        shr_new_sub_id = add_subscription(shr_sub, shr_acc, {},
+                                          [{'copies': 1, 'rse_expression': new_rse2, 'weight': 0, 'activity': 'User Subscriptions'}],
+                                          '', False, False, False, 0, 'root', **self.new_vo)
+
+        tst_subs = [s['id'] for s in sub_client.list_subscriptions()]
+        assert_in(tst_sub_id, tst_subs)
+        assert_in(shr_tst_sub_id, tst_subs)
+        assert_not_in(new_sub_id, tst_subs)
+        assert_not_in(shr_new_sub_id, tst_subs)
+
+        new_subs = [s['id'] for s in list_subscriptions(**self.new_vo)]
+        assert_in(new_sub_id, new_subs)
+        assert_in(shr_new_sub_id, new_subs)
+        assert_not_in(tst_sub_id, new_subs)
+        assert_not_in(shr_tst_sub_id, new_subs)
+
+        shr_tst_subs = [(s['id'], s['name']) for s in sub_client.list_subscriptions(name=shr_sub)]
+        assert_in(shr_tst_sub_id, shr_tst_subs)
+        assert_not_in(shr_new_sub_id, shr_tst_subs)
+
+        shr_new_subs = [s['id'] for s in list_subscriptions(name=shr_sub, **self.new_vo)]
+        assert_in(shr_new_sub_id, shr_new_subs)
+        assert_not_in(shr_tst_sub_id, shr_new_subs)
+
+        acc_tst_subs = [s['id'] for s in sub_client.list_subscriptions(account=shr_acc)]
+        assert_in(tst_sub_id, acc_tst_subs)
+        assert_in(shr_tst_sub_id, acc_tst_subs)
+        assert_not_in(new_sub_id, acc_tst_subs)
+        assert_not_in(shr_new_sub_id, acc_tst_subs)
+
+        acc_new_subs = [s['id'] for s in list_subscriptions(account=shr_acc, **self.new_vo)]
+        assert_in(new_sub_id, acc_new_subs)
+        assert_in(shr_new_sub_id, acc_new_subs)
+        assert_not_in(tst_sub_id, acc_new_subs)
+        assert_not_in(shr_tst_sub_id, acc_new_subs)
