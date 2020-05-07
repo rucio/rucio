@@ -17,13 +17,14 @@
  PY3K COMPATIBLE
 """
 
-from json import dumps
+from json import dumps, loads
 from sqlalchemy.util import KeyedTuple
 
 from rucio.api.permission import has_permission
 from rucio.common.exception import InvalidObject, AccessDenied
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.utils import api_update_rse_expression
 from rucio.core import subscription
 
 
@@ -175,11 +176,33 @@ def list_subscriptions(name=None, account=None, state=None, vo='def'):
     :raises: exception.NotFound if subscription is not found
     """
 
-    if account is not None:
+    if account:
         account = InternalAccount(account, vo=vo)
+    else:
+        account = InternalAccount('*', vo=vo)
+
     subs = subscription.list_subscriptions(name, account, state)
+
     for sub in subs:
         sub['account'] = sub['account'].external
+
+        if 'replication_rules' in sub:
+            rules = loads(sub['replication_rules'])
+            for rule in rules:
+                if 'rse_expression' in rule:
+                    rule['rse_expression'] = api_update_rse_expression(rule['rse_expression'])
+                if 'source_replica_expression' in rule:
+                    rule['source_replica_expression'] = api_update_rse_expression(rule['source_replica_expression'])
+            sub['replication_rules'] = dumps(rules)
+
+        if 'filter' in sub:
+            fil = loads(sub['filter'])
+            if 'account' in fil:
+                fil['account'] = [InternalAccount(acc, fromExternal=False).external for acc in fil['account']]
+            if 'scope' in fil:
+                fil['scope'] = [InternalScope(sco, fromExternal=False).external for sco in fil['scope']]
+            sub['filter'] = dumps(fil)
+
         yield sub
 
 
@@ -193,6 +216,8 @@ def list_subscription_rule_states(name=None, account=None, vo='def'):
     """
     if account is not None:
         account = InternalAccount(account, vo=vo)
+    else:
+        account = InternalAccount('*', vo=vo)
     subs = subscription.list_subscription_rule_states(name, account)
     for sub in subs:
         # sub is an immutable KeyedTuple so return new KeyedTuple with edited entries
@@ -226,5 +251,24 @@ def get_subscription_by_id(subscription_id, vo='def'):
     sub = subscription.get_subscription_by_id(subscription_id)
     if sub['account'].vo != vo:
         raise AccessDenied('Unable to get subscription')
+
     sub['account'] = sub['account'].external
+
+    if 'replication_rules' in sub:
+        rules = loads(sub['replication_rules'])
+        for rule in rules:
+            if 'rse_expression' in rule:
+                rule['rse_expression'] = api_update_rse_expression(rule['rse_expression'])
+            if 'source_replica_expression' in rule:
+                rule['source_replica_expression'] = api_update_rse_expression(rule['source_replica_expression'])
+        sub['replication_rules'] = dumps(rules)
+
+    if 'filter' in sub:
+        fil = loads(sub['filter'])
+        if 'account' in fil:
+            fil['account'] = [InternalAccount(acc, fromExternal=False).external for acc in fil['account']]
+        if 'scope' in fil:
+            fil['scope'] = [InternalScope(sco, fromExternal=False).external for sco in fil['scope']]
+        sub['filter'] = dumps(fil)
+
     return sub
