@@ -22,6 +22,8 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -172,8 +174,11 @@ def select_algorithm(algorithm, rule_ids, params):
             rule = get_rule(rule_id)
             logging.debug('In select_algorithm, %s', str(rule))
             rse = rule['rse_expression']
-            if rse_exists(rse):
-                rse_id = get_rse_id(rse)
+            vo_pattern = '(?<=vo=)[a-zA-Z0-9]{1,3}(?=&|$)'
+            vo_match = re.search(vo_pattern, rse)
+            vo = vo_match.group(0) if vo_match else 'def'
+            if rse_exists(rse, vo=vo):
+                rse_id = get_rse_id(rse, vo=vo)
                 rse_attributes = list_rse_attributes(rse_id)
                 associated_sites = rse_attributes.get('associated_sites', None)
                 associated_site_idx = params.get('associated_site_idx', None)
