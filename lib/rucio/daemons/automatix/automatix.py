@@ -21,6 +21,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -324,7 +325,8 @@ def run(total_workers=1, once=False, inputfile=None):
     try:
         scope = get('automatix', 'scope')
         client = Client()
-        if InternalScope(scope, vo=client.vo) not in list_scopes():
+        filters = {'scope': InternalScope('*', vo=client.vo)}
+        if InternalScope(scope, vo=client.vo) not in list_scopes(filter=filters):
             logging.error('Scope %s does not exist. Exiting', scope)
             GRACEFUL_STOP.set()
     except Exception:

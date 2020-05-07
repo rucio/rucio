@@ -13,6 +13,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -78,16 +79,24 @@ def bulk_add_scopes(scopes, account, skipExisting=False, session=None):
 
 
 @read_session
-def list_scopes(session=None):
+def list_scopes(filter={}, session=None):
     """
     Lists all scopes.
-
+    :param filter: Dictionary of attributes by which the input data should be filtered
     :param session: The database session in use.
 
     :returns: A list containing all scopes.
     """
     scope_list = []
     query = session.query(models.Scope).filter(models.Scope.status != ScopeStatus.DELETED)
+    for filter_type in filter:
+        if filter_type == 'scope':
+            if '*' in filter['scope'].internal:
+                scope_str = filter['scope'].internal.replace('*', '%')
+                query = query.filter(models.Scope.scope.like(scope_str))
+            else:
+                query = query.filter_by(scope=filter['scope'])
+
     for s in query:
         scope_list.append(s.scope)
     return scope_list

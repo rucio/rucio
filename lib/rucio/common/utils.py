@@ -27,6 +27,7 @@
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Gabriele Fronze' <gfronze@cern.ch>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -1245,6 +1246,23 @@ def api_update_rse_expression(rse_expression):
             return rse_expression
     else:
         return rse_expression
+
+
+def add_vo_to_rse_expression(rse_expression, vo='def'):
+    """
+    Formats rse_expression to include the vo if it isn't 'def'
+
+    :param rse_expression: The RSE expression to edit
+    :param vo: The vo to add, optional, defaults to 'def'
+
+    :returns rse_expression: The edited rse_expression
+    """
+    if vo != 'def':
+        if rse_expression is not None:
+            rse_expression = 'vo={}&({})'.format(vo, rse_expression)
+        else:
+            rse_expression = 'vo={}'.format(vo)
+    return rse_expression
 
 
 def get_parsed_throttler_mode(throttler_mode):
