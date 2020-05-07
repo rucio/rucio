@@ -14,12 +14,16 @@
 #
 # Authors:
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 
 from rucio.api.permission import has_permission
 from rucio.common import exception
 from rucio.common.schema import validate_schema
+from rucio.common.types import InternalAccount
+from rucio.core import identity
 from rucio.core import vo as vo_core
+from rucio.db.sqla.constants import IdentityType
 
 
 def add_vo(new_vo, issuer, description=None, email=None, vo='def'):
@@ -54,3 +58,41 @@ def list_vos(issuer, vo='def'):
         raise exception.AccessDenied('Account {} cannot list VOs'.format(issuer))
 
     return vo_core.list_vos()
+
+
+def recover_vo_root_identity(root_vo, identity_key, id_type, email, issuer, default=False, password=None, vo='def'):
+    """
+    Adds a membership association between identity and the root account for given VO.
+
+    :param root_vo: The VO whose root needs recovery
+    :param identity_key: The identity key name. For example x509 DN, or a username.
+    :param id_type: The type of the authentication (x509, gss, userpass, ssh, saml).
+    :param email: The Email address associated with the identity.
+    :param issuer: The issuer account.
+    :param default: If True, the account should be used by default with the provided identity.
+    :param password: Password if id_type is userpass.
+    :param vo: the VO to act on.
+    """
+    kwargs = {}
+    if not has_permission(issuer=issuer, vo=vo, action='recover_vo_root_identity', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not recover root identity' % (issuer))
+
+    account = InternalAccount('root', vo=root_vo)
+
+    return identity.add_account_identity(identity=identity_key, type=IdentityType.from_sym(id_type), default=default, email=email, account=account, password=password)
+
+
+def update_vo(updated_vo, parameters, issuer, vo='def'):
+    """
+    Update VO properties (email, description).
+
+    :param updated_vo: The VO to update.
+    :param parameters: A dictionary with the new properties.
+    :param issuer: The user issuing the command.
+    :param vo: The VO of the user issusing the command.
+    """
+    kwargs = {}
+    if not has_permission(issuer=issuer, action='update_vo', kwargs=kwargs, vo=vo):
+        raise exception.AccessDenied('Account {} cannot update VO'.format(issuer))
+
+    return vo_core.update_vo(vo=updated_vo, parameters=parameters)
