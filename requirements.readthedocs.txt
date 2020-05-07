@@ -6,7 +6,6 @@ web.py==0.39; python_version <= '2.7'             # Python web framework for Pyt
 web.py==0.40; python_version > '2.7'              # Python web framework for Python3
 python-memcached==1.59; python_version <= '2.7'   # Quick and small memcached client for Python2
 python3-memcached==1.51; python_version > '2.7'   # Quick and small memcached client for Python3
-jsonschema==3.2.0                                 # JSON Schema
 python-dateutil==2.8.1                            # Extensions to the standard datetime module
 stomp.py==4.1.23                                  # ActiveMQ Messaging Protocol
 statsd==3.3.0                                     # Needed to log into graphite with more than 1 Hz
@@ -37,6 +36,7 @@ futures>=3.2.0; python_version < '3.0'            # Clean single-source support 
 six>=1.12.0<1.15.0                                # Python 2 and 3 compatibility utilities
 boto3>=1.9.130,<1.13.0                            # S3 boto protocol (new version)
 pysftp>=0.2.9,<0.3                                # Used by sftp protocol
+jsonschema>=3.2.0                                 # For JSON schema validation (Policy modules)
 # All dependencies needed to develop/test rucio should be defined here
 
 Paste==3.0.8                                  # Utilities for web development in pyton (3.0.8 last Py27 compatible version)

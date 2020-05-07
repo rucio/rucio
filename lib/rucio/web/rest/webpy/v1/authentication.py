@@ -50,7 +50,7 @@ from rucio.api.authentication import (get_auth_oidc, get_auth_token_gss,
                                       redirect_auth_oidc, validate_auth_token)
 from rucio.common.config import config_get
 from rucio.common.exception import AccessDenied, IdentityError, RucioException
-from rucio.common.utils import date_to_str, generate_http_error
+from rucio.common.utils import date_to_str, generate_http_error, urlparse
 from rucio.web.rest.common import RucioController, check_accept_header_wrapper
 
 # Extra modules: Only imported if available
@@ -483,9 +483,10 @@ class TokenOIDC(RucioController):
                 header('Content-Type', 'text/html')
                 render = template.render(join(dirname(__file__), '../auth_templates/'))
                 return render.auth_crash('unknown_identity')
-            # header('X-Rucio-Auth-Token', result[3].token)
-            setcookie('x-rucio-auth-token', value=result['token'].token, path='/')
-            setcookie('rucio-auth-token-created-at', value=int(time.time()), path='/')
+            # domain setting is necessary so that the token gets distributed also to the webui server
+            domain = '.'.join(urlparse.urlparse(webhome).netloc.split('.')[1:])
+            setcookie('x-rucio-auth-token', value=result['token'].token, domain=domain, path='/')
+            setcookie('rucio-auth-token-created-at', value=int(time.time()), domain=domain, path='/')
             return seeother(webhome)
         else:
             raise BadRequest()

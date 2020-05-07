@@ -1,4 +1,4 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2020
 # - David Cameron <d.g.cameron@gmail.com>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
@@ -936,6 +936,14 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                                             'name': name,
                                                             'path': path}).values())[0]
 
+                        # do we need to sign the URLs?
+                        if sign_urls and protocol.attributes['scheme'] == 'https':
+                            service = get_rse_attribute('sign_url',
+                                                        rse_id=rse_id,
+                                                        session=session)
+                            if service and isinstance(service, list):
+                                pfn = get_signed_url(rse_id=rse_id, service=service[0], operation='read', url=pfn, lifetime=signature_lifetime)
+
                         # server side root proxy handling if location is set.
                         # supports root and http destinations
                         # cannot be pushed into protocols because we need to lookup rse attributes.
@@ -957,17 +965,15 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                                                      client_location['site'],  # option
                                                                      default='',               # empty string to circumvent exception
                                                                      session=session)
-                                    if root_proxy_internal:
-                                        # don't forget to mangle gfal-style davs URL into generic https URL
-                                        pfn = 'root://' + root_proxy_internal + '//' + pfn.replace('davs://', 'https://')
 
-                        # do we need to sign the URLs?
-                        if sign_urls and protocol.attributes['scheme'] == 'https':
-                            service = get_rse_attribute('sign_url',
-                                                        rse_id=rse_id,
-                                                        session=session)
-                            if service and isinstance(service, list):
-                                pfn = get_signed_url(rse_id=rse_id, service=service[0], operation='read', url=pfn, lifetime=signature_lifetime)
+                                    if root_proxy_internal:
+                                        # TODO: XCache does not seem to grab signed URLs. Doublecheck with XCache devs.
+                                        #       For now -> skip prepending XCache for GCS.
+                                        if 'storage.googleapis.com' in pfn or 'atlas-google-cloud.cern.ch' in pfn:
+                                            pass  # ATLAS HACK
+                                        else:
+                                            # don't forget to mangle gfal-style davs URL into generic https URL
+                                            pfn = 'root://' + root_proxy_internal + '//' + pfn.replace('davs://', 'https://')
 
                         # PFNs don't have concepts, therefore quickly encapsulate in a tuple
                         # ('pfn', 'domain', 'priority', 'client_extract')

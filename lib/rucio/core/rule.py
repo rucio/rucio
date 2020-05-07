@@ -2738,6 +2738,12 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
             replicas = dict(list(replicas.items()) + list(tmp_replicas.items()))
             locks = dict(list(locks.items()) + list(tmp_locks.items()))
 
+        # order datasetfiles for deterministic result
+        try:
+            datasetfiles = sorted(datasetfiles, key=lambda x: "%s%s" % (x['scope'], x['name']))
+        except:
+            pass
+
     else:
         raise InvalidReplicationRule('The did \"%s:%s\" has been deleted.' % (did.scope, did.name))
 
