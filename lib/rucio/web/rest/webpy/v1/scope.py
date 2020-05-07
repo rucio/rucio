@@ -19,6 +19,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -58,7 +59,7 @@ class Scope(RucioController):
         HTTP Error:
             406 Not Acceptable
         """
-        return dumps(list_scopes())
+        return dumps(list_scopes(filter={}, vo=ctx.env.get('vo')))
 
     def POST(self, account, scope):
         """

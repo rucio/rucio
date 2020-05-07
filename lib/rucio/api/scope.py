@@ -9,6 +9,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -20,13 +21,20 @@ from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.schema import validate_schema
 
 
-def list_scopes():
+def list_scopes(filter={}, vo='def'):
     """
     Lists all scopes.
 
+    :param filter: Dictionary of attributes by which the input data should be filtered
+    :param vo: The VO to act on.
+
     :returns: A list containing all scopes.
     """
-    return [scope.external for scope in core_scope.list_scopes()]
+    if 'scope' in filter:
+        filter['scope'] = InternalScope(scope=filter['scope'], vo=vo)
+    else:
+        filter['scope'] = InternalScope(scope='*', vo=vo)
+    return [scope.external for scope in core_scope.list_scopes(filter=filter)]
 
 
 def add_scope(scope, account, issuer, vo='def'):
