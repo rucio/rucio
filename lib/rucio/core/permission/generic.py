@@ -21,6 +21,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -30,6 +31,7 @@ from rucio.core.identity import exist_identity_account
 from rucio.core.lifetime_exception import list_exceptions
 from rucio.core.rse import list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
+from rucio.core.rule import get_rule
 from rucio.db.sqla.constants import IdentityType
 
 
@@ -116,7 +118,8 @@ def has_permission(issuer, action, kwargs):
             'del_identity': perm_del_identity,
             'remove_did_from_followed': perm_remove_did_from_followed,
             'remove_dids_from_followed': perm_remove_dids_from_followed,
-            'add_vo': perm_add_vo}
+            'add_vo': perm_add_vo,
+            'access_rule': perm_access_rule}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -976,3 +979,14 @@ def perm_add_vo(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     return (issuer.internal == 'super_root')
+
+
+def perm_access_rule(issuer, kwargs):
+    """
+    Checks if we're at the same VO as the rule_id's
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return get_rule(kwargs['rule_id'])['scope'].vo == issuer.vo
