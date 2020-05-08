@@ -12,7 +12,8 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Robert Illingworth, <illingwo@fnal.gov>, 2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Luc Goossens <luc.goossens@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -26,6 +27,11 @@ from sqlalchemy import func
 
 from rucio.common.config import config_get
 from rucio.common.exception import InsufficientTargetRSEs
+from rucio.core import account_counter, rse_counter, request as request_core
+from rucio.core.config import get as core_config_get
+import rucio.core.did
+import rucio.core.lock
+import rucio.core.replica
 from rucio.core.rse import get_rse
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import LockState, RuleGrouping, ReplicaState, RequestType, DIDType, OBSOLETE
@@ -986,18 +992,18 @@ def __create_lock(rule, rse_id, scope, name, bytes, state, existing_replica):
         existing_replica.lock_cnt += 1
         existing_replica.tombstone = None
         rule.locks_ok_cnt += 1
-        logging.debug('Creating OK Lock %s:%s for rule %s', scope, name, str(rule.id))
+        logging.debug('Creating OK Lock %s:%s on %s for rule %s', scope, name, rse_id, str(rule.id))
     elif state == LockState.REPLICATING:
         existing_replica.state = ReplicaState.COPYING
         existing_replica.lock_cnt += 1
         existing_replica.tombstone = None
         rule.locks_replicating_cnt += 1
-        logging.debug('Creating REPLICATING Lock %s:%s for rule %s', scope, name, str(rule.id))
+        logging.debug('Creating REPLICATING Lock %s:%s on %s for rule %s', scope, rse_id, name, str(rule.id))
     elif state == LockState.STUCK:
         existing_replica.lock_cnt += 1
         existing_replica.tombstone = None
         rule.locks_stuck_cnt += 1
-        logging.debug('Creating STUCK Lock %s:%s for rule %s', scope, name, str(rule.id))
+        logging.debug('Creating STUCK Lock %s:%s on %s for rule %s', scope, name, rse_id, str(rule.id))
     return new_lock
 
 
@@ -1023,6 +1029,7 @@ def __create_replica(rse_id, scope, name, bytes, state, md5, adler32):
                                             tombstone=None,
                                             state=state,
                                             lock_cnt=0)
+    logging.debug('Creating %s replica for %s:%s on %s', state, scope, name, rse_id)
     return new_replica
 
 
@@ -1096,3 +1103,330 @@ def __set_replica_unavailable(replica, session=None):
     if replica.lock_cnt == 0:
         replica.tombstone = OBSOLETE
         replica.state = ReplicaState.UNAVAILABLE
+
+
+# # debug helper functions used in apply_rule
+#
+# from __future__ import print_function
+# def prnt(x, header=None):
+#     print()
+#     if header:
+#         print(header)
+#     if isinstance(x, list) and len(x):
+#         for elem in x:
+#             print('  ', elem)
+#     elif isinstance(x, dict) and len(x) and isinstance(x.values()[0], list):
+#         for k, v in x.items():
+#             if isinstance(v,list) and len(v):
+#                 print('  ', k, ':')
+#                 for elem in v:
+#                     print('    ', elem)
+#             else:
+#                 print('  ', k, ':', v)
+#     else:
+#         print(x)
+#
+# import os
+# def mem():
+#     # start your debug python session with harmless -R option to easily grep it out
+#     os.system("ps -U root -o pid,user,rss:10,vsz:10,args:100 | grep 'python -R' | grep -v bin | grep -v grep")
+
+
+@transactional_session
+def apply_rule(did, rule, rses, source_rses, rseselector, session=None):
+    """
+    Apply a replication rule to one did.
+
+    :param did:          the did object
+    :param rule:         the rule object
+    :param rses:         target rses_ids
+    :param source_rses:  source rses_ids
+    :param rseselector:  the rseselector object
+    :param session:      the database session in use
+    """
+
+    max_partition_size = core_config_get('rules', 'apply_rule_max_partition_size', default=2000, session=session)  # process dataset files in bunches of max this size
+
+    # accounting counters
+    rse_counters_files = {}
+    rse_counters_bytes = {}
+    account_counters_files = {}
+    account_counters_bytes = {}
+
+    if did.did_type == DIDType.FILE:
+        # NOTE: silently ignore rule.grouping
+        if True:  # instead of -> if rule.grouping == RuleGrouping.NONE:
+            locks = {}            # {(scope,name): [SQLAlchemy]}
+            replicas = {}         # {(scope, name): [SQLAlchemy]}
+            source_replicas = {}  # {(scope, name): [rse_id]
+            # get files and replicas, lock the replicas
+            replicas[(did.scope, did.name)] = rucio.core.replica.get_and_lock_file_replicas(scope=did.scope, name=did.name, nowait=True, restrict_rses=rses,
+                                                                                            session=session)
+            # prnt(did, 'file')
+            # prnt(replicas, 'replicas')
+
+            # get and lock the locks
+            locks[(did.scope, did.name)] = rucio.core.lock.get_replica_locks(scope=did.scope, name=did.name, nowait=True, restrict_rses=rses,
+                                                                             session=session)
+            # prnt(locks, 'locks')
+
+            # if needed get source replicas
+            if source_rses:
+                source_replicas[(did.scope, did.name)] = rucio.core.replica.get_source_replicas(scope=did.scope, name=did.name, source_rses=source_rses,
+                                                                                                session=session)
+            else:
+                source_replicas = {}
+            # prnt(source_replicas, 'source_replicas')
+
+            # to align code with cases below, create file dict
+            file = {'name': did.name, 'scope': did.scope,
+                    'bytes': did.bytes, 'md5': did.md5, 'adler32': did.adler32}
+
+            # calculate target RSEs
+            rse_coverage = {replica.rse_id: file['bytes'] for replica in replicas[(file['scope'], file['name'])]}
+            # prnt(rse_coverage)
+            preferred_rse_ids = rse_coverage.keys()
+            # prnt(preferred_rse_ids)
+            rse_tuples = rseselector.select_rse(size=file['bytes'], preferred_rse_ids=preferred_rse_ids,
+                                                prioritize_order_over_weight=True, existing_rse_size=rse_coverage)
+            # prnt(rse_tuples)
+
+            # initialize accumulators for __create_lock_and_replica calls
+            locks_to_create = {}            # {'rse_id': [locks]}
+            replicas_to_create = {}         # {'rse_id': [replicas]}
+            transfers_to_create = []        # [{'dest_rse_id':, 'scope':, 'name':, 'request_type':, 'metadata':}]
+
+            for rse_id, staging_area, availability_write in rse_tuples:
+                # check for bug ????
+                if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id and lock.rse_id == rse_id]) == 1:
+                    logging.debug('>>> WARNING unexpected duplicate lock for file %s at RSE %s' % (file, rse_id))
+                    continue
+                # proceed
+                __create_lock_and_replica(file=file, dataset={'scope': None, 'name': None}, rule=rule,
+                                          rse_id=rse_id, staging_area=staging_area, availability_write=availability_write, source_rses=source_rses,
+                                          replicas=replicas, locks=locks, source_replicas=source_replicas,
+                                          locks_to_create=locks_to_create, replicas_to_create=replicas_to_create, transfers_to_create=transfers_to_create,
+                                          session=session)
+
+            # prnt(locks_to_create, 'locks_to_create')
+            # prnt(replicas_to_create, 'replicas_to_create')
+            # prnt(transfers_to_create, 'transfers_to_create')
+
+            # flush to DB
+            session.add_all([item for sublist in replicas_to_create.values() for item in sublist])
+            session.add_all([item for sublist in locks_to_create.values() for item in sublist])
+            request_core.queue_requests(requests=transfers_to_create, session=session)
+            session.flush()
+
+            # increment counters
+            # align code with the one used inside the file loop below
+            for rse_id in replicas_to_create.keys():
+                rse_counters_files[rse_id] = len(replicas_to_create[rse_id]) + rse_counters_files.get(rse_id, 0)
+                rse_counters_bytes[rse_id] = sum([replica.bytes for replica in replicas_to_create[rse_id]]) + rse_counters_bytes.get(rse_id, 0)
+            # prnt(rse_counters_files, 'rse_counters_files')
+            # prnt(rse_counters_bytes, 'rse_counters_bytes')
+
+            for rse_id in locks_to_create.keys():
+                account_counters_files[rse_id] = len(locks_to_create[rse_id]) + account_counters_files.get(rse_id, 0)
+                account_counters_bytes[rse_id] = sum([lock.bytes for lock in locks_to_create[rse_id]]) + account_counters_bytes.get(rse_id, 0)
+            # prnt(account_counters_files, 'account_counters_files')
+            # prnt(account_counters_bytes, 'account_counters_bytes')
+
+    else:
+        # handle dataset case by converting it to singleton container case
+        # NOTE: this will handle DATASET/ALL as if it was DATASET/DATASET
+        datasets = []  # [(scope,name)]
+        if did.did_type == DIDType.DATASET:
+            datasets.append((did.scope, did.name, ))
+        elif did.did_type == DIDType.CONTAINER:
+            for child_dataset in rucio.core.did.list_child_datasets(scope=did.scope, name=did.name, session=session):
+                # ensure theer are no duplicates
+                newds = (child_dataset['scope'], child_dataset['name'], )
+                if newds not in datasets:
+                    datasets.append(newds)
+        # sort alphabetically for deterministic order
+        try:
+            datasets = sorted(datasets)
+        except:
+            pass
+
+        # prnt(datasets)
+
+        rse_coverage = {}   # rse_coverage = { rse_id : bytes }
+        rse_tuples = []     # rse_tuples = [(rse_id, staging_area, availability_write)]
+        used_rse_ids = []   # for NONE grouping keep track of actual used RSEs
+
+        if rule.grouping == RuleGrouping.ALL:
+            # calculate target RSEs
+            nbytes = 0
+            rse_coverage = {}
+            # simply loop over child datasets
+            # this is an approximation because ignoring the possibility of file overlap
+            for ds_scope, ds_name in datasets:
+                ds = rucio.core.did.get_did(scope=ds_scope, name=ds_name, dynamic=True, session=session)  # this will be retrieved again later on -> could be optimized
+                nbytes += ds['bytes']
+                one_rse_coverage = rucio.core.replica.get_RSEcoverage_of_dataset(scope=ds_scope, name=ds_name, session=session)
+                for rse_id, bytes in one_rse_coverage.items():
+                    rse_coverage[rse_id] = bytes + rse_coverage.get(rse_id, 0)
+
+            # prnt(rse_coverage)
+            preferred_rse_ids = [x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)]
+            # prnt(preferred_rse_ids)
+            rse_tuples = rseselector.select_rse(size=nbytes, preferred_rse_ids=preferred_rse_ids,
+                                                prioritize_order_over_weight=True, existing_rse_size=rse_coverage)
+            # prnt(rse_tuples)
+
+        for ds_scope, ds_name in datasets:
+            # prnt(('processing dataset ',ds_scope, ds_name))
+            #
+            ds = rucio.core.did.get_did(scope=ds_scope, name=ds_name, dynamic=True, session=session)
+            ds_length = ds['length']
+            ds_bytes = ds['bytes']
+            ds_open = ds['open']
+            # prnt(ds)
+
+            # calculate number of partitions based on nr of files
+            npartitions = int(ds_length / max_partition_size) + 1
+            # prnt(npartitions)
+
+            if rule.grouping == RuleGrouping.DATASET:
+                # calculate target RSEs
+                rse_coverage = rucio.core.replica.get_RSEcoverage_of_dataset(scope=ds_scope, name=ds_name, session=session)
+                # prnt(rse_coverage)
+                preferred_rse_ids = [x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)]
+                # prnt(preferred_rse_ids)
+                rse_tuples = rseselector.select_rse(size=ds_bytes, preferred_rse_ids=preferred_rse_ids,
+                                                    prioritize_order_over_weight=True, existing_rse_size=rse_coverage)
+                # prnt(rse_tuples)
+
+            # loop over the partitions even if it is just one
+            for p in range(npartitions):
+                # prnt(('processing partition ', p, npartitions))
+
+                # files is [{'scope':, 'name':, 'bytes':, 'md5':, 'adler32':}]
+                # locks is {(scope,name): [SQLAlchemy]}
+                # replicas = {(scope, name): [SQLAlchemy]}
+                # source replicas is {(scope, name): [SQLAlchemy]}
+
+                # get files and replicas, lock the replicas
+                files, replicas = rucio.core.replica.get_and_lock_file_replicas_for_dataset(scope=ds_scope, name=ds_name, nowait=True, restrict_rses=rses,
+                                                                                            total_threads=npartitions, thread_id=p, session=session)
+                # prnt(files, 'files')
+                # prnt(replicas, 'replicas')
+
+                # get and lock the replica locks
+                locks = rucio.core.lock.get_files_and_replica_locks_of_dataset(scope=ds_scope, name=ds_name, nowait=True, restrict_rses=rses,
+                                                                               total_threads=npartitions, thread_id=p, session=session)
+                # prnt(locks, 'locks')
+
+                # if needed get source replicas
+                if source_rses:
+                    source_replicas = rucio.core.replica.get_source_replicas_for_dataset(scope=ds_scope, name=ds_name, source_rses=source_rses,
+                                                                                         total_threads=npartitions, thread_id=p, session=session)
+                else:
+                    source_replicas = {}
+                # prnt(source_replicas, 'source_replicas')
+
+                # initialize accumulators for __create_lock_and_replica calls
+                locks_to_create = {}            # {'rse_id': [locks]}
+                replicas_to_create = {}         # {'rse_id': [replicas]}
+                transfers_to_create = []        # [{'dest_rse_id':, 'scope':, 'name':, 'request_type':, 'metadata':}]
+
+                # loop over the rse tuples
+                for file in files:
+                    # check for duplicate due to dataset overlap within container
+                    if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]) == rule.copies:
+                        logging.debug('>>> WARNING skipping (shared?) file %s' % file)
+                        continue
+
+                    if rule.grouping == RuleGrouping.NONE:
+                        # calculate target RSEs
+                        rse_coverage = {replica.rse_id: file['bytes'] for replica in replicas[(file['scope'], file['name'])]}
+                        # prnt(rse_coverage)
+                        preferred_rse_ids = rse_coverage.keys()
+                        # prnt(preferred_rse_ids)
+                        rse_tuples = rseselector.select_rse(size=file['bytes'], preferred_rse_ids=preferred_rse_ids,
+                                                            prioritize_order_over_weight=True, existing_rse_size=rse_coverage)
+                        # prnt(rse_tuples)
+                        # keep track of used RSEs
+                        for rt in rse_tuples:
+                            if not rt[0] in used_rse_ids:
+                                used_rse_ids.append(rt[0])
+
+                    for rse_id, staging_area, availability_write in rse_tuples:
+                        # check for bug ????
+                        if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id and lock.rse_id == rse_id]) == 1:
+                            logging.debug('>>> WARNING unexpected duplicate lock for file %s at RSE %s' % (file, rse_id))
+                            continue
+                        # proceed
+                        __create_lock_and_replica(file=file, dataset={'scope': ds_scope, 'name': ds_name}, rule=rule,
+                                                  rse_id=rse_id, staging_area=staging_area, availability_write=availability_write, source_rses=source_rses,
+                                                  replicas=replicas, locks=locks, source_replicas=source_replicas,
+                                                  locks_to_create=locks_to_create, replicas_to_create=replicas_to_create, transfers_to_create=transfers_to_create,
+                                                  session=session)
+
+                # prnt(locks_to_create, 'locks_to_create')
+                # prnt(replicas_to_create, 'replicas_to_create')
+                # prnt(transfers_to_create, 'transfers_to_create')
+
+                # flush to DB
+                session.add_all([item for sublist in replicas_to_create.values() for item in sublist])
+                session.add_all([item for sublist in locks_to_create.values() for item in sublist])
+                request_core.queue_requests(requests=transfers_to_create, session=session)
+                session.flush()
+
+                # increment counters
+                # do not update (and lock !) counters inside loop here, update at very end and only once
+                for rse_id in replicas_to_create.keys():
+                    rse_counters_files[rse_id] = len(replicas_to_create[rse_id]) + rse_counters_files.get(rse_id, 0)
+                    rse_counters_bytes[rse_id] = sum([replica.bytes for replica in replicas_to_create[rse_id]]) + rse_counters_bytes.get(rse_id, 0)
+                # prnt(rse_counters_files, 'rse_counters_files')
+                # prnt(rse_counters_bytes, 'rse_counters_bytes')
+
+                for rse_id in locks_to_create.keys():
+                    account_counters_files[rse_id] = len(locks_to_create[rse_id]) + account_counters_files.get(rse_id, 0)
+                    account_counters_bytes[rse_id] = sum([lock.bytes for lock in locks_to_create[rse_id]]) + account_counters_bytes.get(rse_id, 0)
+                # prnt(account_counters_files, 'account_counters_files')
+                # prnt(account_counters_bytes, 'account_counters_bytes')
+
+                # mem()
+
+            # dataset lock/replica
+            u_rses = (used_rse_ids if rule.grouping == RuleGrouping.NONE else [x[0] for x in rse_tuples])
+            # prnt(u_rses, 'used RSE ids')
+            for u_rse in u_rses:
+                # prnt('creating dataset lock/replica for %s on %s' % (ds_name,u_rse))
+                if rule.grouping == RuleGrouping.DATASET or rule.grouping == RuleGrouping.ALL:
+                    # add dataset lock
+                    models.DatasetLock(scope=ds_scope, name=ds_name,
+                                       rule_id=rule.id,
+                                       rse_id=u_rse,
+                                       state=LockState.REPLICATING,
+                                       account=rule.account,
+                                       length=ds_length if not ds_open else None,
+                                       bytes=ds_bytes if not ds_open else None
+                                       ).save(session=session)
+
+                # add dataset replica if not already existing (rule_id is not in PK)
+                try:
+                    session.query(models.CollectionReplica).filter(models.CollectionReplica.scope == ds_scope,
+                                                                   models.CollectionReplica.name == ds_name,
+                                                                   models.CollectionReplica.rse_id == u_rse).one()
+                except NoResultFound:
+                    models.CollectionReplica(scope=ds_scope, name=ds_name, did_type=DIDType.DATASET,
+                                             rse_id=u_rse,
+                                             bytes=0, length=0, available_bytes=0, available_replicas_cnt=0,
+                                             state=ReplicaState.UNAVAILABLE
+                                             ).save(session=session)
+
+                    models.UpdatedCollectionReplica(scope=ds_scope, name=ds_name, did_type=DIDType.DATASET
+                                                    ).save(session=session)
+
+        # update account and rse counters
+        for rse_id in rse_counters_files:
+            rse_counter.increase(rse_id=rse_id, files=rse_counters_files[rse_id], bytes=rse_counters_bytes[rse_id], session=session)
+        for rse_id in account_counters_files:
+            account_counter.increase(rse_id=rse_id, account=rule.account, files=account_counters_files[rse_id], bytes=account_counters_bytes[rse_id], session=session)
+        session.flush()
+
+    return
