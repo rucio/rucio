@@ -59,4 +59,6 @@ So can custom lfn to pfn algorithms::
     from rucio.rse.protocols.protocol import RSEDeterministicTranslation
     RSEDeterministicTranslation.register(lfn2pfn_special, 'voname_special')
 
-In both cases the name used to register the function must be prefixed with the name of the virtual organisation that owns the policy package, to avoid naming conflicts on multi-VO Rucio installations.
+In both cases the name used to register the function must be prefixed with the
+name of the virtual organisation that owns the policy package, to avoid naming
+conflicts on multi-VO Rucio installations.
