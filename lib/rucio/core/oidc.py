@@ -45,6 +45,9 @@ from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
+from sqlalchemy import and_
+from sqlalchemy.sql.expression import true
+
 
 try:
     # Python 2
@@ -776,7 +779,49 @@ def __change_refresh_state(token, refresh=False, session=None):
 
 
 @transactional_session
-def refresh_token_oidc(token_object, session=None):
+def refresh_jwt_tokens(total_workers, worker_number, refreshrate=3600, limit=1000, session=None):
+    """
+    Refreshes tokens which expired or will expire before (now + refreshrate)
+    next run of this function and which have valid refresh token.
+
+    :param total_workers:      Number of total workers.
+    :param worker_number:      id of the executing worker.
+    :param limit:              Maximum number of tokens to refresh per call.
+    :param session:            Database session in use.
+
+    :return: numper of tokens refreshed
+    """
+    nrefreshed = 0
+    try:
+        # get tokens for refresh that expire in the next <refreshrate> seconds
+        expiration_future = datetime.utcnow() + timedelta(seconds=refreshrate)
+        query = session.query(models.Token.token).filter(and_(models.Token.refresh == true(),
+                                                              models.Token.refresh_expired_at > datetime.utcnow(),
+                                                              models.Token.expired_at < expiration_future))\
+                                                 .order_by(models.Token.expired_at)
+        query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='token')
+
+        # limiting the number of tokens for refresh
+        filtered_tokens_query = query.limit(limit)
+        filtered_tokens = []
+        filtered_bunches = query_bunches(filtered_tokens_query, 10)
+        for items in filtered_bunches:
+            filtered_tokens += session.query(models.Token).filter(models.Token.token.in_(items)).with_for_update(skip_locked=True).all()
+
+        # refreshing these tokens
+        for token in filtered_tokens:
+            retok = __refresh_token_oidc(token, session=session)
+            if retok:
+                nrefreshed += 1
+
+    except Exception as error:
+        raise RucioException(error.args)
+
+    return nrefreshed
+
+
+@transactional_session
+def __refresh_token_oidc(token_object, session=None):
     """
     Requests new access and refresh tokens from the Identity Provider.
     Assumption: The Identity Provider issues refresh tokens for one time use only and
