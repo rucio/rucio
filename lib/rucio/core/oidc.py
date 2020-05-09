@@ -27,11 +27,12 @@ from datetime import datetime, timedelta
 from jwkest.jws import JWS
 from jwkest.jwt import JWT
 from oic import rndstr
-from oic.oic import Client, Token, REQUEST2ENDPOINT
+from oic.oic import Client, Grant, Token, REQUEST2ENDPOINT
 from oic.oauth2.message import CCAccessTokenRequest
 from oic.oic.message import (AccessTokenResponse, AuthorizationResponse,
                              Message, RegistrationResponse)
 from oic.utils.authn.client import CLIENT_AUTHN_METHOD
+from oic.utils import time_util
 from rucio.common.config import config_get
 from rucio.common.exception import (CannotAuthenticate, CannotAuthorize,
                                     RucioException)
@@ -153,13 +154,16 @@ def __get_init_oidc_client(token_object=None, token_type=None, **kwargs):
             issuer = token_object.identity.split(", ")[1].split("=")[1]
             oidc_client = OIDC_CLIENTS[issuer]
             auth_args["client_id"] = oidc_client.client_id
-
-            token_type = kwargs.get('token_type', None)
+            token = ''
+            if not token_type:
+                token_type = kwargs.get('token_type', None)
             if token_type == 'subject_token':
                 token = token_object.token
             if token_type == 'refresh_token':
                 token = token_object.refresh_token
             if token_type and token:
+                oidc_client.grant[auth_args['state']] = Grant()
+                oidc_client.grant[auth_args['state']].grant_expiration_time = time_util.utc_time_sans_frac() + 300
                 resp = AccessTokenResponse()
                 resp[token_type] = token
                 oidc_client.grant[auth_args['state']].tokens.append(Token(resp))
@@ -885,7 +889,6 @@ def __refresh_token_oidc(token_object, session=None):
             except Exception:
                 # 4 day expiry period by default
                 extra_dict['refresh_expired_at'] = datetime.utcnow() + timedelta(hours=96)
-
             new_token = __save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict, session=session)
             record_counter(counters='IdP_authorization.access_token.saved')
             record_counter(counters='IdP_authorization.refresh_token.saved')
