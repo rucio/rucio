@@ -37,10 +37,8 @@ from rucio.common.config import config_get_bool
 from rucio.common.exception import AccessDenied, Duplicate
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
-from rucio.core.did import add_did
 from rucio.core.rule import add_rule
 from rucio.core.vo import add_vo
-from rucio.db.sqla.constants import DIDType
 
 
 class TestVOCoreAPI(object):
@@ -57,8 +55,11 @@ class TestVOCoreAPI(object):
         scope = InternalScope('mock', **self.vo)
         dataset = 'dataset_' + str(generate_uuid())
         account = InternalAccount('root', **self.vo)
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), account)
-        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=account, copies=1, rse_expression='MOCK', grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+        rse_str = ''.join(choice(ascii_uppercase) for x in range(10))
+        rse_name = 'MOCK_%s' % rse_str
+        add_rse(rse_name, 'root', **self.vo)
+        add_did('mock', dataset, 'DATASET', 'root', **self.vo)
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=account, copies=0, rse_expression=rse_name, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
 
         vo_api.add_vo(self.new_vo, 'super_root', 'Add new VO with super_root', 'rucio@email.com', 'def')
         with assert_raises(AccessDenied):
