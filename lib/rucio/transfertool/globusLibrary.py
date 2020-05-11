@@ -148,9 +148,10 @@ def bulk_submit_xfer(submitjob, recursive=False):
     for file in submitjob:
         source_path = file.get('sources')[0]
         dest_path = file.get('destinations')[0]
-        md5 = file['metadata']['md5']
-        # TODO: support passing a recursive parameter to Globus
-        tdata.add_item(source_path, dest_path, recursive=False, external_checksum=md5)
+        # md5 = file['metadata']['md5']
+        # TODO: allow user to specify if Rucio or Globus supplies checksum
+        # tdata.add_item(source_path, dest_path, recursive=False, external_checksum=md5)
+        tdata.add_item(source_path, dest_path, recursive=False)
 
     # logging.info('submitting transfer...')
     transfer_result = tc.submit_transfer(tdata)

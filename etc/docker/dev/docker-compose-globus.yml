@@ -1,0 +1,134 @@
+version: "2"
+services:
+  rucio:
+    image: rucio/rucio-dev
+    container_name: rucio
+    hostname: rucio
+    ports:
+      - "443:443"
+    links:
+      - ruciodb:ruciodb
+      - graphite:graphite
+    volumes:
+      - ../../../tools:/opt/rucio/tools
+      - ../../../bin:/opt/rucio/bin
+      - ../../../lib:/opt/rucio/lib
+      - ../../../etc/rucio.cfg:/opt/rucio/etc/rucio.cfg
+    environment:
+      - X509_USER_CERT=/opt/rucio/etc/usercert.pem
+      - X509_USER_KEY=/opt/rucio/etc/userkey.pem
+  ruciodb:
+    image: postgres:11
+    container_name: ruciodb
+    hostname: ruciodb
+    environment:
+      - POSTGRES_USER=rucio
+      - POSTGRES_DB=rucio
+      - POSTGRES_PASSWORD=secret
+    ports:
+      - "5432:5432"
+    command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
+  graphite:
+    image: graphiteapp/graphite-statsd
+    container_name: graphite
+    hostname: graphite
+    ports:
+      - "80:80"
+  judge-evaluator:
+    image: rucio/rucio-daemons
+    container_name: judge-evaluator
+    hostname: judge-evaluator
+    links:
+      - ruciodb:ruciodb
+      - graphite:graphite
+    volumes:
+      - ../../../tools:/opt/rucio/tools
+      - ../../../bin:/opt/rucio/bin
+      - ../../../lib:/opt/rucio/lib
+      - ../../../etc/rucio.cfg:/opt/rucio/etc/rucio.cfg
+    environment:
+      - X509_USER_CERT=/opt/rucio/etc/usercert.pem
+      - X509_USER_KEY=/opt/rucio/etc/userkey.pem
+      - RUCIO_DAEMON=judge-evaluator
+      - RUCIO_ENABLE_LOGS=True
+  conveyor-submitter:
+    image: rucio/rucio-daemons
+    container_name: conveyor-submitter
+    hostname: conveyor-submitter
+    links:
+      - ruciodb:ruciodb
+      - graphite:graphite
+    volumes:
+      - ../../../lib/rucio:/usr/lib/python2.7/site-packages/rucio
+      - ../../../etc/rucio.cfg:/opt/rucio/etc/rucio.cfg
+    environment:
+      - X509_USER_CERT=/opt/rucio/etc/usercert.pem
+      - X509_USER_KEY=/opt/rucio/etc/userkey.pem
+      - RUCIO_DAEMON=conveyor-submitter
+      - RUCIO_ENABLE_LOGS=True
+      - RUCIO_DAEMON_ARGS=--sleep-time 120
+  conveyor-poller:
+    image: rucio/rucio-daemons
+    container_name: conveyor-poller
+    hostname: conveyor-poller
+    links:
+      - ruciodb:ruciodb
+      - graphite:graphite
+    volumes:
+      - ../../../lib/rucio:/usr/lib/python2.7/site-packages/rucio
+      - ../../../etc/rucio.cfg:/opt/rucio/etc/rucio.cfg
+    environment:
+      - X509_USER_CERT=/opt/rucio/etc/usercert.pem
+      - X509_USER_KEY=/opt/rucio/etc/userkey.pem
+      - RUCIO_DAEMON=conveyor-poller
+      - RUCIO_ENABLE_LOGS=True
+      - RUCIO_DAEMON_ARGS=--sleep-time 120
+  conveyor-finisher:
+    image: rucio/rucio-daemons
+    container_name: conveyor-finisher
+    hostname: conveyor-finisher
+    links:
+      - ruciodb:ruciodb
+      - graphite:graphite
+    volumes:
+      - ../../../lib/rucio:/usr/lib/python2.7/site-packages/rucio
+      - ../../../etc/rucio.cfg:/opt/rucio/etc/rucio.cfg
+    environment:
+      - X509_USER_CERT=/opt/rucio/etc/usercert.pem
+      - X509_USER_KEY=/opt/rucio/etc/userkey.pem
+      - RUCIO_DAEMON=conveyor-finisher
+      - RUCIO_ENABLE_LOGS=True
+      - RUCIO_DAEMON_ARGS=--sleep-time 120
+  reaper2:
+    image: rucio/rucio-daemons
+    container_name: reaper2
+    hostname: reaper2
+    links:
+      - ruciodb:ruciodb
+      - graphite:graphite
+    volumes:
+      - ../../../lib/rucio:/usr/lib/python2.7/site-packages/rucio
+      - ../../../etc/rucio.cfg:/opt/rucio/etc/rucio.cfg
+    environment:
+      - X509_USER_CERT=/opt/rucio/etc/usercert.pem
+      - X509_USER_KEY=/opt/rucio/etc/userkey.pem
+      - RUCIO_DAEMON=reaper2
+      - RUCIO_ENABLE_LOGS=True
+      - RUCIO_DAEMON_ARGS=--sleep-time 120
+  judge-cleaner:
+    image: rucio/rucio-daemons
+    container_name: judge-cleaner
+    hostname: judge-cleaner
+    links:
+      - ruciodb:ruciodb
+      - graphite:graphite
+    volumes:
+      - ../../../tools:/opt/rucio/tools
+      - ../../../bin:/opt/rucio/bin
+      - ../../../lib:/opt/rucio/lib
+      - ../../../etc/rucio.cfg:/opt/rucio/etc/rucio.cfg
+    environment:
+      - X509_USER_CERT=/opt/rucio/etc/usercert.pem
+      - X509_USER_KEY=/opt/rucio/etc/userkey.pem
+      - RUCIO_DAEMON=judge-cleaner
+      - RUCIO_ENABLE_LOGS=True
