@@ -33,7 +33,7 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.client.uploadclient import UploadClient
 from rucio.common.config import config_get_bool
-from rucio.common.exception import AccessDenied, Duplicate
+from rucio.common.exception import AccessDenied, AccountNotFound, Duplicate
 from rucio.common.utils import generate_uuid
 from rucio.core.vo import add_vo
 
@@ -81,6 +81,34 @@ class TestVOCoreAPI(object):
                 assert_equal(parameters['description'], v['description'])
                 vo_update_success = True
         assert_true(vo_update_success)
+
+    def test_super_root_permissions(self):
+        """ MULTI VO (CORE): Test super_root cannot access root/user functions """
+        rse_str = ''.join(choice(ascii_uppercase) for x in range(10))
+        rse_name = 'MOCK_%s' % rse_str
+        scope_uuid = str(generate_uuid()).lower()[:16]
+        scope = 'mock_%s' % scope_uuid
+        # Test an account name that exists at one VO cannot be found if paired with a different VO
+        with assert_raises(AccountNotFound):
+            add_scope(scope, 'super_root', 'super_root', **self.vo)
+        # Test super_root@def with functions at vo='def'
+        with assert_raises(AccessDenied):
+            add_rse(rse_name, 'super_root', vo='def')
+        with assert_raises(AccessDenied):
+            add_scope(scope, 'root', 'super_root', vo='def')
+        add_scope(scope, 'super_root', 'super_root', vo='def')
+        assert_in(scope, [s for s in list_scopes(filter={}, vo='def')])
+        # Test the permissions of a user account with name super_root
+        vo_api.add_vo(self.new_vo, 'super_root', 'VO for permission testing', 'rucio@email.com', 'def')
+        add_account('super_root', 'USER', 'rucio@email.com', 'root', vo=self.new_vo)
+        with assert_raises(AccessDenied):
+            vo_api.list_vos('super_root', vo=self.new_vo)
+        with assert_raises(AccessDenied):
+            add_rse(rse_name, 'super_root', vo=self.new_vo)
+        with assert_raises(AccessDenied):
+            add_scope(scope, 'root', 'super_root', vo=self.new_vo)
+        add_scope(scope, 'super_root', 'super_root', vo=self.new_vo)
+        assert_in(scope, [s for s in list_scopes(filter={}, vo=self.new_vo)])
 
 
 class TestMultiVoClients(object):
