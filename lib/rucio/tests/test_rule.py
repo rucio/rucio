@@ -1054,17 +1054,17 @@ class TestReplicationRuleCore():
             #  6 replicas @ MOCK4 -> file11 .. file16
             #  5 replicas @ MOCK5 -> file17 .. file20, file25
             for i in range(1, 8):
-                add_replica(rse_id=get_rse_id('MOCK'), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id('MOCK', **self.vo), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
             for i in range(8, 11):
-                add_replica(rse_id=get_rse_id('MOCK3'), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id('MOCK3', **self.vo), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
             for i in range(11, 17):
-                add_replica(rse_id=get_rse_id('MOCK4'), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id('MOCK4', **self.vo), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
             for i in range(17, 21):
-                add_replica(rse_id=get_rse_id('MOCK5'), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id('MOCK5', **self.vo), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
             for i in range(21, 25):
-                add_replica(rse_id=get_rse_id('MOCK'), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id('MOCK', **self.vo), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
             for i in range(25, 26):
-                add_replica(rse_id=get_rse_id('MOCK5'), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
+                add_replica(rse_id=get_rse_id('MOCK5', **self.vo), scope=scope, name='file_%06d.data' % i, bytes=10000 + i, account=account)
 
             add_did(scope=scope, name='ds1', type='DATASET', account=account)
             attach_dids(scope=scope, name='ds1', dids=[{'scope': scope, 'name': 'file_%06d.data' % i} for i in range(1, 10 + 1)], account=account)
@@ -1082,7 +1082,7 @@ class TestReplicationRuleCore():
         account = self.jdoe
 
         # test1 : ALL grouping -> select MOCK for all 3 datasets
-        scope = InternalScope(('scope1_' + str(uuid()))[:24])  # scope field has max 25 chars
+        scope = InternalScope(('scope1_' + str(uuid()))[:21], **self.vo)  # scope field has max 25 chars including VO
         add_scope(scope, account)
         mktree(scope, account)
         rule_ids = add_rule(dids=[{'scope': scope, 'name': 'container1213'}], copies=1, rse_expression='MOCK|MOCK3|MOCK4|MOCK5', grouping='ALL',
@@ -1102,7 +1102,7 @@ class TestReplicationRuleCore():
         assert(len(dsl3) == 1 and dsl3[0]['rse'] == 'MOCK')
 
         # test2 : DATASET grouping -> select MOCK for ds1, MOCK4 for ds2 and MOCK for ds3
-        scope = InternalScope(('scope2_' + str(uuid()))[:24])  # scope field has max 25 chars
+        scope = InternalScope(('scope2_' + str(uuid()))[:21], **self.vo)  # scope field has max 25 chars
         add_scope(scope, account)
         mktree(scope, account)
         rule_ids = add_rule(dids=[{'scope': scope, 'name': 'container1213'}], copies=1, rse_expression='MOCK|MOCK3|MOCK4|MOCK5', grouping='DATASET',
@@ -1122,7 +1122,7 @@ class TestReplicationRuleCore():
         assert(len(dsl3) == 1 and dsl3[0]['rse'] == 'MOCK')
 
         # test3 : NONE grouping
-        scope = InternalScope(('scope3_' + str(uuid()))[:24])  # scope field has max 25 chars
+        scope = InternalScope(('scope3_' + str(uuid()))[:21], **self.vo)  # scope field has max 25 chars
         add_scope(scope, account)
         mktree(scope, account)
         rule_ids = add_rule(dids=[{'scope': scope, 'name': 'container1213'}], copies=1, rse_expression='MOCK|MOCK3|MOCK4|MOCK5', grouping='NONE',
