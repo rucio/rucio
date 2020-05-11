@@ -17,10 +17,11 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 
 import hashlib
+import imp
 import logging
 import sys
 
-from rucio.transfertool.globusLibrary import send_delete_task
+from rucio.transfertool.globusLibrary import getTransferClient, send_delete_task
 from rucio.common.config import config_get
 from rucio.core.rse import get_rse_attribute
 
@@ -43,6 +44,19 @@ if getattr(rsemanager, 'CLIENT_MODE', None):
 
 if getattr(rsemanager, 'SERVER_MODE', None):
     from rucio.core import replica
+
+# Extra modules: Only imported if available
+EXTRA_MODULES = {'globus_sdk': False}
+
+for extra_module in EXTRA_MODULES:
+    try:
+        imp.find_module(extra_module)
+        EXTRA_MODULES[extra_module] = True
+    except ImportError:
+        EXTRA_MODULES[extra_module] = False
+
+if EXTRA_MODULES['globus_sdk']:
+    from globus_sdk.exc import TransferAPIError
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging,
@@ -346,8 +360,45 @@ class GlobusRSEProtocol(RSEProtocol):
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         logging.debug('... Beginning GlobusRSEProtocol.exists ... ')
-        raise NotImplementedError
-        # pass
+
+        filepath = '/'.join(path.split('/')[0:-1]) + '/'
+        filename = path.split('/')[-1]
+
+        tc = getTransferClient()
+        exists = False
+
+        if self.globus_endpoint_id:
+            try:
+                resp = tc.operation_ls(endpoint_id=self.globus_endpoint_id[0], path=filepath)
+                exists = len([r for r in resp if r['name'] == filename]) > 0
+            except TransferAPIError as err:
+                logging.debug(err)
+        else:
+            logging.error('No rse attribute found for globus endpoint id.')
+
+        return exists
+
+    def list(self, path):
+        """
+            Checks if the requested path is known by the referred RSE and returns a list of items
+            :param path: Physical file name
+            :returns: List of items
+        """
+        logging.debug('... Beginning GlobusRSEProtocol.list ... ')
+
+        tc = getTransferClient()
+        items = []
+
+        if self.globus_endpoint_id:
+            try:
+                resp = tc.operation_ls(endpoint_id=self.globus_endpoint_id[0], path=path)
+                items = resp['DATA']
+            except TransferAPIError as err:
+                logging.debug(err)
+        else:
+            logging.error('No rse attribute found for globus endpoint id.')
+
+        return items
 
     def connect(self):
         """
