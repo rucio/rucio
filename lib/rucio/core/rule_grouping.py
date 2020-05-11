@@ -1422,11 +1422,11 @@ def apply_rule(did, rule, rses, source_rses, rseselector, session=None):
                     models.UpdatedCollectionReplica(scope=ds_scope, name=ds_name, did_type=DIDType.DATASET
                                                     ).save(session=session)
 
-        # update account and rse counters
-        for rse_id in rse_counters_files:
-            rse_counter.increase(rse_id=rse_id, files=rse_counters_files[rse_id], bytes=rse_counters_bytes[rse_id], session=session)
-        for rse_id in account_counters_files:
-            account_counter.increase(rse_id=rse_id, account=rule.account, files=account_counters_files[rse_id], bytes=account_counters_bytes[rse_id], session=session)
-        session.flush()
+    # update account and rse counters
+    for rse_id in rse_counters_files:
+        rse_counter.increase(rse_id=rse_id, files=rse_counters_files[rse_id], bytes=rse_counters_bytes[rse_id], session=session)
+    for rse_id in account_counters_files:
+        account_counter.increase(rse_id=rse_id, account=rule.account, files=account_counters_files[rse_id], bytes=account_counters_bytes[rse_id], session=session)
+    session.flush()
 
     return
