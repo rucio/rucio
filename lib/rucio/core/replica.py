@@ -2854,7 +2854,7 @@ def get_replicas_state(scope=None, name=None, session=None):
     :param session: The database session in use.
     """
 
-    # is constituent
+    # check if it is a constituent of an archive
     query_constituent = session.query(models.DataIdentifier.availability).\
         filter(models.DataIdentifier.scope == scope,
                models.DataIdentifier.name == name,
