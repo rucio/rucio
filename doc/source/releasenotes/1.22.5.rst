@@ -1,0 +1,13 @@
+======================
+1.22.5  (clients only)
+======================
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: xrootd protocol as implementation needs a stat method `#2254 <https://github.com/rucio/rucio/issues/2254>`_
