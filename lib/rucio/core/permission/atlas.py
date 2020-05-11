@@ -1191,12 +1191,12 @@ def perm_update_vo(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     return (issuer.internal == 'super_root')
-  
-  
+
+
 def perm_access_rule(issuer, kwargs):
     """
     Checks if we're at the same VO as the rule_id's
-    
+
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
