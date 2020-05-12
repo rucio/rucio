@@ -217,10 +217,6 @@ class TestApiExternalRepresentation():
 
         add_account_identity(id_key, 'userpass', self.account_name, 'rucio_test@test.com', 'root', default=True, password='ext_pass', **self.vo)
 
-        # TODO - fix passing default to add_account_identity
-        # out = get_default_account(id_key, 'userpass')
-        # assert_equal(out, self.account_name)
-
         out = list_accounts_for_identity(id_key, 'userpass')
         assert_in(self.account_name, out)
         if self.multi_vo:
@@ -237,7 +233,7 @@ class TestApiExternalRepresentation():
                       'dids': [{'scope': self.scope_name, 'name': did}]}
         attach_dids_to_dids([attachment], issuer='root', **self.vo)
 
-        # get_did_from_pfns - in progress but requires other fixes
+        # get_did_from_pfns - in progress but requires fix to stfc/rucio#33
         # protocol = Default(protocol_attr={'auth_token': None, 'prefix': '/tmp/rucio_rse/',
         #                                   'scheme': 'https', 'hostname': 'mock.com', 'port': 8443},
         #                    rse_settings={'rse': self.rse_name, 'id': self.rse_id, 'rse_id': self.rse_id, 'deterministic': False})
@@ -290,13 +286,6 @@ class TestApiExternalRepresentation():
             assert_equal(r['account'], self.account_name)
             assert_equal(r['source_rse'], self.rse_name)
             assert_equal(r['dest_rse'], self.rse2_name)
-
-        # test get_next - difficult as will not necessarily return our queued requests.
-        # out = get_next(constants.RequestType.TRANSFER, constants.RequestState.QUEUED, issuer='root', account='root', **self.vo)
-        # for req in out:
-        #     assert_not_in('@', req['scope'])
-        #     assert_not_in('@', req['account'])
-        #     assert_not_in('dest_rse', req)
 
         out = get_request_by_did(self.scope_name, did, self.rse2_name, issuer='root', **self.vo)
         assert_equal(out['scope'], self.scope_name)
@@ -385,7 +374,7 @@ class TestApiExternalRepresentation():
         sub_id = add_subscription(sub, new_acc_name, {'account': [new_acc_name], 'scope': [new_scope_name]},
                                   [{'copies': 1, 'rse_expression': self.rse3_name, 'weight': 0, 'activity': 'User Subscriptions',
                                     'source_replica_expression': self.rse4_name}],
-                                  '', False, False, False, 0, 'root', **self.new_vo)
+                                  '', False, 0, 0, 3, 'root', **self.new_vo)
         add_replication_rule(dids=[{'scope': new_scope_name, 'name': did}], copies=1, rse_expression=self.rse3_name, weight=None,
                              lifetime=180, grouping='DATASET', account=new_acc_name, locked=False, subscription_id=sub_id,
                              source_replica_expression=self.rse4_name, activity='User Subscriptions', notify=None,
