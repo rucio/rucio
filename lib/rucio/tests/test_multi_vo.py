@@ -17,7 +17,7 @@
 
 from nose.tools import assert_equal, assert_false, assert_in, assert_is_not_none, assert_raises, assert_true
 from random import choice
-from string import ascii_uppercase
+from string import ascii_uppercase, ascii_lowercase
 
 from rucio.api import vo as vo_api
 from rucio.api.account import add_account, list_accounts
@@ -38,17 +38,21 @@ from rucio.common.exception import AccessDenied, Duplicate
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.rule import add_rule
-from rucio.core.vo import add_vo
+from rucio.core.vo import add_vo, vo_exists
 
 
 class TestVOCoreAPI(object):
 
-    def setup(self):
+    @classmethod
+    def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
-            self.new_vo = generate_uuid()[:3]
+            cls.vo = {'vo': 'tst'}
+            cls.new_vo = {'vo': 'new'}
+            if not vo_exists(**cls.new_vo):
+                add_vo(description='Test', email='rucio@email.com', **cls.new_vo)
         else:
-            self.vo = {}
+            cls.vo = {}
+            cls.new_vo = {}
 
     def test_access_rule(self):
         """ MULTI VO (CORE): Test accessing rules from a different VO """
@@ -61,9 +65,8 @@ class TestVOCoreAPI(object):
         add_did('mock', dataset, 'DATASET', 'root', **self.vo)
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=account, copies=0, rse_expression=rse_name, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
 
-        vo_api.add_vo(self.new_vo, 'super_root', 'Add new VO with super_root', 'rucio@email.com', 'def')
         with assert_raises(AccessDenied):
-            delete_replication_rule(rule_id=rule_id, purge_replicas=False, issuer='root', vo=self.new_vo)
+            delete_replication_rule(rule_id=rule_id, purge_replicas=False, issuer='root', **self.new_vo)
         delete_replication_rule(rule_id=rule_id, purge_replicas=False, issuer='root', **self.vo)
         rule_dict = get_replication_rule(rule_id=rule_id, issuer='root', **self.vo)
         assert_is_not_none(rule_dict['expires_at'])
@@ -71,52 +74,47 @@ class TestVOCoreAPI(object):
     def test_add_vo(self):
         """ MULTI VO (CORE): Test creation of VOs """
         with assert_raises(AccessDenied):
-            vo_api.add_vo(self.new_vo, 'root', 'Add new VO with root', 'rucio@email.com', **self.vo)
-        vo_api.add_vo(self.new_vo, 'super_root', 'Add new VO with super_root', 'rucio@email.com', 'def')
+            vo_api.add_vo(self.new_vo['vo'], 'root', 'Add new VO with root', 'rucio@email.com', **self.vo)
         with assert_raises(Duplicate):
-            vo_api.add_vo(self.new_vo, 'super_root', 'Add existing VO', 'rucio@email.com', 'def')
-        vo_list = [v['vo'] for v in vo_api.list_vos('super_root', 'def')]
-        assert_in(self.new_vo, vo_list)
+            vo_api.add_vo(self.new_vo['vo'], 'super_root', 'Add existing VO', 'rucio@email.com', 'def')
 
     def test_recover_root_identity(self):
         """ MULTI VO (CORE): Test adding a new identity for root using super_root """
-        vo_api.add_vo(self.new_vo, 'super_root', 'Add new VO with super_root', 'rucio@email.com', 'def')
+        identity_key = ''.join(choice(ascii_lowercase) for x in range(10))
         with assert_raises(AccessDenied):
-            vo_api.recover_vo_root_identity(root_vo=self.new_vo, identity_key='recovered@%s' % self.new_vo, id_type='userpass',
-                                            email='rucio@email.com', issuer='root', password='password', vo=self.new_vo)
-        vo_api.recover_vo_root_identity(root_vo=self.new_vo, identity_key='recovered@%s' % self.new_vo, id_type='userpass',
-                                        email='rucio@email.com', issuer='super_root', password='password', vo='def')
-        assert_in('root', list_accounts_for_identity(identity_key='recovered@%s' % self.new_vo, id_type='userpass'))
+            vo_api.recover_vo_root_identity(root_vo=self.new_vo['vo'], identity_key=identity_key, id_type='userpass', email='rucio@email.com', issuer='root', password='password', **self.vo)
+        vo_api.recover_vo_root_identity(root_vo=self.new_vo['vo'], identity_key=identity_key, id_type='userpass', email='rucio@email.com', issuer='super_root', password='password', vo='def')
+        assert_in('root', list_accounts_for_identity(identity_key=identity_key, id_type='userpass'))
 
     def test_update_vo(self):
         """ MULTI VO (CORE): Test updating VOs """
-        vo_api.add_vo(self.new_vo, 'super_root', 'Add new VO with super_root', 'rucio@email.com', 'def')
-        parameters = {'vo': self.new_vo, 'description': 'Updated description', 'email': 'updated@email.com'}
+        description = generate_uuid()
+        email = generate_uuid()
+        parameters = {'vo': self.new_vo['vo'], 'description': description, 'email': email}
         with assert_raises(AccessDenied):
-            vo_api.update_vo(self.new_vo, parameters, 'root', **self.vo)
-        vo_api.update_vo(self.new_vo, parameters, 'super_root', 'def')
+            vo_api.update_vo(self.new_vo['vo'], parameters, 'root', **self.vo)
+        vo_api.update_vo(self.new_vo['vo'], parameters, 'super_root', 'def')
         vo_update_success = False
         for v in vo_api.list_vos('super_root', 'def'):
             if v['vo'] == parameters['vo']:
-                assert_equal(parameters['email'], v['email'])
-                assert_equal(parameters['description'], v['description'])
+                assert_equal(email, v['email'])
+                assert_equal(description, v['description'])
                 vo_update_success = True
         assert_true(vo_update_success)
 
 
 class TestMultiVoClients(object):
 
-    def setup(self):
+    @classmethod
+    def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
-            self.new_vo = {'vo': 'new'}
-            try:
-                add_vo(description='Test', email='rucio@email.com', **self.new_vo)
-            except Duplicate:
-                print('VO "%s" already exists' % self.new_vo['vo'])
+            cls.vo = {'vo': 'tst'}
+            cls.new_vo = {'vo': 'new'}
+            if not vo_exists(**cls.new_vo):
+                add_vo(description='Test', email='rucio@email.com', **cls.new_vo)
         else:
-            self.vo = {}
-            self.new_vo = {}
+            cls.vo = {}
+            cls.new_vo = {}
 
     def test_get_vo_from_config(self):
         """ MULTI VO (CLIENT): Get vo from config file when starting clients """
