@@ -16,12 +16,8 @@
 # - Matt Snyder <msnyder@rcf.rhic.bnl.gov>, 2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 
-import hashlib
-import logging
-import sys
-
+from rucio.common import exception
 from rucio.transfertool.globusLibrary import send_delete_task
-from rucio.common.config import config_get
 from rucio.core.rse import get_rse_attribute
 
 try:
@@ -43,13 +39,6 @@ if getattr(rsemanager, 'CLIENT_MODE', None):
 
 if getattr(rsemanager, 'SERVER_MODE', None):
     from rucio.core import replica
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 class GlobusRSEProtocol(RSEProtocol):
@@ -84,10 +73,6 @@ class GlobusRSEProtocol(RSEProtocol):
         lfns = [lfns] if isinstance(lfns, dict) else lfns
         for lfn in lfns:
             scope, name = lfn['scope'], lfn['name']
-
-            logging.debug('scope: %s' % scope)
-            logging.debug('name: %s' % name)
-
             if 'path' in lfn and lfn['path'] is not None:
                 pfns['%s:%s' % (scope, name)] = ''.join([prefix, lfn['path'] if not lfn['path'].startswith('/') else lfn['path'][1:]])
             else:
@@ -147,8 +132,6 @@ class GlobusRSEProtocol(RSEProtocol):
         ret = dict()
         pfns = [pfns] if isinstance(pfns, string_types) else pfns
 
-        logging.debug('... Beginning GlobusRSEProtocol.parse_pfns ... ')
-
         for pfn in pfns:
             parsed = urlparse(pfn)
             scheme = parsed.scheme
@@ -198,7 +181,6 @@ class GlobusRSEProtocol(RSEProtocol):
 
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
-        logging.debug('... Beginning GlobusRSEProtocol.exists ... ')
         raise NotImplementedError
         # pass
 
@@ -208,13 +190,11 @@ class GlobusRSEProtocol(RSEProtocol):
 
             :raises RSEAccessDenied: if no connection could be established.
         """
-        logging.debug('... Beginning GlobusRSEProtocol.connect ... ')
         # raise NotImplementedError
         pass
 
     def close(self):
         """ Closes the connection to RSE."""
-        logging.debug('... Beginning GlobusRSEProtocol.close ... ')
         # raise NotImplementedError
         pass
 
@@ -256,23 +236,10 @@ class GlobusRSEProtocol(RSEProtocol):
             :raises ServiceUnavailable: if some generic error occured in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
-        logging.debug('... Beginning GlobusRSEProtocol.delete ... ')
-        logging.debug('path: %s' % path)
-        logging.debug('self.attributes: %s' % self.attributes)
-        logging.debug('self.rse: %s' % self.rse)
-        logging.debug('self.globus_endpoint_id: %s' % self.globus_endpoint_id)
-        if self.globus_endpoint_id:
+        try:
             delete_response = send_delete_task(endpoint_id=self.globus_endpoint_id[0], path=path)
-        else:
-            logging.error('No rse attribute found for globus endpoint id.')
-        logging.debug('delete_response: %s' % delete_response)
-        # Below task submission sends a delete task to Globus and only checks that it was accepted
-        # TODO: Weave this into a (new?) daemon to check actual deletion on the endpoint
-        if delete_response['code'] != 'Accepted':
-            logging.error('delete_task not accepted by Globus')
-            logging.debug('delete_response: %s' % delete_response)
-        # pass
-        # TODO: create globus command to delete file on endpoint
+        except Exception as e:
+            raise exception.ServiceUnavailable(e)
 
     def rename(self, path, new_path):
         """ Allows to rename a file stored inside the connected RSE.
