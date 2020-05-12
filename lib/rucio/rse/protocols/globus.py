@@ -60,7 +60,7 @@ class GlobusRSEProtocol(RSEProtocol):
 
             :param props: Properties of the requested protocol
         """
-        # super(GlobusRSEProtocol, self).__init__(protocol_attr, rse_settings, logger=logger)
+        super(GlobusRSEProtocol, self).__init__(protocol_attr, rse_settings, logger=logger)
         self.attributes = protocol_attr
         self.rse = rse_settings
         self.globus_endpoint_id = get_rse_attribute(key='globus_endpoint_id', rse_id=self.rse.get('id'))
