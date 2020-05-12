@@ -195,9 +195,9 @@ class TestMultiVoClients(object):
         assert_true(new in scope_list_new)
         assert_true(shr in scope_list_new)
 
-    def test_subscriptions_at_different_vos(self):
-        """ MULTI VO (CLIENT): Test that subscriptions from 2nd vo don't interfere """
-
+    """def test_subscriptions_at_different_vos(self):"""
+    """ MULTI VO (CLIENT): Test that subscriptions from 2nd vo don't interfere """
+    """
         account_client = AccountClient()
         usr_uuid = str(generate_uuid()).lower()[:16]
         shr_acc = 'shr-%s' % usr_uuid
@@ -288,3 +288,4 @@ class TestMultiVoClients(object):
         assert_in(shr_new_sub_id, acc_new_subs)
         assert_not_in(tst_sub_id, acc_new_subs)
         assert_not_in(shr_tst_sub_id, acc_new_subs)
+    """
