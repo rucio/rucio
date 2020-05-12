@@ -97,7 +97,6 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100):
             # ACCESS TOKEN REFRESH - better to run first (in case some of the refreshed tokens needed deletion after this step)
             logging.info('oauth_manager[%i/%i]: ----- START ----- ACCESS TOKEN REFRESH ----- ', worker_number, total_workers)
             logging.info('oauth_manager[%i/%i]: starting to query tokens for automatic refresh', worker_number, total_workers)
-            logging.info('oauth_manager[%i/%i]: starting attempts to refresh tokens', worker_number, total_workers)
             nrefreshed = refresh_jwt_tokens(total_workers, worker_number, refreshrate=int(loop_rate), limit=max_rows)
             logging.info('oauth_manager[%i/%i]: successfully refreshed %i tokens', worker_number, total_workers, nrefreshed)
             logging.info('oauth_manager[%i/%i]: ----- END ----- ACCESS TOKEN REFRESH ----- ', worker_number, total_workers)
