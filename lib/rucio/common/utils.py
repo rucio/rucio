@@ -1224,14 +1224,6 @@ def api_update_return_dict(dictionary):
                 import rucio.core.rse
                 dictionary[rse_str] = rucio.core.rse.get_rse_name(rse_id=dictionary[rse_id_str])
 
-    # if 'rse_id' in dictionary.keys():
-    #    if 'rse' not in dictionary.keys():
-    #        if not copied:
-    #            dictionary = dictionary.copy()
-    #            copied = True
-    #        import rucio.core.rse
-    #        dictionary['rse'] = rucio.core.rse.get_rse_name(rse_id=dictionary['rse_id'])
-
     if 'rse_expression' in dictionary.keys():
         if not copied:
             dictionary = dictionary.copy()
