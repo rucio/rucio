@@ -143,9 +143,9 @@ def bulk_submit_xfer(submitjob, recursive=False):
     for file in submitjob:
         source_path = file.get('sources')[0]
         dest_path = file.get('destinations')[0]
-        md5 = file['metadata']['md5']
         filesize = file['metadata']['filesize']
         # TODO: support passing a recursive parameter to Globus
+        # md5 = file['metadata']['md5']
         # tdata.add_item(source_path, dest_path, recursive=False, external_checksum=md5)
         tdata.add_item(source_path, dest_path, recursive=False)
         record_counter('daemons.conveyor.transfer_submitter.globus.transfers.submit.filesize', filesize)
