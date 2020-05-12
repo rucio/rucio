@@ -242,53 +242,50 @@ class TestMultiVoClients(object):
         new_sub = 'newsub_' + sub_str
         shr_sub = 'shrsub_' + sub_str
 
-        tst_sub_id = sub_client.add_subscription(tst_sub, shr_acc, {},
+        tst_sub_id = sub_client.add_subscription(tst_sub, shr_acc, {'scope': [tst_scope]},
                                                  [{'copies': 1, 'rse_expression': tst_rse2, 'weight': 0,
                                                    'activity': 'User Subscriptions'}],
-                                                 '', None, False, False)
-        shr_tst_sub_id = sub_client.add_subscription(shr_sub, shr_acc, {},
+                                                 '', None, 0, 0)
+        shr_tst_sub_id = sub_client.add_subscription(shr_sub, shr_acc, {'scope': [tst_scope]},
                                                      [{'copies': 1, 'rse_expression': tst_rse2, 'weight': 0,
                                                        'activity': 'User Subscriptions'}],
-                                                     '', None, False, False)
-        """new_sub_id = add_subscription(new_sub, shr_acc, {},
+                                                     '', None, 0, 0)
+
+        new_sub_id = add_subscription(new_sub, shr_acc, {'scope': [new_scope]},
                                       [{'copies': 1, 'rse_expression': new_rse2, 'weight': 0, 'activity': 'User Subscriptions'}],
-                                      '', False, False, False, 0, 'root', **self.new_vo)
-        shr_new_sub_id = add_subscription(shr_sub, shr_acc, {},
+                                      '', False, 0, 0, 3, 'root', **self.new_vo)
+        shr_new_sub_id = add_subscription(shr_sub, shr_acc, {'scope': [new_scope]},
                                           [{'copies': 1, 'rse_expression': new_rse2, 'weight': 0, 'activity': 'User Subscriptions'}],
-                                          '', False, False, False, 0, 'root', **self.new_vo)
-        """
+                                          '', False, 0, 0, 3, 'root', **self.new_vo)
 
         tst_subs = [s['id'] for s in sub_client.list_subscriptions()]
         assert_in(tst_sub_id, tst_subs)
         assert_in(shr_tst_sub_id, tst_subs)
-        # assert_not_in(new_sub_id, tst_subs)
-        # assert_not_in(shr_new_sub_id, tst_subs)
+        assert_not_in(new_sub_id, tst_subs)
+        assert_not_in(shr_new_sub_id, tst_subs)
 
-        """new_subs = [s['id'] for s in list_subscriptions(**self.new_vo)]
+        new_subs = [s['id'] for s in list_subscriptions(**self.new_vo)]
         assert_in(new_sub_id, new_subs)
         assert_in(shr_new_sub_id, new_subs)
         assert_not_in(tst_sub_id, new_subs)
         assert_not_in(shr_tst_sub_id, new_subs)
-        """
 
         shr_tst_subs = [s['id'] for s in sub_client.list_subscriptions(name=shr_sub)]
         assert_in(shr_tst_sub_id, shr_tst_subs)
-        # assert_not_in(shr_new_sub_id, shr_tst_subs)
+        assert_not_in(shr_new_sub_id, shr_tst_subs)
 
-        """shr_new_subs = [s['id'] for s in list_subscriptions(name=shr_sub, **self.new_vo)]
+        shr_new_subs = [s['id'] for s in list_subscriptions(name=shr_sub, **self.new_vo)]
         assert_in(shr_new_sub_id, shr_new_subs)
         assert_not_in(shr_tst_sub_id, shr_new_subs)
-        """
 
         acc_tst_subs = [s['id'] for s in sub_client.list_subscriptions(account=shr_acc)]
         assert_in(tst_sub_id, acc_tst_subs)
         assert_in(shr_tst_sub_id, acc_tst_subs)
-        # assert_not_in(new_sub_id, acc_tst_subs)
-        # assert_not_in(shr_new_sub_id, acc_tst_subs)
+        assert_not_in(new_sub_id, acc_tst_subs)
+        assert_not_in(shr_new_sub_id, acc_tst_subs)
 
-        """acc_new_subs = [s['id'] for s in list_subscriptions(account=shr_acc, **self.new_vo)]
+        acc_new_subs = [s['id'] for s in list_subscriptions(account=shr_acc, **self.new_vo)]
         assert_in(new_sub_id, acc_new_subs)
         assert_in(shr_new_sub_id, acc_new_subs)
         assert_not_in(tst_sub_id, acc_new_subs)
         assert_not_in(shr_tst_sub_id, acc_new_subs)
-        """
