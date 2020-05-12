@@ -16,7 +16,6 @@
 # - Matt Snyder <msnyder@rcf.rhic.bnl.gov>, 2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 
-from rucio.common import exception
 from rucio.transfertool.globusLibrary import send_delete_task
 from rucio.core.rse import get_rse_attribute
 
@@ -238,6 +237,8 @@ class GlobusRSEProtocol(RSEProtocol):
         """
         try:
             delete_response = send_delete_task(endpoint_id=self.globus_endpoint_id[0], path=path)
+            if delete_response['code'] != 'Accepted':
+                raise exception.RucioException(delete_response['code'])
         except Exception as e:
             raise exception.ServiceUnavailable(e)
 
