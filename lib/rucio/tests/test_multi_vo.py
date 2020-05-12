@@ -195,9 +195,9 @@ class TestMultiVoClients(object):
         assert_true(new in scope_list_new)
         assert_true(shr in scope_list_new)
 
-    """def test_subscriptions_at_different_vos(self):"""
-    """ MULTI VO (CLIENT): Test that subscriptions from 2nd vo don't interfere """
-    """
+    def test_subscriptions_at_different_vos(self):
+        """ MULTI VO (CLIENT): Test that subscriptions from 2nd vo don't interfere """
+
         account_client = AccountClient()
         usr_uuid = str(generate_uuid()).lower()[:16]
         shr_acc = 'shr-%s' % usr_uuid
@@ -250,42 +250,45 @@ class TestMultiVoClients(object):
                                                      [{'copies': 1, 'rse_expression': tst_rse2, 'weight': 0,
                                                        'activity': 'User Subscriptions'}],
                                                      '', None, False, False)
-        new_sub_id = add_subscription(new_sub, shr_acc, {},
+        """new_sub_id = add_subscription(new_sub, shr_acc, {},
                                       [{'copies': 1, 'rse_expression': new_rse2, 'weight': 0, 'activity': 'User Subscriptions'}],
                                       '', False, False, False, 0, 'root', **self.new_vo)
         shr_new_sub_id = add_subscription(shr_sub, shr_acc, {},
                                           [{'copies': 1, 'rse_expression': new_rse2, 'weight': 0, 'activity': 'User Subscriptions'}],
                                           '', False, False, False, 0, 'root', **self.new_vo)
+        """
 
         tst_subs = [s['id'] for s in sub_client.list_subscriptions()]
         assert_in(tst_sub_id, tst_subs)
         assert_in(shr_tst_sub_id, tst_subs)
-        assert_not_in(new_sub_id, tst_subs)
-        assert_not_in(shr_new_sub_id, tst_subs)
+        # assert_not_in(new_sub_id, tst_subs)
+        # assert_not_in(shr_new_sub_id, tst_subs)
 
-        new_subs = [s['id'] for s in list_subscriptions(**self.new_vo)]
+        """new_subs = [s['id'] for s in list_subscriptions(**self.new_vo)]
         assert_in(new_sub_id, new_subs)
         assert_in(shr_new_sub_id, new_subs)
         assert_not_in(tst_sub_id, new_subs)
         assert_not_in(shr_tst_sub_id, new_subs)
+        """
 
-        shr_tst_subs = [(s['id'], s['name']) for s in sub_client.list_subscriptions(name=shr_sub)]
+        shr_tst_subs = [s['id'] for s in sub_client.list_subscriptions(name=shr_sub)]
         assert_in(shr_tst_sub_id, shr_tst_subs)
-        assert_not_in(shr_new_sub_id, shr_tst_subs)
+        # assert_not_in(shr_new_sub_id, shr_tst_subs)
 
-        shr_new_subs = [s['id'] for s in list_subscriptions(name=shr_sub, **self.new_vo)]
+        """shr_new_subs = [s['id'] for s in list_subscriptions(name=shr_sub, **self.new_vo)]
         assert_in(shr_new_sub_id, shr_new_subs)
         assert_not_in(shr_tst_sub_id, shr_new_subs)
+        """
 
         acc_tst_subs = [s['id'] for s in sub_client.list_subscriptions(account=shr_acc)]
         assert_in(tst_sub_id, acc_tst_subs)
         assert_in(shr_tst_sub_id, acc_tst_subs)
-        assert_not_in(new_sub_id, acc_tst_subs)
-        assert_not_in(shr_new_sub_id, acc_tst_subs)
+        # assert_not_in(new_sub_id, acc_tst_subs)
+        # assert_not_in(shr_new_sub_id, acc_tst_subs)
 
-        acc_new_subs = [s['id'] for s in list_subscriptions(account=shr_acc, **self.new_vo)]
+        """acc_new_subs = [s['id'] for s in list_subscriptions(account=shr_acc, **self.new_vo)]
         assert_in(new_sub_id, acc_new_subs)
         assert_in(shr_new_sub_id, acc_new_subs)
         assert_not_in(tst_sub_id, acc_new_subs)
         assert_not_in(shr_tst_sub_id, acc_new_subs)
-    """
+        """
