@@ -202,7 +202,11 @@ def list_subscriptions(name=None, account=None, state=None, session=None):
         if name:
             query = query.filter_by(name=name)
         if account:
-            query = query.filter_by(account=account)
+            if '*' in account.internal:
+                account_str = account.internal.replace('*', '%')
+                query = query.filter(models.Subscription.account.like(account_str))
+            else:
+                query = query.filter_by(account=account)
         if state:
             query = query.filter_by(state=state)
     except IntegrityError as error:
@@ -246,8 +250,14 @@ def list_subscription_rule_states(name=None, account=None, session=None):
     try:
         if name:
             query = query.filter(subscription.name == name)
+
         if account:
-            query = query.filter(subscription.account == account)
+            if '*' in account.internal:
+                account_str = account.internal.replace('*', '%')
+                query = query.filter(subscription.account.like(account_str))
+            else:
+                query = query.filter(subscription.account == account)
+
     except IntegrityError as error:
         print(error)
         raise
