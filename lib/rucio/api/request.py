@@ -18,7 +18,7 @@ Interface for the requests abstraction layer
 
 from rucio.api import permission
 from rucio.common import exception
-from rucio.common.types import InternalScope
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import api_update_return_dict
 from rucio.core import request
 from rucio.core.rse import get_rse_id
@@ -40,7 +40,11 @@ def queue_requests(requests, issuer, vo='def'):
 
     for req in requests:
         req['scope'] = InternalScope(req['scope'], vo=vo)
-    return request.queue_requests(requests)
+        if 'account' in req:
+            req['account'] = InternalAccount(req['account'], vo=vo)
+
+    new_requests = request.queue_requests(requests)
+    return [api_update_return_dict(r) for r in new_requests]
 
 
 def query_request(request_id, issuer, account, vo='def'):
