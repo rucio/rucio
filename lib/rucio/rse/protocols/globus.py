@@ -16,8 +16,11 @@
 # - Matt Snyder <msnyder@rcf.rhic.bnl.gov>, 2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 
-from rucio.transfertool.globusLibrary import send_delete_task
+from rucio.common import exception
 from rucio.core.rse import get_rse_attribute
+from rucio.rse import rsemanager
+from rucio.rse.protocols.protocol import RSEProtocol
+from rucio.transfertool.globusLibrary import send_delete_task
 
 try:
     # PY2
@@ -28,10 +31,6 @@ except ImportError:
     from configparser import NoOptionError, NoSectionError
     from urllib.parse import urlparse
 from six import string_types
-
-from rucio.common import config, exception
-from rucio.rse import rsemanager
-from rucio.rse.protocols.protocol import RSEProtocol
 
 if getattr(rsemanager, 'CLIENT_MODE', None):
     from rucio.client.rseclient import RSEClient
