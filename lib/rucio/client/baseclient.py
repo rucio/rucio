@@ -175,7 +175,6 @@ class BaseClient(object):
                     self.creds['password'] = config_get('client', 'password')
                 elif self.auth_type == 'oidc':
                     self.creds['oidc_auto'] = config_get_bool('client', 'oidc_auto', False, False)
-                    print("self.creds['oidc_auto']", self.creds['oidc_auto'], type(self.creds['oidc_auto']))
                     self.creds['oidc_username'] = config_get('client', 'oidc_username', False, None)
                     self.creds['oidc_password'] = config_get('client', 'oidc_password', False, None)
                     self.creds['oidc_scope'] = config_get('client', 'oidc_scope', False, 'openid profile')
