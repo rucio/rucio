@@ -208,8 +208,8 @@ class OIDC(RucioController):
         issuer = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_ISSUER', None)
         polling = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_POLLING', False)
         refresh_lifetime = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_REFRESH_LIFETIME', None)
-        auto = (auto == 'True')
-        polling = (polling == 'True')
+        auto = (auto == 'True' or auto == 'true')
+        polling = (polling == 'True' or polling == 'true')
         if refresh_lifetime == 'None':
             refresh_lifetime = None
         ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
