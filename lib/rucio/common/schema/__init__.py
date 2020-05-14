@@ -18,9 +18,6 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 
-# dictionary of schema modules for each VO
-schema_modules = {}
-
 try:
     from ConfigParser import NoOptionError, NoSectionError
 except ImportError:
@@ -29,6 +26,9 @@ except ImportError:
 from rucio.common import config, exception
 
 import importlib
+
+# dictionary of schema modules for each VO
+schema_modules = {}
 
 # TODO: load schema module for each VO in multi-VO installations
 if config.config_has_section('policy'):

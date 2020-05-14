@@ -14,9 +14,6 @@
  PY3K COMPATIBLE
 """
 
-# dictionary of permission modules for each VO
-permission_modules = {}
-
 try:
     from ConfigParser import NoOptionError, NoSectionError
 except ImportError:
@@ -24,6 +21,9 @@ except ImportError:
 from rucio.common import config, exception
 
 import importlib
+
+# dictionary of permission modules for each VO
+permission_modules = {}
 
 # TODO: load permission module for each VO in multi-VO installations
 if config.config_has_section('permission'):
