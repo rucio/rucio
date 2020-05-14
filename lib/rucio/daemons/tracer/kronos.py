@@ -47,7 +47,7 @@ from traceback import format_exc
 from stomp import Connection
 
 from rucio.common.config import config_get, config_get_bool, config_get_int
-from rucio.common.exception import ConfigNotFound
+from rucio.common.exception import ConfigNotFound, RSENotFound
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.config import get
@@ -217,7 +217,12 @@ class AMQConsumer(object):
 
                     rses = report['remoteSite'].strip().split(',')
                     for rse in rses:
-                        rse_id = get_rse_id(rse=rse)
+                        try:
+                            rse_id = get_rse_id(rse=rse)
+                        except RSENotFound:
+                            logging.error(format_exc())
+                            record_counter('daemons.tracer.kronos.rse_not_found')
+                            continue
                         replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': rse, 'rse_id': rse_id, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix']),
                                          'traceTimeentryUnix': report['traceTimeentryUnix'], 'eventVersion': report['eventVersion']})
                 else:
@@ -228,7 +233,11 @@ class AMQConsumer(object):
                     rse = None
                     if 'remoteSite' in report:
                         rse = report['remoteSite']
-                        rse_id = get_rse_id(rse=rse)
+                        try:
+                            rse_id = get_rse_id(rse=rse)
+                        except RSENotFound:
+                            logging.error(format_exc())
+                            record_counter('daemons.tracer.kronos.rse_not_found')
                     if 'datasetScope' in report:
                         self.__dataset_queue.put({'scope': report['datasetScope'], 'name': report['dataset'], 'rse_id': rse_id, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
                         continue
@@ -249,7 +258,12 @@ class AMQConsumer(object):
                 if did['scope'].external == 'panda' and '_dis' in did['name']:
                     continue
                 for rse in rses:
-                    rse_id = get_rse_id(rse=rse)
+                    try:
+                        rse_id = get_rse_id(rse=rse)
+                    except RSENotFound:
+                        logging.error(format_exc())
+                        record_counter('daemons.tracer.kronos.rse_not_found')
+                        continue
                     self.__dataset_queue.put({'scope': did['scope'], 'name': did['name'], 'did_type': did['type'], 'rse_id': rse_id, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
 
         logging.debug(replicas)
