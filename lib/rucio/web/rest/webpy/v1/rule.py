@@ -43,7 +43,7 @@ from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, Acce
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime,
                                     DuplicateRule, InvalidObject, AccountNotFound, RuleReplaceFailed, ScratchDiskLifetimeConflict,
                                     ManualRuleApprovalBlocked, UnsupportedOperation)
-from rucio.common.schema import SCOPE_NAME_REGEXP
+from rucio.common.schema import get_scope_name_regexp
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
 from rucio.web.rest.common import rucio_loadhook, check_accept_header_wrapper
 
@@ -55,7 +55,7 @@ LOGGER.addHandler(SH)
 URLS = ('/(.+)/locks', 'ReplicaLocks',
         '/(.+)/reduce', 'ReduceRule',
         '/(.+)/move', 'MoveRule',
-        '%s/history' % SCOPE_NAME_REGEXP, 'RuleHistoryFull',
+        '%s/history' % get_scope_name_regexp(), 'RuleHistoryFull',
         '/(.+)/history', 'RuleHistory',
         '/(.+)/analysis', 'RuleAnalysis',
         '/', 'AllRule',

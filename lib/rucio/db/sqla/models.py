@@ -42,7 +42,7 @@ from sqlalchemy.sql import Delete
 from sqlalchemy.types import LargeBinary
 
 from rucio.common import utils
-from rucio.common.schema import NAME_LENGTH, SCOPE_LENGTH
+from rucio.common.schema import get_name_length, get_scope_length
 from rucio.db.sqla.constants import (AccountStatus, AccountType, DIDAvailability, DIDType, DIDReEvaluation,
                                      KeyType, IdentityType, LockState, RuleGrouping, BadFilesStatus,
                                      RuleState, ReplicaState, RequestState, RequestType, RSEType,
@@ -339,7 +339,7 @@ class IdentityAccountAssociation(BASE, ModelBase):
 class Scope(BASE, ModelBase):
     """Represents a scope"""
     __tablename__ = 'scopes'
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
     account = Column(InternalAccountString(25))
     is_default = Column(Boolean(name='SCOPES_DEFAULT_CHK'), default=False)
     status = Column(ScopeStatus.db_type(name='SCOPE_STATUS_CHK', default=ScopeStatus.OPEN))
@@ -355,8 +355,8 @@ class Scope(BASE, ModelBase):
 class DataIdentifier(BASE, ModelBase):
     """Represents a dataset"""
     __tablename__ = 'dids'
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
-    name = Column(String(NAME_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
+    name = Column(String(get_name_length()))
     account = Column(InternalAccountString(25))
     did_type = Column(DIDType.db_type(name='DIDS_TYPE_CHK'))
     is_open = Column(Boolean(name='DIDS_IS_OPEN_CHK'))
@@ -412,8 +412,8 @@ class DataIdentifier(BASE, ModelBase):
 
 class DidMeta(BASE, ModelBase):
     __tablename__ = 'did_meta'
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
-    name = Column(String(NAME_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
+    name = Column(String(get_name_length()))
     meta = Column(JSON())
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DID_META_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DID_META_FK'),)
@@ -422,8 +422,8 @@ class DidMeta(BASE, ModelBase):
 class DeletedDataIdentifier(BASE, ModelBase):
     """Represents a dataset"""
     __tablename__ = 'deleted_dids'
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
-    name = Column(String(NAME_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
+    name = Column(String(get_name_length()))
     account = Column(InternalAccountString(25))
     did_type = Column(DIDType.db_type(name='DEL_DIDS_TYPE_CHK'))
     is_open = Column(Boolean(name='DEL_DIDS_IS_OPEN_CHK'))
@@ -470,8 +470,8 @@ class UpdatedDID(BASE, ModelBase):
     """Represents the recently updated dids"""
     __tablename__ = 'updated_dids'
     id = Column(GUID(), default=utils.generate_uuid)
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
-    name = Column(String(NAME_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
+    name = Column(String(get_name_length()))
     rule_evaluation_action = Column(DIDReEvaluation.db_type(name='UPDATED_DIDS_RULE_EVAL_ACT_CHK'))
     _table_args = (PrimaryKeyConstraint('id', name='UPDATED_DIDS_PK'),
                    CheckConstraint('SCOPE IS NOT NULL', name='UPDATED_DIDS_SCOPE_NN'),
@@ -482,8 +482,8 @@ class UpdatedDID(BASE, ModelBase):
 class BadReplicas(BASE, ModelBase):
     """Represents the suspicious or bad replicas"""
     __tablename__ = 'bad_replicas'
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
-    name = Column(String(NAME_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
+    name = Column(String(get_name_length()))
     rse_id = Column(GUID())
     reason = Column(String(255))
     state = Column(BadFilesStatus.db_type(name='BAD_REPLICAS_STATE_CHK'), default=BadFilesStatus.SUSPICIOUS)
@@ -519,8 +519,8 @@ class QuarantinedReplica(BASE, ModelBase, Versioned):
     bytes = Column(BigInteger)
     md5 = Column(String(32))
     adler32 = Column(String(8))
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
-    name = Column(String(NAME_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
+    name = Column(String(get_name_length()))
     _table_args = (PrimaryKeyConstraint('rse_id', 'path', name='QURD_REPLICAS_STATE_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='QURD_REPLICAS_RSE_ID_FK'),
                    Index('QUARANTINED_REPLICAS_PATH_IDX', 'path', 'rse_id', unique=True))
@@ -551,10 +551,10 @@ class DIDKeyValueAssociation(BASE, ModelBase):
 class DataIdentifierAssociation(BASE, ModelBase):
     """Represents the map between containers/datasets and files"""
     __tablename__ = 'contents'
-    scope = Column(InternalScopeString(SCOPE_LENGTH))  # dataset scope
-    name = Column(String(NAME_LENGTH))    # dataset name
-    child_scope = Column(InternalScopeString(SCOPE_LENGTH))  # Provenance scope
-    child_name = Column(String(NAME_LENGTH))    # Provenance name
+    scope = Column(InternalScopeString(get_scope_length()))  # dataset scope
+    name = Column(String(get_name_length()))    # dataset name
+    child_scope = Column(InternalScopeString(get_scope_length()))  # Provenance scope
+    child_name = Column(String(get_name_length()))    # Provenance name
     did_type = Column(DIDType.db_type(name='CONTENTS_DID_TYPE_CHK'))
     child_type = Column(DIDType.db_type(name='CONTENTS_CHILD_TYPE_CHK'))
     bytes = Column(BigInteger)
@@ -574,10 +574,10 @@ class DataIdentifierAssociation(BASE, ModelBase):
 class ConstituentAssociation(BASE, ModelBase):
     """Represents the map between archives and constituents"""
     __tablename__ = 'archive_contents'
-    child_scope = Column(InternalScopeString(SCOPE_LENGTH))    # Constituent file scope
-    child_name = Column(String(NAME_LENGTH))    # Constituent file name
-    scope = Column(InternalScopeString(SCOPE_LENGTH))          # Archive file scope
-    name = Column(String(NAME_LENGTH))          # Archive file name
+    child_scope = Column(InternalScopeString(get_scope_length()))    # Constituent file scope
+    child_name = Column(String(get_name_length()))    # Constituent file name
+    scope = Column(InternalScopeString(get_scope_length()))          # Archive file scope
+    name = Column(String(get_name_length()))          # Archive file name
     bytes = Column(BigInteger)
     adler32 = Column(String(8))
     md5 = Column(String(32))
@@ -597,10 +597,10 @@ class ConstituentAssociation(BASE, ModelBase):
 class ConstituentAssociationHistory(BASE, ModelBase):
     """Represents the map between archives and constituents"""
     __tablename__ = 'archive_contents_history'
-    child_scope = Column(InternalScopeString(SCOPE_LENGTH))    # Constituent file scope
-    child_name = Column(String(NAME_LENGTH))    # Constituent file name
-    scope = Column(InternalScopeString(SCOPE_LENGTH))          # Archive file scope
-    name = Column(String(NAME_LENGTH))  # Archive file name
+    child_scope = Column(InternalScopeString(get_scope_length()))    # Constituent file scope
+    child_name = Column(String(get_name_length()))    # Constituent file name
+    scope = Column(InternalScopeString(get_scope_length()))          # Archive file scope
+    name = Column(String(get_name_length()))  # Archive file name
     bytes = Column(BigInteger)
     adler32 = Column(String(8))
     md5 = Column(String(32))
@@ -617,10 +617,10 @@ class ConstituentAssociationHistory(BASE, ModelBase):
 class DataIdentifierAssociationHistory(BASE, ModelBase):
     """Represents the map history between containers/datasets and files"""
     __tablename__ = 'contents_history'
-    scope = Column(InternalScopeString(SCOPE_LENGTH))          # dataset scope
-    name = Column(String(NAME_LENGTH))  # dataset name
-    child_scope = Column(InternalScopeString(SCOPE_LENGTH))          # Provenance scope
-    child_name = Column(String(NAME_LENGTH))  # Provenance name
+    scope = Column(InternalScopeString(get_scope_length()))          # dataset scope
+    name = Column(String(get_name_length()))  # dataset name
+    child_scope = Column(InternalScopeString(get_scope_length()))          # Provenance scope
+    child_name = Column(String(get_name_length()))  # Provenance name
     did_type = Column(DIDType.db_type(name='CONTENTS_HIST_DID_TYPE_CHK'))
     child_type = Column(DIDType.db_type(name='CONTENTS_HIST_CHILD_TYPE_CHK'))
     bytes = Column(BigInteger)
@@ -795,8 +795,8 @@ class RSEFileAssociation(BASE, ModelBase):
     """Represents the map between locations and files"""
     __tablename__ = 'replicas'
     rse_id = Column(GUID())
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
-    name = Column(String(NAME_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
+    name = Column(String(get_name_length()))
     bytes = Column(BigInteger)
     md5 = Column(String(32))
     adler32 = Column(String(8))
@@ -813,14 +813,14 @@ class RSEFileAssociation(BASE, ModelBase):
                    CheckConstraint('bytes IS NOT NULL', name='REPLICAS_SIZE_NN'),
                    CheckConstraint('lock_cnt IS NOT NULL', name='REPLICAS_LOCK_CNT_NN'),
                    Index('REPLICAS_TOMBSTONE_IDX', 'tombstone'),
-                   Index('REPLICAS_PATH_IDX', 'path', mysql_length=NAME_LENGTH))
+                   Index('REPLICAS_PATH_IDX', 'path', mysql_length=get_name_length()))
 
 
 class CollectionReplica(BASE, ModelBase):
     """Represents replicas for datasets/collections"""
     __tablename__ = 'collection_replicas'
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
-    name = Column(String(NAME_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
+    name = Column(String(get_name_length()))
     did_type = Column(DIDType.db_type(name='COLLECTION_REPLICAS_TYPE_CHK'))
     rse_id = Column(GUID())
     bytes = Column(BigInteger)
@@ -841,8 +841,8 @@ class UpdatedCollectionReplica(BASE, ModelBase):
     """Represents updates to replicas for datasets/collections"""
     __tablename__ = 'updated_col_rep'
     id = Column(GUID(), default=utils.generate_uuid)
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
-    name = Column(String(NAME_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
+    name = Column(String(get_name_length()))
     did_type = Column(DIDType.db_type(name='UPDATED_COL_REP_TYPE_CHK'))
     rse_id = Column(GUID())
     _table_args = (PrimaryKeyConstraint('id', name='UPDATED_COL_REP_PK'),
@@ -855,8 +855,8 @@ class RSEFileAssociationHistory(BASE, ModelBase):
     """Represents a short history of the deleted replicas"""
     __tablename__ = 'replicas_history'
     rse_id = Column(GUID())
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
-    name = Column(String(NAME_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
+    name = Column(String(get_name_length()))
     bytes = Column(BigInteger)
     _table_args = (PrimaryKeyConstraint('rse_id', 'scope', 'name', name='REPLICAS_HIST_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='REPLICAS_HIST_RSE_ID_FK'),
@@ -870,8 +870,8 @@ class ReplicationRule(BASE, ModelBase):
     id = Column(GUID(), default=utils.generate_uuid)
     subscription_id = Column(GUID())
     account = Column(InternalAccountString(25))
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
-    name = Column(String(NAME_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
+    name = Column(String(get_name_length()))
     did_type = Column(DIDType.db_type(name='RULES_DID_TYPE_CHK'))
     state = Column(RuleState.db_type(name='RULES_STATE_CHK'), default=RuleState.REPLICATING)
     error = Column(String(255))
@@ -927,8 +927,8 @@ class ReplicationRuleHistoryRecent(BASE, ModelBase):
     id = Column(GUID())
     subscription_id = Column(GUID())
     account = Column(InternalAccountString(25))
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
-    name = Column(String(NAME_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
+    name = Column(String(get_name_length()))
     did_type = Column(DIDType.db_type(name='RULES_HIST_RECENT_DIDTYPE_CHK'))
     state = Column(RuleState.db_type(name='RULES_HIST_RECENT_STATE_CHK'))
     error = Column(String(255))
@@ -967,8 +967,8 @@ class ReplicationRuleHistory(BASE, ModelBase):
     id = Column(GUID())
     subscription_id = Column(GUID())
     account = Column(InternalAccountString(25))
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
-    name = Column(String(NAME_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
+    name = Column(String(get_name_length()))
     did_type = Column(DIDType.db_type(name='RULES_HISTORY_DIDTYPE_CHK'))
     state = Column(RuleState.db_type(name='RULES_HISTORY_STATE_CHK'))
     error = Column(String(255))
@@ -1003,8 +1003,8 @@ class ReplicationRuleHistory(BASE, ModelBase):
 class ReplicaLock(BASE, ModelBase):
     """Represents replica locks"""
     __tablename__ = 'locks'
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
-    name = Column(String(NAME_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
+    name = Column(String(get_name_length()))
     rule_id = Column(GUID())
     rse_id = Column(GUID())
     account = Column(InternalAccountString(25))
@@ -1023,8 +1023,8 @@ class ReplicaLock(BASE, ModelBase):
 class DatasetLock(BASE, ModelBase):
     """Represents dataset locks"""
     __tablename__ = 'dataset_locks'
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
-    name = Column(String(NAME_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
+    name = Column(String(get_name_length()))
     rule_id = Column(GUID())
     rse_id = Column(GUID())
     account = Column(InternalAccountString(25))
@@ -1061,8 +1061,8 @@ class Request(BASE, ModelBase, Versioned):
     __tablename__ = 'requests'
     id = Column(GUID(), default=utils.generate_uuid)
     request_type = Column(RequestType.db_type(name='REQUESTS_TYPE_CHK'), default=RequestType.TRANSFER)
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
-    name = Column(String(NAME_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
+    name = Column(String(get_name_length()))
     did_type = Column(DIDType.db_type(name='REQUESTS_DIDTYPE_CHK'), default=DIDType.FILE)
     dest_rse_id = Column(GUID())
     source_rse_id = Column(GUID())
@@ -1107,8 +1107,8 @@ class Source(BASE, ModelBase, Versioned):
     """Represents source files for transfers"""
     __tablename__ = 'sources'
     request_id = Column(GUID())
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
-    name = Column(String(NAME_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
+    name = Column(String(get_name_length()))
     rse_id = Column(GUID())
     dest_rse_id = Column(GUID())
     url = Column(String(2048))
@@ -1267,7 +1267,7 @@ class Heartbeats(BASE, ModelBase):
 class NamingConvention(BASE, ModelBase):
     """Represents naming conventions for name within a scope"""
     __tablename__ = 'naming_conventions'
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
     regexp = Column(String(255))
     convention_type = Column(KeyType.db_type(name='CVT_TYPE_CHK'))
     _table_args = (PrimaryKeyConstraint('scope', name='NAMING_CONVENTIONS_PK'),
@@ -1277,8 +1277,8 @@ class NamingConvention(BASE, ModelBase):
 class TemporaryDataIdentifier(BASE, ModelBase):
     """Represents a temporary DID (pre-merged files, etc.)"""
     __tablename__ = 'tmp_dids'
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
-    name = Column(String(NAME_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
+    name = Column(String(get_name_length()))
     rse_id = Column(GUID())
     path = Column(String(1024))
     bytes = Column(BigInteger)
@@ -1289,8 +1289,8 @@ class TemporaryDataIdentifier(BASE, ModelBase):
     events = Column(BigInteger)
     task_id = Column(Integer())
     panda_id = Column(Integer())
-    parent_scope = Column(InternalScopeString(SCOPE_LENGTH))
-    parent_name = Column(String(NAME_LENGTH))
+    parent_scope = Column(InternalScopeString(get_scope_length()))
+    parent_name = Column(String(get_name_length()))
     offset = Column(BigInteger)
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='TMP_DIDS_PK'),
                    Index('TMP_DIDS_EXPIRED_AT_IDX', 'expired_at'))
@@ -1300,8 +1300,8 @@ class LifetimeExceptions(BASE, ModelBase):
     """Represents the exceptions to the lifetime model"""
     __tablename__ = 'lifetime_except'
     id = Column(GUID(), default=utils.generate_uuid)
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
-    name = Column(String(NAME_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
+    name = Column(String(get_name_length()))
     did_type = Column(DIDType.db_type(name='LIFETIME_EXCEPT_TYPE_CHK'))
     account = Column(InternalAccountString(25))
     pattern = Column(String(255))
@@ -1327,8 +1327,8 @@ class VO(BASE, ModelBase):
 class DidsFollowed(BASE, ModelBase):
     """Represents the datasets followed by an user"""
     __tablename__ = 'dids_followed'
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
-    name = Column(String(NAME_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
+    name = Column(String(get_name_length()))
     account = Column(InternalAccountString(25))
     did_type = Column(DIDType.db_type(name='DIDS_FOLLOWED_TYPE_CHK'))
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'account', name='DIDS_FOLLOWED_PK'),
@@ -1343,8 +1343,8 @@ class DidsFollowed(BASE, ModelBase):
 class FollowEvents(BASE, ModelBase):
     """Represents the events affecting the datasets which are followed"""
     __tablename__ = 'dids_followed_events'
-    scope = Column(InternalScopeString(SCOPE_LENGTH))
-    name = Column(String(NAME_LENGTH))
+    scope = Column(InternalScopeString(get_scope_length()))
+    name = Column(String(get_name_length()))
     account = Column(InternalAccountString(25))
     did_type = Column(DIDType.db_type(name='DIDS_FOLLOWED_EVENTS_TYPE_CHK'))
     event_type = Column(String(1024))

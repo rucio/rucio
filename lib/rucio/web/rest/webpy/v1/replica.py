@@ -55,7 +55,7 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
                                     ResourceTemporaryUnavailable, RucioException,
                                     RSENotFound, UnsupportedOperation, ReplicaNotFound)
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
-from rucio.common.schema import SCOPE_NAME_REGEXP
+from rucio.common.schema import get_scope_name_regexp
 from rucio.common.utils import generate_http_error, parse_response, APIEncoder, render_json_list
 from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController, check_accept_header_wrapper
@@ -69,9 +69,9 @@ URLS = ('/list/?$', 'ListReplicas',
         '/rse/(.*)/?$', 'ReplicasRSE',
         '/bad/?$', 'BadReplicas',
         '/dids/?$', 'ReplicasDIDs',
-        '%s/datasets$' % SCOPE_NAME_REGEXP, 'DatasetReplicas',
-        '%s/datasets_vp$' % SCOPE_NAME_REGEXP, 'DatasetReplicasVP',
-        '%s/?$' % SCOPE_NAME_REGEXP, 'Replicas',
+        '%s/datasets$' % get_scope_name_regexp(), 'DatasetReplicas',
+        '%s/datasets_vp$' % get_scope_name_regexp(), 'DatasetReplicasVP',
+        '%s/?$' % get_scope_name_regexp(), 'Replicas',
         '/tombstone/?$', 'Tombstone')
 
 

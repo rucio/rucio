@@ -18,6 +18,9 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 
+# dictionary of schema modules for each VO
+schema_modules = {}
+
 try:
     from ConfigParser import NoOptionError, NoSectionError
 except ImportError:
@@ -27,6 +30,7 @@ from rucio.common import config, exception
 
 import importlib
 
+# TODO: load schema module for each VO in multi-VO installations
 if config.config_has_section('policy'):
     try:
         POLICY = config.config_get('policy', 'package') + ".schema"
@@ -45,6 +49,45 @@ try:
 except (ImportError) as error:
     raise exception.PolicyPackageNotFound('Module ' + POLICY + ' not found')
 
-for i in dir(module):
-    if i[:1] != '_':
-        globals()[i] = getattr(module, i)
+schema_modules["def"] = module
+
+
+# TODO: in all of these functions, verify that named module exists
+def validate_schema(name, obj, vo='def'):
+    schema_modules[vo].validate_schema(name, obj)
+
+
+def get_activity(vo='def'):
+    return schema_modules[vo].ACTIVITY
+
+
+def get_scope_length(vo='def'):
+    return schema_modules[vo].SCOPE_LENGTH
+
+
+def get_name_length(vo='def'):
+    return schema_modules[vo].NAME_LENGTH
+
+
+def get_scope_name_regexp(vo='def'):
+    return schema_modules[vo].SCOPE_NAME_REGEXP
+
+
+def get_default_rse_attribute(vo='def'):
+    return schema_modules[vo].DEFAULT_RSE_ATTRIBUTE
+
+
+def get_rse_attribute(vo='def'):
+    return schema_modules[vo].RSE_ATTRIBUTE
+
+
+def get_cache_add_replicas(vo='def'):
+    return schema_modules[vo].CACHE_ADD_REPLICAS
+
+
+def get_cache_delete_replicas(vo='def'):
+    return schema_modules[vo].CACHE_DELETE_REPLICAS
+
+
+def get_message_operation(vo='def'):
+    return schema_modules[vo].MESSAGE_OPERATION
