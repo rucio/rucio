@@ -1093,11 +1093,13 @@ def get_did_meta(args):
     Get data identifier metadata
     """
     client = get_client(args)
-    for did in args.dids:
+    for i, did in enumerate(args.dids):
+        if i > 0:
+            print('------')
         scope, name = extract_scope(did)
         meta = client.get_did_meta(scope=scope, name=name)
-        for k in meta:
-            print('%s: %s' % (k, meta[k]))
+        table = [(k + ':', str(v)) for (k, v) in sorted(meta.items())]
+        print(tabulate.tabulate(table, tablefmt='plain'))
     return SUCCESS
 
 
@@ -1119,7 +1121,7 @@ def delete_did_meta(args):
     """
     %(prog)s delete-did-meta [options] <field1=value1 field2=value2 ...>
 
-    Add or update data identifier metadata
+    Delete data identifier metadata
     """
     client = get_client(args)
     scope, name = extract_scope(args.did)
@@ -1145,9 +1147,9 @@ def list_dids_by_meta(args):
             select[key] = value
     dids = client.list_dids_by_meta(scope=args.scope, select=select)
     if not dids:
-        logger.info('No DIDs found.')
+        print('No DIDs found.')
     for did in dids:
-        logger.info('%s:%s' % (did['scope'], did['name']))
+        print('%s:%s' % (did['scope'], did['name']))
     return SUCCESS
 
 

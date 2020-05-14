@@ -456,9 +456,4 @@ def get_distance(source, destination, issuer, vo='def'):
     distances = distance_module.get_distances(src_rse_id=rse_module.get_rse_id(source, vo=vo),
                                               dest_rse_id=rse_module.get_rse_id(destination, vo=vo))
 
-    for d in distances:
-        if 'src_rse_id' in d and d['src_rse_id'] is not None:
-            d['src_rse'] = rse_module.get_rse_name(rse_id=d['src_rse_id'])
-        if 'dest_rse_id' in d and d['dest_rse_id'] is not None:
-            d['dest_rse'] = rse_module.get_rse_name(rse_id=d['dest_rse_id'])
-    return distances
+    return [api_update_return_dict(d) for d in distances]
