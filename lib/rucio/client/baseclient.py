@@ -46,7 +46,7 @@ from shutil import move
 from tempfile import mkstemp
 
 from rucio.common import exception
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (CannotAuthenticate, ClientProtocolNotSupported,
                                     NoAuthInformation, MissingClientParameter,
                                     MissingModuleException, ServerConnectionException)
@@ -157,7 +157,7 @@ class BaseClient(object):
         if auth_type is None:
             LOG.debug('no auth_type passed. Trying to get it from the environment variable RUCIO_AUTH_TYPE and config file.')
             if 'RUCIO_AUTH_TYPE' in environ:
-                if environ['RUCIO_AUTH_TYPE'] not in ['userpass', 'x509', 'x509_proxy', 'gss', 'ssh', 'saml']:
+                if environ['RUCIO_AUTH_TYPE'] not in ['userpass', 'x509', 'x509_proxy', 'gss', 'ssh', 'saml', 'oidc']:
                     raise MissingClientParameter('Possible RUCIO_AUTH_TYPE values: userpass, x509, x509_proxy, gss, ssh, saml, oidc, vs. ' + environ['RUCIO_AUTH_TYPE'])
                 self.auth_type = environ['RUCIO_AUTH_TYPE']
             else:
@@ -174,15 +174,14 @@ class BaseClient(object):
                     self.creds['username'] = config_get('client', 'username')
                     self.creds['password'] = config_get('client', 'password')
                 elif self.auth_type == 'oidc':
-                    self.creds['oidc_auto'] = config_get('client', 'oidc_auto')
-                    self.creds['oidc_scope'] = config_get('client', 'oidc_scope')
-                    self.creds['oidc_audience'] = config_get('client', 'oidc_audience')
-                    self.creds['oidc_polling'] = config_get('client', 'oidc_polling')
-                    self.creds['oidc_refresh_lifetime'] = config_get('client', 'oidc_refresh_lifetime')
-                    self.creds['oidc_issuer'] = config_get('client', 'oidc_issuer')
-                    if self.creds['oidc_auto']:
-                        self.creds['oidc_username'] = config_get('client', 'oidc_username')
-                        self.creds['oidc_password'] = config_get('client', 'oidc_password')
+                    self.creds['oidc_auto'] = config_get_bool('client', 'oidc_auto', False, False)
+                    self.creds['oidc_username'] = config_get('client', 'oidc_username', False, None)
+                    self.creds['oidc_password'] = config_get('client', 'oidc_password', False, None)
+                    self.creds['oidc_scope'] = config_get('client', 'oidc_scope', False, 'openid profile')
+                    self.creds['oidc_audience'] = config_get('client', 'oidc_audience', False, '')
+                    self.creds['oidc_polling'] = config_get_bool('client', 'oidc_polling', False, False)
+                    self.creds['oidc_refresh_lifetime'] = config_get('client', 'oidc_refresh_lifetime', False, None)
+                    self.creds['oidc_issuer'] = config_get('client', 'oidc_issuer', False, None)
                 elif self.auth_type == 'x509':
                     self.creds['client_cert'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_cert'))))
                     self.creds['client_key'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_key'))))
@@ -401,6 +400,7 @@ class BaseClient(object):
         if self.creds['oidc_auto']:
             userpass = {'username': self.creds['oidc_username'], 'password': self.creds['oidc_password']}
         for retry in range(self.AUTH_RETRIES + 1):
+            LOG.debug("Authentication attempt nr. %i" % int(retry + 1))
             try:
                 start = time.time()
                 result = None
@@ -414,12 +414,7 @@ class BaseClient(object):
                     return False
                 auth_url = OIDC_auth_res.headers['X-Rucio-OIDC-Auth-URL']
                 if not self.creds['oidc_auto']:
-                    print("\nYou chose to authenticate using your internet browser.\n"  # NOQA: W503
-                          + "You can also use --auto option and trust Rucio Client \n"  # NOQA: W503
-                          + "with your IdP credentials to proceed for \n"  # NOQA: W503
-                          + "automatic IdP log-in from CLI.\n")  # NOQA: W503
-                    print("--------------------------------------------------")
-                    print("Please use your internet browser, go to:")
+                    print("\nPlease use your internet browser, go to:")
                     print("\n    " + auth_url + "    \n")
                     print("and authenticate with your Identity Provider.")
 
@@ -427,7 +422,9 @@ class BaseClient(object):
                     if self.creds['oidc_polling']:
                         timeout = 180
                         start = time.time()
-                        print("3 minutes from now the authentication attempt will time out.")
+                        print("In the next 3 minutes, Rucio Client will be polling \
+                               \nthe Rucio authentication server for a token.")
+                        print("----------------------------------------------")
                         while time.time() - start < timeout:
                             result = self.session.get(auth_url, headers=headers, verify=self.ca_cert)
                             if 'X-Rucio-Auth-Token' in result.headers and result.status_code == codes.ok:
@@ -447,11 +444,16 @@ class BaseClient(object):
                                       + "try again and make sure you typed the correct code.")  # NOQA: W503
                                 count += 1
                 else:
+                    print("\nAccording to the OAuth2/OIDC standard you should NOT be sharing \n"
+                          + "your password with any 3rd party appplication, therefore, \n"  # NOQA: W503
+                          + "we strongly discourage you from following this --oidc-auto approach.")   # NOQA: W503
+                    print("-------------------------------------------------------------------------")
                     auth_res = self.session.get(auth_url, verify=self.ca_cert)
                     # getting the login URL and logging in the user
                     login_url = auth_res.url
                     start = time.time()
                     result = self.session.post(login_url, data=userpass, verify=self.ca_cert, allow_redirects=True)
+
                     # if the Rucio OIDC Client configuration does not match the one registered at the Identity Provider
                     # the user will get an OAuth error
                     if 'OAuth Error' in result.text:
@@ -467,9 +469,11 @@ class BaseClient(object):
                                         "user_oauth_approval": True,
                                         "authorize": "Authorize"}
                         form_data.update(default_data)
+                        print('Automatically authorising request of the following info on behalf of user: %s', str(form_data))
                         LOG.warning('Automatically authorising request of the following info on behalf of user: %s', str(form_data))
                         # authorizing info request on behalf of the user until he/she revokes this authorization !
                         result = self.session.post(result.url, data=form_data, verify=self.ca_cert, allow_redirects=True)
+
                 break
             except RequestException:
                 LOG.warning('RequestException: %s', str(traceback.format_exc()))
