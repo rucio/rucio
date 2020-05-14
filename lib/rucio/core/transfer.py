@@ -166,6 +166,9 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
             job_files.append(job_file)
         logging.debug('job_files: %s' % job_files)
         transfer_id = GlobusTransferTool(external_host=None).bulk_submit(submitjob=job_files, timeout=timeout)
+    elif transfertool == 'mock':
+        import uuid
+        transfer_id = str(uuid.uuid1())
     return transfer_id
 
 
