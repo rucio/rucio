@@ -25,12 +25,12 @@ from rucio.rse.protocols import protocol
 class Default(protocol.RSEProtocol):
     """ Implementing access to RSEs using the local filesystem."""
 
-    def __init__(self, protocol_attr, rse_settings):
+    def __init__(self, protocol_attr, rse_settings, logger=None):
         """ Initializes the object with information about the referred RSE.
 
             :param props Properties derived from the RSE Repository
         """
-        super(Default, self).__init__(protocol_attr, rse_settings)
+        super(Default, self).__init__(protocol_attr, rse_settings, logger=logger)
         self.attributes.pop('determinism_type', None)
         self.files = []
 

@@ -1,0 +1,14 @@
+============
+1.22.3.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Core & Internals: Skip Xcache URL mangling when using an endpoint that requires signatures `#3503 <https://github.com/rucio/rucio/issues/3503>`_
+- Transfers: Poller is too chatty `#3506 <https://github.com/rucio/rucio/issues/3506>`_

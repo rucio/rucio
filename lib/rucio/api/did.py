@@ -602,7 +602,10 @@ def get_users_following_did(name, scope, session=None, vo='def'):
     :param session: The database session in use.
     """
     scope = InternalScope(scope, vo=vo)
-    return did.get_users_following_did(name=name, scope=scope, session=session)
+    users = did.get_users_following_did(name=name, scope=scope, session=session)
+    for user in users:
+        user['user'] = user['user'].external
+        yield user
 
 
 def remove_did_from_followed(scope, name, account, issuer, session=None, vo='def'):

@@ -1,0 +1,48 @@
+======
+1.22.4
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Authentication & Authorisation: OAuth2/OIDC: changing output of auth core function used in conveyor-submitter `#3523 <https://github.com/rucio/rucio/issues/3523>`_
+- Consistency checks: Adapt Auditor to changes in Rucio DB dumps `#3554 <https://github.com/rucio/rucio/issues/3554>`_
+- Testing: Supplied git pre-commit hook is using Python 2 `#3405 <https://github.com/rucio/rucio/issues/3405>`_
+- Testing: add test with file/dataset overlap to test_rule `#3495 <https://github.com/rucio/rucio/issues/3495>`_
+
+****
+Bugs
+****
+
+- WebUI: OAuth2/OIDC: fix cookie domain settings `#3520 <https://github.com/rucio/rucio/issues/3520>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Improvements in meta CLI tools `#3534 <https://github.com/rucio/rucio/issues/3534>`_
+
+****
+Bugs
+****
+
+- Clients: Import of community schema crashes client `#3546 <https://github.com/rucio/rucio/issues/3546>`_
+  
+-----
+WebUI
+-----
+
+****
+Bugs
+****
+
+- WebUI: Auth endpoint in webui broken with reversed DN `#3529 <https://github.com/rucio/rucio/issues/3529>`_
