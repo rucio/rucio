@@ -18,6 +18,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 #
@@ -133,15 +134,17 @@ def __get_distance(se1, se2, ignore_error):
     return 360000
 
 
-def site_selector(replicas, site):
+def site_selector(replicas, site, vo):
     """
     Return a list of replicas located on one site.
     :param replicas : A dict with RSEs as values and replicas as keys (URIs).
     :param site : The name of the site
+    :param vo : The vo within which to search for RSEs
     """
     result = []
     try:
-        rses = parse_expression("site=%s" % site)
+        rse_expression = utils.add_vo_to_rse_expression("site=%s" % site, vo=vo)
+        rses = parse_expression(rse_expression)
     except InvalidRSEExpression:
         return result
     except Exception:
