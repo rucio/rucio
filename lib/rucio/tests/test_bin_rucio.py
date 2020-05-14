@@ -85,6 +85,14 @@ class TestBinRucio():
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
 
+    def test_rucio_config_arg(self):
+        """CLIENT(USER): Rucio config argument"""
+        cmd = 'rucio --config errconfig ping'
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        nose.tools.assert_true('Could not load Rucio configuration file' in err and err.rstrip().endswith('errconfig'))
+
     def test_add_account(self):
         """CLIENT(ADMIN): Add account"""
         tmp_val = account_name_generator()
