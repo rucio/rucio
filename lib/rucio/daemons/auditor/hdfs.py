@@ -7,6 +7,7 @@
 
  Authors:
  - Fernando Lopez, <felopez@cern.ch>, 2015
+ - Dimitrios Christidis, <dimitrios.christidis@cern.ch>, 2020
 
  PY3K COMPATIBLE
 '''
@@ -39,7 +40,7 @@ def _hdfs_get(src_url, dst_path):
 
 
 class ReplicaFromHDFS(Replica):
-    BASE_URL = '/user/rucio01/reports/{0}/replicas_per_rse/{1}.bz2/*'
+    BASE_URL = '/user/rucio01/reports/{0}/replicas_per_rse/{1}/*'
 
     @classmethod
     def download(cls, rse, date, cache_dir=DUMPS_CACHE_DIR, buffer_size=65536):

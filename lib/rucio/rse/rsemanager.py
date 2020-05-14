@@ -157,7 +157,7 @@ def select_protocol(rse_settings, operation, scheme=None, domain='wan'):
     return min(candidates, key=lambda k: k['domains'][domain][operation])
 
 
-def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_token=None):
+def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_token=None, logger=None):
     """
     Instanciates the protocol defined for the given operation.
 
@@ -189,7 +189,7 @@ def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_tok
             print('Protocol implementation not found')
             raise  # TODO: provide proper rucio exception
     protocol_attr['auth_token'] = auth_token
-    protocol = mod(protocol_attr, rse_settings)
+    protocol = mod(protocol_attr, rse_settings, logger=logger)
     return protocol
 
 

@@ -35,6 +35,7 @@
 from __future__ import print_function
 
 import base64
+import copy
 import datetime
 import errno
 import getpass
@@ -177,6 +178,17 @@ def oidc_identity_string(sub, iss):
     :returns: OIDC identity string "SUB=<usersid>, ISS=https://iam-test.ch/"
     """
     return 'SUB=' + str(sub) + ', ISS=' + str(iss)
+
+
+def sqlalchemy_obj_to_dict(sqlalchemyresult):
+    """
+    Makes dictionary from SQLAlchemy query result object
+    :param sqlalchemyresult:
+    :returns: dictionary
+    """
+    res_dict = copy.deepcopy(dict(sqlalchemyresult.__dict__))
+    del res_dict['_sa_instance_state']
+    return res_dict
 
 
 def all_oidc_req_claims_present(scope, audience, required_scope, required_audience, sepatator=" "):
@@ -1202,13 +1214,15 @@ def api_update_return_dict(dictionary):
 
     copied = False  # Avoid side effects from pass by object
 
-    if 'rse_id' in dictionary.keys():
-        if 'rse' not in dictionary.keys():
-            if not copied:
-                dictionary = dictionary.copy()
-                copied = True
-            import rucio.core.rse
-            dictionary['rse'] = rucio.core.rse.get_rse_name(rse_id=dictionary['rse_id'])
+    for rse_str in ['rse', 'src_rse', 'source_rse', 'dest_rse', 'destination_rse']:
+        rse_id_str = '%s_id' % rse_str
+        if rse_id_str in dictionary.keys() and dictionary[rse_id_str] is not None:
+            if rse_str not in dictionary.keys():
+                if not copied:
+                    dictionary = dictionary.copy()
+                    copied = True
+                import rucio.core.rse
+                dictionary[rse_str] = rucio.core.rse.get_rse_name(rse_id=dictionary[rse_id_str])
 
     if 'rse_expression' in dictionary.keys():
         if not copied:
@@ -1232,6 +1246,8 @@ def api_update_return_dict(dictionary):
 
 
 def api_update_rse_expression(rse_expression):
+    if rse_expression is None:
+        return None
     vo_pattern = '(?<=vo=)[a-zA-Z0-9]{1,3}(?=&|$)'
     vo_match = re.search(vo_pattern, rse_expression)
     if vo_match:

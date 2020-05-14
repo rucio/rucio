@@ -189,7 +189,7 @@ RSEDeterministicTranslation._module_init_()  # pylint: disable=protected-access
 class GlobusRSEProtocol(RSEProtocol):
     """ This class is to support Globus as a Rucio RSE protocol.  Inherits from abstract base class RSEProtocol."""
 
-    def __init__(self, protocol_attr, rse_settings):
+    def __init__(self, protocol_attr, rse_settings, logger=None):
         """ Initializes the object with information about the referred RSE.
 
             :param props: Properties of the requested protocol
