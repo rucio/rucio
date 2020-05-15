@@ -66,8 +66,11 @@ Open ID Connect authentication examples
 
 There are 3 CLI login options. The latter two were introduced in order to avoid typing the password in the Rucio CLI. The default Identity Provider (IdP)/issuer is configured on the side of Rucio server. In case multiple IdPs are supported, user can specify which one he desires to use by ``--oidc-issuer=<IdP nickname>`` option (where IdP nickname is the key under which issuers are configured on Rucio server side in the `idpsecrets.json` file). In the following examples we assume that user does not want to use the rucio account name specified in the rucio.cfg file on the client side (if so ``-a`` parameter can be ommitted). Furthermore, we use the same default issuer as configured on Rucio server side.
 
-Automatic login (assuming the same issuer as configured o)::
+Automatic login::
+
   rucio -a=<rucio_account_name> -S=OIDC --oidc-user=<idp_username> --oidc-password=<idp_password> --oidc-auto -v whoami
+
+We strongly discourage this approach, typing your password in CLI does not comply with OAuth2/OIDC standard !
 
 Login via user's browser + fetch code::
 
@@ -81,11 +84,13 @@ Automatic token refresh. Assuming the rucio-oauth-manager daemon is running on t
 
   rucio -a=<rucio_account_name> -S=OIDC --oidc-scope="openid profile offline_access" --oidc-refresh-lifetime=24 -v whoami
 
-In order to authenticate a user with Rucio using a JSON web token not issued via the Rucio login mechanis (CLI, WebUI), one has to make sure that:
-- in case ``--oidc-scope`` is specified explicitly, it is no less than the minimum scope (e.g. 'openid profile') required by the Rucio Auth server (configured there in the rucio.cfg file).
-- same as above is true for the explicit use of ``--oidc-audience`` parameter
-- token issuer is known to Rucio Authentication server
-- the identity of the token ("SUB=<user sub claim>, ISS=<issuer url>") is assigned to an existing Rucio account (pre-provisioned)
+In order to authenticate a user with Rucio using a JSON web token not issued via the Rucio login mechanis (CLI, WebUI), one has to make sure that::
+
+* in case ``--oidc-scope`` is specified explicitly, it is no less than the minimum scope (e.g. 'openid profile') required by the Rucio Auth server (configured there in the rucio.cfg file).
+* same as above is true for the explicit use of ``--oidc-audience`` parameter
+* token issuer is known to Rucio Authentication server
+* the identity of the token ("SUB=<user sub claim>, ISS=<issuer url>") is assigned to an existing Rucio account (pre-provisioned)
+
 If so, one can directly present the token to the Rucio REST endpoint in the 'X-Rucio-Auth-Token' header, e.g.::
 
   $ python
@@ -98,6 +103,7 @@ If so, one can directly present the token to the Rucio REST endpoint in the 'X-R
   $ result.text
   >>> u'{"status": "ACTIVE", "account": "guenther", "account_type": "USER", "created_at": "2019-11-13T13:01:58", "suspended_at": null, "updated_at": "2019-11-13T13:01:58", "deleted_at": null, "email": "jaroslav.guenther@gmail.com"}'
 
+There is also an option to specify a ``auth_token_file_path`` in the ``[client]`` section of the rucio.cfg file. Rucio Client will then store and search for user's token saved in such file.
 
 
 Querrying basic information about RSEs

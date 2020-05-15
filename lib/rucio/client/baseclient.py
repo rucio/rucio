@@ -150,6 +150,7 @@ class BaseClient(object):
         self.auth_type = auth_type
         self.creds = creds
         self.auth_token = None
+        self.auth_token_file_path = config_get('client', 'auth_token_file_path', False, None)
         self.headers = {}
         self.timeout = timeout
         self.request_retries = self.REQUEST_RETRIES
@@ -235,9 +236,14 @@ class BaseClient(object):
                     self.account = config_get('client', 'account')
                 except (NoOptionError, NoSectionError):
                     raise MissingClientParameter('Option \'account\' cannot be found in config file and RUCIO_ACCOUNT is not set.')
+        # if token file path is defined in the rucio.cfg file, use that file
+        if self.auth_token_file_path:
+            self.token_file = self.auth_token_file_path
+            token_path = '/'.join(self.token_file.split('/')[:-1])
+        else:
+            token_path = self.TOKEN_PATH_PREFIX + self.account
+            self.token_file = token_path + '/' + self.TOKEN_PREFIX + self.account
 
-        token_path = self.TOKEN_PATH_PREFIX + self.account
-        self.token_file = token_path + '/' + self.TOKEN_PREFIX + self.account
         self.__authenticate()
 
         try:
@@ -783,9 +789,13 @@ class BaseClient(object):
         Write the current auth_token to the local token file.
         """
 
-        token_path = self.TOKEN_PATH_PREFIX + self.account
-        self.token_file = token_path + '/' + self.TOKEN_PREFIX + self.account
-
+        # if token file path is defined in the rucio.cfg file, use that file
+        if self.auth_token_file_path:
+            self.token_file = self.auth_token_file_path
+            token_path = '/'.join(self.token_file.split('/')[:-1])
+        else:
+            token_path = self.TOKEN_PATH_PREFIX + self.account
+            self.token_file = token_path + '/' + self.TOKEN_PREFIX + self.account
         # check if rucio temp directory is there. If not create it with permissions only for the current user
         if not path.isdir(token_path):
             try:
