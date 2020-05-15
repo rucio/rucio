@@ -11,6 +11,7 @@
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 # - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 
 import string
 import random
@@ -96,14 +97,14 @@ class TestCoreAccountLimits():
         resolved_rses = ['MOCK']
         limit = 10
         account_limit.set_global_account_limit(self.account, expression, limit, session=self.db_session)
-        results = account_limit.get_global_account_limits(account=self.account, session=self.db_session)
+        results = account_limit.get_global_account_limits(account=self.account, filter=self.vo, session=self.db_session)
         assert_equal(len(results), 1)
         assert_in(expression, results)
         assert_equal(results[expression]['resolved_rses'], resolved_rses)
         assert_equal(results[expression]['resolved_rse_ids'], resolved_rse_ids)
         assert_equal(results[expression]['limit'], limit)
         account_limit.delete_global_account_limit(self.account, expression, session=self.db_session)
-        results = account_limit.get_global_account_limits(account=self.account, session=self.db_session)
+        results = account_limit.get_global_account_limits(account=self.account, filter=self.vo, session=self.db_session)
         assert_equal(len(results), 0)
 
     def test_get_global_account_usage(self):

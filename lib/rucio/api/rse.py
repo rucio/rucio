@@ -15,6 +15,7 @@
   - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
   - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
   - Gabriele Fronze' <gfronze@cern.ch>, 2019
+  - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 
   PY3K COMPATIBLE
 '''
@@ -360,14 +361,7 @@ def parse_rse_expression(rse_expression, vo='def'):
     :returns:  List of RSEs
     :raises:   InvalidRSEExpression
     """
-
-    if vo != 'def':
-        if rse_expression is not None:
-            rse_expression = 'vo={}&({})'.format(vo, rse_expression)
-        else:
-            rse_expression = 'vo={}'.format(vo)
-
-    rses = parse_expression(rse_expression)
+    rses = parse_expression(rse_expression, filter={'vo': vo})
     return [rse['rse'] for rse in rses]
 
 

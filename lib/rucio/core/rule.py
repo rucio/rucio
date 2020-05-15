@@ -25,6 +25,7 @@
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -142,10 +143,11 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     with record_timer_block('rule.add_rule'):
         # 1. Resolve the rse_expression into a list of RSE-ids
         with record_timer_block('rule.add_rule.parse_rse_expression'):
+            vo = account.vo
             if ignore_availability:
-                rses = parse_expression(rse_expression, session=session)
+                rses = parse_expression(rse_expression, filter={'vo': vo}, session=session)
             else:
-                rses = parse_expression(rse_expression, filter={'availability_write': True}, session=session)
+                rses = parse_expression(rse_expression, filter={'vo': vo, 'availability_write': True}, session=session)
 
             if lifetime is None:  # Check if one of the rses is a staging area
                 if [rse for rse in rses if rse.get('staging_area', False)]:
@@ -169,7 +171,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                         raise ManualRuleApprovalBlocked()
 
             if source_replica_expression:
-                source_rses = parse_expression(source_replica_expression, session=session)
+                source_rses = parse_expression(source_replica_expression, filter={'vo': vo}, session=session)
             else:
                 source_rses = []
 
@@ -383,15 +385,17 @@ def add_rules(dids, rules, session=None):
         all_source_rses = []
         with record_timer_block('rule.add_rules.parse_rse_expressions'):
             for rule in rules:
+                vo = rule['account'].vo
                 if rule.get('ignore_availability'):
-                    restrict_rses.extend(parse_expression(rule['rse_expression'], session=session))
+                    restrict_rses.extend(parse_expression(rule['rse_expression'], filter={'vo': vo}, session=session))
                 else:
-                    restrict_rses.extend(parse_expression(rule['rse_expression'], filter={'availability_write': True}, session=session))
+                    restrict_rses.extend(parse_expression(rule['rse_expression'], filter={'vo': vo, 'availability_write': True}, session=session))
             restrict_rses = list(set([rse['id'] for rse in restrict_rses]))
 
             for rule in rules:
                 if rule.get('source_replica_expression'):
-                    all_source_rses.extend(parse_expression(rule.get('source_replica_expression'), session=session))
+                    vo = rule['account'].vo
+                    all_source_rses.extend(parse_expression(rule.get('source_replica_expression'), filter={'vo': vo}, session=session))
             all_source_rses = list(set([rse['id'] for rse in all_source_rses]))
 
         for elem in dids:
@@ -446,10 +450,11 @@ def add_rules(dids, rules, session=None):
             for rule in rules:
                 with record_timer_block('rule.add_rules.add_rule'):
                     # 4. Resolve the rse_expression into a list of RSE-ids
+                    vo = rule['account'].vo
                     if rule.get('ignore_availability'):
-                        rses = parse_expression(rule['rse_expression'], session=session)
+                        rses = parse_expression(rule['rse_expression'], filter={'vo': vo}, session=session)
                     else:
-                        rses = parse_expression(rule['rse_expression'], filter={'availability_write': True}, session=session)
+                        rses = parse_expression(rule['rse_expression'], filter={'vo': vo, 'availability_write': True}, session=session)
 
                     if rule.get('lifetime', None) is None:  # Check if one of the rses is a staging area
                         if [rse for rse in rses if rse.get('staging_area', False)]:
@@ -478,7 +483,7 @@ def add_rules(dids, rules, session=None):
                                 raise ManualRuleApprovalBlocked()
 
                     if rule.get('source_replica_expression'):
-                        source_rses = parse_expression(rule.get('source_replica_expression'), session=session)
+                        source_rses = parse_expression(rule.get('source_replica_expression'), filter={'vo': vo}, session=session)
                     else:
                         source_rses = []
 
@@ -669,13 +674,14 @@ def inject_rule(rule_id, session=None):
 
     # 1. Resolve the rse_expression into a list of RSE-ids
     with record_timer_block('rule.add_rule.parse_rse_expression'):
+        vo = rule['account'].vo
         if rule.ignore_availability:
-            rses = parse_expression(rule.rse_expression, session=session)
+            rses = parse_expression(rule.rse_expression, filter={'vo': vo}, session=session)
         else:
-            rses = parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session)
+            rses = parse_expression(rule.rse_expression, filter={'vo': vo, 'availability_write': True}, session=session)
 
         if rule.source_replica_expression:
-            source_rses = parse_expression(rule.source_replica_expression, session=session)
+            source_rses = parse_expression(rule.source_replica_expression, filter={'vo': vo}, session=session)
         else:
             source_rses = []
 
@@ -980,13 +986,14 @@ def repair_rule(rule_id, session=None):
 
         # Evaluate the RSE expression to see if there is an alternative RSE anyway
         try:
-            rses = parse_expression(rule.rse_expression, session=session)
+            vo = rule.account.vo
+            rses = parse_expression(rule.rse_expression, filter={'vo': vo}, session=session)
             if rule.ignore_availability:
-                target_rses = parse_expression(rule.rse_expression, session=session)
+                target_rses = parse_expression(rule.rse_expression, filter={'vo': vo}, session=session)
             else:
-                target_rses = parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session)
+                target_rses = parse_expression(rule.rse_expression, filter={'vo': vo, 'availability_write': True}, session=session)
             if rule.source_replica_expression:
-                source_rses = parse_expression(rule.source_replica_expression, session=session)
+                source_rses = parse_expression(rule.source_replica_expression, filter={'vo': vo}, session=session)
             else:
                 source_rses = []
         except (InvalidRSEExpression, RSEBlacklisted) as error:
@@ -1228,7 +1235,8 @@ def update_rule(rule_id, options, session=None):
         for key in options:
             if key == 'lifetime':
                 # Check SCRATCHDISK Policy
-                rses = parse_expression(rule.rse_expression, session=session)
+                vo = rule.account.vo
+                rses = parse_expression(rule.rse_expression, filter={'vo': vo}, session=session)
                 try:
                     lifetime = get_scratch_policy(rule.account, rses, options['lifetime'], session=session)
                 except UndefinedPolicy:
@@ -2071,7 +2079,8 @@ def approve_rule(rule_id, approver=None, notify_approvers=True, session=None):
                     template = Template(templatefile.read())
                 text = template.safe_substitute({'rule_id': str(rule.id),
                                                  'approver': approver})
-                recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=session)
+                vo = rule.account.vo
+                recipents = __create_recipents_list(rse_expression=rule.rse_expression, filter={'vo': vo}, session=session)
                 for recipent in recipents:
                     add_message(event_type='email',
                                 payload={'body': text,
@@ -2129,7 +2138,8 @@ def deny_rule(rule_id, approver=None, reason=None, session=None):
             text = template.safe_substitute({'rule_id': str(rule.id),
                                              'approver': approver,
                                              'reason': reason})
-            recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=session)
+            vo = rule.account.vo
+            recipents = __create_recipents_list(rse_expression=rule.rse_expression, filter={'vo': vo}, session=session)
             for recipent in recipents:
                 add_message(event_type='email',
                             payload={'body': text,
@@ -2520,11 +2530,12 @@ def __evaluate_did_attach(eval_did, session=None):
                     source_rses = []
                     for rule in rules:
                         try:
+                            vo = rule.account.vo
                             if rule.source_replica_expression:
-                                source_rses.extend(parse_expression(rule.source_replica_expression, session=session))
+                                source_rses.extend(parse_expression(rule.source_replica_expression, filter={'vo': vo}, session=session))
 
                             # if rule.ignore_availability:
-                            possible_rses.extend(parse_expression(rule.rse_expression, session=session))
+                            possible_rses.extend(parse_expression(rule.rse_expression, filter={'vo': vo}, session=session))
                             # else:
                             #     possible_rses.extend(parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session))
                         except (InvalidRSEExpression, RSEBlacklisted):
@@ -2547,13 +2558,14 @@ def __evaluate_did_attach(eval_did, session=None):
 
                         # 1. Resolve the rse_expression into a list of RSE-ids
                         try:
+                            vo = rule.account.vo
                             if rule.ignore_availability:
-                                rses = parse_expression(rule.rse_expression, session=session)
+                                rses = parse_expression(rule.rse_expression, filter={'vo': vo}, session=session)
                             else:
-                                rses = parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session)
+                                rses = parse_expression(rule.rse_expression, filter={'vo': vo, 'availability_write': True}, session=session)
                             source_rses = []
                             if rule.source_replica_expression:
-                                source_rses = parse_expression(rule.source_replica_expression, session=session)
+                                source_rses = parse_expression(rule.source_replica_expression, filter={'vo': vo}, session=session)
                         except (InvalidRSEExpression, RSEBlacklisted) as error:
                             rule.state = RuleState.STUCK
                             rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
@@ -2968,7 +2980,8 @@ def __create_rule_approval_email(rule, session=None):
     rses = [rep['rse_id'] for rep in rucio.core.replica.list_dataset_replicas(scope=rule.scope, name=rule.name, session=session) if rep['state'] == ReplicaState.AVAILABLE]
 
     # RSE occupancy
-    target_rses = parse_expression(rule.rse_expression, session=session)
+    vo = rule.account.vo
+    target_rses = parse_expression(rule.rse_expression, filter={'vo': vo}, session=session)
     if len(target_rses) > 1:
         target_rse = 'Multiple'
         free_space = 'undefined'
@@ -2991,7 +3004,7 @@ def __create_rule_approval_email(rule, session=None):
             pass
 
     # Resolve recipents:
-    recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=session)
+    recipents = __create_recipents_list(rse_expression=rule.rse_expression, filter={'vo': vo}, session=session)
 
     for recipent in recipents:
         text = template.safe_substitute({'rule_id': str(rule.id),
@@ -3022,7 +3035,7 @@ def __create_rule_approval_email(rule, session=None):
 
 
 @transactional_session
-def __create_recipents_list(rse_expression, session=None):
+def __create_recipents_list(rse_expression, filter=None, session=None):
     """
     Create a list of recipents for a notification email based on rse_expression.
 
@@ -3034,7 +3047,7 @@ def __create_recipents_list(rse_expression, session=None):
 
     # APPROVERS-LIST
     # If there are accounts in the approvers-list of any of the RSEs only these should be used
-    for rse in parse_expression(rse_expression, session=session):
+    for rse in parse_expression(rse_expression, filter=filter, session=session):
         rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
         if rse_attr.get('rule_approvers'):
             for account in rse_attr.get('rule_approvers').split(','):
@@ -3048,7 +3061,7 @@ def __create_recipents_list(rse_expression, session=None):
 
     # LOCALGROUPDISK/LOCALGROUPTAPE
     if not recipents:
-        for rse in parse_expression(rse_expression, session=session):
+        for rse in parse_expression(rse_expression, filter=filter, session=session):
             rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
             if rse_attr.get('type', '') in ('LOCALGROUPDISK', 'LOCALGROUPTAPE'):
                 accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='country-%s' % rse_attr.get('country', ''),
@@ -3063,7 +3076,7 @@ def __create_recipents_list(rse_expression, session=None):
 
     # GROUPDISK
     if not recipents:
-        for rse in parse_expression(rse_expression, session=session):
+        for rse in parse_expression(rse_expression, filter=filter, session=session):
             rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
             if rse_attr.get('type', '') == 'GROUPDISK':
                 accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='group-%s' % rse_attr.get('physgroup', ''),

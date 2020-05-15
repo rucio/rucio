@@ -10,6 +10,7 @@
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 # - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -89,7 +90,8 @@ def get_global_account_limits(account, vo='def'):
     """
 
     account = InternalAccount(account, vo=vo)
-    limits = account_limit_core.get_global_account_limits(account=account)
+    filter = {'vo': vo}
+    limits = account_limit_core.get_global_account_limits(account=account, filter=filter)
     limits_instead = {}
     for rse_expr in limits.keys():
         rse_expr_instead = api_update_rse_expression(rse_expr)

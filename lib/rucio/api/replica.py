@@ -21,6 +21,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -42,14 +43,7 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
     :param to_date: The end date.
     :param vo: the VO to act on.
     """
-
-    if vo != 'def':
-        if rse_expression is not None:
-            rse_expression = "vo={}&({})".format(vo, rse_expression)
-        else:
-            rse_expression = 'vo={}'.format(vo)
-
-    replicas = replica.get_bad_replicas_summary(rse_expression=rse_expression, from_date=from_date, to_date=to_date)
+    replicas = replica.get_bad_replicas_summary(rse_expression=rse_expression, from_date=from_date, to_date=to_date, filter={'vo': vo})
     return [api_update_return_dict(r) for r in replicas]
 
 
@@ -387,15 +381,7 @@ def get_suspicious_files(rse_expression, younger_than=None, nattempts=None, vo='
     :param nattempts: The number of time the replicas have been declared suspicious
     :param vo: The VO to act on.
     """
-
-    if vo != 'def':
-        if rse_expression is not None:
-            rse_expression = 'vo={}&({})'.format(vo, rse_expression)
-        else:
-            rse_expression = 'vo={}'.format(vo)
-
-    replicas = replica.get_suspicious_files(rse_expression=rse_expression, younger_than=younger_than, nattempts=nattempts)
-
+    replicas = replica.get_suspicious_files(rse_expression=rse_expression, younger_than=younger_than, nattempts=nattempts, filter={'vo': vo})
     return [api_update_return_dict(r) for r in replicas]
 
 

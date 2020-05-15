@@ -97,21 +97,37 @@ def parse_expression(expression, filter=None, session=None):
         vo_match = re.search(vo_pattern, expression)
         if vo_match is None:
             REGION.set(sha256(expression.encode()).hexdigest(), result)
+        # REGION.set(sha256(expression.encode()).hexdigest(), result)
 
-    if not result:
+    if filter:
+        filters_to_process = len(filter)
+    else:
+        filters_to_process = 0
+
+    # Filter for VO
+    vo_result = []
+    if filters_to_process and filter.get('vo'):
+        filters_to_process -= 1
+        for rse in result:
+            if rse.get('vo') == filter.get('vo'):
+                vo_result.append(rse)
+    else:
+        vo_result = result
+
+    if not vo_result:
         raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
 
     # Filter
     final_result = []
-    if filter:
-        for rse in result:
+    if filters_to_process:
+        for rse in vo_result:
             if filter.get('availability_write', False):
                 if rse.get('availability') & 2:
                     final_result.append(rse)
         if not final_result:
             raise RSEBlacklisted('RSE excluded due to write blacklisting.')
     else:
-        final_result = result
+        final_result = vo_result
 
     # final_result = [{rse-info}]
     return final_result

@@ -11,6 +11,7 @@
 # - Robert Illingworth, <illingwo@fnal.gov>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -79,7 +80,7 @@ class RSESelector():
                 rse['space_left'] = float('inf')
                 rses_with_enough_quota.append(rse)
         else:
-            global_quota_limit = get_global_account_limits(account=account, session=session)
+            global_quota_limit = get_global_account_limits(account=account, filter={'vo': account.vo}, session=session)
             all_rse_usages = {usage['rse_id']: usage['bytes'] for usage in get_all_rse_usages_per_account(account=account, session=session)}
             for rse in self.rses:
                 if rse['mock_rse']:

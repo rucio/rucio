@@ -28,6 +28,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -367,7 +368,19 @@ def list_rses(filters={}, session=None):
     availability_mask2 = 7
     availability_mapping = {'availability_read': 4, 'availability_write': 2, 'availability_delete': 1}
     false_value = False  # To make pep8 checker happy ...
+
     if filters:
+        filters_to_process = len(filters)
+    else:
+        filters_to_process = 0
+
+    if filters_to_process and filters.get('vo'):
+        vo = filters.get('vo')
+        filters_to_process -= 1
+    else:
+        vo = None
+
+    if filters_to_process:
         if 'availability' in filters and ('availability_read' in filters or 'availability_write' in filters or 'availability_delete' in filters):
             raise exception.InvalidObject('Cannot use availability and read, write, delete filter at the same time.')
         query = session.query(models.RSE).\
@@ -400,20 +413,18 @@ def list_rses(filters={}, session=None):
 
         if 'availability' not in filters:
             query = query.filter(sqlalchemy.and_(sqlalchemy.or_(*condition1), sqlalchemy.or_(*condition2)))
-
-        for row in query:
-            d = {}
-            for column in row.__table__.columns:
-                d[column.name] = getattr(row, column.name)
-            rse_list.append(d)
     else:
 
         query = session.query(models.RSE).filter_by(deleted=False).order_by(models.RSE.rse)
-        for row in query:
-            dic = {}
-            for column in row.__table__.columns:
-                dic[column.name] = getattr(row, column.name)
-            rse_list.append(dic)
+
+    if vo:
+        query = query.filter(getattr(models.RSE, 'vo') == vo)
+
+    for row in query:
+        dic = {}
+        for column in row.__table__.columns:
+            dic[column.name] = getattr(row, column.name)
+        rse_list.append(dic)
 
     return rse_list
 

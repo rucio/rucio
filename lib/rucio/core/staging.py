@@ -9,6 +9,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -104,7 +105,7 @@ def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, f
                     source_replica_expression = attr["source_replica_expression"] if "source_replica_expression" in attr else None
                     if source_replica_expression:
                         try:
-                            parsed_rses = parse_expression(source_replica_expression, session=session)
+                            parsed_rses = parse_expression(source_replica_expression, filter={'vo': scope.vo}, session=session)
                         except InvalidRSEExpression as error:
                             logging.error(prepend_str + "Invalid RSE exception %s: %s" % (source_replica_expression, error))
                             continue

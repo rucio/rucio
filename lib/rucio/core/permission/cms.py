@@ -15,6 +15,7 @@
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -160,7 +161,7 @@ def perm_add_rule(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
 
-    rses = parse_expression(kwargs['rse_expression'])
+    rses = parse_expression(kwargs['rse_expression'], filter={'vo': issuer.vo})
     # If all the RSEs matching the expression need approval, the rule cannot be created
     if not kwargs['ask_approval']:
         all_rses_need_approval = True
@@ -487,7 +488,7 @@ def perm_approve_rule(issuer, kwargs):
         return True
 
     rule = get_rule(rule_id=kwargs['rule_id'])
-    rses = parse_expression(rule['rse_expression'])
+    rses = parse_expression(rule['rse_expression'], filter={'vo': issuer.vo})
 
     # Those in rule_approvers can approve the rule
     for rse in rses:
@@ -807,7 +808,7 @@ def perm_set_global_account_limit(issuer, kwargs):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
     resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country')
-                              for rse in parse_expression(kwargs['rse_exp'])}
+                              for rse in parse_expression(kwargs['rse_exp'], filter={'vo': issuer.vo})}
     if resolved_rse_countries.issubset(admin_in_country):
         return True
     return False
@@ -830,7 +831,7 @@ def perm_delete_global_account_limit(issuer, kwargs):
             admin_in_country.add(kv['key'].partition('-')[2])
     if admin_in_country:
         resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country')
-                                  for rse in parse_expression(kwargs['rse_exp'])}
+                                  for rse in parse_expression(kwargs['rse_exp'], filter={'vo': issuer.vo})}
         if resolved_rse_countries.issubset(admin_in_country):
             return True
     return False
