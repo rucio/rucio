@@ -18,6 +18,7 @@
 #  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 #  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 #  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -52,7 +53,7 @@ def get_rse_account_usage(rse_id, session=None):
 
 
 @read_session
-def get_global_account_limits(account=None, session=None):
+def get_global_account_limits(account=None, filter=None, session=None):
     """
     Returns the global account limits for the account.
 
@@ -67,7 +68,7 @@ def get_global_account_limits(account=None, session=None):
 
     resolved_global_account_limits = {}
     for limit in global_account_limits:
-        resolved_rses = parse_expression(limit['rse_expression'], session=session)
+        resolved_rses = parse_expression(limit['rse_expression'], filter=filter, session=session)
         limit_in_bytes = limit['bytes']
         if limit_in_bytes == -1:
             limit_in_bytes = float('inf')
@@ -269,9 +270,10 @@ def get_global_account_usage(account, rse_expression=None, session=None):
     :returns:                List of dicts {'rse_id', 'bytes_used', 'files_used', 'bytes_limit'}
     """
     result_list = []
+    vo = account.vo
     if not rse_expression:
         # All RSE Expressions
-        limits = get_global_account_limits(account=account, session=session)
+        limits = get_global_account_limits(account=account, filter={'vo': vo}, session=session)
         all_rse_usages = {usage['rse_id']: (usage['bytes'], usage['files']) for usage in get_all_rse_usages_per_account(account=account, session=session)}
         for rse_expression, limit in limits.items():
             usage = 0
@@ -286,7 +288,7 @@ def get_global_account_usage(account, rse_expression=None, session=None):
     else:
         # One RSE Expression
         limit = get_global_account_limit(account=account, rse_expression=rse_expression, session=session)
-        resolved_rses = [resolved_rse['id'] for resolved_rse in parse_expression(rse_expression, session=session)]
+        resolved_rses = [resolved_rse['id'] for resolved_rse in parse_expression(rse_expression, filter={'vo': vo}, session=session)]
         usage = session.query(func.sum(models.AccountUsage.bytes), func.sum(models.AccountUsage.files))\
                        .filter(models.AccountUsage.account == account, models.AccountUsage.rse_id.in_(resolved_rses))\
                        .group_by(models.AccountUsage.account).first()

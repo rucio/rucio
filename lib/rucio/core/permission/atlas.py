@@ -485,7 +485,7 @@ def perm_del_rule(issuer, kwargs):
             admin_in_country.append(kv['key'].partition('-')[2])
 
     rule = get_rule(rule_id=kwargs['rule_id'])
-    rses = parse_expression(rule['rse_expression'])
+    rses = parse_expression(rule['rse_expression'], filter={'vo': issuer.vo})
     if admin_in_country:
         for rse in rses:
             if list_rse_attributes(rse_id=rse['id']).get('country') in admin_in_country:
@@ -528,7 +528,7 @@ def perm_update_rule(issuer, kwargs):
             admin_in_country.append(kv['key'].partition('-')[2])
 
     rule = get_rule(rule_id=kwargs['rule_id'])
-    rses = parse_expression(rule['rse_expression'])
+    rses = parse_expression(rule['rse_expression'], filter={'vo': issuer.vo})
     if admin_in_country:
         for rse in rses:
             if list_rse_attributes(rse_id=rse['id']).get('country') in admin_in_country:
@@ -568,13 +568,13 @@ def perm_move_rule(issuer, kwargs):
 
     if admin_in_country:
         rule = get_rule(rule_id=kwargs['rule_id'])
-        rses = parse_expression(rule['rse_expression'])
+        rses = parse_expression(rule['rse_expression'], filter={'vo': issuer.vo})
         for rse in rses:
             if list_rse_attributes(rse_id=rse['id']).get('country') in admin_in_country:
                 admin_source = True
                 break
 
-        rses = parse_expression(kwargs['rse_expression'])
+        rses = parse_expression(kwargs['rse_expression'], filter={'vo': issuer.vo})
         for rse in rses:
             if list_rse_attributes(rse_id=rse['id']).get('country') in admin_in_country:
                 admin_destination = True
@@ -599,7 +599,7 @@ def perm_approve_rule(issuer, kwargs):
         return True
 
     rule = get_rule(rule_id=kwargs['rule_id'])
-    rses = parse_expression(rule['rse_expression'])
+    rses = parse_expression(rule['rse_expression'], filter={'vo': issuer.vo})
 
     # APPROVERS can approve the rule
     for rse in rses:
@@ -956,7 +956,7 @@ def perm_set_global_account_limit(issuer, kwargs):
     for kv in list_account_attributes(account=issuer):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
-    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country') for rse in parse_expression(kwargs['rse_exp'])}
+    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country') for rse in parse_expression(kwargs['rse_exp'], filter={'vo': issuer.vo})}
     if resolved_rse_countries.issubset(admin_in_country):
         return True
     return False
@@ -977,7 +977,7 @@ def perm_delete_global_account_limit(issuer, kwargs):
     for kv in list_account_attributes(account=issuer):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
-    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country') for rse in parse_expression(kwargs['rse_exp'])}
+    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country') for rse in parse_expression(kwargs['rse_exp'], filter={'vo': issuer.vo})}
     if resolved_rse_countries.issubset(admin_in_country):
         return True
     return False
