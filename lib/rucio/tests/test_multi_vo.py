@@ -373,3 +373,5 @@ class TestMultiVoClients(object):
         with assert_raises(NoResultFound):
             update_account_counter(new_acc, tst_rse1_id)
         session.query(models.UpdatedAccountCounter).filter_by(rse_id=tst_rse1_id, account=new_acc).delete(synchronize_session=False)
+
+        session.commit()
