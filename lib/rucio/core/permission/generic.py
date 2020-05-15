@@ -20,6 +20,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Eric Vaandering, <ewv@fnal.gov>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -102,6 +103,7 @@ def has_permission(issuer, action, kwargs):
             'config_remove_section': perm_config,
             'config_remove_option': perm_config,
             'get_local_account_usage': perm_get_local_account_usage,
+            'get_global_account_usage': perm_get_global_account_usage,
             'add_attribute': perm_add_account_attribute,
             'del_attribute': perm_del_account_attribute,
             'list_heartbeats': perm_list_heartbeats,
@@ -843,6 +845,30 @@ def perm_get_local_account_usage(issuer, kwargs):
     for kv in list_account_attributes(account=issuer):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             return True
+    return False
+
+
+def perm_get_global_account_usage(issuer, kwargs):
+    """
+    Checks if an account can get the account usage of an account.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin') or kwargs.get('account') == issuer:
+        return True
+
+    # Check if user is a country admin for all involved countries
+    admin_in_country = set()
+    for kv in list_account_attributes(account=issuer):
+        if kv['key'].startswith('country-') and kv['value'] == 'admin':
+            admin_in_country.add(kv['key'].partition('-')[2])
+    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country')
+                              for rse in parse_expression(kwargs['rse_exp'])}
+
+    if resolved_rse_countries.issubset(admin_in_country):
+        return True
     return False
 
 
