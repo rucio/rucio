@@ -84,6 +84,38 @@ Automatic token refresh. Assuming the rucio-oauth-manager daemon is running on t
 
   rucio -a=<rucio_account_name> -S=OIDC --oidc-scope="openid profile offline_access" --oidc-refresh-lifetime=24 -v whoami
 
+If Rucio Server is granted user's both access and refresh tokens, it is also possible to configure Rucio Client to ask Rucio Server for token refresh. Assuming user used one of the 3 CLI authentication methods above + requested offline_access in the scope, rucio.cfg file can be configured with the following parameters in the [client] section::
+
+  [client]
+  auth_oidc_refresh_active true
+  auth_oidc_refresh_before_exp 20
+
+``auth_oidc_refresh_active`` is false by default. If set to true, the Rucio Client will be following up token expiration timestamp. As soon as the current time will get beyond ``auth_oidc_refresh_before_exp`` minutes (20 min default), it will ask Rucio Server for token refresh with every command. If the token has been refreshed in the recent 5 min already once, the same one will be returned (protection of the Rucio Server). If the presented token has been refreshed automatically on the Rucio Server side by a oauth_manager daemon run, it will return this existing new token. If the presented token is invalid/expired/does not have refresh token in the DB, no refresh will be attempted.
+
+There is also an option to direct Rucio Client to a specified file where you store youre JWT token. Rucio Client will use such location for local token management::
+
+  [client]
+  auth_token_file_path /path/to/token/file
+
+Example of rucio.cfg file configuration with automatic token refresh::
+
+  [client]
+  rucio_host = https://<rucio_host>:443
+  auth_host = https://<rucio_auth_host>:443
+  auth_type = oidc
+  account = <rucio_account_name>
+  oidc_audience = rucio
+  oidc_scope = openid profile offline_access
+  oidc_issuer = wlcg
+  auth_oidc_refresh_active true
+  auth_oidc_refresh_before_exp 20
+
+Then, you should be able to do simply::
+
+  rucio -v whoami
+
+And follow the instruction for first log-in with your browser. New token will be requested before the current expires if a user types a rucio command within ``auth_oidc_refresh_before_exp`` minutes before the expiry. Note: If user doe not use Rucio Client within ``auth_oidc_refresh_before_exp`` minutes before token expires, it will be necessary to re-authenticate asking for a new offline_access token.
+
 In order to authenticate a user with Rucio using a JSON web token not issued via the Rucio login mechanis (CLI, WebUI), one has to make sure that::
 
 * in case ``--oidc-scope`` is specified explicitly, it is no less than the minimum scope (e.g. 'openid profile') required by the Rucio Auth server (configured there in the rucio.cfg file).
