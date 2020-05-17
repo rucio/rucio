@@ -41,12 +41,12 @@ import traceback
 import time
 
 from logging import getLogger, StreamHandler, ERROR
-from os import environ, fdopen, path, makedirs, geteuid
+from os import environ, fdopen, path, makedirs, geteuid, close
 from shutil import move
 from tempfile import mkstemp
 
 from rucio.common import exception
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import (CannotAuthenticate, ClientProtocolNotSupported,
                                     NoAuthInformation, MissingClientParameter,
                                     MissingModuleException, ServerConnectionException)
@@ -112,6 +112,7 @@ class BaseClient(object):
     AUTH_RETRIES, REQUEST_RETRIES = 2, 3
     TOKEN_PATH_PREFIX = get_tmp_dir() + '/.rucio_'
     TOKEN_PREFIX = 'auth_token_'
+    TOKEN_EXP_PREFIX = 'auth_token_exp_'
 
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients'):
         """
@@ -154,6 +155,11 @@ class BaseClient(object):
         self.headers = {}
         self.timeout = timeout
         self.request_retries = self.REQUEST_RETRIES
+        self.token_exp_epoch = None
+        self.token_exp_epoch_file = None
+        self.auth_oidc_refresh_active = config_get_bool('client', 'auth_oidc_refresh_active', False, False)
+        # defining how many minutes before token expires, oidc refresh (if active) should start
+        self.auth_oidc_refresh_before_exp = config_get_int('client', 'auth_oidc_refresh_before_exp', False, 20)
 
         if auth_type is None:
             LOG.debug('no auth_type passed. Trying to get it from the environment variable RUCIO_AUTH_TYPE and config file.')
@@ -167,6 +173,25 @@ class BaseClient(object):
                 except (NoOptionError, NoSectionError) as error:
                     raise MissingClientParameter('Option \'%s\' cannot be found in config file' % error.args[0])
 
+        if self.auth_type == 'oidc':
+            if self.creds['oidc_refresh_lifetime'] is None:
+                self.creds['oidc_refresh_lifetime'] = config_get('client', 'oidc_refresh_lifetime', False, None)
+            if self.creds['oidc_issuer'] is None:
+                self.creds['oidc_issuer'] = config_get('client', 'oidc_issuer', False, None)
+            if self.creds['oidc_audience'] is None:
+                self.creds['oidc_audience'] = config_get('client', 'oidc_audience', False, '')
+            if self.creds['oidc_auto'] is False:
+                self.creds['oidc_auto'] = config_get_bool('client', 'oidc_auto', False, False)
+            if self.creds['oidc_auto']:
+                if self.creds['oidc_username'] is None:
+                    self.creds['oidc_username'] = config_get('client', 'oidc_username', False, None)
+                if self.creds['oidc_password'] is None:
+                    self.creds['oidc_password'] = config_get('client', 'oidc_password', False, None)
+            if self.creds['oidc_scope'] == 'openid profile':
+                self.creds['oidc_scope'] = config_get('client', 'oidc_scope', False, 'openid profile')
+            if self.creds['oidc_polling'] is False:
+                self.creds['oidc_polling'] = config_get_bool('client', 'oidc_polling', False, False)
+
         if creds is None:
             LOG.debug('no creds passed. Trying to get it from the config file.')
             self.creds = {}
@@ -174,15 +199,6 @@ class BaseClient(object):
                 if self.auth_type in ['userpass', 'saml']:
                     self.creds['username'] = config_get('client', 'username')
                     self.creds['password'] = config_get('client', 'password')
-                elif self.auth_type == 'oidc':
-                    self.creds['oidc_auto'] = config_get_bool('client', 'oidc_auto', False, False)
-                    self.creds['oidc_username'] = config_get('client', 'oidc_username', False, None)
-                    self.creds['oidc_password'] = config_get('client', 'oidc_password', False, None)
-                    self.creds['oidc_scope'] = config_get('client', 'oidc_scope', False, 'openid profile')
-                    self.creds['oidc_audience'] = config_get('client', 'oidc_audience', False, '')
-                    self.creds['oidc_polling'] = config_get_bool('client', 'oidc_polling', False, False)
-                    self.creds['oidc_refresh_lifetime'] = config_get('client', 'oidc_refresh_lifetime', False, None)
-                    self.creds['oidc_issuer'] = config_get('client', 'oidc_issuer', False, None)
                 elif self.auth_type == 'x509':
                     self.creds['client_cert'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_cert'))))
                     self.creds['client_key'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_key'))))
@@ -239,10 +255,12 @@ class BaseClient(object):
         # if token file path is defined in the rucio.cfg file, use that file
         if self.auth_token_file_path:
             self.token_file = self.auth_token_file_path
-            token_path = '/'.join(self.token_file.split('/')[:-1])
+            self.token_path = '/'.join(self.token_file.split('/')[:-1])
+            self.token_exp_epoch_file = self.token_path + '/' + self.TOKEN_EXP_PREFIX + self.account
         else:
-            token_path = self.TOKEN_PATH_PREFIX + self.account
-            self.token_file = token_path + '/' + self.TOKEN_PREFIX + self.account
+            self.token_path = self.TOKEN_PATH_PREFIX + self.account
+            self.token_file = self.token_path + '/' + self.TOKEN_PREFIX + self.account
+            self.token_exp_epoch_file = self.token_path + '/' + self.TOKEN_EXP_PREFIX + self.account
 
         self.__authenticate()
 
@@ -380,6 +398,72 @@ class BaseClient(object):
         LOG.debug('got new token')
         return True
 
+    def __refresh_token_OIDC(self):
+        """
+        Checks if there is active refresh token and if so returns
+        either active token with expiration timestamp or requests a new
+        refresh and returns new access token with new expiration timestamp
+        and saves these in the token directory.
+
+        :returns: True if the token was successfully received. False otherwise.
+        """
+
+        if not self.auth_oidc_refresh_active:
+            return False
+        if path.exists(self.token_exp_epoch_file):
+            with open(self.token_exp_epoch_file, 'r') as token_epoch_file:
+                try:
+                    self.token_exp_epoch = int(token_epoch_file.readline())
+                except:
+                    self.token_exp_epoch = None
+
+        if self.token_exp_epoch is None:
+            # check expiration time for a new token
+            pass
+        elif time.time() > self.token_exp_epoch - self.auth_oidc_refresh_before_exp*60 and time.time() < self.token_exp_epoch:
+            # attempt to refresh token
+            pass
+        else:
+            return False
+
+        headers = {'X-Rucio-Account': self.account,
+                   'X-Rucio-Auth-Token': self.auth_token}
+
+        for retry in range(self.AUTH_RETRIES + 1):
+            LOG.debug("JWT refresh attempt nr. %i" % int(retry + 1))
+            try:
+                request_refresh_url = build_url(self.auth_host, path='auth/oidc_refresh')
+                refresh_result = self.session.get(request_refresh_url, headers=headers, verify=self.ca_cert)
+                print(refresh_result.headers)
+                if refresh_result.status_code == codes.ok:
+                    if 'X-Rucio-Auth-Token-Expires' not in refresh_result.headers or \
+                       'X-Rucio-Auth-Token' not in refresh_result.headers:
+                        print("Rucio Server response does not contain the expected headers.")
+                        return False
+                    else:
+                        new_token = refresh_result.headers['X-Rucio-Auth-Token']
+                        new_exp_epoch = refresh_result.headers['X-Rucio-Auth-Token-Expires']
+                        print("I AM Here", new_token, new_exp_epoch)
+                        if new_token and new_exp_epoch:
+                            # save to the file
+                            self.auth_token = new_token
+                            self.token_exp_epoch = new_exp_epoch
+                            self.__write_token()
+                            self.headers['X-Rucio-Auth-Token'] = self.auth_token
+                            return True
+                        return False
+                else:
+                    print("Rucio Client did not succeed to contact the Rucio Auth Server.")
+                    return False
+
+                break
+            except RequestException:
+                LOG.warning('RequestException: %s', str(traceback.format_exc()))
+                self.ca_cert = False
+                if retry > self.request_retries:
+                    raise
+
+
     def __get_token_OIDC(self):
         """
         First authenticates the user via a Identity Provider server
@@ -412,11 +496,13 @@ class BaseClient(object):
                 result = None
                 request_auth_url = build_url(self.auth_host, path='auth/oidc')
                 # requesting authorization URL specific to the user & Rucio OIDC Client
+                print(headers)
                 OIDC_auth_res = self.session.get(request_auth_url, headers=headers, verify=self.ca_cert)
+                print(OIDC_auth_res.headers, OIDC_auth_res.text)
                 # with the obtained authorization URL we will contact the Identity Provider to get to the login page
                 if 'X-Rucio-OIDC-Auth-URL' not in OIDC_auth_res.headers:
                     print("Rucio Client did not succeed to get AuthN/Z URL from the Rucio Auth Server. \
-                           \nThis could be due to wrongly requested/configured scope, audience of issuer.")
+                           \nThis could be due to wrongly requested/configured scope, audience or issuer.")
                     return False
                 auth_url = OIDC_auth_res.headers['X-Rucio-OIDC-Auth-URL']
                 if not self.creds['oidc_auto']:
@@ -498,6 +584,14 @@ class BaseClient(object):
             raise exc_cls(exc_msg)
 
         self.auth_token = result.headers['x-rucio-auth-token']
+        if self.auth_oidc_refresh_active:
+            # reset the token expiration epoch file content
+            self.token_exp_epoch = None
+            file_d, file_n = mkstemp(dir=self.token_path)
+            with fdopen(file_d, "w") as f_exp_epoch:
+                f_exp_epoch.write(str(self.token_exp_epoch))
+            move(file_n, self.token_exp_epoch_file)
+            self.__refresh_token_OIDC()
         return True
 
     def __get_token_x509(self):
@@ -780,7 +874,8 @@ class BaseClient(object):
             print("I/O error({0}): {1}".format(error.errno, error.strerror))
         except Exception:
             raise
-
+        if self.auth_oidc_refresh_active and self.auth_type == 'oidc':
+            self.__refresh_token_OIDC()
         LOG.debug('got token from file')
         return True
 
@@ -788,28 +883,25 @@ class BaseClient(object):
         """
         Write the current auth_token to the local token file.
         """
-
-        # if token file path is defined in the rucio.cfg file, use that file
-        if self.auth_token_file_path:
-            self.token_file = self.auth_token_file_path
-            token_path = '/'.join(self.token_file.split('/')[:-1])
-        else:
-            token_path = self.TOKEN_PATH_PREFIX + self.account
-            self.token_file = token_path + '/' + self.TOKEN_PREFIX + self.account
         # check if rucio temp directory is there. If not create it with permissions only for the current user
-        if not path.isdir(token_path):
+        if not path.isdir(self.token_path):
             try:
-                LOG.debug('rucio token folder \'%s\' not found. Create it.' % token_path)
-                makedirs(token_path, 0o700)
+                LOG.debug('rucio token folder \'%s\' not found. Create it.' % self.token_path)
+                makedirs(self.token_path, 0o700)
             except Exception:
                 raise
 
         # if the file exists check if the stored token is valid. If not request a new one and overwrite the file. Otherwise use the one from the file
         try:
-            file_d, file_n = mkstemp(dir=token_path)
+            file_d, file_n = mkstemp(dir=self.token_path)
             with fdopen(file_d, "w") as f_token:
                 f_token.write(self.auth_token)
             move(file_n, self.token_file)
+            if self.auth_type == 'oidc' and self.token_exp_epoch and self.auth_oidc_refresh_active:
+                file_d, file_n = mkstemp(dir=self.token_path)
+                with fdopen(file_d, "w") as f_exp_epoch:
+                    f_exp_epoch.write(str(self.token_exp_epoch))
+                move(file_n, self.token_exp_epoch_file)
         except IOError as error:
             print("I/O error({0}): {1}".format(error.errno, error.strerror))
         except Exception:
