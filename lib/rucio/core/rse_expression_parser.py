@@ -92,12 +92,7 @@ def parse_expression(expression, filter=None, session=None):
         result = []
         for rse in list(result_tuple[0]):
             result.append(result_tuple[1][rse])
-        # Don't cache the result if we only specified vo
-        vo_pattern = r'^vo=[a-zA-Z0-9]+$'
-        vo_match = re.search(vo_pattern, expression)
-        if vo_match is None:
-            REGION.set(sha256(expression.encode()).hexdigest(), result)
-        # REGION.set(sha256(expression.encode()).hexdigest(), result)
+        REGION.set(sha256(expression.encode()).hexdigest(), result)
 
     if filter:
         filters_to_process = len(filter)

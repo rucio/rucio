@@ -13,6 +13,7 @@
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2015, 2017
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+ - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 
  PY3K COMPATIBLE
 """
@@ -24,7 +25,6 @@ from rucio.api.permission import has_permission
 from rucio.common.exception import InvalidObject, AccessDenied
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import api_update_rse_expression
 from rucio.core import subscription
 
 
@@ -87,14 +87,6 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
             else:
                 filter[_key] = _type(filter[_key], vo=vo).internal
 
-    for rule in replication_rules:
-        if vo != 'def':
-            for key in ['source_replica_expression', 'rse_expression']:
-                if key in rule and rule[key] is not None:
-                    rule[key] = 'vo={}&({})'.format(vo, rule[key])
-                else:
-                    rule[key] = 'vo={}'.format(vo)
-
     return subscription.add_subscription(name=name, account=account, filter=dumps(filter), replication_rules=dumps(replication_rules), comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, priority=priority)
 
 
@@ -146,15 +138,6 @@ def update_subscription(name, account, metadata=None, issuer=None, vo='def'):
                 else:
                     filter[_key] = _type(filter[_key], vo=vo).internal
 
-    if 'replication_rules' in metadata and metadata['replication_rules'] is not None:
-        for rule in metadata['replication_rules']:
-            if vo != 'def':
-                for key in ['source_replica_expression', 'rse_expression']:
-                    if key in rule and rule[key] is not None:
-                        rule[key] = 'vo={}&({})'.format(vo, rule[key])
-                    else:
-                        rule[key] = 'vo={}'.format(vo)
-
     return subscription.update_subscription(name=name, account=account, metadata=metadata)
 
 
@@ -185,15 +168,6 @@ def list_subscriptions(name=None, account=None, state=None, vo='def'):
 
     for sub in subs:
         sub['account'] = sub['account'].external
-
-        if 'replication_rules' in sub:
-            rules = loads(sub['replication_rules'])
-            for rule in rules:
-                if 'rse_expression' in rule:
-                    rule['rse_expression'] = api_update_rse_expression(rule['rse_expression'])
-                if 'source_replica_expression' in rule:
-                    rule['source_replica_expression'] = api_update_rse_expression(rule['source_replica_expression'])
-            sub['replication_rules'] = dumps(rules)
 
         if 'filter' in sub:
             fil = loads(sub['filter'])
@@ -253,15 +227,6 @@ def get_subscription_by_id(subscription_id, vo='def'):
         raise AccessDenied('Unable to get subscription')
 
     sub['account'] = sub['account'].external
-
-    if 'replication_rules' in sub:
-        rules = loads(sub['replication_rules'])
-        for rule in rules:
-            if 'rse_expression' in rule:
-                rule['rse_expression'] = api_update_rse_expression(rule['rse_expression'])
-            if 'source_replica_expression' in rule:
-                rule['source_replica_expression'] = api_update_rse_expression(rule['source_replica_expression'])
-        sub['replication_rules'] = dumps(rules)
 
     if 'filter' in sub:
         fil = loads(sub['filter'])

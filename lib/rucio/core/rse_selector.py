@@ -80,7 +80,7 @@ class RSESelector():
                 rse['space_left'] = float('inf')
                 rses_with_enough_quota.append(rse)
         else:
-            global_quota_limit = get_global_account_limits(account=account, filter={'vo': account.vo}, session=session)
+            global_quota_limit = get_global_account_limits(account=account, session=session)
             all_rse_usages = {usage['rse_id']: usage['bytes'] for usage in get_all_rse_usages_per_account(account=account, session=session)}
             for rse in self.rses:
                 if rse['mock_rse']:

@@ -172,12 +172,6 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     for d in dids:
         d['scope'] = InternalScope(d['scope'], vo=vo)
 
-    if vo != 'def':
-        if rse_expression is not None:
-            rse_expression = 'vo={}&({})'.format(vo, rse_expression)
-        else:
-            rse_expression = 'vo={}'.format(vo)
-
     replicas = replica.list_replicas(dids=dids, schemes=schemes, unavailable=unavailable,
                                      request_id=request_id,
                                      ignore_availability=ignore_availability,

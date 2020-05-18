@@ -16,6 +16,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -52,10 +53,8 @@ class TestAbacusAccount():
 
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': 'tst'}
-            self.rse_include = 'vo=tst&{}'.format(self.rse)
         else:
             self.vo = {}
-            self.rse_include = self.rse
 
         self.account = InternalAccount('root', **self.vo)
         self.scope = InternalScope('mock', **self.vo)
@@ -64,7 +63,7 @@ class TestAbacusAccount():
     def tearDown(self):
         undertaker.run(once=True)
         cleaner.run(once=True)
-        reaper.run(once=True, include_rses=self.rse_include, greedy=True)
+        reaper.run(once=True, include_rses=self.rse, greedy=True)
 
     def test_abacus_account(self):
         """ ABACUS (ACCOUNT): Test update of account usage """
