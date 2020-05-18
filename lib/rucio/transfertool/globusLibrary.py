@@ -14,14 +14,14 @@
 #
 # Authors:
 # - Matt Snyder <msnyder@rcf.rhic.bnl.gov>, 2019
-# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019-2020
 
 import imp
 import logging
 import os
 import sys
 
-from rucio.common.config import config_get, get_config_dir
+from rucio.common.config import config_get, get_config_dirs
 from rucio.core.monitor import record_counter
 from datetime import datetime
 
@@ -52,7 +52,7 @@ GLOBUS_AUTH_APP = config_get('conveyor', 'globus_auth_app', False, None)
 
 def load_config(cfg_file='globus-config.yml'):
     config = None
-    config_dir = get_config_dir()
+    config_dir = get_config_dirs()[0]
     if os.path.isfile(os.path.join(config_dir, cfg_file)):
         config = os.path.join(config_dir, cfg_file)
     else:
