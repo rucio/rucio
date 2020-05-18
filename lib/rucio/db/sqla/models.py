@@ -58,17 +58,17 @@ from rucio.db.sqla.types import InternalScopeString as _InternalScopeString
 # Recipe to force str instead if unicode
 # https://groups.google.com/forum/#!msg/sqlalchemy/8Xn31vBfGKU/bAGLNKapvSMJ
 def String(*arg, **kw):
-    kw['convert_unicode'] = 'force'
+    kw['convert_unicode'] = True
     return _String(*arg, **kw)
 
 
 def InternalScopeString(*arg, **kw):
-    kw['convert_unicode'] = 'force'
+    kw['convert_unicode'] = True
     return _InternalScopeString(*arg, **kw)
 
 
 def InternalAccountString(*arg, **kw):
-    kw['convert_unicode'] = 'force'
+    kw['convert_unicode'] = True
     return _InternalAccountString(*arg, **kw)
 
 
