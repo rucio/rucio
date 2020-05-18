@@ -16,8 +16,9 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from logging import getLogger
-from nose.tools import assert_equal, assert_false, assert_in, assert_is_not_none, assert_not_in, assert_raises, assert_true
+from nose.tools import assert_equal, assert_false, assert_in, assert_is_not_none, assert_not_equal, assert_not_in, assert_raises, assert_true
 from random import choice
+from sqlalchemy.orm.exc import NoResultFound
 from string import ascii_uppercase, ascii_lowercase
 
 from rucio.api import vo as vo_api
@@ -39,11 +40,14 @@ from rucio.client.scopeclient import ScopeClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.client.uploadclient import UploadClient
 from rucio.common.config import config_get_bool
-from rucio.common.exception import AccessDenied, AccountNotFound, Duplicate
+from rucio.common.exception import AccessDenied, AccountNotFound, Duplicate, InputValidationError
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
+from rucio.core.account_counter import increase, update_account_counter
+from rucio.core.rse import get_rse_id, get_rse_vo
 from rucio.core.rule import add_rule
 from rucio.core.vo import add_vo, vo_exists
+from rucio.db.sqla import models, session as db_session
 
 
 LOG = getLogger(__name__)
@@ -345,3 +349,60 @@ class TestMultiVoClients(object):
         assert_in(shr_new_sub_id, acc_new_subs)
         assert_not_in(tst_sub_id, acc_new_subs)
         assert_not_in(shr_tst_sub_id, acc_new_subs)
+
+    def test_account_counters_at_different_vos(self):
+        """ MULTI VO (CLIENT): Test that account counters from 2nd vo don't interfere """
+
+        session = db_session.get_session()
+
+        # add some RSEs to test create_counters_for_new_account
+        rse_client = RSEClient()
+        rse_str = ''.join(choice(ascii_uppercase) for x in range(10))
+        tst_rse1 = 'TST1_%s' % rse_str
+        new_rse1 = 'NEW1_%s' % rse_str
+        rse_client.add_rse(tst_rse1)
+        add_rse(new_rse1, 'root', **self.new_vo)
+
+        # add an account - should have counters created for RSEs on the same VO
+        usr_uuid = str(generate_uuid()).lower()[:16]
+        new_acc_str = 'shr-%s' % usr_uuid
+        new_acc = InternalAccount(new_acc_str, **self.new_vo)
+        add_account(new_acc_str, 'USER', 'rucio@email.com', 'root', **self.new_vo)
+
+        query = session.query(models.AccountUsage.account, models.AccountUsage.rse_id).\
+            distinct(models.AccountUsage.account, models.AccountUsage.rse_id).\
+            filter_by(account=new_acc)
+        acc_counters = list(query.all())
+
+        assert_not_equal(0, len(acc_counters))
+        for counter in acc_counters:
+            rse_id = counter[1]
+            vo = get_rse_vo(rse_id)
+            assert_equal(vo, self.new_vo['vo'])
+
+        # add an RSE - should have counters created for accounts on the same VO
+        new_rse2 = 'NEW2_' + rse_str
+        new_rse2_id = add_rse(new_rse2, 'root', **self.new_vo)
+
+        query = session.query(models.AccountUsage.account, models.AccountUsage.rse_id).\
+            distinct(models.AccountUsage.account, models.AccountUsage.rse_id).\
+            filter_by(rse_id=new_rse2_id)
+        rse_counters = list(query.all())
+
+        assert_not_equal(0, len(rse_counters))
+        for counter in rse_counters:
+            account = counter[0]
+            assert_equal(account.vo, self.new_vo['vo'])
+
+        # make sure we can't add counters to mismatching VO combinations later
+        tst_rse1_id = get_rse_id(tst_rse1, **self.vo)
+        with assert_raises(InputValidationError):
+            increase(tst_rse1_id, new_acc, 1, 10)
+
+        # force update with mismatching VO combination
+        models.UpdatedAccountCounter(account=new_acc, rse_id=tst_rse1_id, files=1, bytes=10).save(session=session)
+        with assert_raises(NoResultFound):
+            update_account_counter(new_acc, tst_rse1_id)
+        session.query(models.UpdatedAccountCounter).filter_by(rse_id=tst_rse1_id, account=new_acc).delete(synchronize_session=False)
+
+        session.commit()
