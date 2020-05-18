@@ -41,7 +41,7 @@ import traceback
 import time
 
 from logging import getLogger, StreamHandler, ERROR
-from os import environ, fdopen, path, makedirs, geteuid, close
+from os import environ, fdopen, path, makedirs, geteuid
 from shutil import move
 from tempfile import mkstemp
 
@@ -420,7 +420,7 @@ class BaseClient(object):
         if self.token_exp_epoch is None:
             # check expiration time for a new token
             pass
-        elif time.time() > self.token_exp_epoch - self.auth_oidc_refresh_before_exp*60 and time.time() < self.token_exp_epoch:
+        elif time.time() > self.token_exp_epoch - self.auth_oidc_refresh_before_exp * 60 and time.time() < self.token_exp_epoch:
             # attempt to refresh token
             pass
         else:
@@ -430,11 +430,10 @@ class BaseClient(object):
                    'X-Rucio-Auth-Token': self.auth_token}
 
         for retry in range(self.AUTH_RETRIES + 1):
-            LOG.debug("JWT refresh attempt nr. %i" % int(retry + 1))
             try:
+                LOG.debug("JWT refresh attempt nr. %i" % int(retry + 1))
                 request_refresh_url = build_url(self.auth_host, path='auth/oidc_refresh')
                 refresh_result = self.session.get(request_refresh_url, headers=headers, verify=self.ca_cert)
-                print(refresh_result.headers)
                 if refresh_result.status_code == codes.ok:
                     if 'X-Rucio-Auth-Token-Expires' not in refresh_result.headers or \
                        'X-Rucio-Auth-Token' not in refresh_result.headers:
@@ -443,17 +442,20 @@ class BaseClient(object):
                     else:
                         new_token = refresh_result.headers['X-Rucio-Auth-Token']
                         new_exp_epoch = refresh_result.headers['X-Rucio-Auth-Token-Expires']
-                        print("I AM Here", new_token, new_exp_epoch)
                         if new_token and new_exp_epoch:
+                            LOG.debug("Saving token %s and expiration epoch %s to files" % (str(new_token), str(new_exp_epoch)))
                             # save to the file
                             self.auth_token = new_token
                             self.token_exp_epoch = new_exp_epoch
                             self.__write_token()
                             self.headers['X-Rucio-Auth-Token'] = self.auth_token
                             return True
+                        LOG.debug("No new token was received, possibly invalid/expired \
+                                   \ntoken or a token with no refresh token in Rucio DB")
                         return False
                 else:
-                    print("Rucio Client did not succeed to contact the Rucio Auth Server.")
+                    print("Rucio Client did not succeed to contact the \
+                           \nRucio Auth Server when attempting token refresh.")
                     return False
 
                 break
@@ -462,7 +464,6 @@ class BaseClient(object):
                 self.ca_cert = False
                 if retry > self.request_retries:
                     raise
-
 
     def __get_token_OIDC(self):
         """
@@ -496,9 +497,9 @@ class BaseClient(object):
                 result = None
                 request_auth_url = build_url(self.auth_host, path='auth/oidc')
                 # requesting authorization URL specific to the user & Rucio OIDC Client
-                print(headers)
+                LOG.debug("Initial auth URL request headers %s to files" % str(headers))
                 OIDC_auth_res = self.session.get(request_auth_url, headers=headers, verify=self.ca_cert)
-                print(OIDC_auth_res.headers, OIDC_auth_res.text)
+                LOG.debug("Response headers %s and text %s" % (str(OIDC_auth_res.headers), str(OIDC_auth_res.text)))
                 # with the obtained authorization URL we will contact the Identity Provider to get to the login page
                 if 'X-Rucio-OIDC-Auth-URL' not in OIDC_auth_res.headers:
                     print("Rucio Client did not succeed to get AuthN/Z URL from the Rucio Auth Server. \
@@ -549,7 +550,8 @@ class BaseClient(object):
                     # if the Rucio OIDC Client configuration does not match the one registered at the Identity Provider
                     # the user will get an OAuth error
                     if 'OAuth Error' in result.text:
-                        LOG.error('Identity Provider does not allow to proceed. Could be due to misconfigured redirection server name of the Rucio OIDC Client.')
+                        LOG.error('Identity Provider does not allow to proceed. Could be due \
+                                   \nto misconfigured redirection server name of the Rucio OIDC Client.')
                         return False
                     # In case Rucio Client is not authorized to request information about this user yet,
                     # it will automatically authorize itself on behalf of the user.
@@ -585,7 +587,9 @@ class BaseClient(object):
 
         self.auth_token = result.headers['x-rucio-auth-token']
         if self.auth_oidc_refresh_active:
+            LOG.debug("Reseting the token expiration epoch file content.")
             # reset the token expiration epoch file content
+            # at new CLI OIDC authentication
             self.token_exp_epoch = None
             file_d, file_n = mkstemp(dir=self.token_path)
             with fdopen(file_d, "w") as f_exp_epoch:
@@ -918,8 +922,6 @@ class BaseClient(object):
         elif self.auth_type == 'oidc':
             if self.creds['oidc_auto'] and (self.creds['oidc_username'] is None or self.creds['oidc_password'] is None):
                 raise NoAuthInformation('For automatic OIDC log-in with your Identity Provider username and password are required.')
-            if not self.creds['oidc_scope']:
-                raise NoAuthInformation('For OIDC log-in you need to provide a scope parameter. The minimal expected by Rucio server is usually "openid profile"')
         elif self.auth_type == 'x509':
             if self.creds['client_cert'] is None:
                 raise NoAuthInformation('The path to the client certificate is required')
