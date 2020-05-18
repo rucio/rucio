@@ -489,7 +489,6 @@ class TokenOIDC(RucioController):
             raise BadRequest()
 
 
-
 class RefreshOIDC(RucioController):
     """
     For a presented and access token which has equivalent in Rucio DB
@@ -556,7 +555,6 @@ class RefreshOIDC(RucioController):
             header('X-Rucio-Auth-Token', '')
             header('X-Rucio-Auth-Token-Expires', '')
             return str()
-            #raise generate_http_error(401, 'CannotAuthorize', 'Cannot authorize token request.')
         else:
             if result[0] and result[1]:
                 header('X-Rucio-Auth-Token', str(result[0]))
