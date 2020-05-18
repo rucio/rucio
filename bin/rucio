@@ -242,9 +242,19 @@ def get_client(args):
     """
     Returns a new client object.
     """
-    auth_type = args.auth_strategy.lower() if args.auth_strategy else None
+    if not args.auth_strategy:
+        if 'RUCIO_AUTH_TYPE' in os.environ:
+            auth_type = os.environ['RUCIO_AUTH_TYPE'].lower()
+        else:
+            try:
+                auth_type = config_get('client', 'auth_type').lower()
+            except (NoOptionError, NoSectionError):
+                logger.error('Cannot get AUTH_TYPE')
+                sys.exit(FAILURE)
+    else:
+        auth_type = args.auth_strategy.lower()
 
-    if auth_type in ['userpass', 'saml']:
+    if auth_type in ['userpass', 'saml'] and args.username is not None and args.password is not None:
         creds = {'username': args.username, 'password': args.password}
     elif auth_type == 'oidc':
         if args.oidc_issuer:
@@ -254,10 +264,9 @@ def get_client(args):
                  'oidc_audience': args.oidc_audience,
                  'oidc_polling': args.oidc_polling,
                  'oidc_refresh_lifetime': args.oidc_refresh_lifetime,
-                 'oidc_issuer': args.oidc_issuer}
-        if args.oidc_auto:
-            creds['oidc_username'] = args.oidc_username
-            creds['oidc_password'] = args.oidc_password
+                 'oidc_issuer': args.oidc_issuer,
+                 'oidc_username': args.oidc_username,
+                 'oidc_password': args.oidc_password}
     else:
         creds = None
 
@@ -269,16 +278,6 @@ def get_client(args):
                         user_agent=args.user_agent)
     except CannotAuthenticate as error:
         logger.error(error)
-        auth_type = ''
-        if not args.auth_strategy:
-            if 'RUCIO_AUTH_TYPE' in os.environ:
-                auth_type = os.environ['RUCIO_AUTH_TYPE']
-            else:
-                try:
-                    auth_type = config_get('client', 'auth_type')
-                except (NoOptionError, NoSectionError):
-                    logger.error('Cannot get AUTH_TYPE')
-                    sys.exit(FAILURE)
         if 'alert certificate expired' in error:
             logger.error('The server certificate expired.')
         elif auth_type.lower() == 'x509_proxy':
