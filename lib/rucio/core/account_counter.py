@@ -17,7 +17,7 @@
 
 from sqlalchemy.orm.exc import NoResultFound
 
-from rucio.common.exception import CounterNotFound
+from rucio.common.exception import CounterNotFound, InputValidationError
 import rucio.core.account
 import rucio.core.rse
 
@@ -49,8 +49,10 @@ def create_counters_for_new_account(account, session=None):
     :param session: The database session in use.models.RSECounter
     """
 
-    for rse_id in [rse['id'] for rse in rucio.core.rse.list_rses(session=session)]:
-        add_counter(rse_id=rse_id, account=account, session=session)
+    vo = account.vo
+    for rse in rucio.core.rse.list_rses(session=session):
+        if rse['vo'] == vo:
+            add_counter(rse_id=rse['id'], account=account, session=session)
 
 
 @transactional_session
@@ -62,8 +64,10 @@ def create_counters_for_new_rse(rse_id, session=None):
     :param session: The database session in use.models.RSECounter
     """
 
+    vo = rucio.core.rse.get_rse_vo(rse_id, session=session)
     for account in rucio.core.account.list_accounts(session=session):
-        add_counter(rse_id=rse_id, account=account['account'], session=session)
+        if account['account'].vo == vo:
+            add_counter(rse_id=rse_id, account=account['account'], session=session)
 
 
 @transactional_session
@@ -77,8 +81,10 @@ def increase(rse_id, account, files, bytes, session=None):
     :param bytes:   The corresponding amount in bytes.
     :param session: The database session in use.
     """
-
-    models.UpdatedAccountCounter(account=account, rse_id=rse_id, files=files, bytes=bytes).save(session=session)
+    if account.vo == rucio.core.rse.get_rse_vo(rse_id):
+        models.UpdatedAccountCounter(account=account, rse_id=rse_id, files=files, bytes=bytes).save(session=session)
+    else:
+        raise InputValidationError('Account VO does not match RSE VO')
 
 
 @transactional_session
@@ -149,10 +155,13 @@ def update_account_counter(account, rse_id, session=None):
         account_counter.bytes += sum([updated_account_counter.bytes for updated_account_counter in updated_account_counters])
         account_counter.files += sum([updated_account_counter.files for updated_account_counter in updated_account_counters])
     except NoResultFound:
-        models.AccountUsage(rse_id=rse_id,
-                            account=account,
-                            files=sum([updated_account_counter.files for updated_account_counter in updated_account_counters]),
-                            bytes=sum([updated_account_counter.bytes for updated_account_counter in updated_account_counters])).save(session=session)
+        if rucio.core.rse.get_rse_vo(rse_id, session=session) == account.vo:
+            models.AccountUsage(rse_id=rse_id,
+                                account=account,
+                                files=sum([updated_account_counter.files for updated_account_counter in updated_account_counters]),
+                                bytes=sum([updated_account_counter.bytes for updated_account_counter in updated_account_counters])).save(session=session)
+        else:
+            raise
 
     for update in updated_account_counters:
         update.delete(flush=False, session=session)
