@@ -17,7 +17,7 @@
 import rucio.api.permission
 import rucio.common.exception
 
-from rucio.common.utils import api_update_return_dict, api_update_rse_expression
+from rucio.common.utils import api_update_return_dict
 from rucio.common.types import InternalAccount
 
 from rucio.core import account_limit as account_limit_core
@@ -90,13 +90,7 @@ def get_global_account_limits(account, vo='def'):
     """
 
     account = InternalAccount(account, vo=vo)
-    filter = {'vo': vo}
-    limits = account_limit_core.get_global_account_limits(account=account, filter=filter)
-    limits_instead = {}
-    for rse_expr in limits.keys():
-        rse_expr_instead = api_update_rse_expression(rse_expr)
-        limits_instead[rse_expr_instead] = limits[rse_expr]
-    return limits_instead
+    return account_limit_core.get_global_account_limits(account=account)
 
 
 def get_global_account_limit(account, rse_expression, vo='def'):
@@ -113,15 +107,8 @@ def get_global_account_limit(account, rse_expression, vo='def'):
     """
 
     account = InternalAccount(account, vo=vo)
-    external_rse_expression = rse_expression
 
-    if vo != 'def':
-        if rse_expression is not None:
-            rse_expression = 'vo={}&({})'.format(vo, rse_expression)
-        else:
-            rse_expression = 'vo={}'.format(vo)
-
-    return {external_rse_expression: account_limit_core.get_global_account_limit(account=account, rse_expression=rse_expression)}
+    return {rse_expression: account_limit_core.get_global_account_limit(account=account, rse_expression=rse_expression)}
 
 
 def set_local_account_limit(account, rse, bytes, issuer, vo='def'):
@@ -167,12 +154,6 @@ def set_global_account_limit(account, rse_expression, bytes, issuer, vo='def'):
 
     if not account_exists(account=account):
         raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (account))
-
-    if vo != 'def':
-        if rse_expression is not None:
-            rse_expression = 'vo={}&({})'.format(vo, rse_expression)
-        else:
-            rse_expression = 'vo={}'.format(vo)
 
     account_limit_core.set_global_account_limit(account=account, rse_expression=rse_expression, bytes=bytes)
 
@@ -222,12 +203,6 @@ def delete_global_account_limit(account, rse_expression, issuer, vo='def'):
 
     if not account_exists(account=account):
         raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (account))
-
-    if vo != 'def':
-        if rse_expression is not None:
-            rse_expression = 'vo={}&({})'.format(vo, rse_expression)
-        else:
-            rse_expression = 'vo={}'.format(vo)
 
     return account_limit_core.delete_global_account_limit(account=account, rse_expression=rse_expression)
 
@@ -280,11 +255,5 @@ def get_global_account_usage(account, rse_expression, issuer, vo='def'):
 
     if not account_exists(account=account):
         raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (account))
-
-    if vo != 'def':
-        if rse_expression is not None:
-            rse_expression = 'vo={}&({})'.format(vo, rse_expression)
-        else:
-            rse_expression = 'vo={}'.format(vo)
 
     return [api_update_return_dict(d) for d in account_limit_core.get_global_account_usage(account=account, rse_expression=rse_expression)]
