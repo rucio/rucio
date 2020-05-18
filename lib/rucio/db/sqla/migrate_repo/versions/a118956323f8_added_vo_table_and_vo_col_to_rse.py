@@ -26,7 +26,7 @@ from alembic.op import (add_column, create_primary_key, create_table, create_uni
 
 
 def String(*arg, **kw):
-    kw['convert_unicode'] = 'force'
+    kw['convert_unicode'] = True
     return sa.String(*arg, **kw)
 
 
