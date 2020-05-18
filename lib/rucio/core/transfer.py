@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
-# - Martin Barisits <martin.barisits@cern.ch>, 2017-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
 # - Vincent Garonne <vgaronne@gmail.com>, 2017
 # - Igor Mandrichenko <rucio@fermicloud055.fnal.gov>, 2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2020
@@ -780,7 +780,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 # III - Extend the metadata dictionary with request attributes
                 overwrite, bring_online = True, None
-                if rses_info[source_rse_id]['rse_type'] == RSEType.TAPE or rses_info[source_rse_id]['rse_type'] == 'TAPE':
+                if rses_info[source_rse_id]['rse_type'] == RSEType.TAPE or rses_info[source_rse_id]['rse_type'] == 'TAPE' or rse_attrs[source_rse_id].get('staging_required', False):
                     bring_online = bring_online_local
                     transfer_src_type = "TAPE"
                     if not allow_tape_source:
@@ -973,7 +973,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 # TAPE should not mixed with Disk and should not use as first try
                 # If there is a source whose ranking is no less than the Tape ranking, Tape will not be used.
 
-                if rses_info[source_rse_id]['rse_type'] == RSEType.TAPE or rses_info[source_rse_id]['rse_type'] == 'TAPE':
+                if rses_info[source_rse_id]['rse_type'] == RSEType.TAPE or rses_info[source_rse_id]['rse_type'] == 'TAPE' or rse_attrs[source_rse_id].get('staging_required', False):
                     # current src_rse is Tape
                     if not allow_tape_source:
                         continue
