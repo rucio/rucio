@@ -50,11 +50,11 @@ class DataPoint:
 class Default(protocol.RSEProtocol):
     """ Implementing access to RSEs using ARC client."""
 
-    def __init__(self, protocol_attr, rse_settings):
+    def __init__(self, protocol_attr, rse_settings, logger=None):
         """
         Set up UserConfig object.
         """
-        super(Default, self).__init__(protocol_attr, rse_settings)
+        super(Default, self).__init__(protocol_attr, rse_settings, logger=logger)
 
         # Arc logging to stdout, uncomment for debugging. Should use root
         # logger level eventually.

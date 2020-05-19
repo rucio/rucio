@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
-# - Martin Barisits <martin.barisits@cern.ch>, 2017-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
 # - Vincent Garonne <vgaronne@gmail.com>, 2017
 # - Igor Mandrichenko <rucio@fermicloud055.fnal.gov>, 2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2020
@@ -142,15 +142,13 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
                 getadmintoken = True
             logging.debug('Attempting to get a token for account %s. Admin token option set to %s' % (account, getadmintoken))
             # find the appropriate OIDC token and exchange it (for user accounts) if necessary
-            token_object = get_token_for_account_operation(account, req_audience=REQUEST_OIDC_AUDIENCE, req_scope=REQUEST_OIDC_SCOPE, admin=getadmintoken)
-            if token_object is not None:
+            token_dict = get_token_for_account_operation(account, req_audience=REQUEST_OIDC_AUDIENCE, req_scope=REQUEST_OIDC_SCOPE, admin=getadmintoken)
+            if token_dict is not None:
                 logging.debug('Access token has been granted.')
-                transfer_token = token_object.token
-        if not user_transfer_job:
-            transfer_id = FTS3Transfertool(external_host=external_host, token=transfer_token).submit(files=job_files, job_params=job_params, timeout=timeout)
-        else:
-            # if no valid USER TRANSFER cases --> go with std submission
-            transfer_id = FTS3Transfertool(external_host=external_host, token=transfer_token).submit(files=job_files, job_params=job_params, timeout=timeout)
+                if 'token' in token_dict:
+                    logging.debug('Access token used as transfer token.')
+                    transfer_token = token_dict['token']
+        transfer_id = FTS3Transfertool(external_host=external_host, token=transfer_token).submit(files=job_files, job_params=job_params, timeout=timeout)
         record_timer('core.request.submit_transfers_fts3', (time.time() - start_time) * 1000 / len(files))
     elif transfertool == 'globus':
         logging.debug('... Starting globus xfer ...')
@@ -168,6 +166,9 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
             job_files.append(job_file)
         logging.debug('job_files: %s' % job_files)
         transfer_id = GlobusTransferTool(external_host=None).bulk_submit(submitjob=job_files, timeout=timeout)
+    elif transfertool == 'mock':
+        import uuid
+        transfer_id = str(uuid.uuid1())
     return transfer_id
 
 
@@ -779,7 +780,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 # III - Extend the metadata dictionary with request attributes
                 overwrite, bring_online = True, None
-                if rses_info[source_rse_id]['rse_type'] == RSEType.TAPE or rses_info[source_rse_id]['rse_type'] == 'TAPE':
+                if rses_info[source_rse_id]['rse_type'] == RSEType.TAPE or rses_info[source_rse_id]['rse_type'] == 'TAPE' or rse_attrs[source_rse_id].get('staging_required', False):
                     bring_online = bring_online_local
                     transfer_src_type = "TAPE"
                     if not allow_tape_source:
@@ -972,7 +973,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 # TAPE should not mixed with Disk and should not use as first try
                 # If there is a source whose ranking is no less than the Tape ranking, Tape will not be used.
 
-                if rses_info[source_rse_id]['rse_type'] == RSEType.TAPE or rses_info[source_rse_id]['rse_type'] == 'TAPE':
+                if rses_info[source_rse_id]['rse_type'] == RSEType.TAPE or rses_info[source_rse_id]['rse_type'] == 'TAPE' or rse_attrs[source_rse_id].get('staging_required', False):
                     # current src_rse is Tape
                     if not allow_tape_source:
                         continue

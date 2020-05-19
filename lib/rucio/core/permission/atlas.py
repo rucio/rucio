@@ -20,6 +20,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Eric Vaandering, <ewv@fnal.gov>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -27,6 +28,7 @@ import rucio.core.did
 import rucio.core.scope
 from rucio.core.account import list_account_attributes, has_account_attribute
 from rucio.core.identity import exist_identity_account
+from rucio.core.permission.generic import perm_get_global_account_usage
 from rucio.core.rse import list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_rule
@@ -104,6 +106,7 @@ def has_permission(issuer, action, kwargs):
             'config_remove_section': perm_config,
             'config_remove_option': perm_config,
             'get_local_account_usage': perm_get_local_account_usage,
+            'get_global_account_usage': perm_get_global_account_usage,
             'add_attribute': perm_add_account_attribute,
             'del_attribute': perm_del_account_attribute,
             'list_heartbeats': perm_list_heartbeats,
