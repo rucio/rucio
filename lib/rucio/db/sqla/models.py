@@ -18,7 +18,7 @@
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2019
+# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2020
 # - Wen Guan, <wen.guan@cern.ch>, 2015
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
@@ -29,6 +29,7 @@
 # PY3K COMPATIBLE
 
 import datetime
+import sys
 import uuid
 
 from six import iteritems
@@ -58,17 +59,20 @@ from rucio.db.sqla.types import InternalScopeString as _InternalScopeString
 # Recipe to force str instead if unicode
 # https://groups.google.com/forum/#!msg/sqlalchemy/8Xn31vBfGKU/bAGLNKapvSMJ
 def String(*arg, **kw):
-    kw['convert_unicode'] = True
+    if sys.version_info[0] < 3:
+        kw['convert_unicode'] = 'force'
     return _String(*arg, **kw)
 
 
 def InternalScopeString(*arg, **kw):
-    kw['convert_unicode'] = True
+    if sys.version_info[0] < 3:
+        kw['convert_unicode'] = 'force'
     return _InternalScopeString(*arg, **kw)
 
 
 def InternalAccountString(*arg, **kw):
-    kw['convert_unicode'] = True
+    if sys.version_info[0] < 3:
+        kw['convert_unicode'] = 'force'
     return _InternalAccountString(*arg, **kw)
 
 
