@@ -431,7 +431,6 @@ class BaseClient(object):
 
         headers = {'X-Rucio-Account': self.account,
                    'X-Rucio-Auth-Token': self.auth_token}
-        headers = {}
 
         for retry in range(self.AUTH_RETRIES + 1):
             try:
