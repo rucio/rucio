@@ -28,6 +28,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -267,7 +268,10 @@ def get_rse_id(rse, vo='def', session=None, include_deleted=True):
     """
 
     if include_deleted:
-        cache_key = 'rse-id_{}'.format(rse).replace(' ', '.')
+        if vo != 'def':
+            cache_key = 'rse-id_{}@{}'.format(rse, vo).replace(' ', '.')
+        else:
+            cache_key = 'rse-id_{}'.format(rse).replace(' ', '.')
         result = REGION.get(cache_key)
         if result != NO_VALUE:
             return result
