@@ -194,7 +194,13 @@ class TestMultiVoClients(object):
         rse_client.add_rse(tst)
         rse_client.add_rse(shr)
         add_rse(new, 'root', **self.new_vo)
-        add_rse(shr, 'root', **self.new_vo)
+        shr_id_new_original = add_rse(shr, 'root', **self.new_vo)  # Accurate rse_id for shared RSE at 'new'
+
+        shr_id_tst = get_rse_id(shr, **self.vo)
+        shr_id_new = get_rse_id(shr, **self.new_vo)
+        assert_equal(shr_id_new, shr_id_new_original)
+        assert_not_equal(shr_id_new, shr_id_tst)
+
         rse_list_tst = [r['rse'] for r in rse_client.list_rses()]
         rse_list_new = [r['rse'] for r in list_rses(filters={}, **self.new_vo)]
         assert_true(tst in rse_list_tst)
