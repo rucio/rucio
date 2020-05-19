@@ -26,6 +26,7 @@ from rucio.api.account import add_account, list_accounts
 from rucio.api.account_limit import set_local_account_limit
 from rucio.api.did import add_did, list_dids
 from rucio.api.identity import list_accounts_for_identity
+from rucio.api.replica import list_replicas
 from rucio.api.rse import add_rse, add_rse_attribute, list_rses
 from rucio.api.rule import delete_replication_rule, get_replication_rule
 from rucio.api.scope import add_scope, list_scopes
@@ -428,3 +429,9 @@ class TestMultiVODaemons(object):
         did_list_new = [d for d in list_dids(shr_scope, {}, **self.new_vo)]
         assert_not_equal(len(did_list_tst), 0)
         assert_equal(len(did_list_new), 0)
+
+        did_dicts = [{'scope': shr_scope, 'name': n} for n in did_list_tst]
+        replicas_tst = [r for r in ReplicaClient().list_replicas(did_dicts, rse_expression=shr_rse)]
+        replicas_new = [r for r in list_replicas(did_dicts, rse_expression=shr_rse, **self.new_vo)]
+        assert_not_equal(len(replicas_tst), 0)
+        assert_equal(len(replicas_new), 0)
