@@ -525,7 +525,7 @@ def get_rses_with_attribute(key, session=None):
 
 
 @read_session
-def get_rses_with_attribute_value(key, value, lookup_key, session=None):
+def get_rses_with_attribute_value(key, value, lookup_key, vo='def', session=None):
     """
     Return all RSEs with a certain attribute.
 
@@ -536,8 +536,12 @@ def get_rses_with_attribute_value(key, value, lookup_key, session=None):
 
     :returns: List of rse dictionaries with the rse_id and lookup_key/value pair
     """
+    if vo != 'def':
+        cache_key = 'av-%s-%s-%s@%s' % (key, value, lookup_key, vo)
+    else:
+        cache_key = 'av-%s-%s-%s' % (key, value, lookup_key)
 
-    result = REGION.get('av-%s-%s-%s' % (key, value, lookup_key))
+    result = REGION.get(cache_key)
     if result is NO_VALUE:
 
         rse_list = []
@@ -553,14 +557,15 @@ def get_rses_with_attribute_value(key, value, lookup_key, session=None):
                        .join(models.RSE, models.RSE.id == models.RSEAttrAssociation.rse_id)\
                        .join(subquery, models.RSEAttrAssociation.rse_id == subquery.c.rse_id)\
                        .filter(models.RSE.deleted == false(),
-                               models.RSEAttrAssociation.key == lookup_key)
+                               models.RSEAttrAssociation.key == lookup_key)\
+                       .filter(models.RSE.vo == vo)
 
         for row in query:
             rse_list.append({'rse_id': row[0],
                              'key': row[1],
                              'value': row[2]})
 
-        REGION.set('av-%s-%s-%s' % (key, value, lookup_key), rse_list)
+        REGION.set(cache_key, rse_list)
         return rse_list
 
     return result
