@@ -26,7 +26,7 @@ from rucio.api.account import add_account, list_accounts
 from rucio.api.account_limit import set_local_account_limit
 from rucio.api.did import add_did, list_dids
 from rucio.api.identity import list_accounts_for_identity
-from rucio.api.rse import add_rse, list_rses
+from rucio.api.rse import add_rse, add_rse_attribute, list_rses
 from rucio.api.rule import delete_replication_rule, get_replication_rule
 from rucio.api.scope import add_scope, list_scopes
 from rucio.api.subscription import add_subscription, list_subscriptions
@@ -44,7 +44,7 @@ from rucio.common.exception import AccessDenied, Duplicate, InputValidationError
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.account_counter import increase, update_account_counter
-from rucio.core.rse import get_rse_id, get_rse_vo
+from rucio.core.rse import get_rses_with_attribute_value, get_rse_id, get_rse_vo
 from rucio.core.rule import add_rule
 from rucio.core.vo import add_vo, vo_exists
 from rucio.db.sqla import models, session as db_session
@@ -209,6 +209,17 @@ class TestMultiVoClients(object):
         assert_false(tst in rse_list_new)
         assert_true(new in rse_list_new)
         assert_true(shr in rse_list_new)
+
+        attribute_value = generate_uuid()
+        add_rse_attribute(new, 'test', attribute_value, 'root', **self.new_vo)
+        rses_tst_1 = [r for r in get_rses_with_attribute_value('test', attribute_value, 'test', **self.vo)]
+        rses_new_1 = [r for r in get_rses_with_attribute_value('test', attribute_value, 'test', **self.new_vo)]
+        rses_tst_2 = [r for r in get_rses_with_attribute_value('test', attribute_value, 'test', **self.vo)]
+        rses_new_2 = [r for r in get_rses_with_attribute_value('test', attribute_value, 'test', **self.new_vo)]
+        assert_equal(len(rses_tst_1), 0)
+        assert_not_equal(len(rses_new_1), 0)
+        assert_equal(len(rses_tst_2), 0)
+        assert_not_equal(len(rses_new_2), 0)
 
     def test_scopes_at_different_vos(self):
         """ MULTI VO (CLIENT): Test that scopes from 2nd vo don't interfere """
