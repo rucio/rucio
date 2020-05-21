@@ -19,6 +19,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -109,7 +110,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
 
                     # We compute the expected eol_at
                     try:
-                        rses = parse_expression(rule.rse_expression)
+                        rses = parse_expression(rule.rse_expression, filter={'vo': rule.account.vo})
                     except InvalidRSEExpression:
                         logging.warning(prepend_str + 'Rule %s has an RSE expression that results in an empty set: %s' % (rule.id, rule.rse_expression))
                         continue

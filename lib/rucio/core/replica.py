@@ -54,7 +54,7 @@ import rucio.core.did
 import rucio.core.lock
 
 from rucio.common import exception
-from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query, add_vo_to_rse_expression
+from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
 from rucio.common.types import InternalScope
 from rucio.core.config import get as config_get
 from rucio.core.credential import get_signed_url
@@ -70,7 +70,7 @@ from rucio.rse import rsemanager as rsemgr
 
 
 @read_session
-def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, session=None):
+def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, filter=None, session=None):
     """
     List the bad file replicas summary. Method used by the rucio-ui.
     :param rse_expression: The RSE expression.
@@ -82,7 +82,7 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
     incidents = {}
     rse_clause = []
     if rse_expression:
-        for rse in parse_expression(expression=rse_expression, session=session):
+        for rse in parse_expression(expression=rse_expression, filter=filter, session=session):
             rse_clause.append(models.BadReplicas.rse_id == rse['id'])
 
     if session.bind.dialect.name == 'oracle':
@@ -742,7 +742,7 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, updat
 def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                    schemes, files, rse_clause, rse_expression, client_location, domain,
                    sign_urls, signature_lifetime, constituents, resolve_parents,
-                   updated_after, vo,
+                   updated_after, filters,
                    session):
 
     files = [dataset_clause and _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, updated_after, session),
@@ -757,8 +757,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
     if domain is None:
         if client_location and 'site' in client_location and client_location['site']:
             try:
-                rse_expression = add_vo_to_rse_expression('site=%s' % client_location['site'], vo=vo)
-                local_rses = [rse['id'] for rse in parse_expression(rse_expression, session=session)]
+                local_rses = [rse['id'] for rse in parse_expression('site=%s' % client_location['site'], filter=filters, session=session)]
             except Exception:
                 pass  # do not hard fail if site cannot be resolved or is empty
 
@@ -1127,6 +1126,10 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param updated_after: datetime (UTC time), only return replicas updated after this time
     :param session: The database session in use.
     """
+    if dids:
+        filter = {'vo': dids[0]['scope'].vo}
+    else:
+        filter = {'vo': 'def'}
 
     file_clause, dataset_clause, state_clause, files, constituents = _resolve_dids(dids=dids, unavailable=unavailable,
                                                                                    ignore_availability=ignore_availability,
@@ -1136,16 +1139,12 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
 
     rse_clause = []
     if rse_expression:
-        for rse in parse_expression(expression=rse_expression, session=session):
+        for rse in parse_expression(expression=rse_expression, filter=filter, session=session):
             rse_clause.append(models.RSEFileAssociation.rse_id == rse['id'])
-    if dids:
-        vo = dids[0]['scope'].vo
-    else:
-        vo = 'def'
     for f in _list_replicas(dataset_clause, file_clause, state_clause, pfns,
                             schemes, files, rse_clause, rse_expression, client_location, domain,
                             sign_urls, signature_lifetime, constituents, resolve_parents,
-                            updated_after, vo,
+                            updated_after, filter,
                             session):
         yield f
 
@@ -2879,7 +2878,7 @@ def get_replicas_state(scope=None, name=None, session=None):
 
 
 @read_session
-def get_suspicious_files(rse_expression, **kwargs):
+def get_suspicious_files(rse_expression, filter=None, **kwargs):
     """
     Gets a list of replicas from bad_replicas table which are: declared more than <nattempts> times since <younger_than> date,
     present on the RSE specified by the <rse_expression> and do not have a state in <exclude_states> list.
@@ -2926,7 +2925,7 @@ def get_suspicious_files(rse_expression, **kwargs):
     # assembling the selection rse_clause
     rse_clause = []
     if rse_expression:
-        parsedexp = parse_expression(expression=rse_expression, session=session)
+        parsedexp = parse_expression(expression=rse_expression, filter=filter, session=session)
         for rse in parsedexp:
             rse_clause.append(models.RSEFileAssociation.rse_id == rse['id'])
 

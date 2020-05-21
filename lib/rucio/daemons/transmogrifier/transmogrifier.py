@@ -174,9 +174,7 @@ def select_algorithm(algorithm, rule_ids, params):
             rule = get_rule(rule_id)
             logging.debug('In select_algorithm, %s', str(rule))
             rse = rule['rse_expression']
-            vo_pattern = '(?<=vo=)[a-zA-Z0-9]{1,3}(?=&|$)'
-            vo_match = re.search(vo_pattern, rse)
-            vo = vo_match.group(0) if vo_match else 'def'
+            vo = rule['account'].vo
             if rse_exists(rse, vo=vo):
                 rse_id = get_rse_id(rse, vo=vo)
                 rse_attributes = list_rse_attributes(rse_id)
@@ -331,12 +329,13 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                     else:
                                         # In the case of chained subscription, don't use rseselector but use the rses returned by the algorithm
                                         if split_rule:
-                                            rses = parse_expression(rse_expression)
+                                            vo = account.vo
+                                            rses = parse_expression(rse_expression, filter={'vo': vo})
                                             list_of_rses = [rse['id'] for rse in rses]
                                             # Check that some rule doesn't already exist for this DID and subscription
                                             preferred_rse_ids = []
                                             for rule in list_rules(filters={'subscription_id': subscription_id, 'scope': did['scope'], 'name': did['name']}):
-                                                already_existing_rses = [(rse['rse'], rse['id']) for rse in parse_expression(rule['rse_expression'])]
+                                                already_existing_rses = [(rse['rse'], rse['id']) for rse in parse_expression(rule['rse_expression'], filter={'vo': vo})]
                                                 for rse, rse_id in already_existing_rses:
                                                     if (rse_id in list_of_rses) and (rse_id not in preferred_rse_ids):
                                                         preferred_rse_ids.append(rse_id)
@@ -376,12 +375,8 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                                             source_replica_expression = selected_rses[rse].get('source_replica_expression', None)
                                                             weight = selected_rses[rse].get('weight', None)
                                                         logging.info(prepend_str + 'Will insert one rule for %s:%s on %s' % (did['scope'], did['name'], rse))
-                                                        if did['scope'].vo != 'def':
-                                                            rse_str = 'vo={}&({})'.format(did['scope'].vo, rse)
-                                                        else:
-                                                            rse_str = rse
                                                         rule_ids = add_rule(dids=[{'scope': did['scope'], 'name': did['name']}], account=account, copies=1,
-                                                                            rse_expression=rse_str, grouping=grouping, weight=weight, lifetime=lifetime, locked=locked,
+                                                                            rse_expression=rse, grouping=grouping, weight=weight, lifetime=lifetime, locked=locked,
                                                                             subscription_id=subscription_id, source_replica_expression=source_replica_expression, activity=activity,
                                                                             purge_replicas=purge_replicas, ignore_availability=ignore_availability, comment=comment)
                                                         created_rules[cnt].append(rule_ids[0])

@@ -77,17 +77,6 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
     for d in dids:
         d['scope'] = InternalScope(d['scope'], vo=vo)
 
-    if vo != 'def':
-        if rse_expression is not None:
-            rse_expression = 'vo={}&({})'.format(vo, rse_expression)
-        else:
-            rse_expression = 'vo={}'.format(vo)
-
-        if source_replica_expression is not None:
-            source_replica_expression = 'vo={}&({})'.format(vo, source_replica_expression)
-        else:
-            source_replica_expression = 'vo={}'.format(vo)
-
     return rule.add_rule(account=account,
                          dids=dids,
                          copies=copies,
@@ -258,12 +247,6 @@ def reduce_replication_rule(rule_id, copies, exclude_expression, issuer, vo='def
     if not has_permission(issuer=issuer, vo=vo, action='reduce_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not reduce this replication rule.' % (issuer))
 
-    if vo != 'def':
-        if exclude_expression is not None:
-            exclude_expression = 'vo={}&({})'.format(vo, exclude_expression)
-        else:
-            exclude_expression = 'vo={}'.format(vo)
-
     return rule.reduce_rule(rule_id=rule_id, copies=copies, exclude_expression=exclude_expression)
 
 
@@ -300,11 +283,5 @@ def move_replication_rule(rule_id, rse_expression, issuer, vo='def'):
         raise AccessDenied('Account %s can not access rules at other VOs.' % (issuer))
     if not has_permission(issuer=issuer, vo=vo, action='move_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not move this replication rule.' % (issuer))
-
-    if vo != 'def':
-        if rse_expression is not None:
-            rse_expression = 'vo={}&({})'.format(vo, rse_expression)
-        else:
-            rse_expression = 'vo={}'.format(vo)
 
     return rule.move_rule(rule_id=rule_id, rse_expression=rse_expression)

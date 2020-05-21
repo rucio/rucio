@@ -15,6 +15,7 @@
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -46,17 +47,15 @@ class TestAbacusRSE():
 
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': 'tst'}
-            self.rse_include = 'vo=tst&{}'.format(self.rse)
         else:
             self.vo = {}
-            self.rse_include = self.rse
 
         self.rse_id = get_rse_id(self.rse, session=self.session, **self.vo)
 
     def tearDown(self):
         undertaker.run(once=True)
         cleaner.run(once=True)
-        reaper.run(once=True, include_rses=self.rse_include, greedy=True)
+        reaper.run(once=True, include_rses=self.rse, greedy=True)
 
     def test_abacus_rse(self):
         """ ABACUS (RSE): Test update of RSE usage. """
@@ -79,7 +78,7 @@ class TestAbacusRSE():
 
         # Delete files -> rse usage should decrease
         cleaner.run(once=True)
-        reaper.run(once=True, include_rses=self.rse_include, greedy=True)
+        reaper.run(once=True, include_rses=self.rse, greedy=True)
         rse.run(once=True)
         rse_usage = get_rse_usage(rse_id=self.rse_id)[0]
         assert_equal(rse_usage['used'], 0)

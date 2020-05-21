@@ -15,6 +15,7 @@
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -38,7 +39,7 @@ from rucio.api.scope import add_scope, list_scopes, get_scopes
 from rucio.api.subscription import add_subscription, list_subscriptions, list_subscription_rule_states, get_subscription_by_id
 from rucio.common.config import config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import api_update_return_dict, api_update_rse_expression, generate_uuid
+from rucio.common.utils import api_update_return_dict, generate_uuid
 from rucio.core.account_counter import add_counter, del_counter, increase, update_account_counter
 from rucio.core.rse import get_rse_id
 from rucio.core.vo import add_vo, vo_exists
@@ -87,7 +88,7 @@ class TestApiExternalRepresentation():
         """ API: Test the conversion of dictionaries to external representation """
         test_dict = {'account': self.account,
                      'scope': self.scope,
-                     'rse_expression': 'vo=tst&(MOCK|MOCK2)',
+                     'rse_expression': 'MOCK|MOCK2',
                      'rse_id': self.rse_id,
                      'src_rse_id': self.rse_id,
                      'source_rse_id': self.rse_id,
@@ -101,15 +102,6 @@ class TestApiExternalRepresentation():
                       'dest_rse_id': self.rse_id, 'dest_rse': self.rse_name,
                       'destination_rse_id': self.rse_id, 'destination_rse': self.rse_name},
                      out)
-
-    def test_api_update_rse_expression(self):
-        """ API: Test the removal of VO from RSE expression """
-        rse_expr = 'vo=tst&(MOCK|MOCK2)'
-        assert_equal('MOCK|MOCK2', api_update_rse_expression(rse_expr))
-        rse_expr = 'MOCK'
-        assert_equal('MOCK', api_update_rse_expression(rse_expr))
-        rse_expr = 'vo=tst'
-        assert_equal('', api_update_rse_expression(rse_expr))
 
     def test_api_account(self):
         """ ACCOUNT (API): Test external representation of account information """

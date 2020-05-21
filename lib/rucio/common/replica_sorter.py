@@ -143,8 +143,7 @@ def site_selector(replicas, site, vo):
     """
     result = []
     try:
-        rse_expression = utils.add_vo_to_rse_expression("site=%s" % site, vo=vo)
-        rses = parse_expression(rse_expression)
+        rses = parse_expression("site=%s" % site, filter={'vo': vo})
     except InvalidRSEExpression:
         return result
     except Exception:
