@@ -223,25 +223,12 @@ class TestApiExternalRepresentation():
         """ REPLICA (API): Test external representation of replicas """
 
         did = 'ext_' + str(generate_uuid())
-        add_replicas('MOCK', [{'scope': self.scope_name, 'name': did, 'bytes': 100}], issuer='root', **self.vo)
+        add_replicas(self.rse_name, [{'scope': self.scope_name, 'name': did, 'bytes': 100}], issuer='root', **self.vo)
 
         add_did(self.scope_name, 'ext_parent_2', 'dataset', issuer='root', account=self.account_name, **self.vo)
         attachment = {'scope': self.scope_name, 'name': 'ext_parent_2',
                       'dids': [{'scope': self.scope_name, 'name': did}]}
         attach_dids_to_dids([attachment], issuer='root', **self.vo)
-
-        # get_did_from_pfns - in progress but requires fix to stfc/rucio#33
-        # protocol = Default(protocol_attr={'auth_token': None, 'prefix': '/tmp/rucio_rse/',
-        #                                   'scheme': 'https', 'hostname': 'mock.com', 'port': 8443},
-        #                    rse_settings={'rse': self.rse_name, 'id': self.rse_id, 'rse_id': self.rse_id, 'deterministic': False})
-        # lfns = {'scope': self.scope.internal, 'name': did} #should not need internal, this is because of protocol behaviour
-        # pfns = protocol.lfns2pfns(lfns)
-
-        # out = get_did_from_pfns(pfns, self.rse_name)
-        # for p in out:
-        #     assert_in('@', p)
-        #     for key in p:
-        #         assert_in('@', p[key]['scope'])
 
         out = list_replicas(dids=[{'scope': self.scope_name, 'name': did}], resolve_parents=True, **self.vo)
         out = list(out)
