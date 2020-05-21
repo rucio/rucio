@@ -89,7 +89,7 @@ def rebalance_rule(parent_rule, activity, rse_expression, priority, source_repli
     try:
         for lock in get_dataset_locks(parent_rule['scope'], parent_rule['name']):
             lock_rse_expr = lock['rse']
-            if lock_rse_expr == rse_expression:  # may need to evaluate to be sure... could get 'vo=tst&(vo=tst&(MOCK))'
+            if lock_rse_expr == rse_expression:
                 concurrent_replica = True
     except Exception as error:
         concurrent_replica = True
