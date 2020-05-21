@@ -94,17 +94,13 @@ def parse_expression(expression, filter=None, session=None):
             result.append(result_tuple[1][rse])
         REGION.set(sha256(expression.encode()).hexdigest(), result)
 
-    if filter:
-        filters_to_process = len(filter)
-    else:
-        filters_to_process = 0
-
     # Filter for VO
     vo_result = []
-    if filters_to_process and filter.get('vo'):
-        filters_to_process -= 1
+    if filter and filter.get('vo'):
+        filter = filter.copy()  # Make a copy so we can pop('vo') without affecting the object `filter` outside this function
+        vo = filter.pop('vo')
         for rse in result:
-            if rse.get('vo') == filter.get('vo'):
+            if rse.get('vo') == vo:
                 vo_result.append(rse)
     else:
         vo_result = result
@@ -114,7 +110,7 @@ def parse_expression(expression, filter=None, session=None):
 
     # Filter
     final_result = []
-    if filters_to_process:
+    if filter:
         for rse in vo_result:
             if filter.get('availability_write', False):
                 if rse.get('availability') & 2:

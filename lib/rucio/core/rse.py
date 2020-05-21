@@ -369,18 +369,13 @@ def list_rses(filters={}, session=None):
     availability_mapping = {'availability_read': 4, 'availability_write': 2, 'availability_delete': 1}
     false_value = False  # To make pep8 checker happy ...
 
-    if filters:
-        filters_to_process = len(filters)
-    else:
-        filters_to_process = 0
-
-    if filters_to_process and filters.get('vo'):
-        vo = filters.get('vo')
-        filters_to_process -= 1
+    if filters and filters.get('vo'):
+        filters = filters.copy()  # Make a copy so we can pop('vo') without affecting the object `filters` outside this function
+        vo = filters.pop('vo')
     else:
         vo = None
 
-    if filters_to_process:
+    if filters:
         if 'availability' in filters and ('availability_read' in filters or 'availability_write' in filters or 'availability_delete' in filters):
             raise exception.InvalidObject('Cannot use availability and read, write, delete filter at the same time.')
         query = session.query(models.RSE).\
