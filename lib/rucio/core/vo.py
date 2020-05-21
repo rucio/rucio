@@ -20,6 +20,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 
 from rucio.common import exception
+from rucio.common.config import config_get_bool
 from rucio.common.types import InternalAccount
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountType, IdentityType
@@ -36,6 +37,9 @@ def vo_exists(vo, session=None):
 
     :returns: True if the vo is in the vo table, False otherwise
     """
+    if not config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+        raise exception.UnsupportedOperation('VO operations cannot be performed in single VO mode.')
+
     return True if session.query(models.VO).filter_by(vo=vo).first() else False
 
 
@@ -50,6 +54,8 @@ def add_vo(vo, description, email, session=None):
     :param email: Contact email for the VO.
     :param session: The db session in use.
     """
+    if not config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+        raise exception.UnsupportedOperation('VO operations cannot be performed in single VO mode.')
 
     if len(vo) != 3:
         raise exception.RucioException('Invalid VO tag, must be 3 chars.')
@@ -87,6 +93,8 @@ def list_vos(session=None):
     :param session: The db session in use.
     :returns: List of VO dictionaries.
     """
+    if not config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+        raise exception.UnsupportedOperation('VO operations cannot be performed in single VO mode.')
 
     query = session.query(models.VO)
 
@@ -111,6 +119,9 @@ def update_vo(vo, parameters, session=None):
     :param parameters: A dictionary with the new properties.
     :param session: The db session in use.
     """
+    if not config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+        raise exception.UnsupportedOperation('VO operations cannot be performed in single VO mode.')
+
     try:
         query = session.query(models.VO).filter_by(vo=vo).one()
     except NoResultFound:
