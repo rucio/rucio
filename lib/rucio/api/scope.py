@@ -30,6 +30,10 @@ def list_scopes(filter={}, vo='def'):
 
     :returns: A list containing all scopes.
     """
+    # If filter is empty, create a new dict to avoid overwriting the function's default
+    if not filter:
+        filter = {}
+
     if 'scope' in filter:
         filter['scope'] = InternalScope(scope=filter['scope'], vo=vo)
     else:
