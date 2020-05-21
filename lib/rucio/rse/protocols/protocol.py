@@ -341,7 +341,6 @@ class RSEProtocol(object):
         vo = get_rse_vo(self.rse['id'])
         scope = InternalScope(scope, vo=vo)
         rep = replica.get_replica(scope=scope, name=name, rse_id=self.rse['id'])
-        print(rep)
         if 'path' in rep and rep['path'] is not None:
             path = rep['path']
         elif 'state' in rep and (rep['state'] is None or rep['state'] == 'UNAVAILABLE'):

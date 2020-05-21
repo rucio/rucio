@@ -31,7 +31,7 @@ import rucio.api.account_limit as api_acc_lim
 from rucio.api.did import add_did, add_did_to_followed, attach_dids_to_dids, get_users_following_did, scope_list
 from rucio.api.exporter import export_data
 from rucio.api.identity import add_account_identity, list_accounts_for_identity
-from rucio.api.replica import add_replicas, list_replicas
+from rucio.api.replica import add_replicas, get_did_from_pfns, list_replicas
 from rucio.api.request import get_request_by_did, list_requests, queue_requests
 import rucio.api.rse as api_rse
 from rucio.api.rule import add_replication_rule
@@ -223,12 +223,21 @@ class TestApiExternalRepresentation():
         """ REPLICA (API): Test external representation of replicas """
 
         did = 'ext_' + str(generate_uuid())
-        add_replicas(self.rse_name, [{'scope': self.scope_name, 'name': did, 'bytes': 100}], issuer='root', **self.vo)
+        pfn = 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/%s/%s' % (self.scope_name, generate_uuid())
+        add_replicas(self.rse2_name, files=[{'scope': self.scope_name, 'name': did, 'bytes': 100, 'pfn': pfn}], issuer='root', **self.vo)
 
         add_did(self.scope_name, 'ext_parent_2', 'dataset', issuer='root', account=self.account_name, **self.vo)
         attachment = {'scope': self.scope_name, 'name': 'ext_parent_2',
                       'dids': [{'scope': self.scope_name, 'name': did}]}
         attach_dids_to_dids([attachment], issuer='root', **self.vo)
+
+        out = get_did_from_pfns([pfn], self.rse2_name)
+        out = list(out)
+        assert_not_equal(0, len(out))
+        for p in out:
+            for key in p:
+                if p[key]['name'] == did:
+                    assert_equal(self.scope_name, p[key]['scope'])
 
         out = list_replicas(dids=[{'scope': self.scope_name, 'name': did}], resolve_parents=True, **self.vo)
         out = list(out)
@@ -325,7 +334,7 @@ class TestApiExternalRepresentation():
         increase(rse_id=self.rse_id, account=self.account, files=1, bytes=10000)
         update_account_counter(self.account, self.rse_id)
 
-        """ This test doesn't work - to be fixed
+        # This test doesn't work - to be fixed
         out = api_rse.get_rse_usage(self.rse_name, per_account=True, issuer='root', **self.vo)
         out = list(out)
         assert_not_equal(0, len(out))
@@ -335,7 +344,6 @@ class TestApiExternalRepresentation():
                 for acc_usage in usage['account_usages']:
                     if self.account_name in acc_usage['account']:
                         assert_equal(acc_usage['account'], self.account_name)
-        """
 
         out = api_rse.parse_rse_expression('%s|%s' % (self.rse_name, self.rse2_name), **self.vo)
         assert_in(self.rse_name, out)
