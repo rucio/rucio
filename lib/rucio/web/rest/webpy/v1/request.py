@@ -19,6 +19,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -125,11 +126,11 @@ class RequestsGet(RucioController):
         src_rses = []
         dst_rses = []
         if src_site:
-            src_rses = get_rses_with_attribute_value(key='site', value=src_site, lookup_key='site')
+            src_rses = get_rses_with_attribute_value(key='site', value=src_site, lookup_key='site', vo=ctx.env.get('vo'))
             if not src_rses:
                 raise generate_http_error(404, 'NotFound', 'Could not resolve site name %s to RSE' % src_site)
             src_rses = [get_rse_name(rse['rse_id']) for rse in src_rses]
-            dst_rses = get_rses_with_attribute_value(key='site', value=dst_site, lookup_key='site')
+            dst_rses = get_rses_with_attribute_value(key='site', value=dst_site, lookup_key='site', vo=ctx.env.get('vo'))
             if not dst_rses:
                 raise generate_http_error(404, 'NotFound', 'Could not resolve site name %s to RSE' % dst_site)
             dst_rses = [get_rse_name(rse['rse_id']) for rse in dst_rses]
