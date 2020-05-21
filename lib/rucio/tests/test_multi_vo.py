@@ -26,7 +26,7 @@ from rucio.api.account import add_account, list_accounts
 from rucio.api.account_limit import set_local_account_limit
 from rucio.api.did import add_did, list_dids
 from rucio.api.identity import list_accounts_for_identity
-from rucio.api.rse import add_rse, list_rses
+from rucio.api.rse import add_rse, add_rse_attribute, list_rses
 from rucio.api.rule import delete_replication_rule, get_replication_rule
 from rucio.api.scope import add_scope, list_scopes
 from rucio.api.subscription import add_subscription, list_subscriptions
@@ -44,7 +44,7 @@ from rucio.common.exception import AccessDenied, Duplicate, InputValidationError
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.account_counter import increase, update_account_counter
-from rucio.core.rse import get_rse_id, get_rse_vo
+from rucio.core.rse import get_rses_with_attribute_value, get_rse_id, get_rse_vo
 from rucio.core.rule import add_rule
 from rucio.core.vo import add_vo, vo_exists
 from rucio.db.sqla import models, session as db_session
@@ -175,8 +175,8 @@ class TestMultiVoClients(object):
         did_client.add_did(scope, shr, 'DATASET')
         add_did(scope, new, 'DATASET', 'root', **self.new_vo)
         add_did(scope, shr, 'DATASET', 'root', **self.new_vo)
-        did_list_tst = [d for d in did_client.list_dids(scope, {})]
-        did_list_new = [d for d in list_dids(scope, {}, **self.new_vo)]
+        did_list_tst = list(did_client.list_dids(scope, {}))
+        did_list_new = list(list_dids(scope, {}, **self.new_vo))
         assert_true(tst in did_list_tst)
         assert_false(new in did_list_tst)
         assert_true(shr in did_list_tst)
@@ -186,6 +186,7 @@ class TestMultiVoClients(object):
 
     def test_rses_at_different_vos(self):
         """ MULTI VO (CLIENT): Test that RSEs from 2nd vo don't interfere """
+        # Set up RSEs at two VOs
         rse_client = RSEClient()
         rse_str = ''.join(choice(ascii_uppercase) for x in range(10))
         tst = 'TST_%s' % rse_str
@@ -194,7 +195,15 @@ class TestMultiVoClients(object):
         rse_client.add_rse(tst)
         rse_client.add_rse(shr)
         add_rse(new, 'root', **self.new_vo)
-        add_rse(shr, 'root', **self.new_vo)
+        shr_id_new_original = add_rse(shr, 'root', **self.new_vo)  # Accurate rse_id for shared RSE at 'new'
+
+        # Check the cached rse-id from each VO does not interfere
+        shr_id_tst = get_rse_id(shr, **self.vo)
+        shr_id_new = get_rse_id(shr, **self.new_vo)
+        assert_equal(shr_id_new, shr_id_new_original)
+        assert_not_equal(shr_id_new, shr_id_tst)
+
+        # Check that when listing RSEs we only get RSEs for our VO
         rse_list_tst = [r['rse'] for r in rse_client.list_rses()]
         rse_list_new = [r['rse'] for r in list_rses(filters={}, **self.new_vo)]
         assert_true(tst in rse_list_tst)
@@ -203,6 +212,18 @@ class TestMultiVoClients(object):
         assert_false(tst in rse_list_new)
         assert_true(new in rse_list_new)
         assert_true(shr in rse_list_new)
+
+        # Check the cached attribute-value results do not interfere and only give results from the appropriate VO
+        attribute_value = generate_uuid()
+        add_rse_attribute(new, 'test', attribute_value, 'root', **self.new_vo)
+        rses_tst_1 = list(get_rses_with_attribute_value('test', attribute_value, 'test', **self.vo))
+        rses_new_1 = list(get_rses_with_attribute_value('test', attribute_value, 'test', **self.new_vo))
+        rses_tst_2 = list(get_rses_with_attribute_value('test', attribute_value, 'test', **self.vo))
+        rses_new_2 = list(get_rses_with_attribute_value('test', attribute_value, 'test', **self.new_vo))
+        assert_equal(len(rses_tst_1), 0)
+        assert_not_equal(len(rses_new_1), 0)
+        assert_equal(len(rses_tst_2), 0)
+        assert_not_equal(len(rses_new_2), 0)
 
     def test_scopes_at_different_vos(self):
         """ MULTI VO (CLIENT): Test that scopes from 2nd vo don't interfere """
@@ -215,8 +236,8 @@ class TestMultiVoClients(object):
         scope_client.add_scope('root', shr)
         add_scope(new, 'root', 'root', **self.new_vo)
         add_scope(shr, 'root', 'root', **self.new_vo)
-        scope_list_tst = [s for s in scope_client.list_scopes()]
-        scope_list_new = [s for s in list_scopes(filter={}, **self.new_vo)]
+        scope_list_tst = list(scope_client.list_scopes())
+        scope_list_new = list(list_scopes(filter={}, **self.new_vo))
         assert_true(tst in scope_list_tst)
         assert_false(new in scope_list_tst)
         assert_true(shr in scope_list_tst)
