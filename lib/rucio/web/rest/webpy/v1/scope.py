@@ -59,7 +59,7 @@ class Scope(RucioController):
         HTTP Error:
             406 Not Acceptable
         """
-        return dumps(list_scopes(filter={}, vo=ctx.env.get('vo')))
+        return dumps(list_scopes(vo=ctx.env.get('vo')))
 
     def POST(self, account, scope):
         """

@@ -14,6 +14,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -117,6 +118,10 @@ def list_accounts(filter={}, vo='def'):
 
     :returns: List of all accounts.
     """
+    # If filter is empty, create a new dict to avoid overwriting the function's default
+    if not filter:
+        filter = {}
+
     if 'account' in filter:
         filter['account'] = InternalAccount(filter['account'], vo=vo)
     else:
