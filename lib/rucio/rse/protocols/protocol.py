@@ -56,6 +56,7 @@ if getattr(rsemanager, 'CLIENT_MODE', None):
 if getattr(rsemanager, 'SERVER_MODE', None):
     from rucio.common.types import InternalScope
     from rucio.core import replica
+    from rucio.core.rse import get_rse_vo
 
 
 class RSEDeterministicTranslation(object):
@@ -337,8 +338,10 @@ class RSEProtocol(object):
 
     def _get_path_nondeterministic_server(self, scope, name):  # pylint: disable=invalid-name
         """ Provides the path of a replica for non-deterministic sites. Will be assigned to get path by the __init__ method if neccessary. """
-        scope = InternalScope(scope)
+        vo = get_rse_vo(self.rse['id'])
+        scope = InternalScope(scope, vo=vo)
         rep = replica.get_replica(scope=scope, name=name, rse_id=self.rse['id'])
+        print(rep)
         if 'path' in rep and rep['path'] is not None:
             path = rep['path']
         elif 'state' in rep and (rep['state'] is None or rep['state'] == 'UNAVAILABLE'):

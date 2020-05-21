@@ -131,7 +131,7 @@ def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, f
                        'space_token' in protocols[source_rse_id].attributes['extended_attributes']:
                         dest_spacetoken = protocols[source_rse_id].attributes['extended_attributes']['space_token']
 
-                    source_url = protocols[source_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
+                    source_url = protocols[source_rse_id].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': path}).values()[0]
                 else:
                     # source_rse_id will be None if no source replicas
                     # rse will be None if rse is staging area
