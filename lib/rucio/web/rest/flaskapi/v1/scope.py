@@ -64,7 +64,7 @@ class Scope(MethodView):
         :status 406: Not Acceptable
         :returns: :class:`String`
         """
-        return dumps(list_scopes(filter={}, vo=request.environ.get('vo')))
+        return dumps(list_scopes(vo=request.environ.get('vo')))
 
     def post(self, account, scope):
         """Add a new scope.

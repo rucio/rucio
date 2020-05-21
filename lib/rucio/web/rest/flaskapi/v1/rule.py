@@ -22,6 +22,7 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -75,7 +76,7 @@ class Rule(MethodView):
         except ValueError:
             estimate_ttc = False
         try:
-            rule = get_replication_rule(rule_id, estimate_ttc=estimate_ttc)
+            rule = get_replication_rule(rule_id, estimate_ttc=estimate_ttc, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except RuleNotFound as error:
             return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
         except RucioException as error:
@@ -464,7 +465,7 @@ class RuleHistory(MethodView):
         :returns: JSON dict containing informations about the requested user.
         """
         try:
-            history = list_replication_rule_history(rule_id)
+            history = list_replication_rule_history(rule_id, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -520,7 +521,7 @@ class RuleAnalysis(MethodView):
         :returns: JSON dict containing informations about the requested user.
         """
         try:
-            analysis = examine_replication_rule(rule_id)
+            analysis = examine_replication_rule(rule_id, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:

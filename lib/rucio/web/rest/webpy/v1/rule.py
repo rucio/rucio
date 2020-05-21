@@ -22,6 +22,7 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -91,7 +92,7 @@ class Rule:
         except ValueError:
             estimate_ttc = False
         try:
-            rule = get_replication_rule(rule_id, estimate_ttc=estimate_ttc)
+            rule = get_replication_rule(rule_id, estimate_ttc=estimate_ttc, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except RuleNotFound as error:
             raise generate_http_error(404, 'RuleNotFound', error.args[0])
         except RucioException as error:
@@ -461,7 +462,7 @@ class RuleHistory:
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            history = list_replication_rule_history(rule_id)
+            history = list_replication_rule_history(rule_id, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -519,7 +520,7 @@ class RuleAnalysis:
         """
         header('Content-Type', 'application/json')
         try:
-            analysis = examine_replication_rule(rule_id)
+            analysis = examine_replication_rule(rule_id, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:

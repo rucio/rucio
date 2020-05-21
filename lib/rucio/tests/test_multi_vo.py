@@ -15,16 +15,19 @@
 # Authors:
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
-from nose.tools import assert_equal, assert_false, assert_in, assert_not_in, assert_raises, assert_true
+from logging import getLogger
+from nose.tools import assert_equal, assert_false, assert_in, assert_is_not_none, assert_not_equal, assert_not_in, assert_raises, assert_true
 from random import choice
-from string import ascii_uppercase
+from sqlalchemy.orm.exc import NoResultFound
+from string import ascii_uppercase, ascii_lowercase
 
 from rucio.api import vo as vo_api
 from rucio.api.account import add_account, list_accounts
 from rucio.api.account_limit import set_local_account_limit
 from rucio.api.did import add_did, list_dids
 from rucio.api.identity import list_accounts_for_identity
-from rucio.api.rse import add_rse, list_rses
+from rucio.api.rse import add_rse, add_rse_attribute, list_rses
+from rucio.api.rule import delete_replication_rule, get_replication_rule
 from rucio.api.scope import add_scope, list_scopes
 from rucio.api.subscription import add_subscription, list_subscriptions
 from rucio.client.accountclient import AccountClient
@@ -37,69 +40,95 @@ from rucio.client.scopeclient import ScopeClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.client.uploadclient import UploadClient
 from rucio.common.config import config_get_bool
-from rucio.common.exception import AccessDenied, Duplicate
+from rucio.common.exception import AccessDenied, Duplicate, InputValidationError
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
-from rucio.core.vo import add_vo
+from rucio.core.account_counter import increase, update_account_counter
+from rucio.core.rse import get_rses_with_attribute_value, get_rse_id, get_rse_vo
+from rucio.core.rule import add_rule
+from rucio.core.vo import add_vo, vo_exists
+from rucio.db.sqla import models, session as db_session
+
+
+LOG = getLogger(__name__)
 
 
 class TestVOCoreAPI(object):
 
-    def setup(self):
+    @classmethod
+    def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
-            self.new_vo = generate_uuid()[:3]
+            cls.vo = {'vo': 'tst'}
+            cls.new_vo = {'vo': 'new'}
+            if not vo_exists(**cls.new_vo):
+                add_vo(description='Test', email='rucio@email.com', **cls.new_vo)
         else:
-            self.vo = {}
+            LOG.warning('multi_vo mode is not enabled. Running multi_vo tests in single_vo mode will result in failures.')
+            cls.vo = {}
+            cls.new_vo = {}
+
+    def test_access_rule(self):
+        """ MULTI VO (CORE): Test accessing rules from a different VO """
+        scope = InternalScope('mock', **self.vo)
+        dataset = 'dataset_' + str(generate_uuid())
+        account = InternalAccount('root', **self.vo)
+        rse_str = ''.join(choice(ascii_uppercase) for x in range(10))
+        rse_name = 'MOCK_%s' % rse_str
+        add_rse(rse_name, 'root', **self.vo)
+        add_did('mock', dataset, 'DATASET', 'root', **self.vo)
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=account, copies=0, rse_expression=rse_name, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+
+        with assert_raises(AccessDenied):
+            delete_replication_rule(rule_id=rule_id, purge_replicas=False, issuer='root', **self.new_vo)
+        delete_replication_rule(rule_id=rule_id, purge_replicas=False, issuer='root', **self.vo)
+        rule_dict = get_replication_rule(rule_id=rule_id, issuer='root', **self.vo)
+        assert_is_not_none(rule_dict['expires_at'])
 
     def test_add_vo(self):
         """ MULTI VO (CORE): Test creation of VOs """
         with assert_raises(AccessDenied):
-            vo_api.add_vo(self.new_vo, 'root', 'Add new VO with root', 'rucio@email.com', **self.vo)
-        vo_api.add_vo(self.new_vo, 'super_root', 'Add new VO with super_root', 'rucio@email.com', 'def')
+            vo_api.add_vo(self.new_vo['vo'], 'root', 'Add new VO with root', 'rucio@email.com', **self.vo)
         with assert_raises(Duplicate):
-            vo_api.add_vo(self.new_vo, 'super_root', 'Add existing VO', 'rucio@email.com', 'def')
-        vo_list = [v['vo'] for v in vo_api.list_vos('super_root', 'def')]
-        assert_in(self.new_vo, vo_list)
+            vo_api.add_vo(self.new_vo['vo'], 'super_root', 'Add existing VO', 'rucio@email.com', 'def')
 
     def test_recover_root_identity(self):
         """ MULTI VO (CORE): Test adding a new identity for root using super_root """
-        vo_api.add_vo(self.new_vo, 'super_root', 'Add new VO with super_root', 'rucio@email.com', 'def')
+        identity_key = ''.join(choice(ascii_lowercase) for x in range(10))
         with assert_raises(AccessDenied):
-            vo_api.recover_vo_root_identity(root_vo=self.new_vo, identity_key='recovered@%s' % self.new_vo, id_type='userpass',
-                                            email='rucio@email.com', issuer='root', password='password', vo=self.new_vo)
-        vo_api.recover_vo_root_identity(root_vo=self.new_vo, identity_key='recovered@%s' % self.new_vo, id_type='userpass',
-                                        email='rucio@email.com', issuer='super_root', password='password', vo='def')
-        assert_in('root', list_accounts_for_identity(identity_key='recovered@%s' % self.new_vo, id_type='userpass'))
+            vo_api.recover_vo_root_identity(root_vo=self.new_vo['vo'], identity_key=identity_key, id_type='userpass', email='rucio@email.com', issuer='root', password='password', **self.vo)
+        vo_api.recover_vo_root_identity(root_vo=self.new_vo['vo'], identity_key=identity_key, id_type='userpass', email='rucio@email.com', issuer='super_root', password='password', vo='def')
+        assert_in('root', list_accounts_for_identity(identity_key=identity_key, id_type='userpass'))
 
     def test_update_vo(self):
         """ MULTI VO (CORE): Test updating VOs """
-        vo_api.add_vo(self.new_vo, 'super_root', 'Add new VO with super_root', 'rucio@email.com', 'def')
-        parameters = {'vo': self.new_vo, 'description': 'Updated description', 'email': 'updated@email.com'}
+        description = generate_uuid()
+        email = generate_uuid()
+        parameters = {'vo': self.new_vo['vo'], 'description': description, 'email': email}
         with assert_raises(AccessDenied):
-            vo_api.update_vo(self.new_vo, parameters, 'root', **self.vo)
-        vo_api.update_vo(self.new_vo, parameters, 'super_root', 'def')
+            vo_api.update_vo(self.new_vo['vo'], parameters, 'root', **self.vo)
+        vo_api.update_vo(self.new_vo['vo'], parameters, 'super_root', 'def')
         vo_update_success = False
         for v in vo_api.list_vos('super_root', 'def'):
             if v['vo'] == parameters['vo']:
-                assert_equal(parameters['email'], v['email'])
-                assert_equal(parameters['description'], v['description'])
+                assert_equal(email, v['email'])
+                assert_equal(description, v['description'])
                 vo_update_success = True
         assert_true(vo_update_success)
 
 
 class TestMultiVoClients(object):
 
-    def setup(self):
+    @classmethod
+    def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
-            self.new_vo = {'vo': 'new'}
-            try:
-                add_vo(description='Test', email='rucio@email.com', **self.new_vo)
-            except Duplicate:
-                print('VO "%s" already exists' % self.new_vo['vo'])
+            cls.vo = {'vo': 'tst'}
+            cls.new_vo = {'vo': 'new'}
+            if not vo_exists(**cls.new_vo):
+                add_vo(description='Test', email='rucio@email.com', **cls.new_vo)
         else:
-            self.vo = {}
-            self.new_vo = {}
+            LOG.warning('multi_vo mode is not enabled. Running multi_vo tests in single_vo mode will result in failures.')
+            cls.vo = {}
+            cls.new_vo = {}
 
     def test_get_vo_from_config(self):
         """ MULTI VO (CLIENT): Get vo from config file when starting clients """
@@ -146,8 +175,8 @@ class TestMultiVoClients(object):
         did_client.add_did(scope, shr, 'DATASET')
         add_did(scope, new, 'DATASET', 'root', **self.new_vo)
         add_did(scope, shr, 'DATASET', 'root', **self.new_vo)
-        did_list_tst = [d for d in did_client.list_dids(scope, {})]
-        did_list_new = [d for d in list_dids(scope, {}, **self.new_vo)]
+        did_list_tst = list(did_client.list_dids(scope, {}))
+        did_list_new = list(list_dids(scope, {}, **self.new_vo))
         assert_true(tst in did_list_tst)
         assert_false(new in did_list_tst)
         assert_true(shr in did_list_tst)
@@ -157,6 +186,7 @@ class TestMultiVoClients(object):
 
     def test_rses_at_different_vos(self):
         """ MULTI VO (CLIENT): Test that RSEs from 2nd vo don't interfere """
+        # Set up RSEs at two VOs
         rse_client = RSEClient()
         rse_str = ''.join(choice(ascii_uppercase) for x in range(10))
         tst = 'TST_%s' % rse_str
@@ -165,7 +195,15 @@ class TestMultiVoClients(object):
         rse_client.add_rse(tst)
         rse_client.add_rse(shr)
         add_rse(new, 'root', **self.new_vo)
-        add_rse(shr, 'root', **self.new_vo)
+        shr_id_new_original = add_rse(shr, 'root', **self.new_vo)  # Accurate rse_id for shared RSE at 'new'
+
+        # Check the cached rse-id from each VO does not interfere
+        shr_id_tst = get_rse_id(shr, **self.vo)
+        shr_id_new = get_rse_id(shr, **self.new_vo)
+        assert_equal(shr_id_new, shr_id_new_original)
+        assert_not_equal(shr_id_new, shr_id_tst)
+
+        # Check that when listing RSEs we only get RSEs for our VO
         rse_list_tst = [r['rse'] for r in rse_client.list_rses()]
         rse_list_new = [r['rse'] for r in list_rses(filters={}, **self.new_vo)]
         assert_true(tst in rse_list_tst)
@@ -174,6 +212,18 @@ class TestMultiVoClients(object):
         assert_false(tst in rse_list_new)
         assert_true(new in rse_list_new)
         assert_true(shr in rse_list_new)
+
+        # Check the cached attribute-value results do not interfere and only give results from the appropriate VO
+        attribute_value = generate_uuid()
+        add_rse_attribute(new, 'test', attribute_value, 'root', **self.new_vo)
+        rses_tst_1 = list(get_rses_with_attribute_value('test', attribute_value, 'test', **self.vo))
+        rses_new_1 = list(get_rses_with_attribute_value('test', attribute_value, 'test', **self.new_vo))
+        rses_tst_2 = list(get_rses_with_attribute_value('test', attribute_value, 'test', **self.vo))
+        rses_new_2 = list(get_rses_with_attribute_value('test', attribute_value, 'test', **self.new_vo))
+        assert_equal(len(rses_tst_1), 0)
+        assert_not_equal(len(rses_new_1), 0)
+        assert_equal(len(rses_tst_2), 0)
+        assert_not_equal(len(rses_new_2), 0)
 
     def test_scopes_at_different_vos(self):
         """ MULTI VO (CLIENT): Test that scopes from 2nd vo don't interfere """
@@ -186,8 +236,8 @@ class TestMultiVoClients(object):
         scope_client.add_scope('root', shr)
         add_scope(new, 'root', 'root', **self.new_vo)
         add_scope(shr, 'root', 'root', **self.new_vo)
-        scope_list_tst = [s for s in scope_client.list_scopes()]
-        scope_list_new = [s for s in list_scopes(filter={}, **self.new_vo)]
+        scope_list_tst = list(scope_client.list_scopes())
+        scope_list_new = list(list_scopes(filter={}, **self.new_vo))
         assert_true(tst in scope_list_tst)
         assert_false(new in scope_list_tst)
         assert_true(shr in scope_list_tst)
@@ -289,3 +339,60 @@ class TestMultiVoClients(object):
         assert_in(shr_new_sub_id, acc_new_subs)
         assert_not_in(tst_sub_id, acc_new_subs)
         assert_not_in(shr_tst_sub_id, acc_new_subs)
+
+    def test_account_counters_at_different_vos(self):
+        """ MULTI VO (CLIENT): Test that account counters from 2nd vo don't interfere """
+
+        session = db_session.get_session()
+
+        # add some RSEs to test create_counters_for_new_account
+        rse_client = RSEClient()
+        rse_str = ''.join(choice(ascii_uppercase) for x in range(10))
+        tst_rse1 = 'TST1_%s' % rse_str
+        new_rse1 = 'NEW1_%s' % rse_str
+        rse_client.add_rse(tst_rse1)
+        add_rse(new_rse1, 'root', **self.new_vo)
+
+        # add an account - should have counters created for RSEs on the same VO
+        usr_uuid = str(generate_uuid()).lower()[:16]
+        new_acc_str = 'shr-%s' % usr_uuid
+        new_acc = InternalAccount(new_acc_str, **self.new_vo)
+        add_account(new_acc_str, 'USER', 'rucio@email.com', 'root', **self.new_vo)
+
+        query = session.query(models.AccountUsage.account, models.AccountUsage.rse_id).\
+            distinct(models.AccountUsage.account, models.AccountUsage.rse_id).\
+            filter_by(account=new_acc)
+        acc_counters = list(query.all())
+
+        assert_not_equal(0, len(acc_counters))
+        for counter in acc_counters:
+            rse_id = counter[1]
+            vo = get_rse_vo(rse_id)
+            assert_equal(vo, self.new_vo['vo'])
+
+        # add an RSE - should have counters created for accounts on the same VO
+        new_rse2 = 'NEW2_' + rse_str
+        new_rse2_id = add_rse(new_rse2, 'root', **self.new_vo)
+
+        query = session.query(models.AccountUsage.account, models.AccountUsage.rse_id).\
+            distinct(models.AccountUsage.account, models.AccountUsage.rse_id).\
+            filter_by(rse_id=new_rse2_id)
+        rse_counters = list(query.all())
+
+        assert_not_equal(0, len(rse_counters))
+        for counter in rse_counters:
+            account = counter[0]
+            assert_equal(account.vo, self.new_vo['vo'])
+
+        # make sure we can't add counters to mismatching VO combinations later
+        tst_rse1_id = get_rse_id(tst_rse1, **self.vo)
+        with assert_raises(InputValidationError):
+            increase(tst_rse1_id, new_acc, 1, 10)
+
+        # force update with mismatching VO combination
+        models.UpdatedAccountCounter(account=new_acc, rse_id=tst_rse1_id, files=1, bytes=10).save(session=session)
+        with assert_raises(NoResultFound):
+            update_account_counter(new_acc, tst_rse1_id)
+        session.query(models.UpdatedAccountCounter).filter_by(rse_id=tst_rse1_id, account=new_acc).delete(synchronize_session=False)
+
+        session.commit()

@@ -27,7 +27,7 @@ ARG python
 RUN yum install -y epel-release.noarch
 RUN yum -y update
 RUN yum install -y gcc httpd python-pip gmp-devel krb5-devel httpd mod_ssl mod_auth_kerb git python-devel.x86_64 openssl-devel.x86_64 gridsite which libaio memcached MySQL-python ffi-devel
-RUN yum -y install https://centos7.iuscommunity.org/ius-release.rpm
+RUN yum -y install https://repo.ius.io/ius-release-el7.rpm
 RUN yum -y install python36u python36u-devel python36u-pip
 RUN yum -y install libxml2-devel xmlsec1-devel xmlsec1-openssl-devel libtool-ltdl-devel
 RUN yum clean all
@@ -68,6 +68,9 @@ RUN if [ "$python" == "3.6" ] ; then pip3.6 install --upgrade pip ; else pip ins
 # to fix the setup.py error:
 # install fails with: `install_requires` must be a string or list of strings
 RUN if [ "$python" == "3.6" ] ; then pip3.6 install --upgrade setuptools ; else pip install --upgrade setuptools ; fi
+
+# Fix for xmlsec 1.3.7 failing
+RUN if [ "$python" == "3.6" ] ; then pip3.6 install xmlsec==1.3.3 ; else pip install xmlsec==1.3.3 ; fi
 
 # Install Rucio + dependencies
 RUN if [ "$python" == "3.6" ] ; then pip3.6 install .[oracle,postgresql,mysql,kerberos,dev,saml] ; else pip install .[oracle,postgresql,mysql,kerberos,dev,saml] ; fi
