@@ -132,6 +132,10 @@ def list_replication_rules(filters={}, vo='def'):
     :param filters: dictionary of attributes by which the results should be filtered.
     :param vo: The VO to act on.
     """
+    # If filters is empty, create a new dict to avoid overwriting the function's default
+    if not filters:
+        filters = {}
+
     if 'scope' in filters:
         scope = filters['scope']
     else:
