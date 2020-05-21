@@ -69,6 +69,9 @@ RUN if [ "$python" == "3.6" ] ; then pip3.6 install --upgrade pip ; else pip ins
 # install fails with: `install_requires` must be a string or list of strings
 RUN if [ "$python" == "3.6" ] ; then pip3.6 install --upgrade setuptools ; else pip install --upgrade setuptools ; fi
 
+# Fix for xmlsec 1.3.7 failing
+RUN if [ "$python" == "3.6" ] ; then pip3.6 install xmlsec==1.3.3 ; else pip install xmlsec==1.3.3 ; fi
+
 # Install Rucio + dependencies
 RUN if [ "$python" == "3.6" ] ; then pip3.6 install .[oracle,postgresql,mysql,kerberos,dev,saml] ; else pip install .[oracle,postgresql,mysql,kerberos,dev,saml] ; fi
 
