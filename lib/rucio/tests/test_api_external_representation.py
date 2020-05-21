@@ -323,7 +323,7 @@ class TestApiExternalRepresentation():
         increase(rse_id=self.rse_id, account=self.account, files=1, bytes=10000)
         update_account_counter(self.account, self.rse_id)
 
-        out = api_rse.get_rse_usage(self.rse_name, per_account=True, issuer='root', **self.new_vo)
+        out = api_rse.get_rse_usage(self.rse_name, per_account=True, issuer='root', **self.vo)
         for usage in out:
             if usage['rse_id'] == self.rse_id:
                 assert_equal(usage['rse'], self.rse_name)
