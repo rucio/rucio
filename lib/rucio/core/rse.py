@@ -557,8 +557,8 @@ def get_rses_with_attribute_value(key, value, lookup_key, vo='def', session=None
                        .join(models.RSE, models.RSE.id == models.RSEAttrAssociation.rse_id)\
                        .join(subquery, models.RSEAttrAssociation.rse_id == subquery.c.rse_id)\
                        .filter(models.RSE.deleted == false(),
-                               models.RSEAttrAssociation.key == lookup_key)\
-                       .filter(models.RSE.vo == vo)
+                               models.RSEAttrAssociation.key == lookup_key,
+                               models.RSE.vo == vo)
 
         for row in query:
             rse_list.append({'rse_id': row[0],
