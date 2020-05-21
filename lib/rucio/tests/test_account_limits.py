@@ -11,6 +11,7 @@
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 # - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 
 import string
 import random
@@ -64,13 +65,6 @@ class TestCoreAccountLimits():
         self.db_session.query(models.AccountGlobalLimit).delete()
         self.db_session.commit()
 
-    def convert_rse_expression(self, rse_expression):
-        """ Convert an RSE expression into internal representation for passing directly to core. """
-        if self.multi_vo:
-            return 'vo={}&({})'.format(self.vo['vo'], rse_expression)
-        else:
-            return rse_expression
-
     def test_local_account_limit(self):
         """ ACCOUNT_LIMIT (CORE): Set, get and delete local account limit """
         account_limit.set_local_account_limit(account=self.account, rse_id=self.rse1_id, bytes=100000, session=self.db_session)
@@ -81,43 +75,38 @@ class TestCoreAccountLimits():
 
     def test_global_account_limit(self):
         """ ACCOUNT_LIMIT (CORE): Set, get and delete global account limit """
-        mock_expr = self.convert_rse_expression('MOCK')
-        mock2_expr = self.convert_rse_expression('MOCK2')
-        account_limit.set_global_account_limit(self.account, mock_expr, 200000, session=self.db_session)
-        assert_equal(account_limit.get_global_account_limit(account=self.account, rse_expression=mock_expr, session=self.db_session), 200000)
-        assert_equal(account_limit.get_global_account_limit(account=self.account, rse_expression=mock2_expr, session=self.db_session), None)
-        account_limit.delete_global_account_limit(self.account, mock_expr, session=self.db_session)
-        assert_equal(account_limit.get_global_account_limit(account=self.account, rse_expression=mock_expr, session=self.db_session), None)
+        account_limit.set_global_account_limit(self.account, 'MOCK', 200000, session=self.db_session)
+        assert_equal(account_limit.get_global_account_limit(account=self.account, rse_expression='MOCK', session=self.db_session), 200000)
+        assert_equal(account_limit.get_global_account_limit(account=self.account, rse_expression='MOCK2', session=self.db_session), None)
+        account_limit.delete_global_account_limit(self.account, 'MOCK', session=self.db_session)
+        assert_equal(account_limit.get_global_account_limit(account=self.account, rse_expression='MOCK', session=self.db_session), None)
 
     def test_global_account_limits(self):
         """ ACCOUNT_LIMIT (CORE): Set, get and delete global account limits """
-        expression = self.convert_rse_expression('MOCK')
         resolved_rse_ids = [get_rse_id('MOCK', **self.vo)]
         resolved_rses = ['MOCK']
         limit = 10
-        account_limit.set_global_account_limit(self.account, expression, limit, session=self.db_session)
+        account_limit.set_global_account_limit(self.account, 'MOCK', limit, session=self.db_session)
         results = account_limit.get_global_account_limits(account=self.account, session=self.db_session)
         assert_equal(len(results), 1)
-        assert_in(expression, results)
-        assert_equal(results[expression]['resolved_rses'], resolved_rses)
-        assert_equal(results[expression]['resolved_rse_ids'], resolved_rse_ids)
-        assert_equal(results[expression]['limit'], limit)
-        account_limit.delete_global_account_limit(self.account, expression, session=self.db_session)
+        assert_in('MOCK', results)
+        assert_equal(results['MOCK']['resolved_rses'], resolved_rses)
+        assert_equal(results['MOCK']['resolved_rse_ids'], resolved_rse_ids)
+        assert_equal(results['MOCK']['limit'], limit)
+        account_limit.delete_global_account_limit(self.account, 'MOCK', session=self.db_session)
         results = account_limit.get_global_account_limits(account=self.account, session=self.db_session)
         assert_equal(len(results), 0)
 
     def test_get_global_account_usage(self):
         """ ACCOUNT_LIMIT (CORE): Get global account usage. """
-        rse_exp1 = self.convert_rse_expression('MOCK|MOCK2')
-        rse_exp2 = self.convert_rse_expression('MOCK4|MOCK3')
         limit1 = 10
         limit2 = 20
-        account_limit.set_global_account_limit(self.account, rse_exp1, limit1)
-        account_limit.set_global_account_limit(self.account, rse_exp2, limit2)
+        account_limit.set_global_account_limit(self.account, 'MOCK|MOCK2', limit1)
+        account_limit.set_global_account_limit(self.account, 'MOCK4|MOCK3', limit2)
         results = account_limit.get_global_account_usage(account=self.account)
         assert_equal(len(results), 2)
 
-        results = account_limit.get_global_account_usage(account=self.account, rse_expression=rse_exp1)
+        results = account_limit.get_global_account_usage(account=self.account, rse_expression='MOCK|MOCK2')
         assert_equal(len(results), 1)
 
     def test_local_account_limits(self):
@@ -174,18 +163,11 @@ class TestAccountClient():
         self.db_session.query(models.AccountGlobalLimit).delete()
         self.db_session.commit()
 
-    def convert_rse_expression(self, rse_expression):
-        """ Convert an RSE expression into internal representation for passing directly to core. """
-        if self.multi_vo:
-            return 'vo={}&({})'.format(self.vo['vo'], rse_expression)
-        else:
-            return rse_expression
-
     def test_set_global_account_limit(self):
         """ ACCOUNT_LIMIT (CLIENTS): Set global account limit """
         self.alclient.set_global_account_limit(self.account.external, 'MOCK', 200000)
-        assert_equal(account_limit.get_global_account_limit(account=self.account, rse_expression=self.convert_rse_expression('MOCK')), 200000)
-        assert_equal(account_limit.get_global_account_limit(account=self.account, rse_expression=self.convert_rse_expression('MOCK2')), None)
+        assert_equal(account_limit.get_global_account_limit(account=self.account, rse_expression='MOCK'), 200000)
+        assert_equal(account_limit.get_global_account_limit(account=self.account, rse_expression='MOCK2'), None)
 
     def test_get_global_account_limits(self):
         """ ACCOUNT_LIMIT (CLIENTS): Get global account limits """
@@ -193,7 +175,7 @@ class TestAccountClient():
         resolved_rses = ['MOCK']
         resolved_rse_ids = [get_rse_id('MOCK', **self.vo)]
         limit = 10
-        account_limit.set_global_account_limit(self.account, self.convert_rse_expression(expression), limit)
+        account_limit.set_global_account_limit(self.account, expression, limit)
         results = self.client.get_global_account_limits(account=self.account.external)
         assert_equal(len(results), 1)
         assert_equal(results[expression]['resolved_rses'], resolved_rses)
@@ -204,7 +186,7 @@ class TestAccountClient():
         """ ACCOUNT_LIMIT (CLIENTS): Get global account limit. """
         expression = 'MOCK'
         limit = 10
-        account_limit.set_global_account_limit(self.account, self.convert_rse_expression(expression), limit)
+        account_limit.set_global_account_limit(self.account, expression, limit)
         result = self.client.get_global_account_limit(account=self.account.external, rse_expression=expression)
         assert_equal(result[expression], limit)
 
@@ -255,7 +237,7 @@ class TestAccountClient():
     def test_delete_global_account_limit(self):
         """ ACCOUNTLIMIT (CLIENTS): Delete global account limit """
         rse_exp = 'MOCK'
-        account_limit.set_global_account_limit(account=self.account, rse_expression=self.convert_rse_expression(rse_exp), bytes=10, session=self.db_session)
+        account_limit.set_global_account_limit(account=self.account, rse_expression=rse_exp, bytes=10, session=self.db_session)
         self.alclient.delete_global_account_limit(account=self.account.external, rse_expression=rse_exp)
-        result = account_limit.get_global_account_limit(account=self.account, rse_expression=self.convert_rse_expression(rse_exp))
+        result = account_limit.get_global_account_limit(account=self.account, rse_expression=rse_exp)
         assert_equal(result, None)

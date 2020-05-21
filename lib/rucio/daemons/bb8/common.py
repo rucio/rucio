@@ -21,6 +21,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -83,20 +84,12 @@ def rebalance_rule(parent_rule, activity, rse_expression, priority, source_repli
     else:
         grouping = 'DATASET'
 
-    # ensure that expressions are for correct vo
-    rule_vo = parent_rule['scope'].vo
-    if rule_vo != 'def':
-        source_replica_expression = 'vo={}&({})'.format(rule_vo, source_replica_expression)
-        rse_expression = 'vo={}&({})'.format(rule_vo, rse_expression)
-
     # check if concurrent replica at target rse does not exist
     concurrent_replica = False
     try:
         for lock in get_dataset_locks(parent_rule['scope'], parent_rule['name']):
             lock_rse_expr = lock['rse']
-            if rule_vo != 'def':
-                lock_rse_expr = 'vo={}&({})'.format(rule_vo, lock_rse_expr)
-            if lock_rse_expr == rse_expression:  # may need to evaluate to be sure... could get 'vo=tst&(vo=tst&(MOCK))'
+            if lock_rse_expr == rse_expression:
                 concurrent_replica = True
     except Exception as error:
         concurrent_replica = True
@@ -324,26 +317,23 @@ def select_target_rse(parent_rule, current_rse_id, rse_expression, subscription_
     current_rse_expr = current_rse
     # if parent rule has a vo, enforce it
     vo = parent_rule['scope'].vo
-    if vo != 'def':
-        current_rse_expr = 'vo={}&({})'.format(vo, current_rse_expr)
-        force_expression = 'vo={}&({})'.format(vo, force_expression)
     if exclude_expression:
         target_rse = '(%s)\\%s' % (exclude_expression, current_rse_expr)
     else:
         target_rse = current_rse_expr
 
-    rses = parse_expression(expression=rse_expression, session=session)
+    rses = parse_expression(expression=rse_expression, filter={'vo': vo}, session=session)
     # TODO: dest rse selection should be configurable, there might be cases when tier is not defined, or concept of DATADISKS is not present.
     # if subscription_id:
     #     pass
     #     # get_subscription_by_id(subscription_id, session)
     if force_expression is not None:
         if parent_rule['grouping'] != RuleGrouping.NONE:
-            rses = parse_expression(expression='(%s)\\%s' % (force_expression, target_rse), filter={'availability_write': True}, session=session)
+            rses = parse_expression(expression='(%s)\\%s' % (force_expression, target_rse), filter={'vo': vo, 'availability_write': True}, session=session)
         else:
             # in order to avoid replication of the part of distributed dataset not present at rabalanced rse -> rses in force_expression
             # this will be extended with development of delayed rule
-            rses = parse_expression(expression='((%s)|(%s))\\%s' % (force_expression, rse_expression, target_rse), filter={'availability_write': True}, session=session)
+            rses = parse_expression(expression='((%s)|(%s))\\%s' % (force_expression, rse_expression, target_rse), filter={'vo': vo, 'availability_write': True}, session=session)
     elif len(rses) > 1:
         # Just define the RSE Expression without the current_rse
         return '(%s)\\%s' % (rse_expression, target_rse)
@@ -357,9 +347,7 @@ def select_target_rse(parent_rule, current_rse_id, rse_expression, subscription_
         elif int(rse_attributes['tier']) == 3:
             # Tier 3 will go to Tier 2, since we don't have enough t3s
             expression = '((tier=2&type=DATADISK)\\datapolicynucleus=1)\\{}'.format(target_rse)
-        if vo != 'def':
-            expression = 'vo={}&({})'.format(vo, expression)
-        rses = parse_expression(expression=expression, filter={'availability_write': True}, session=session)
+        rses = parse_expression(expression=expression, filter={'vo': vo, 'availability_write': True}, session=session)
     rseselector = RSESelector(account=InternalAccount('ddmadmin', vo=vo), rses=rses, weight='freespace', copies=1, ignore_account_limit=True, session=session)
     return get_rse_name([rse_id for rse_id, _, _ in rseselector.select_rse(size=0, preferred_rse_ids=[], blacklist=other_rses)][0], session=session)
 

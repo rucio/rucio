@@ -92,26 +92,33 @@ def parse_expression(expression, filter=None, session=None):
         result = []
         for rse in list(result_tuple[0]):
             result.append(result_tuple[1][rse])
-        # Don't cache the result if we only specified vo
-        vo_pattern = r'^vo=[a-zA-Z0-9]+$'
-        vo_match = re.search(vo_pattern, expression)
-        if vo_match is None:
-            REGION.set(sha256(expression.encode()).hexdigest(), result)
+        REGION.set(sha256(expression.encode()).hexdigest(), result)
 
-    if not result:
+    # Filter for VO
+    vo_result = []
+    if filter and filter.get('vo'):
+        filter = filter.copy()  # Make a copy so we can pop('vo') without affecting the object `filter` outside this function
+        vo = filter.pop('vo')
+        for rse in result:
+            if rse.get('vo') == vo:
+                vo_result.append(rse)
+    else:
+        vo_result = result
+
+    if not vo_result:
         raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
 
     # Filter
     final_result = []
     if filter:
-        for rse in result:
+        for rse in vo_result:
             if filter.get('availability_write', False):
                 if rse.get('availability') & 2:
                     final_result.append(rse)
         if not final_result:
             raise RSEBlacklisted('RSE excluded due to write blacklisting.')
     else:
-        final_result = result
+        final_result = vo_result
 
     # final_result = [{rse-info}]
     return final_result

@@ -371,6 +371,13 @@ def list_rses(filters={}, session=None):
     availability_mask2 = 7
     availability_mapping = {'availability_read': 4, 'availability_write': 2, 'availability_delete': 1}
     false_value = False  # To make pep8 checker happy ...
+
+    if filters and filters.get('vo'):
+        filters = filters.copy()  # Make a copy so we can pop('vo') without affecting the object `filters` outside this function
+        vo = filters.pop('vo')
+    else:
+        vo = None
+
     if filters:
         if 'availability' in filters and ('availability_read' in filters or 'availability_write' in filters or 'availability_delete' in filters):
             raise exception.InvalidObject('Cannot use availability and read, write, delete filter at the same time.')
@@ -404,20 +411,18 @@ def list_rses(filters={}, session=None):
 
         if 'availability' not in filters:
             query = query.filter(sqlalchemy.and_(sqlalchemy.or_(*condition1), sqlalchemy.or_(*condition2)))
-
-        for row in query:
-            d = {}
-            for column in row.__table__.columns:
-                d[column.name] = getattr(row, column.name)
-            rse_list.append(d)
     else:
 
         query = session.query(models.RSE).filter_by(deleted=False).order_by(models.RSE.rse)
-        for row in query:
-            dic = {}
-            for column in row.__table__.columns:
-                dic[column.name] = getattr(row, column.name)
-            rse_list.append(dic)
+
+    if vo:
+        query = query.filter(getattr(models.RSE, 'vo') == vo)
+
+    for row in query:
+        dic = {}
+        for column in row.__table__.columns:
+            dic[column.name] = getattr(row, column.name)
+        rse_list.append(dic)
 
     return rse_list
 

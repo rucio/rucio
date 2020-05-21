@@ -46,7 +46,6 @@ from rucio.client import Client
 from rucio.common.config import config_get, config_get_options
 from rucio.common.exception import RucioException
 from rucio.common.types import InternalScope
-from rucio.common.utils import add_vo_to_rse_expression
 from rucio.daemons.c3po.collectors.free_space import FreeSpaceCollector
 from rucio.daemons.c3po.collectors.jedi_did import JediDIDCollector
 from rucio.daemons.c3po.collectors.workload import WorkloadCollector
@@ -169,7 +168,6 @@ def place_replica(once=False,
             client = Client(auth_type='x509_proxy', account='c3po', creds={'client_proxy': '/opt/rucio/etc/ddmadmin.long.proxy'})
 
         vo = client.vo
-        dest_rse_expr = add_vo_to_rse_expression(dest_rse_expr, vo=vo)
         instances = {}
         for algorithm in algorithms:
             module_path = 'rucio.daemons.c3po.algorithms.' + algorithm
