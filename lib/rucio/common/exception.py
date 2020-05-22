@@ -24,6 +24,7 @@
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -1013,3 +1014,13 @@ class VONotFound(RucioException):
         super(VONotFound, self).__init__(*args, **kwargs)
         self.message = 'The requested VO does not exist'
         self.error_code = 96
+
+
+class UnsupportedAccountName(RucioException):
+    """
+    Requested account name is not supported for users.
+    """
+    def __init__(self, *args, **kwargs):
+        super(UnsupportedAccountName, self).__init__(*args, **kwargs)
+        self.message = 'The requested account name cannot be used'
+        self.error_code = 97
