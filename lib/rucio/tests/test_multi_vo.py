@@ -45,7 +45,7 @@ from rucio.client.uploadclient import UploadClient
 from rucio.common.config import config_get_bool, config_remove_option, config_set
 from rucio.common.exception import AccessDenied, Duplicate, InputValidationError, UnsupportedAccountName, UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import generate_uuid
+from rucio.common.utils import generate_uuid, parse_response
 from rucio.core.account_counter import increase, update_account_counter
 from rucio.core.rse import get_rses_with_attribute_value, get_rse_id, get_rse_vo
 from rucio.core.rule import add_rule
@@ -198,8 +198,14 @@ class TestVORestAPI(object):
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         res2 = TestApp(vo_app.wsgifunc(*mw)).get('/', headers=headers2, expect_errors=True)
         assert_equal(res2.status, 200)
-        assert_in('"vo": "def"', res2.body)
-        assert_in('"vo": "%s"' % self.vo['vo'], res2.body)
+        vo_dicts = [parse_response(r) for r in res2.body.decode().split('\n')[:-1]]
+        assert_not_equal(len(vo_dicts), 0)
+        for vo_dict in vo_dicts:
+            assert_is_not_none(vo_dict['vo'])
+            assert_is_not_none(vo_dict['email'])
+            assert_is_not_none(vo_dict['description'])
+            assert_is_not_none(vo_dict['created_at'])
+            assert_is_not_none(vo_dict['updated_at'])
 
     def test_list_vos_denied(self):
         """ MULTI VO (REST): Test list VOs through REST layer raises AccessDenied """
