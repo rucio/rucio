@@ -874,7 +874,7 @@ def perm_get_global_account_usage(issuer, kwargs):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
     resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country')
-                              for rse in parse_expression(kwargs['rse_exp'])}
+                              for rse in parse_expression(kwargs['rse_exp'], filter={'vo': issuer.vo})}
 
     if resolved_rse_countries.issubset(admin_in_country):
         return True
