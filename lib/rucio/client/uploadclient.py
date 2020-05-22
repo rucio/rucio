@@ -172,7 +172,7 @@ class UploadClient:
             # if register_after_upload, file should be overwritten if it is not registered
             # otherwise if file already exists on RSE we're done
             if register_after_upload:
-                if rsemgr.exists(rse_settings, pfn if pfn else file_did, auth_token=self.auth_token, logger=logger):
+                if rsemgr.exists(rse_settings, pfn if pfn else file_did, domain=domain, auth_token=self.auth_token, logger=logger):
                     try:
                         self.client.get_did(file['did_scope'], file['did_name'])
                         logger.info('File already registered. Skipping upload.')
@@ -182,16 +182,16 @@ class UploadClient:
                         logger.info('File already exists on RSE. Previous left overs will be overwritten.')
                         delete_existing = True
             elif not is_deterministic and not no_register:
-                if rsemgr.exists(rse_settings, pfn, auth_token=self.auth_token):
+                if rsemgr.exists(rse_settings, pfn, domain=domain, auth_token=self.auth_token):
                     logger.info('File already exists on RSE with given pfn. Skipping upload. Existing replica has to be removed first.')
                     trace['stateReason'] = 'File already exists'
                     continue
-                elif rsemgr.exists(rse_settings, file_did, auth_token=self.auth_token):
+                elif rsemgr.exists(rse_settings, file_did, domain=domain, auth_token=self.auth_token):
                     logger.info('File already exists on RSE with different pfn. Skipping upload.')
                     trace['stateReason'] = 'File already exists'
                     continue
             else:
-                if rsemgr.exists(rse_settings, pfn if pfn else file_did, auth_token=self.auth_token):
+                if rsemgr.exists(rse_settings, pfn if pfn else file_did, domain=domain, auth_token=self.auth_token):
                     logger.info('File already exists on RSE. Skipping upload')
                     trace['stateReason'] = 'File already exists'
                     continue
@@ -236,6 +236,7 @@ class UploadClient:
                 try:
                     state = rsemgr.upload(rse_settings=rse_settings,
                                           lfns=lfn,
+                                          domain=domain,
                                           source_dir=file['dirname'],
                                           force_scheme=cur_scheme,
                                           force_pfn=pfn,
