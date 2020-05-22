@@ -765,7 +765,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 # I.3 - Compute the destination url
                 if rses_info[dest_rse_id]['deterministic']:
-                    dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name}).values())[0]
+                    dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name}).values())[0]
                 else:
                     # compute dest url in case of non deterministic
                     # naming convention, etc.
@@ -777,10 +777,10 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                         if retry_count or activity == 'Recovery':
                             dest_path = '%s_%i' % (dest_path, int(time.time()))
 
-                    dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': dest_path}).values())[0]
+                    dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': dest_path}).values())[0]
 
                 # II - Compute the source URL
-                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values())[0]
+                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': path}).values())[0]
 
                 # III - Extend the metadata dictionary with request attributes
                 overwrite, bring_online = True, None
@@ -935,7 +935,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                     # I.3.2 - Compute the destination url
                     if rses_info[dest_rse_id]['deterministic']:
-                        dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name}).values())[0]
+                        dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name}).values())[0]
                     else:
                         # compute dest url in case of non deterministic
                         # naming convention, etc.
@@ -947,10 +947,10 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                             if retry_count or activity == 'Recovery':
                                 dest_path = '%s_%i' % (dest_path, int(time.time()))
 
-                        dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': dest_path}).values())[0]
+                        dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': dest_path}).values())[0]
 
                 # II - Build the source URL
-                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values())[0]
+                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': path}).values())[0]
                 sign_url = rse_attrs[dest_rse_id].get('sign_url', None)
                 if sign_url == 'gcs':
                     dest_url = re.sub('davs', 'gclouds', dest_url)
@@ -1092,7 +1092,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'third_party_copy', source_protocol)
                 if hop['dest_rse_id'] not in rse_attrs:
                     rse_attrs[dest_rse_id] = get_rse_attributes(hop['dest_rse_id'], session=session)
-                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': None}).values())[0]
+                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': None}).values())[0]
 
                 if transfers[req_id]['file_metadata']['dest_rse_id'] != hop['dest_rse_id']:
                     files = [{'scope': scope,
@@ -1167,7 +1167,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                     # I.3 - Compute the destination url
                     if rses_info[dest_rse_id]['deterministic']:
-                        dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name}).values())[0]
+                        dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name}).values())[0]
                     else:
                         # compute dest url in case of non deterministic
                         # naming convention, etc.
@@ -1179,7 +1179,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                             if retry_count or activity == 'Recovery':
                                 dest_path = '%s_%i' % (dest_path, int(time.time()))
 
-                        dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': dest_path}).values())[0]
+                        dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': dest_path}).values())[0]
 
                     # II - Extend the metadata dictionary with request attributes
                     overwrite, bring_online = True, None

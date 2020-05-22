@@ -165,4 +165,5 @@ def list_requests(src_rses, dst_rses, states, issuer, vo='def'):
         raise exception.AccessDenied('%(issuer)s cannot list requests from RSE %(src_rse)s to RSE %(dst_rse)s' % locals())
 
     for req in request.list_requests(src_rse_ids, dst_rse_ids, states):
+        req = req.to_dict()
         yield api_update_return_dict(req)

@@ -63,7 +63,10 @@ class TestAbacusAccount():
     def tearDown(self):
         undertaker.run(once=True)
         cleaner.run(once=True)
-        reaper.run(once=True, include_rses=self.rse, greedy=True)
+        if self.vo:
+            reaper.run(once=True, include_rses='vo=%s&(%s)' % (self.vo['vo'], self.rse), greedy=True)
+        else:
+            reaper.run(once=True, include_rses=self.rse, greedy=True)
 
     def test_abacus_account(self):
         """ ABACUS (ACCOUNT): Test update of account usage """
