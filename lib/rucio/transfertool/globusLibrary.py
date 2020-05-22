@@ -14,14 +14,15 @@
 #
 # Authors:
 # - Matt Snyder <msnyder@rcf.rhic.bnl.gov>, 2019
-# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019-2020
 
 import imp
 import logging
 import os
 import sys
 
-from rucio.common.config import config_get
+from rucio.common.config import config_get, get_config_dirs
+from rucio.core.monitor import record_counter
 from datetime import datetime
 
 # Extra modules: Only imported if available
@@ -49,20 +50,14 @@ logging.basicConfig(stream=sys.stdout,
 GLOBUS_AUTH_APP = config_get('conveyor', 'globus_auth_app', False, None)
 
 
-def load_config():
+def load_config(cfg_file='globus-config.yml'):
     config = None
-    f = __file__
-    while config is None:
-        d = os.path.dirname(f)
-        if os.path.isfile(os.path.join(d, 'config.yml')):
-            config = os.path.join(d, 'config.yml')
-            break
-        f = d
-
-    if not config:
-        logging.error('Could not find config.yml in any parent directory of %s' % f)
+    config_dir = get_config_dirs()[0]
+    if os.path.isfile(os.path.join(config_dir, cfg_file)):
+        config = os.path.join(config_dir, cfg_file)
+    else:
+        logging.error('Could not find globus config file')
         raise Exception
-
     return yaml.safe_load(open(config).read())
 
 
@@ -148,9 +143,12 @@ def bulk_submit_xfer(submitjob, recursive=False):
     for file in submitjob:
         source_path = file.get('sources')[0]
         dest_path = file.get('destinations')[0]
-        md5 = file['metadata']['md5']
+        filesize = file['metadata']['filesize']
         # TODO: support passing a recursive parameter to Globus
-        tdata.add_item(source_path, dest_path, recursive=False, external_checksum=md5)
+        # md5 = file['metadata']['md5']
+        # tdata.add_item(source_path, dest_path, recursive=False, external_checksum=md5)
+        tdata.add_item(source_path, dest_path, recursive=False)
+        record_counter('daemons.conveyor.transfer_submitter.globus.transfers.submit.filesize', filesize)
 
     # logging.info('submitting transfer...')
     transfer_result = tc.submit_transfer(tdata)
@@ -167,7 +165,6 @@ def check_xfer(task_id):
 
 
 def bulk_check_xfers(task_ids):
-    # TODO: handle Globus task status: ACTIVE/FAILED/SUCCEEDED
     tc = getTransferClient()
 
     logging.debug('task_ids: %s' % task_ids)
@@ -178,7 +175,9 @@ def bulk_check_xfers(task_ids):
         transfer = tc.get_task(str(task_id))
         logging.debug('transfer: %s' % transfer)
         status = str(transfer["status"])
-        # task_ids[str(task_id)]['file_state'] = status
+        if status == 'SUCCEEDED':
+            record_counter('daemons.conveyor.transfer_submitter.globus.transfers.bytes_transferred', transfer['bytes_transferred'])
+            record_counter('daemons.conveyor.transfer_submitter.globus.transfers.effective_bytes_per_second', transfer['effective_bytes_per_second'])
         responses[str(task_id)] = status
 
     logging.debug('responses: %s' % responses)
@@ -189,8 +188,6 @@ def bulk_check_xfers(task_ids):
 def send_delete_task(endpoint_id=None, path=None):
     tc = getTransferClient()
     ddata = DeleteData(tc, endpoint_id, recursive=True)
-    # ddata.add_item("/dir/to/delete/")
-    # ddata.add_item("/file/to/delete/file.txt")
     ddata.add_item(path)
     delete_result = tc.submit_delete(ddata)
 

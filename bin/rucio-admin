@@ -59,8 +59,10 @@ import tabulate
 
 from rucio.client import Client
 from rucio.common.config import config_get
-from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject, ReplicaNotFound,
-                                    RSENotFound, RSEOperationNotSupported, InvalidRSEExpression, DuplicateContent, RuleNotFound, CannotAuthenticate,
+from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists, AccessDenied,
+                                    DataIdentifierNotFound, InvalidObject, ReplicaNotFound,
+                                    RSENotFound, RSEOperationNotSupported, InvalidRSEExpression,
+                                    DuplicateContent, RuleNotFound, CannotAuthenticate,
                                     Duplicate, ReplicaIsLocked, ConfigNotFound)
 from rucio.common.utils import chunks, construct_surl, sizefmt, get_bytes_value_from_string, render_json, parse_response
 from rucio import version
@@ -199,9 +201,19 @@ def get_client(args):
     """
     Returns a new client object.
     """
-    auth_type = args.auth_strategy.lower() if args.auth_strategy else args.auth_strategy
+    if not args.auth_strategy:
+        if 'RUCIO_AUTH_TYPE' in os.environ:
+            auth_type = os.environ['RUCIO_AUTH_TYPE'].lower()
+        else:
+            try:
+                auth_type = config_get('client', 'auth_type').lower()
+            except (NoOptionError, NoSectionError):
+                logger.error('Cannot get AUTH_TYPE')
+                sys.exit(FAILURE)
+    else:
+        auth_type = args.auth_strategy.lower()
 
-    if auth_type == 'userpass':
+    if auth_type in ['userpass', 'saml'] and args.username is not None and args.password is not None:
         creds = {'username': args.username, 'password': args.password}
     elif auth_type == 'oidc':
         if args.oidc_issuer:
@@ -211,10 +223,9 @@ def get_client(args):
                  'oidc_audience': args.oidc_audience,
                  'oidc_polling': args.oidc_polling,
                  'oidc_refresh_lifetime': args.oidc_refresh_lifetime,
-                 'oidc_issuer': args.oidc_issuer}
-        if args.oidc_auto:
-            creds['oidc_username'] = args.oidc_username
-            creds['oidc_password'] = args.oidc_password
+                 'oidc_issuer': args.oidc_issuer,
+                 'oidc_username': args.oidc_username,
+                 'oidc_password': args.oidc_password}
     else:
         creds = None
 
@@ -225,17 +236,9 @@ def get_client(args):
                         ca_cert=args.ca_certificate, timeout=args.timeout)
     except CannotAuthenticate as error:
         logger.error(error)
-        auth_type = ''
-        if not args.auth_strategy:
-            if 'RUCIO_AUTH_TYPE' in os.environ:
-                auth_type = os.environ['RUCIO_AUTH_TYPE']
-            else:
-                try:
-                    auth_type = config_get('client', 'auth_type')
-                except (NoOptionError, NoSectionError):
-                    logger.error('Cannot get AUTH_TYPE')
-                    sys.exit(FAILURE)
-        if auth_type.lower() == 'x509_proxy':
+        if 'alert certificate expired' in error:
+            logger.error('The server certificate expired.')
+        elif auth_type.lower() == 'x509_proxy':
             logger.error('Please verify that your proxy is still valid and renew it if needed.')
         sys.exit(FAILURE)
     return client
