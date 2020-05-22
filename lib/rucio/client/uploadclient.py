@@ -21,6 +21,7 @@
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Gabriele Fronze' <gfronze@cern.ch>, 2019
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -171,7 +172,7 @@ class UploadClient:
             # if register_after_upload, file should be overwritten if it is not registered
             # otherwise if file already exists on RSE we're done
             if register_after_upload:
-                if rsemgr.exists(rse_settings, pfn if pfn else file_did, auth_token=self.auth_token):
+                if rsemgr.exists(rse_settings, pfn if pfn else file_did, auth_token=self.auth_token, logger=logger):
                     try:
                         self.client.get_did(file['did_scope'], file['did_name'])
                         logger.info('File already registered. Skipping upload.')
@@ -241,7 +242,8 @@ class UploadClient:
                                           transfer_timeout=file.get('transfer_timeout'),
                                           delete_existing=delete_existing,
                                           sign_service=sign_service,
-                                          auth_token=self.auth_token)
+                                          auth_token=self.auth_token,
+                                          logger=logger)
                     success = state['success']
                     file['upload_result'] = state
                 except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:
