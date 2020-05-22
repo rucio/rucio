@@ -16,6 +16,7 @@
 # - Tomas Javor Javurek <tomas.javurek@cern.ch>, 2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 
 
 import os
