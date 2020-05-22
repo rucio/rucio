@@ -64,7 +64,10 @@ class TestAbacusCollectionReplica():
     def tearDown(self):
         undertaker.run(once=True)
         cleaner.run(once=True)
-        reaper.run(once=True, include_rses=self.rse, greedy=True)
+        if self.vo:
+            reaper.run(once=True, include_rses='vo=%s&(%s)' % (self.vo['vo'], self.rse), greedy=True)
+        else:
+            reaper.run(once=True, include_rses=self.rse, greedy=True)
 
     def test_abacus_collection_replica(self):
         """ ABACUS (COLLECTION REPLICA): Test update of collection replica. """
@@ -108,7 +111,10 @@ class TestAbacusCollectionReplica():
 
         # Delete all files -> collection replica should be deleted
         cleaner.run(once=True)
-        reaper.run(once=True, include_rses=self.rse, greedy=True)
+        if self.vo:
+            reaper.run(once=True, include_rses='vo=%s&(%s)' % (self.vo['vo'], self.rse), greedy=True)
+        else:
+            reaper.run(once=True, include_rses=self.rse, greedy=True)
         self.rule_client.add_replication_rule([{'scope': self.scope, 'name': self.dataset}], 1, self.rse, lifetime=-1)
         collection_replica.run(once=True)
         dataset_replica = [replica for replica in self.replica_client.list_dataset_replicas(self.scope, self.dataset)]

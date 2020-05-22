@@ -24,7 +24,7 @@ import random
 import string
 
 from datetime import datetime
-from nose.tools import assert_equal, assert_in, assert_not_equal, assert_not_in
+from nose.tools import assert_equal, assert_in, assert_not_equal, assert_not_in, assert_true
 
 from rucio.api.account import add_account, get_account_info, list_accounts
 import rucio.api.account_limit as api_acc_lim
@@ -40,10 +40,13 @@ from rucio.api.subscription import add_subscription, list_subscriptions, list_su
 from rucio.common.config import config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import api_update_return_dict, generate_uuid
-from rucio.core.account_counter import add_counter, del_counter, increase, update_account_counter
+import rucio.core.account_counter as account_counter
 from rucio.core.rse import get_rse_id
 from rucio.core.vo import add_vo, vo_exists
 from rucio.db.sqla import constants
+from rucio.daemons.abacus import rse as abacus_rse
+from rucio.daemons.judge import cleaner
+from rucio.daemons.reaper import reaper
 from rucio.tests.common import rse_name_generator
 
 
@@ -142,6 +145,7 @@ class TestApiExternalRepresentation():
         out = api_acc_lim.get_local_account_usage(self.account_name, self.rse_name, issuer='root', **self.vo)
         out = list(out)
         assert_not_equal(0, len(out))
+        assert_in(self.rse_id, [usage['rse_id'] for usage in out if 'rse_id' in usage])
         for usage in out:
             if 'rse_id' in usage:
                 assert_in('rse', usage)
@@ -151,9 +155,7 @@ class TestApiExternalRepresentation():
         out = api_acc_lim.get_global_account_usage(self.account_name, rse_expr, issuer='root', **self.vo)
         out = list(out)
         assert_not_equal(0, len(out))
-        for usage in out:
-            if 'rse_expression' in usage:
-                assert_equal(rse_expr, usage['rse_expression'])
+        assert_in(rse_expr, [usage['rse_expression'] for usage in out if 'rse_expression' in usage])
 
     def test_api_did(self):
         """ DID (API): Test external representation of DIDs """
@@ -168,10 +170,13 @@ class TestApiExternalRepresentation():
         out = scope_list(self.scope_name, recursive=True, **self.vo)
         out = list(out)
         assert_not_equal(0, len(out))
+        parent_found = False
         for did in out:
             assert_equal(did['scope'], self.scope_name)
             if did['parent'] is not None:
+                parent_found = True
                 assert_equal(did['parent']['scope'], self.scope_name)
+        assert_true(parent_found)
 
         # test get_did
         add_did_to_followed(self.scope_name, 'ext_parent', self.account_name, **self.vo)
@@ -231,24 +236,30 @@ class TestApiExternalRepresentation():
                       'dids': [{'scope': self.scope_name, 'name': did}]}
         attach_dids_to_dids([attachment], issuer='root', **self.vo)
 
-        out = get_did_from_pfns([pfn], self.rse2_name)
+        out = get_did_from_pfns([pfn], self.rse2_name, **self.vo)
         out = list(out)
         assert_not_equal(0, len(out))
+        did_found = False
         for p in out:
             for key in p:
                 if p[key]['name'] == did:
+                    did_found = True
                     assert_equal(self.scope_name, p[key]['scope'])
+        assert_true(did_found)
 
         out = list_replicas(dids=[{'scope': self.scope_name, 'name': did}], resolve_parents=True, **self.vo)
         out = list(out)
         assert_not_equal(0, len(out))
+        parents_found = False
         for rep in out:
             assert_equal(rep['scope'], self.scope_name)
             if 'parents' in rep:
+                parents_found = True
                 for parent in rep['parents']:
                     assert_in(self.scope_name, parent)
                     if self.multi_vo:
                         assert_not_in(self.scope.internal, parent)
+        assert_true(parents_found)
 
     def test_api_request(self):
         """ REQUEST (API): Test external representation of requests """
@@ -293,15 +304,16 @@ class TestApiExternalRepresentation():
         out = list_requests([self.rse_name], [self.rse2_name], [constants.RequestState.QUEUED], issuer='root', **self.vo)
         out = list(out)
         assert_not_equal(0, len(out))
+        assert_in(self.scope_name, [req['scope'] for req in out])
         for req in out:
-            if req['scope'] == self.scope_name or req['scope'] == self.scope.internal:
+            if req['scope'] == self.scope_name:
                 assert_equal(req['scope'], self.scope_name)
                 assert_equal(req['account'], self.account_name)
                 assert_equal(req['dest_rse'], self.rse2_name)
                 assert_equal(req['source_rse'], self.rse_name)
 
     def test_api_rse(self):
-        """ REQUEST (API): Test external representation of RSEs """
+        """ RSE (API): Test external representation of RSEs """
 
         out = api_rse.get_rse(self.rse_name, **self.vo)
         assert_equal(out['rse'], self.rse_name)
@@ -310,6 +322,9 @@ class TestApiExternalRepresentation():
         out = api_rse.list_rses(**self.new_vo)
         out = list(out)
         assert_not_equal(0, len(out))
+        rse_ids = [rse['id'] for rse in out]
+        assert_in(self.rse3_id, rse_ids)
+        assert_in(self.rse4_id, rse_ids)
         for rse in out:
             assert_in('rse', rse)
             if rse['id'] == self.rse3_id:
@@ -328,22 +343,34 @@ class TestApiExternalRepresentation():
         out = api_rse.get_rse_protocols(self.rse_name, issuer='root', **self.vo)
         assert_equal(out['rse'], self.rse_name)
 
-        # core functions
-        del_counter(rse_id=self.rse_id, account=self.account)
-        add_counter(rse_id=self.rse_id, account=self.account)
-        increase(rse_id=self.rse_id, account=self.account, files=1, bytes=10000)
-        update_account_counter(self.account, self.rse_id)
+        # add some account and RSE counters
+        rse_mock = 'MOCK4'
+        rse_mock_id = get_rse_id(rse_mock, **self.vo)
+        account_counter.del_counter(rse_id=rse_mock_id, account=self.account)
+        account_counter.add_counter(rse_id=rse_mock_id, account=self.account)
+        account_counter.increase(rse_id=rse_mock_id, account=self.account, files=1, bytes=10)
+        account_counter.update_account_counter(self.account, rse_mock_id)
+        did = 'file_' + generate_uuid()
+        add_did(self.scope_name, did, 'DATASET', 'root', account=self.account_name, rse=rse_mock, **self.vo)
+        abacus_rse.run(once=True)
 
-        # This test doesn't work - to be fixed
-        out = api_rse.get_rse_usage(self.rse_name, per_account=True, issuer='root', **self.vo)
-        out = list(out)
-        assert_not_equal(0, len(out))
+        out = api_rse.get_rse_usage(rse_mock, per_account=True, issuer='root', **self.vo)
+        assert_in(rse_mock_id, [o['rse_id'] for o in out])
         for usage in out:
-            if usage['rse_id'] == self.rse_id:
-                assert_equal(usage['rse'], self.rse_name)
-                for acc_usage in usage['account_usages']:
-                    if self.account_name in acc_usage['account']:
-                        assert_equal(acc_usage['account'], self.account_name)
+            if usage['rse_id'] == rse_mock_id:
+                assert_equal(usage['rse'], rse_mock)
+                accounts = [u['account'] for u in usage['account_usages']]
+                assert_in(self.account_name, accounts)
+                if self.multi_vo:
+                    assert_not_in(self.account.internal, accounts)
+
+        # clean up files
+        cleaner.run(once=True)
+        if self.multi_vo:
+            reaper.run(once=True, include_rses='vo=%s&(%s)' % (self.vo['vo'], rse_mock), greedy=True)
+        else:
+            reaper.run(once=True, include_rses=rse_mock, greedy=True)
+        abacus_rse.run(once=True)
 
         out = api_rse.parse_rse_expression('%s|%s' % (self.rse_name, self.rse2_name), **self.vo)
         assert_in(self.rse_name, out)
@@ -390,6 +417,7 @@ class TestApiExternalRepresentation():
         out = list_subscriptions(sub, **self.new_vo)
         out = list(out)
         assert_not_equal(0, len(out))
+        assert_in(sub_id, [o['id'] for o in out])
         for o in out:
             if o['id'] == sub_id:
                 assert_equal(o['account'], new_acc_name)

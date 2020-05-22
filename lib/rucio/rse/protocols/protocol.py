@@ -26,6 +26,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - James Clark <james.clark@physics.gatech.edu>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 

@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2015
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 
 import commands
 import logging

@@ -11,6 +11,7 @@
  - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
  - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+ - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 
  PY3K COMPATIBLE
 '''
