@@ -26,7 +26,8 @@ from rucio.api.account import add_account, list_accounts
 from rucio.api.account_limit import set_local_account_limit
 from rucio.api.did import add_did, list_dids
 from rucio.api.identity import list_accounts_for_identity
-from rucio.api.rse import add_rse, add_rse_attribute, list_rses
+from rucio.api.replica import list_replicas
+from rucio.api.rse import add_protocol, add_rse, add_rse_attribute, list_rses
 from rucio.api.rule import delete_replication_rule, get_replication_rule
 from rucio.api.scope import add_scope, list_scopes
 from rucio.api.subscription import add_subscription, list_subscriptions
@@ -47,6 +48,7 @@ from rucio.core.account_counter import increase, update_account_counter
 from rucio.core.rse import get_rses_with_attribute_value, get_rse_id, get_rse_vo
 from rucio.core.rule import add_rule
 from rucio.core.vo import add_vo, vo_exists
+from rucio.daemons.automatix.automatix import automatix
 from rucio.db.sqla import models, session as db_session
 
 
@@ -396,3 +398,61 @@ class TestMultiVoClients(object):
         session.query(models.UpdatedAccountCounter).filter_by(rse_id=tst_rse1_id, account=new_acc).delete(synchronize_session=False)
 
         session.commit()
+
+
+class TestMultiVODaemons(object):
+
+    @classmethod
+    def setUpClass(cls):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            cls.vo = {'vo': 'tst'}
+            cls.new_vo = {'vo': 'new'}
+            if not vo_exists(**cls.new_vo):
+                add_vo(description='Test', email='rucio@email.com', **cls.new_vo)
+        else:
+            LOG.warning('multi_vo mode is not enabled. Running multi_vo tests in single_vo mode will result in failures.')
+            cls.vo = {}
+            cls.new_vo = {}
+
+    def test_automatix(self):
+        """ MULTI VO (DAEMON): Test that automatix runs on a single VO """
+        scope_client = ScopeClient()
+        scope_uuid = str(generate_uuid()).lower()[:16]
+        shr_scope = 'shr_%s' % scope_uuid
+        scope_client.add_scope('root', shr_scope)
+        add_scope(shr_scope, 'root', 'root', **self.new_vo)
+
+        rse_client = RSEClient()
+        rse_str = ''.join(choice(ascii_uppercase) for x in range(10))
+        shr_rse = 'SHR_%s' % rse_str
+        mock_protocol = {'scheme': 'MOCK',
+                         'hostname': 'localhost',
+                         'port': 123,
+                         'prefix': '/test/automatix',
+                         'impl': 'rucio.rse.protocols.mock.Default',
+                         'domains': {
+                             'lan': {'read': 1,
+                                     'write': 1,
+                                     'delete': 1},
+                             'wan': {'read': 1,
+                                     'write': 1,
+                                     'delete': 1}}}
+        rse_client.add_rse(shr_rse)
+        rse_client.add_rse_attribute(rse=shr_rse, key='verify_checksum', value=False)
+        rse_client.add_protocol(shr_rse, mock_protocol)
+        add_rse(shr_rse, 'root', **self.new_vo)
+        add_rse_attribute(rse=shr_rse, key='verify_checksum', value=False, issuer='root', **self.new_vo)
+        add_protocol(rse=shr_rse, data=mock_protocol, issuer='root', **self.new_vo)
+
+        automatix(sites=[shr_rse], inputfile='/opt/rucio/etc/automatix.json', sleep_time=30, account='root', once=True, scope=shr_scope)
+
+        did_list_tst = list(DIDClient().list_dids(shr_scope, {}))
+        did_list_new = list(list_dids(shr_scope, {}, **self.new_vo))
+        assert_not_equal(len(did_list_tst), 0)
+        assert_equal(len(did_list_new), 0)
+
+        did_dicts = [{'scope': shr_scope, 'name': n} for n in did_list_tst]
+        replicas_tst = list(ReplicaClient().list_replicas(did_dicts, rse_expression=shr_rse))
+        replicas_new = list(list_replicas(did_dicts, rse_expression=shr_rse, **self.new_vo))
+        assert_not_equal(len(replicas_tst), 0)
+        assert_equal(len(replicas_new), 0)
