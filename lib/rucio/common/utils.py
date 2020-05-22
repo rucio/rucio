@@ -295,18 +295,18 @@ def set_checksum_value(file, checksum_names_list):
                 break
 
 
-def set_replica_checksums(dict, **checksums):
+def set_replica_checksums(dictio, **checksums):
     """
     Utility to fill a replica dictionary with all the passed checksums, automatically excluding unsupported ones
 
-    :param dict: replica description dictionary.
+    :param dictio: replica description dictionary.
     :param checksums: arbitrary number of checksum values. Passed variables must be named after the checksum algorithm name.
     """
     for checksum_name in checksums:
         if checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS or checksum_name == 'pfn':
             value = checksums[checksum_name]
             if value:
-                dict[checksum_name] = value
+                dictio[checksum_name] = value
 
 
 def adler32(file):

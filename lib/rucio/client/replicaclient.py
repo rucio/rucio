@@ -184,11 +184,11 @@ class ReplicaClient(BaseClient):
         :return: True if files were created successfully.
 
         """
-        dict = {'scope': scope, 'name': name, 'bytes': bytes, 'meta': meta}
+        dictio = {'scope': scope, 'name': name, 'bytes': bytes, 'meta': meta}
 
-        set_replica_checksums(dict, md5=md5, adler32=adler32, pfn=pfn)
+        set_replica_checksums(dictio, md5=md5, adler32=adler32, pfn=pfn)
 
-        return self.add_replicas(rse=rse, files=[dict])
+        return self.add_replicas(rse=rse, files=[dictio])
 
     def add_replicas(self, rse, files, ignore_availability=True):
         """
