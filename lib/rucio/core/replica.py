@@ -933,7 +933,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                             pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope.internal, name)] = path
 
                     try:
-                        pfn = list(protocol.lfns2pfns(lfns={'scope': scope,
+                        pfn = list(protocol.lfns2pfns(lfns={'scope': scope.external,
                                                             'name': name,
                                                             'path': path}).values())[0]
 
@@ -1332,7 +1332,7 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
                         file['path'] = ''.join([tmp['path'], tmp['name']])
             else:
                 # Check that the pfns match to the expected pfns
-                lfns = [{'scope': i['scope'], 'name': i['name']} for i in files if i['pfn'].startswith(scheme)]
+                lfns = [{'scope': i['scope'].external, 'name': i['name']} for i in files if i['pfn'].startswith(scheme)]
                 pfns[scheme] = clean_surls(pfns[scheme])
                 expected_pfns_wan = _expected_pfns(lfns, rse_settings, scheme, operation='write', domain='wan')
                 # Check wan first

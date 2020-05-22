@@ -1224,13 +1224,13 @@ def api_update_return_dict(dictionary):
                 import rucio.core.rse
                 dictionary[rse_str] = rucio.core.rse.get_rse_name(rse_id=dictionary[rse_id_str])
 
-    if 'account' in dictionary.keys():
+    if 'account' in dictionary.keys() and dictionary['account'] is not None:
         if not copied:
             dictionary = dictionary.copy()
             copied = True
         dictionary['account'] = dictionary['account'].external
 
-    if 'scope' in dictionary.keys():
+    if 'scope' in dictionary.keys() and dictionary['scope'] is not None:
         if not copied:
             dictionary = dictionary.copy()
             copied = True

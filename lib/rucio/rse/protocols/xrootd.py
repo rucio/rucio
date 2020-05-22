@@ -11,6 +11,7 @@
   - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2016-2017
   - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
+  - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 
   PY3K COMPATIBLE
 '''
@@ -95,7 +96,7 @@ class Default(protocol.RSEProtocol):
 
         lfns = [lfns] if type(lfns) == dict else lfns
         for lfn in lfns:
-            scope, name = str(lfn['scope']), lfn['name']
+            scope, name = lfn['scope'], lfn['name']
             if 'path' in lfn and lfn['path'] is not None:
                 pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), prefix, lfn['path']])
             else:

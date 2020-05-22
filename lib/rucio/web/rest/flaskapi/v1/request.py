@@ -132,7 +132,6 @@ class RequestsGet(MethodView):
 
         results = []
         for result in request.list_requests(src_rses, dst_rses, states, issuer=f_request.environ.get('issuer'), vo=f_request.environ.get('vo')):
-            result = result.to_dict()
             del result['_sa_instance_state']
             results.append(result)
         return json.dumps(results, cls=APIEncoder)

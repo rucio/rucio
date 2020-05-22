@@ -139,7 +139,6 @@ class RequestsGet(RucioController):
             src_rses = [src_rse]
 
         for result in request.list_requests(src_rses, dst_rses, states, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo')):
-            result = result.to_dict()
             del result['_sa_instance_state']
             yield render_json(**result) + '\n'
 
