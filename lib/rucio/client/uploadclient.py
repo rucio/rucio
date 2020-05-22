@@ -167,6 +167,17 @@ class UploadClient:
                 logger.warning('Upload with given pfn implies that no_register is True, except non-deterministic RSEs')
                 no_register = True
 
+            # resolving local area networks
+            domain = 'wan'
+            rse_attributes = {}
+            try:
+                rse_attributes = self.client.list_rse_attributes(rse)
+            except:
+                logger.warning('Attributes of the RSE: %s not available.' % rse)
+            if (self.client_location and 'lan' in rse_settings['domain'] and 'site' in rse_attributes):
+                if self.client_location['site'] == rse_attributes['site']:
+                    domain = 'lan'
+
             if not no_register and not register_after_upload:
                 self._register_file(file, registered_dataset_dids)
             # if register_after_upload, file should be overwritten if it is not registered
@@ -195,17 +206,6 @@ class UploadClient:
                     logger.info('File already exists on RSE. Skipping upload')
                     trace['stateReason'] = 'File already exists'
                     continue
-
-            # resolving local area networks
-            domain = 'wan'
-            rse_attributes = {}
-            try:
-                rse_attributes = self.client.list_rse_attributes(rse)
-            except:
-                logger.warning('Attributes of the RSE: %s not available.' % rse)
-            if (self.client_location and 'lan' in rse_settings['domain'] and 'site' in rse_attributes):
-                if self.client_location['site'] == rse_attributes['site']:
-                    domain = 'lan'
 
             # protocol handling and upload
             protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=force_scheme, domain=domain)
