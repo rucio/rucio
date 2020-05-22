@@ -9,6 +9,7 @@
 # Authors:
 # - Cheng-Hsi Chao, <cheng-hsi.chaos@cern.ch>, 2014
 # - Martin Barisits, <martin.barisits@cern.ch>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
 Script to sync LDAP accounts as Rucio Identity
@@ -21,6 +22,7 @@ import ldapurl  # pylint: disable=import-error
 import os
 from rucio.client import Client
 from rucio.common import exception
+from rucio.common.config import get_config_dirs
 import re
 
 
@@ -113,15 +115,8 @@ def add_account(account):
 
 # Get LDAP Config
 config = ConfigParser.ConfigParser()
-configfiles = list()
-if 'RUCIO_HOME' in os.environ:
-    configfiles.append('%s/etc/ldap.cfg' % os.environ['RUCIO_HOME'])
-configfiles.append('/opt/rucio/etc/ldap.cfg')
-
-if 'VIRTUAL_ENV' in os.environ:
-    configfiles.append('%s/etc/ldap.cfg' % os.environ['VIRTUAL_ENV'])
 has_config = False
-for configfile in configfiles:
+for configfile in (os.path.join(confdir, 'ldap.cfg') for confdir in get_config_dirs()):
     has_config = config.read(configfile) == [configfile]
     if has_config:
         break

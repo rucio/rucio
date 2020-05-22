@@ -20,7 +20,7 @@ import os
 
 from rucio.common import exception
 from rucio.rse.protocols import protocol
-from rucio.common.utils import execute
+from rucio.common.utils import execute, PREFERRED_CHECKSUM
 
 
 class Default(protocol.RSEProtocol):
@@ -72,6 +72,46 @@ class Default(protocol.RSEProtocol):
             raise exception.ServiceUnavailable(e)
 
         return True
+
+    def stat(self, path):
+        """
+        Returns the stats of a file.
+
+        :param path: path to file
+
+        :raises ServiceUnavailable: if some generic error occured in the library.
+
+        :returns: a dict with two keys, filesize and an element of GLOBALLY_SUPPORTED_CHECKSUMS.
+        """
+        ret = {}
+        chsum = None
+        if path.startswith('root:'):
+            path = self.pfn2path(path)
+
+        try:
+            # xrdfs stat for getting filesize
+            cmd = 'xrdfs %s:%s stat %s' % (self.hostname, self.port, path)
+            status_stat, out, err = execute(cmd)
+            if status_stat == 0:
+                ret['filesize'] = out.split('\n')[2].split()[-1]
+
+            # xrdfs query checksum for getting checksum
+            cmd = 'xrdfs %s:%s query checksum %s' % (self.hostname, self.port, path)
+            status_query, out, err = execute(cmd)
+            if status_query == 0:
+                chsum, value = out.strip('\n').split()
+                ret[chsum] = value
+
+        except Exception as e:
+            raise exception.ServiceUnavailable(e)
+
+        if 'filesize' not in ret:
+            raise exception.ServiceUnavailable('Filesize could not be retrieved.')
+        if PREFERRED_CHECKSUM != chsum or not chsum:
+            msg = '{} does not match with {}'.format(chsum, PREFERRED_CHECKSUM)
+            raise exception.RSEChecksumUnavailable(msg)
+
+        return ret
 
     def pfn2path(self, pfn):
         parse_pfns = self.parse_pfns(pfn)[pfn]

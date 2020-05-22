@@ -64,28 +64,62 @@ If you try to authenticate with an account that is not mapped with your credenti
 Open ID Connect authentication examples
 =======================================
 
-There are 3 CLI login options. The latter two were introduced in order to avoid typing the password in the Rucio CLI. The default Identity Provider (IdP)/issuer is configured on the side of Rucio server. In case multiple IdPs are supported, user can specify which one he desires to use by ``--oidc-issuer=<IdP nickname>`` option (where IdP nickname is the key under which issuers are configured on Rucio server side in the `idpsecrets.json` file). In the following examples we assume that user does not want to use the rucio account name specified in the rucio.cfg file on the client side (if so ``-a`` parameter can be ommitted). Furthermore, we use the same default issuer as configured on Rucio server side.
+There are 3 CLI login methods. Two were introduced in order to avoid typing the password in the Rucio CLI. The default Identity Provider (IdP)/issuer is configured on the side of Rucio server. In case multiple IdPs are supported, user can specify which one he desires to use by ``--oidc-issuer=<IdP nickname>`` option (where IdP nickname is the key under which issuers are configured on Rucio server side in the `idpsecrets.json` file). In the following examples we assume that user does not want to use the rucio account name specified in the rucio.cfg file on the client side (if so ``-a`` parameter can be omitted). If `auth_type`` is specified to be "oidc" in the rucio.cfg file, ``-S`` can be omitted as well. Furthermore, we use the same default issuer as configured on Rucio server side.
 
-Automatic login (assuming the same issuer as configured o)::
-  rucio -a=<rucio_account_name> -S=OIDC --oidc-user=<idp_username> --oidc-password=<idp_password> --oidc-auto -v whoami
-
-Login via user's browser + fetch code::
+1. Login via user's browser + fetch code::
 
   rucio -a=<rucio_account_name> -S=OIDC -v whoami
 
-Login via user's browser + polling Rucio auth server::
+2. Login via user's browser + polling Rucio auth server::
 
   rucio -a=<rucio_account_name> -S=OIDC --oidc-polling -v whoami
 
-Automatic token refresh. Assuming the rucio-oauth-manager daemon is running on the Rucio server side, one can also grant Rucio a refresh token and specify the time for which Rucio should act on behalf of the user (in hours) using the ``--refresh-lifetime`` option::
+3. Automatic login::
+
+  rucio -a=<rucio_account_name> -S=OIDC --oidc-user=<idp_username> --oidc-password=<idp_password> --oidc-auto -v whoami
+
+We strongly discourage this approach, typing your password in CLI does not comply with OAuth2/OIDC standard !
+
+
+Options for automatic token refresh: Assuming the rucio-oauth-manager daemon is running on the Rucio server side, one can also grant Rucio a refresh token and specify the time for which Rucio should act on behalf of the user (in hours) using the ``--refresh-lifetime`` option::
 
   rucio -a=<rucio_account_name> -S=OIDC --oidc-scope="openid profile offline_access" --oidc-refresh-lifetime=24 -v whoami
 
-In order to authenticate a user with Rucio using a JSON web token not issued via the Rucio login mechanis (CLI, WebUI), one has to make sure that:
-- in case ``--oidc-scope`` is specified explicitly, it is no less than the minimum scope (e.g. 'openid profile') required by the Rucio Auth server (configured there in the rucio.cfg file).
-- same as above is true for the explicit use of ``--oidc-audience`` parameter
-- token issuer is known to Rucio Authentication server
-- the identity of the token ("SUB=<user sub claim>, ISS=<issuer url>") is assigned to an existing Rucio account (pre-provisioned)
+If Rucio Server is granted a user both valid access and refresh tokens, it is also possible to configure Rucio Client to ask Rucio Server for token refresh. Assuming user used one of the 3 CLI authentication methods above + requested offline_access in the scope, rucio.cfg file can be configured with the following parameters in the [client] section::
+
+  [client]
+  auth_oidc_refresh_active true
+  auth_oidc_refresh_before_exp 20
+
+``auth_oidc_refresh_active`` is false by default. If set to true, the Rucio Client will be following up token expiration timestamp. As soon as the current time gets to ``auth_oidc_refresh_before_exp`` minutes (20 min default) before token expiration, Rucio Client will ask Rucio Server for token refresh with every command. If the token has been refreshed in the recent 5 min already once, the same one will be returned (protection on the Rucio Server side). If the presented token has been refreshed automatically on the Rucio Server side by a oauth_manager daemon run, it will return this existing new token. If the presented token is invalid/expired/does not have refresh token in the DB, no refresh will be attempted.
+
+Example of rucio.cfg file configuration with automatic token refresh::
+
+  [client]
+  rucio_host = https://<rucio_host>:443
+  auth_host = https://<rucio_auth_host>:443
+  auth_type = oidc
+  account = <rucio_account_name>
+  oidc_audience = rucio
+  oidc_scope = openid profile offline_access
+  oidc_issuer = wlcg
+  auth_oidc_refresh_active true
+  auth_oidc_refresh_before_exp 20
+
+Then, you should be able to do simply::
+
+  rucio -v whoami
+
+and follow the instruction for first log-in with your browser. New token will be requested before the current expires if a user types a rucio command within ``auth_oidc_refresh_before_exp`` minutes before the expiry. Note: If user does not use Rucio Client within ``auth_oidc_refresh_before_exp`` minutes before token expires, it will be necessary to re-authenticate asking for a new offline_access token.
+
+
+If a user wishes to authenticate with Rucio using a JSON web token not issued via the Rucio login mechanisms (CLI, WebUI), one has to make sure that::
+
+* the token scope claim is no less than the minimum scope (e.g. 'openid profile') required by the Rucio Auth server (configured there in the rucio.cfg file).
+* same as above is true for the use of audience claim
+* token issuer is known to Rucio Authentication server
+* the identity of the token ("SUB=<user sub claim>, ISS=<issuer url>") is assigned to an existing Rucio account (pre-provisioned)
+
 If so, one can directly present the token to the Rucio REST endpoint in the 'X-Rucio-Auth-Token' header, e.g.::
 
   $ python
@@ -97,6 +131,11 @@ If so, one can directly present the token to the Rucio REST endpoint in the 'X-R
   $ result=s.get(address, headers=headers, verify=False)
   $ result.text
   >>> u'{"status": "ACTIVE", "account": "guenther", "account_type": "USER", "created_at": "2019-11-13T13:01:58", "suspended_at": null, "updated_at": "2019-11-13T13:01:58", "deleted_at": null, "email": "jaroslav.guenther@gmail.com"}'
+
+There is also an option to specify a ``auth_token_file_path`` in the ``[client]`` section of the rucio.cfg file. Rucio Client will then store and search for user's token saved in such file::
+
+  [client]
+  auth_token_file_path = /path/to/token/file
 
 
 

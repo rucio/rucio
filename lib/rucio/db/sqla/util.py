@@ -237,3 +237,15 @@ def get_db_time():
 
     finally:
         s.remove()
+
+
+def get_count(q):
+    """
+    Fast way to get count in SQLAlchemy
+    Source: https://gist.github.com/hest/8798884
+    Some limits, see a more thorough version above
+    """
+
+    count_q = q.statement.with_only_columns([func.count()]).order_by(None)
+    count = q.session.execute(count_q).scalar()
+    return count

@@ -1,0 +1,37 @@
+======
+1.22.6
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Authentication & Authorisation: rucio.cfg config options for OIDC. New Feature: automatic token refresh on the client side.  `#3572 <https://github.com/rucio/rucio/issues/3572>`_
+- Messaging: conveyor-receiver only works with ssl/certificates `#3592 <https://github.com/rucio/rucio/issues/3592>`_
+- Rules: add sharded apply_rule function to rule_grouping `#3461 <https://github.com/rucio/rucio/issues/3461>`_
+- Testing: Mock transfer tool `#3552 <https://github.com/rucio/rucio/issues/3552>`_
+- Transfers: Move config.yml to ./etc directory with other rucio configuration files `#3350 <https://github.com/rucio/rucio/issues/3350>`_
+- Transfers: Add possibility to ask for Staging from DISK RSEs `#3583 <https://github.com/rucio/rucio/issues/3583>`_
+
+****
+Bugs
+****
+
+- Authentication & Authorisation: OAuth2/OIDC fix oauth_manager `#3566 <https://github.com/rucio/rucio/issues/3566>`_
+- Clients: Can't display global quota from CLI `#3200 <https://github.com/rucio/rucio/issues/3200>`_
+- Core & Internals: Python 3 DB initialisation fails due to VO table `#3480 <https://github.com/rucio/rucio/issues/3480>`_
+- Traces: kronos breaks if RSE does not exist `#3593 <https://github.com/rucio/rucio/issues/3593>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Specify client configuration file via env var and/or CLI option `#3377 <https://github.com/rucio/rucio/issues/3377>`_
