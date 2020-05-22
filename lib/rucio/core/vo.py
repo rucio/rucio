@@ -37,9 +37,6 @@ def vo_exists(vo, session=None):
 
     :returns: True if the vo is in the vo table, False otherwise
     """
-    if not config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-        raise exception.UnsupportedOperation('VO operations cannot be performed in single VO mode.')
-
     return True if session.query(models.VO).filter_by(vo=vo).first() else False
 
 
