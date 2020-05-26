@@ -33,7 +33,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2020
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
-# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019-2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
@@ -202,7 +202,7 @@ def exception_handler(function):
             logger.debug('This means one dependency is missing.')
             return error.error_code
         except KeyError as error:
-            if 'x-rucio-auth-token' in error:
+            if 'x-rucio-auth-token' in str(error):
                 used_account = None
                 try:  # get the configured account from the configuration file
                     used_account = '%s (from rucio.cfg)' % config_get('client', 'account')
@@ -278,7 +278,7 @@ def get_client(args):
                         user_agent=args.user_agent)
     except CannotAuthenticate as error:
         logger.error(error)
-        if 'alert certificate expired' in error:
+        if 'alert certificate expired' in str(error):
             logger.error('The server certificate expired.')
         elif auth_type.lower() == 'x509_proxy':
             logger.error('Please verify that your proxy is still valid and renew it if needed.')
