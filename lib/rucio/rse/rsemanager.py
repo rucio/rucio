@@ -27,12 +27,14 @@
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Gabriele Fronze' <gfronze@cern.ch>, 2019
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
 from __future__ import print_function
 
 import copy
+import logging
 import random
 from time import sleep
 
@@ -45,6 +47,8 @@ from rucio.common import exception, utils, constants
 from rucio.common.config import config_get_int
 from rucio.common.constraints import STRING_TYPES
 from rucio.common.utils import make_valid_did, GLOBALLY_SUPPORTED_CHECKSUMS
+
+_logger = logging.getLogger(__name__)
 
 
 def get_rse_info(rse, session=None):
@@ -227,7 +231,7 @@ def parse_pfns(rse_settings, pfns, operation='read', domain='wan', auth_token=No
     return create_protocol(rse_settings, operation, urlparse(pfns[0]).scheme, domain, auth_token=auth_token).parse_pfns(pfns)
 
 
-def exists(rse_settings, files, auth_token=None):
+def exists(rse_settings, files, domain='wan', auth_token=None, logger=_logger):
     """
         Checks if a file is present at the connected storage.
         Providing a list indicates the bulk mode.
@@ -236,7 +240,9 @@ def exists(rse_settings, files, auth_token=None):
         :param files: a single dict or a list with dicts containing 'scope' and 'name'
                       if LFNs are used and only 'name' if PFNs are used.
                       E.g. {'name': '2_rse_remote_get.raw', 'scope': 'user.jdoe'}, {'name': 'user/jdoe/5a/98/3_rse_remote_get.raw'}
+        :param domain: The network domain, either 'wan' (default) or 'lan'
         :param auth_token: Optionally passing JSON Web Token (OIDC) string for authentication
+        :param logger: An optional logging.Logger object
 
         :returns: True/False for a single file or a dict object with 'scope:name' for LFNs or 'name' for PFNs as keys and True or the exception as value for each file in bulk mode
 
@@ -245,7 +251,7 @@ def exists(rse_settings, files, auth_token=None):
     ret = {}
     gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
 
-    protocol = create_protocol(rse_settings, 'read', auth_token=auth_token)
+    protocol = create_protocol(rse_settings, 'read', domain=domain, auth_token=auth_token)
     protocol.connect()
 
     files = [files] if not type(files) is list else files
@@ -258,6 +264,7 @@ def exists(rse_settings, files, auth_token=None):
             pfn = list(protocol.lfns2pfns(f).values())[0]
             if isinstance(pfn, exception.RucioException):
                 raise pfn
+            logger.debug('Checking if %s exists', pfn)
             # deal with URL signing if required
             if rse_settings['sign_url'] is not None and pfn[:5] == 'https':
                 pfn = __get_signed_url(rse_settings['rse'], rse_settings['sign_url'], 'read', pfn)    # NOQA pylint: disable=undefined-variable
@@ -276,7 +283,7 @@ def exists(rse_settings, files, auth_token=None):
     return [gs, ret]
 
 
-def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False, sign_service=None, auth_token=None):
+def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False, sign_service=None, auth_token=None, logger=_logger):
     """
         Uploads a file to the connected storage.
         Providing a list indicates the bulk mode.
@@ -289,12 +296,14 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                             {'name': '2_rse_local_put.raw', 'scope': 'user.jdoe', 'filesize': 4711, 'adler32': 'RSSMICETHMISBA837464F'}
                             ]
                             If the 'filename' key is present, it will be used by Rucio as the actual name of the file on disk (separate from the Rucio 'name').
+        :param domain: The network domain, either 'wan' (default) or 'lan'
         :param source_dir:  path to the local directory including the source files
         :param force_pfn: use the given PFN -- can lead to dark data, use sparingly
         :param force_scheme: use the given protocol scheme, overriding the protocol priority in the RSE description
         :param transfer_timeout: set this timeout (in seconds) for the transfers, for protocols that support it
         :param sign_service: use the given service (e.g. gcs, s3, swift) to sign the URL
         :param auth_token: Optionally passing JSON Web Token (OIDC) string for authentication
+        :param logger: An optional logging.Logger object
 
         :returns: True/False for a single file or a dict object with 'scope:name' as keys and True or the exception as value for each file in bulk mode
 
@@ -306,9 +315,9 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
     ret = {}
     gs = True  # gs represents the global status which indicates if every operation worked in bulk mode
 
-    protocol = create_protocol(rse_settings, 'write', scheme=force_scheme, auth_token=auth_token)
+    protocol = create_protocol(rse_settings, 'write', scheme=force_scheme, domain=domain, auth_token=auth_token)
     protocol.connect()
-    protocol_delete = create_protocol(rse_settings, 'delete', auth_token=auth_token)
+    protocol_delete = create_protocol(rse_settings, 'delete', domain=domain, auth_token=auth_token)
     protocol_delete.connect()
 
     lfns = [lfns] if not type(lfns) is list else lfns
@@ -348,6 +357,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
             else:
                 if protocol.exists('%s.rucio.upload' % pfn):  # Check for left over of previous unsuccessful attempts
                     try:
+                        logger.debug('Deleting %s.rucio.upload', pfn)
                         protocol_delete.delete('%s.rucio.upload' % list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0])
                     except Exception as e:
                         ret['%s:%s' % (scope, name)] = exception.RSEOperationNotSupported('Unable to remove temporary file %s.rucio.upload: %s' % (pfn, str(e)))
@@ -357,6 +367,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                 if delete_existing:
                     if protocol.exists('%s' % pfn):  # Check for previous completed uploads that have to be removed before upload
                         try:
+                            logger.debug('Deleting %s', pfn)
                             protocol_delete.delete('%s' % list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0])
                         except Exception as e:
                             ret['%s:%s' % (scope, name)] = exception.RSEOperationNotSupported('Unable to remove file %s: %s' % (pfn, str(e)))
@@ -364,6 +375,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                             continue
 
                 try:  # Try uploading file
+                    logger.debug('Uploading to %s.rucio.upload', pfn)
                     protocol.put(base_name, '%s.rucio.upload' % pfn, source_dir, transfer_timeout=transfer_timeout)
                 except Exception as e:
                     gs = False
@@ -402,6 +414,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
 
                 if valid:  # The upload finished successful and the file can be renamed
                     try:
+                        logger.debug('Renaming %s.rucio.upload to %s', pfn, pfn)
                         protocol.rename('%s.rucio.upload' % pfn, pfn)
                         ret['%s:%s' % (scope, name)] = True
                     except Exception as e:
@@ -418,6 +431,7 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
                 gs = False
             else:
                 try:  # Try uploading file
+                    logger.debug('Uploading to %s', pfn)
                     protocol.put(base_name, pfn, source_dir, transfer_timeout=transfer_timeout)
                 except Exception as e:
                     gs = False
@@ -470,13 +484,14 @@ def upload(rse_settings, lfns, source_dir=None, force_pfn=None, force_scheme=Non
     return {0: gs, 1: ret, 'success': gs, 'pfn': pfn}
 
 
-def delete(rse_settings, lfns, auth_token=None):
+def delete(rse_settings, lfns, domain='wan', auth_token=None):
     """
         Delete a file from the connected storage.
         Providing a list indicates the bulk mode.
 
         :rse_settings:   RSE attributes
         :param lfns:        a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_remote_delete.raw', 'scope': 'user.jdoe'}, {'name': '2_rse_remote_delete.raw', 'scope': 'user.jdoe'}]
+        :param domain: The network domain, either 'wan' (default) or 'lan'
         :param auth_token: Optionally passing JSON Web Token (OIDC) string for authentication
 
         :returns: True/False for a single file or a dict object with 'scope:name' as keys and True or the exception as value for each file in bulk mode
@@ -489,7 +504,7 @@ def delete(rse_settings, lfns, auth_token=None):
     ret = {}
     gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
 
-    protocol = create_protocol(rse_settings, 'delete', auth_token=auth_token)
+    protocol = create_protocol(rse_settings, 'delete', domain, auth_token=auth_token)
     protocol.connect()
 
     lfns = [lfns] if not type(lfns) is list else lfns
@@ -512,7 +527,7 @@ def delete(rse_settings, lfns, auth_token=None):
     return [gs, ret]
 
 
-def rename(rse_settings, files, auth_token=None):
+def rename(rse_settings, files, domain='wan', auth_token=None):
     """
         Rename files stored on the connected storage.
         Providing a list indicates the bulk mode.
@@ -526,6 +541,7 @@ def rename(rse_settings, files, auth_token=None):
                       {'name': '3_rse_remote_rename.raw', 'scope': 'user.jdoe', 'new_name': '3_rse_new.raw', 'new_scope': 'user.jdoe'},
                       {'name': 'user/jdoe/d9/cb/9_rse_remote_rename.raw', 'new_name': 'user/jdoe/c6/4a/9_rse_new.raw'}
                       ]
+        :param domain: The network domain, either 'wan' (default) or 'lan'
         :param auth_token: Optionally passing JSON Web Token (OIDC) string for authentication
 
         :returns: True/False for a single file or a dict object with LFN (key) and True/False (value) in bulk mode
@@ -538,7 +554,7 @@ def rename(rse_settings, files, auth_token=None):
     ret = {}
     gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
 
-    protocol = create_protocol(rse_settings, 'write', auth_token=auth_token)
+    protocol = create_protocol(rse_settings, 'write', domain, auth_token=auth_token)
     protocol.connect()
 
     files = [files] if not type(files) is list else files
@@ -586,12 +602,13 @@ def rename(rse_settings, files, auth_token=None):
     return [gs, ret]
 
 
-def get_space_usage(rse_settings, scheme=None, auth_token=None):
+def get_space_usage(rse_settings, scheme=None, domain='wan', auth_token=None):
     """
         Get RSE space usage information.
 
         :rse_settings:   RSE attributes
         :param scheme: optional filter to select which protocol to be used.
+        :param domain: The network domain, either 'wan' (default) or 'lan'
         :param auth_token: Optionally passing JSON Web Token (OIDC) string for authentication
 
         :returns: a list with dict containing 'totalsize' and 'unusedsize'
@@ -601,7 +618,7 @@ def get_space_usage(rse_settings, scheme=None, auth_token=None):
     gs = True
     ret = {}
 
-    protocol = create_protocol(rse_settings, 'read', scheme, auth_token=auth_token)
+    protocol = create_protocol(rse_settings, 'read', scheme=scheme, domain=domain, auth_token=auth_token)
     protocol.connect()
 
     try:
