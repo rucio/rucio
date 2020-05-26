@@ -530,7 +530,12 @@ class BaseClient(object):
                         print("Copy paste the code from the browser to the terminal and press enter:")
                         count = 0
                         while count < 3:
-                            fetchcode = raw_input()
+                            # Python3 default
+                            get_input = input
+                            # if Python version <= 2.7 use raw_input
+                            if sys.version_info[:2] <= (2, 7):
+                                get_input = raw_input
+                            fetchcode = get_input()
                             fetch_url = build_url(self.auth_host, path='auth/oidc_redirect', params=fetchcode)
                             result = self.session.get(fetch_url, headers=headers, verify=self.ca_cert)
                             if 'X-Rucio-Auth-Token' in result.headers and result.status_code == codes.ok:
