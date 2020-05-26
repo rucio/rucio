@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019, 2020
 #
 # PY3K COMPATIBLE
 
