@@ -43,7 +43,7 @@ Individual contributors to the source code
 - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
 - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-- Muhammad Aditya Hilmy <didithilmy@gmail.com>
+- Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
 
 Organisations employing contributors
 ------------------------------------
