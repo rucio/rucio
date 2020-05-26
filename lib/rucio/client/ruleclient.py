@@ -22,6 +22,11 @@
 #
 # PY3K COMPATIBLE
 
+try:
+    from urllib import quote_plus
+except ImportError:
+    from urllib.parse import quote_plus
+
 from json import dumps, loads
 from requests.status_codes import codes
 
@@ -206,7 +211,7 @@ class RuleClient(BaseClient):
         :param scope: The scope of the DID.
         :param name: The name of the DID.
         """
-        path = self.RULE_BASEURL + '/' + scope + '/' + name + '/history'
+        path = '/'.join([self.RULE_BASEURL, quote_plus(scope), quote_plus(name), 'history'])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
