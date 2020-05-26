@@ -14,9 +14,12 @@
 #
 # Authors:
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 
+from json import dumps
 from logging import getLogger
 from nose.tools import assert_equal, assert_false, assert_in, assert_is_not_none, assert_not_equal, assert_not_in, assert_raises, assert_true
+from paste.fixture import TestApp
 from random import choice
 from sqlalchemy.orm.exc import NoResultFound
 from string import ascii_uppercase, ascii_lowercase
@@ -40,16 +43,18 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.client.uploadclient import UploadClient
-from rucio.common.config import config_get_bool
-from rucio.common.exception import AccessDenied, Duplicate, InputValidationError
+from rucio.common.config import config_get_bool, config_remove_option, config_set
+from rucio.common.exception import AccessDenied, Duplicate, InputValidationError, UnsupportedAccountName, UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import generate_uuid
+from rucio.common.utils import generate_uuid, parse_response
 from rucio.core.account_counter import increase, update_account_counter
 from rucio.core.rse import get_rses_with_attribute_value, get_rse_id, get_rse_vo
 from rucio.core.rule import add_rule
 from rucio.core.vo import add_vo, vo_exists
 from rucio.daemons.automatix.automatix import automatix
 from rucio.db.sqla import models, session as db_session
+from rucio.web.rest.vo import APP as vo_app
+from rucio.web.rest.authentication import APP as auth_app
 
 
 LOG = getLogger(__name__)
@@ -68,6 +73,22 @@ class TestVOCoreAPI(object):
             LOG.warning('multi_vo mode is not enabled. Running multi_vo tests in single_vo mode will result in failures.')
             cls.vo = {}
             cls.new_vo = {}
+
+    def test_multi_vo_flag(self):
+        """ MULTI VO (CORE): Test operations fail in single_vo mode """
+        try:
+            config_set('common', 'multi_vo', 'False')
+            with assert_raises(UnsupportedOperation):
+                vo_api.list_vos(issuer='super_root', vo='def')
+            config_remove_option('common', 'multi_vo')
+            with assert_raises(UnsupportedOperation):
+                vo_api.list_vos(issuer='super_root', vo='def')
+        finally:
+            # Make sure we don't leave the config changed due to a test failure
+            if self.vo:
+                config_set('common', 'multi_vo', 'True')
+            else:
+                config_remove_option('common', 'multi_vo')
 
     def test_access_rule(self):
         """ MULTI VO (CORE): Test accessing rules from a different VO """
@@ -116,6 +137,305 @@ class TestVOCoreAPI(object):
                 assert_equal(description, v['description'])
                 vo_update_success = True
         assert_true(vo_update_success)
+
+    def test_super_root_permissions(self):
+        """ MULTI VO (CORE): Test super_root cannot access root/user functions """
+        rse_str = ''.join(choice(ascii_uppercase) for x in range(10))
+        rse_name = 'MOCK_%s' % rse_str
+        scope_uuid = str(generate_uuid()).lower()[:16]
+        scope = 'mock_%s' % scope_uuid
+
+        # Test super_root@def with functions at vo='def'
+        with assert_raises(AccessDenied):
+            add_rse(rse_name, 'super_root', vo='def')
+        with assert_raises(AccessDenied):
+            add_scope(scope, 'root', 'super_root', vo='def')
+        add_scope(scope, 'super_root', 'super_root', vo='def')
+        assert_in(scope, [s for s in list_scopes(filter={}, vo='def')])
+
+    def test_super_root_naming(self):
+        """ MULTI VO (CORE): Test we can only name accounts super_root when appropriate """
+        with assert_raises(Duplicate):  # Ensure we fail from duplication rather than the choice of name
+            add_account('super_root', 'USER', 'rucio@email.com', 'root', vo='def')
+        with assert_raises(UnsupportedAccountName):
+            add_account('super_root', 'USER', 'rucio@email.com', 'root', **self.vo)
+        try:
+            config_remove_option('common', 'multi_vo')
+            with assert_raises(UnsupportedAccountName):
+                add_account('super_root', 'USER', 'rucio@email.com', 'root', **self.vo)
+            with assert_raises(UnsupportedAccountName):
+                add_account('super_root', 'USER', 'rucio@email.com', 'root', vo='def')
+        finally:
+            # Make sure we don't leave the config changed due to a test failure
+            if self.vo:
+                config_set('common', 'multi_vo', 'True')
+            else:
+                config_remove_option('common', 'multi_vo')
+
+
+class TestVORestAPI(object):
+
+    @classmethod
+    def setUpClass(cls):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            cls.def_header = {'X-Rucio-VO': 'def'}
+            cls.vo_header = {'X-Rucio-VO': 'tst'}
+            cls.vo = {'vo': 'tst'}
+        else:
+            LOG.warning('multi_vo mode is not enabled. Running multi_vo tests in single_vo mode will result in failures.')
+            cls.vo_header = {}
+            cls.vo = {}
+
+    def test_list_vos_success(self):
+        """ MULTI VO (REST): Test list VOs through REST layer succeeds """
+        mw = []
+
+        headers1 = {'X-Rucio-Account': 'super_root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.def_header)
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+
+        assert_equal(res1.status, 200)
+        token = str(res1.header('X-Rucio-Auth-Token'))
+
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
+        res2 = TestApp(vo_app.wsgifunc(*mw)).get('/', headers=headers2, expect_errors=True)
+        assert_equal(res2.status, 200)
+        vo_dicts = [parse_response(r) for r in res2.body.decode().split('\n')[:-1]]
+        assert_not_equal(len(vo_dicts), 0)
+        for vo_dict in vo_dicts:
+            assert_is_not_none(vo_dict['vo'])
+            assert_is_not_none(vo_dict['email'])
+            assert_is_not_none(vo_dict['description'])
+            assert_is_not_none(vo_dict['created_at'])
+            assert_is_not_none(vo_dict['updated_at'])
+
+    def test_list_vos_denied(self):
+        """ MULTI VO (REST): Test list VOs through REST layer raises AccessDenied """
+        mw = []
+
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.vo_header)
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+
+        assert_equal(res1.status, 200)
+        token = str(res1.header('X-Rucio-Auth-Token'))
+
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
+        res2 = TestApp(vo_app.wsgifunc(*mw)).get('/', headers=headers2, expect_errors=True)
+        assert_equal(res2.status, 401)
+
+    def test_list_vos_unsupported(self):
+        """ MULTI VO (REST): Test list VOs through REST layer raises UnsupportedOperation """
+        mw = []
+
+        headers1 = {'X-Rucio-Account': 'super_root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.def_header)
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+
+        assert_equal(res1.status, 200)
+        token = str(res1.header('X-Rucio-Auth-Token'))
+
+        try:
+            config_set('common', 'multi_vo', 'False')
+            headers2 = {'X-Rucio-Auth-Token': str(token)}
+            res2 = TestApp(vo_app.wsgifunc(*mw)).get('/', headers=headers2, expect_errors=True)
+            assert_equal(res2.status, 409)
+
+            config_remove_option('common', 'multi_vo')
+            headers2 = {'X-Rucio-Auth-Token': str(token)}
+            res2 = TestApp(vo_app.wsgifunc(*mw)).get('/', headers=headers2, expect_errors=True)
+            assert_equal(res2.status, 409)
+
+        finally:
+            # Make sure we don't leave the config changed due to a test failure
+            if self.vo:
+                config_set('common', 'multi_vo', 'True')
+            else:
+                config_remove_option('common', 'multi_vo')
+
+    def test_add_vo_denied(self):
+        """ MULTI VO (REST): Test adding VO through REST layer raises AccessDenied """
+        mw = []
+
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.vo_header)
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+
+        assert_equal(res1.status, 200)
+        token = str(res1.header('X-Rucio-Auth-Token'))
+
+        params = {'email': 'rucio@email.com', 'decription': 'Try adding with root'}
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
+        res2 = TestApp(vo_app.wsgifunc(*mw)).post('/' + self.vo['vo'], headers=headers2, expect_errors=True, params=dumps(params))
+        assert_equal(res2.status, 401)
+
+    def test_add_vo_unsupported(self):
+        """ MULTI VO (REST): Test adding VO through REST layer raises UnsupportedOperation """
+        mw = []
+
+        headers1 = {'X-Rucio-Account': 'super_root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.def_header)
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+
+        assert_equal(res1.status, 200)
+        token = str(res1.header('X-Rucio-Auth-Token'))
+
+        params = {'email': 'rucio@email.com', 'decription': 'Try adding in single vo mode'}
+        try:
+            config_set('common', 'multi_vo', 'False')
+            headers2 = {'X-Rucio-Auth-Token': str(token)}
+            res2 = TestApp(vo_app.wsgifunc(*mw)).post('/' + self.vo['vo'], headers=headers2, expect_errors=True, params=dumps(params))
+            assert_equal(res2.status, 409)
+
+            config_remove_option('common', 'multi_vo')
+            headers2 = {'X-Rucio-Auth-Token': str(token)}
+            res2 = TestApp(vo_app.wsgifunc(*mw)).post('/' + self.vo['vo'], headers=headers2, expect_errors=True, params=dumps(params))
+            assert_equal(res2.status, 409)
+
+        finally:
+            # Make sure we don't leave the config changed due to a test failure
+            if self.vo:
+                config_set('common', 'multi_vo', 'True')
+            else:
+                config_remove_option('common', 'multi_vo')
+
+    def test_add_vo_duplicate(self):
+        """ MULTI VO (REST): Test adding VO through REST layer raises Duplicate """
+        mw = []
+
+        headers1 = {'X-Rucio-Account': 'super_root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.def_header)
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+
+        assert_equal(res1.status, 200)
+        token = str(res1.header('X-Rucio-Auth-Token'))
+
+        params = {'email': 'rucio@email.com', 'decription': 'Try adding duplicate'}
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
+        res2 = TestApp(vo_app.wsgifunc(*mw)).post('/' + self.vo['vo'], headers=headers2, expect_errors=True, params=dumps(params))
+        assert_equal(res2.status, 409)
+
+    def test_update_vo_success(self):
+        """ MULTI VO (REST): Test updating VO through REST layer succeeds """
+        mw = []
+
+        headers1 = {'X-Rucio-Account': 'super_root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.def_header)
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+
+        assert_equal(res1.status, 200)
+        token = str(res1.header('X-Rucio-Auth-Token'))
+
+        params = {'email': generate_uuid(), 'description': generate_uuid()}
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
+        res2 = TestApp(vo_app.wsgifunc(*mw)).put('/' + self.vo['vo'], headers=headers2, expect_errors=True, params=dumps(params))
+        assert_equal(res2.status, 200)
+
+        vo_update_success = False
+        for v in vo_api.list_vos('super_root', 'def'):
+            if v['vo'] == self.vo['vo']:
+                assert_equal(params['email'], v['email'])
+                assert_equal(params['description'], v['description'])
+                vo_update_success = True
+        assert_true(vo_update_success)
+
+    def test_update_vo_denied(self):
+        """ MULTI VO (REST): Test updating VO through REST layer raises AccessDenied """
+        mw = []
+
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.vo_header)
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+
+        assert_equal(res1.status, 200)
+        token = str(res1.header('X-Rucio-Auth-Token'))
+
+        params = {'email': 'rucio@email.com', 'decription': 'Try updating with root'}
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
+        res2 = TestApp(vo_app.wsgifunc(*mw)).put('/' + self.vo['vo'], headers=headers2, expect_errors=True, params=dumps(params))
+        assert_equal(res2.status, 401)
+
+    def test_update_vo_unsupported(self):
+        """ MULTI VO (REST): Test updating VO through REST layer raises UnsupportedOperation """
+        mw = []
+
+        headers1 = {'X-Rucio-Account': 'super_root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.def_header)
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+
+        assert_equal(res1.status, 200)
+        token = str(res1.header('X-Rucio-Auth-Token'))
+
+        params = {'email': 'rucio@email.com', 'decription': 'Try updating in single vo mode'}
+        try:
+            config_set('common', 'multi_vo', 'False')
+            headers2 = {'X-Rucio-Auth-Token': str(token)}
+            res2 = TestApp(vo_app.wsgifunc(*mw)).put('/' + self.vo['vo'], headers=headers2, expect_errors=True, params=dumps(params))
+            assert_equal(res2.status, 409)
+
+            config_remove_option('common', 'multi_vo')
+            headers2 = {'X-Rucio-Auth-Token': str(token)}
+            res2 = TestApp(vo_app.wsgifunc(*mw)).put('/' + self.vo['vo'], headers=headers2, expect_errors=True, params=dumps(params))
+            assert_equal(res2.status, 409)
+
+        finally:
+            # Make sure we don't leave the config changed due to a test failure
+            if self.vo:
+                config_set('common', 'multi_vo', 'True')
+            else:
+                config_remove_option('common', 'multi_vo')
+
+    def test_update_vo_not_found(self):
+        """ MULTI VO (REST): Test updating VO through REST layer raises VONotFound """
+        mw = []
+
+        headers1 = {'X-Rucio-Account': 'super_root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.def_header)
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+
+        assert_equal(res1.status, 200)
+        token = str(res1.header('X-Rucio-Auth-Token'))
+
+        params = {'email': 'rucio@email.com', 'decription': 'Try updating non-existent'}
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
+        res2 = TestApp(vo_app.wsgifunc(*mw)).put('/000', headers=headers2, expect_errors=True, params=dumps(params))
+        assert_equal(res2.status, 404)
+
+    def test_recover_vo_success(self):
+        """ MULTI VO (REST): Test recovering VO through REST layer succeeds """
+        mw = []
+
+        headers1 = {'X-Rucio-Account': 'super_root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.def_header)
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+
+        assert_equal(res1.status, 200)
+        token = str(res1.header('X-Rucio-Auth-Token'))
+
+        identity_key = ''.join(choice(ascii_lowercase) for x in range(10))
+        params = {'identity': identity_key, 'authtype': 'userpass', 'email': 'rucio@email.com', 'password': 'password'}
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
+        res2 = TestApp(vo_app.wsgifunc(*mw)).post('/' + self.vo['vo'] + '/recover', headers=headers2, expect_errors=True, params=dumps(params))
+        assert_equal(res2.status, 201)
+
+        assert_in('root', list_accounts_for_identity(identity_key=identity_key, id_type='userpass'))
+
+    def test_recover_vo_denied(self):
+        """ MULTI VO (REST): Test recovering VO through REST layer raises AccessDenied """
+        mw = []
+
+        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers1.update(self.vo_header)
+        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+
+        assert_equal(res1.status, 200)
+        token = str(res1.header('X-Rucio-Auth-Token'))
+
+        identity_key = ''.join(choice(ascii_lowercase) for x in range(10))
+        params = {'identity': identity_key, 'authtype': 'userpass', 'email': 'rucio@email.com', 'password': 'password'}
+        headers2 = {'X-Rucio-Auth-Token': str(token)}
+        res2 = TestApp(vo_app.wsgifunc(*mw)).post('/' + self.vo['vo'] + '/recover', headers=headers2, expect_errors=True, params=dumps(params))
+        assert_equal(res2.status, 401)
 
 
 class TestMultiVoClients(object):

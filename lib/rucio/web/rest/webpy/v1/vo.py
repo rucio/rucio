@@ -14,53 +14,76 @@
 #
 # Authors:
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
-from json import dumps, loads
+from json import loads
 from traceback import format_exc
 
-from web import Created, InternalError, application, ctx, header, loadhook
+from web import application, Created, ctx, header, InternalError, loadhook, OK
 
-from rucio.api.vo import add_vo, list_vos
-from rucio.common.exception import RucioException
-from rucio.common.utils import generate_http_error
+from rucio.api.vo import add_vo, list_vos, recover_vo_root_identity, update_vo
+from rucio.common.exception import AccessDenied, AccountNotFound, Duplicate, RucioException, VONotFound, UnsupportedOperation
+from rucio.common.utils import generate_http_error, render_json
 from rucio.web.rest.common import (RucioController,
                                    check_accept_header_wrapper, data,
                                    rucio_loadhook)
 
-URLS = ('/', 'VOs',
-        '/(.+)', 'VO')
+URLS = ('/(.+)/recover', 'RecoverVO',
+        '/(.+)', 'VO',
+        '/', 'VOs')
 
 
 class VOs(RucioController):
-    ''' List all the VOs in the database. '''
+    """ List all the VOs in the database. """
 
-    @check_accept_header_wrapper(['application/json'])
+    @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self):
-        raise NotImplementedError
-        # Currently super_root will use server side commands
-        ''' List all VOs. '''
-        header('Content-Type', 'application/json')
+        """ List all VOs.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            409 Conflict
+            500 InternalError
+
+        :returns: A list containing all VOs.
+        """
+        header('Content-Type', 'application/x-json-stream')
 
         try:
-            vos = list_vos(issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
+            for vo in list_vos(issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo')):
+                yield render_json(**vo) + '\n'
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except UnsupportedOperation as error:
+            raise generate_http_error(409, 'UnsupportedOperation', error.args[0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(error)
             print(format_exc())
             raise InternalError(error)
-        return dumps(vos)
 
 
 class VO(RucioController):
-    ''' Add a VO. '''
+    """ Add and update a VO. """
 
     def POST(self, new_vo):
-        raise NotImplementedError
-        # Currently super_root will use server side commands
-        ''' Add a VO with a given name. '''
+        """ Add a VO with a given name.
 
-        json_data = data()
+        HTTP Success:
+            201 Created
+
+        HTTP Error:
+            401 Unauthorized
+            409 Conflict
+            500 InternalError
+
+        :param new_vo: VO to be added.
+        """
+        json_data = data().decode()
         kwargs = {'description': None, 'email': None}
 
         try:
@@ -76,6 +99,112 @@ class VO(RucioController):
 
         try:
             add_vo(new_vo=new_vo, **kwargs)
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except UnsupportedOperation as error:
+            raise generate_http_error(409, 'UnsupportedOperation', error.args[0])
+        except Duplicate as error:
+            raise generate_http_error(409, 'Duplicate', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(error)
+            print(format_exc())
+            raise InternalError(error)
+
+        raise Created()
+
+    def PUT(self, updated_vo):
+        """ Update the details for a given VO
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            400 Bad Request
+            401 Unauthorized
+            404 Not Found
+            409 Conflict
+            500 InternalError
+
+        :param updated_vo: VO to be updated.
+        """
+        json_data = data().decode()
+
+        try:
+            parameters = loads(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
+
+        try:
+            update_vo(updated_vo=updated_vo, parameters=parameters, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except VONotFound as error:
+            raise generate_http_error(404, 'VONotFound', error.args[0])
+        except UnsupportedOperation as error:
+            raise generate_http_error(409, 'UnsupportedOperation', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(error)
+            print(format_exc())
+            raise InternalError(error)
+
+        raise OK()
+
+
+class RecoverVO(RucioController):
+    """ Recover root identity for a VO. """
+
+    def POST(self, root_vo):
+        """ Recover root identity for a given VO
+
+        HTTP Success:
+            201 Created
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+            409 Conflict
+            500 InternalError
+
+        :param root_vo: VO to be updated.
+        """
+        json_data = data().decode()
+
+        try:
+            parameter = loads(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
+
+        try:
+            identity = parameter['identity']
+            authtype = parameter['authtype']
+            email = parameter['email']
+            password = parameter.get('password', None)
+            default = parameter.get('default', False)
+        except KeyError as error:
+            if error.args[0] == 'authtype' or error.args[0] == 'identity' or error.args[0] == 'email':
+                raise generate_http_error(400, 'KeyError', '%s not defined' % str(error))
+        except TypeError:
+            raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
+
+        try:
+            recover_vo_root_identity(root_vo=root_vo,
+                                     identity_key=identity,
+                                     id_type=authtype,
+                                     email=email,
+                                     password=password,
+                                     default=default,
+                                     issuer=ctx.env.get('issuer'),
+                                     vo=ctx.env.get('vo'))
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except AccountNotFound as error:
+            raise generate_http_error(404, 'AccountNotFound', error.args[0])
+        except Duplicate as error:
+            raise generate_http_error(409, 'Duplicate', error.args[0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
