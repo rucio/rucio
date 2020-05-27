@@ -15,6 +15,7 @@
 #
 # Authors:
 #  - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019
+#  - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -73,7 +74,7 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100):
     :returns: None
     """
 
-    executable = argv[0]
+    executable = 'oauth-manager'
 
     sanity_check(executable=executable, hostname=socket.gethostname())
 

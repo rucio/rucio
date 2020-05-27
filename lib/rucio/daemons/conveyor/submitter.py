@@ -114,7 +114,7 @@ def submitter(once=False, rses=None, mock=False,
     logging.debug("Maximum time in queue for different activities: %s", max_time_in_queue)
 
     activity_next_exe_time = defaultdict(time.time)
-    executable = sys.argv[0]
+    executable = "conveyor-transfer-submitter"
     if activities:
         activities.sort()
         executable += '--activities ' + str(activities)
