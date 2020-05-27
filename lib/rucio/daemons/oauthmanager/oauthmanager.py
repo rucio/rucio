@@ -41,7 +41,7 @@ import threading
 import time
 import traceback
 from re import match
-from sys import argv, stdout
+from sys import stdout
 
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException

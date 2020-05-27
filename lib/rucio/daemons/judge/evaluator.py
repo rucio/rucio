@@ -73,7 +73,7 @@ def re_evaluator(once=False):
     paused_dids = {}  # {(scope, name): datetime}
 
     # Make an initial heartbeat so that all judge-evaluators have the correct worker number on the next try
-    executable= 'judge-evaluator'
+    executable = 'judge-evaluator'
     live(executable=executable, hostname=hostname, pid=pid, thread=current_thread, older_than=60 * 30)
     graceful_stop.wait(1)
 
@@ -183,7 +183,7 @@ def run(once=False, threads=1):
     Starts up the Judge-Eval threads.
     """
 
-    executable= 'judge-evaluator'
+    executable = 'judge-evaluator'
     hostname = socket.gethostname()
     sanity_check(executable=executable, hostname=hostname)
 

@@ -37,7 +37,7 @@ from datetime import datetime
 from json import load
 from math import exp
 from os import remove, rmdir, stat, getpid
-from sys import stdout, argv
+from sys import stdout
 from time import sleep, time
 
 from rucio.client import Client
