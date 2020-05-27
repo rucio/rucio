@@ -393,6 +393,7 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
                 continue
 
         rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses)
+
         if not rses_to_process:
             logging.error('%s Reaper: No RSEs found. Will sleep for 30 seconds', prepend_str)
             GRACEFUL_STOP.wait(30)
@@ -504,9 +505,9 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
                         del_start_time = time.time()
                         for replica in file_replicas:
                             try:
-                                replica['pfn'] = str(rsemgr.lfns2pfns(rse_settings=rse_info,
-                                                                      lfns=[{'scope': replica['scope'], 'name': replica['name'], 'path': replica['path']}],
-                                                                      operation='delete', scheme=scheme).values()[0])
+                                replica['pfn'] = str(list(rsemgr.lfns2pfns(rse_settings=rse_info,
+                                                                           lfns=[{'scope': replica['scope'], 'name': replica['name'], 'path': replica['path']}],
+                                                                           operation='delete', scheme=scheme).values())[0])
                             except (ReplicaUnAvailable, ReplicaNotFound) as error:
                                 logging.warning('%s Failed get pfn UNAVAILABLE replica %s:%s on %s with error %s', prepend_str, replica['scope'], replica['name'], rse_name, str(error))
                                 replica['pfn'] = None
