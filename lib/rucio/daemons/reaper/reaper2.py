@@ -393,7 +393,6 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
                 continue
 
         rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses)
-
         if not rses_to_process:
             logging.error('%s Reaper: No RSEs found. Will sleep for 30 seconds', prepend_str)
             GRACEFUL_STOP.wait(30)
