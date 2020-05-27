@@ -348,7 +348,7 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
     :param sleep_time:     Time between two cycles.
     """
     hostname = socket.getfqdn()
-    executable = sys.argv[0]
+    executable = 'reaper2'
     pid = os.getpid()
     hb_thread = threading.current_thread()
     sanity_check(executable=executable, hostname=hostname)
