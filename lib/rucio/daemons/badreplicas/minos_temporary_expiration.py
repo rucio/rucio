@@ -28,7 +28,7 @@ import threading
 import traceback
 import time
 
-from sys import stdout, argv
+from sys import stdout
 
 from rucio.db.sqla.constants import BadFilesStatus, ReplicaState
 

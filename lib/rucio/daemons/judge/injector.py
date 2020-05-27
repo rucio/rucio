@@ -69,7 +69,7 @@ def rule_injector(once=False):
     paused_rules = {}  # {rule_id: datetime}
 
     # Make an initial heartbeat so that all judge-inectors have the correct worker number on the next try
-    executable= 'judge-injector'
+    executable = 'judge-injector'
     live(executable=executable, hostname=hostname, pid=pid, thread=current_thread, older_than=2 * 60 * 60)
     graceful_stop.wait(1)
 
@@ -167,7 +167,7 @@ def run(once=False, threads=1):
     Starts up the Judge-Injector threads.
     """
 
-    executable= 'judge-injector'
+    executable = 'judge-injector'
     hostname = socket.gethostname()
     sanity_check(executable=executable, hostname=hostname)
 

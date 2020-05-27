@@ -31,7 +31,7 @@ import threading
 import time
 
 from datetime import datetime
-from sys import stdout, argv
+from sys import stdout
 
 from rucio.db.sqla.constants import BadFilesStatus, BadPFNStatus, ReplicaState
 

@@ -32,7 +32,7 @@ import threading
 import time
 
 from math import ceil
-from sys import exc_info, stdout, argv
+from sys import exc_info, stdout
 from traceback import format_exception
 
 from rucio.db.sqla.constants import ReplicaState
