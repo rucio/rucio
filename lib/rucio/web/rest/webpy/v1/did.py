@@ -20,7 +20,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
 # - Yun-Pin Sun <yun-pin.sun@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
-# - Martin Baristis <martin.barisits@cern.ch>, 2014-2015
+# - Martin Baristis <martin.barisits@cern.ch>, 2014-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 #
@@ -703,6 +703,8 @@ class AssociatedRules(RucioController):
         try:
             for rule in list_associated_replication_rules_for_file(scope=scope, name=name):
                 yield dumps(rule, cls=APIEncoder) + '\n'
+        except DataIdentifierNotFound as error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
