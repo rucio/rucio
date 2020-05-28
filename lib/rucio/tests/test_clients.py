@@ -21,6 +21,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from __future__ import print_function
 
@@ -44,6 +45,12 @@ class TestBaseClient(object):
         '''
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': 'tst'}
+            try:
+                remove(get_tmp_dir() + '/.rucio_root/auth_token_root@%s' % self.vo['vo'])
+            except OSError as error:
+                if error.args[0] != 2:
+                    raise error
+
         else:
             self.vo = {}
 
