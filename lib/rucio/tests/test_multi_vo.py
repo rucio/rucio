@@ -19,6 +19,7 @@
 from json import dumps
 from logging import getLogger
 from nose.tools import assert_equal, assert_false, assert_in, assert_is_not_none, assert_not_equal, assert_not_in, assert_raises, assert_true
+from os import remove
 from paste.fixture import TestApp
 from random import choice
 from sqlalchemy.orm.exc import NoResultFound
@@ -53,6 +54,7 @@ from rucio.core.rule import add_rule
 from rucio.core.vo import add_vo, vo_exists
 from rucio.daemons.automatix.automatix import automatix
 from rucio.db.sqla import models, session as db_session
+from rucio.tests.common import execute
 from rucio.web.rest.vo import APP as vo_app
 from rucio.web.rest.authentication import APP as auth_app
 
@@ -718,6 +720,105 @@ class TestMultiVoClients(object):
         session.query(models.UpdatedAccountCounter).filter_by(rse_id=tst_rse1_id, account=new_acc).delete(synchronize_session=False)
 
         session.commit()
+
+
+class TestMultiVOBinRucio():
+
+    @classmethod
+    def setUpClass(cls):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            cls.vo = {'vo': 'tst'}
+            cls.new_vo = {'vo': 'new'}
+            cls.fake_vo = {'vo': 'fke'}
+            if not vo_exists(**cls.new_vo):
+                add_vo(description='Test', email='rucio@email.com', **cls.new_vo)
+
+            # Setup RSEs at two VOs so we can determine which VO we authenticated against
+            rse_str = ''.join(choice(ascii_uppercase) for x in range(10))
+            cls.rse_tst = 'TST_%s' % rse_str
+            cls.rse_new = 'NEW_%s' % rse_str
+            add_rse(cls.rse_tst, 'root', **cls.vo)
+            add_rse(cls.rse_new, 'root', **cls.new_vo)
+
+        else:
+            LOG.warning('multi_vo mode is not enabled. Running multi_vo tests in single_vo mode will result in failures.')
+            cls.vo = {}
+            cls.new_vo = {}
+            cls.fake_vo = {}
+            cls.rse_tst = ''
+            cls.rse_new = ''
+
+        try:
+            remove('/tmp/.rucio_root/auth_token_root@%s' % cls.vo['vo'])
+        except OSError as e:
+            if e.args[0] != 2:
+                raise e
+        try:
+            remove('/tmp/.rucio_root/auth_token_root@%s' % cls.new_vo['vo'])
+        except OSError as e:
+            if e.args[0] != 2:
+                raise e
+        cls.marker = '$> '
+
+    def test_vo_option_admin_cli(self):
+        """ MULTI VO (USER): Test authentication to multiple VOs via the admin CLI """
+        cmd = 'rucio-admin --vo %s rse list' % self.vo['vo']
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, )
+        assert_in(self.rse_tst, out)
+        assert_not_in(self.rse_new, out)
+
+        cmd = 'rucio-admin --vo %s rse list' % self.new_vo['vo']
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, )
+        assert_not_in(self.rse_tst, out)
+        assert_in(self.rse_new, out)
+
+        cmd = 'rucio-admin --vo %s rse list' % self.fake_vo['vo']
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert_equal(len(out), 0)
+        assert_in('cannot get auth_token', err)
+
+        cmd = 'rucio-admin rse list'
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, )
+        assert_in(self.rse_tst, out)
+        assert_not_in(self.rse_new, out)
+
+    def test_vo_option_cli(self):
+        """ MULTI VO (USER): Test authentication to multiple VOs via the CLI """
+        cmd = 'rucio --vo %s list-rses' % self.vo['vo']
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, )
+        assert_in(self.rse_tst, out)
+        assert_not_in(self.rse_new, out)
+
+        cmd = 'rucio --vo %s list-rses' % self.new_vo['vo']
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, )
+        assert_not_in(self.rse_tst, out)
+        assert_in(self.rse_new, out)
+
+        cmd = 'rucio --vo %s list-rses' % self.fake_vo['vo']
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert_equal(len(out), 0)
+        assert_in('cannot get auth_token', err)
+
+        cmd = 'rucio list-rses'
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, )
+        assert_in(self.rse_tst, out)
+        assert_not_in(self.rse_new, out)
 
 
 class TestMultiVODaemons(object):
