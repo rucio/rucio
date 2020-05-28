@@ -47,7 +47,7 @@ from rucio.client.uploadclient import UploadClient
 from rucio.common.config import config_get_bool, config_remove_option, config_set
 from rucio.common.exception import AccessDenied, Duplicate, InputValidationError, UnsupportedAccountName, UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import generate_uuid, parse_response
+from rucio.common.utils import generate_uuid, get_tmp_dir, parse_response
 from rucio.core.account_counter import increase, update_account_counter
 from rucio.core.rse import get_rses_with_attribute_value, get_rse_id, get_rse_vo
 from rucio.core.rule import add_rule
@@ -740,6 +740,17 @@ class TestMultiVOBinRucio():
             add_rse(cls.rse_tst, 'root', **cls.vo)
             add_rse(cls.rse_new, 'root', **cls.new_vo)
 
+            try:
+                remove(get_tmp_dir() + '/.rucio_root/auth_token_root@%s' % cls.vo['vo'])
+            except OSError as e:
+                if e.args[0] != 2:
+                    raise e
+            try:
+                remove(get_tmp_dir() + '/.rucio_root/auth_token_root@%s' % cls.new_vo['vo'])
+            except OSError as e:
+                if e.args[0] != 2:
+                    raise e
+
         else:
             LOG.warning('multi_vo mode is not enabled. Running multi_vo tests in single_vo mode will result in failures.')
             cls.vo = {}
@@ -748,16 +759,6 @@ class TestMultiVOBinRucio():
             cls.rse_tst = ''
             cls.rse_new = ''
 
-        try:
-            remove('/tmp/.rucio_root/auth_token_root@%s' % cls.vo['vo'])
-        except OSError as e:
-            if e.args[0] != 2:
-                raise e
-        try:
-            remove('/tmp/.rucio_root/auth_token_root@%s' % cls.new_vo['vo'])
-        except OSError as e:
-            if e.args[0] != 2:
-                raise e
         cls.marker = '$> '
 
     def test_vo_option_admin_cli(self):
