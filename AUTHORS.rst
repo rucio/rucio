@@ -44,6 +44,7 @@ Individual contributors to the source code
 - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
 - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+- Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 Organisations employing contributors
 ------------------------------------
