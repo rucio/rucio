@@ -19,6 +19,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from __future__ import print_function
 
@@ -68,50 +69,51 @@ class MgrTestCases():
             self.rse_settings['protocols'][0]['impl'] = 'rucio.rse.protocols.' + protocol_impl + '.Default'
 
     # Mgr-Tests: GET
-    def test_multi_get_mgr_ok(self):
-        """(RSE/PROTOCOLS): Get multiple files from storage providing LFNs and PFNs (Success)"""
-        pfn_b = mgr.lfns2pfns(self.rse_settings, {'name': '4_rse_remote_get.raw', 'scope': 'user.%s' % self.user}).values()[0]
-        status, details = mgr.download(self.rse_settings, [{'name': '1_rse_remote_get.raw', 'scope': 'user.%s' % self.user},
-                                                           {'name': '2_rse_remote_get.raw', 'scope': 'user.%s' % self.user},
-                                                           {'name': '3_rse_remote_get.raw', 'scope': 'user.%s' % self.user, 'pfn': self.static_file},
-                                                           {'name': '4_rse_remote_get.raw', 'scope': 'user.%s' % self.user, 'pfn': pfn_b}],
-                                       self.gettmpdir)
-        if not (status and details['user.%s:1_rse_remote_get.raw' % self.user] and details['user.%s:2_rse_remote_get.raw' % self.user] and details['user.%s:3_rse_remote_get.raw' % self.user] and details['user.%s:4_rse_remote_get.raw' % self.user]):
-            raise Exception('Return not as expected: %s, %s' % (status, details))
+    # These tests will fail as rsemanager.download has been removed. Commenting out to avoid syntax errors.
+    # def test_multi_get_mgr_ok(self):
+    #     """(RSE/PROTOCOLS): Get multiple files from storage providing LFNs and PFNs (Success)"""
+    #     pfn_b = mgr.lfns2pfns(self.rse_settings, {'name': '4_rse_remote_get.raw', 'scope': 'user.%s' % self.user}).values()[0]
+    #     status, details = mgr.download(self.rse_settings, [{'name': '1_rse_remote_get.raw', 'scope': 'user.%s' % self.user},
+    #                                                        {'name': '2_rse_remote_get.raw', 'scope': 'user.%s' % self.user},
+    #                                                        {'name': '3_rse_remote_get.raw', 'scope': 'user.%s' % self.user, 'pfn': self.static_file},
+    #                                                        {'name': '4_rse_remote_get.raw', 'scope': 'user.%s' % self.user, 'pfn': pfn_b}],
+    #                                    self.gettmpdir)
+    #     if not (status and details['user.%s:1_rse_remote_get.raw' % self.user] and details['user.%s:2_rse_remote_get.raw' % self.user] and details['user.%s:3_rse_remote_get.raw' % self.user] and details['user.%s:4_rse_remote_get.raw' % self.user]):
+    #         raise Exception('Return not as expected: %s, %s' % (status, details))
 
-    def test_get_mgr_ok_single_lfn(self):
-        """(RSE/PROTOCOLS): Get a single file from storage provding the LFN (Success)"""
-        mgr.download(self.rse_settings, {'name': '1_rse_remote_get.raw', 'scope': 'user.%s' % self.user}, self.gettmpdir)
+    # def test_get_mgr_ok_single_lfn(self):
+    #     """(RSE/PROTOCOLS): Get a single file from storage provding the LFN (Success)"""
+    #     mgr.download(self.rse_settings, {'name': '1_rse_remote_get.raw', 'scope': 'user.%s' % self.user}, self.gettmpdir)
 
-    def test_get_mgr_ok_single_pfn(self):
-        """(RSE/PROTOCOLS): Get a single file from storage providing the PFN (Success)"""
-        mgr.download(self.rse_settings, {'name': '1_rse_remote_get.raw', 'scope': 'user.%s' % self.user, 'pfn': self.static_file}, self.gettmpdir)
+    # def test_get_mgr_ok_single_pfn(self):
+    #     """(RSE/PROTOCOLS): Get a single file from storage providing the PFN (Success)"""
+    #     mgr.download(self.rse_settings, {'name': '1_rse_remote_get.raw', 'scope': 'user.%s' % self.user, 'pfn': self.static_file}, self.gettmpdir)
 
-    def test_get_mgr_SourceNotFound_multi(self):
-        """(RSE/PROTOCOLS): Get multiple files from storage providing LFNs  and PFNs (SourceNotFound)"""
-        protocol = mgr.create_protocol(self.rse_settings, 'read')
-        pfn_a = protocol.lfns2pfns({'name': '2_rse_remote_get.raw', 'scope': 'user.%s' % self.user}).values()[0]
-        pfn_b = protocol.lfns2pfns({'name': '2_rse_remote_get_not_existing.raw', 'scope': 'user.%s' % self.user}).values()[0]
-        status, details = mgr.download(self.rse_settings, [{'name': '1_not_existing_data.raw', 'scope': 'user.%s' % self.user},
-                                                           {'name': '1_rse_remote_get.raw', 'scope': 'user.%s' % self.user},
-                                                           {'name': '2_not_existing_data.raw', 'scope': 'user.%s' % self.user, 'pfn': pfn_b},
-                                                           {'name': '2_rse_remote_get.raw', 'scope': 'user.%s' % self.user, 'pfn': pfn_a}], self.gettmpdir)
-        if details['user.%s:1_rse_remote_get.raw' % self.user] and details['user.%s:2_rse_remote_get.raw' % self.user]:
-            if details['user.%s:1_not_existing_data.raw' % self.user].__class__.__name__ == 'SourceNotFound' and details['user.%s:2_not_existing_data.raw' % self.user].__class__.__name__ == 'SourceNotFound':
-                raise details['user.%s:1_not_existing_data.raw' % self.user]
-            else:
-                raise Exception('Return not as expected: %s, %s' % (status, details))
-        else:
-            raise Exception('Return not as expected: %s, %s' % (status, details))
+    # def test_get_mgr_SourceNotFound_multi(self):
+    #     """(RSE/PROTOCOLS): Get multiple files from storage providing LFNs  and PFNs (SourceNotFound)"""
+    #     protocol = mgr.create_protocol(self.rse_settings, 'read')
+    #     pfn_a = protocol.lfns2pfns({'name': '2_rse_remote_get.raw', 'scope': 'user.%s' % self.user}).values()[0]
+    #     pfn_b = protocol.lfns2pfns({'name': '2_rse_remote_get_not_existing.raw', 'scope': 'user.%s' % self.user}).values()[0]
+    #     status, details = mgr.download(self.rse_settings, [{'name': '1_not_existing_data.raw', 'scope': 'user.%s' % self.user},
+    #                                                        {'name': '1_rse_remote_get.raw', 'scope': 'user.%s' % self.user},
+    #                                                        {'name': '2_not_existing_data.raw', 'scope': 'user.%s' % self.user, 'pfn': pfn_b},
+    #                                                        {'name': '2_rse_remote_get.raw', 'scope': 'user.%s' % self.user, 'pfn': pfn_a}], self.gettmpdir)
+    #     if details['user.%s:1_rse_remote_get.raw' % self.user] and details['user.%s:2_rse_remote_get.raw' % self.user]:
+    #         if details['user.%s:1_not_existing_data.raw' % self.user].__class__.__name__ == 'SourceNotFound' and details['user.%s:2_not_existing_data.raw' % self.user].__class__.__name__ == 'SourceNotFound':
+    #             raise details['user.%s:1_not_existing_data.raw' % self.user]
+    #         else:
+    #             raise Exception('Return not as expected: %s, %s' % (status, details))
+    #     else:
+    #         raise Exception('Return not as expected: %s, %s' % (status, details))
 
-    def test_get_mgr_SourceNotFound_single_lfn(self):
-        """(RSE/PROTOCOLS): Get a single file from storage providing LFN (SourceNot Found)"""
-        mgr.download(self.rse_settings, {'name': 'not_existing_data.raw', 'scope': 'user.%s' % self.user}, self.gettmpdir)
+    # def test_get_mgr_SourceNotFound_single_lfn(self):
+    #     """(RSE/PROTOCOLS): Get a single file from storage providing LFN (SourceNot Found)"""
+    #     mgr.download(self.rse_settings, {'name': 'not_existing_data.raw', 'scope': 'user.%s' % self.user}, self.gettmpdir)
 
-    def test_get_mgr_SourceNotFound_single_pfn(self):
-        """(RSE/PROTOCOLS): Get a single file from storage providing PFN (SourceNotF ound)"""
-        pfn = mgr.lfns2pfns(self.rse_settings, {'name': 'not_existing_data.raw', 'scope': 'user.%s' % self.user}).values()[0]
-        mgr.download(self.rse_settings, {'name': 'not_existing_data.raw', 'scope': 'user.%s' % self.user, 'pfn': pfn}, self.gettmpdir)
+    # def test_get_mgr_SourceNotFound_single_pfn(self):
+    #     """(RSE/PROTOCOLS): Get a single file from storage providing PFN (SourceNotF ound)"""
+    #     pfn = mgr.lfns2pfns(self.rse_settings, {'name': 'not_existing_data.raw', 'scope': 'user.%s' % self.user}).values()[0]
+    #     mgr.download(self.rse_settings, {'name': 'not_existing_data.raw', 'scope': 'user.%s' % self.user, 'pfn': pfn}, self.gettmpdir)
 
     # Mgr-Tests: PUT
     def test_put_mgr_ok_multi(self):
