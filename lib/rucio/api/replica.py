@@ -62,7 +62,7 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=No
         rse_id = get_rse_id(rse=rse, vo=vo)
 
     replicas = replica.list_bad_replicas_status(state=state, rse_id=rse_id, younger_than=younger_than,
-                                                older_than=older_than, limit=limit, list_pfns=list_pfns)
+                                                older_than=older_than, limit=limit, list_pfns=list_pfns, vo=vo)
     return [api_update_return_dict(r) for r in replicas]
 
 
@@ -129,7 +129,7 @@ def get_did_from_pfns(pfns, rse, vo='def'):
     :returns: A dictionary {pfn: {'scope': scope, 'name': name}}
     """
     rse_id = get_rse_id(rse=rse, vo=vo)
-    replicas = replica.get_did_from_pfns(pfns=pfns, rse_id=rse_id)
+    replicas = replica.get_did_from_pfns(pfns=pfns, rse_id=rse_id, vo=vo)
 
     for r in replicas:
         for k in r.keys():

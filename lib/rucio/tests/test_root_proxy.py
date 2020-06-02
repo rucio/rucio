@@ -17,6 +17,7 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -31,7 +32,7 @@ from nose.tools import assert_equal, assert_in, assert_not_in
 from paste.fixture import TestApp
 
 from rucio.client import ReplicaClient
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.config import set as config_set
 from rucio.core.replica import add_replicas, delete_replicas
@@ -45,8 +46,8 @@ class TestROOTProxy(object):
     @classmethod
     def setupClass(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
-            self.vo_headers = {'X-Rucio-VO': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo_headers = {'X-Rucio-VO': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
             self.vo_headers = {}

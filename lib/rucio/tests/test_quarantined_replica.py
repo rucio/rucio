@@ -10,11 +10,12 @@
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2016-2017
  - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+ - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 '''
 
 from nose.tools import assert_equal
 
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.utils import generate_uuid
 from rucio.core.quarantined_replica import (add_quarantined_replicas,
                                             list_quarantined_replicas,
@@ -25,7 +26,7 @@ from rucio.core.rse import get_rse_id
 def test_quarantined_replicas():
     """ QUARANTINED REPLICA (CORE): Add, List and Delete quarantined replicas """
     if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-        vo = {'vo': 'tst'}
+        vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
     else:
         vo = {}
 

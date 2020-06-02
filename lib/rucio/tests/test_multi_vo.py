@@ -44,7 +44,7 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.client.uploadclient import UploadClient
-from rucio.common.config import config_get_bool, config_remove_option, config_set
+from rucio.common.config import config_get, config_get_bool, config_remove_option, config_set
 from rucio.common.exception import AccessDenied, Duplicate, InputValidationError, UnsupportedAccountName, UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, get_tmp_dir, parse_response
@@ -67,7 +67,7 @@ class TestVOCoreAPI(object):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
             cls.new_vo = {'vo': 'new'}
             if not vo_exists(**cls.new_vo):
                 add_vo(description='Test', email='rucio@email.com', **cls.new_vo)
@@ -181,8 +181,8 @@ class TestVORestAPI(object):
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             cls.def_header = {'X-Rucio-VO': 'def'}
-            cls.vo_header = {'X-Rucio-VO': 'tst'}
-            cls.vo = {'vo': 'tst'}
+            cls.vo_header = {'X-Rucio-VO': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             LOG.warning('multi_vo mode is not enabled. Running multi_vo tests in single_vo mode will result in failures.')
             cls.vo_header = {}
@@ -445,7 +445,7 @@ class TestMultiVoClients(object):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
             cls.new_vo = {'vo': 'new'}
             if not vo_exists(**cls.new_vo):
                 add_vo(description='Test', email='rucio@email.com', **cls.new_vo)
@@ -727,7 +727,7 @@ class TestMultiVOBinRucio():
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
             cls.new_vo = {'vo': 'new'}
             cls.fake_vo = {'vo': 'fke'}
             if not vo_exists(**cls.new_vo):
@@ -827,7 +827,7 @@ class TestMultiVODaemons(object):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
             cls.new_vo = {'vo': 'new'}
             if not vo_exists(**cls.new_vo):
                 add_vo(description='Test', email='rucio@email.com', **cls.new_vo)

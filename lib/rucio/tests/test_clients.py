@@ -44,7 +44,7 @@ class TestBaseClient(object):
         __init__
         '''
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
             try:
                 remove(get_tmp_dir() + '/.rucio_root/auth_token_root@%s' % self.vo['vo'])
             except OSError as error:
@@ -107,7 +107,7 @@ class TestRucioClients(object):
         setup
         '''
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 

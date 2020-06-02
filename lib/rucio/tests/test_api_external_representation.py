@@ -37,7 +37,7 @@ import rucio.api.rse as api_rse
 from rucio.api.rule import add_replication_rule
 from rucio.api.scope import add_scope, list_scopes, get_scopes
 from rucio.api.subscription import add_subscription, list_subscriptions, list_subscription_rule_states, get_subscription_by_id
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import api_update_return_dict, generate_uuid
 import rucio.core.account_counter as account_counter
@@ -55,7 +55,7 @@ class TestApiExternalRepresentation():
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
             cls.new_vo = {'vo': 'new'}
             cls.multi_vo = True
             if not vo_exists(**cls.new_vo):

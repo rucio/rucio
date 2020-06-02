@@ -28,7 +28,7 @@ from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
 from rucio.client.accountclient import AccountClient
 from rucio.client.uploadclient import UploadClient
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.utils import generate_uuid
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.account import get_usage_history
@@ -52,7 +52,7 @@ class TestAbacusAccount():
         self.session = get_session()
 
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 
