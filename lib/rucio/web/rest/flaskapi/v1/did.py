@@ -829,9 +829,9 @@ class BulkMeta(MethodView):
             params = loads(json_data)
             dids = params['dids']
         except KeyError as error:
-            raise generate_http_error_flask(400, 'ValueError', 'Cannot find mandatory parameter : %s' % str(error))
+            return generate_http_error_flask(400, 'ValueError', 'Cannot find mandatory parameter : %s' % str(error))
         except ValueError:
-            raise generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
         try:
             data = ""
             for meta in get_metadata_bulk(dids):
