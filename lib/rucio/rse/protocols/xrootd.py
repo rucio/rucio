@@ -16,6 +16,7 @@
 '''
 
 import os
+import logging
 
 from rucio.common import exception
 from rucio.rse.protocols import protocol
@@ -31,6 +32,11 @@ class Default(protocol.RSEProtocol):
             :param props Properties derived from the RSE Repository
         """
         super(Default, self).__init__(protocol_attr, rse_settings, logger=logger)
+
+        if not logger:
+            logger = logging.getLogger('%s.null' % __name__)
+            logger.disabled = True
+
         self.scheme = self.attributes['scheme']
         self.hostname = self.attributes['hostname']
         self.port = str(self.attributes['port'])
