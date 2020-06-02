@@ -17,6 +17,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -57,15 +58,16 @@ def rse_update(once=False):
     logging.info('rse_update: started')
 
     # Make an initial heartbeat so that all abacus-rse daemons have the correct worker number on the next try
+    executable = 'abacus-rse'
     hostname = socket.gethostname()
     pid = os.getpid()
     current_thread = threading.current_thread()
-    live(executable='rucio-abacus-rse', hostname=hostname, pid=pid, thread=current_thread)
+    live(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
 
     while not graceful_stop.is_set():
         try:
             # Heartbeat
-            heartbeat = live(executable='rucio-abacus-rse', hostname=hostname, pid=pid, thread=current_thread)
+            heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
 
             # Select a bunch of rses for to update for this worker
             start = time.time()  # NOQA
@@ -90,7 +92,7 @@ def rse_update(once=False):
             break
 
     logging.info('rse_update: graceful stop requested')
-    die(executable='rucio-abacus-rse', hostname=hostname, pid=pid, thread=current_thread)
+    die(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
     logging.info('rse_update: graceful stop done')
 
 
@@ -106,8 +108,9 @@ def run(once=False, threads=1, fill_history_table=False):
     """
     Starts up the Abacus-RSE threads.
     """
+    executable = 'abacus-rse'
     hostname = socket.gethostname()
-    sanity_check(executable='rucio-abacus-rse', hostname=hostname)
+    sanity_check(executable=executable, hostname=hostname)
 
     if once:
         logging.info('main: executing one iteration only')

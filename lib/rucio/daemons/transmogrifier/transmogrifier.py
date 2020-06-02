@@ -22,6 +22,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -35,7 +36,7 @@ import time
 from datetime import datetime
 from json import loads
 from math import exp
-from sys import exc_info, stdout, argv
+from sys import exc_info, stdout
 from traceback import format_exception
 
 
@@ -194,7 +195,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
     :param sleep_time: Time between two cycles.
     """
 
-    executable = ' '.join(argv)
+    executable = 'transmogrifier'
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()
