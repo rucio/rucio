@@ -45,6 +45,7 @@ cp /opt/rucio/etc/rucio_vo_tst.cfg /opt/rucio/etc/rucio.cfg
 
 echo 'Clearing memcache'
 echo 'flush_all' | nc localhost 11211
+echo 'flush_all' | netcat localhost 11211
 
 echo 'Graceful restart of Apache'
 httpd -k graceful
@@ -134,6 +135,7 @@ cp /opt/rucio/etc/rucio_vo_ts2.cfg /opt/rucio/etc/rucio.cfg
 
 echo 'Clearing memcache'
 echo 'flush_all' | nc localhost 11211
+echo 'flush_all' | netcat localhost 11211
 
 echo 'Bootstrap tests: Create jdoe account/mock scope'
 tools/bootstrap_tests.py
@@ -170,7 +172,10 @@ fi
 
 echo 'Running tests on VO "ts2"'
 nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts
-if [ $? == 0 ]; then
-    echo 'Tests on both VOs succeeded'
-    exit 0
+if [ $? != 0 ]; then
+    echo 'Tests on second VO failed'
+    exit 1
 fi
+
+echo 'Tests on second VO successful'
+exit $?
