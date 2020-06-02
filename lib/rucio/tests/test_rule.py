@@ -15,6 +15,7 @@
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
 # - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -32,7 +33,7 @@ from rucio.client.lockclient import LockClient
 from rucio.client.didclient import DIDClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.subscriptionclient import SubscriptionClient
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.utils import generate_uuid as uuid
 from rucio.common.exception import (RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEBlacklisted, RSEOverQuota,
                                     RuleReplaceFailed, ManualRuleApprovalBlocked, InputValidationError, UnsupportedOperation)
@@ -67,7 +68,7 @@ def create_files(nrfiles, scope, rse_id, bytes=1):
     :returns:        List of dict
     """
     if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-        vo = {'vo': 'tst'}
+        vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
     else:
         vo = {}
 
@@ -126,7 +127,7 @@ class TestReplicationRuleCore():
         cls.db_session = session.get_session()
 
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             cls.vo = {}
 
@@ -1147,7 +1148,7 @@ class TestReplicationRuleClient():
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             cls.vo = {}
 

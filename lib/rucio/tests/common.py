@@ -20,6 +20,7 @@
 # - Fernando Lopez <fernando.e.lopez@gmail.com>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from paste.fixture import TestApp
 from random import choice
@@ -33,7 +34,7 @@ import tempfile
 
 from rucio.client.accountclient import AccountClient
 from rucio.common import exception
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.utils import generate_uuid as uuid
 
 
@@ -86,7 +87,7 @@ def get_auth_token(account, username, password):
     :returns: the authentication token
     """
     if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-        vo_header = {'X-Rucio-VO': 'tst'}
+        vo_header = {'X-Rucio-VO': config_get('client', 'vo', raise_exception=False, default='tst')}
     else:
         vo_header = {}
 

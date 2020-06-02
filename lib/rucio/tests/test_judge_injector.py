@@ -9,10 +9,11 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2015-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from nose.tools import assert_raises
 
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import RuleNotFound
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
@@ -31,7 +32,7 @@ class TestJudgeEvaluator():
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             cls.vo = {}
 

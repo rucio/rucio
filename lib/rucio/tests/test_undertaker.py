@@ -19,12 +19,13 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from datetime import datetime, timedelta
 
 from nose.tools import assert_not_equal
 
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.account_limit import set_local_account_limit
@@ -40,7 +41,7 @@ class TestUndertaker:
 
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 

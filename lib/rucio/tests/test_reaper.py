@@ -19,8 +19,9 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core import rse as rse_core
@@ -34,7 +35,7 @@ def test_reaper():
     rse = 'MOCK'
 
     if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-        vo = {'vo': 'tst'}
+        vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
     else:
         vo = {}
 

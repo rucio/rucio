@@ -20,6 +20,7 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from __future__ import print_function
 
@@ -41,7 +42,7 @@ class TestCurlRucio(object):
         setup
         '''
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo_header = '-H "X-Rucio-VO: tst"'
+            self.vo_header = '-H "X-Rucio-VO: %s"' % config_get('client', 'vo', raise_exception=False, default='tst')
         else:
             self.vo_header = ''
 

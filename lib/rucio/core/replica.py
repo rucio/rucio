@@ -58,7 +58,7 @@ from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
 from rucio.common.types import InternalScope
 from rucio.core.config import get as config_get
 from rucio.core.credential import get_signed_url
-from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute, get_rse_vo
+from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute, get_rse_vo, list_rses
 from rucio.core.rse_counter import decrease, increase
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models, filter_thread_work
@@ -83,6 +83,10 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
     rse_clause = []
     if rse_expression:
         for rse in parse_expression(expression=rse_expression, filter=filter, session=session):
+            rse_clause.append(models.BadReplicas.rse_id == rse['id'])
+    elif filter:
+        # Ensure we limit results to current VO even if we don't specify an RSE expression
+        for rse in list_rses(filters=filter, session=session):
             rse_clause.append(models.BadReplicas.rse_id == rse['id'])
 
     if session.bind.dialect.name == 'oracle':
@@ -155,7 +159,7 @@ def __exists_replicas(rse_id, scope=None, name=None, path=None, session=None):
 
 
 @read_session
-def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than=None, older_than=None, limit=None, list_pfns=False, session=None):
+def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than=None, older_than=None, limit=None, list_pfns=False, vo='def', session=None):
     """
     List the bad file replicas history states. Method used by the rucio-ui.
     :param state: The state of the file (SUSPICIOUS or BAD).
@@ -163,6 +167,7 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than
     :param younger_than: datetime object to select bad replicas younger than this date.
     :param older_than:  datetime object to select bad replicas older than this date.
     :param limit: The maximum number of replicas returned.
+    :param vo: The VO to find replicas from.
     :param session: The database session in use.
     """
     result = []
@@ -179,10 +184,11 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than
         query = query.limit(limit)
 
     for badfile in query.yield_per(1000):
-        if list_pfns:
-            result.append({'scope': badfile.scope, 'name': badfile.name, 'type': DIDType.FILE})
-        else:
-            result.append({'scope': badfile.scope, 'name': badfile.name, 'rse': get_rse_name(rse_id=badfile.rse_id, session=session), 'rse_id': badfile.rse_id, 'state': badfile.state, 'created_at': badfile.created_at, 'updated_at': badfile.updated_at})
+        if badfile.scope.vo == vo:
+            if list_pfns:
+                result.append({'scope': badfile.scope, 'name': badfile.name, 'type': DIDType.FILE})
+            else:
+                result.append({'scope': badfile.scope, 'name': badfile.name, 'rse': get_rse_name(rse_id=badfile.rse_id, session=session), 'rse_id': badfile.rse_id, 'state': badfile.state, 'created_at': badfile.created_at, 'updated_at': badfile.updated_at})
     if list_pfns:
         reps = []
         for rep in list_replicas(result, schemes=None, unavailable=False, request_id=None, ignore_availability=True, all_states=True, session=session):
@@ -401,7 +407,7 @@ def declare_bad_file_replicas(pfns, reason, issuer, status=BadFilesStatus.BAD, s
     :param status: The status of the file (SUSPICIOUS or BAD).
     :param session: The database session in use.
     """
-    scheme, files_to_declare, unknown_replicas = get_pfn_to_rse(pfns, session=session)
+    scheme, files_to_declare, unknown_replicas = get_pfn_to_rse(pfns, vo=issuer.vo, session=session)
     for rse_id in files_to_declare:
         notdeclared = __declare_bad_file_replicas(files_to_declare[rse_id], rse_id, reason, issuer, status=status, scheme=scheme, session=session)
         if notdeclared != []:
@@ -410,11 +416,12 @@ def declare_bad_file_replicas(pfns, reason, issuer, status=BadFilesStatus.BAD, s
 
 
 @read_session
-def get_pfn_to_rse(pfns, session=None):
+def get_pfn_to_rse(pfns, vo='def', session=None):
     """
     Get the RSE associated to a list of PFNs.
 
     :param pfns: The list of pfn.
+    :param vo: The VO to find RSEs at.
     :param session: The database session in use.
 
     :returns: a tuple : scheme, {rse1 : [pfn1, pfn2, ...], rse2: [pfn3, pfn4, ...]}, {'unknown': [pfn5, pfn6, ...]}.
@@ -448,7 +455,7 @@ def get_pfn_to_rse(pfns, session=None):
         else:
             mult_rse_match = 0
             for rse_id in protocols:
-                if surl.find(protocols[rse_id][0]) > -1 or surl.find(protocols[rse_id][1]) > -1:
+                if (surl.find(protocols[rse_id][0]) > -1 or surl.find(protocols[rse_id][1]) > -1) and get_rse_vo(rse_id=rse_id, session=session) == vo:
                     mult_rse_match += 1
                     if mult_rse_match > 1:
                         print('ERROR, multiple matches : %s at %s' % (surl, rse_id))
@@ -506,18 +513,19 @@ def list_bad_replicas(limit=10000, thread=None, total_threads=None, session=None
 
 
 @stream_session
-def get_did_from_pfns(pfns, rse_id=None, session=None):
+def get_did_from_pfns(pfns, rse_id=None, vo='def', session=None):
     """
     Get the DIDs associated to a PFN on one given RSE
 
     :param pfns: The list of PFNs.
     :param rse_id: The RSE id.
+    :param vo: The VO to get DIDs from.
     :param session: The database session in use.
     :returns: A dictionary {pfn: {'scope': scope, 'name': name}}
     """
     dict_rse = {}
     if not rse_id:
-        scheme, dict_rse, unknown_replicas = get_pfn_to_rse(pfns, session=session)
+        scheme, dict_rse, unknown_replicas = get_pfn_to_rse(pfns, vo=vo, session=session)
         if unknown_replicas:
             raise Exception
     else:
@@ -530,7 +538,6 @@ def get_did_from_pfns(pfns, rse_id=None, session=None):
         proto = rsemgr.create_protocol(rse_info, 'read', scheme=scheme)
         if rse_info['deterministic']:
             parsed_pfn = proto.parse_pfns(pfns=pfns)
-            vo = get_rse_vo(rse_id=rse_id, session=session)
 
             # WARNING : this part is ATLAS specific and must be changed
             for pfn in parsed_pfn:

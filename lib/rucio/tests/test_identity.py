@@ -10,6 +10,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 """
 Test the Identity abstraction layer
@@ -18,7 +19,7 @@ Test the Identity abstraction layer
 from nose.tools import assert_equal
 from paste.fixture import TestApp
 
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account, del_account
@@ -37,7 +38,7 @@ class TestIdentity(object):
     def setup(self):
         """ Setup the Test Case """
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 
@@ -84,7 +85,7 @@ class TestIdentityRest(object):
     def test_userpass(self):
         """ ACCOUNT (REST): send a POST to add an identity to an account."""
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            vo_header = {'X-Rucio-VO': 'tst'}
+            vo_header = {'X-Rucio-VO': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             vo_header = {}
 

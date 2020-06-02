@@ -17,6 +17,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from nose.tools import assert_in
 
@@ -31,7 +32,7 @@ class TestReplicaHeaderRedirection:
 
     def __init__(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo_header = '-H "X-Rucio-VO: tst"'
+            self.vo_header = '-H "X-Rucio-VO: %s"' % config_get('client', 'vo', raise_exception=False, default='tst')
         else:
             self.vo_header = ''
 
@@ -73,7 +74,7 @@ class TestReplicaMetalinkRedirection:
 
     def __init__(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo_header = '-H "X-Rucio-VO: tst"'
+            self.vo_header = '-H "X-Rucio-VO: %s"' % config_get('client', 'vo', raise_exception=False, default='tst')
         else:
             self.vo_header = ''
 
