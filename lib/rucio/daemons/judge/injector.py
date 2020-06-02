@@ -17,6 +17,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -68,13 +69,14 @@ def rule_injector(once=False):
     paused_rules = {}  # {rule_id: datetime}
 
     # Make an initial heartbeat so that all judge-inectors have the correct worker number on the next try
-    live(executable='rucio-judge-injector', hostname=hostname, pid=pid, thread=current_thread, older_than=2 * 60 * 60)
+    executable = 'judge-injector'
+    live(executable=executable, hostname=hostname, pid=pid, thread=current_thread, older_than=2 * 60 * 60)
     graceful_stop.wait(1)
 
     while not graceful_stop.is_set():
         try:
             # heartbeat
-            heartbeat = live(executable='rucio-judge-injector', hostname=hostname, pid=pid, thread=current_thread, older_than=2 * 60 * 60)
+            heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=current_thread, older_than=2 * 60 * 60)
 
             start = time.time()
 
@@ -149,7 +151,7 @@ def rule_injector(once=False):
         if once:
             break
 
-    die(executable='rucio-judge-injector', hostname=hostname, pid=pid, thread=current_thread)
+    die(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
 
 
 def stop(signum=None, frame=None):
@@ -165,8 +167,9 @@ def run(once=False, threads=1):
     Starts up the Judge-Injector threads.
     """
 
+    executable = 'judge-injector'
     hostname = socket.gethostname()
-    sanity_check(executable='rucio-judge-injector', hostname=hostname)
+    sanity_check(executable=executable, hostname=hostname)
 
     if once:
         rule_injector(once)
