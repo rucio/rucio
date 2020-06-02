@@ -1,4 +1,4 @@
-# Copyright 2015-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2019
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2020
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2020
@@ -666,7 +666,7 @@ class RSE(BASE, SoftModelBase):
     latitude = Column(Float())
     availability = Column(Integer, server_default='7')
     usage = relationship("RSEUsage", order_by="RSEUsage.rse_id", backref="rses")
-#    replicas = relationship("RSEFileAssociation", order_by="RSEFileAssociation.rse_id", backref="rses")
+    qos_class = Column(String(64))
     _table_args = (PrimaryKeyConstraint('id', name='RSES_PK'),
                    UniqueConstraint('rse', 'vo', name='RSES_RSE_UQ'),
                    CheckConstraint('RSE IS NOT NULL', name='RSES_RSE__NN'),
@@ -761,6 +761,15 @@ class RSEProtocols(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('rse_id', 'scheme', 'hostname', 'port', name='RSE_PROTOCOL_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_PROTOCOL_RSE_ID_FK'),
                    CheckConstraint('IMPL IS NOT NULL', name='RSE_PROTOCOLS_IMPL_NN'))
+
+
+class RSEQoSAssociation(BASE, ModelBase):
+    """Represents the mapping of RSEs"""
+    __tablename__ = 'rse_qos_map'
+    rse_id = Column(GUID())
+    qos_policy = Column(String(64))
+    _table_args = (PrimaryKeyConstraint('rse_id', 'qos_policy', name='RSE_QOS_MAP_PK'),
+                   ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_QOS_MAP_RSE_ID_FK'))
 
 
 class AccountLimit(BASE, ModelBase):
@@ -1405,6 +1414,7 @@ def register_models(engine):
               RSEFileAssociationHistory,
               RSELimit,
               RSEProtocols,
+              RSEQoSAssociation,
               RSEUsage,
               ReplicaLock,
               ReplicationRule,
@@ -1466,6 +1476,7 @@ def unregister_models(engine):
               RSEFileAssociationHistory,
               RSELimit,
               RSEProtocols,
+              RSEQoSAssociation,
               RSEUsage,
               ReplicaLock,
               ReplicationRule,

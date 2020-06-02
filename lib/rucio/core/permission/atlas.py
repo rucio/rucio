@@ -1,4 +1,4 @@
-# Copyright 2016-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2016-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2016
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2019
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
@@ -58,6 +58,8 @@ def has_permission(issuer, action, kwargs):
             'add_protocol': perm_add_protocol,
             'del_protocol': perm_del_protocol,
             'update_protocol': perm_update_protocol,
+            'add_qos_policy': perm_add_qos_policy,
+            'delete_qos_policy': perm_delete_qos_policy,
             'declare_bad_file_replicas': perm_declare_bad_file_replicas,
             'declare_suspicious_file_replicas': perm_declare_suspicious_file_replicas,
             'add_replicas': perm_add_replicas,
@@ -735,6 +737,28 @@ def perm_del_protocol(issuer, kwargs):
 def perm_update_protocol(issuer, kwargs):
     """
     Checks if an account can update protocols of an RSE.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+
+
+def perm_add_qos_policy(issuer, kwargs):
+    """
+    Checks if an account can add QoS policies to an RSE.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+
+
+def perm_delete_qos_policy(issuer, kwargs):
+    """
+    Checks if an account can delete QoS policies from an RSE.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
