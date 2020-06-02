@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
@@ -42,7 +42,8 @@ from rucio.api.rse import (add_rse, update_rse, list_rses, del_rse, add_rse_attr
                            update_protocols, get_rse, set_rse_usage,
                            get_rse_usage, list_rse_usage_history,
                            set_rse_limits, get_rse_limits, parse_rse_expression,
-                           add_distance, get_distance, update_distance)
+                           add_distance, get_distance, update_distance,
+                           add_qos_policy, delete_qos_policy, list_qos_policies)
 from rucio.common.exception import (Duplicate, AccessDenied, RSENotFound, RucioException,
                                     RSEOperationNotSupported, RSEProtocolNotSupported,
                                     InvalidObject, RSEProtocolDomainNotSupported,
@@ -66,6 +67,8 @@ URLS = (
     '/(.+)/usage', 'Usage',  # Update RSE usage information
     '/(.+)/usage/history', 'UsageHistory',  # Get RSE usage history information
     '/(.+)/limits', 'Limits',  # Update/List RSE limits
+    '/(.+)/qos_policy', 'QoSPolicy',  # List QoS policies
+    '/(.+)/qos_policy/(.+)', 'QoSPolicy',  # Add/Delete QoS policies
     '/(.+)', 'RSE',
     '/', 'RSEs',
 )
@@ -885,6 +888,74 @@ class Distance(RucioController):
             print(format_exc())
             raise InternalError(error)
         raise OK()
+
+
+class QoSPolicy(RucioController):
+    """ Add/Delete/List QoS policies on an RSE. """
+
+    @check_accept_header_wrapper(['application/json'])
+    def POST(self, rse, qos_policy):
+        """
+        Add QoS policy to an RSE.
+
+        :param rse: the RSE name.
+        :param qos_policy: the QoS policy.
+        """
+        header('Content-Type', 'application/json')
+
+        try:
+            add_qos_policy(rse=rse, qos_policy=qos_policy, issuer=ctx.env.get('issuer'))
+        except RSENotFound as error:
+            raise generate_http_error(404, 'RSENotFound', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+
+        raise Created()
+
+    @check_accept_header_wrapper(['application/json'])
+    def DELETE(self, rse, qos_policy):
+        """
+        Delete QoS policy from an RSE.
+
+        :param rse: the RSE name.
+        :param qos_policy: the QoS policy.
+        """
+        header('Content-Type', 'application/json')
+
+        try:
+            delete_qos_policy(rse=rse, qos_policy=qos_policy, issuer=ctx.env.get('issuer'))
+        except RSENotFound as error:
+            raise generate_http_error(404, 'RSENotFound', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+
+        raise OK()
+
+    @check_accept_header_wrapper(['application/json'])
+    def GET(self, rse):
+        """
+        List all QoS policies of an RSE.
+
+        :param rse: the RSE name.
+        """
+        header('Content-Type', 'application/json')
+
+        try:
+            qos_policies = list_qos_policies(rse=rse, issuer=ctx.env.get('issuer'))
+            return dumps(qos_policies, cls=APIEncoder)
+        except RSENotFound as error:
+            raise generate_http_error(404, 'RSENotFound', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
 
 
 """----------------------
