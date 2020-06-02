@@ -58,7 +58,7 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
     Main loop to check the status of a transfer primitive with a transfertool.
     """
 
-    executable = ' '.join(sys.argv)
+    executable = 'conveyor-poller-latest'
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()
