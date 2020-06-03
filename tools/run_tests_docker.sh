@@ -42,9 +42,6 @@ do
 done
 
 echo 'Clearing memcache'
-echo 'flush_all' | nc localhost 11211
-echo 'flush_all' | ncat localhost 11211
-echo 'flush_all' | netcat localhost 11211
 echo flush_all > /dev/tcp/127.0.0.1/11211
 
 echo 'Graceful restart of Apache'
