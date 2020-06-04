@@ -8,20 +8,17 @@ if [[ $# -ne 2 ]] ; then
     exit 1
 fi
 
-echo "Switching to next"
-git checkout next
+echo "Fetching upstream"
+git fetch upstream --progress
 
-echo "Updating next"
-git pull --all --prune --progress
-
-echo "Rebasing next"
-git reset --hard upstream/next
+echo "Switching to master"
+git checkout upstream/master -B master
 if [ $? != 0 ]; then
-    echo "Can't rebase to master. Unstaged changes?"
+    echo "Can't reset and checkout master"
     exit 1
 fi
 
-echo "Creating feature branch"
-git checkout -b feature-$1-${2//[^a-zA-Z0-9]/_} next
+echo "Creating feature branch from master"
+git checkout -b feature-$1-${2//[^a-zA-Z0-9]/_} master
 
 echo "Done"

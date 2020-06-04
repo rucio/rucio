@@ -16,33 +16,22 @@
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
-set -eo pipefail
+set -euo pipefail
 IFS=$'\n\t'
 
-if [[ -z "$BASE_BRANCH" ]]; then
-    echo "BASE_BRANCH environment variable needs to be set"
+# change directory to main repository directory
+cd `dirname $0`/..
+
+BASE_BRANCH=master INCLUDE_UNSTAGED=true INCLUDE_STAGED=true ./tools/test/create_changelist.sh
+MATRIX=`./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml`
+if [[ -z "$MATRIX" ]]; then
+    echo "Matrix could not be determined"
+    exit 1
+fi
+IMAGES=`echo $MATRIX | ./tools/test/build_images.py ./etc/docker/test`
+if [[ -z "$IMAGES" ]]; then
+    echo "Images could not be built"
     exit 1
 fi
 
-appendChanges() {
-    $* | grep -E 'bin/|\.py$' | grep -v '^A' | grep -v 'conf.py' | cut -f 2 | paste -sd " " - >> changed_files.txt.new || true
-}
-
-# change directory to main repository directory
-cd `dirname $0`/../..
-
-rm -f changed_files.txt
-touch changed_files.txt.new
-appendChanges git diff --name-status HEAD $(git merge-base HEAD $BASE_BRANCH)
-
-if [[ "$INCLUDE_STAGED" == "true" ]]; then
-    appendChanges git diff --name-status --staged
-fi
-
-if [[ "$INCLUDE_UNSTAGED" == "true" ]]; then
-    appendChanges git diff --name-status
-fi
-
-# merge newlines, trim outside spaces
-tr '\n' ' ' < changed_files.txt.new | xargs echo -n > changed_files.txt
-rm changed_files.txt.new
+echo "{\"matrix\": $MATRIX, \"images\": $IMAGES}" | ./tools/test/run_tests.py
