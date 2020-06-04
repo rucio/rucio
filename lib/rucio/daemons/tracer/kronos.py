@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2014
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015
@@ -311,6 +311,7 @@ def kronos_file(once=False, thread=0, brokers_resolved=None, dataset_queue=None,
 
     logging.info('tracer consumer starting')
 
+    executable = 'kronos-file'
     hostname = socket.gethostname()
     pid = getpid()
     thread = current_thread()
@@ -361,10 +362,10 @@ def kronos_file(once=False, thread=0, brokers_resolved=None, dataset_queue=None,
 
     logging.info('(kronos_file) tracer consumer started')
 
-    sanity_check(executable='kronos-file', hostname=hostname)
+    sanity_check(executable=executable, hostname=hostname)
     while not graceful_stop.is_set():
         start_time = time()
-        live(executable='kronos-file', hostname=hostname, pid=pid, thread=thread)
+        live(executable=executable, hostname=hostname, pid=pid, thread=thread)
         for conn in conns:
             if not conn.is_connected():
                 logging.info('(kronos_file) connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
@@ -396,23 +397,24 @@ def kronos_file(once=False, thread=0, brokers_resolved=None, dataset_queue=None,
         except Exception:
             pass
 
-    die(executable='kronos-file', hostname=hostname, pid=pid, thread=thread)
+    die(executable=executable, hostname=hostname, pid=pid, thread=thread)
     logging.info('(kronos_file) graceful stop done')
 
 
 def kronos_dataset(once=False, thread=0, dataset_queue=None, sleep_time=60):
     logging.info('(kronos_dataset) starting')
 
+    executable = 'kronos-dataset'
     hostname = socket.gethostname()
     pid = getpid()
     thread = current_thread()
 
     dataset_wait = config_get_int('tracer-kronos', 'dataset_wait')
     start = datetime.now()
-    sanity_check(executable='kronos-dataset', hostname=hostname)
+    sanity_check(executable=executable, hostname=hostname)
     while not graceful_stop.is_set():
         start_time = time()
-        live(executable='kronos-dataset', hostname=hostname, pid=pid, thread=thread)
+        live(executable=executable, hostname=hostname, pid=pid, thread=thread)
         if (datetime.now() - start).seconds > dataset_wait:
             __update_datasets(dataset_queue)
             start = datetime.now()
@@ -421,7 +423,7 @@ def kronos_dataset(once=False, thread=0, dataset_queue=None, sleep_time=60):
             logging.info('(kronos_dataset) Will sleep for %s seconds' % (sleep_time - tottime))
             sleep(sleep_time - tottime)
     # once again for the backlog
-    die(executable='kronos-dataset', hostname=hostname, pid=pid, thread=thread)
+    die(executable=executable, hostname=hostname, pid=pid, thread=thread)
     logging.info('(kronos_dataset) cleaning dataset backlog before shutdown...')
     __update_datasets(dataset_queue)
 

@@ -16,7 +16,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
@@ -1017,3 +1017,46 @@ class TestDIDClients:
 
         # Add a third file replica
         self.did_client.set_status(scope=tmp_scope, name=tmp_dataset, open=True)
+
+    def test_bulk_get_meta(self):
+        """ DATA IDENTIFIERS (CLIENT): Add a new meta data for a list of DIDs and try to retrieve them back"""
+        key = 'project'
+        rse = 'MOCK'
+        scope = 'mock'
+        files = ['file_%s' % generate_uuid() for _ in range(4)]
+        dst = ['dst_%s' % generate_uuid() for _ in range(4)]
+        cnt = ['cnt_%s' % generate_uuid() for _ in range(4)]
+        meta_mapping = {}
+        list_dids = []
+        for idx in range(4):
+            self.replica_client.add_replica(rse, scope, files[idx], 1, '0cc737eb')
+            self.did_client.set_metadata(scope, files[idx], key, 'file_%s' % idx)
+            list_dids.append({'scope': scope, 'name': files[idx]})
+            meta_mapping['%s:%s' % (scope, files[idx])] = (key, 'file_%s' % idx)
+        for idx in range(4):
+            self.did_client.add_did(scope, dst[idx], 'DATASET', statuses=None, meta={key: 'dsn_%s' % idx}, rules=None)
+            list_dids.append({'scope': scope, 'name': dst[idx]})
+            meta_mapping['%s:%s' % (scope, dst[idx])] = (key, 'dsn_%s' % idx)
+        for idx in range(4):
+            self.did_client.add_did(scope, cnt[idx], 'CONTAINER', statuses=None, meta={key: 'cnt_%s' % idx}, rules=None)
+            list_dids.append({'scope': scope, 'name': cnt[idx]})
+            meta_mapping['%s:%s' % (scope, cnt[idx])] = (key, 'cnt_%s' % idx)
+        list_meta = [_ for _ in self.did_client.get_metadata_bulk(list_dids)]
+        res_list_dids = [{'scope': entry['scope'], 'name': entry['name']} for entry in list_meta]
+        res_list_dids.sort()
+        list_dids.sort()
+        assert_equal(list_dids, res_list_dids)
+        for meta in list_meta:
+            did = '%s:%s' % (meta['scope'], meta['name'])
+            met = meta_mapping[did]
+            assert_equal((key, meta[key]), met)
+        cnt = ['cnt_%s' % generate_uuid() for _ in range(4)]
+        for idx in range(4):
+            list_dids.append({'scope': scope, 'name': cnt[idx]})
+        list_meta = [_ for _ in self.did_client.get_metadata_bulk(list_dids)]
+        assert_equal(len(list_meta), 12)
+        list_dids = []
+        for idx in range(4):
+            list_dids.append({'scope': scope, 'name': cnt[idx]})
+        list_meta = [_ for _ in self.did_client.get_metadata_bulk(list_dids)]
+        assert_equal(len(list_meta), 0)

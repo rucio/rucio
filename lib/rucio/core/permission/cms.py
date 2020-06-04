@@ -9,7 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2018
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017-2018
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2019
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2020
 # - Eric Vaandering, <ewv@fnal.gov>, 2018-2020
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
@@ -810,7 +810,7 @@ def perm_set_global_account_limit(issuer, kwargs):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
     resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country')
-                              for rse in parse_expression(kwargs['rse_exp'], filter={'vo': issuer.vo})}
+                              for rse in parse_expression(kwargs['rse_expression'], filter={'vo': issuer.vo})}
     if resolved_rse_countries.issubset(admin_in_country):
         return True
     return False
@@ -833,7 +833,7 @@ def perm_delete_global_account_limit(issuer, kwargs):
             admin_in_country.add(kv['key'].partition('-')[2])
     if admin_in_country:
         resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country')
-                                  for rse in parse_expression(kwargs['rse_exp'], filter={'vo': issuer.vo})}
+                                  for rse in parse_expression(kwargs['rse_expression'], filter={'vo': issuer.vo})}
         if resolved_rse_countries.issubset(admin_in_country):
             return True
     return False

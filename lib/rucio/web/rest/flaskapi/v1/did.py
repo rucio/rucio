@@ -19,7 +19,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
 # - Yun-Pin Sun <yun-pin.sun@cern.ch>, 2013
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
 # - Martin Baristis <martin.barisits@cern.ch>, 2014-2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
@@ -35,7 +35,7 @@ from flask.views import MethodView
 
 from rucio.api.did import (add_did, add_dids, list_content, list_content_history,
                            list_dids, list_files, scope_list, get_did, set_metadata,
-                           get_metadata, set_status, attach_dids, detach_dids,
+                           get_metadata, get_metadata_bulk, set_status, attach_dids, detach_dids,
                            attach_dids_to_dids, get_dataset_by_guid, list_parent_dids,
                            create_did_sample, list_new_dids, resurrect)
 from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
@@ -810,6 +810,45 @@ class Meta(MethodView):
         return "Created", 201
 
 
+class BulkMeta(MethodView):
+
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
+    def post(self):
+        """
+        List all meta of a list of data identifiers.
+        HTTP Success:
+            200 OK
+        HTTP Error:
+            400 Bad Request
+            401 Unauthorized
+            404 DataIdentifierNotFound
+            500 InternalError
+        :returns: A list of dictionaries containing all meta.
+        """
+        json_data = request.data
+        try:
+            params = loads(json_data)
+            dids = params['dids']
+        except KeyError as error:
+            return generate_http_error_flask(400, 'ValueError', 'Cannot find mandatory parameter : %s' % str(error))
+        except ValueError:
+            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+        try:
+            data = ""
+            for meta in get_metadata_bulk(dids, vo=request.environ.get('vo')):
+                data += render_json(**meta) + '\n'
+            return Response(data, content_type='application/x-json-stream')
+        except ValueError:
+            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+        except DataIdentifierNotFound as error:
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return error, 500
+
+
 class Rules(MethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
@@ -1065,6 +1104,8 @@ new_dids_view = NewDIDs.as_view('new_dids')
 bp.add_url_rule('/new', view_func=new_dids_view, methods=['get', ])
 resurrect_view = Resurrect.as_view('resurrect')
 bp.add_url_rule('/resurrect', view_func=resurrect_view, methods=['post', ])
+bulkmeta_view = BulkMeta.as_view('bulkmeta')
+bp.add_url_rule('/bulkmeta', view_func=bulkmeta_view, methods=['post', ])
 
 application = Flask(__name__)
 application.register_blueprint(bp)

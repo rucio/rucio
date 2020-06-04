@@ -106,7 +106,8 @@ def add_account_identity(identity, type, account, email, default=False, password
         add_identity(identity=identity, type=type, email=email, password=password, session=session)
         id = session.query(models.Identity).filter_by(identity=identity, identity_type=type).first()
 
-    iaa = models.IdentityAccountAssociation(identity=id.identity, identity_type=id.identity_type, account=account)
+    iaa = models.IdentityAccountAssociation(identity=id.identity, identity_type=id.identity_type, account=account,
+                                            is_default=default)
 
     try:
         iaa.save(session=session)

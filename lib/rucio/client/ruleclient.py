@@ -248,3 +248,20 @@ class RuleClient(BaseClient):
             return self._load_json_data(r)
         exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
         raise exc_cls(exc_msg)
+
+    def list_replication_rules(self, filters=None):
+        """
+        List all replication rules which match a filter
+        :param filters: dictionary of attributes by which the rules should be filtered
+
+        :returns: True if successful, otherwise false.
+        """
+        filters = filters or {}
+        path = self.RULE_BASEURL + '/'
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='GET', params=filters)
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
