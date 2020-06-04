@@ -37,8 +37,7 @@ if [[ $SUITE == "client" ]]; then
 
 elif [[ $SUITE == "syntax" ]]; then
     cd /usr/local/src/rucio
-    pip install setuptools_scm
-    pip install google_compute_engine
+    pip install setuptools_scm google_compute_engine
     cp etc/docker/test/extra/rucio_syntax.cfg etc/rucio.cfg
 
 elif [[ $SUITE == "python3" ]]; then

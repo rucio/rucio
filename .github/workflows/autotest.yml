@@ -5,6 +5,20 @@ on:
   - push
 
 jobs:
+  pr_setup:
+    if: 'github.event_name == ''pull_request'' && !startsWith(github.event.pull_request.base.ref, ''release'') && !startsWith(github.event.pull_request.head.ref, ''feature'')'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Grab latest release branch
+        id: grabrelease
+        run: echo "::set-output name=release_branch::$(echo "${{ github.event.repository.branches_url }}" | ./tools/github/workflow/grabrelease.py)"
+      - name: Fetch pull request commit range
+        id: prcommits
+        run: echo "::set-output name=source_commits::$(echo "${{ github.event.pull_request.commits_url }}" | ./tools/github/workflow/prcommits.py)"
+    outputs:
+      release_branch: ${{ steps.grabrelease.outputs.release_branch }}
+      source_commits: ${{ steps.prcommits.outputs.source_commits }}
   setup:
     runs-on: ubuntu-latest
     steps:
@@ -18,6 +32,41 @@ jobs:
         run: echo "::set-output name=matrix::$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml)"
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
+  pr_releasetest:
+    needs:
+      - setup
+      - pr_setup
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        cfg: ${{ fromJson(needs.setup.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install pip requirements
+        run: |
+          pip3 install -U pip setuptools
+          pip3 install -U sh # needed by mergetest.py
+      - name: Test cherry-picking pull request changes
+        run: |
+          echo '{
+            "source_remote_name": "${{ github.actor }}",
+            "source_remote": "${{ github.event.pull_request.head.repo.full_name }}",
+            "source_commits": "${{ needs.pr_setup.outputs.source_commits }}",
+            "target_remote": "${{ github.event.pull_request.base.repo.full_name }}",
+            "target_branch": "${{ needs.pr_setup.outputs.release_branch }}"
+          }' | ./tools/github/workflow/mergetest.py
+      - name: Create changed_files.txt
+        run: BASE_BRANCH="${{ needs.pr_setup.outputs.release_branch }}" ./tools/test/create_changelist.sh
+      - name: Build images
+        id: images
+        run: |
+          docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          echo "::set-output name=images::$(echo '${{ toJson(matrix.cfg) }}' | ./tools/test/build_images.py \
+          --cache-repo docker.pkg.github.com/${{ github.repository }} ./etc/docker/test)"
+          docker logout https://docker.pkg.github.com
+      - name: Run test with cfg
+        run: 'echo ''{"matrix": ${{ toJson(matrix.cfg) }}, "images": ${{ steps.images.outputs.images }} }'' | ./tools/test/run_tests.py'
   test:
     needs: setup
     runs-on: ubuntu-latest
