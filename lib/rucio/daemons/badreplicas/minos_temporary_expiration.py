@@ -16,6 +16,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2018-2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -27,7 +28,7 @@ import threading
 import traceback
 import time
 
-from sys import stdout, argv
+from sys import stdout
 
 from rucio.db.sqla.constants import BadFilesStatus, ReplicaState
 
@@ -63,7 +64,7 @@ def minos_tu_expiration(bulk=1000, once=False, sleep_time=60):
     :param sleep_time: Time between two cycles.
     """
 
-    executable = ' '.join(argv)
+    executable = 'minos-temporary-expiration'
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()

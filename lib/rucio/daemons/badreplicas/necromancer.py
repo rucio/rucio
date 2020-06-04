@@ -19,6 +19,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -31,7 +32,7 @@ import threading
 import time
 
 from math import ceil
-from sys import exc_info, stdout, argv
+from sys import exc_info, stdout
 from traceback import format_exception
 
 from rucio.db.sqla.constants import ReplicaState
@@ -67,7 +68,7 @@ def necromancer(thread=0, bulk=5, once=False):
     update_history_threshold = 3600
     update_history_time = time.time()
 
-    executable = ' '.join(argv)
+    executable = 'necromancer'
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()

@@ -867,6 +867,7 @@ def list_associated_rules_for_file(scope, name, session=None):
     :raises:        RucioException
     """
 
+    rucio.core.did.get_did(scope=scope, name=name, session=session)  # Check if the did acually exists
     query = session.query(models.ReplicationRule).\
         with_hint(models.ReplicaLock, "INDEX(LOCKS LOCKS_PK)", 'oracle').\
         join(models.ReplicaLock, models.ReplicationRule.id == models.ReplicaLock.rule_id).\

@@ -186,7 +186,7 @@ application.after_request(after_request)
 def make_doc():
     """ Only used for sphinx documentation to add the prefix """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/configs')
+    doc_app.register_blueprint(bp, url_prefix='/config')
     return doc_app
 
 
