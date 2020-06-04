@@ -231,7 +231,9 @@ class Default(protocol.RSEProtocol):
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         self.logger.debug('xrootd.put: filename: {} target: {}'.format(filename, target))
+        source_dir = source_dir or '.'
         source_url = '%s/%s' % (source_dir, filename)
+        self.logger.debug('xrootd put: source url: {}'.format(source_url))
         path = self.path2pfn(target)
         if not os.path.exists(source_url):
             raise exception.SourceNotFound()
