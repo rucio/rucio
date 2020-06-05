@@ -55,7 +55,7 @@ class Default(protocol.RSEProtocol):
 
         lfns = [lfns] if isinstance(lfns, dict) else lfns
         for lfn in lfns:
-            path = lfn['path'] if 'path' in lfn and lfn['path'] else self._get_path(scope=lfn['scope'].external,
+            path = lfn['path'] if 'path' in lfn and lfn['path'] else self._get_path(scope=lfn['scope'],
                                                                                     name=lfn['name'])
             pfns['%s:%s' % (lfn['scope'], lfn['name'])] = ''.join(['storm://', hostname, ':', str(self.attributes['port']), prefix, path])
 

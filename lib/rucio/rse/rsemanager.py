@@ -253,6 +253,11 @@ def exists(rse_settings, files, domain='wan', auth_token=None, logger=_logger):
 
     protocol = create_protocol(rse_settings, 'read', domain=domain, auth_token=auth_token)
     protocol.connect()
+    try:
+        protocol.exists(None)
+    except NotImplementedError:
+        protocol = create_protocol(rse_settings, 'write', domain=domain, auth_token=auth_token)
+        protocol.connect()
 
     files = [files] if not type(files) is list else files
     for f in files:
