@@ -43,6 +43,7 @@ Individual contributors to the source code
 - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
 - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+- Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
 - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
@@ -68,3 +69,4 @@ Organisations employing contributors
 - Dwarkadas J. Sanghvi College of Engineering (India)
 - Science and Technology Facilities Council (UK)
 - Brookhaven National Laboratory (USA)
+- Institut Teknologi Bandung (Indonesia)

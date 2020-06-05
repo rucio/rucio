@@ -16,7 +16,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2015-2016
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2017
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
@@ -96,7 +96,10 @@ def stager(once=False, rses=None, mock=False, bulk=100, group_bulk=1, group_poli
     logging.debug("Maximum time in queue for different activities: %s" % max_time_in_queue)
 
     activity_next_exe_time = defaultdict(time.time)
-    executable = ' '.join(sys.argv)
+    executable = 'conveyor-stager'
+    if activities:
+        activities.sort()
+        executable += '--activities ' + str(activities)
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()

@@ -457,6 +457,13 @@ class TestRSEClient(object):
 
     def test_update_rse(self):
         """ RSE (CLIENTS): update rse."""
+        # Check if updating RSE does not remove RSE tag
+        rse = rse_name_generator()
+        ret = self.client.add_rse(rse)
+        assert_equal(get_rse_attribute(key=rse, rse_id=get_rse_id(rse, **self.vo)), [True])
+        self.client.update_rse(rse, {'availability_write': False, 'availability_delete': False})
+        assert_equal(get_rse_attribute(key=rse, rse_id=get_rse_id(rse, **self.vo)), [True])
+
         rse = rse_name_generator()
         renamed_rse = 'renamed_rse%s' % rse
         ret = self.client.add_rse(rse)

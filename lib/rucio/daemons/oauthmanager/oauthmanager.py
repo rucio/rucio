@@ -15,6 +15,7 @@
 #
 # Authors:
 #  - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019
+#  - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -40,7 +41,7 @@ import threading
 import time
 import traceback
 from re import match
-from sys import argv, stdout
+from sys import stdout
 
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException
@@ -73,7 +74,7 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100):
     :returns: None
     """
 
-    executable = argv[0]
+    executable = 'oauth-manager'
 
     sanity_check(executable=executable, hostname=socket.gethostname())
 

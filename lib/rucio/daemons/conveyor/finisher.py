@@ -23,6 +23,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -96,7 +97,10 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000)
 
     retry_protocol_mismatches = conveyor_config.get('retry_protocol_mismatches', False)
 
-    executable = ' '.join(sys.argv)
+    executable = 'conveyor-finisher'
+    if activities:
+        activities.sort()
+        executable += '--activities ' + str(activities)
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()

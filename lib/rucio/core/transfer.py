@@ -491,8 +491,7 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
     if multihop_rses is None:
         multihop_rses = []
 
-    # TODO: Might be problematic to always load the distance_graph, since it might be expensive
-    # TODO: Have an rse_expression to specify the eligible hops
+    # TODO: Might be problematic to always load the distance_graph, since it might be expensiv
 
     # Load the graph from the distances table
     # distance_graph = __load_distance_graph(session=session)
@@ -525,6 +524,11 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
 
     # 2. There is no connection or no scheme match --> Try a multi hop --> Dijkstra algorithm
     HOP_PENALTY = core_config_get('transfers', 'hop_penalty', default=10, session=session)  # Penalty to be applied to each further hop
+
+    # Check if the destination RSE is an island RSE:
+    if not __load_distance_edges_node(rse_id=dest_rse_id, session=session):
+        # The destination RSE is an island
+        raise NoDistance()
 
     visited_nodes = {source_rse_id: {'distance': 0,
                                      'path': []}}  # Dijkstra already visisted nodes

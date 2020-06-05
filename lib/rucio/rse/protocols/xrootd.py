@@ -45,7 +45,7 @@ class Default(protocol.RSEProtocol):
             :returns: Fully qualified PFN.
 
         """
-        if not path.startswith('xroot'):
+        if not path.startswith('xroot') and not path.startswith('root'):
             if path.startswith('/'):
                 return '%s://%s:%s/%s' % (self.scheme, self.hostname, self.port, path)
             else:
@@ -114,9 +114,22 @@ class Default(protocol.RSEProtocol):
         return ret
 
     def pfn2path(self, pfn):
-        parse_pfns = self.parse_pfns(pfn)[pfn]
-        path = parse_pfns['prefix'] + parse_pfns['path'] + parse_pfns['name']
-        return path
+        """
+        Returns the path of a file given the pfn, i.e. scheme and hostname are subtracted from the pfn.
+
+        :param path: pfn of a file
+
+        :returns: path.
+        """
+        if pfn.startswith('//'):
+            return pfn
+        elif pfn.startswith('/'):
+            return '/' + pfn
+        else:
+            prefix = self.attributes['prefix']
+            path = pfn.partition(self.attributes['prefix'])[2]
+            path = prefix + path
+            return path
 
     def lfns2pfns(self, lfns):
         """
@@ -153,7 +166,6 @@ class Default(protocol.RSEProtocol):
 
             :raises RSEAccessDenied
         """
-
         try:
             # The query stats call is not implemented on some xroot doors.
             # Workaround: fail, if server does not reply within 10 seconds for static config query
@@ -203,7 +215,6 @@ class Default(protocol.RSEProtocol):
         """
         source_url = '%s/%s' % (source_dir, filename)
         path = self.path2pfn(target)
-
         if not os.path.exists(source_url):
             raise exception.SourceNotFound()
         try:

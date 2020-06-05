@@ -78,7 +78,7 @@ class Import(MethodView):
 bp = Blueprint('import', __name__)
 
 import_view = Import.as_view('scope')
-bp.add_url_rule('', view_func=import_view, methods=['post', ])
+bp.add_url_rule('/', view_func=import_view, methods=['post', ])
 
 application = Flask(__name__)
 application.register_blueprint(bp)

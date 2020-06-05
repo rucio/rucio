@@ -21,6 +21,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 
 from __future__ import print_function
 
@@ -36,13 +37,14 @@ from rucio.common.config import config_get_bool
 from rucio.common.exception import InvalidObject, SubscriptionNotFound, SubscriptionDuplicate
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
+from rucio.core.account import add_account
 from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_did, set_new_dids
 from rucio.core.rse import add_rse
 from rucio.core.rule import add_rule
 from rucio.core.scope import add_scope
 from rucio.daemons.transmogrifier.transmogrifier import run
-from rucio.db.sqla.constants import DIDType
+from rucio.db.sqla.constants import AccountType, DIDType
 from rucio.web.rest.authentication import APP as auth_app
 from rucio.web.rest.subscription import APP as subs_app
 
@@ -414,6 +416,24 @@ class TestSubscriptionClient():
         """ SUBSCRIPTION (CLIENT): Test the update of a non-existing subscription """
         subscription_name = uuid()
         self.sub_client.update_subscription(name=subscription_name, filter={'project': ['toto', ]})
+
+    def test_create_and_list_subscription_by_account(self):
+        """ SUBSCRIPTION (CLIENT): Test retrieval of subscriptions for an account """
+        subscription_name = uuid()
+        account_name = uuid()[:10]
+        add_account(InternalAccount(account_name, **self.vo), AccountType.USER, 'rucio@email.com')
+        subid = self.sub_client.add_subscription(name=subscription_name, account=account_name, filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+                                                 replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
+        result = [sub['id'] for sub in self.sub_client.list_subscriptions(account=account_name)]
+        assert_equal(subid, result[0])
+
+    def test_create_and_list_subscription_by_name(self):
+        """ SUBSCRIPTION (CLIENT): Test retrieval of subscriptions for an account """
+        subscription_name = uuid()
+        subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+                                                 replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
+        result = [sub['id'] for sub in self.sub_client.list_subscriptions(name=subscription_name)]
+        assert_equal(subid, result[0])
 
     def test_run_transmogrifier(self):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier and the split_rule mode """
