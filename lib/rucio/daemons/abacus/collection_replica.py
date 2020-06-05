@@ -14,6 +14,7 @@
 #
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 
 """
 Abacus-Collection-Replica is a daemon to update collection replica.
@@ -51,15 +52,16 @@ def collection_replica_update(once=False):
     logging.info('collection_replica_update: started')
 
     # Make an initial heartbeat so that all abacus-collection-replica daemons have the correct worker number on the next try
+    executable = 'abacus-collection-replica'
     hostname = socket.gethostname()
     pid = os.getpid()
     current_thread = threading.current_thread()
-    live(executable='rucio-abacus-collection-replica', hostname=hostname, pid=pid, thread=current_thread)
+    live(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
 
     while not graceful_stop.is_set():
         try:
             # Heartbeat
-            heartbeat = live(executable='rucio-abacus-collection-replica', hostname=hostname, pid=pid, thread=current_thread)
+            heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
 
             # Select a bunch of collection replicas for to update for this worker
             start = time.time()  # NOQA
@@ -84,7 +86,7 @@ def collection_replica_update(once=False):
             break
 
     logging.info('collection_replica_update: graceful stop requested')
-    die(executable='rucio-abacus-collection-replica', hostname=hostname, pid=pid, thread=current_thread)
+    die(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
     logging.info('collection_replica_update: graceful stop done')
 
 
@@ -100,8 +102,9 @@ def run(once=False, threads=1):
     """
     Starts up the Abacus-Collection-Replica threads.
     """
+    executable = 'abacus-collection-replica'
     hostname = socket.gethostname()
-    sanity_check(executable='rucio-abacus-collection-replica', hostname=hostname)
+    sanity_check(executable=executable, hostname=hostname)
 
     if once:
         logging.info('main: executing one iteration only')

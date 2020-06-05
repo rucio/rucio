@@ -114,7 +114,7 @@ def submitter(once=False, rses=None, mock=False,
     logging.debug("Maximum time in queue for different activities: %s", max_time_in_queue)
 
     activity_next_exe_time = defaultdict(time.time)
-    executable = sys.argv[0]
+    executable = "conveyor-submitter"
     if activities:
         activities.sort()
         executable += '--activities ' + str(activities)
@@ -363,7 +363,7 @@ def __sort_link_ranking(sources):
             rank_sources[link_ranking] = []
         rank_sources[link_ranking].append(source)
     rank_keys = list(rank_sources.keys())
-    rank_keys.sort(reverse=True)
+    rank_keys.sort()
     for rank_key in rank_keys:
         sources_list = rank_sources[rank_key]
         random.shuffle(sources_list)

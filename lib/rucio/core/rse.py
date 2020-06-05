@@ -16,7 +16,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2019
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2017
 # - Wen Guan <wguan.icedew@gmail.com>, 2015-2016
@@ -1244,7 +1244,7 @@ def update_rse(rse_id, parameters, session=None):
     param = {}
     availability_mapping = {'availability_read': 4, 'availability_write': 2, 'availability_delete': 1}
     for key in parameters:
-        if key == 'name':
+        if key == 'name' and parameters['name'] != rse:  # Needed due to wrongly setting name in pre1.22.7 clients
             param['rse'] = parameters['name']
         elif key in ['availability_read', 'availability_write', 'availability_delete']:
             if parameters[key] is True:
@@ -1255,8 +1255,8 @@ def update_rse(rse_id, parameters, session=None):
             param[key] = parameters[key]
     param['availability'] = availability
     query.update(param)
-    if 'name' in parameters:
-        add_rse_attribute(rse_id=rse_id, key=parameters['name'], value=1, session=session)
+    if 'rse' in param:
+        add_rse_attribute(rse_id=rse_id, key=parameters['name'], value=True, session=session)
         query = session.query(models.RSEAttrAssociation).filter_by(rse_id=rse_id).filter(models.RSEAttrAssociation.key == rse)
         rse_attr = query.one()
         rse_attr.delete(session=session)
