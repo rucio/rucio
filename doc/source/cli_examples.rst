@@ -14,6 +14,7 @@
      Authors:
    - Cedric Serfon <cedric.serfon@cern.ch>, 2018
    - Vincent Garonne <vgaronne@gmail.com>, 2018
+   - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 ===================
 Rucio CLI: Examples
@@ -58,6 +59,27 @@ If you try to authenticate with an account that is not mapped with your credenti
    2018-01-30 16:50:08,554 ERROR   Cannot authenticate.
    Details: x509 authentication failed
    2018-01-30 16:50:08,554 ERROR   Please verify that your proxy is still valid and renew it if needed.
+
+If you're running a multi-VO instance of Rucio, then the VO to authenticate against is set in the configuration file. However you can specify a different VO as a CLI argument if your credentials map to an account there too::
+
+  $ rucio whoami
+  status     : ACTIVE
+  account    : jdoe
+  account_type : SERVICE
+  created_at : 2014-01-17T07:52:18
+  updated_at : 2014-01-17T07:52:18
+  suspended_at : None
+  deleted_at : None
+  email      : jdoe@normalvo.com
+  $ rucio --vo abc --account root whoami
+  status     : ACTIVE
+  account    : root
+  account_type : SERVICE
+  created_at : 2014-01-17T07:51:59
+  updated_at : 2014-01-17T07:51:59
+  suspended_at : None
+  deleted_at : None
+  email      : root@abc.com
 
 
 

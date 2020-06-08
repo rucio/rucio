@@ -14,6 +14,7 @@
 #
 # Authors:
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -37,7 +38,6 @@ from oic.utils import time_util
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import (CannotAuthenticate, CannotAuthorize,
                                     RucioException)
-from rucio.common.types import InternalAccount
 from rucio.common.utils import (all_oidc_req_claims_present, build_url, oidc_identity_string,
                                 query_bunches, sqlalchemy_obj_to_dict, val_to_space_sep_str)
 from rucio.core.account import account_exists
@@ -262,7 +262,7 @@ def get_auth_oidc(account, session=None, **kwargs):
     webhome = kwargs.get('webhome', None)
     # For webui a mock account will be used here and default account
     # will be assigned to the identity during get_token_oidc
-    if account == InternalAccount('webui'):
+    if account.external == 'webui':
         pass
     else:
         # Make sure the account exists
@@ -376,7 +376,7 @@ def get_token_oidc(auth_query_string, ip=None, session=None):
                                                         oidc_tokens['id_token']['iss'])
         jwt_row_dict['account'] = oauth_req_params.account
 
-        if jwt_row_dict['account'] == InternalAccount('webui'):
+        if jwt_row_dict['account'].external == 'webui':
             try:
                 jwt_row_dict['account'] = get_default_account(jwt_row_dict['identity'], IdentityType.OIDC, True, session=session)
             except Exception:
