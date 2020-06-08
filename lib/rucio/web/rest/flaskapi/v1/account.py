@@ -470,6 +470,7 @@ class Identities(MethodView):
             authtype = parameter['authtype']
             email = parameter['email']
             password = parameter.get('password', None)
+            default = parameter.get('default', False)
         except KeyError as error:
             if error.args[0] == 'authtype' or error.args[0] == 'identity' or error.args[0] == 'email':
                 return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(error))
@@ -477,7 +478,8 @@ class Identities(MethodView):
             return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            add_account_identity(identity_key=identity, id_type=authtype, account=account, email=email, password=password, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            add_account_identity(identity_key=identity, id_type=authtype, account=account, email=email,
+                                 password=password, issuer=request.environ.get('issuer'), default=default, vo=request.environ.get('vo'))
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except Duplicate as error:

@@ -70,7 +70,7 @@ class Export(MethodView):
 bp = Blueprint('export', __name__)
 
 export_view = Export.as_view('scope')
-bp.add_url_rule('', view_func=export_view, methods=['get', ])
+bp.add_url_rule('/', view_func=export_view, methods=['get', ])
 
 application = Flask(__name__)
 application.register_blueprint(bp)

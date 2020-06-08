@@ -19,7 +19,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Eric Vaandering <ericvaandering@gmail.com>, 2018
@@ -407,6 +407,20 @@ class DIDClient(BaseClient):
         else:
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
+
+    def get_metadata_bulk(self, dids):
+        """
+        Bulk get data identifier metadata
+        :param dids: A list of dids.
+        """
+        data = {'dids': dids}
+        path = '/'.join([self.DIDS_BASEURL, 'bulkmeta'])
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='POST', data=dumps(data))
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
 
     def set_metadata(self, scope, name, key, value, recursive=False):
         """

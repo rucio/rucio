@@ -22,6 +22,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Gabriele Fronze' <gfronze@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -169,35 +170,6 @@ class UploadClient:
                 logger.warning('Upload with given pfn implies that no_register is True, except non-deterministic RSEs')
                 no_register = True
 
-            if not no_register and not register_after_upload:
-                self._register_file(file, registered_dataset_dids)
-            # if register_after_upload, file should be overwritten if it is not registered
-            # otherwise if file already exists on RSE we're done
-            if register_after_upload:
-                if rsemgr.exists(rse_settings, pfn if pfn else file_did, auth_token=self.auth_token):
-                    try:
-                        self.client.get_did(file['did_scope'], file['did_name'])
-                        logger.info('File already registered. Skipping upload.')
-                        trace['stateReason'] = 'File already exists'
-                        continue
-                    except DataIdentifierNotFound:
-                        logger.info('File already exists on RSE. Previous left overs will be overwritten.')
-                        delete_existing = True
-            elif not is_deterministic and not no_register:
-                if rsemgr.exists(rse_settings, pfn, auth_token=self.auth_token):
-                    logger.info('File already exists on RSE with given pfn. Skipping upload. Existing replica has to be removed first.')
-                    trace['stateReason'] = 'File already exists'
-                    continue
-                elif rsemgr.exists(rse_settings, file_did, auth_token=self.auth_token):
-                    logger.info('File already exists on RSE with different pfn. Skipping upload.')
-                    trace['stateReason'] = 'File already exists'
-                    continue
-            else:
-                if rsemgr.exists(rse_settings, pfn if pfn else file_did, auth_token=self.auth_token):
-                    logger.info('File already exists on RSE. Skipping upload')
-                    trace['stateReason'] = 'File already exists'
-                    continue
-
             # resolving local area networks
             domain = 'wan'
             rse_attributes = {}
@@ -208,6 +180,35 @@ class UploadClient:
             if (self.client_location and 'lan' in rse_settings['domain'] and 'site' in rse_attributes):
                 if self.client_location['site'] == rse_attributes['site']:
                     domain = 'lan'
+
+            if not no_register and not register_after_upload:
+                self._register_file(file, registered_dataset_dids)
+            # if register_after_upload, file should be overwritten if it is not registered
+            # otherwise if file already exists on RSE we're done
+            if register_after_upload:
+                if rsemgr.exists(rse_settings, pfn if pfn else file_did, domain=domain, auth_token=self.auth_token, logger=logger):
+                    try:
+                        self.client.get_did(file['did_scope'], file['did_name'])
+                        logger.info('File already registered. Skipping upload.')
+                        trace['stateReason'] = 'File already exists'
+                        continue
+                    except DataIdentifierNotFound:
+                        logger.info('File already exists on RSE. Previous left overs will be overwritten.')
+                        delete_existing = True
+            elif not is_deterministic and not no_register:
+                if rsemgr.exists(rse_settings, pfn, domain=domain, auth_token=self.auth_token):
+                    logger.info('File already exists on RSE with given pfn. Skipping upload. Existing replica has to be removed first.')
+                    trace['stateReason'] = 'File already exists'
+                    continue
+                elif rsemgr.exists(rse_settings, file_did, domain=domain, auth_token=self.auth_token):
+                    logger.info('File already exists on RSE with different pfn. Skipping upload.')
+                    trace['stateReason'] = 'File already exists'
+                    continue
+            else:
+                if rsemgr.exists(rse_settings, pfn if pfn else file_did, domain=domain, auth_token=self.auth_token):
+                    logger.info('File already exists on RSE. Skipping upload')
+                    trace['stateReason'] = 'File already exists'
+                    continue
 
             # protocol handling and upload
             protocols = rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=force_scheme, domain=domain)
@@ -238,13 +239,15 @@ class UploadClient:
                 try:
                     state = rsemgr.upload(rse_settings=rse_settings,
                                           lfns=lfn,
+                                          domain=domain,
                                           source_dir=file['dirname'],
                                           force_scheme=cur_scheme,
                                           force_pfn=pfn,
                                           transfer_timeout=file.get('transfer_timeout'),
                                           delete_existing=delete_existing,
                                           sign_service=sign_service,
-                                          auth_token=self.auth_token)
+                                          auth_token=self.auth_token,
+                                          logger=logger)
                     success = state['success']
                     file['upload_result'] = state
                 except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:

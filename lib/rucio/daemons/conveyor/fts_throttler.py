@@ -16,6 +16,7 @@
 # - Dilaksun Bavarajan <dilaksun@hotmail.com>, 2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -361,7 +362,7 @@ def fts_throttler(once=False, cycle_interval=3600):
     graceful_stop.clear()
     logging.info('FTS Throttler starting')
 
-    executable = 'fts_throttler'
+    executable = 'conveyor-fts-throttler'
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()

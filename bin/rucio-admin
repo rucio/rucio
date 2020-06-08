@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2018
-# - Martin Barisits, <martin.barisits@cern.ch>, 2012-2017
+# - Martin Barisits, <martin.barisits@cern.ch>, 2012-2020
 # - Vincent Garonne, <vgaronne@gmail.com>, 2012-2018
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2020
@@ -29,7 +29,7 @@
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis, <dimitrios.christidis@cern.ch>, 2019-2020
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
-# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019-2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
@@ -237,7 +237,7 @@ def get_client(args):
                         ca_cert=args.ca_certificate, timeout=args.timeout, vo=args.vo)
     except CannotAuthenticate as error:
         logger.error(error)
-        if 'alert certificate expired' in error:
+        if 'alert certificate expired' in str(error):
             logger.error('The server certificate expired.')
         elif auth_type.lower() == 'x509_proxy':
             logger.error('Please verify that your proxy is still valid and renew it if needed.')
@@ -527,7 +527,7 @@ def update_rse(args):
         args.value = True
     if args.value in ['false', 'False', 'FALSE', '0']:
         args.value = False
-    params = {'name': args.rse, args.param: args.value}
+    params = {args.param: args.value}
     client.update_rse(args.rse, parameters=params)
     print('Updated RSE %s settings %s to %s' % (args.rse, args.param, args.value))
     return SUCCESS
@@ -1570,7 +1570,7 @@ def get_parser():
                                                         '\n')
     update_rse_parser.set_defaults(which='update_rse')
     update_rse_parser.add_argument('--rse', dest='rse', action='store', help='RSE name')
-    update_rse_parser.add_argument('--setting', dest='param', action='store', help="One of availability_read, availability_write, availability_delete, latitude, longitude, time_zone, region_code, country_name, or city")
+    update_rse_parser.add_argument('--setting', dest='param', action='store', help="One of availability_read, availability_write, availability_delete, name, latitude, longitude, time_zone, region_code, country_name, or city")
     update_rse_parser.add_argument('--value', dest='value', action='store', help='Value for the new setting configuration.')
 
     # The info_rse command

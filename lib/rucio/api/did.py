@@ -10,7 +10,7 @@
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015
   - Yun-Pin Sun, <yun-pin.sun@cern.ch>, 2013
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2020
   - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
   - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
   - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
@@ -399,6 +399,21 @@ def get_metadata(scope, name, vo='def'):
 
     d = did.get_metadata(scope=scope, name=name)
     return api_update_return_dict(d)
+
+
+def get_metadata_bulk(dids, vo='def', session=None):
+    """
+    Get metadata for a list of dids
+    :param dids: A list of dids.
+    :param session: The database session in use.
+    """
+
+    validate_schema(name='dids', obj=dids)
+    for entry in dids:
+        entry['scope'] = InternalScope(entry['scope'], vo=vo)
+    meta = did.get_metadata_bulk(dids)
+    for met in meta:
+        yield api_update_return_dict(met)
 
 
 def get_did_meta(scope, name, vo='def'):

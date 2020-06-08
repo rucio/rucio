@@ -19,6 +19,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -67,16 +68,17 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False):
     """
     logging.info('Undertaker(%s): starting', worker_number)
     logging.info('Undertaker(%s): started', worker_number)
+    executable = 'undertaker'
     hostname = socket.gethostname()
     pid = os.getpid()
     thread = threading.current_thread()
-    sanity_check(executable='rucio-undertaker', hostname=hostname)
+    sanity_check(executable=executable, hostname=hostname)
 
     paused_dids = {}  # {(scope, name): datetime}
 
     while not GRACEFUL_STOP.is_set():
         try:
-            heartbeat = live(executable='rucio-undertaker', hostname=hostname, pid=pid, thread=thread, older_than=6000)
+            heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=thread, older_than=6000)
             logging.info('Undertaker({0[worker_number]}/{0[total_workers]}): Live gives {0[heartbeat]}'.format(locals()))
 
             # Refresh paused dids
@@ -117,7 +119,7 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False):
         if once:
             break
 
-    die(executable='rucio-undertaker', hostname=hostname, pid=pid, thread=thread)
+    die(executable=executable, hostname=hostname, pid=pid, thread=thread)
     logging.info('Undertaker(%s): graceful stop requested', worker_number)
     logging.info('Undertaker(%s): graceful stop done', worker_number)
 

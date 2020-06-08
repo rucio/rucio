@@ -19,6 +19,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -162,6 +163,35 @@ class Subscription(MethodView):
         return Response(subscription_id, status=201)
 
 
+class SubscriptionName(MethodView):
+
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
+    def get(self, name=None):
+        """
+        Retrieve a subscription by name.
+
+        .. :quickref: SubscriptionName; Get subscriptions by name.
+
+        :param name: The subscription name.
+        :resheader Content-Type: application/x-json-stream
+        :status 200: OK.
+        :status 401: Invalid Auth Token.
+        :status 404: Subscription Not Found.
+        :status 406: Not Acceptable.
+        :status 500: Internal Error.
+        :returns: Line separated list of dictionaries with subscription information.
+        """
+        try:
+            data = ""
+            for subscription in list_subscriptions(name=name, vo=request.environ.get('vo')):
+                data += dumps(subscription, cls=APIEncoder) + '\n'
+            return Response(data, content_type="application/x-json-stream")
+        except SubscriptionNotFound as error:
+            return generate_http_error_flask(404, 'SubscriptionNotFound', error.args[0])
+        except Exception as error:
+            return error, 500
+
+
 class Rules(MethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
@@ -279,6 +309,8 @@ subscription_view = Subscription.as_view('subscription')
 bp.add_url_rule('/<account>/<name>', view_func=subscription_view, methods=['get', 'post', 'put'])
 bp.add_url_rule('/<account>', view_func=subscription_view, methods=['get', ])
 bp.add_url_rule('/', view_func=subscription_view, methods=['get', ])
+subscription_name_view = SubscriptionName.as_view('subscription_name')
+bp.add_url_rule('/Name/<name>', view_func=subscription_name_view, methods=['get', ])
 
 application = Flask(__name__)
 application.register_blueprint(bp)

@@ -18,7 +18,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012, 2014
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019

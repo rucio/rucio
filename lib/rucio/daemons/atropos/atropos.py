@@ -19,6 +19,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 # - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
@@ -31,7 +32,7 @@ import socket
 import threading
 import time
 
-from sys import exc_info, stdout, argv
+from sys import exc_info, stdout
 from traceback import format_exception
 
 from rucio.db.sqla.constants import LifetimeExceptionsState
@@ -67,7 +68,7 @@ def atropos(thread, bulk, date_check, dry_run=True, grace_period=86400,
 
     sleep_time = 60
 
-    executable = ' '.join(argv)
+    executable = 'atropos'
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()

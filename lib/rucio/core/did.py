@@ -1341,6 +1341,29 @@ def get_metadata(scope, name, session=None):
         raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
 
+@stream_session
+def get_metadata_bulk(dids, session=None):
+    """
+    Get metadata for a list of dids
+    :param dids: A list of dids.
+    :param session: The database session in use.
+    """
+    condition = []
+    for did in dids:
+        condition.append(and_(models.DataIdentifier.scope == did['scope'],
+                              models.DataIdentifier.name == did['name']))
+
+    try:
+        for chunk in chunks(condition, 50):
+            for row in session.query(models.DataIdentifier).with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').filter(or_(*chunk)):
+                data = {}
+                for column in row.__table__.columns:
+                    data[column.name] = getattr(row, column.name)
+                yield data
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound('No Data Identifiers found')
+
+
 @read_session
 def get_did_meta(scope, name, session=None):
     """
