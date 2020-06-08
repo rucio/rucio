@@ -179,25 +179,28 @@ class BaseClient(object):
                     raise MissingClientParameter('Option \'%s\' cannot be found in config file' % error.args[0])
 
         if self.auth_type == 'oidc':
-            if self.creds['oidc_refresh_lifetime'] is None:
+            if not self.creds:
+                self.creds = {}
+            # if there are defautl values, check if rucio.cfg does not specify them, otherwise put default
+            if 'oidc_refresh_lifetime' not in self.creds or self.creds['oidc_refresh_lifetime'] is None:
                 self.creds['oidc_refresh_lifetime'] = config_get('client', 'oidc_refresh_lifetime', False, None)
-            if self.creds['oidc_issuer'] is None:
+            if 'oidc_issuer' not in self.creds or self.creds['oidc_issuer'] is None:
                 self.creds['oidc_issuer'] = config_get('client', 'oidc_issuer', False, None)
-            if self.creds['oidc_audience'] is None:
-                self.creds['oidc_audience'] = config_get('client', 'oidc_audience', False, '')
-            if self.creds['oidc_auto'] is False:
+            if 'oidc_audience' not in self.creds or self.creds['oidc_audience'] is None:
+                self.creds['oidc_audience'] = config_get('client', 'oidc_audience', False, None)
+            if 'oidc_auto' not in self.creds or self.creds['oidc_auto'] is False:
                 self.creds['oidc_auto'] = config_get_bool('client', 'oidc_auto', False, False)
             if self.creds['oidc_auto']:
-                if self.creds['oidc_username'] is None:
+                if 'oidc_username' not in self.creds or self.creds['oidc_username'] is None:
                     self.creds['oidc_username'] = config_get('client', 'oidc_username', False, None)
-                if self.creds['oidc_password'] is None:
+                if 'oidc_password' not in self.creds or self.creds['oidc_password'] is None:
                     self.creds['oidc_password'] = config_get('client', 'oidc_password', False, None)
-            if self.creds['oidc_scope'] == 'openid profile':
+            if 'oidc_scope' not in self.creds or self.creds['oidc_scope'] == 'openid profile':
                 self.creds['oidc_scope'] = config_get('client', 'oidc_scope', False, 'openid profile')
-            if self.creds['oidc_polling'] is False:
+            if 'oidc_polling' not in self.creds or self.creds['oidc_polling'] is False:
                 self.creds['oidc_polling'] = config_get_bool('client', 'oidc_polling', False, False)
 
-        if creds is None:
+        if not self.creds:
             LOG.debug('no creds passed. Trying to get it from the config file.')
             self.creds = {}
             try:
@@ -550,7 +553,12 @@ class BaseClient(object):
                         print("Copy paste the code from the browser to the terminal and press enter:")
                         count = 0
                         while count < 3:
-                            fetchcode = raw_input()
+                            # Python3 default
+                            get_input = input
+                            # if Python version <= 2.7 use raw_input
+                            if sys.version_info[:2] <= (2, 7):
+                                get_input = raw_input
+                            fetchcode = get_input()
                             fetch_url = build_url(self.auth_host, path='auth/oidc_redirect', params=fetchcode)
                             result = self.session.get(fetch_url, headers=headers, verify=self.ca_cert)
                             if 'X-Rucio-Auth-Token' in result.headers and result.status_code == codes.ok:
@@ -938,7 +946,6 @@ class BaseClient(object):
         """
         Main method for authentication. It first tries to read a locally saved token. If not available it requests a new one.
         """
-
         if self.auth_type == 'userpass':
             if self.creds['username'] is None or self.creds['password'] is None:
                 raise NoAuthInformation('No username or password passed')

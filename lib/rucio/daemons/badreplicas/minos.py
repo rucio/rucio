@@ -17,6 +17,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -31,7 +32,7 @@ import threading
 import time
 
 from datetime import datetime
-from sys import stdout, argv
+from sys import stdout
 
 from rucio.db.sqla.constants import BadFilesStatus, BadPFNStatus, ReplicaState
 
@@ -69,7 +70,7 @@ def minos(bulk=1000, once=False, sleep_time=60):
     :param sleep_time: Time between two cycles.
     """
 
-    executable = ' '.join(argv)
+    executable = 'minos'
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()

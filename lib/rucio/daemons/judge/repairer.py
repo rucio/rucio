@@ -18,6 +18,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -68,13 +69,14 @@ def rule_repairer(once=False):
     paused_rules = {}  # {rule_id: datetime}
 
     # Make an initial heartbeat so that all judge-repairers have the correct worker number on the next try
-    live(executable='rucio-judge-repairer', hostname=hostname, pid=pid, thread=current_thread, older_than=60 * 30)
+    executable = 'judge-repairer'
+    live(executable=executable, hostname=hostname, pid=pid, thread=current_thread, older_than=60 * 30)
     graceful_stop.wait(1)
 
     while not graceful_stop.is_set():
         try:
             # heartbeat
-            heartbeat = live(executable='rucio-judge-repairer', hostname=hostname, pid=pid, thread=current_thread, older_than=60 * 30)
+            heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=current_thread, older_than=60 * 30)
 
             start = time.time()
 
@@ -136,7 +138,7 @@ def rule_repairer(once=False):
         if once:
             break
 
-    die(executable='rucio-judge-repairer', hostname=hostname, pid=pid, thread=current_thread)
+    die(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
 
 
 def stop(signum=None, frame=None):
@@ -152,8 +154,9 @@ def run(once=False, threads=1):
     Starts up the Judge-Repairer threads.
     """
 
+    executable = 'judge-repairer'
     hostname = socket.gethostname()
-    sanity_check(executable='rucio-judge-repairer', hostname=hostname)
+    sanity_check(executable=executable, hostname=hostname)
 
     if once:
         rule_repairer(once)

@@ -35,10 +35,10 @@ def get_parser():
     Returns the argparse parser.
     """
     parser = argparse.ArgumentParser(description="The Judge-Evaluator daemon is responsible for execution and reevaluation of replication rules.\
- First it checks if there are DIDs that have changed content e.g. attached or deattched DIDs.In case of a new attachment, the replication rule for\
+ First it checks if there are DIDs that have changed content e.g. attached or detached DIDs.In case of a new attachment, the replication rule for\
  the dataset has to be applied to the attached DID, too. If the attached DID has already a replica on a RSE that satisfies the RSE expression of the\
- rule, then the lock counter of that replia gets increased. If it does not have any replica satisfying the rule, then a new replica has to be created.\
- In case of a new dettachment, the replica has to be removed or the lock counter of the replica has to be decreased, depending on which RSE the replica exist.\
+ rule, then the lock counter of that replica gets increased. If it does not have any replica satisfying the rule, then a new replica has to be created.\
+ In case of a new detachment, the replica has to be removed or the lock counter of the replica has to be decreased, depending on which RSE the replica exist.\
  If the DID is a dataset, its properties like size and length also get updated and also an entry is saved to mark a change for possible collection replicas which have to be updated by another daemon.", epilog='''
 Same RSEs:
 Create a dataset with a replication rule and upload a file to the same RSE. Then attach it to the dataset::

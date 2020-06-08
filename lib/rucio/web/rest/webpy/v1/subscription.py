@@ -19,6 +19,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -42,6 +43,7 @@ URLS = (
     '/(.*)/(.*)/Rules/States', 'States',
     '/(.*)/Rules/States', 'States',
     '/(.*)/(.*)/Rules', 'Rules',
+    '/Name/(.*)', 'SubscriptionName',
     '/(.*)/(.*)', 'Subscription',
     '/(.*)', 'Subscription',
     '/', 'Subscription',
@@ -169,6 +171,42 @@ class Subscription:
             raise InternalError(error)
 
         raise Created(subscription_id)
+
+    def DELETE(self):
+        raise BadRequest()
+
+
+class SubscriptionName:
+
+    @check_accept_header_wrapper(['application/x-json-stream'])
+    def GET(self, name):
+        """
+        Retrieve a subscription by name.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            404 Not Found
+            500 Internal Error
+            406 Not Acceptable
+
+        :param name: The subscription name.
+        """
+        header('Content-Type', 'application/x-json-stream')
+        try:
+            for subscription in list_subscriptions(name=name, vo=ctx.env.get('vo')):
+                yield dumps(subscription, cls=APIEncoder) + '\n'
+        except SubscriptionNotFound as error:
+            raise generate_http_error(404, 'SubscriptionNotFound', error.args[0])
+        except Exception as error:
+            raise InternalError(error)
+
+    def PUT(self, name):
+        raise BadRequest()
+
+    def POST(self, name):
+        raise BadRequest()
 
     def DELETE(self):
         raise BadRequest()
