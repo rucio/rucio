@@ -450,7 +450,8 @@ class BaseClient(object):
         else:
             return False
 
-        headers = {'X-Rucio-Account': self.account,
+        headers = {'X-Rucio-VO': self.vo,
+                   'X-Rucio-Account': self.account,
                    'X-Rucio-Auth-Token': self.auth_token}
 
         for retry in range(self.AUTH_RETRIES + 1):
@@ -503,7 +504,8 @@ class BaseClient(object):
         :returns: True if the token was successfully received. False otherwise.
         """
         oidc_scope = str(self.creds['oidc_scope'])
-        headers = {'X-Rucio-Account': self.account,
+        headers = {'X-Rucio-VO': self.vo,
+                   'X-Rucio-Account': self.account,
                    'X-Rucio-Client-Authorize-Auto': str(self.creds['oidc_auto']),
                    'X-Rucio-Client-Authorize-Polling': str(self.creds['oidc_polling']),
                    'X-Rucio-Client-Authorize-Scope': str(self.creds['oidc_scope']),
