@@ -1,4 +1,4 @@
-# Copyright 2016-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2016-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 # - Eric Vaandering, <ewv@fnal.gov>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -865,7 +866,7 @@ def perm_get_global_account_usage(issuer, kwargs):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
     resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country')
-                              for rse in parse_expression(kwargs['rse_exp'])}
+                              for rse in parse_expression(kwargs['rse_expression'])}
 
     if resolved_rse_countries.issubset(admin_in_country):
         return True
