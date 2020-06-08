@@ -26,6 +26,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -206,6 +207,7 @@ class OIDC(RucioController):
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
 
+        vo = ctx.env.get('HTTP_X_RUCIO_VO', 'def')
         account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT', 'webui')
         auth_scope = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_SCOPE', "")
         audience = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_AUDIENCE', "")
@@ -228,7 +230,7 @@ class OIDC(RucioController):
                       'polling': polling,
                       'refresh_lifetime': refresh_lifetime,
                       'ip': ip}
-            result = get_auth_oidc(account, **kwargs)
+            result = get_auth_oidc(account, vo=vo, **kwargs)
         except AccessDenied:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot get authentication URL from Rucio Authentication Server for account %(account)s' % locals())
         except RucioException as error:
@@ -327,7 +329,7 @@ class RedirectOIDC(RucioController):
 
 class CodeOIDC(RucioController):
     """
-    IdP redirects to this endpoing with the AuthZ code
+    IdP redirects to this endpoint with the AuthZ code
     Rucio Auth server will request new token. This endpoint should be reached
     only if the request/ IdP login has been made through web browser. Then the response
     content will be in html (including the potential errors displayed).
@@ -541,11 +543,12 @@ class RefreshOIDC(RucioController):
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
 
+        vo = ctx.env.get('HTTP_X_RUCIO_VO', 'def')
         account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
         token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
 
         try:
-            result = refresh_cli_auth_token(token, account)
+            result = refresh_cli_auth_token(token, account, vo=vo)
 
         except AccessDenied:
             raise generate_http_error(401, 'CannotAuthorize', 'Cannot authorize token request.')
