@@ -1,0 +1,24 @@
+dists:
+  - id: centos7
+    allow:
+      python: ["2.7", "3.6"]
+python:
+  - id: "2.7"
+    deny:
+      suites: python3
+  - "3.6"
+suites:
+  - syntax
+  - python3
+  - id: all
+    RDBMS:
+      - oracle
+      - mysql5
+      - mysql8
+      - postgres9
+      - postgres12
+      - sqlite
+  - id: client
+    RDBMS: sqlite
+  - id: multi_vo
+    RDBMS: sqlite

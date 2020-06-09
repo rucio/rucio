@@ -1,0 +1,27 @@
+name: Daily image cache build for autotests
+
+on:
+  schedule:
+    - cron: '0 3 * * 1-5'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - name: Install pip requirements
+        run: |
+          pip3 install -U pip setuptools
+          pip3 install -U PyYAML # needed by matrix_parser.py
+      - name: Identify Matrix
+        id: matrix
+        run: echo "::set-output name=matrix::$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml)"
+      - name: Build and upload images
+        id: images
+        run: |
+          docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          echo '${{ steps.matrix.outputs.matrix }}' | ./tools/test/build_images.py --output list \
+          --build-no-cache --cache-repo docker.pkg.github.com/${{ github.repository }} --push-cache ./etc/docker/test
+          docker logout https://docker.pkg.github.com
