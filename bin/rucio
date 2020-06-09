@@ -19,7 +19,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012-2019
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2017
 # - Yun-Pin Sun, <winter0128@gmail.com>, 2012-2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - David Cameron, <d.g.cameron@gmail.com>, 2014
 # - Tomas Kouba, <tomas.kouba@cern.ch>, 2014
@@ -68,7 +68,7 @@ from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, D
                                     RSENotFound, InvalidRSEExpression, InputValidationError, DuplicateContent,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation,
                                     RucioException, DuplicateRule, InvalidType)
-from rucio.common.utils import sizefmt, Color, detect_client_location, chunks, parse_did_filter_from_string
+from rucio.common.utils import sizefmt, Color, detect_client_location, chunks, parse_did_filter_from_string, extract_scope
 
 SUCCESS = 0
 FAILURE = 1
@@ -135,7 +135,7 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 
-def extract_scope(did):
+def extract_scope_old(did):
     # Try to extract the scope from the DSN
     if did.find(':') > -1:
         if len(did.split(':')) > 2:

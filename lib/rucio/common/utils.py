@@ -16,7 +16,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
@@ -84,7 +84,7 @@ except ImportError:
     import urllib.parse as urlparse
 
 from rucio.common.config import config_get
-from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError
+from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError, RucioException
 from rucio.common.types import InternalAccount, InternalScope
 # delay import until function to avoid circular dependancy (note here for reference)
 # from rucio.core.rse import get_rse_name
@@ -395,7 +395,7 @@ def val_to_space_sep_str(vallist):
             return u" ".join(vallist)
         else:
             return unicode(vallist)
-    except:
+    except Exception:
         return u''
 
 
@@ -734,6 +734,73 @@ def clean_surls(surls):
         res.append(surl)
     res.sort()
     return res
+
+
+_EXTRACT_SCOPE_ALGORITHMS = {}
+_DEFAULT_EXTRACT = 'atlas'
+_DEFAULT_EXTRACT = 'belleii'
+
+
+def extract_scope_atlas(did, scopes):
+    # Try to extract the scope from the DSN
+    if did.find(':') > -1:
+        if len(did.split(':')) > 2:
+            raise RucioException('Too many colons. Cannot extract scope and name')
+        scope, name = did.split(':')[0], did.split(':')[1]
+        if name.endswith('/'):
+            name = name[:-1]
+        return scope, name
+    else:
+        scope = did.split('.')[0]
+        if did.startswith('user') or did.startswith('group'):
+            scope = ".".join(did.split('.')[0:2])
+        if did.endswith('/'):
+            did = did[:-1]
+        return scope, did
+
+
+def extract_scope_belleii(did, scopes):
+    split_did = did.split('/')
+    if did.find('/belle/MC/') > -1:
+        if len(split_did) > 5:
+            if split_did[4] in ['fab', 'merge1', 'skim']:
+                return 'mc_tmp', did
+        return 'mc', did
+    if did.find('/belle/Raw/') > -1:
+        return 'raw', did
+    if did.find('/belle/user/') > -1:
+        if len(split_did) > 5:
+            if len(split_did[4]) == 1 and 'user.%s' % (split_did[5]) in scopes:
+                return 'user.%s' % split_did[5], did
+        if len(split_did) > 4:
+            if 'user.%s' % (split_did[4]) in scopes:
+                return 'user.%s' % split_did[4], did
+        return 'user', did
+    if did.find('/belle/data/') > -1:
+        if len(split_did) > 5:
+            if split_did[4] in ['fab', 'skim']:
+                return 'data_tmp', did
+        return 'data', did
+    if did.find('/belle/ddm/functional_tests/') > -1:
+        return 'test', did
+    return 'other', did
+
+
+def register_extract_scope_algorithm(extract_callable, name=[]):
+    if name is None:
+        name = extract_callable.__name__
+    _EXTRACT_SCOPE_ALGORITHMS[name] = extract_callable
+
+
+register_extract_scope_algorithm(extract_scope_atlas, 'atlas')
+register_extract_scope_algorithm(extract_scope_belleii, 'belleii')
+
+
+def extract_scope(did, scopes=None):
+    extract_scope_convention = config_get('common', 'extract_scope', False, None)
+    if extract_scope_convention is None or extract_scope_convention not in _EXTRACT_SCOPE_ALGORITHMS:
+        extract_scope_convention = _DEFAULT_EXTRACT
+    return _EXTRACT_SCOPE_ALGORITHMS[extract_scope_convention](did, scopes)
 
 
 def pid_exists(pid):
