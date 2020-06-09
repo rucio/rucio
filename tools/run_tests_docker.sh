@@ -59,17 +59,20 @@ rm -rf /tmp/rucio_rse/*
 echo 'Removing old SQLite databases'
 rm -f /tmp/rucio.db
 
-if [ -f /opt/rucio/etc/rucio.cfg ]; then
-    echo 'Remove rucio.cfg'
-    rm /opt/rucio/etc/rucio.cfg
-fi
-
 if test ${special}; then
+    if [ -f /opt/rucio/etc/rucio.cfg ]; then
+        echo 'Remove rucio.cfg'
+        rm /opt/rucio/etc/rucio.cfg
+    fi
     echo 'Using the special config'
     ln -s /opt/rucio/etc/rucio.cfg.special /opt/rucio/etc/rucio.cfg
 else
-    echo 'Using the standard config'
-    ln -s /opt/rucio/etc/rucio.cfg.default /opt/rucio/etc/rucio.cfg
+    if [ -f /opt/rucio/etc/rucio.cfg ]; then
+        echo 'Using the standard conig'
+    else
+        echo 'rucio.cfg not found. Will try to do a symlink'
+        ln -s /opt/rucio/etc/rucio.cfg.default /opt/rucio/etc/rucio.cfg
+    fi
 fi
 
 echo 'Resetting database tables'
