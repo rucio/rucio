@@ -18,6 +18,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2020
 
 memcached -u root -d
 
@@ -28,17 +29,20 @@ function usage {
   echo '  -h    Show usage.'
   echo '  -i    Do only the initialization.'
   echo '  -r    Activate default RSEs (XRD1, XRD2, XRD3)'
+  echo '  -s    Run special tests for Dirac. Includes using BelleII schema'
   exit
 }
 
-while getopts hir opt
+while getopts hirs opt
 do
   case "$opt" in
     h) usage;;
     i) init_only="true";;
     r) activate_rse="true";;
+    s) special="true";;
   esac
 done
+export RUCIO_HOME=/opt/etc/test
 
 echo 'Clearing memcache'
 echo 'flush_all' | nc localhost 11211
@@ -54,6 +58,19 @@ rm -rf /tmp/rucio_rse/*
 
 echo 'Removing old SQLite databases'
 rm -f /tmp/rucio.db
+
+if [ -f /opt/rucio/etc/rucio.cfg ]; then
+    echo 'Remove rucio.cfg'
+    rm /opt/rucio/etc/rucio.cfg
+fi
+
+if test ${special}; then
+    echo 'Using the special config'
+    ln -s /opt/rucio/etc/rucio.cfg.special /opt/rucio/etc/rucio.cfg
+else
+    echo 'Using the standard config'
+    ln -s /opt/rucio/etc/rucio.cfg.default /opt/rucio/etc/rucio.cfg
+fi
 
 echo 'Resetting database tables'
 tools/reset_database.py
@@ -80,10 +97,18 @@ if [ $? != 0 ]; then
 fi
 
 echo 'Sync rse_repository'
-tools/sync_rses.py
-if [ $? != 0 ]; then
-    echo 'Failed to sync!'
-    exit 1
+if test ${special};then
+    tools/sync_rses.py etc/rse_repository.json.special
+    if [ $? != 0 ]; then
+        echo 'Failed to sync!'
+        exit 1
+    fi
+else
+    tools/sync_rses.py
+    if [ $? != 0 ]; then
+        echo 'Failed to sync!'
+        exit 1
+    fi
 fi
 
 echo 'Sync metadata keys'
@@ -110,9 +135,13 @@ if test ${init_only}; then
     exit
 fi
 
-echo 'Running tests'
-noseopts="--exclude=test_alembic --exclude=.*test_rse_protocol_.* --exclude=test_rucio_server --exclude=test_objectstore --exclude=test_auditor* --exclude=test_release* --exclude=test_throttler*"
-
-nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts
+if test ${special}; then
+    echo 'Using the special config'
+    nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient lib/rucio/tests/test_dirac.py
+else
+    echo 'Running tests'
+    noseopts="--exclude=test_alembic --exclude=.*test_rse_protocol_.* --exclude=test_rucio_server --exclude=test_objectstore --exclude=test_auditor* --exclude=test_release* --exclude=test_throttler*"
+    nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts
+fi
 
 exit $?
