@@ -738,7 +738,6 @@ def clean_surls(surls):
 
 _EXTRACT_SCOPE_ALGORITHMS = {}
 _DEFAULT_EXTRACT = 'atlas'
-_DEFAULT_EXTRACT = 'belleii'
 
 
 def extract_scope_atlas(did, scopes):
@@ -800,7 +799,7 @@ def extract_scope(did, scopes=None):
     extract_scope_convention = config_get('common', 'extract_scope', False, None)
     if extract_scope_convention is None or extract_scope_convention not in _EXTRACT_SCOPE_ALGORITHMS:
         extract_scope_convention = _DEFAULT_EXTRACT
-    return _EXTRACT_SCOPE_ALGORITHMS[extract_scope_convention](did, scopes)
+    return _EXTRACT_SCOPE_ALGORITHMS[extract_scope_convention](did=did, scopes=scopes)
 
 
 def pid_exists(pid):
