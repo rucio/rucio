@@ -143,7 +143,7 @@ if test ${special}; then
     nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient lib/rucio/tests/test_dirac.py
 else
     echo 'Running tests'
-    noseopts="--exclude=test_alembic --exclude=.*test_rse_protocol_.* --exclude=test_rucio_server --exclude=test_objectstore --exclude=test_auditor* --exclude=test_release* --exclude=test_throttler*"
+    noseopts="--exclude=test_alembic --exclude=.*test_rse_protocol_.* --exclude=test_rucio_server --exclude=test_objectstore --exclude=test_auditor* --exclude=test_release* --exclude=test_throttler --exclude=test_dirac"
     nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts
 fi
 
