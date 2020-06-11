@@ -1365,7 +1365,7 @@ def add_replica(rse_id, scope, name, bytes, account, adler32=None, md5=None, dsn
     """
     file = {'scope': scope, 'name': name, 'bytes': bytes, 'meta': meta, 'rules': rules, 'tombstone': tombstone}
 
-    set_replica_checksums(dict, md5=md5, adler32=adler32, pfn=pfn)
+    set_replica_checksums(file, md5=md5, adler32=adler32, pfn=pfn)
 
     return add_replicas(rse_id=rse_id, files=[file, ], account=account, session=session)
 
