@@ -222,8 +222,8 @@ def all_oidc_req_claims_present(scope, audience, required_scope, required_audien
         req_scope_present = all(elem in scope for elem in required_scope)
         req_audience_present = all(elem in audience for elem in required_audience)
         return req_scope_present and req_audience_present
-    elif (isinstance(scope, basestring) and isinstance(audience, basestring) and  # NOQA: W504
-          isinstance(required_scope, basestring) and isinstance(required_audience, basestring)):
+    elif (isinstance(scope, string_types) and isinstance(audience, string_types) and  # NOQA: W504
+          isinstance(required_scope, string_types) and isinstance(required_audience, string_types)):
         scope = str(scope)
         audience = str(audience)
         required_scope = str(required_scope)
@@ -232,7 +232,7 @@ def all_oidc_req_claims_present(scope, audience, required_scope, required_audien
         req_audience_present = all(elem in audience.split(sepatator) for elem in required_audience.split(sepatator))
         return req_scope_present and req_audience_present
     elif (isinstance(scope, list) and isinstance(audience, list) and  # NOQA: W504
-          isinstance(required_scope, basestring) and isinstance(required_audience, basestring)):
+          isinstance(required_scope, string_types) and isinstance(required_audience, string_types)):
         scope = [str(it) for it in scope]
         audience = [str(it) for it in audience]
         required_scope = str(required_scope)
@@ -240,7 +240,7 @@ def all_oidc_req_claims_present(scope, audience, required_scope, required_audien
         req_scope_present = all(elem in scope for elem in required_scope.split(sepatator))
         req_audience_present = all(elem in audience for elem in required_audience.split(sepatator))
         return req_scope_present and req_audience_present
-    elif (isinstance(scope, basestring) and isinstance(audience, basestring) and  # NOQA: W504
+    elif (isinstance(scope, string_types) and isinstance(audience, string_types) and  # NOQA: W504
           isinstance(required_scope, list) and isinstance(required_audience, list)):
         scope = str(scope)
         audience = str(audience)
