@@ -41,7 +41,7 @@ do
   esac
 done
 
-cp /opt/rucio/etc/rucio_vo_tst.cfg /opt/rucio/etc/rucio.cfg
+cp /opt/rucio/etc/rucio_multi_vo_tst.cfg /opt/rucio/etc/rucio.cfg
 
 echo 'Clearing memcache'
 echo flush_all > /dev/tcp/127.0.0.1/11211
@@ -130,7 +130,7 @@ if [ $? != 0 ]; then
 fi
 
 echo 'Tests on first VO successful, preparing second VO'
-cp /opt/rucio/etc/rucio_vo_ts2.cfg /opt/rucio/etc/rucio.cfg
+cp /opt/rucio/etc/rucio_multi_vo_ts2.cfg /opt/rucio/etc/rucio.cfg
 
 echo 'Clearing memcache'
 echo flush_all > /dev/tcp/127.0.0.1/11211
