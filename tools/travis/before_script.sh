@@ -91,8 +91,8 @@ elif [[ $RDBMS == "postgres12" ]]; then
 elif [[ $RDBMS == "sqlite" ]]; then
     docker run -d -p 443:443  --name=rucio rucio/rucio
     if [[ $SUITE == "multi_vo" ]]; then
-        docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_vo_tst_sqlite.cfg /opt/rucio/etc/rucio_vo_tst.cfg
-        docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_vo_ts2_sqlite.cfg /opt/rucio/etc/rucio_vo_ts2.cfg
+        docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_multi_vo_tst_sqlite.cfg /opt/rucio/etc/rucio_multi_vo_tst.cfg
+        docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_multi_vo_ts2_sqlite.cfg /opt/rucio/etc/rucio_multi_vo_ts2.cfg
     else
         docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_sqlite.cfg /opt/rucio/etc/rucio.cfg
     fi
