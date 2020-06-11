@@ -7,6 +7,7 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
