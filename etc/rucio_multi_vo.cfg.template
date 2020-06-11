@@ -15,6 +15,7 @@
 logdir = /var/log/rucio
 loglevel = DEBUG
 mailtemplatedir=/opt/rucio/etc/mail_templates
+multi_vo = True
 
 [client]
 rucio_host = https://rucio-server-prod.cern.ch:443
@@ -31,6 +32,7 @@ client_key = /opt/rucio/etc/web/client.key
 client_x509_proxy = $X509_USER_PROXY
 ssh_private_key = $HOME/.ssh/id_rsa
 account = root
+vo = tst
 request_retries = 3
 protocol_stat_retries = 6
 

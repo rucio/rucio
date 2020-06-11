@@ -66,7 +66,7 @@ def rucio_loadhook():
         raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
     # Propagate the issuer, request_id and start_time to the controller
-    ctx.env['vo'] = auth.get('vo')
+    ctx.env['vo'] = auth.get('vo', 'def')
     ctx.env['issuer'] = auth.get('account')
     ctx.env['identity'] = auth.get('identity')
     ctx.env['request_id'] = generate_uuid()
