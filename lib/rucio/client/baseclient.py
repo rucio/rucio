@@ -278,11 +278,10 @@ class BaseClient(object):
             self.token_exp_epoch_file = self.token_path + '/' + self.TOKEN_EXP_PREFIX + self.account
         else:
             self.token_path = self.TOKEN_PATH_PREFIX + self.account
+            if self.vo != 'def':
+                self.token_path += '@%s' % self.vo
             self.token_file = self.token_path + '/' + self.TOKEN_PREFIX + self.account
             self.token_exp_epoch_file = self.token_path + '/' + self.TOKEN_EXP_PREFIX + self.account
-            if self.vo != 'def':
-                self.token_file += '@%s' % self.vo
-                self.token_exp_epoch_file += '@%s' % self.vo
 
         self.__authenticate()
 
