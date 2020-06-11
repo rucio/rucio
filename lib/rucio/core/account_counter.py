@@ -12,6 +12,7 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 # - Brandon White, <bjwhite@fnal.gov>, 2019
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
