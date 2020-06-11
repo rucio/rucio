@@ -19,14 +19,10 @@
 from __future__ import print_function
 
 import imp
-# import logging
-# import sys
 
 from six import string_types
 from rucio.common import exception
-# from rucio.common.config import config_get
 from rucio.core.rse import get_rse_attribute
-# from rucio.rse.protocols import protocol
 from rucio.rse.protocols.protocol import RSEProtocol
 from rucio.transfertool.globusLibrary import getTransferClient, send_delete_task
 
@@ -50,13 +46,6 @@ except ImportError:
     # PY3
     from urllib.parse import urlparse
 
-# logging.basicConfig(stream=sys.stdout,
-#                     level=getattr(logging,
-#                                   config_get('common', 'loglevel',
-#                                              raise_exception=False,
-#                                              default='DEBUG').upper()),
-#                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
-
 
 class GlobusRSEProtocol(RSEProtocol):
     """ This class is to support Globus as a Rucio RSE protocol.  Inherits from abstract base class RSEProtocol."""
@@ -67,7 +56,6 @@ class GlobusRSEProtocol(RSEProtocol):
             :param props: Properties of the requested protocol
         """
         super(GlobusRSEProtocol, self).__init__(protocol_attr, rse_settings, logger=logger)
-        # super(Default, self).__init__(protocol_attr, rse_settings, logger=logger)
         self.globus_endpoint_id = get_rse_attribute(key='globus_endpoint_id', rse_id=self.rse.get('id'))
 
     def lfns2pfns(self, lfns):
@@ -89,9 +77,6 @@ class GlobusRSEProtocol(RSEProtocol):
         lfns = [lfns] if isinstance(lfns, dict) else lfns
         for lfn in lfns:
             scope, name = lfn['scope'], lfn['name']
-
-            # logging.debug('scope: %s' % scope)
-            # logging.debug('name: %s' % name)
 
             if 'path' in lfn and lfn['path'] is not None:
                 pfns['%s:%s' % (scope, name)] = ''.join([prefix, lfn['path'] if not lfn['path'].startswith('/') else lfn['path'][1:]])
@@ -123,8 +108,6 @@ class GlobusRSEProtocol(RSEProtocol):
         """
         ret = dict()
         pfns = [pfns] if isinstance(pfns, string_types) else pfns
-
-        # logging.debug('... Beginning GlobusRSEProtocol.parse_pfns ...')
 
         for pfn in pfns:
             parsed = urlparse(pfn)
@@ -176,7 +159,6 @@ class GlobusRSEProtocol(RSEProtocol):
             :raises SourceNotFound: if the source file was not found on the referred storage.
 
         """
-        # logging.debug('... Beginning GlobusRSEProtocol.exists ...')
 
         filepath = '/'.join(path.split('/')[0:-1]) + '/'
         filename = path.split('/')[-1]
@@ -205,7 +187,6 @@ class GlobusRSEProtocol(RSEProtocol):
             :returns: List of items
 
         """
-        # logging.debug('... Beginning GlobusRSEProtocol.list ...')
 
         transfer_client = getTransferClient()
         items = []
@@ -237,7 +218,7 @@ class GlobusRSEProtocol(RSEProtocol):
                 print(err)
         else:
             print('No rse attribute found for globus endpoint id.')
-        # logging.debug('delete_response: %s' % delete_response)
+
         if delete_response['code'] != 'Accepted':
             print('delete_task not accepted by Globus')
             print('delete_response: %s' % delete_response)
