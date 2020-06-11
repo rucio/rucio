@@ -45,6 +45,7 @@ Individual contributors to the source code
 - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
 - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+- Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 Organisations employing contributors
 ------------------------------------

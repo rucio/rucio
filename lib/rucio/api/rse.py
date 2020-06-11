@@ -107,7 +107,11 @@ def list_rses(filters={}, vo='def'):
 
     :returns: List of all RSEs.
     """
+    if not filters:
+        filters = {}
+
     filters['vo'] = vo
+
     return rse_module.list_rses(filters=filters)
 
 
