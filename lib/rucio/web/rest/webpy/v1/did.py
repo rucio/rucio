@@ -19,8 +19,8 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
 # - Yun-Pin Sun <yun-pin.sun@cern.ch>, 2013
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
-# - Martin Baristis <martin.barisits@cern.ch>, 2014-2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
+# - Martin Baristis <martin.barisits@cern.ch>, 2014-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 #
@@ -37,7 +37,7 @@ from web import application, ctx, data, Created, header, InternalError, OK, load
 
 from rucio.api.did import (add_did, add_dids, list_content, list_content_history,
                            list_dids, list_files, scope_list, get_did, set_metadata,
-                           get_metadata, set_status, attach_dids, detach_dids,
+                           get_metadata, get_metadata_bulk, set_status, attach_dids, detach_dids,
                            attach_dids_to_dids, get_dataset_by_guid, list_parent_dids,
                            create_did_sample, list_new_dids, resurrect, get_did_meta,
                            add_did_meta, list_dids_by_meta, delete_did_meta, add_did_to_followed,
@@ -51,7 +51,7 @@ from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     RSENotFound, RucioException, RuleNotFound,
                                     InvalidMetadata)
 from rucio.common.schema import get_schema_value
-from rucio.common.utils import generate_http_error, render_json, APIEncoder
+from rucio.common.utils import generate_http_error, render_json, APIEncoder, parse_response
 from rucio.web.rest.common import rucio_loadhook, RucioController, check_accept_header_wrapper
 
 URLS = (
@@ -76,6 +76,7 @@ URLS = (
     '/resurrect', 'Resurrect',
     '/list_dids_by_meta', 'ListByMeta',
     '%s/follow' % get_schema_value('SCOPE_NAME_REGEXP'), 'Follow',
+    '/bulkmeta', 'BulkMeta',
 )
 
 
@@ -682,6 +683,44 @@ class Rules(RucioController):
             raise InternalError(error)
 
 
+class BulkMeta(RucioController):
+
+    @check_accept_header_wrapper(['application/x-json-stream'])
+    def POST(self):
+        """
+        List all meta of a list of data identifiers.
+        HTTP Success:
+            200 OK
+        HTTP Error:
+            400 Bad Request
+            401 Unauthorized
+            404 DataIdentifierNotFound
+            500 InternalError
+        :returns: A list of dictionaries containing all meta.
+        """
+        header('Content-Type', 'application/x-json-stream')
+        json_data = data()
+        try:
+            params = parse_response(json_data)
+            dids = params['dids']
+        except KeyError as error:
+            raise generate_http_error(400, 'ValueError', 'Cannot find mandatory parameter : %s' % str(error))
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+        try:
+            for meta in get_metadata_bulk(dids):
+                yield render_json(**meta) + '\n'
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+        except DataIdentifierNotFound as error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+
+
 class AssociatedRules(RucioController):
 
     @check_accept_header_wrapper(['application/x-json-stream'])
@@ -703,6 +742,8 @@ class AssociatedRules(RucioController):
         try:
             for rule in list_associated_replication_rules_for_file(scope=scope, name=name):
                 yield dumps(rule, cls=APIEncoder) + '\n'
+        except DataIdentifierNotFound as error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:

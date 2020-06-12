@@ -15,6 +15,7 @@
 #
 # Authors:
 #  - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019
+#  - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -40,15 +41,14 @@ import threading
 import time
 import traceback
 from re import match
-from sys import argv, stdout
+from sys import stdout
 
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException
-from rucio.core.authentication import (delete_expired_tokens,
-                                       get_tokens_for_refresh)
+from rucio.core.authentication import delete_expired_tokens
 from rucio.core.heartbeat import die, live, sanity_check
 from rucio.core.monitor import record_counter, record_timer
-from rucio.core.oidc import delete_expired_oauthrequests, refresh_token_oidc
+from rucio.core.oidc import delete_expired_oauthrequests, refresh_jwt_tokens
 from sqlalchemy.exc import DatabaseError
 
 logging.basicConfig(stream=stdout,
@@ -74,7 +74,7 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100):
     :returns: None
     """
 
-    executable = argv[0]
+    executable = 'oauth-manager'
 
     sanity_check(executable=executable, hostname=socket.gethostname())
 
@@ -98,16 +98,26 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100):
             # ACCESS TOKEN REFRESH - better to run first (in case some of the refreshed tokens needed deletion after this step)
             logging.info('oauth_manager[%i/%i]: ----- START ----- ACCESS TOKEN REFRESH ----- ', worker_number, total_workers)
             logging.info('oauth_manager[%i/%i]: starting to query tokens for automatic refresh', worker_number, total_workers)
-            tokens_for_refresh = get_tokens_for_refresh(total_workers, worker_number, refreshrate=int(loop_rate), limit=max_rows)
-            logging.info('oauth_manager[%i/%i]: starting attempts to refresh %i tokens', worker_number, total_workers, len(tokens_for_refresh))
-            for token in tokens_for_refresh:
-                retok = refresh_token_oidc(token)
-                if retok:
-                    nrefreshed += 1
+            nrefreshed = refresh_jwt_tokens(total_workers, worker_number, refreshrate=int(loop_rate), limit=max_rows)
             logging.info('oauth_manager[%i/%i]: successfully refreshed %i tokens', worker_number, total_workers, nrefreshed)
             logging.info('oauth_manager[%i/%i]: ----- END ----- ACCESS TOKEN REFRESH ----- ', worker_number, total_workers)
             record_counter(counters='oauth_manager.tokens.refreshed', delta=nrefreshed)
 
+        except (DatabaseException, DatabaseError) as err:
+            if match('.*QueuePool.*', str(err.args[0])):
+                logging.warning(traceback.format_exc())
+                record_counter('oauth_manager.exceptions.%s', err.__class__.__name__)
+            elif match('.*ORA-03135.*', str(err.args[0])):
+                logging.warning(traceback.format_exc())
+                record_counter('oauth_manager.exceptions.%s', err.__class__.__name__)
+            else:
+                logging.critical(traceback.format_exc())
+                record_counter('oauth_manager.exceptions.%s', err.__class__.__name__)
+        except Exception as err:
+            logging.critical(traceback.format_exc())
+            record_counter('oauth_manager.exceptions.%s', err.__class__.__name__)
+
+        try:
             # waiting 1 sec as DBs does not store milisecond and tokens
             # eligible for deletion after refresh might not get dleeted otherwise
             GRACEFUL_STOP.wait(1)
@@ -119,6 +129,21 @@ def OAuthManager(once=False, loop_rate=300, max_rows=100):
             logging.info('oauth_manager[%i/%i]: ----- END ----- DELETION OF EXPIRED TOKENS ----- ', worker_number, total_workers)
             record_counter(counters='oauth_manager.tokens.deleted', delta=ndeleted)
 
+        except (DatabaseException, DatabaseError) as err:
+            if match('.*QueuePool.*', str(err.args[0])):
+                logging.warning(traceback.format_exc())
+                record_counter('oauth_manager.exceptions.%s', err.__class__.__name__)
+            elif match('.*ORA-03135.*', str(err.args[0])):
+                logging.warning(traceback.format_exc())
+                record_counter('oauth_manager.exceptions.%s', err.__class__.__name__)
+            else:
+                logging.critical(traceback.format_exc())
+                record_counter('oauth_manager.exceptions.%s', err.__class__.__name__)
+        except Exception as err:
+            logging.critical(traceback.format_exc())
+            record_counter('oauth_manager.exceptions.%s', err.__class__.__name__)
+
+        try:
             # DELETING EXPIRED OAUTH SESSION PARAMETERS
             logging.info('oauth_manager[%i/%i]: ----- START ----- DELETION OF EXPIRED OAUTH SESSION REQUESTS ----- ', worker_number, total_workers)
             logging.info('oauth_manager[%i/%i]: starting deletion of expired OAuth session requests', worker_number, total_workers)

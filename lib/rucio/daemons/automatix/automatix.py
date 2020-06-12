@@ -19,6 +19,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014
 # - Tomas Kouba <tomas.kouba@cern.ch>, 2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -36,7 +37,7 @@ from datetime import datetime
 from json import load
 from math import exp
 from os import remove, rmdir, stat, getpid
-from sys import stdout, argv
+from sys import stdout
 from time import sleep, time
 
 from rucio.client import Client
@@ -217,7 +218,7 @@ def generate_didname(metadata, dsn, did_type):
 def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_workers=1, scope='tests', once=False, dataset_lifetime=None, set_metadata=False):
     sleep(sleep_time * (total_workers - worker_number) / total_workers)
 
-    executable = ' '.join(argv)
+    executable = 'automatix'
     hostname = socket.getfqdn()
     pid = getpid()
     hb_thread = threading.current_thread()
