@@ -9,8 +9,8 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2016
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2018
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017-2018
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2019
-# - Eric Vaandering, <ewv@fnal.gov>, 2018
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2020
+# - Eric Vaandering, <ewv@fnal.gov>, 2018-2020
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 #
@@ -19,6 +19,7 @@
 import rucio.core.scope
 from rucio.core.account import has_account_attribute, list_account_attributes
 from rucio.core.identity import exist_identity_account
+from rucio.core.permission.generic import perm_get_global_account_usage
 from rucio.core.rse import list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_rule
@@ -96,6 +97,7 @@ def has_permission(issuer, action, kwargs):
             'config_remove_section': perm_config,
             'config_remove_option': perm_config,
             'get_local_account_usage': perm_get_local_account_usage,
+            'get_global_account_usage': perm_get_global_account_usage,
             'add_attribute': perm_add_account_attribute,
             'del_attribute': perm_del_account_attribute,
             'list_heartbeats': perm_list_heartbeats,
@@ -805,7 +807,7 @@ def perm_set_global_account_limit(issuer, kwargs):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
     resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country')
-                              for rse in parse_expression(kwargs['rse_exp'])}
+                              for rse in parse_expression(kwargs['rse_expression'])}
     if resolved_rse_countries.issubset(admin_in_country):
         return True
     return False
@@ -828,7 +830,7 @@ def perm_delete_global_account_limit(issuer, kwargs):
             admin_in_country.add(kv['key'].partition('-')[2])
     if admin_in_country:
         resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country')
-                                  for rse in parse_expression(kwargs['rse_exp'])}
+                                  for rse in parse_expression(kwargs['rse_expression'])}
         if resolved_rse_countries.issubset(admin_in_country):
             return True
     return False

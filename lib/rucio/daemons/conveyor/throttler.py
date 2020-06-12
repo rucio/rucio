@@ -21,6 +21,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -65,7 +66,7 @@ def throttler(once=False, sleep_time=600):
 
     logging.info('Throttler starting')
 
-    executable = 'throttler'
+    executable = 'conveyor-throttler'
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()

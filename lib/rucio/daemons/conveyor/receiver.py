@@ -21,6 +21,7 @@
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -42,7 +43,7 @@ import traceback
 
 import stomp
 
-from rucio.common.config import config_get, config_get_int
+from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.policy import get_policy
 from rucio.core import heartbeat, request
 from rucio.core.monitor import record_counter
@@ -184,7 +185,7 @@ def receiver(id, total_threads=1, full_mode=False):
 
     logging.info('receiver starting in full mode: %s' % full_mode)
 
-    executable = ' '.join(sys.argv)
+    executable = 'conveyor-receiver'
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()
@@ -209,14 +210,37 @@ def receiver(id, total_threads=1, full_mode=False):
 
     logging.info('brokers resolved to %s', brokers_resolved)
 
+    logging.info('checking authentication method')
+    use_ssl = True
+    try:
+        use_ssl = config_get_bool('messaging-fts3', 'use_ssl')
+    except:
+        logging.info('could not find use_ssl in configuration -- please update your rucio.cfg')
+
+    port = config_get_int('messaging-fts3', 'port')
+    vhost = config_get('messaging-fts3', 'broker_virtual_host', raise_exception=False)
+    if not use_ssl:
+        username = config_get('messaging-fts3', 'username')
+        password = config_get('messaging-fts3', 'password')
+        port = config_get_int('messaging-fts3', 'nonssl_port')
+
     conns = []
     for broker in brokers_resolved:
-        conns.append(stomp.Connection(host_and_ports=[(broker, config_get_int('messaging-fts3', 'port'))],
-                                      use_ssl=True,
-                                      ssl_key_file=config_get('messaging-fts3', 'ssl_key_file'),
-                                      ssl_cert_file=config_get('messaging-fts3', 'ssl_cert_file'),
-                                      vhost=config_get('messaging-fts3', 'broker_virtual_host', raise_exception=False),
-                                      reconnect_attempts_max=999))
+        if not use_ssl:
+            logging.info('setting up username/password authentication: %s' % broker)
+            con = stomp.Connection12(host_and_ports=[(broker, port)],
+                                     use_ssl=False,
+                                     vhost=vhost,
+                                     reconnect_attempts_max=999)
+        else:
+            logging.info('setting up ssl cert/key authentication: %s' % broker)
+            con = stomp.Connection12(host_and_ports=[(broker, port)],
+                                     use_ssl=True,
+                                     ssl_key_file=config_get('messaging-fts3', 'ssl_key_file'),
+                                     ssl_cert_file=config_get('messaging-fts3', 'ssl_cert_file'),
+                                     vhost=vhost,
+                                     reconnect_attempts_max=999)
+        conns.append(con)
 
     logging.info('receiver started')
 
@@ -232,7 +256,10 @@ def receiver(id, total_threads=1, full_mode=False):
 
                 conn.set_listener('rucio-messaging-fts3', Receiver(broker=conn.transport._Transport__host_and_ports[0], id=id, total_threads=total_threads, full_mode=full_mode))
                 conn.start()
-                conn.connect()
+                if not use_ssl:
+                    conn.connect(username, password, wait=True)
+                else:
+                    conn.connect(wait=True)
                 conn.subscribe(destination=config_get('messaging-fts3', 'destination'),
                                id='rucio-messaging-fts3',
                                ack='auto')

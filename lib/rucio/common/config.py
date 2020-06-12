@@ -19,15 +19,11 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
-"""
-Get the configuration file from /opt/rucio/etc/rucio.cfg
-If it is not there, get it from $RUCIO_HOME
-If it is not there, get it from $VIRTUAL_ENV
-If it is not there, except.
-"""
+"""Provides functions to access the local configuration. The configuration locations are provided by get_config_dirs."""
 
 import os
 import json
@@ -53,7 +49,7 @@ def config_get(section, option, raise_exception=True, default=None):
     :returns: the configuration value.
     """
     try:
-        return __CONFIG.get(section, option)
+        return get_config().get(section, option)
     except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as err:
         if raise_exception and default is None:
             raise err
@@ -67,7 +63,7 @@ def config_has_section(section):
     :param section: Name of section in the Rucio config to verify.
     :returns: True if the section exists in the configuration; False otherwise
     """
-    return __CONFIG.has_section(section)
+    return get_config().has_section(section)
 
 
 def config_add_section(section):
@@ -77,13 +73,13 @@ def config_add_section(section):
     :param section: Name of section in the Rucio config to add.
     :returns: None
     """
-    return __CONFIG.add_section(section)
+    return get_config().add_section(section)
 
 
 def config_get_int(section, option, raise_exception=True, default=None):
     """Return the integer value for a given option in a section"""
     try:
-        return __CONFIG.getint(section, option)
+        return get_config().getint(section, option)
     except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as err:
         if raise_exception and default is None:
             raise err
@@ -93,7 +89,7 @@ def config_get_int(section, option, raise_exception=True, default=None):
 def config_get_float(section, option, raise_exception=True, default=None):
     """Return the floating point value for a given option in a section"""
     try:
-        return __CONFIG.getfloat(section, option)
+        return get_config().getfloat(section, option)
     except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as err:
         if raise_exception and default is None:
             raise err
@@ -112,7 +108,7 @@ def config_get_bool(section, option, raise_exception=True, default=None):
     :returns: the configuration value.
     """
     try:
-        return __CONFIG.getboolean(section, option)
+        return get_config().getboolean(section, option)
     except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as err:
         if raise_exception:
             raise err
@@ -123,12 +119,12 @@ def config_get_bool(section, option, raise_exception=True, default=None):
 
 def config_get_options(section):
     """Return all options from a given section"""
-    return __CONFIG.options(section)
+    return get_config().options(section)
 
 
 def config_get_items(section):
     """Return all (name, value) pairs from a given section"""
-    return __CONFIG.items(section)
+    return get_config().items(section)
 
 
 def config_remove_option(section, option):
@@ -141,7 +137,7 @@ def config_remove_option(section, option):
 
     :raises NoSectionError: If the section does not exist.
     """
-    return __CONFIG.remove_option(section, option)
+    return get_config().remove_option(section, option)
 
 
 def config_set(section, option, value):
@@ -154,12 +150,17 @@ def config_set(section, option, value):
 
     :raises NoSectionError: If the section does not exist.
     """
-    return __CONFIG.set(section, option, value)
+    return get_config().set(section, option, value)
 
 
-def get_config_dir():
-    """Return the rucio configuration directory"""
-    configdirs = ['/opt/rucio/etc/', ]
+def get_config_dirs():
+    """
+    Returns all available configuration directories in order:
+    - $RUCIO_HOME/etc/
+    - $VIRTUAL_ENV/etc/
+    - /opt/rucio/
+    """
+    configdirs = []
 
     if 'RUCIO_HOME' in os.environ:
         configdirs.append('%s/etc/' % os.environ['RUCIO_HOME'])
@@ -167,9 +168,9 @@ def get_config_dir():
     if 'VIRTUAL_ENV' in os.environ:
         configdirs.append('%s/etc/' % os.environ['VIRTUAL_ENV'])
 
-    for configdir in configdirs:
-        if os.path.exists(configdir):
-            return configdir
+    configdirs.append('/opt/rucio/etc/')
+
+    return configdirs
 
 
 def get_lfn2pfn_algorithm_default():
@@ -182,15 +183,6 @@ def get_lfn2pfn_algorithm_default():
     return default_lfn2pfn
 
 
-def get_schema_dir():
-    """Return the rucio json schema directory"""
-    configdir = get_config_dir()
-    if configdir:
-        jsonschemadir = '%s/schemas/' % configdir
-        if os.path.exists(jsonschemadir):
-            return jsonschemadir
-
-
 def get_rse_credentials(path_to_credentials_file=None):
     """ Returns credentials for RSEs. """
 
@@ -198,10 +190,8 @@ def get_rse_credentials(path_to_credentials_file=None):
     if path_to_credentials_file:  # Use specific file for this connect
         path = path_to_credentials_file
     else:  # Use file defined in th RSEMgr
-        if 'RUCIO_HOME' in os.environ:
-            path = '%s/etc/rse-accounts.cfg' % os.environ['RUCIO_HOME']
-        else:
-            path = '/opt/rucio/etc/rse-accounts.cfg'
+        path = (os.path.join(confdir, 'rse-accounts.cfg') for confdir in get_config_dirs())
+        path = next(iter(filter(os.path.exists, path)), None)
     try:
         # Load all user credentials
         with open(path) as cred_file:
@@ -211,30 +201,39 @@ def get_rse_credentials(path_to_credentials_file=None):
     return credentials
 
 
-__CONFIG = ConfigParser.SafeConfigParser(os.environ)
+__CONFIG = None
 
-__CONFIGFILES = list()
 
-if 'RUCIO_HOME' in os.environ:
-    __CONFIGFILES.append('%s/etc/rucio.cfg' % os.environ['RUCIO_HOME'])
+def get_config():
+    """Factory function for the configuration class. Returns the ConfigParser instance."""
+    global __CONFIG
+    if __CONFIG is None:
+        __CONFIG = Config()
+    return __CONFIG.parser
 
-__CONFIGFILES.append('/opt/rucio/etc/rucio.cfg')
 
-if 'VIRTUAL_ENV' in os.environ:
-    __CONFIGFILES.append('%s/etc/rucio.cfg' % os.environ['VIRTUAL_ENV'])
+class Config:
+    """
+    The configuration class reading the config file on init, located by using
+    get_config_dirs or the use of the RUCIO_CONFIG environment variable.
+    """
+    def __init__(self):
+        if sys.version_info < (3, 2):
+            self.parser = ConfigParser.SafeConfigParser(os.environ)
+        else:
+            self.parser = ConfigParser.ConfigParser(defaults=os.environ)
 
-__HAS_CONFIG = False
-for configfile in __CONFIGFILES:
-    __HAS_CONFIG = __CONFIG.read(configfile) == [configfile]
-    if __HAS_CONFIG:
-        break
+        if 'RUCIO_CONFIG' in os.environ:
+            self.configfile = os.environ['RUCIO_CONFIG']
+        else:
+            configs = [os.path.join(confdir, 'rucio.cfg') for confdir in get_config_dirs()]
+            self.configfile = next(iter(filter(os.path.exists, configs)), None)
+            if self.configfile is None:
+                raise RuntimeError('Could not load Rucio configuration file. '
+                                   'Rucio looked in the following paths for a configuration file, in order:'
+                                   '\n\t' + '\n\t'.join(configs))
 
-if not __HAS_CONFIG:
-
-    if 'sphinx' not in sys.modules:
-        # test to not fail when build the API doc
-        raise Exception('Could not load rucio configuration file rucio.cfg.'
-                        'Rucio looks in the following directories for a configuration file, in order:'
-                        '\n\t${RUCIO_HOME}/etc/rucio.cfg'
-                        '\n\t/opt/rucio/etc/rucio.cfg'
-                        '\n\t${VIRTUAL_ENV}/etc/rucio.cfg')
+        if not self.parser.read(self.configfile) == [self.configfile]:
+            raise RuntimeError('Could not load Rucio configuration file. '
+                               'Rucio tried loading the following configuration file:'
+                               '\n\t' + self.configfile)

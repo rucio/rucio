@@ -22,7 +22,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
-# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019, 2020
 #
 # PY3K COMPATIBLE
 
@@ -46,7 +46,6 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
 from sqlalchemy import and_, or_
-from sqlalchemy.sql.expression import true
 
 
 def token_key_generator(namespace, fni, **kwargs):
@@ -409,41 +408,6 @@ def delete_expired_tokens(total_workers, worker_number, limit=1000, session=None
         raise RucioException(error.args)
 
     return deleted_tokens
-
-
-@read_session
-def get_tokens_for_refresh(total_workers, worker_number, refreshrate=3600, limit=1000, session=None):
-    """
-    Get tokens which expired or will expire before (now + refreshrate)
-    next run of this function and which have valid refresh token.
-
-    :param total_workers:      Number of total workers.
-    :param worker_number:      id of the executing worker.
-    :param limit:              Maximum number of tokens to refresh per call.
-    :param session:            Database session in use.
-
-    :return: filtered_tokens, list of tokens eligible for refresh. Throws an Exception otherwise.
-    """
-    try:
-        # get tokens for refresh that expire in the next <refreshrate> seconds
-        expiration_future = datetime.datetime.utcnow() + datetime.timedelta(seconds=refreshrate)
-        query = session.query(models.Token.token).filter(and_(models.Token.refresh == true(),
-                                                              models.Token.refresh_expired_at > datetime.datetime.utcnow(),
-                                                              models.Token.expired_at < expiration_future))\
-                                                 .order_by(models.Token.expired_at)
-        query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='token')
-
-        # limiting the number of tokens for refresh
-        filtered_tokens_query = query.limit(limit)
-        filtered_tokens = []
-        filtered_bunches = query_bunches(filtered_tokens_query, 10)
-        for items in filtered_bunches:
-            filtered_tokens += session.query(models.Token).filter(models.Token.token.in_(items)).with_for_update(skip_locked=True).all()
-
-    except Exception as error:
-        raise RucioException(error.args)
-
-    return filtered_tokens
 
 
 @read_session

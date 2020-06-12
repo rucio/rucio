@@ -1,4 +1,4 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,8 +23,14 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
+
+try:
+    from urllib import quote_plus
+except ImportError:
+    from urllib.parse import quote_plus
 
 from json import dumps
 from requests.status_codes import codes
@@ -267,7 +273,7 @@ class AccountClient(BaseClient):
         :param rse_expression: The rse expression.
         """
 
-        path = '/'.join([self.ACCOUNTS_BASEURL, account, 'limits', 'global', rse_expression])
+        path = '/'.join([self.ACCOUNTS_BASEURL, account, 'limits', 'global', quote_plus(rse_expression)])
         url = build_url(choice(self.list_hosts), path=path)
         res = self._send_request(url, type='GET')
         if res.status_code == codes.ok:
@@ -348,7 +354,7 @@ class AccountClient(BaseClient):
         :param rse_expression: The rse expression.
         """
         if rse_expression:
-            path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage', 'global', rse_expression])
+            path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage', 'global', quote_plus(rse_expression)])
         else:
             path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage', 'global'])
         url = build_url(choice(self.list_hosts), path=path)

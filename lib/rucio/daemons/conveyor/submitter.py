@@ -114,7 +114,7 @@ def submitter(once=False, rses=None, mock=False,
     logging.debug("Maximum time in queue for different activities: %s", max_time_in_queue)
 
     activity_next_exe_time = defaultdict(time.time)
-    executable = sys.argv[0]
+    executable = "conveyor-submitter"
     if activities:
         activities.sort()
         executable += '--activities ' + str(activities)
@@ -183,7 +183,7 @@ def submitter(once=False, rses=None, mock=False,
 
                 logging.info('%s Starting to submit transfers for %s', prepend_str, activity)
 
-                if TRANSFER_TOOL == 'fts3':
+                if TRANSFER_TOOL in ['fts3', 'mock']:
                     for external_host in grouped_jobs:
                         if not user_transfer:
                             for job in grouped_jobs[external_host]:
@@ -363,7 +363,7 @@ def __sort_link_ranking(sources):
             rank_sources[link_ranking] = []
         rank_sources[link_ranking].append(source)
     rank_keys = list(rank_sources.keys())
-    rank_keys.sort(reverse=True)
+    rank_keys.sort()
     for rank_key in rank_keys:
         sources_list = rank_sources[rank_key]
         random.shuffle(sources_list)
