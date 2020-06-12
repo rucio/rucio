@@ -37,8 +37,8 @@ from rucio.core.rse import list_rses, get_rses_with_attribute, get_rse_attribute
 from rucio.db.sqla.session import transactional_session
 
 
-DEFAULT_RSE_ATTRIBUTE = schema.DEFAULT_RSE_ATTRIBUTE['pattern']
-RSE_ATTRIBUTE = schema.RSE_ATTRIBUTE['pattern']
+DEFAULT_RSE_ATTRIBUTE = schema.get_schema_value('DEFAULT_RSE_ATTRIBUTE')['pattern']
+RSE_ATTRIBUTE = schema.get_schema_value('RSE_ATTRIBUTE')['pattern']
 PRIMITIVE = r'(\(*(%s|%s|%s)\)*)' % (RSE_ATTRIBUTE, DEFAULT_RSE_ATTRIBUTE, r'\*')
 UNION = r'(\|%s)' % (PRIMITIVE)
 INTERSECTION = r'(\&%s)' % (PRIMITIVE)

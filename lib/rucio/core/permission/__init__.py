@@ -22,6 +22,10 @@ from rucio.common import config, exception
 
 import importlib
 
+# dictionary of permission modules for each VO
+permission_modules = {}
+
+# TODO: load permission module for each VO in multi-VO installations
 if config.config_has_section('permission'):
     try:
         FALLBACK_POLICY = config.config_get('permission', 'policy')
@@ -49,6 +53,9 @@ try:
 except (ImportError) as error:
     raise exception.PolicyPackageNotFound('Module ' + POLICY + ' not found')
 
-for i in dir(module):
-    if i[:1] != '_' or i == '_is_root':
-        globals()[i] = getattr(module, i)
+permission_modules["def"] = module
+
+
+def has_permission(issuer, action, kwargs):
+    # TODO: determine VO from issuer and call corresponding permission module
+    return permission_modules["def"].has_permission(issuer, action, kwargs)
