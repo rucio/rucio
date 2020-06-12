@@ -51,7 +51,7 @@ from six import iteritems
 from prometheus_client import Counter
 
 from rucio.common.config import config_get
-from rucio.common.schema import ACTIVITY
+from rucio.common.schema import get_schema_value
 from rucio.core import heartbeat, request as request_core, transfer as transfer_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfer, get_conveyor_rses, USER_ACTIVITY
@@ -264,7 +264,7 @@ def run(once=False, group_bulk=1, group_policy='rule',
 
     if exclude_activities:
         if not activities:
-            activities = ACTIVITY
+            activities = get_schema_value('ACTIVITY')
         for activity in exclude_activities:
             if activity in activities:
                 activities.remove(activity)

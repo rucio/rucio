@@ -50,7 +50,7 @@ from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     UnsupportedStatus, UnsupportedOperation,
                                     RSENotFound, RucioException, RuleNotFound,
                                     InvalidMetadata)
-from rucio.common.schema import SCOPE_NAME_REGEXP
+from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
 from rucio.web.rest.common import rucio_loadhook, RucioController, check_accept_header_wrapper
 
@@ -58,24 +58,24 @@ URLS = (
     '/(.*)/$', 'Scope',
     '/(.*)/guid', 'GUIDLookup',
     '/(.*)/dids/search', 'Search',
-    '%s/files' % SCOPE_NAME_REGEXP, 'Files',
-    '%s/dids/history' % SCOPE_NAME_REGEXP, 'AttachmentHistory',
-    '%s/dids' % SCOPE_NAME_REGEXP, 'Attachment',
-    '%s/meta/(.*)' % SCOPE_NAME_REGEXP, 'Meta',
-    '%s/meta' % SCOPE_NAME_REGEXP, 'Meta',
-    '%s/status' % SCOPE_NAME_REGEXP, 'DIDs',
-    '%s/rules' % SCOPE_NAME_REGEXP, 'Rules',
-    '%s/parents' % SCOPE_NAME_REGEXP, 'Parents',
-    '%s/associated_rules' % SCOPE_NAME_REGEXP, 'AssociatedRules',
-    '%s/did_meta' % SCOPE_NAME_REGEXP, 'DidMeta',
+    '%s/files' % get_schema_value('SCOPE_NAME_REGEXP'), 'Files',
+    '%s/dids/history' % get_schema_value('SCOPE_NAME_REGEXP'), 'AttachmentHistory',
+    '%s/dids' % get_schema_value('SCOPE_NAME_REGEXP'), 'Attachment',
+    '%s/meta/(.*)' % get_schema_value('SCOPE_NAME_REGEXP'), 'Meta',
+    '%s/meta' % get_schema_value('SCOPE_NAME_REGEXP'), 'Meta',
+    '%s/status' % get_schema_value('SCOPE_NAME_REGEXP'), 'DIDs',
+    '%s/rules' % get_schema_value('SCOPE_NAME_REGEXP'), 'Rules',
+    '%s/parents' % get_schema_value('SCOPE_NAME_REGEXP'), 'Parents',
+    '%s/associated_rules' % get_schema_value('SCOPE_NAME_REGEXP'), 'AssociatedRules',
+    '%s/did_meta' % get_schema_value('SCOPE_NAME_REGEXP'), 'DidMeta',
     '/(.*)/(.*)/(.*)/(.*)/(.*)/sample', 'Sample',
-    '%s' % SCOPE_NAME_REGEXP, 'DIDs',
+    '%s' % get_schema_value('SCOPE_NAME_REGEXP'), 'DIDs',
     '', 'BulkDIDS',
     '/attachments', 'Attachments',
     '/new', 'NewDIDs',
     '/resurrect', 'Resurrect',
     '/list_dids_by_meta', 'ListByMeta',
-    '%s/follow' % SCOPE_NAME_REGEXP, 'Follow',
+    '%s/follow' % get_schema_value('SCOPE_NAME_REGEXP'), 'Follow',
 )
 
 

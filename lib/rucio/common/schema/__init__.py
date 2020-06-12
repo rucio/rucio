@@ -27,6 +27,10 @@ from rucio.common import config, exception
 
 import importlib
 
+# dictionary of schema modules for each VO
+schema_modules = {}
+
+# TODO: load schema module for each VO in multi-VO installations
 if config.config_has_section('policy'):
     try:
         POLICY = config.config_get('policy', 'package') + ".schema"
@@ -45,6 +49,13 @@ try:
 except (ImportError) as error:
     raise exception.PolicyPackageNotFound('Module ' + POLICY + ' not found')
 
-for i in dir(module):
-    if i[:1] != '_':
-        globals()[i] = getattr(module, i)
+schema_modules["def"] = module
+
+
+# TODO: in both of these functions, verify that named module exists
+def validate_schema(name, obj, vo='def'):
+    schema_modules[vo].validate_schema(name, obj)
+
+
+def get_schema_value(key, vo='def'):
+    return getattr(schema_modules[vo], key)

@@ -26,7 +26,7 @@ from alembic import context
 from alembic.op import (create_table, create_primary_key, create_foreign_key, add_column,
                         create_check_constraint, drop_column, drop_table)
 
-from rucio.common.schema import SCOPE_LENGTH
+from rucio.common.schema import get_schema_value
 from rucio.db.sqla.constants import KeyType
 
 
@@ -45,7 +45,7 @@ def upgrade():
         add_column('dids', sa.Column('closed_at', sa.DateTime), schema=schema)
         add_column('contents_history', sa.Column('deleted_at', sa.DateTime), schema=schema)
         create_table('naming_conventions',
-                     sa.Column('scope', sa.String(SCOPE_LENGTH)),
+                     sa.Column('scope', sa.String(get_schema_value('SCOPE_LENGTH'))),
                      sa.Column('regexp', sa.String(255)),
                      sa.Column('convention_type', KeyType.db_type()),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow),
