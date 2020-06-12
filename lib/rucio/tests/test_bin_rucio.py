@@ -56,7 +56,7 @@ class TestBinRucio():
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
             try:
-                remove(get_tmp_dir() + '/.rucio_root/auth_token_root@%s' % self.vo['vo'])
+                remove(get_tmp_dir() + '/.rucio_root@%s/auth_token_root' % self.vo['vo'])
             except OSError as error:
                 if error.args[0] != 2:
                     raise error
