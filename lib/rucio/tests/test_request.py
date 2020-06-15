@@ -1285,7 +1285,7 @@ class TestRequestREST():
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
-            cls.vo_header = {'X-Rucio-VO': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo_header = {'X-Rucio-VO': cls.vo['vo']}
         else:
             cls.vo = {}
             cls.vo_header = {}

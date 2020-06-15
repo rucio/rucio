@@ -582,7 +582,7 @@ class TestReplicaClients:
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
-            self.vo_header = {'X-Rucio-VO': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo_header = {'X-Rucio-VO': self.vo['vo']}
         else:
             self.vo = {}
             self.vo_header = {}

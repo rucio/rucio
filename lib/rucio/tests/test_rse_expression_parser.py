@@ -40,7 +40,7 @@ class TestRSEExpressionParserCore(object):
     def __init__(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
-            self.filter = {'filter': {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}}
+            self.filter = {'filter': self.vo}
         else:
             self.vo = {}
             self.filter = {'filter': {'vo': 'def'}}

@@ -181,11 +181,11 @@ class TestVORestAPI(object):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.def_header = {'X-Rucio-VO': 'def'}
-            cls.vo_header = {'X-Rucio-VO': config_get('client', 'vo', raise_exception=False, default='tst')}
             cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
-            cls.new_header = {'X-Rucio-VO': 'new'}
             cls.new_vo = {'vo': 'new'}
+            cls.def_header = {'X-Rucio-VO': 'def'}
+            cls.vo_header = {'X-Rucio-VO': cls.vo['vo']}
+            cls.new_header = {'X-Rucio-VO': 'new'}
             if not vo_exists(**cls.new_vo):
                 add_vo(description='Test', email='rucio@email.com', **cls.new_vo)
 
@@ -198,11 +198,11 @@ class TestVORestAPI(object):
 
         else:
             LOG.warning('multi_vo mode is not enabled. Running multi_vo tests in single_vo mode will result in failures.')
+            cls.vo = {}
+            cls.new_vo = {}
             cls.def_header = {}
             cls.vo_header = {}
             cls.new_header = {}
-            cls.vo = {}
-            cls.new_vo = {}
             cls.account_tst = ''
             cls.account_new = ''
 

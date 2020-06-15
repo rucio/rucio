@@ -162,11 +162,11 @@ class TestAuthRestApi(object):
     '''
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo_header = {'X-Rucio-VO': config_get('client', 'vo', raise_exception=False, default='tst')}
             self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo_header = {'X-Rucio-VO': self.vo['vo']}
         else:
-            self.vo_header = {}
             self.vo = {}
+            self.vo_header = {}
 
     def test_userpass_fail(self):
         """AUTHENTICATION (REST): Username and password (wrong credentials)."""
