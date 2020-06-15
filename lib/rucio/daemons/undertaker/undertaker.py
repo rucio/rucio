@@ -99,7 +99,7 @@ def undertaker(worker_number=1, total_workers=1, chunk_size=5, once=False):
             for chunk in chunks(dids, chunk_size):
                 try:
                     logging.info('Undertaker(%s): Receive %s dids to delete', worker_number, len(chunk))
-                    delete_dids(dids=chunk, account=InternalAccount('undertaker', vo='def'), expire_rules=True)
+                    delete_dids(dids=chunk, account=InternalAccount('root', vo='def'), expire_rules=True)
                     logging.info('Undertaker(%s): Delete %s dids', worker_number, len(chunk))
                     record_counter(counters='undertaker.delete_dids', delta=len(chunk))
                 except RuleNotFound as error:

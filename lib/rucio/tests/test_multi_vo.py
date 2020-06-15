@@ -21,7 +21,6 @@ from logging import getLogger
 from nose.tools import assert_equal, assert_false, assert_in, assert_is_not_none, assert_not_equal, assert_not_in, assert_raises, assert_true
 from paste.fixture import TestApp
 from random import choice
-from sqlalchemy.orm.exc import NoResultFound
 from string import ascii_uppercase, ascii_lowercase
 
 from rucio.api import vo as vo_api
@@ -29,6 +28,7 @@ from rucio.api.account import add_account, list_accounts
 from rucio.api.account_limit import set_local_account_limit
 from rucio.api.did import add_did, list_dids
 from rucio.api.identity import list_accounts_for_identity
+from rucio.api.lock import get_replica_locks_for_rule_id
 from rucio.api.replica import list_replicas
 from rucio.api.rse import add_protocol, add_rse, add_rse_attribute, list_rses
 from rucio.api.rule import delete_replication_rule, get_replication_rule
@@ -44,11 +44,12 @@ from rucio.client.scopeclient import ScopeClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.client.uploadclient import UploadClient
 from rucio.common.config import config_get_bool, config_remove_option, config_set
-from rucio.common.exception import AccessDenied, Duplicate, InputValidationError, UnsupportedAccountName, UnsupportedOperation
+from rucio.common.exception import AccessDenied, Duplicate, InvalidRSEExpression, UnsupportedAccountName, UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, parse_response
-from rucio.core.account_counter import increase, update_account_counter
+from rucio.core.replica import add_replica
 from rucio.core.rse import get_rses_with_attribute_value, get_rse_id, get_rse_vo
+from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import add_rule
 from rucio.core.vo import add_vo, vo_exists
 from rucio.daemons.automatix.automatix import automatix
@@ -97,12 +98,20 @@ class TestVOCoreAPI(object):
         account = InternalAccount('root', **self.vo)
         rse_str = ''.join(choice(ascii_uppercase) for x in range(10))
         rse_name = 'MOCK_%s' % rse_str
-        add_rse(rse_name, 'root', **self.vo)
-        add_did('mock', dataset, 'DATASET', 'root', **self.vo)
-        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=account, copies=0, rse_expression=rse_name, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+        rse_id = add_rse(rse_name, 'root', **self.vo)
+
+        add_replica(rse_id=rse_id, scope=scope, name=dataset, bytes=10, account=account)
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=account, copies=1, rse_expression='MOCK', grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
 
         with assert_raises(AccessDenied):
             delete_replication_rule(rule_id=rule_id, purge_replicas=False, issuer='root', **self.new_vo)
+
+        # check locks are not accessible from other VO
+        locks = list(get_replica_locks_for_rule_id(rule_id, **self.vo))
+        assert_equal(len(locks), 1)
+        locks = list(get_replica_locks_for_rule_id(rule_id, **self.new_vo))
+        assert_equal(len(locks), 0)
+
         delete_replication_rule(rule_id=rule_id, purge_replicas=False, issuer='root', **self.vo)
         rule_dict = get_replication_rule(rule_id=rule_id, issuer='root', **self.vo)
         assert_is_not_none(rule_dict['expires_at'])
@@ -547,6 +556,19 @@ class TestMultiVoClients(object):
         assert_equal(len(rses_tst_2), 0)
         assert_not_equal(len(rses_new_2), 0)
 
+        # check parse_expression
+        rses_tst_3 = parse_expression(shr, filter={'vo': self.vo['vo']})
+        rses_tst_4 = parse_expression(tst, filter={'vo': self.vo['vo']})
+        rses_new_3 = parse_expression(shr, filter={'vo': self.new_vo['vo']})
+        with assert_raises(InvalidRSEExpression):
+            parse_expression(tst, filter={'vo': self.new_vo['vo']})
+        assert_equal(len(rses_tst_3), 1)
+        assert_equal(shr_id_tst, rses_tst_3[0]['id'])
+        assert_equal(len(rses_tst_4), 1)
+        assert_equal(tst, rses_tst_4[0]['rse'])
+        assert_equal(len(rses_new_3), 1)
+        assert_equal(shr_id_new, rses_new_3[0]['id'])
+
     def test_scopes_at_different_vos(self):
         """ MULTI VO (CLIENT): Test that scopes from 2nd vo don't interfere """
         scope_client = ScopeClient()
@@ -705,17 +727,6 @@ class TestMultiVoClients(object):
         for counter in rse_counters:
             account = counter[0]
             assert_equal(account.vo, self.new_vo['vo'])
-
-        # make sure we can't add counters to mismatching VO combinations later
-        tst_rse1_id = get_rse_id(tst_rse1, **self.vo)
-        with assert_raises(InputValidationError):
-            increase(tst_rse1_id, new_acc, 1, 10)
-
-        # force update with mismatching VO combination
-        models.UpdatedAccountCounter(account=new_acc, rse_id=tst_rse1_id, files=1, bytes=10).save(session=session)
-        with assert_raises(NoResultFound):
-            update_account_counter(new_acc, tst_rse1_id)
-        session.query(models.UpdatedAccountCounter).filter_by(rse_id=tst_rse1_id, account=new_acc).delete(synchronize_session=False)
 
         session.commit()
 

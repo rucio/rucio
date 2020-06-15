@@ -7,14 +7,19 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
-from rucio.common.exception import RuleNotFound
+import logging
+
 from rucio.common.types import InternalScope
 from rucio.common.utils import api_update_return_dict
 from rucio.core import lock
 from rucio.core.rse import get_rse_id
+
+LOGGER = logging.getLogger('lock')
+LOGGER.setLevel(logging.DEBUG)
 
 
 def get_dataset_locks(scope, name, vo='def'):
@@ -63,6 +68,7 @@ def get_replica_locks_for_rule_id(rule_id, vo='def'):
     locks = lock.get_replica_locks_for_rule_id(rule_id=rule_id)
 
     for l in locks:
-        if l['scope'].vo != vo:
-            raise RuleNotFound('Cannot get rule on VO {}'.format(vo))
+        if l['scope'].vo != vo:  # rule is on a different VO, so don't return any locks
+            LOGGER.debug('rule id %s is not present on VO %s' % (rule_id, vo))
+            break
         yield api_update_return_dict(l)
