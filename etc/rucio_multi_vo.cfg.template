@@ -10,11 +10,14 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
 # - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 
 [common]
 logdir = /var/log/rucio
 loglevel = DEBUG
 mailtemplatedir=/opt/rucio/etc/mail_templates
+multi_vo = True
 
 [client]
 rucio_host = https://rucio-server-prod.cern.ch:443
@@ -31,6 +34,7 @@ client_key = /opt/rucio/etc/web/client.key
 client_x509_proxy = $X509_USER_PROXY
 ssh_private_key = $HOME/.ssh/id_rsa
 account = root
+vo = tst
 request_retries = 3
 protocol_stat_retries = 6
 

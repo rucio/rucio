@@ -53,7 +53,7 @@ script:
   - if [[ $SUITE == "python3" ]]; then ./tools/travis/check_python_3.sh  ; fi
   - if [[ $SUITE == "client" ]]; then nosetests -v lib/rucio/tests/test_clients.py; if [ $? -ne 0 ]; then exit 1 ; fi ; SUITE=$SUITE nosetests -v lib/rucio/tests/test_bin_rucio.py; if [ $? -ne 0 ]; then exit 1 ; fi ; nosetests -v lib/rucio/tests/test_module_import.py; if [ $? -ne 0 ]; then exit 1 ; fi ; fi
   - if [[ $SUITE == "all" ]]; then docker exec -it rucio /bin/sh -c "/opt/rucio/tools/run_tests_docker.sh" ; fi
-  - if [[ $SUITE == "multi_vo" ]]; then docker exec -it rucio /bin/sh -c "/opt/rucio/tools/run_vo_tests_docker.sh" ; fi
+  - if [[ $SUITE == "multi_vo" ]]; then docker exec -it rucio /bin/sh -c "/opt/rucio/tools/run_multi_vo_tests_docker.sh" ; fi
 env:
     - SUITE=syntax
     - SUITE=all RDBMS=oracle

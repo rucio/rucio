@@ -18,6 +18,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -66,7 +67,7 @@ def rucio_loadhook():
         raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate with given credentials')
 
     # Propagate the issuer, request_id and start_time to the controller
-    ctx.env['vo'] = auth.get('vo')
+    ctx.env['vo'] = auth.get('vo', 'def')
     ctx.env['issuer'] = auth.get('account')
     ctx.env['identity'] = auth.get('identity')
     ctx.env['request_id'] = generate_uuid()

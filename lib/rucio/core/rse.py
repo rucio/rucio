@@ -57,7 +57,6 @@ from sqlalchemy.sql.expression import or_, false
 import rucio.core.account_counter
 
 from rucio.core.rse_counter import add_counter, get_counter
-from rucio.core.vo import vo_exists
 from rucio.common import exception, utils
 from rucio.common.config import get_lfn2pfn_algorithm_default, config_get
 from rucio.common.utils import CHECKSUM_KEY, is_checksum_valid, GLOBALLY_SUPPORTED_CHECKSUMS
@@ -98,9 +97,6 @@ def add_rse(rse, vo='def', deterministic=True, volatile=False, city=None, region
     """
     if isinstance(rse_type, string_types):
         rse_type = RSEType.from_string(str(rse_type))
-
-    if not vo_exists(vo=vo, session=session):
-        raise exception.VONotFound('VO {} not found'.format(vo))
 
     new_rse = models.RSE(rse=rse, vo=vo, deterministic=deterministic, volatile=volatile, city=city,
                          region_code=region_code, country_name=country_name,
