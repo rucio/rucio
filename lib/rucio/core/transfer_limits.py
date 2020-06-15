@@ -18,9 +18,9 @@ import traceback
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_bool
 from rucio.core import config as config_core
-from rucio.core.rse import get_rse_transfer_limits
+from rucio.core.rse import get_rse_id, get_rse_transfer_limits
 
 queue_mode = config_get('conveyor', 'queue_mode', False, 'default')
 if queue_mode.upper() == 'STRICT':
@@ -102,7 +102,14 @@ def get_config_limits():
     items = config_core.items('throttler', use_cache=using_memcache)
     for opt, value in items:
         try:
-            activity, rse_id = opt.split(',')
+            if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+                activity, rse_id = opt.split(',')  # In multi VO mode, require config to be set using RSE IDs
+            else:
+                activity, rse_name = opt.split(',')  # In single VO mode, expect config to be set using RSE names
+                if rse_name == 'all_rses':
+                    rse_id = 'all_rses'
+                else:
+                    rse_id = get_rse_id(rse_name, vo='def')  # In single VO mode, VO should always be def
             if activity not in config_limits:
                 config_limits[activity] = {}
             config_limits[activity][rse_id] = int(value)
