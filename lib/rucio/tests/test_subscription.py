@@ -200,11 +200,11 @@ class TestSubscriptionRestApi():
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo_header = {'X-Rucio-VO': config_get('client', 'vo', raise_exception=False, default='tst')}
             cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo_header = {'X-Rucio-VO': cls.vo['vo']}
         else:
-            cls.vo_header = {}
             cls.vo = {}
+            cls.vo_header = {}
 
         cls.projects = ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV']
         cls.pattern1 = r'(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
