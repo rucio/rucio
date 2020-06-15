@@ -16,7 +16,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from nose.tools import assert_equal
 
 from rucio.common.types import InternalAccount, InternalScope
@@ -54,7 +54,8 @@ def test_reaper():
         file_name = 'lfn' + generate_uuid()
         file_names.append(file_name)
         replica_core.add_replica(rse_id=rse_id, scope=InternalScope('data13_hip'),
-                                 name=file_name, bytes=file_size, tombstone=datetime.utcnow(),
+                                 name=file_name, bytes=file_size,
+                                 tombstone=datetime.utcnow() - timedelta(days=1),
                                  account=InternalAccount('root'), adler32=None, md5=None)
 
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=800)
