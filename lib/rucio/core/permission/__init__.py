@@ -22,18 +22,26 @@ from rucio.common import config, exception
 
 import importlib
 
+try:
+    if config.config_get_bool('common', 'multi_vo'):
+        GENERIC_FALLBACK = 'generic_multi_vo'
+    else:
+        GENERIC_FALLBACK = 'generic'
+except (NoOptionError, NoSectionError) as error:
+    GENERIC_FALLBACK = 'generic'
+
 if config.config_has_section('permission'):
     try:
         FALLBACK_POLICY = config.config_get('permission', 'policy')
     except (NoOptionError, NoSectionError) as error:
-        FALLBACK_POLICY = 'generic'
+        FALLBACK_POLICY = GENERIC_FALLBACK
 elif config.config_has_section('policy'):
     try:
         FALLBACK_POLICY = config.config_get('policy', 'permission')
     except (NoOptionError, NoSectionError) as error:
-        FALLBACK_POLICY = 'generic'
+        FALLBACK_POLICY = GENERIC_FALLBACK
 else:
-    FALLBACK_POLICY = 'generic'
+    FALLBACK_POLICY = GENERIC_FALLBACK
 
 if config.config_has_section('policy'):
     try:
@@ -42,7 +50,8 @@ if config.config_has_section('policy'):
         # fall back to old system for now
         POLICY = 'rucio.core.permission.' + FALLBACK_POLICY.lower()
 else:
-    POLICY = 'rucio.core.permission.generic'
+    POLICY = 'rucio.core.permission.' + GENERIC_FALLBACK.lower()
+
 
 try:
     module = importlib.import_module(POLICY)

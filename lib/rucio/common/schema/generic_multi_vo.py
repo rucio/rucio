@@ -14,12 +14,10 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2017
-# - Eric Vaandering <ericvaandering@gmail.com>, 2018
-# - sartiran <root@polgrid107.in2p3.fr>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
-# - Sartirana Andrea <sartiran@llr.in2p3.fr>, 2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
@@ -57,30 +55,21 @@ SCOPE_LENGTH = 25
 
 SCOPE = {"description": "Scope name",
          "type": "string",
-         "pattern": r"^(cms)|(user\.[a-zA-Z0-9\.]{1,%s})$" % (SCOPE_LENGTH - len('user.'))}
+         "pattern": "^[a-zA-Z_\\-.0-9]{1,%s}$" % SCOPE_LENGTH}
 
 R_SCOPE = {"description": "Scope name",
            "type": "string",
            "pattern": "\\w"}
 
-CMS_LFN_LENGTH = 500
-CMS_DATASET_CORE = r'/[a-zA-Z0-9\-_]{1,99}/[a-zA-Z0-9\.\-_]{1,199}/[A-Z\-]{1,50}'
-CMS_BLOCK_PART = r'[a-zA-Z0-9\.\-_]{1,100}'
-
-CMS_DATASET = r'^%s$' % CMS_DATASET_CORE
-CMS_BLOCK = r'^%s#%s$' % (CMS_DATASET_CORE, CMS_BLOCK_PART)  # Valid dataset name and block separated by #
-CMS_LFN = r'^\/store\/[A-Za-z0-9][A-Za-z0-9\.\-\_\/]{1,%s}$' % (CMS_LFN_LENGTH - len('/store/'))
-
-CMS_BLOCK_LENGTH = 100 + 200 + 51 + 101
+NAME_LENGTH = 250
 
 NAME = {"description": "Data Identifier name",
         "type": "string",
-        "pattern": r"%s|%s|%s" % (CMS_DATASET, CMS_BLOCK, CMS_LFN)}
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9\\.\\-\\_]{1,%s}$" % NAME_LENGTH}
 
-NAME_LENGTH = max(CMS_LFN_LENGTH, CMS_BLOCK_LENGTH)
-
-# read name
-R_NAME = NAME
+R_NAME = {"description": "Data Identifier name",
+          "type": "string",
+          "pattern": "\\w"}
 
 LOCKED = {"description": "Rule locked status",
           "type": ["boolean", "null"]}
@@ -99,7 +88,7 @@ IGNORE_AVAILABILITY = {"description": "Rule ignore availability status",
 
 RSE = {"description": "RSE name",
        "type": "string",
-       "pattern": "^T[0-3]_[A-Z]{2}((_[A-Za-z0-9]+)+)$"}
+       "pattern": "^([A-Z0-9]+([_-][A-Z0-9]+)*)$"}
 
 RSE_ATTRIBUTE = {"description": "RSE attribute",
                  "type": "string",
@@ -107,7 +96,7 @@ RSE_ATTRIBUTE = {"description": "RSE attribute",
 
 DEFAULT_RSE_ATTRIBUTE = {"description": "Default RSE attribute",
                          "type": "string",
-                         "pattern": r'([A-Z0-9]+([_-][A-Za-z0-9]+)*)'}
+                         "pattern": r'([A-Z0-9]+([_-][A-Z0-9]+)*)'}
 
 REPLICA_STATE = {"description": "Replica state",
                  "type": "string",
@@ -285,7 +274,7 @@ ATTACHMENT = {"description": "Attachement",
                              "name": NAME,
                              "rse": {"description": "RSE name",
                                      "type": ["string", "null"],
-                                     "pattern": "^T[0-3]_[A-Z]{2}((_[A-Za-z0-9]+)+)$"},
+                                     "pattern": "^([A-Z0-9]+([_-][A-Z0-9]+)*)$"},
                              "dids": DIDS},
               "required": ["dids"],
               "additionalProperties": False}
@@ -358,7 +347,7 @@ ACCOUNT_ATTRIBUTE = {"description": "Account attribute",
                      "type": "string",
                      "pattern": r'^[a-zA-Z0-9-_\\/\\.]{1,30}$'}
 
-SCOPE_NAME_REGEXP = '/([^/]*)(?=/)(.*)'
+SCOPE_NAME_REGEXP = '/(.*)/(.*)'
 
 DISTANCE = {"description": "RSE distance",
             "type": "object",
@@ -380,6 +369,10 @@ IMPORT = {"description": "import data into rucio.",
                   "type": "object"
               }
           }}
+
+VO = {"description": "VO tag",
+      "type": "string",
+      "pattern": "^([a-zA-Z_\\-.0-9]{3})?$"}
 
 SCHEMAS = {'account': ACCOUNT,
            'account_type': ACCOUNT_TYPE,
@@ -404,7 +397,8 @@ SCHEMAS = {'account': ACCOUNT,
            'cache_add_replicas': CACHE_ADD_REPLICAS,
            'cache_delete_replicas': CACHE_DELETE_REPLICAS,
            'account_attribute': ACCOUNT_ATTRIBUTE,
-           'import': IMPORT}
+           'import': IMPORT,
+           'vo': VO}
 
 
 def validate_schema(name, obj):

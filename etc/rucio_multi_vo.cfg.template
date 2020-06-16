@@ -207,9 +207,9 @@ dataset_dir = ~/public/sonar_medium_dataset/
 scope = user.vzavrtan
 
 [policy]
-package = ATLASRucioPolicy
-permission = atlas
-schema = atlas
+#package = GenericMultiVORucioPolicy #doesn't exist
+permission = generic_multi_vo
+schema = generic_multi_vo
 lfn2pfn_algorithm_default = hash
 support = hn-atlas-dist-analysis-help@cern.ch
 support_rucio = https://github.com/rucio/rucio/issues/
