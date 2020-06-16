@@ -16,6 +16,7 @@
   - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
   - Gabriele Fronze' <gfronze@cern.ch>, 2019
   - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
+  - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 
   PY3K COMPATIBLE
 '''
@@ -107,7 +108,11 @@ def list_rses(filters={}, vo='def'):
 
     :returns: List of all RSEs.
     """
+    if not filters:
+        filters = {}
+
     filters['vo'] = vo
+
     return rse_module.list_rses(filters=filters)
 
 

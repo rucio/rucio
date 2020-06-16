@@ -41,7 +41,6 @@ from datetime import datetime, timedelta
 from json import dumps
 from re import match
 from traceback import format_exc
-
 from six import string_types
 from sqlalchemy import func, and_, or_, exists, not_, update
 from sqlalchemy.exc import DatabaseError, IntegrityError
@@ -76,6 +75,7 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
     :param rse_expression: The RSE expression.
     :param from_date: The start date.
     :param to_date: The end date.
+    :param filter: Dictionary of attributes by which the RSE results should be filtered. e.g.: {'availability_write': True}
     :param session: The database session in use.
     """
     result = []
@@ -2895,6 +2895,7 @@ def get_suspicious_files(rse_expression, filter=None, **kwargs):
     :param younger_than: Datetime object to select the replicas which were declared since younger_than date. Default value = 10 days ago.
     :param nattempts: The minimum number of replica appearances in the bad_replica DB table from younger_than date. Default value = 0.
     :param rse_expression: The RSE expression where the replicas are located.
+    :param filter: Dictionary of attributes by which the RSE results should be filtered. e.g.: {'availability_write': True}
     :param: exclude_states: List of states which eliminates replicas from search result if any of the states in the list
                             was declared for a replica since younger_than date. Allowed values
                             = ['B', 'R', 'D', 'L', 'T', 'S'] (meaning 'BAD', 'RECOVERED', 'DELETED', 'LOST', 'TEMPORARY_UNAVAILABLE', 'SUSPICIOUS').
