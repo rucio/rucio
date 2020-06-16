@@ -18,6 +18,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -29,7 +30,7 @@ from rucio.core.rse import add_rse, del_rse, add_protocol, get_rse_id
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.db.sqla import session, models, constants
@@ -39,7 +40,7 @@ from rucio.tests.common import rse_name_generator
 class TestDatasetReplicaClient:
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 
@@ -141,7 +142,7 @@ class TestDatasetReplicaClient:
 class TestDatasetReplicaUpdate:
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 

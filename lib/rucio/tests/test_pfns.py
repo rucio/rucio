@@ -8,10 +8,11 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from nose.tools import assert_equal
 
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.rse import rsemanager as rsemgr
 
 
@@ -19,7 +20,7 @@ class TestPFNs(object):
 
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 

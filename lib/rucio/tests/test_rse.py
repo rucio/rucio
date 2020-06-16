@@ -25,6 +25,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -38,7 +39,7 @@ from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import RSEType
 from rucio.client.rseclient import RSEClient
 from rucio.client.replicaclient import ReplicaClient
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSupported,
                                     InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError,
                                     ResourceTemporaryUnavailable, RSEAttributeNotFound, RSEOperationNotSupported)
@@ -56,7 +57,7 @@ class TestRSECoreApi(object):
 
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 
@@ -230,11 +231,11 @@ class TestRSE(object):
 
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo_header = {'X-Rucio-VO': 'tst'}
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo_header = {'X-Rucio-VO': self.vo['vo']}
         else:
-            self.vo_header = {}
             self.vo = {}
+            self.vo_header = {}
 
     def test_create_rse_success(self):
         """ RSE (REST): send a POST to create a new RSE """
@@ -404,7 +405,7 @@ class TestRSEClient(object):
 
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 

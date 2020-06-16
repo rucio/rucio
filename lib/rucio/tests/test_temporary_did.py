@@ -16,10 +16,11 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from nose.tools import assert_equal
 
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.temporary_did import (add_temporary_dids, compose, delete_temporary_dids,
@@ -33,7 +34,7 @@ def test_core_temporary_dids():
     """ TMP DATA IDENTIFIERS (CORE): """
 
     if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-        vo = {'vo': 'tst'}
+        vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
     else:
         vo = {}
     scope = InternalScope('mock', **vo)

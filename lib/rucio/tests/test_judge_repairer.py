@@ -11,6 +11,7 @@
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White, <bjwhite@fnal.gov>, 2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from dogpile.cache import make_region
 from hashlib import sha256
@@ -40,7 +41,7 @@ class TestJudgeRepairer():
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             cls.vo = {}
 

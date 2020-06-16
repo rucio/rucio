@@ -12,6 +12,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from json import dumps, loads
 
@@ -20,7 +21,7 @@ from nose.tools import assert_equal, assert_true, assert_in, raises, assert_rais
 
 from rucio.client.accountclient import AccountClient
 from rucio.client.scopeclient import ScopeClient
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import AccountNotFound, Duplicate, ScopeNotFound, InvalidObject
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
@@ -34,7 +35,7 @@ class TestScopeCoreApi():
 
     def __init__(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 
@@ -61,7 +62,7 @@ class TestScope():
 
     def __init__(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo_header = {'X-Rucio-VO': 'tst'}
+            self.vo_header = {'X-Rucio-VO': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo_header = {}
         self.scopes = [scope_name_generator() for _ in range(5)]

@@ -16,6 +16,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -23,7 +24,7 @@ from datetime import datetime
 from nose.tools import assert_equal
 from paste.fixture import TestApp
 
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, parse_response
 from rucio.core.config import set as config_set
@@ -43,7 +44,7 @@ class TestRequestCoreQueue(object):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             cls.vo = {}
 
@@ -261,7 +262,7 @@ class TestRequestCoreRelease(object):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             cls.vo = {}
 
@@ -1235,7 +1236,7 @@ class TestRequestCoreList(object):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             cls.vo = {}
 
@@ -1283,8 +1284,8 @@ class TestRequestREST():
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': 'tst'}
-            cls.vo_header = {'X-Rucio-VO': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo_header = {'X-Rucio-VO': cls.vo['vo']}
         else:
             cls.vo = {}
             cls.vo_header = {}

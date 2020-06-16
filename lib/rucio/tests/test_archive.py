@@ -19,6 +19,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -26,7 +27,7 @@ from nose.tools import assert_equal, assert_in, assert_not_in
 
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.replica import add_replicas
@@ -41,7 +42,7 @@ class TestArchive(object):
         self.rc = ReplicaClient()
 
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 

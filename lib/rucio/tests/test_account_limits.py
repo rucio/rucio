@@ -20,7 +20,7 @@ from nose.tools import assert_equal, assert_in
 
 from rucio.client.accountclient import AccountClient
 from rucio.client.accountlimitclient import AccountLimitClient
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount
 from rucio.core import account_limit
 from rucio.core.account import add_account
@@ -34,7 +34,7 @@ class TestCoreAccountLimits():
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
             cls.multi_vo = True
         else:
             cls.vo = {}
@@ -130,7 +130,7 @@ class TestAccountClient():
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
             cls.multi_vo = True
         else:
             cls.vo = {}

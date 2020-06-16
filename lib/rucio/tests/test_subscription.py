@@ -21,6 +21,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 
 from __future__ import print_function
@@ -33,7 +34,7 @@ from paste.fixture import TestApp
 from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription, list_subscription_rule_states, get_subscription_by_id
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.client.didclient import DIDClient
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import InvalidObject, SubscriptionNotFound, SubscriptionDuplicate
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
@@ -54,7 +55,7 @@ class TestSubscriptionCoreApi():
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             cls.vo = {}
 
@@ -199,11 +200,11 @@ class TestSubscriptionRestApi():
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo_header = {'X-Rucio-VO': 'tst'}
-            cls.vo = {'vo': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.vo_header = {'X-Rucio-VO': cls.vo['vo']}
         else:
-            cls.vo_header = {}
             cls.vo = {}
+            cls.vo_header = {}
 
         cls.projects = ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV']
         cls.pattern1 = r'(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
@@ -366,7 +367,7 @@ class TestSubscriptionClient():
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             cls.vo = {}
 

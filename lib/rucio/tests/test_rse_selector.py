@@ -15,12 +15,13 @@
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
 from nose.tools import assert_equal, assert_raises
 
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import InsufficientAccountLimit, InsufficientTargetRSEs
 from rucio.common.types import InternalAccount
 from rucio.core.account_counter import update_account_counter, increase
@@ -35,7 +36,7 @@ class TestRSESelectorInit(object):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             cls.vo = {}
 
@@ -134,7 +135,7 @@ class TestRSESelectorDynamic(object):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             cls.vo = {}
 

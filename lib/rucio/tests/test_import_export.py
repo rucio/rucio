@@ -17,6 +17,7 @@
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -30,7 +31,7 @@ from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import RSEType, AccountType, IdentityType, AccountStatus
 from rucio.client.importclient import ImportClient
 from rucio.client.exportclient import ExportClient
-from rucio.common.config import config_set, config_add_section, config_has_section, config_get_bool
+from rucio.common.config import config_set, config_add_section, config_has_section, config_get, config_get_bool
 from rucio.common.exception import RSENotFound
 from rucio.common.types import InternalAccount
 from rucio.common.utils import render_json, parse_response
@@ -99,11 +100,11 @@ class TestImporter(object):
 
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo_header = {'X-Rucio-VO': 'tst'}
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo_header = {'X-Rucio-VO': self.vo['vo']}
         else:
-            self.vo_header = {}
             self.vo = {}
+            self.vo_header = {}
 
         if not config_has_section('importer'):
             config_add_section('importer')
@@ -461,11 +462,11 @@ class TestImporterSyncModes(object):
     def setup(self):
         # Since test config scenarios are complicated moved the setup inside the individual tests
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo_header = {'X-Rucio-VO': 'tst'}
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo_header = {'X-Rucio-VO': self.vo['vo']}
         else:
-            self.vo_header = {}
             self.vo = {}
+            self.vo_header = {}
 
     def test_import_rses_append(self):
         """ IMPORTER (CORE): test import rse (APPEND mode). """
@@ -1196,11 +1197,11 @@ class TestImporterSyncModes(object):
 class TestExporter(object):
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo_header = {'X-Rucio-VO': 'tst'}
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo_header = {'X-Rucio-VO': self.vo['vo']}
         else:
-            self.vo_header = {}
             self.vo = {}
+            self.vo_header = {}
 
         self.db_session = session.get_session()
         self.db_session.query(models.Distance).delete()
@@ -1263,11 +1264,11 @@ class TestExporter(object):
 class TestExportImport(object):
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo_header = {'X-Rucio-VO': 'tst'}
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo_header = {'X-Rucio-VO': self.vo['vo']}
         else:
-            self.vo_header = {}
             self.vo = {}
+            self.vo_header = {}
 
     def tearDown(self):
         reset_rses()

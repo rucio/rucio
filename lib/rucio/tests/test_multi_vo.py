@@ -26,8 +26,9 @@ from string import ascii_uppercase, ascii_lowercase
 from rucio.api import vo as vo_api
 from rucio.api.account import add_account, list_accounts
 from rucio.api.account_limit import set_local_account_limit
+from rucio.api.authentication import get_auth_token_gss, get_auth_token_saml, get_auth_token_x509
 from rucio.api.did import add_did, list_dids
-from rucio.api.identity import list_accounts_for_identity
+from rucio.api.identity import add_account_identity, list_accounts_for_identity
 from rucio.api.lock import get_replica_locks_for_rule_id
 from rucio.api.replica import list_replicas
 from rucio.api.rse import add_protocol, add_rse, add_rse_attribute, list_rses
@@ -43,10 +44,10 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.client.uploadclient import UploadClient
-from rucio.common.config import config_get_bool, config_remove_option, config_set
+from rucio.common.config import config_get, config_get_bool, config_remove_option, config_set
 from rucio.common.exception import AccessDenied, Duplicate, InvalidRSEExpression, UnsupportedAccountName, UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import generate_uuid, parse_response
+from rucio.common.utils import generate_uuid, parse_response, ssh_sign
 from rucio.core.replica import add_replica
 from rucio.core.rse import get_rses_with_attribute_value, get_rse_id, get_rse_vo
 from rucio.core.rse_expression_parser import parse_expression
@@ -54,8 +55,10 @@ from rucio.core.rule import add_rule
 from rucio.core.vo import add_vo, vo_exists
 from rucio.daemons.automatix.automatix import automatix
 from rucio.db.sqla import models, session as db_session
-from rucio.web.rest.vo import APP as vo_app
+from rucio.tests.test_authentication import PRIVATE_KEY, PUBLIC_KEY
+from rucio.web.rest.account import APP as account_app
 from rucio.web.rest.authentication import APP as auth_app
+from rucio.web.rest.vo import APP as vo_app
 
 
 LOG = getLogger(__name__)
@@ -66,7 +69,7 @@ class TestVOCoreAPI(object):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
             cls.new_vo = {'vo': 'new'}
             if not vo_exists(**cls.new_vo):
                 add_vo(description='Test', email='rucio@email.com', **cls.new_vo)
@@ -187,13 +190,186 @@ class TestVORestAPI(object):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.new_vo = {'vo': 'new'}
             cls.def_header = {'X-Rucio-VO': 'def'}
-            cls.vo_header = {'X-Rucio-VO': 'tst'}
-            cls.vo = {'vo': 'tst'}
+            cls.vo_header = {'X-Rucio-VO': cls.vo['vo']}
+            cls.new_header = {'X-Rucio-VO': 'new'}
+            if not vo_exists(**cls.new_vo):
+                add_vo(description='Test', email='rucio@email.com', **cls.new_vo)
+
+            # Setup accounts at two VOs so we can determine which VO we authenticated against
+            usr_uuid = str(generate_uuid()).lower()[:16]
+            cls.account_tst = 'tst-%s' % usr_uuid
+            cls.account_new = 'new-%s' % usr_uuid
+            add_account(cls.account_tst, 'USER', 'rucio@email.com', 'root', **cls.vo)
+            add_account(cls.account_new, 'USER', 'rucio@email.com', 'root', **cls.new_vo)
+
         else:
             LOG.warning('multi_vo mode is not enabled. Running multi_vo tests in single_vo mode will result in failures.')
-            cls.vo_header = {}
             cls.vo = {}
+            cls.new_vo = {}
+            cls.def_header = {}
+            cls.vo_header = {}
+            cls.new_header = {}
+            cls.account_tst = ''
+            cls.account_new = ''
+
+    def test_auth_gss(self):
+        """ MULTI VO (REST): Test gss authentication to multiple VOs """
+        mw = []
+
+        # Can't rely on `requests_kerberos` module being present, so get tokens from API instead
+        token_tst = get_auth_token_gss('root', 'rucio-dev@CERN.CH', 'unknown', None, **self.vo).token
+        token_new = get_auth_token_gss('root', 'rucio-dev@CERN.CH', 'unknown', None, **self.new_vo).token
+
+        headers_tst = {'X-Rucio-Auth-Token': str(token_tst)}
+        res_tst = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers_tst, expect_errors=True)
+        assert_equal(res_tst.status, 200)
+        accounts_tst = [parse_response(a)['account'] for a in res_tst.body.decode().split('\n')[:-1]]
+        assert_not_equal(len(accounts_tst), 0)
+        assert_in(self.account_tst, accounts_tst)
+        assert_not_in(self.account_new, accounts_tst)
+
+        headers_new = {'X-Rucio-Auth-Token': str(token_new)}
+        res_new = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers_new, expect_errors=True)
+        assert_equal(res_new.status, 200)
+        accounts_new = [parse_response(a)['account'] for a in res_new.body.decode().split('\n')[:-1]]
+        assert_not_equal(len(accounts_new), 0)
+        assert_in(self.account_new, accounts_new)
+        assert_not_in(self.account_tst, accounts_new)
+
+    def test_auth_saml(self):
+        """ MULTI VO (REST): Test saml authentication to multiple VOs """
+        mw = []
+
+        try:
+            add_account_identity('ddmlab', 'SAML', 'root', 'rucio@email.com', 'root', **self.vo)
+            add_account_identity('ddmlab', 'SAML', 'root', 'rucio@email.com', 'root', **self.new_vo)
+        except Duplicate:
+            pass  # Might already exist, can skip
+
+        # Can't rely on `onelogin` module being present, so get tokens from API instead
+        token_tst = get_auth_token_saml('root', 'ddmlab', 'unknown', None, **self.vo).token
+        token_new = get_auth_token_saml('root', 'ddmlab', 'unknown', None, **self.new_vo).token
+
+        headers_tst = {'X-Rucio-Auth-Token': str(token_tst)}
+        res_tst = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers_tst, expect_errors=True)
+        assert_equal(res_tst.status, 200)
+        accounts_tst = [parse_response(a)['account'] for a in res_tst.body.decode().split('\n')[:-1]]
+        assert_not_equal(len(accounts_tst), 0)
+        assert_in(self.account_tst, accounts_tst)
+        assert_not_in(self.account_new, accounts_tst)
+
+        headers_new = {'X-Rucio-Auth-Token': str(token_new)}
+        res_new = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers_new, expect_errors=True)
+        assert_equal(res_new.status, 200)
+        accounts_new = [parse_response(a)['account'] for a in res_new.body.decode().split('\n')[:-1]]
+        assert_not_equal(len(accounts_new), 0)
+        assert_in(self.account_new, accounts_new)
+        assert_not_in(self.account_tst, accounts_new)
+
+    def test_auth_ssh(self):
+        """ MULTI VO (REST): Test ssh authentication to multiple VOs """
+        mw = []
+
+        try:
+            add_account_identity(PUBLIC_KEY, 'SSH', 'root', 'rucio@email.com', 'root', **self.vo)
+            add_account_identity(PUBLIC_KEY, 'SSH', 'root', 'rucio@email.com', 'root', **self.new_vo)
+        except Duplicate:
+            pass  # Might already exist, can skip
+
+        headers_tst = {'X-Rucio-Account': 'root'}
+        headers_tst.update(self.vo_header)
+        res_tst = TestApp(auth_app.wsgifunc(*mw)).get('/ssh_challenge_token', headers=headers_tst, expect_errors=True)
+        assert_equal(res_tst.status, 200)
+        challenge_tst = str(res_tst.header('X-Rucio-SSH-Challenge-Token'))
+        headers_tst.update({'X-Rucio-SSH-Signature': ssh_sign(PRIVATE_KEY, challenge_tst)})
+        res_tst = TestApp(auth_app.wsgifunc(*mw)).get('/ssh', headers=headers_tst, expect_errors=True)
+        assert_equal(res_tst.status, 200)
+        token_tst = str(res_tst.header('X-Rucio-Auth-Token'))
+
+        headers_new = {'X-Rucio-Account': 'root'}
+        headers_new.update(self.new_header)
+        res_new = TestApp(auth_app.wsgifunc(*mw)).get('/ssh_challenge_token', headers=headers_new, expect_errors=True)
+        assert_equal(res_new.status, 200)
+        challenge_tst = str(res_new.header('X-Rucio-SSH-Challenge-Token'))
+        headers_new.update({'X-Rucio-SSH-Signature': ssh_sign(PRIVATE_KEY, challenge_tst)})
+        res_new = TestApp(auth_app.wsgifunc(*mw)).get('/ssh', headers=headers_new, expect_errors=True)
+        assert_equal(res_new.status, 200)
+        token_new = str(res_new.header('X-Rucio-Auth-Token'))
+
+        headers_tst = {'X-Rucio-Auth-Token': str(token_tst)}
+        res_tst = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers_tst, expect_errors=True)
+        assert_equal(res_tst.status, 200)
+        accounts_tst = [parse_response(a)['account'] for a in res_tst.body.decode().split('\n')[:-1]]
+        assert_not_equal(len(accounts_tst), 0)
+        assert_in(self.account_tst, accounts_tst)
+        assert_not_in(self.account_new, accounts_tst)
+
+        headers_new = {'X-Rucio-Auth-Token': str(token_new)}
+        res_new = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers_new, expect_errors=True)
+        assert_equal(res_new.status, 200)
+        accounts_new = [parse_response(a)['account'] for a in res_new.body.decode().split('\n')[:-1]]
+        assert_not_equal(len(accounts_new), 0)
+        assert_in(self.account_new, accounts_new)
+        assert_not_in(self.account_tst, accounts_new)
+
+    def test_auth_userpass(self):
+        """ MULTI VO (REST): Test userpass authentication to multiple VOs """
+        mw = []
+
+        headers_tst = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers_tst.update(self.vo_header)
+        res_tst = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers_tst, expect_errors=True)
+        assert_equal(res_tst.status, 200)
+        token_tst = str(res_tst.header('X-Rucio-Auth-Token'))
+
+        headers_new = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
+        headers_new.update(self.new_header)
+        res_new = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers_new, expect_errors=True)
+        assert_equal(res_new.status, 200)
+        token_new = str(res_new.header('X-Rucio-Auth-Token'))
+
+        headers_tst = {'X-Rucio-Auth-Token': str(token_tst)}
+        res_tst = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers_tst, expect_errors=True)
+        assert_equal(res_tst.status, 200)
+        accounts_tst = [parse_response(a)['account'] for a in res_tst.body.decode().split('\n')[:-1]]
+        assert_not_equal(len(accounts_tst), 0)
+        assert_in(self.account_tst, accounts_tst)
+        assert_not_in(self.account_new, accounts_tst)
+
+        headers_new = {'X-Rucio-Auth-Token': str(token_new)}
+        res_new = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers_new, expect_errors=True)
+        assert_equal(res_new.status, 200)
+        accounts_new = [parse_response(a)['account'] for a in res_new.body.decode().split('\n')[:-1]]
+        assert_not_equal(len(accounts_new), 0)
+        assert_in(self.account_new, accounts_new)
+        assert_not_in(self.account_tst, accounts_new)
+
+    def test_auth_x509(self):
+        """ MULTI VO (REST): Test X509 authentication to multiple VOs """
+        mw = []
+
+        # TestApp doesn't support `cert` argument, so get tokens from API instead
+        token_tst = get_auth_token_x509('root', '/CN=Rucio User', 'unknown', None, **self.vo).token
+        token_new = get_auth_token_x509('root', '/CN=Rucio User', 'unknown', None, **self.new_vo).token
+
+        headers_tst = {'X-Rucio-Auth-Token': str(token_tst)}
+        res_tst = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers_tst, expect_errors=True)
+        assert_equal(res_tst.status, 200)
+        accounts_tst = [parse_response(a)['account'] for a in res_tst.body.decode().split('\n')[:-1]]
+        assert_not_equal(len(accounts_tst), 0)
+        assert_in(self.account_tst, accounts_tst)
+        assert_not_in(self.account_new, accounts_tst)
+
+        headers_new = {'X-Rucio-Auth-Token': str(token_new)}
+        res_new = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers_new, expect_errors=True)
+        assert_equal(res_new.status, 200)
+        accounts_new = [parse_response(a)['account'] for a in res_new.body.decode().split('\n')[:-1]]
+        assert_not_equal(len(accounts_new), 0)
+        assert_in(self.account_new, accounts_new)
+        assert_not_in(self.account_tst, accounts_new)
 
     def test_list_vos_success(self):
         """ MULTI VO (REST): Test list VOs through REST layer succeeds """
@@ -452,7 +628,7 @@ class TestMultiVoClients(object):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
             cls.new_vo = {'vo': 'new'}
             if not vo_exists(**cls.new_vo):
                 add_vo(description='Test', email='rucio@email.com', **cls.new_vo)
@@ -736,7 +912,7 @@ class TestMultiVODaemons(object):
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': 'tst'}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
             cls.new_vo = {'vo': 'new'}
             if not vo_exists(**cls.new_vo):
                 add_vo(description='Test', email='rucio@email.com', **cls.new_vo)
