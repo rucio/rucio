@@ -19,6 +19,7 @@
 #  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 #  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #  - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
+#  - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -68,7 +69,10 @@ def get_global_account_limits(account=None, session=None):
 
     resolved_global_account_limits = {}
     for limit in global_account_limits:
-        resolved_rses = parse_expression(limit['rse_expression'], filter={'vo': account.vo}, session=session)
+        if account:
+            resolved_rses = parse_expression(limit['rse_expression'], filter={'vo': account.vo}, session=session)
+        else:
+            resolved_rses = parse_expression(limit['rse_expression'], session=session)
         limit_in_bytes = limit['bytes']
         if limit_in_bytes == -1:
             limit_in_bytes = float('inf')

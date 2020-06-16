@@ -12,12 +12,13 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 # - Brandon White, <bjwhite@fnal.gov>, 2019
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
 from sqlalchemy.orm.exc import NoResultFound
 
-from rucio.common.exception import CounterNotFound, InputValidationError
+from rucio.common.exception import CounterNotFound
 import rucio.core.account
 import rucio.core.rse
 
@@ -81,10 +82,7 @@ def increase(rse_id, account, files, bytes, session=None):
     :param bytes:   The corresponding amount in bytes.
     :param session: The database session in use.
     """
-    if account.vo == rucio.core.rse.get_rse_vo(rse_id):
-        models.UpdatedAccountCounter(account=account, rse_id=rse_id, files=files, bytes=bytes).save(session=session)
-    else:
-        raise InputValidationError('Account VO does not match RSE VO')
+    models.UpdatedAccountCounter(account=account, rse_id=rse_id, files=files, bytes=bytes).save(session=session)
 
 
 @transactional_session
@@ -98,7 +96,6 @@ def decrease(rse_id, account, files, bytes, session=None):
     :param bytes:   The amount of bytes.
     :param session: The database session in use.
     """
-
     return increase(rse_id=rse_id, account=account, files=-files, bytes=-bytes, session=session)
 
 
@@ -155,13 +152,10 @@ def update_account_counter(account, rse_id, session=None):
         account_counter.bytes += sum([updated_account_counter.bytes for updated_account_counter in updated_account_counters])
         account_counter.files += sum([updated_account_counter.files for updated_account_counter in updated_account_counters])
     except NoResultFound:
-        if rucio.core.rse.get_rse_vo(rse_id, session=session) == account.vo:
-            models.AccountUsage(rse_id=rse_id,
-                                account=account,
-                                files=sum([updated_account_counter.files for updated_account_counter in updated_account_counters]),
-                                bytes=sum([updated_account_counter.bytes for updated_account_counter in updated_account_counters])).save(session=session)
-        else:
-            raise
+        models.AccountUsage(rse_id=rse_id,
+                            account=account,
+                            files=sum([updated_account_counter.files for updated_account_counter in updated_account_counters]),
+                            bytes=sum([updated_account_counter.bytes for updated_account_counter in updated_account_counters])).save(session=session)
 
     for update in updated_account_counters:
         update.delete(flush=False, session=session)

@@ -88,8 +88,11 @@ def get_global_account_limits(account, vo='def'):
 
     :returns: The account limits.
     """
+    if account:
+        account = InternalAccount(account, vo=vo)
+    else:
+        account = InternalAccount('*', vo=vo)
 
-    account = InternalAccount(account, vo=vo)
     return account_limit_core.get_global_account_limits(account=account)
 
 
