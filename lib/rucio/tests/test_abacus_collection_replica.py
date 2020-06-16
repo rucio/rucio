@@ -28,7 +28,7 @@ from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.uploadclient import UploadClient
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.replica import delete_replicas
@@ -55,7 +55,7 @@ class TestAbacusCollectionReplica():
         self.upload_client = UploadClient()
 
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 

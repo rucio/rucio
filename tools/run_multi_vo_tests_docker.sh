@@ -41,8 +41,10 @@ do
   esac
 done
 
+cp /opt/rucio/etc/rucio_multi_vo_tst.cfg /opt/rucio/etc/rucio.cfg
+
 echo 'Clearing memcache'
-echo 'flush_all' | nc localhost 11211
+echo flush_all > /dev/tcp/127.0.0.1/11211
 
 echo 'Graceful restart of Apache'
 httpd -k graceful
@@ -118,8 +120,60 @@ if test ${init_only}; then
     exit
 fi
 
-echo 'Running tests'
+echo 'Running tests on VO "tst"'
 noseopts="--exclude=test_alembic --exclude=.*test_rse_protocol_.* --exclude=test_rucio_server --exclude=test_objectstore --exclude=test_auditor* --exclude=test_release* --exclude=test_throttler*"
 
 nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts
+if [ $? != 0 ]; then
+    echo 'Tests on first VO failed, not attempting tests at second VO'
+    exit 1
+fi
+
+echo 'Tests on first VO successful, preparing second VO'
+cp /opt/rucio/etc/rucio_multi_vo_ts2.cfg /opt/rucio/etc/rucio.cfg
+
+echo 'Clearing memcache'
+echo flush_all > /dev/tcp/127.0.0.1/11211
+
+echo 'Bootstrap tests: Create jdoe account/mock scope'
+tools/bootstrap_tests.py
+if [ $? != 0 ]; then
+    echo 'Failed to bootstrap!'
+    exit 1
+fi
+
+echo 'Sync rse_repository'
+tools/sync_rses.py
+if [ $? != 0 ]; then
+    echo 'Failed to sync!'
+    exit 1
+fi
+
+echo 'Sync metadata keys'
+tools/sync_meta.py
+if [ $? != 0 ]; then
+    echo 'Failed to sync!'
+    exit 1
+fi
+
+echo 'Bootstrap tests: Create jdoe account/mock scope'
+tools/bootstrap_tests.py
+if [ $? != 0 ]; then
+    echo 'Failed to bootstrap!'
+    exit 1
+fi
+
+if test ${activate_rse}; then
+    echo 'Activating default RSEs (XRD1, XRD2, XRD3)'
+    tools/docker_activate_rses.sh
+fi
+
+echo 'Running tests on VO "ts2"'
+nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts
+if [ $? != 0 ]; then
+    echo 'Tests on second VO failed'
+    exit 1
+fi
+
+echo 'Tests on second VO successful'
 exit $?

@@ -27,6 +27,7 @@
 # - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -259,15 +260,6 @@ class BaseClient(object):
                     self.account = config_get('client', 'account')
                 except (NoOptionError, NoSectionError):
                     raise MissingClientParameter('Option \'account\' cannot be found in config file and RUCIO_ACCOUNT is not set.')
-        # if token file path is defined in the rucio.cfg file, use that file
-        if self.auth_token_file_path:
-            self.token_file = self.auth_token_file_path
-            self.token_path = '/'.join(self.token_file.split('/')[:-1])
-            self.token_exp_epoch_file = self.token_path + '/' + self.TOKEN_EXP_PREFIX + self.account
-        else:
-            self.token_path = self.TOKEN_PATH_PREFIX + self.account
-            self.token_file = self.token_path + '/' + self.TOKEN_PREFIX + self.account
-            self.token_exp_epoch_file = self.token_path + '/' + self.TOKEN_EXP_PREFIX + self.account
 
         if vo is None:
             LOG.debug('no vo passed. Trying to get it from the config file.')
@@ -278,6 +270,18 @@ class BaseClient(object):
                     self.vo = config_get('client', 'vo')
                 except (NoOptionError, NoSectionError):
                     self.vo = 'def'
+
+        # if token file path is defined in the rucio.cfg file, use that file. Currently this prevents authenticating as another user or VO.
+        if self.auth_token_file_path:
+            self.token_file = self.auth_token_file_path
+            self.token_path = '/'.join(self.token_file.split('/')[:-1])
+            self.token_exp_epoch_file = self.token_path + '/' + self.TOKEN_EXP_PREFIX + self.account
+        else:
+            self.token_path = self.TOKEN_PATH_PREFIX + self.account
+            if self.vo != 'def':
+                self.token_path += '@%s' % self.vo
+            self.token_file = self.token_path + '/' + self.TOKEN_PREFIX + self.account
+            self.token_exp_epoch_file = self.token_path + '/' + self.TOKEN_EXP_PREFIX + self.account
 
         self.__authenticate()
 

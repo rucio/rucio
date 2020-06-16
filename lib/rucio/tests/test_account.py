@@ -15,6 +15,7 @@
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -40,7 +41,7 @@ from rucio.web.rest.authentication import APP as auth_app
 class TestAccountCoreApi():
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 
@@ -91,11 +92,11 @@ class TestAccountCoreApi():
 class TestAccountRestApi():
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo_header = {'X-Rucio-VO': 'tst'}
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo_header = {'X-Rucio-VO': self.vo['vo']}
         else:
-            self.vo_header = {}
             self.vo = {}
+            self.vo_header = {}
 
     def test_create_user_success(self):
         """ ACCOUNT (REST): send a POST to create a new user """

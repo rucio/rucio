@@ -17,6 +17,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 """
 Test the Permission Core and API
@@ -39,7 +40,7 @@ class TestPermissionCoreApi(object):
     def setup(self):
         """ Setup Test Case """
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 

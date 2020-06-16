@@ -11,11 +11,12 @@
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Cedric Serfon,<cedric.serfon@cern.ch>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from nose.tools import assert_equal, assert_in
 
 from rucio.db.sqla import session, models
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount
 from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_usage
@@ -27,7 +28,7 @@ from rucio.daemons.abacus.account import account_update
 class TestCoreRSECounter():
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 
@@ -93,7 +94,7 @@ class TestCoreRSECounter():
 class TestCoreAccountCounter():
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 

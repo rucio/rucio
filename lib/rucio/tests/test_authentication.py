@@ -11,6 +11,7 @@
  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
  - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
  - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+ - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 '''
 
@@ -20,7 +21,7 @@ from nose.tools import assert_equal, assert_is_none, assert_is_not_none, assert_
 from paste.fixture import TestApp
 
 from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_ssh, get_ssh_challenge_token, get_auth_token_saml
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import Duplicate, AccessDenied
 from rucio.common.types import InternalAccount
 from rucio.common.utils import ssh_sign
@@ -74,7 +75,7 @@ class TestAuthCoreApi(object):
     '''
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 
@@ -161,11 +162,11 @@ class TestAuthRestApi(object):
     '''
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo_header = {'X-Rucio-VO': 'tst'}
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo_header = {'X-Rucio-VO': self.vo['vo']}
         else:
-            self.vo_header = {}
             self.vo = {}
+            self.vo_header = {}
 
     def test_userpass_fail(self):
         """AUTHENTICATION (REST): Username and password (wrong credentials)."""

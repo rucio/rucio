@@ -15,11 +15,12 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2018
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from nose.tools import assert_equal, assert_raises, assert_in, assert_greater
 
 from rucio.client import client
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.credential import get_signed_url
@@ -32,7 +33,7 @@ class TestCredential(object):
 
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 

@@ -24,6 +24,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from __future__ import print_function
 from datetime import datetime, timedelta
@@ -67,7 +68,7 @@ class TestReplicaCore:
 
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 
@@ -580,8 +581,8 @@ class TestReplicaClients:
 
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
-            self.vo_header = {'X-Rucio-VO': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.vo_header = {'X-Rucio-VO': self.vo['vo']}
         else:
             self.vo = {}
             self.vo_header = {}
@@ -943,7 +944,7 @@ class TestReplicaMetalink:
 
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 

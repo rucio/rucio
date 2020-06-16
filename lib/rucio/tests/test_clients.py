@@ -21,6 +21,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from __future__ import print_function
 
@@ -43,7 +44,13 @@ class TestBaseClient(object):
         __init__
         '''
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            try:
+                remove(get_tmp_dir() + '/.rucio_root@%s/auth_token_root' % self.vo['vo'])
+            except OSError as error:
+                if error.args[0] != 2:
+                    raise error
+
         else:
             self.vo = {}
 
@@ -100,7 +107,7 @@ class TestRucioClients(object):
         setup
         '''
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 

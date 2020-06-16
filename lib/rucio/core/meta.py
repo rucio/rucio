@@ -10,6 +10,7 @@
   - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
   - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
   - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+  - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
   PY3K COMPATIBLE
 '''
@@ -63,7 +64,14 @@ def add_key(key, key_type, value_type=None, value_regexp=None, session=None):
     try:
         new_key.save(session=session)
     except IntegrityError as error:
-        if error.args[0] == "(IntegrityError) column key is not unique":
+        if error.args[0] == "(IntegrityError) column key is not unique" \
+           or ('UNIQUE constraint failed' in error.args[0]) \
+           or ('conflicts with persistent instance' in error.args[0]) \
+           or match('.*IntegrityError.*ORA-00001: unique constraint.*DID_KEYS_PK.*violated.*', error.args[0]) \
+           or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
+           or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+           or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
+           or match('.*sqlite3.IntegrityError.*is not unique.*', error.args[0]):
             raise Duplicate('key \'%(key)s\' already exists!' % locals())
         raise
 
@@ -108,7 +116,14 @@ def add_value(key, value, session=None):
     try:
         new_value.save(session=session)
     except IntegrityError as error:
-        if error.args[0] == "(IntegrityError) columns key, value are not unique":
+        if error.args[0] == "(IntegrityError) columns key, value are not unique" \
+           or ('UNIQUE constraint failed' in error.args[0]) \
+           or ('conflicts with persistent instance' in error.args[0]) \
+           or match('.*IntegrityError.*ORA-00001: unique constraint.*DID_KEYS_PK.*violated.*', error.args[0]) \
+           or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
+           or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+           or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
+           or match('.*sqlite3.IntegrityError.*is not unique.*', error.args[0]):
             raise Duplicate('key-value \'%(key)s-%(value)s\' already exists!' % locals())
 
         if error.args[0] == "(IntegrityError) foreign key constraint failed":

@@ -12,12 +12,13 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
 from rucio.api.vo import add_vo
 from rucio.client import Client
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import Duplicate
 from rucio.core.account import add_account_attribute
 from rucio.common.types import InternalAccount
@@ -25,11 +26,11 @@ from rucio.common.types import InternalAccount
 
 if __name__ == '__main__':
     if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-        vo = {'vo': 'tst'}
+        vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         try:
-            add_vo(new_vo='tst', issuer='super_root', description='A VO to test multi-vo features', email='N/A', vo='def')
+            add_vo(new_vo=vo['vo'], issuer='super_root', description='A VO to test multi-vo features', email='N/A', vo='def')
         except Duplicate:
-            print('VO tst already added' % locals())
+            print('VO {} already added'.format(vo['vo']) % locals())
     else:
         vo = {}
 

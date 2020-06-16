@@ -26,7 +26,7 @@ import os
 from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
 from rucio.client.uploadclient import UploadClient
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.utils import generate_uuid
 from rucio.core.rse import get_rse_id, get_rse_usage
 from rucio.daemons.undertaker import undertaker
@@ -46,7 +46,7 @@ class TestAbacusRSE():
         self.session = get_session()
 
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 

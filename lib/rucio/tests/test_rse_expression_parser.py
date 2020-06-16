@@ -16,7 +16,7 @@ from string import ascii_uppercase, digits, ascii_lowercase
 
 from nose.tools import assert_equal, raises, assert_raises
 
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.core import rse
 from rucio.core import rse_expression_parser
 from rucio.client.rseclient import RSEClient
@@ -39,8 +39,8 @@ class TestRSEExpressionParserCore(object):
 
     def __init__(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
-            self.filter = {'filter': {'vo': 'tst'}}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            self.filter = {'filter': self.vo}
         else:
             self.vo = {}
             self.filter = {'filter': {'vo': 'def'}}
@@ -191,7 +191,7 @@ class TestRSEExpressionParserClient(object):
 
     def __init__(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 

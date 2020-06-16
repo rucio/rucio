@@ -17,6 +17,7 @@
 # - Tobias Wegner <twegner@cern.ch>, 2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -29,7 +30,7 @@ import os.path
 from rucio.client.client import Client
 from rucio.client.downloadclient import DownloadClient
 from rucio.client.uploadclient import UploadClient
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.utils import generate_uuid
 from rucio.tests.common import file_generator
 
@@ -38,7 +39,7 @@ class TestDownloadClient(object):
 
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
             self.vo = {}
 

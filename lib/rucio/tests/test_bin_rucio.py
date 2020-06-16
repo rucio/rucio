@@ -26,6 +26,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -43,7 +44,7 @@ from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalScope, InternalAccount
-from rucio.common.utils import generate_uuid, md5, render_json
+from rucio.common.utils import generate_uuid, get_tmp_dir, md5, render_json
 from rucio.daemons.abacus import account as abacus_account
 from rucio.tests.common import execute, account_name_generator, rse_name_generator, file_generator, scope_name_generator
 from rucio.rse import rsemanager as rsemgr
@@ -53,12 +54,18 @@ class TestBinRucio():
 
     def setup(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': 'tst'}
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            try:
+                remove(get_tmp_dir() + '/.rucio_root@%s/auth_token_root' % self.vo['vo'])
+            except OSError as error:
+                if error.args[0] != 2:
+                    raise error
+
         else:
             self.vo = {}
 
         try:
-            remove('/tmp/.rucio_root/auth_token_root')
+            remove(get_tmp_dir() + '/.rucio_root/auth_token_root')
         except OSError as e:
             if e.args[0] != 2:
                 raise e
