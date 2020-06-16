@@ -239,7 +239,7 @@ class AMQConsumer(object):
                             logging.error(format_exc())
                             record_counter('daemons.tracer.kronos.rse_not_found')
                     if 'datasetScope' in report:
-                        self.__dataset_queue.put({'scope': report['datasetScope'], 'name': report['dataset'], 'rse_id': rse_id, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
+                        self.__dataset_queue.put({'scope': InternalScope(report['datasetScope']), 'name': report['dataset'], 'rse_id': rse_id, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
                         continue
                     else:
                         if 'remoteSite' not in report:
