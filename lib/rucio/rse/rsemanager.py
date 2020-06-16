@@ -29,6 +29,7 @@
 # - Gabriele Fronze' <gfronze@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -484,8 +485,7 @@ def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, fo
             if isinstance(ret[x], Exception):
                 raise ret[x]
             else:
-                return {'success': ret[x],
-                        'pfn': pfn}
+                return {0: ret[x], 1: ret, 'success': ret[x], 'pfn': pfn}
     return {0: gs, 1: ret, 'success': gs, 'pfn': pfn}
 
 
