@@ -10,6 +10,7 @@
  - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
  - James Perry, <j.perry@epcc.ed.ac.uk>, 2019
+ - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 
  PY3K COMPATIBLE
 """
