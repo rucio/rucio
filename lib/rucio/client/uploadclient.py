@@ -30,6 +30,7 @@ import json
 import os
 import os.path
 import socket
+import sys
 
 import logging
 import time
@@ -41,6 +42,11 @@ from rucio.common.exception import (RucioException, RSEBlacklisted, DataIdentifi
 from rucio.common.utils import adler32, detect_client_location, execute, generate_uuid, md5, send_trace, GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
+
+# logging format
+format_str = '%(filename)-s | %(funcName)-s | %(message)s'
+hndlr = logging.StreamHandler(sys.stdout)
+hndlr.setFormatter(logging.Formatter(format_str))
 
 
 class UploadClient:
@@ -57,6 +63,8 @@ class UploadClient:
             logger.disabled = True
 
         self.logger = logger
+        self.logger.addHandler(hndlr)
+
         self.client = _client if _client else Client()
         self.client_location = detect_client_location()
         # if token should be used, use only JWT tokens
@@ -100,7 +108,6 @@ class UploadClient:
         :raises NotAllFilesUploaded: if not all files were successfully uploaded
         """
         logger = self.logger
-
         self.trace['uuid'] = generate_uuid()
 
         # check given sources, resolve dirs into files, and collect meta infos
@@ -193,16 +200,16 @@ class UploadClient:
                         logger.info('File already exists on RSE. Previous left overs will be overwritten.')
                         delete_existing = True
             elif not is_deterministic and not no_register:
-                if rsemgr.exists(rse_settings, pfn, domain=domain, auth_token=self.auth_token):
+                if rsemgr.exists(rse_settings, pfn, domain=domain, auth_token=self.auth_token, logger=logger):
                     logger.info('File already exists on RSE with given pfn. Skipping upload. Existing replica has to be removed first.')
                     trace['stateReason'] = 'File already exists'
                     continue
-                elif rsemgr.exists(rse_settings, file_did, domain=domain, auth_token=self.auth_token):
+                elif rsemgr.exists(rse_settings, file_did, domain=domain, auth_token=self.auth_token, logger=logger):
                     logger.info('File already exists on RSE with different pfn. Skipping upload.')
                     trace['stateReason'] = 'File already exists'
                     continue
             else:
-                if rsemgr.exists(rse_settings, pfn if pfn else file_did, domain=domain, auth_token=self.auth_token):
+                if rsemgr.exists(rse_settings, pfn if pfn else file_did, domain=domain, auth_token=self.auth_token, logger=logger):
                     logger.info('File already exists on RSE. Skipping upload')
                     trace['stateReason'] = 'File already exists'
                     continue
