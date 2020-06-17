@@ -249,9 +249,6 @@ def exists(rse_settings, files, domain='wan', auth_token=None, logger=_logger):
         :raises RSENotConnected: no connection to a specific storage has been established
     """
 
-    print('rsemgr: {}'.format(logger))
-    logger.debug('rsemgr: {}'.format(logger))
-
     ret = {}
     gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
 

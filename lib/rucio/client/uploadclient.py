@@ -43,11 +43,6 @@ from rucio.common.utils import adler32, detect_client_location, execute, generat
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
 
-# logging format
-format_str = '%(filename)-s | %(funcName)-s | %(message)s'
-hndlr = logging.StreamHandler(sys.stdout)
-hndlr.setFormatter(logging.Formatter(format_str))
-
 
 class UploadClient:
 
@@ -63,7 +58,6 @@ class UploadClient:
             logger.disabled = True
 
         self.logger = logger
-        self.logger.addHandler(hndlr)
 
         self.client = _client if _client else Client()
         self.client_location = detect_client_location()
@@ -185,6 +179,7 @@ class UploadClient:
                 if self.client_location['site'] == rse_attributes['site']:
                     domain = 'lan'
 
+
             if not no_register and not register_after_upload:
                 self._register_file(file, registered_dataset_dids)
             # if register_after_upload, file should be overwritten if it is not registered
@@ -240,6 +235,7 @@ class UploadClient:
 
                 trace['protocol'] = cur_scheme
                 trace['transferStart'] = time.time()
+                logger.debug('Processing upload with the domain: {}'.format(domain))
                 try:
                     state = rsemgr.upload(rse_settings=rse_settings,
                                           lfns=lfn,
