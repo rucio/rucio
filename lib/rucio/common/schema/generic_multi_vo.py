@@ -19,6 +19,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -26,10 +27,11 @@ from jsonschema import validate, ValidationError
 
 from rucio.common.exception import InvalidObject
 
+ACCOUNT_LENGTH = 29
 
 ACCOUNT = {"description": "Account name",
            "type": "string",
-           "pattern": "^[a-z0-9-_]{1,30}$"}
+           "pattern": "^[a-z0-9-_]{1,%s}$" % (ACCOUNT_LENGTH - 4)}
 
 ACCOUNTS = {"description": "Array of accounts",
             "type": "array",
@@ -51,11 +53,11 @@ ACTIVITY = {"description": "Activity name",
                      "T0 Export", "T0 Tape", "Upload/Download (Job)",
                      "Upload/Download (User)", "User Subscriptions"]}
 
-SCOPE_LENGTH = 25
+SCOPE_LENGTH = 29
 
 SCOPE = {"description": "Scope name",
          "type": "string",
-         "pattern": "^[a-zA-Z_\\-.0-9]{1,%s}$" % SCOPE_LENGTH}
+         "pattern": "^[a-zA-Z_\\-.0-9]{1,%s}$" % (SCOPE_LENGTH - 4)}
 
 R_SCOPE = {"description": "Scope name",
            "type": "string",

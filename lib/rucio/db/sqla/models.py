@@ -25,6 +25,7 @@
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 # - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -43,7 +44,7 @@ from sqlalchemy.sql import Delete
 from sqlalchemy.types import LargeBinary
 
 from rucio.common import utils
-from rucio.common.schema import NAME_LENGTH, SCOPE_LENGTH
+from rucio.common.schema import ACCOUNT_LENGTH, NAME_LENGTH, SCOPE_LENGTH
 from rucio.db.sqla.constants import (AccountStatus, AccountType, DIDAvailability, DIDType, DIDReEvaluation,
                                      KeyType, IdentityType, LockState, RuleGrouping, BadFilesStatus,
                                      RuleState, ReplicaState, RequestState, RequestType, RSEType,
@@ -290,7 +291,7 @@ class SoftModelBase(ModelBase):
 class Account(BASE, ModelBase):
     """Represents an account"""
     __tablename__ = 'accounts'
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     account_type = Column(AccountType.db_type(name='ACCOUNTS_TYPE_CHK'))
     status = Column(AccountStatus.db_type(default=AccountStatus.ACTIVE, name='ACCOUNTS_STATUS_CHK'))
     email = Column(String(255))
@@ -304,7 +305,7 @@ class Account(BASE, ModelBase):
 class AccountAttrAssociation(BASE, ModelBase):
     """Represents an account"""
     __tablename__ = 'account_attr_map'
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     key = Column(String(255))
     value = Column(BooleanString(255))
     _table_args = (PrimaryKeyConstraint('account', 'key', name='ACCOUNT_ATTR_MAP_PK'),
@@ -331,7 +332,7 @@ class IdentityAccountAssociation(BASE, ModelBase):
     __tablename__ = 'account_map'
     identity = Column(String(2048))
     identity_type = Column(IdentityType.db_type(name='ACCOUNT_MAP_ID_TYPE_CHK'))
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     is_default = Column(Boolean(name='ACCOUNT_MAP_DEFAULT_CHK'), default=False)
     _table_args = (PrimaryKeyConstraint('identity', 'identity_type', 'account', name='ACCOUNT_MAP_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_MAP_ACCOUNT_FK'),
@@ -344,7 +345,7 @@ class Scope(BASE, ModelBase):
     """Represents a scope"""
     __tablename__ = 'scopes'
     scope = Column(InternalScopeString(SCOPE_LENGTH))
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     is_default = Column(Boolean(name='SCOPES_DEFAULT_CHK'), default=False)
     status = Column(ScopeStatus.db_type(name='SCOPE_STATUS_CHK', default=ScopeStatus.OPEN))
     closed_at = Column(DateTime)
@@ -361,7 +362,7 @@ class DataIdentifier(BASE, ModelBase):
     __tablename__ = 'dids'
     scope = Column(InternalScopeString(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     did_type = Column(DIDType.db_type(name='DIDS_TYPE_CHK'))
     is_open = Column(Boolean(name='DIDS_IS_OPEN_CHK'))
     monotonic = Column(Boolean(name='DIDS_MONOTONIC_CHK'), server_default='0')
@@ -428,7 +429,7 @@ class DeletedDataIdentifier(BASE, ModelBase):
     __tablename__ = 'deleted_dids'
     scope = Column(InternalScopeString(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     did_type = Column(DIDType.db_type(name='DEL_DIDS_TYPE_CHK'))
     is_open = Column(Boolean(name='DEL_DIDS_IS_OPEN_CHK'))
     monotonic = Column(Boolean(name='DEL_DIDS_MONO_CHK'), server_default='0')
@@ -491,7 +492,7 @@ class BadReplicas(BASE, ModelBase):
     rse_id = Column(GUID())
     reason = Column(String(255))
     state = Column(BadFilesStatus.db_type(name='BAD_REPLICAS_STATE_CHK'), default=BadFilesStatus.SUSPICIOUS)
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     bytes = Column(BigInteger)
     expires_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'rse_id', 'state', 'created_at', name='BAD_REPLICAS_STATE_PK'),
@@ -509,7 +510,7 @@ class BadPFNs(BASE, ModelBase):
     path = Column(String(2048))  # PREFIX + PFN
     state = Column(BadPFNStatus.db_type(name='BAD_PFNS_STATE_CHK'), default=BadPFNStatus.SUSPICIOUS)
     reason = Column(String(255))
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     expires_at = Column(DateTime)
     _table_args = (PrimaryKeyConstraint('path', 'state', name='BAD_PFNS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='BAD_PFNS_ACCOUNT_FK'))
@@ -765,7 +766,7 @@ class RSEProtocols(BASE, ModelBase):
 class AccountLimit(BASE, ModelBase):
     """Represents account limits"""
     __tablename__ = 'account_limits'
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     rse_id = Column(GUID())
     bytes = Column(BigInteger)
     _table_args = (PrimaryKeyConstraint('account', 'rse_id', name='ACCOUNT_LIMITS_PK'),
@@ -776,7 +777,7 @@ class AccountLimit(BASE, ModelBase):
 class AccountGlobalLimit(BASE, ModelBase):
     """Represents account limits"""
     __tablename__ = 'account_glob_limits'
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     rse_expression = Column(String(3000))
     bytes = Column(BigInteger)
     _table_args = (PrimaryKeyConstraint('account', 'rse_expression', name='ACCOUNT_GLOBAL_LIMITS_PK'),
@@ -786,7 +787,7 @@ class AccountGlobalLimit(BASE, ModelBase):
 class AccountUsage(BASE, ModelBase, Versioned):
     """Represents account usage"""
     __tablename__ = 'account_usage'
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     rse_id = Column(GUID())
     files = Column(BigInteger)
     bytes = Column(BigInteger)
@@ -873,7 +874,7 @@ class ReplicationRule(BASE, ModelBase):
     __tablename__ = 'rules'
     id = Column(GUID(), default=utils.generate_uuid)
     subscription_id = Column(GUID())
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     scope = Column(InternalScopeString(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
     did_type = Column(DIDType.db_type(name='RULES_DID_TYPE_CHK'))
@@ -930,7 +931,7 @@ class ReplicationRuleHistoryRecent(BASE, ModelBase):
     __tablename__ = 'rules_hist_recent'
     id = Column(GUID())
     subscription_id = Column(GUID())
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     scope = Column(InternalScopeString(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
     did_type = Column(DIDType.db_type(name='RULES_HIST_RECENT_DIDTYPE_CHK'))
@@ -970,7 +971,7 @@ class ReplicationRuleHistory(BASE, ModelBase):
     __tablename__ = 'rules_history'
     id = Column(GUID())
     subscription_id = Column(GUID())
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     scope = Column(InternalScopeString(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
     did_type = Column(DIDType.db_type(name='RULES_HISTORY_DIDTYPE_CHK'))
@@ -1011,7 +1012,7 @@ class ReplicaLock(BASE, ModelBase):
     name = Column(String(NAME_LENGTH))
     rule_id = Column(GUID())
     rse_id = Column(GUID())
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     bytes = Column(BigInteger)
     state = Column(LockState.db_type(name='LOCKS_STATE_CHK'), default=LockState.REPLICATING)
     repair_cnt = Column(BigInteger)
@@ -1031,7 +1032,7 @@ class DatasetLock(BASE, ModelBase):
     name = Column(String(NAME_LENGTH))
     rule_id = Column(GUID())
     rse_id = Column(GUID())
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     state = Column(LockState.db_type(name='DATASET_LOCKS_STATE_CHK'), default=LockState.REPLICATING)
     length = Column(BigInteger)
     bytes = Column(BigInteger)
@@ -1050,7 +1051,7 @@ class UpdatedAccountCounter(BASE, ModelBase):
     """Represents the recently updated Account counters"""
     __tablename__ = 'updated_account_counters'
     id = Column(GUID(), default=utils.generate_uuid)
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     rse_id = Column(GUID())
     files = Column(BigInteger)
     bytes = Column(BigInteger)
@@ -1092,7 +1093,7 @@ class Request(BASE, ModelBase, Versioned):
     estimated_transferred_at = Column(DateTime)
     staging_started_at = Column(DateTime)
     staging_finished_at = Column(DateTime)
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     requested_at = Column(DateTime)
     priority = Column(Integer)
     _table_args = (PrimaryKeyConstraint('id', name='REQUESTS_PK'),
@@ -1165,7 +1166,7 @@ class Subscription(BASE, ModelBase, Versioned):
     policyid = Column(SmallInteger, server_default='0')
     state = Column(SubscriptionState.db_type(name='SUBSCRIPTIONS_STATE_CHK', default=SubscriptionState.ACTIVE))
     last_processed = Column(DateTime, default=datetime.datetime.utcnow())
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     lifetime = Column(DateTime)
     comments = Column(String(4000))
     retroactive = Column(Boolean(name='SUBSCRIPTIONS_RETROACTIVE_CHK'), default=False)
@@ -1181,7 +1182,7 @@ class Token(BASE, ModelBase):
     """Represents the authentication tokens and their lifetime"""
     __tablename__ = 'tokens'
     token = Column(String(3072))  # account-identity-appid-uuid -> max length: (+ 30 1 255 1 32 1 32)
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     refresh_token = Column(String(315), default=None)
     refresh = Column(Boolean(name='TOKENS_REFRESH_CHK'), default=False)
     refresh_start = Column(DateTime, default=None)
@@ -1201,7 +1202,7 @@ class Token(BASE, ModelBase):
 class OAuthRequest(BASE, ModelBase):
     """Represents the authentication session parameters of OAuth 2.0 requests"""
     __tablename__ = 'oauth_requests'
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     state = Column(String(50))
     nonce = Column(String(50))
     access_msg = Column(String(2048))
@@ -1307,7 +1308,7 @@ class LifetimeExceptions(BASE, ModelBase):
     scope = Column(InternalScopeString(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
     did_type = Column(DIDType.db_type(name='LIFETIME_EXCEPT_TYPE_CHK'))
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     pattern = Column(String(255))
     comments = Column(String(4000))
     state = Column(LifetimeExceptionsState.db_type(name='LIFETIME_EXCEPT_STATE_CHK'))
@@ -1333,7 +1334,7 @@ class DidsFollowed(BASE, ModelBase):
     __tablename__ = 'dids_followed'
     scope = Column(InternalScopeString(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     did_type = Column(DIDType.db_type(name='DIDS_FOLLOWED_TYPE_CHK'))
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'account', name='DIDS_FOLLOWED_PK'),
                    CheckConstraint('SCOPE IS NOT NULL', name='DIDS_FOLLOWED_SCOPE_NN'),
@@ -1349,7 +1350,7 @@ class FollowEvents(BASE, ModelBase):
     __tablename__ = 'dids_followed_events'
     scope = Column(InternalScopeString(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
-    account = Column(InternalAccountString(25))
+    account = Column(InternalAccountString(ACCOUNT_LENGTH))
     did_type = Column(DIDType.db_type(name='DIDS_FOLLOWED_EVENTS_TYPE_CHK'))
     event_type = Column(String(1024))
     payload = Column(Text)

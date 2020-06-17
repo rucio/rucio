@@ -11,6 +11,7 @@
   - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2015
   - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
   - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
+  - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 
   PY3K COMPATIBLE
 '''

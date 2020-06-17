@@ -17,6 +17,7 @@
 # - Edgar Fajardo <emfajard@ucsd.edu>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 
 try:
     from ConfigParser import NoOptionError, NoSectionError
