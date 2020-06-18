@@ -17,6 +17,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -96,6 +97,8 @@ class SubscriptionClient(BaseClient):
             path += '/%s' % (account)
             if name:
                 path += '/%s' % (name)
+        elif name:
+            path += '/Name/%s' % (name)
         else:
             path += '/'
         url = build_url(choice(self.list_hosts), path=path)

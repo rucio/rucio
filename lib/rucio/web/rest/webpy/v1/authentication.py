@@ -23,7 +23,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
-# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019, 2020
 #
 # PY3K COMPATIBLE
 
@@ -42,10 +42,10 @@ from web import seeother, setcookie, template
 
 from rucio.api.authentication import (get_auth_oidc, get_auth_token_gss,
                                       get_auth_token_saml, get_auth_token_ssh,
-                                      get_auth_token_user_pass,
-                                      get_auth_token_x509,
+                                      get_auth_token_user_pass, get_auth_token_x509,
                                       get_ssh_challenge_token, get_token_oidc,
-                                      redirect_auth_oidc, validate_auth_token)
+                                      redirect_auth_oidc, refresh_cli_auth_token,
+                                      validate_auth_token)
 from rucio.common.config import config_get
 from rucio.common.exception import AccessDenied, IdentityError, RucioException
 from rucio.common.utils import date_to_str, generate_http_error, urlparse
@@ -79,6 +79,7 @@ URLS = (
     '/oidc_token', 'TokenOIDC',
     '/oidc_code', 'CodeOIDC',
     '/oidc_redirect', 'RedirectOIDC',
+    '/oidc_refresh', 'RefreshOIDC',
 )
 
 
@@ -208,8 +209,8 @@ class OIDC(RucioController):
         issuer = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_ISSUER', None)
         polling = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_POLLING', False)
         refresh_lifetime = ctx.env.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_REFRESH_LIFETIME', None)
-        auto = (auto == 'True')
-        polling = (polling == 'True')
+        auto = (auto == 'True' or auto == 'true')
+        polling = (polling == 'True' or polling == 'true')
         if refresh_lifetime == 'None':
             refresh_lifetime = None
         ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
@@ -486,6 +487,82 @@ class TokenOIDC(RucioController):
             return seeother(webhome)
         else:
             raise BadRequest()
+
+
+class RefreshOIDC(RucioController):
+    """
+    For a presented and access token which has equivalent in Rucio DB
+    (and also has refrech token in the Rucio DB) the class will attempt
+    token refresh and return a user a new refreshed token. If the presented token
+    is a result of a previous refresh happening in the last 10 min, the same token will be returned.
+    """
+
+    def OPTIONS(self):
+        """
+        HTTP Success:
+            200 OK
+
+        Allow cross-site scripting. Explicit for Authentication.
+        """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+        header('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
+        raise OK
+
+    @check_accept_header_wrapper(['application/octet-stream'])
+    def GET(self):
+        """
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+
+        :param QUERY_STRING: the URL query string itself
+
+        :returns: "Rucio-Auth-Token" as a variable-length string header.
+        """
+
+        header('Access-Control-Allow-Origin', ctx.env.get('HTTP_ORIGIN'))
+        header('Access-Control-Allow-Headers', ctx.env.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        header('Access-Control-Allow-Methods', '*')
+        header('Access-Control-Allow-Credentials', 'true')
+        header('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
+
+        header('Content-Type', 'application/octet-stream')
+        header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        header('Cache-Control', 'post-check=0, pre-check=0', False)
+        header('Pragma', 'no-cache')
+
+        account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
+        token = ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN')
+
+        try:
+            result = refresh_cli_auth_token(token, account)
+
+        except AccessDenied:
+            raise generate_http_error(401, 'CannotAuthorize', 'Cannot authorize token request.')
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+
+        if not result:
+            header('X-Rucio-Auth-Token', '')
+            header('X-Rucio-Auth-Token-Expires', '')
+            return str()
+        else:
+            if result[0] and result[1]:
+                header('X-Rucio-Auth-Token', str(result[0]))
+                header('X-Rucio-Auth-Token-Expires', str(result[1]))
+            else:
+                header('X-Rucio-Auth-Token', '')
+                header('X-Rucio-Auth-Token-Expires', '')
+            return str()
 
 
 class GSS(RucioController):

@@ -18,7 +18,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
-# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019, 2020
 #
 # PY3K COMPATIBLE
 
@@ -28,6 +28,20 @@ from rucio.common.types import InternalAccount
 from rucio.common.utils import api_update_return_dict
 from rucio.core import authentication, identity, oidc
 from rucio.db.sqla.constants import IdentityType
+
+
+def refresh_cli_auth_token(token_string, account):
+    """
+    Checks if there is active refresh token and if so returns
+    either active token with expiration timestamp or requests a new
+    refresh and returns new access token.
+    :param token_string: token string
+    :param account: Rucio account for which token refresh should be considered
+
+    :return: tuple of (access token, expiration epoch), None otherswise
+    """
+    account = InternalAccount(account)
+    return oidc.refresh_cli_auth_token(token_string, account)
 
 
 def redirect_auth_oidc(authn_code, fetchtoken=False):

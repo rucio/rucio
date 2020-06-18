@@ -20,6 +20,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -72,13 +73,14 @@ def re_evaluator(once=False):
     paused_dids = {}  # {(scope, name): datetime}
 
     # Make an initial heartbeat so that all judge-evaluators have the correct worker number on the next try
-    live(executable='rucio-judge-evaluator', hostname=hostname, pid=pid, thread=current_thread, older_than=60 * 30)
+    executable = 'judge-evaluator'
+    live(executable=executable, hostname=hostname, pid=pid, thread=current_thread, older_than=60 * 30)
     graceful_stop.wait(1)
 
     while not graceful_stop.is_set():
         try:
             # heartbeat
-            heartbeat = live(executable='rucio-judge-evaluator', hostname=hostname, pid=pid, thread=current_thread, older_than=60 * 30)
+            heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=current_thread, older_than=60 * 30)
 
             start = time.time()  # NOQA
 
@@ -165,7 +167,7 @@ def re_evaluator(once=False):
         if once:
             break
 
-    die(executable='rucio-judge-evaluator', hostname=hostname, pid=pid, thread=current_thread)
+    die(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
 
 
 def stop(signum=None, frame=None):
@@ -181,8 +183,9 @@ def run(once=False, threads=1):
     Starts up the Judge-Eval threads.
     """
 
+    executable = 'judge-evaluator'
     hostname = socket.gethostname()
-    sanity_check(executable='rucio-judge-evaluator', hostname=hostname)
+    sanity_check(executable=executable, hostname=hostname)
 
     if once:
         re_evaluator(once)

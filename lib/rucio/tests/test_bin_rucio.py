@@ -1,4 +1,4 @@
-# Copyright 2012-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -84,6 +85,14 @@ class TestBinRucio():
         cmd = 'rucio --host %s ping' % self.host
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
+
+    def test_rucio_config_arg(self):
+        """CLIENT(USER): Rucio config argument"""
+        cmd = 'rucio --config errconfig ping'
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        nose.tools.assert_true('Could not load Rucio configuration file' in err and err.rstrip().endswith('errconfig'))
 
     def test_add_account(self):
         """CLIENT(ADMIN): Add account"""
@@ -1272,11 +1281,10 @@ class TestBinRucio():
             abacus_account.run(once=True)
             cmd = 'rucio list-account-usage {0}'.format(account)
             exitcode, out, err = execute(cmd)
-            print(out)
-
             nose.tools.assert_not_equal(re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse, usage, local_limit, local_left), out), None)
             nose.tools.assert_not_equal(re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse_exp, usage, global_limit, global_left), out), None)
             cmd = 'rucio list-account-usage --rse {0} {1}'.format(rse, account)
+            exitcode, out, err = execute(cmd)
             nose.tools.assert_not_equal(re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse, usage, local_limit, local_left), out), None)
             nose.tools.assert_not_equal(re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse_exp, usage, global_limit, global_left), out), None)
             self.account_client.set_local_account_limit(account, rse, -1)
