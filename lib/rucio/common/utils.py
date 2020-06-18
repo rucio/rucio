@@ -55,7 +55,7 @@ import zlib
 from logging import getLogger, Formatter
 from logging.handlers import RotatingFileHandler
 from uuid import uuid4 as uuid
-from six import string_types, PY3
+from six import string_types, text_type, PY3
 from xml.etree import ElementTree
 
 try:
@@ -392,11 +392,11 @@ def val_to_space_sep_str(vallist):
     """
     try:
         if isinstance(vallist, list):
-            return u" ".join(vallist)
+            return text_type(" ".join(vallist))
         else:
-            return unicode(vallist)
-    except Exception:
-        return u''
+            return text_type(vallist)
+    except:
+        return text_type('')
 
 
 def date_to_str(date):
