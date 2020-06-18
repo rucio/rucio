@@ -101,7 +101,7 @@ class UploadClient:
         :raises NotAllFilesUploaded: if not all files were successfully uploaded
         """
         logger = self.logger
-        logger.info(str(items))
+        logger.debug(str(items))
 
         self.trace['uuid'] = generate_uuid()
 
@@ -251,7 +251,7 @@ class UploadClient:
                     file['upload_result'] = {0: True, 1: None, 'success': True, 'pfn': pfn}  # needs to be removed
                 except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:
                     logger.warning('Upload attempt failed')
-                    logger.debug('Exception: %s' % str(error))
+                    logger.info('Exception: %s' % str(error))
                     state_reason = str(error)
 
             if success:
@@ -535,7 +535,7 @@ class UploadClient:
             readpfn = list(protocol_read.lfns2pfns(make_valid_did(lfn)).values())[0]
         except Exception as error:
             logger.warning('Failed to create PFN for LFN: %s' % lfn)
-            logger.warning(str(error))
+            logger.debug(str(error))
         if force_pfn:
             pfn = force_pfn
             readpfn = pfn
@@ -600,6 +600,7 @@ class UploadClient:
         # The upload finished successful and the file can be renamed
         try:
             if protocol_write.renaming:
+                logger.debug('Renaming file %s to %s' % (pfn_tmp, pfn))
                 protocol_write.rename(pfn_tmp, pfn)
         except Exception as e:
             raise RucioException('Unable to rename the tmp file %s.' % pfn_tmp)
