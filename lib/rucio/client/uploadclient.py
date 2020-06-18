@@ -238,19 +238,17 @@ class UploadClient:
                 trace['protocol'] = cur_scheme
                 trace['transferStart'] = time.time()
                 try:
-                    state = rsemgr.upload(rse_settings=rse_settings,
-                                          lfns=lfn,
-                                          domain=domain,
-                                          source_dir=file['dirname'],
-                                          force_scheme=cur_scheme,
-                                          force_pfn=pfn,
-                                          transfer_timeout=file.get('transfer_timeout'),
-                                          delete_existing=delete_existing,
-                                          sign_service=sign_service,
-                                          auth_token=self.auth_token,
-                                          logger=logger)
-                    success = state['success']
-                    file['upload_result'] = state
+                    self._upload_item(rse_settings=rse_settings,
+                                      lfn=lfn,
+                                      source_dir=file['dirname'],
+                                      force_scheme=cur_scheme,
+                                      force_pfn=pfn,
+                                      transfer_timeout=file.get('transfer_timeout'),
+                                      delete_existing=delete_existing,
+                                      sign_service=sign_service)
+                    logger.debug('Upload done.')
+                    success = True
+                    file['upload_result'] = {0: True, 1: None, 'success': True, 'pfn': pfn}  # needs to be removed
                 except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:
                     logger.warning('Upload attempt failed')
                     logger.debug('Exception: %s' % str(error))
@@ -590,11 +588,11 @@ class UploadClient:
             # The checksum and filesize check
             if ('filesize' in stats) and ('filesize' in lfn):
                 if int(stats['filesize']) != int(lfn['filesize']):
-                    raise RucioException('Filesize after upload does not match the origin.')
+                    raise RucioException('Filesize mismatch. Source: %s Destination: %s' % (lfn['filesize'], stats['filesize']))
             if rse_settings['verify_checksum'] is not False:
                 if ('adler32' in stats) and ('adler32' in lfn):
                     if stats['adler32'] != lfn['adler32']:
-                        raise RucioException('Checksum after upload does not match the origin.')
+                        raise RucioException('Checksum mismatch. Source: %s Destination: %s' % (lfn['adler32'], stats['adler32']))
 
         except Exception as error:
             raise error
