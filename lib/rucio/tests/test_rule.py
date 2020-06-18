@@ -19,6 +19,7 @@
 #
 # PY3K COMPATIBLE
 
+from logging import getLogger
 import string
 import random
 import json
@@ -39,6 +40,7 @@ from rucio.common.exception import (RuleNotFound, AccessDenied, InsufficientAcco
                                     RuleReplaceFailed, ManualRuleApprovalBlocked, InputValidationError, UnsupportedOperation)
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.daemons.judge.evaluator import re_evaluator
+from rucio.common.policy import get_policy
 from rucio.core.did import add_did, attach_dids, set_status
 from rucio.core.lock import get_replica_locks, get_dataset_locks, successful_transfer
 from rucio.core.account import add_account_attribute, get_usage
@@ -55,6 +57,8 @@ from rucio.db.sqla import models, session
 from rucio.db.sqla.constants import DIDType, OBSOLETE, RuleState, LockState
 from rucio.db.sqla.session import transactional_session
 from rucio.tests.common import rse_name_generator, account_name_generator
+
+LOG = getLogger(__name__)
 
 
 def create_files(nrfiles, scope, rse_id, bytes=1):
@@ -821,6 +825,10 @@ class TestReplicationRuleCore():
 
     def test_delete_rule_country_admin(self):
         """ REPLICATION RULE (CORE): Delete a rule with a country admin account"""
+        if get_policy() != 'atlas':
+            LOG.info("Skipping atlas-specific test")
+            return
+
         rse = rse_name_generator()
         rse_id = add_rse(rse, **self.vo)
         add_rse_attribute(rse_id, 'country', 'test')
@@ -841,7 +849,6 @@ class TestReplicationRuleCore():
             rucio.api.rule.delete_replication_rule(rule_id=rule_id, purge_replicas=None, issuer=usr, **self.vo)
 
         add_account_attribute(InternalAccount(usr, **self.vo), 'country-test', 'admin')
-
         rucio.api.rule.delete_replication_rule(rule_id=rule_id, purge_replicas=None, issuer=usr, **self.vo)
 
     def test_reduce_rule(self):
@@ -891,6 +898,10 @@ class TestReplicationRuleCore():
 
     def test_add_rule_with_scratchdisk(self):
         """ REPLICATION RULE (CORE): Add a replication rule for scratchdisk"""
+        if get_policy() != 'atlas':
+            LOG.info("Skipping atlas-specific test")
+            return
+
         rse = rse_name_generator()
         rse_id = add_rse(rse, **self.vo)
         add_rse_attribute(rse_id, 'type', 'SCRATCHDISK')
