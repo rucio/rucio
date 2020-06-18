@@ -30,7 +30,6 @@ import json
 import os
 import os.path
 import socket
-import sys
 
 import logging
 import time
@@ -178,7 +177,6 @@ class UploadClient:
             if (self.client_location and 'lan' in rse_settings['domain'] and 'site' in rse_attributes):
                 if self.client_location['site'] == rse_attributes['site']:
                     domain = 'lan'
-
 
             if not no_register and not register_after_upload:
                 self._register_file(file, registered_dataset_dids)
