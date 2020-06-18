@@ -20,12 +20,15 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 
 from datetime import datetime, timedelta
+from logging import getLogger
 
 from nose.tools import assert_not_equal
 
 from rucio.common.config import config_get, config_get_bool
+from rucio.common.policy import get_policy
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.account_limit import set_local_account_limit
@@ -35,6 +38,9 @@ from rucio.core.rule import add_rules, list_rules
 from rucio.core.rse import get_rse_id, add_rse
 from rucio.daemons.undertaker.undertaker import undertaker
 from rucio.tests.common import rse_name_generator
+
+
+LOG = getLogger(__name__)
 
 
 class TestUndertaker:
@@ -121,6 +127,10 @@ class TestUndertaker:
 
     def test_atlas_archival_policy(self):
         """ UNDERTAKER (CORE): Test the atlas archival policy. """
+        if get_policy() != 'atlas':
+            LOG.info("Skipping atlas-specific test")
+            return
+
         tmp_scope = InternalScope('mock', **self.vo)
         jdoe = InternalAccount('jdoe', **self.vo)
         root = InternalAccount('root', **self.vo)

@@ -94,7 +94,7 @@ class TestVOCoreAPI(object):
             else:
                 config_remove_option('common', 'multi_vo')
 
-    def test_access_rule(self):
+    def test_access_rule_vo(self):
         """ MULTI VO (CORE): Test accessing rules from a different VO """
         scope = InternalScope('mock', **self.vo)
         dataset = 'dataset_' + str(generate_uuid())

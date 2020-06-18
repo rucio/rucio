@@ -1,4 +1,4 @@
-# Copyright 2017-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2017-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +13,11 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2019
+# - Vincent Garonne <vgaronne@gmail.com>, 2017
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
@@ -24,12 +27,11 @@ from jsonschema import validate, ValidationError
 
 from rucio.common.exception import InvalidObject
 
-
-ACCOUNT_LENGTH = 25
+ACCOUNT_LENGTH = 29
 
 ACCOUNT = {"description": "Account name",
            "type": "string",
-           "pattern": "^[a-z0-9-_]{1,%s}$" % ACCOUNT_LENGTH}
+           "pattern": "^[a-z0-9-_]{1,%s}$" % (ACCOUNT_LENGTH - 4)}
 
 ACCOUNTS = {"description": "Array of accounts",
             "type": "array",
@@ -44,13 +46,18 @@ ACCOUNT_TYPE = {"description": "Account type",
 
 ACTIVITY = {"description": "Activity name",
             "type": "string",
-            "enum": ["Functional Test XrootD", "Functional Test WebDAV", "Stress Test"]}
+            "enum": ["Data Brokering", "Data Consolidation", "Data rebalancing",
+                     "Debug", "Express", "Functional Test", "Group Subscriptions",
+                     "Production Input", "Production Output",
+                     "Analysis Input", "Analysis Output", "Staging",
+                     "T0 Export", "T0 Tape", "Upload/Download (Job)",
+                     "Upload/Download (User)", "User Subscriptions"]}
 
-SCOPE_LENGTH = 25
+SCOPE_LENGTH = 29
 
 SCOPE = {"description": "Scope name",
          "type": "string",
-         "pattern": "^[a-zA-Z_\\-.0-9]{1,%s}$" % SCOPE_LENGTH}
+         "pattern": "^[a-zA-Z_\\-.0-9]{1,%s}$" % (SCOPE_LENGTH - 4)}
 
 R_SCOPE = {"description": "Scope name",
            "type": "string",
@@ -365,6 +372,10 @@ IMPORT = {"description": "import data into rucio.",
               }
           }}
 
+VO = {"description": "VO tag",
+      "type": "string",
+      "pattern": "^([a-zA-Z_\\-.0-9]{3})?$"}
+
 SCHEMAS = {'account': ACCOUNT,
            'account_type': ACCOUNT_TYPE,
            'activity': ACTIVITY,
@@ -388,7 +399,8 @@ SCHEMAS = {'account': ACCOUNT,
            'cache_add_replicas': CACHE_ADD_REPLICAS,
            'cache_delete_replicas': CACHE_DELETE_REPLICAS,
            'account_attribute': ACCOUNT_ATTRIBUTE,
-           'import': IMPORT}
+           'import': IMPORT,
+           'vo': VO}
 
 
 def validate_schema(name, obj):
