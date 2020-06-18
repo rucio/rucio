@@ -300,7 +300,7 @@ class UploadClient:
                     if checksum_name in file:
                         final_summary[file_did_str][checksum_name] = file[checksum_name]
 
-            with open(summary_file_path, 'wb') as summary_file:
+            with open(summary_file_path, 'w') as summary_file:
                 json.dump(final_summary, summary_file, sort_keys=True, indent=1)
 
         if num_succeeded == 0:
