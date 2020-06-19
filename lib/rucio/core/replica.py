@@ -28,6 +28,7 @@
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White, <bjwhite@fnal.gov>, 2019
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -1635,9 +1636,9 @@ def list_unlocked_replicas(rse_id, limit, bytes=None, worker_number=None, total_
     for (scope, name, path, bytes, tombstone, state) in query.yield_per(1000):
         if state != ReplicaState.UNAVAILABLE:
 
-            total_bytes += bytes
             if tombstone != OBSOLETE and needed_space is not None and total_bytes > needed_space:
                 break
+            total_bytes += bytes
 
             total_files += 1
             if total_files > limit:
