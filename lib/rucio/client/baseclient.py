@@ -1,4 +1,4 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2013
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015
@@ -368,7 +368,6 @@ class BaseClient(object):
                     return
             except ConnectionError as error:
                 LOG.warning('ConnectionError: ' + str(error))
-                self.ca_cert = False
                 if retry > self.request_retries:
                     raise
                 continue

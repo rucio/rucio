@@ -185,7 +185,7 @@ def receiver(id, total_threads=1, full_mode=False):
 
     logging.info('receiver starting in full mode: %s' % full_mode)
 
-    executable = ' '.join(sys.argv)
+    executable = 'conveyor-receiver'
     hostname = socket.getfqdn()
     pid = os.getpid()
     hb_thread = threading.current_thread()
