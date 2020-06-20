@@ -121,7 +121,7 @@ if test ${init_only}; then
 fi
 
 echo 'Running tests on VO "tst"'
-noseopts="--exclude=test_alembic --exclude=.*test_rse_protocol_.* --exclude=test_rucio_server --exclude=test_objectstore --exclude=test_auditor* --exclude=test_release* --exclude=test_throttler*"
+noseopts="--exclude=test_alembic --exclude=.*test_rse_protocol_.* --exclude=test_rucio_server --exclude=test_objectstore --exclude=test_auditor* --exclude=test_release* --exclude=test_throttler* --exclude=test_dirac*"
 
 nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts
 if [ $? != 0 ]; then
