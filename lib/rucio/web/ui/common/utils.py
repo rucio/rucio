@@ -15,6 +15,7 @@
 # catch these from the webpy input() storage object
 # will allow to remove also lines around each use of select_account_name
 
+import re
 from json import dumps, load
 from os.path import dirname, join
 from time import time
@@ -62,6 +63,10 @@ if not AUTH_TYPE:
                 AUTH_ISSUERS.append(iss.upper())
     except:
         AUTH_ISSUERS = []
+
+
+# excluded characters for injected JavaScript variables
+VARIABLE_VALUE_REGEX = re.compile(r"^[\w\- /=,.+*#()\[\]]*$", re.UNICODE)
 
 
 def html_escape(s, quote=True):
@@ -118,6 +123,10 @@ def __to_js(var, value):
     :param var: The name of the javascript var.
     :param value: The value to set.
     """
+    value = value.replace('\n', ' ')  # replace newlines for pattern matching on the whole string
+    if not VARIABLE_VALUE_REGEX.match(value):
+        # ensure nothing is injected
+        value = ''
     return '<script type="text/javascript">var %s = "%s";</script>' % (var, value)
 
 
