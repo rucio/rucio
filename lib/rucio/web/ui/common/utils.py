@@ -9,6 +9,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2020
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 # - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019-2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # TO-DO !!! Remove passing data with account and other params to the functions
 # catch these from the webpy input() storage object
@@ -24,6 +25,15 @@ from rucio.api import authentication as auth, identity
 from rucio.api.account import get_account_info, list_account_attributes
 from rucio.common.config import config_get
 from rucio.db.sqla.constants import AccountType
+
+escapefunc = None
+try:
+    import html
+    escapefunc = html.escape
+except ImportError:
+    import cgi
+    escapefunc = cgi.escape
+
 
 try:
     from onelogin.saml2.auth import OneLogin_Saml2_Auth
@@ -52,6 +62,10 @@ if not AUTH_TYPE:
                 AUTH_ISSUERS.append(iss.upper())
     except:
         AUTH_ISSUERS = []
+
+
+def html_escape(s, quote=True):
+    return escapefunc(s, quote)
 
 
 def prepare_webpy_request(request, data):
@@ -255,7 +269,7 @@ def x509token_auth(data=None):
         ui_account = data.account
     else:
         ui_account = select_account_name(dn, 'x509')
-    msg = "<br><br>Your certificate (%s) is not mapped to (possibly any) rucio account: %s." % (dn, ui_account)
+    msg = "<br><br>Your certificate (%s) is not mapped to (possibly any) rucio account: %s." % (html_escape(dn), html_escape(ui_account))
     msg += "<br><br><font color=\"red\">First, please make sure it is correctly registered in <a href=\"https://voms2.cern.ch:8443/voms/atlas\">VOMS</a> and be patient until it has been fully propagated through the system.</font>"
     msg += "<br><br>Then, if it is still not working please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>."
     if not ui_account:
@@ -284,10 +298,10 @@ def userpass_auth(data, rendered_tpl):
         else:
             ui_account = select_account_name(data.username, 'userpass')
         if not ui_account:
-            return RENDERER.problem(('Cannot get find any account associated with %s identity.' % (data.username)))
+            return RENDERER.problem(('Cannot get find any account associated with %s identity.' % (html_escape(data.username))))
         token = get_token(auth.get_auth_token_user_pass, acc=ui_account, idt=data.username, pwd=data.password.encode("ascii"))
         if not token:
-            return RENDERER.problem(('Cannot get auth token. It is possible that the presented identity %s is not mapped to any Rucio account %s.') % (data.username, ui_account))
+            return RENDERER.problem(('Cannot get auth token. It is possible that the presented identity %s is not mapped to any Rucio account %s.') % (html_escape(data.username), html_escape(ui_account)))
     return finalize_auth(token, 'userpass')
 
 
@@ -315,10 +329,10 @@ def saml_auth(method, data=None):
         if not ui_account:
             ui_account = select_account_name(saml_nameid, 'saml')
         if not ui_account:
-            return RENDERER.problem('Cannot get find any account associated with %s identity.' % (saml_nameid))
+            return RENDERER.problem('Cannot get find any account associated with %s identity.' % (html_escape(saml_nameid)))
         token = get_token(auth.get_auth_token_saml, acc=ui_account, idt=saml_nameid)
         if not token:
-            return RENDERER.problem(('Cannot get auth token. It is possible that the presented identity %s is not mapped to any Rucio account %s.') % (saml_nameid, ui_account))
+            return RENDERER.problem(('Cannot get auth token. It is possible that the presented identity %s is not mapped to any Rucio account %s.') % (html_escape(saml_nameid), html_escape(ui_account)))
         return finalize_auth(token, 'saml')
 
     # If method is POST, check the received SAML response and redirect to home if valid
@@ -335,10 +349,10 @@ def saml_auth(method, data=None):
             if not ui_account:
                 ui_account = select_account_name(saml_nameid, 'saml')
             if not ui_account:
-                return RENDERER.problem('Cannot get find any account associated with %s identity.' % (saml_nameid))
+                return RENDERER.problem('Cannot get find any account associated with %s identity.' % (html_escape(saml_nameid)))
             token = get_token(auth.get_auth_token_saml, acc=ui_account, idt=saml_nameid)
             if not token:
-                return RENDERER.problem(('Cannot get auth token. It is possible that the presented identity %s is not mapped to any Rucio account %s.') % (saml_nameid, ui_account))
+                return RENDERER.problem(('Cannot get auth token. It is possible that the presented identity %s is not mapped to any Rucio account %s.') % (html_escape(saml_nameid), html_escape(ui_account)))
             return finalize_auth(token, 'saml', cookie_extra)
 
         return RENDERER.problem("Not authenticated")
