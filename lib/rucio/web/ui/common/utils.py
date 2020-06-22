@@ -11,11 +11,14 @@
 # - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019-2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
+# PY3K COMPATIBLE
+#
 # TO-DO !!! Remove passing data with account and other params to the functions
 # catch these from the webpy input() storage object
 # will allow to remove also lines around each use of select_account_name
 
 import re
+import sys
 from json import dumps, load
 from os.path import dirname, join
 from time import time
@@ -26,6 +29,11 @@ from rucio.api import authentication as auth, identity
 from rucio.api.account import get_account_info, list_account_attributes
 from rucio.common.config import config_get
 from rucio.db.sqla.constants import AccountType
+
+
+if sys.version_info > (3, 0):
+    long = int
+    unicode = str
 
 escapefunc = None
 try:
