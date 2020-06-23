@@ -46,7 +46,9 @@ class TestSchemaCMS(object):
             "/ZPrimeToTTJets_M500GeV_W5GeV_TuneZ2star_8TeV-madgraph-tauola/StoreResults-Summer12_DR53X-PU_S10_START53_V7A-v1_TLBSM_53x_v3_bugfix_v1/USER",
             "/DoubleMu/aburgmei-Run2012A_22Jan2013_v1_RHembedded_trans1_tau121_ptelec1_17elec2_8_v4/USER"]
         bad_ds = ["/ZPrimeToTTJets/StoreResults|Summer12_DR53X-P",
-                  "/_DoubleMu/aburgme/USER1f1eee22-cdee-0f1b-271b-77a7f559e7dd"]
+                  "/_DoubleMu/aburgme/USER1f1eee22-cdee-0f1b-271b-77a7f559e7dd",
+                  # "/Purdue/Analysis/NAME#Hmump3",
+                  ]
         good_blocks = [
             "/ZPrimeToTTJets_M500GeV_W5GeV_TuneZ2star_8TeV-madgraph-tauola/StoreResults-Summer12_DR53X-PU_S10_START53_V7A-v1_TLBSM_53x_v3_bugfix_v1/USER#620a38a9-29ba-4af4-b650-e2ba07d133f3",
             "/DoubleMu/aburgmei-Run2012A_22Jan2013_v1_RHembedded_trans1_tau121_ptelec1_17elec2_8_v4/USER#1f1eee22-cdee-0f1b-271b-77a7f559e7dd"]
@@ -57,8 +59,6 @@ class TestSchemaCMS(object):
             '/store/mc/2008/2/21/FastSim-CSA07Electron-1203615548/0009/B6E531DD-99E1-DC11-9FEC-001617E30D4A.root',
             '/store/temp/user/ewv/Higgs-123/PrivateSample/v1/1000/a_X-2.root',
             '/store/temp/user/cinquilli.nocern/Higgs-123/PrivateSample/v1/1000/a_X-2.root',
-            '/store/user/ewv/Higgs-123/PrivateSample/v1/1000/a_X-2.root',
-            '/store/user/cinquilli.nocern/Higgs-123/PrivateSample/v1/1000/a_X-2.root',
             '/store/temp/group/Exotica/Higgs-123/PrivateSample/v1/1000/a_X-2.root',
             '/store/group/Exotica/Higgs-123/PrivateSample/v1/1000/a_X-2.root',
             '/store/temp1/acquisition_10-A/MuElectron-10_100/RAW-RECO/vX-1/1000/a_X-2.root',
@@ -79,7 +79,6 @@ class TestSchemaCMS(object):
             '/store/backfill/1/Run2012B/Cosmics/RAW-RECO/PromptSkim-v1/000/194/912/00000/F65F4AFE-14AC-DF11-B3BE-00215E21F32E.root',
             '/store/results/qcd/QCD_Pt80/StoreResults-Summer09-MC_31X_V3_7TeV-Jet30U-JetAODSkim-0a98be42532eba1f0545cc9b086ec3c3/QCD_Pt80/USER/StoreResults-Summer09-MC_31X_V3_7TeV-Jet30U-JetAODSkim-0a98be42532eba1f0545cc9b086ec3c3/0000/C44630AC-C0C7-DE11-AD4E-0019B9CAC0F8.root',  # noqa: E501
             '/store/results/qcd/StoreResults/QCD_Pt_40_2017_14TeV_612_SLHC6_patch1/USER/QCD_Pt_40_2017_14TeV_612_SLHC6_patch1_6be6d116203e430d91d7e1d6d9a88cd7-v1/00000/028DDC2A-63A8-E311-BB40-842B2B5546DE.root',
-            '/store/user/fanzago/RelValZMM/FanzagoTutGrid/f30a6bb13f516198b2814e83414acca1/outfile_10_2_tw4.root',
             '/store/group/higgs/SDMu9_Zmumu/Zmumu/OctX_HZZ3lepSkim_SDMu9/1eb161a436e69f7af28d18145e4ce909/3lepSkim_SDMu9_1.root',
             '/store/group/e-gamma_ecal/SDMu9_Zmumu/Zmumu/OctX_HZZ3lepSkim_SDMu9/1eb161a436e69f7af28d18145e4ce909/3lepSkim_SDMu9_1.root',
             '/store/group/B2G/SDMu9_Zmumu/Zmumu/OctX_HZZ3lepSkim_SDMu9/1eb161a436e69f7af28d18145e4ce909/3lepSkim_SDMu9_1.root',
@@ -104,35 +103,67 @@ class TestSchemaCMS(object):
             '/store/temp/user/ewv/Higgs-123/PrivateSample/v1#/a_X-2.root',
             '/root/store/temp/user/ewv/Higgs-123/PrivateSample/v1#/a_X-2.root',
             '/store/lhe/10860/11%11/1111/LQToUE_BetaHalf_vector_YM-MLQ300LG0KG0.lhe.xz',
+            '/store/user/ewv/Higgs-123/PrivateSample/v1/1000/a_X-2.root',
+            '/store/user/cinquilli.nocern/Higgs-123/PrivateSample/v1/1000/a_X-2.root',
         ]
 
+        # Good datasets pass for both scopes
         for ds in good_ds:
-            validate_schema('did', {'name': ds, 'scope': 'cms'})
+            validate_schema('did', {'name': ds, 'scope': 'cms', 'type': 'CONTAINER'})
+            validate_schema('did', {'name': ds, 'scope': 'user.jdoe', 'type': 'CONTAINER'})
+
+        # Bad datasets, good blocks, and good files all fail as containers
         for ds in bad_ds:
             with assert_raises(InvalidObject):
-                validate_schema('did', {'name': ds, 'scope': 'cms'})
-
+                validate_schema('did', {'name': ds, 'scope': 'cms', 'type': 'CONTAINER'})
         for block in good_blocks:
-            validate_schema('did', {'name': block, 'scope': 'cms'})
+            with assert_raises(InvalidObject):
+                print("BLock as container: %s" % block)
+                validate_schema('did', {'name': block, 'scope': 'cms', 'type': 'CONTAINER'})
+        for lfn in good_lfns:
+            with assert_raises(InvalidObject):
+                validate_schema('did', {'name': lfn, 'scope': 'cms', 'type': 'CONTAINER'})
+
+        # Good blocks pass
+        for block in good_blocks:
+            validate_schema('did', {'name': block, 'scope': 'cms', 'type': 'DATASET'})
+            validate_schema('did', {'name': block, 'scope': 'user.jdoe', 'type': 'DATASET'})
+
+        # Bad blocks, good datasets, and good files all fail as blocks/datasets
         for block in bad_blocks:
             with assert_raises(InvalidObject):
-                validate_schema('did', {'name': block, 'scope': 'cms'})
-
+                validate_schema('did', {'name': block, 'scope': 'cms', 'type': 'DATASET'})
+        for ds in good_ds:
+            with assert_raises(InvalidObject):
+                validate_schema('did', {'name': ds, 'scope': 'cms', 'type': 'DATASET'})
         for lfn in good_lfns:
-            validate_schema('did', {'name': lfn, 'scope': 'cms'})
+            with assert_raises(InvalidObject):
+                validate_schema('did', {'name': lfn, 'scope': 'cms', 'type': 'DATASET'})
+
+        # Good files pass
+        for lfn in good_lfns:
+            validate_schema('did', {'name': lfn, 'scope': 'cms', 'type': 'FILE'})
+
+        # Bad files, blocks, and datasets all fail as files
         for lfn in bad_lfns:
             with assert_raises(InvalidObject):
                 print("Checking %s" % lfn)
-                validate_schema('did', {'name': lfn, 'scope': 'cms'})
+                validate_schema('did', {'name': lfn, 'scope': 'cms', 'type': 'FILE'})
+        for ds in good_ds:
+            with assert_raises(InvalidObject):
+                validate_schema('did', {'name': ds, 'scope': 'cms', 'type': 'FILE'})
+        for block in good_blocks:
+            with assert_raises(InvalidObject):
+                validate_schema('did', {'name': block, 'scope': 'cms', 'type': 'FILE'})
 
     def test_scopes(self):
         """ CMS SCHEMA (COMMON): Test CMS scopes"""
         validate_schema('scope', 'cms')
         validate_schema('scope', 'user.ewv')
         validate_schema('scope', 'user.ewv2')
-        validate_schema('scope', 'user.e.vaandering')
-        with assert_raises(InvalidObject):
-            validate_schema('scope', 'user.e-vaandering')  # Has '-'
+        # validate_schema('scope', 'user.e.vaandering')
+        # with assert_raises(InvalidObject):
+        #     validate_schema('scope', 'user.e-vaandering')  # Has '-'
         with assert_raises(InvalidObject):
             validate_schema('scope', 'user.e01234567890123456789')  # Too long
         with assert_raises(InvalidObject):
@@ -140,12 +171,36 @@ class TestSchemaCMS(object):
         with assert_raises(InvalidObject):
             validate_schema('scope', 'csm')  # Anagram
 
+    def test_scope_with_lfn(self):
+        good_1 = {
+            'name': '/store/mc/2008/2/21/FastSim-CSA07Electron-1203615548/0009/B6E531DD-99E1-DC11-9FEC-001617E30D4A.root',
+            'scope': 'cms', 'type': 'FILE'}
+        good_2 = {'name': '/store/user/rucio/ewv/Higgs-123/PrivateSample/v1/1000/a_X-2.root', 'scope': 'user.ewv',
+                  'type': 'FILE'}
+        bad_1 = {
+            'name': '/store/mc/2008/2/21/FastSim-CSA07Electron-1203615548/0009/B6E531DD-99E1-DC11-9FEC-001617E30D4A.root',
+            'scope': 'user.ewv', 'type': 'FILE'}
+        bad_2 = {'name': '/store/user/rucio/ewv/Higgs-123/PrivateSample/v1/1000/a_X-2.root', 'scope': 'cms',
+                 'type': 'FILE'}
+        bad_3 = {'name': '/store/user/rucio/ewv/Higgs-123/PrivateSample/v1/1000/a_X-2.root', 'scope': 'user.jdoe',
+                 'type': 'FILE'}
+
+        validate_schema('did', good_1)
+        validate_schema('did', good_2)
+        with assert_raises(InvalidObject):
+            validate_schema('did', bad_1)  # User scope for CMS file
+        with assert_raises(InvalidObject):
+            validate_schema('did', bad_2)  # CMS scope for user file
+        with assert_raises(InvalidObject):
+            validate_schema('did', bad_3)  # User with wrong scope
+
     def test_attachment(self):
         """ CMS SCHEMA (COMMON): Test CMS attachment"""
 
         # no need to re-test did pattrens
         dids = [{
-            'scope': 'cms', 'name': '/store/mc/Fall10/DYToMuMu_M-20_TuneZ2_7TeV-pythia6/AODSIM/START38_V12-v1/0003/C0F3344F-6EC8-DF11-8ED6-E41F13181020.root'
+            'scope': 'cms',
+            'name': '/store/mc/Fall10/DYToMuMu_M-20_TuneZ2_7TeV-pythia6/AODSIM/START38_V12-v1/0003/C0F3344F-6EC8-DF11-8ED6-E41F13181020.root',
         }]
 
         dataset = '/DoubleMu/aburgmei-Run2012A_22Jan2013_v1_RHembedded_trans1_tau121_ptelec1_17elec2_8_v4/USER#1f1eee22-cdee-0f1b-271b-77a7f559e7dd'
@@ -163,6 +218,7 @@ class TestSchemaCMS(object):
         validate_schema('attachment', args)
         args['scope'] = scope
         args['name'] = dataset
+        # args['type'] = 'DATASET'
         validate_schema('attachment', args)
 
         for rse in good_rses:
