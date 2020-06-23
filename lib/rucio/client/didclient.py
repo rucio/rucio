@@ -373,15 +373,18 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def get_did(self, scope, name):
+    def get_did(self, scope, name, dynamic=False):
         """
         Retrieve a single data identifier.
 
         :param scope: The scope name.
         :param name: The data identifier name.
+        :param dynamic: Calculate sizes dynamically when True
         """
 
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name)])
+        if dynamic:
+            path += '?dynamic=True'
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
