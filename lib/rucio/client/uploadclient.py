@@ -101,12 +101,12 @@ class UploadClient:
         :raises NotAllFilesUploaded: if not all files were successfully uploaded
         """
         logger = self.logger
-        logger.debug(str(items))
 
         self.trace['uuid'] = generate_uuid()
 
         # check given sources, resolve dirs into files, and collect meta infos
         files = self._collect_and_validate_file_info(items)
+        logger.debug('Num. of files that upload client is processing: {}'.format(len(files)))
 
         # check if RSE of every file is available for writing
         # and cache rse settings
@@ -130,13 +130,13 @@ class UploadClient:
         wrong_dids = registered_file_dids.intersection(registered_dataset_dids)
         if len(wrong_dids):
             raise InputValidationError('DIDs used to address both files and datasets: %s' % str(wrong_dids))
+        logger.debug('Input validation done.')
 
         # clear this set again to ensure that we only try to register datasets once
         registered_dataset_dids = set()
         num_succeeded = 0
         summary = []
         for file in files:
-            logger.debug(str(file))
             basename = file['basename']
             logger.info('Preparing upload for file %s' % basename)
 
@@ -180,6 +180,7 @@ class UploadClient:
             if (self.client_location and 'lan' in rse_settings['domain'] and 'site' in rse_attributes):
                 if self.client_location['site'] == rse_attributes['site']:
                     domain = 'lan'
+            logger.debug('{} is used for the upload'.format(domain))
 
             if not no_register and not register_after_upload:
                 self._register_file(file, registered_dataset_dids)
@@ -278,7 +279,7 @@ class UploadClient:
                         self.client.attach_dids(file['dataset_scope'], file['dataset_name'], [file_did])
                     except Exception as error:
                         logger.warning('Failed to attach file to the dataset')
-                        logger.debug(error)
+                        logger.debug('Attaching to dataset {}'.format(str(error)))
             else:
                 trace['clientState'] = 'FAILED'
                 trace['stateReason'] = state_reason
@@ -286,6 +287,7 @@ class UploadClient:
                 logger.error('Failed to upload file %s' % basename)
 
         if summary_file_path:
+            logger.debug('Summary will be available at {}'.format(summary_file_path))
             final_summary = {}
             for file in summary:
                 file_scope = file['did_scope']
@@ -302,7 +304,7 @@ class UploadClient:
                     if checksum_name in file:
                         final_summary[file_did_str][checksum_name] = file[checksum_name]
 
-            with open(summary_file_path, 'wb') as summary_file:
+            with open(summary_file_path, 'w') as summary_file:
                 json.dump(final_summary, summary_file, sort_keys=True, indent=1)
 
         if num_succeeded == 0:
@@ -533,12 +535,14 @@ class UploadClient:
         try:
             pfn = list(protocol_write.lfns2pfns(make_valid_did(lfn)).values())[0]
             readpfn = list(protocol_read.lfns2pfns(make_valid_did(lfn)).values())[0]
+            logger.debug('The PFN created from the LFN: {}'.format(pfn))
         except Exception as error:
             logger.warning('Failed to create PFN for LFN: %s' % lfn)
             logger.debug(str(error))
         if force_pfn:
             pfn = force_pfn
             readpfn = pfn
+            logger.debug('The given PFN is used: {}'.format(pfn))
 
         # Auth. mostly for object stores
         if sign_service:
@@ -555,6 +559,7 @@ class UploadClient:
 
         # Removing tmp from earlier attempts
         if protocol_read.exists('%s.rucio.upload' % readpfn):
+            logger.debug('Removing remains of previous upload attemtps.')
             try:
                 # Construct protocol for delete operation.
                 protocol_delete = self._create_protocol(rse_settings, 'delete')
@@ -565,6 +570,7 @@ class UploadClient:
 
         # Removing not registered files from earlier attempts
         if delete_existing:
+            logger.debug('Removing not-registered remains of previous upload attemtps.')
             try:
                 # Construct protocol for delete operation.
                 protocol_delete = self._create_protocol(rse_settings, 'delete')
@@ -576,8 +582,9 @@ class UploadClient:
         # Process the upload of the tmp file
         try:
             protocol_write.put(base_name, pfn_tmp, source_dir, transfer_timeout=transfer_timeout)
+            logger.info('Successful upload of temporary file. {}'.format(pfn_tmp))
         except Exception as error:
-            raise error
+            raise RSEOperationNotSupported(str(error))
 
         # Checksum verification, obsolete, see Gabriele changes.
         try:
