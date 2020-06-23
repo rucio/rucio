@@ -327,6 +327,12 @@ class UploadClient:
         """
         logger = self.logger
         logger.debug('Registering file')
+
+        # verification whether the scope exists
+        account_scopes = self.client.list_scopes_for_account(self.client.account)
+        if file['did_scope'] not in account_scopes:
+            logger.warning('Scope {} not found for the account {}.'.format(file['did_scope'], self.client.account))
+
         rse = file['rse']
         dataset_did_str = file.get('dataset_did_str')
         # register a dataset if we need to
