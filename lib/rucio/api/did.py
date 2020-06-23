@@ -79,8 +79,8 @@ def add_did(scope, name, type, issuer, account=None, statuses={}, meta={}, rules
     :param dids: The content.
     :param rse: The RSE name when registering replicas.
     """
-    validate_schema(name='name', obj=name)
-    validate_schema(name='scope', obj=scope)
+    v_did = {'name': name, 'type': type, 'scope': scope}
+    validate_schema(name='did', obj=v_did)
     validate_schema(name='dids', obj=dids)
     validate_schema(name='rse', obj=rse)
     kwargs = {'scope': scope, 'name': name, 'type': type, 'issuer': issuer, 'account': account, 'statuses': statuses, 'meta': meta, 'rules': rules, 'lifetime': lifetime}
