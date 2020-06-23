@@ -645,9 +645,10 @@ class UploadClient:
         :param: rse_settings        rse_settings
         :param: operation           activity, e.g. read, write, delete etc.
         :param: force_scheme        custom scheme
+        :param auth_token: Optionally passing JSON Web Token (OIDC) string for authentication
         """
         try:
-            protocol = rsemgr.create_protocol(rse_settings, operation, scheme=force_scheme)
+            protocol = rsemgr.create_protocol(rse_settings, operation, scheme=force_scheme, auth_token=self.auth_token)
             protocol.connect()
         except Exception as error:
             self.logger.warning('Failed to create protocol for operation: %s' % operation)
