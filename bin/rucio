@@ -14,14 +14,14 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2012-2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2017
 # - Yun-Pin Sun <winter0128@gmail.com>, 2012-2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - David Cameron <david.cameron@cern.ch>, 2014-2020
+# - David Cameron <d.g.cameron@gmail.com>, 2014-2020
 # - Tomas Kouba <tomas.kouba@cern.ch>, 2014
 # - Wen Guan <wen.guan@cern.ch>, 2014
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
@@ -30,7 +30,7 @@
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2017-2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2017-2018
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
-# - Tomas Javurek <tomas.javurek@cern.ch>, 2018-2019
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2018-2020
 # - asket <asket.agarwal96@gmail.com>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -41,6 +41,7 @@
 # - Jason Nielsen <jnielsen@ucsc.edu>, 2020
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - javor <33832672+TomasJavurek@users.noreply.github.com>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -2149,7 +2150,7 @@ You can filter by key/value, e.g.::
     upload_parser.add_argument('--protocol', action='store', help='Force the protocol to use')
     upload_parser.add_argument('--pfn', dest='pfn', action='store', help='Specify the exact PFN for the upload.')
     upload_parser.add_argument('--name', dest='name', action='store', help='Specify the exact LFN for the upload.')
-    upload_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('upload', 'transfer_timeout', False, 3600), help='Transfer timeout (in seconds).')
+    upload_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('upload', 'transfer_timeout', False, 360), help='Transfer timeout (in seconds).')
     upload_parser.add_argument(dest='args', action='store', nargs='+', help='files and datasets.')
 
     # The download and get subparser
@@ -2168,7 +2169,7 @@ You can filter by key/value, e.g.::
         selected_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
         selected_parser.add_argument('--archive-did', action='store', dest='archive_did', help="Download from archive is transparent. This option is obsolete.")
         selected_parser.add_argument('--no-resolve-archives', action='store_true', default=False, help="If set archives will not be considered for download.")
-        selected_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('download', 'transfer_timeout', False, 3600), help='Transfer timeout (in seconds).')
+        selected_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('download', 'transfer_timeout', False, 360), help='Transfer timeout (in seconds).')
         selected_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
         selected_parser.add_argument('--trace_appid', dest='trace_appid', action='store', default=os.environ.get('RUCIO_TRACE_APPID', None), help=argparse.SUPPRESS)
         selected_parser.add_argument('--trace_dataset', dest='trace_dataset', action='store', default=os.environ.get('RUCIO_TRACE_DATASET', None), help=argparse.SUPPRESS)
