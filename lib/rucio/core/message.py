@@ -19,6 +19,7 @@
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -52,9 +53,9 @@ def add_message(event_type, payload, session=None):
         raise InvalidObject('Invalid JSON for payload: %(e)s' % locals())
 
     if len(payload) > 4000:
-        new_message = Message(event_type=event_type, payload='nolimit', payload_nolimit=payload)
+        new_message = Message(event_type=event_type, payload='nolimit', payload_nolimit=payload, status=1023)
     else:
-        new_message = Message(event_type=event_type, payload=payload)
+        new_message = Message(event_type=event_type, payload=payload, status=1023)
 
     new_message.save(session=session, flush=False)
 
@@ -72,7 +73,7 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
     :param lock: Select exclusively some rows.
     :param session: The database session to use.
 
-    :returns messages: List of dictionaries {id, created_at, event_type, payload}
+    :returns messages: List of dictionaries {id, created_at, event_type, payload, state}
     """
     messages = []
     try:
@@ -94,7 +95,8 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
         query = session.query(Message.id,
                               Message.created_at,
                               Message.event_type,
-                              Message.payload)\
+                              Message.payload,
+                              Message.state)\
             .filter(Message.id.in_(subquery))\
             .with_for_update(nowait=True)
 
@@ -106,10 +108,11 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
 
         # Step 3:
         # Assemble message object
-        for id, created_at, event_type, payload in query:
+        for id, created_at, event_type, payload, state in query:
             message = {'id': id,
                        'created_at': created_at,
-                       'event_type': event_type}
+                       'event_type': event_type,
+                       'state': state}
 
             # Only switch SQL context when necessary
             if payload == 'nolimit':
@@ -163,3 +166,29 @@ def truncate_messages(session=None):
         session.query(Message).delete(synchronize_session=False)
     except IntegrityError as e:
         raise RucioException(e.args)
+
+
+@transactional_session
+def update_messages_state(messages, state, session=None):
+    """
+    Update all messages with the given IDs to the given state.
+
+    :param messages: The messages to delete as a list of dictionaries.
+    :param state: An integer to track the state of the submission
+    :param session: The database session to use.
+    """
+    message_condition = []
+    for message in messages:
+        message_condition.append(Message.id == message['id'])
+        if len(message['payload']) > 4000:
+            message['payload_nolimit'] = message.pop('payload')
+
+    try:
+        if message_condition:
+            session.query(Message).\
+                with_hint(Message, "index(messages MESSAGES_ID_PK)", 'oracle').\
+                filter(or_(*message_condition)).\
+                update({'state': state}, synchronize_session=False)
+
+    except IntegrityError as err:
+        raise RucioException(err.args)
