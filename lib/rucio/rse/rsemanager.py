@@ -27,7 +27,9 @@
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Gabriele Fronze' <gfronze@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -51,11 +53,14 @@ from rucio.common.utils import make_valid_did, GLOBALLY_SUPPORTED_CHECKSUMS
 _logger = logging.getLogger(__name__)
 
 
-def get_rse_info(rse, session=None):
+def get_rse_info(rse=None, vo='def', rse_id=None, session=None):
     """
         Returns all protocol related RSE attributes.
+        Call with either rse and vo, or (in server mode) rse_id
 
         :param rse: Name of the requested RSE
+        :param vo: The VO for the RSE.
+        :param rse_id: The id of the rse (use in server mode to avoid db calls)
         :param session: The eventual database session.
 
         :returns: a dict object with the following attributes:
@@ -79,10 +84,11 @@ def get_rse_info(rse, session=None):
     """
     # __request_rse_info will be assigned when the module is loaded as it depends on the rucio environment (server or client)
     # __request_rse_info, rse_region are defined in /rucio/rse/__init__.py
-    rse_info = RSE_REGION.get(str(rse))   # NOQA pylint: disable=undefined-variable
+    key = '{}:{}'.format(rse, vo) if rse_id is None else str(rse_id)
+    rse_info = RSE_REGION.get(key)   # NOQA pylint: disable=undefined-variable
     if not rse_info:  # no cached entry found
-        rse_info = __request_rse_info(str(rse), session=session)  # NOQA pylint: disable=undefined-variable
-        RSE_REGION.set(str(rse), rse_info)  # NOQA pylint: disable=undefined-variable
+        rse_info = __request_rse_info(str(rse), vo=vo, rse_id=rse_id, session=session)  # NOQA pylint: disable=undefined-variable
+        RSE_REGION.set(key, rse_info)  # NOQA pylint: disable=undefined-variable
     return rse_info
 
 
@@ -486,8 +492,7 @@ def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, fo
             if isinstance(ret[x], Exception):
                 raise ret[x]
             else:
-                return {'success': ret[x],
-                        'pfn': pfn}
+                return {0: ret[x], 1: ret, 'success': ret[x], 'pfn': pfn}
     return {0: gs, 1: ret, 'success': gs, 'pfn': pfn}
 
 

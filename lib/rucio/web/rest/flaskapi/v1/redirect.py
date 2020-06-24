@@ -19,6 +19,8 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -90,8 +92,11 @@ class MetaLinkRedirector(MethodView):
         client_location['fqdn'] = request.args.get('fqdn', None)
         client_location['site'] = request.args.get('site', None)
 
+        # get vo if given
+        vo = request.environ.get('HTTP_X_RUCIO_VO', 'def')
+
         try:
-            tmp_replicas = [rep for rep in list_replicas(dids=dids, schemes=schemes, client_location=client_location)]
+            tmp_replicas = [rep for rep in list_replicas(dids=dids, schemes=schemes, client_location=client_location, vo=vo)]
 
             if not tmp_replicas:
                 return 'no redirection possible - cannot find the DID', 404
@@ -206,7 +211,11 @@ class HeaderRedirector(MethodView):
                 headers['Link'] = '<%s/metalink?schemes=%s&select=%s>; rel=describedby; type="application/metalink+xml"' % (cleaned_url, schemes, select)
                 schemes = [schemes]  # list_replicas needs a list
 
-            replicas = [r for r in list_replicas(dids=[{'scope': scope, 'name': name, 'type': 'FILE'}], schemes=schemes, client_location=client_location)]
+            # get vo if given
+            vo = request.environ.get('HTTP_X_RUCIO_VO', 'def')
+
+            replicas = [r for r in list_replicas(dids=[{'scope': scope, 'name': name, 'type': 'FILE'}],
+                                                 schemes=schemes, client_location=client_location, vo=vo)]
 
             selected_url = None
             for r in replicas:
@@ -231,7 +240,7 @@ class HeaderRedirector(MethodView):
                             return 'no redirection possible - no valid RSE for HTTP redirection found', 404
 
                         elif site:
-                            rep = site_selector(dictreplica, site)
+                            rep = site_selector(dictreplica, site, vo)
                             if rep:
                                 selected_url = rep[0]
                             else:

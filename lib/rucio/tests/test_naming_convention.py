@@ -9,6 +9,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Martin Barisits, <martin.barisits@cern.ch>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -16,6 +17,7 @@
 from nose.tools import assert_equal, assert_raises
 
 from rucio.client.didclient import DIDClient
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import InvalidObject
 from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid
@@ -33,6 +35,11 @@ class TestNamingConventionCore:
 
     def __init__(self):
         """ Constructor."""
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+        else:
+            self.vo = {}
+
         self.did_client = DIDClient()
 
     def test_naming_convention(self):
@@ -41,13 +48,13 @@ class TestNamingConventionCore:
         for convention in list_naming_conventions():
             conventions[convention['scope']] = convention['regexp']
 
-        scope = InternalScope('mock')
+        scope = InternalScope('mock', **self.vo)
         if scope not in conventions:
             add_naming_convention(scope=scope,
                                   regexp=r'^(?P<project>mock)\.(?P<datatype>\w+)\.\w+$',
                                   convention_type=KeyType.DATASET)
 
-        meta = validate_name(scope=InternalScope('mck'), name='mock.DESD.yipeeee', did_type='D')
+        meta = validate_name(scope=InternalScope('mck', **self.vo), name='mock.DESD.yipeeee', did_type='D')
         assert_equal(meta, None)
 
         meta = validate_name(scope=scope, name='mock.DESD.yipeeee', did_type='D')

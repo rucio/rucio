@@ -23,6 +23,8 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -1002,3 +1004,23 @@ class SubscriptionWrongParameter(RucioException):
         super(SubscriptionWrongParameter, self).__init__(*args, **kwargs)
         self._message = "Subscription wrong parameters"
         self.error_code = 95
+
+
+class VONotFound(RucioException):
+    """
+    Requested VO does not exist.
+    """
+    def __init__(self, *args, **kwargs):
+        super(VONotFound, self).__init__(*args, **kwargs)
+        self.message = 'The requested VO does not exist'
+        self.error_code = 96
+
+
+class UnsupportedAccountName(RucioException):
+    """
+    Requested account name is not supported for users.
+    """
+    def __init__(self, *args, **kwargs):
+        super(UnsupportedAccountName, self).__init__(*args, **kwargs)
+        self.message = 'The requested account name cannot be used'
+        self.error_code = 97

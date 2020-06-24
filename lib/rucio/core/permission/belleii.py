@@ -25,6 +25,7 @@
 #
 # PY3K COMPATIBLE
 
+from rucio.core.lifetime_exception import list_exceptions
 import rucio.core.scope
 from rucio.core.account import list_account_attributes, has_account_attribute
 from rucio.core.identity import exist_identity_account
@@ -773,7 +774,7 @@ def perm_set_global_account_limit(issuer, kwargs):
     for kv in list_account_attributes(account=issuer):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
-    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country') for rse in parse_expression(kwargs['rse_expression'])}
+    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country') for rse in parse_expression(kwargs['rse_expression'], filter={'vo': issuer.vo})}
     if resolved_rse_countries.issubset(admin_in_country):
         return True
     return False
@@ -815,7 +816,7 @@ def perm_delete_global_account_limit(issuer, kwargs):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
     if admin_in_country:
-        resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country') for rse in parse_expression(kwargs['rse_expression'])}
+        resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country') for rse in parse_expression(kwargs['rse_expression'], filter={'vo': issuer.vo})}
         if resolved_rse_countries.issubset(admin_in_country):
             return True
     return False
@@ -866,7 +867,7 @@ def perm_get_global_account_usage(issuer, kwargs):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
     resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country')
-                              for rse in parse_expression(kwargs['rse_exp'])}
+                              for rse in parse_expression(kwargs['rse_exp'], filter={'vo': issuer.vo})}
 
     if resolved_rse_countries.issubset(admin_in_country):
         return True
@@ -924,6 +925,10 @@ def perm_update_lifetime_exceptions(issuer, kwargs):
     :param issuer: Account identifier which issues the command.
     :returns: True if account is allowed to call the API call, otherwise False
     """
+    if kwargs['vo'] is not None:
+        exceptions = next(list_exceptions(exception_id=kwargs['exception_id'], states=False))
+        if exceptions['scope'].vo != kwargs['vo']:
+            return False
     return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
 
 

@@ -14,7 +14,9 @@
 #
 # Authors:
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalScope, InternalAccount, InternalType
 import nose.tools
 
@@ -24,12 +26,17 @@ class TestInternalType(object):
 
     def setup(self):
         ''' INTERNAL TYPES: Setup the tests '''
-        self.base = InternalType('test')
-        self.same = InternalType('test')
-        self.diff = InternalType('different')
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+        else:
+            self.vo = {}
 
-        self.base_account = InternalAccount('test')
-        self.base_scope = InternalScope('test')
+        self.base = InternalType('test', **self.vo)
+        self.same = InternalType('test', **self.vo)
+        self.diff = InternalType('different', **self.vo)
+
+        self.base_account = InternalAccount('test', **self.vo)
+        self.base_scope = InternalScope('test', **self.vo)
 
     def test_equality(self):
         ''' INTERNAL TYPES: Equality '''

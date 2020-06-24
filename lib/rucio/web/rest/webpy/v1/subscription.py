@@ -18,6 +18,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
@@ -70,7 +71,7 @@ class Subscription:
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            for subscription in list_subscriptions(name=name, account=account):
+            for subscription in list_subscriptions(name=name, account=account, vo=ctx.env.get('vo')):
                 yield dumps(subscription, cls=APIEncoder) + '\n'
         except SubscriptionNotFound as error:
             raise generate_http_error(404, 'SubscriptionNotFound', error.args[0])
@@ -105,7 +106,7 @@ class Subscription:
         metadata['retroactive'] = params.get('retroactive', None)
         metadata['priority'] = params.get('priority', None)
         try:
-            update_subscription(name=name, account=account, metadata=metadata, issuer=ctx.env.get('issuer'))
+            update_subscription(name=name, account=account, metadata=metadata, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except (InvalidObject, TypeError) as error:
             raise generate_http_error(400, 'InvalidObject', error.args[0])
         except AccessDenied as error:
@@ -147,7 +148,17 @@ class Subscription:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            subscription_id = add_subscription(name=name, account=account, filter=filter, replication_rules=replication_rules, comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, priority=priority, issuer=ctx.env.get('issuer'))
+            subscription_id = add_subscription(name=name,
+                                               account=account,
+                                               filter=filter,
+                                               replication_rules=replication_rules,
+                                               comments=comments,
+                                               lifetime=lifetime,
+                                               retroactive=retroactive,
+                                               dry_run=dry_run,
+                                               priority=priority,
+                                               issuer=ctx.env.get('issuer'),
+                                               vo=ctx.env.get('vo'))
         except (InvalidObject, TypeError) as error:
             raise generate_http_error(400, 'InvalidObject', error.args[0])
         except AccessDenied as error:
@@ -184,7 +195,7 @@ class SubscriptionName:
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            for subscription in list_subscriptions(name=name):
+            for subscription in list_subscriptions(name=name, vo=ctx.env.get('vo')):
                 yield dumps(subscription, cls=APIEncoder) + '\n'
         except SubscriptionNotFound as error:
             raise generate_http_error(404, 'SubscriptionNotFound', error.args[0])
@@ -225,13 +236,13 @@ class Rules:
             if 'state' in params:
                 state = params['state'][0]
         try:
-            subscriptions = [subscription['id'] for subscription in list_subscriptions(name=name, account=account)]
+            subscriptions = [subscription['id'] for subscription in list_subscriptions(name=name, account=account, vo=ctx.env.get('vo'))]
             if len(subscriptions) > 0:
                 if state:
-                    for rule in list_replication_rules({'subscription_id': subscriptions[0], 'state': state}):
+                    for rule in list_replication_rules({'subscription_id': subscriptions[0], 'state': state}, vo=ctx.env.get('vo')):
                         yield dumps(rule, cls=APIEncoder) + '\n'
                 else:
-                    for rule in list_replication_rules({'subscription_id': subscriptions[0]}):
+                    for rule in list_replication_rules({'subscription_id': subscriptions[0]}, vo=ctx.env.get('vo')):
                         yield dumps(rule, cls=APIEncoder) + '\n'
         except RuleNotFound as error:
             raise generate_http_error(404, 'RuleNotFound', error.args[0])
@@ -270,7 +281,7 @@ class States(RucioController):
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            for row in list_subscription_rule_states(account=account):
+            for row in list_subscription_rule_states(account=account, vo=ctx.env.get('vo')):
                 yield dumps(row, cls=APIEncoder) + '\n'
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
@@ -296,7 +307,7 @@ class SubscriptionId:
         """
         header('Content-Type', 'application/json')
         try:
-            subscription = get_subscription_by_id(subscription_id)
+            subscription = get_subscription_by_id(subscription_id, vo=ctx.env.get('vo'))
         except SubscriptionNotFound as error:
             raise generate_http_error(404, 'SubscriptionNotFound', error.args[0])
         except RucioException as error:

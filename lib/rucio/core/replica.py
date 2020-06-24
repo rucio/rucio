@@ -29,6 +29,7 @@
 # - Brandon White, <bjwhite@fnal.gov>, 2019
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -40,7 +41,6 @@ from datetime import datetime, timedelta
 from json import dumps
 from re import match
 from traceback import format_exc
-
 from six import string_types
 from sqlalchemy import func, and_, or_, exists, not_, update
 from sqlalchemy.exc import DatabaseError, IntegrityError
@@ -57,7 +57,7 @@ from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
 from rucio.common.types import InternalScope
 from rucio.core.config import get as config_get
 from rucio.core.credential import get_signed_url
-from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute
+from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute, get_rse_vo, list_rses
 from rucio.core.rse_counter import decrease, increase
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models, filter_thread_work
@@ -69,19 +69,24 @@ from rucio.rse import rsemanager as rsemgr
 
 
 @read_session
-def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, session=None):
+def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, filter=None, session=None):
     """
     List the bad file replicas summary. Method used by the rucio-ui.
     :param rse_expression: The RSE expression.
     :param from_date: The start date.
     :param to_date: The end date.
+    :param filter: Dictionary of attributes by which the RSE results should be filtered. e.g.: {'availability_write': True}
     :param session: The database session in use.
     """
     result = []
     incidents = {}
     rse_clause = []
     if rse_expression:
-        for rse in parse_expression(expression=rse_expression, session=session):
+        for rse in parse_expression(expression=rse_expression, filter=filter, session=session):
+            rse_clause.append(models.BadReplicas.rse_id == rse['id'])
+    elif filter:
+        # Ensure we limit results to current VO even if we don't specify an RSE expression
+        for rse in list_rses(filters=filter, session=session):
             rse_clause.append(models.BadReplicas.rse_id == rse['id'])
 
     if session.bind.dialect.name == 'oracle':
@@ -154,7 +159,7 @@ def __exists_replicas(rse_id, scope=None, name=None, path=None, session=None):
 
 
 @read_session
-def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than=None, older_than=None, limit=None, list_pfns=False, session=None):
+def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than=None, older_than=None, limit=None, list_pfns=False, vo='def', session=None):
     """
     List the bad file replicas history states. Method used by the rucio-ui.
     :param state: The state of the file (SUSPICIOUS or BAD).
@@ -162,6 +167,7 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than
     :param younger_than: datetime object to select bad replicas younger than this date.
     :param older_than:  datetime object to select bad replicas older than this date.
     :param limit: The maximum number of replicas returned.
+    :param vo: The VO to find replicas from.
     :param session: The database session in use.
     """
     result = []
@@ -178,10 +184,11 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than
         query = query.limit(limit)
 
     for badfile in query.yield_per(1000):
-        if list_pfns:
-            result.append({'scope': badfile.scope, 'name': badfile.name, 'type': DIDType.FILE})
-        else:
-            result.append({'scope': badfile.scope, 'name': badfile.name, 'rse': get_rse_name(rse_id=badfile.rse_id, session=session), 'rse_id': badfile.rse_id, 'state': badfile.state, 'created_at': badfile.created_at, 'updated_at': badfile.updated_at})
+        if badfile.scope.vo == vo:
+            if list_pfns:
+                result.append({'scope': badfile.scope, 'name': badfile.name, 'type': DIDType.FILE})
+            else:
+                result.append({'scope': badfile.scope, 'name': badfile.name, 'rse': get_rse_name(rse_id=badfile.rse_id, session=session), 'rse_id': badfile.rse_id, 'state': badfile.state, 'created_at': badfile.created_at, 'updated_at': badfile.updated_at})
     if list_pfns:
         reps = []
         for rep in list_replicas(result, schemes=None, unavailable=False, request_id=None, ignore_availability=True, all_states=True, session=session):
@@ -291,7 +298,7 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
     """
     unknown_replicas = []
     declared_replicas = []
-    rse_info = rsemgr.get_rse_info(rse=get_rse_name(rse_id=rse_id, session=session), session=session)
+    rse_info = rsemgr.get_rse_info(rse_id=rse_id, session=session)
     replicas = []
     proto = rsemgr.create_protocol(rse_info, 'read', scheme=scheme)
     if rse_info['deterministic']:
@@ -309,7 +316,7 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
                 scope = path.split('/')[0]
                 name = parsed_pfn[pfn]['name']
 
-            scope = InternalScope(scope)
+            scope = InternalScope(scope, vo=issuer.vo)
 
             __exists, scope, name, already_declared, size = __exists_replicas(rse_id, scope, name, path=None, session=session)
             if __exists and ((str(status) == str(BadFilesStatus.BAD) and not already_declared) or str(status) == str(BadFilesStatus.SUSPICIOUS)):
@@ -400,7 +407,7 @@ def declare_bad_file_replicas(pfns, reason, issuer, status=BadFilesStatus.BAD, s
     :param status: The status of the file (SUSPICIOUS or BAD).
     :param session: The database session in use.
     """
-    scheme, files_to_declare, unknown_replicas = get_pfn_to_rse(pfns, session=session)
+    scheme, files_to_declare, unknown_replicas = get_pfn_to_rse(pfns, vo=issuer.vo, session=session)
     for rse_id in files_to_declare:
         notdeclared = __declare_bad_file_replicas(files_to_declare[rse_id], rse_id, reason, issuer, status=status, scheme=scheme, session=session)
         if notdeclared != []:
@@ -409,11 +416,12 @@ def declare_bad_file_replicas(pfns, reason, issuer, status=BadFilesStatus.BAD, s
 
 
 @read_session
-def get_pfn_to_rse(pfns, session=None):
+def get_pfn_to_rse(pfns, vo='def', session=None):
     """
     Get the RSE associated to a list of PFNs.
 
     :param pfns: The list of pfn.
+    :param vo: The VO to find RSEs at.
     :param session: The database session in use.
 
     :returns: a tuple : scheme, {rse1 : [pfn1, pfn2, ...], rse2: [pfn3, pfn4, ...]}, {'unknown': [pfn5, pfn6, ...]}.
@@ -447,7 +455,7 @@ def get_pfn_to_rse(pfns, session=None):
         else:
             mult_rse_match = 0
             for rse_id in protocols:
-                if surl.find(protocols[rse_id][0]) > -1 or surl.find(protocols[rse_id][1]) > -1:
+                if (surl.find(protocols[rse_id][0]) > -1 or surl.find(protocols[rse_id][1]) > -1) and get_rse_vo(rse_id=rse_id, session=session) == vo:
                     mult_rse_match += 1
                     if mult_rse_match > 1:
                         print('ERROR, multiple matches : %s at %s' % (surl, rse_id))
@@ -505,18 +513,19 @@ def list_bad_replicas(limit=10000, thread=None, total_threads=None, session=None
 
 
 @stream_session
-def get_did_from_pfns(pfns, rse_id=None, session=None):
+def get_did_from_pfns(pfns, rse_id=None, vo='def', session=None):
     """
     Get the DIDs associated to a PFN on one given RSE
 
     :param pfns: The list of PFNs.
     :param rse_id: The RSE id.
+    :param vo: The VO to get DIDs from.
     :param session: The database session in use.
     :returns: A dictionary {pfn: {'scope': scope, 'name': name}}
     """
     dict_rse = {}
     if not rse_id:
-        scheme, dict_rse, unknown_replicas = get_pfn_to_rse(pfns, session=session)
+        scheme, dict_rse, unknown_replicas = get_pfn_to_rse(pfns, vo=vo, session=session)
         if unknown_replicas:
             raise Exception
     else:
@@ -524,11 +533,12 @@ def get_did_from_pfns(pfns, rse_id=None, session=None):
         dict_rse[rse_id] = pfns
     for rse_id in dict_rse:
         pfns = dict_rse[rse_id]
-        rse_info = rsemgr.get_rse_info(rse=get_rse_name(rse_id=rse_id, session=session), session=session)
+        rse_info = rsemgr.get_rse_info(rse_id=rse_id, session=session)
         pfndict = {}
         proto = rsemgr.create_protocol(rse_info, 'read', scheme=scheme)
         if rse_info['deterministic']:
             parsed_pfn = proto.parse_pfns(pfns=pfns)
+
             # WARNING : this part is ATLAS specific and must be changed
             for pfn in parsed_pfn:
                 path = parsed_pfn[pfn]['path']
@@ -541,7 +551,7 @@ def get_did_from_pfns(pfns, rse_id=None, session=None):
                 else:
                     scope = path.split('/')[0]
                     name = parsed_pfn[pfn]['name']
-                scope = InternalScope(scope)
+                scope = InternalScope(scope, vo)
                 yield {pfn: {'scope': scope, 'name': name}}
         else:
             condition = []
@@ -739,7 +749,7 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, updat
 def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                    schemes, files, rse_clause, rse_expression, client_location, domain,
                    sign_urls, signature_lifetime, constituents, resolve_parents,
-                   updated_after,
+                   updated_after, filters,
                    session):
 
     files = [dataset_clause and _list_replicas_for_datasets(dataset_clause, state_clause, rse_clause, updated_after, session),
@@ -754,7 +764,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
     if domain is None:
         if client_location and 'site' in client_location and client_location['site']:
             try:
-                local_rses = [rse['id'] for rse in parse_expression('site=%s' % client_location['site'], session=session)]
+                local_rses = [rse['id'] for rse in parse_expression('site=%s' % client_location['site'], filter=filters, session=session)]
             except Exception:
                 pass  # do not hard fail if site cannot be resolved or is empty
 
@@ -858,7 +868,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
 
             if show_pfns and rse_id:
                 if rse_id not in rse_info:
-                    rse_info[rse_id] = rsemgr.get_rse_info(rse=get_rse_name(rse_id=rse_id, session=session), session=session)
+                    rse_info[rse_id] = rsemgr.get_rse_info(rse_id=rse_id, session=session)
 
                 # assign scheme priorities, and don't forget to exclude disabled protocols
                 # 0 in RSE protocol definition = disabled, 1 = highest priority
@@ -930,7 +940,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                             pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], scope.internal, name)] = path
 
                     try:
-                        pfn = list(protocol.lfns2pfns(lfns={'scope': scope,
+                        pfn = list(protocol.lfns2pfns(lfns={'scope': scope.external,
                                                             'name': name,
                                                             'path': path}).values())[0]
 
@@ -1123,6 +1133,10 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param updated_after: datetime (UTC time), only return replicas updated after this time
     :param session: The database session in use.
     """
+    if dids:
+        filter = {'vo': dids[0]['scope'].vo}
+    else:
+        filter = {'vo': 'def'}
 
     file_clause, dataset_clause, state_clause, files, constituents = _resolve_dids(dids=dids, unavailable=unavailable,
                                                                                    ignore_availability=ignore_availability,
@@ -1132,12 +1146,12 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
 
     rse_clause = []
     if rse_expression:
-        for rse in parse_expression(expression=rse_expression, session=session):
+        for rse in parse_expression(expression=rse_expression, filter=filter, session=session):
             rse_clause.append(models.RSEFileAssociation.rse_id == rse['id'])
     for f in _list_replicas(dataset_clause, file_clause, state_clause, pfns,
                             schemes, files, rse_clause, rse_expression, client_location, domain,
                             sign_urls, signature_lifetime, constituents, resolve_parents,
-                            updated_after,
+                            updated_after, filter,
                             session):
         yield f
 
@@ -1314,7 +1328,7 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
             pfns.setdefault(scheme, []).append(file['pfn'])
 
     if pfns:
-        rse_settings = rsemgr.get_rse_info(rse=replica_rse['rse'], session=session)
+        rse_settings = rsemgr.get_rse_info(rse_id=rse_id, session=session)
         for scheme in pfns.keys():
             if not replica_rse.deterministic:
                 p = rsemgr.create_protocol(rse_settings=rse_settings, operation='write', scheme=scheme)
@@ -1325,7 +1339,7 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
                         file['path'] = ''.join([tmp['path'], tmp['name']])
             else:
                 # Check that the pfns match to the expected pfns
-                lfns = [{'scope': i['scope'], 'name': i['name']} for i in files if i['pfn'].startswith(scheme)]
+                lfns = [{'scope': i['scope'].external, 'name': i['name']} for i in files if i['pfn'].startswith(scheme)]
                 pfns[scheme] = clean_surls(pfns[scheme])
                 expected_pfns_wan = _expected_pfns(lfns, rse_settings, scheme, operation='write', domain='wan')
                 # Check wan first
@@ -2416,7 +2430,7 @@ def list_dataset_replicas_vp(scope, name, deep=False, session=None):
         # and can be accessed from WAN
         accessible_replica_exists = False
         for reply in list_dataset_replicas(scope=scope, name=name, deep=deep, session=session):
-            rse_info = rsemgr.get_rse_info(rse=reply['rse'], session=session)
+            rse_info = rsemgr.get_rse_info(rse=reply['rse'], vo=scope.vo, session=session)
             if rse_info['rse_type'] == 'TAPE':
                 continue
             for prot in rse_info['protocols']:
@@ -2871,7 +2885,7 @@ def get_replicas_state(scope=None, name=None, session=None):
 
 
 @read_session
-def get_suspicious_files(rse_expression, **kwargs):
+def get_suspicious_files(rse_expression, filter=None, **kwargs):
     """
     Gets a list of replicas from bad_replicas table which are: declared more than <nattempts> times since <younger_than> date,
     present on the RSE specified by the <rse_expression> and do not have a state in <exclude_states> list.
@@ -2881,6 +2895,7 @@ def get_suspicious_files(rse_expression, **kwargs):
     :param younger_than: Datetime object to select the replicas which were declared since younger_than date. Default value = 10 days ago.
     :param nattempts: The minimum number of replica appearances in the bad_replica DB table from younger_than date. Default value = 0.
     :param rse_expression: The RSE expression where the replicas are located.
+    :param filter: Dictionary of attributes by which the RSE results should be filtered. e.g.: {'availability_write': True}
     :param: exclude_states: List of states which eliminates replicas from search result if any of the states in the list
                             was declared for a replica since younger_than date. Allowed values
                             = ['B', 'R', 'D', 'L', 'T', 'S'] (meaning 'BAD', 'RECOVERED', 'DELETED', 'LOST', 'TEMPORARY_UNAVAILABLE', 'SUSPICIOUS').
@@ -2918,7 +2933,7 @@ def get_suspicious_files(rse_expression, **kwargs):
     # assembling the selection rse_clause
     rse_clause = []
     if rse_expression:
-        parsedexp = parse_expression(expression=rse_expression, session=session)
+        parsedexp = parse_expression(expression=rse_expression, filter=filter, session=session)
         for rse in parsedexp:
             rse_clause.append(models.RSEFileAssociation.rse_id == rse['id'])
 

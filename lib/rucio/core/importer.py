@@ -16,11 +16,13 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
 from six import string_types
 from rucio.common.exception import RSEOperationNotSupported
+from rucio.common.types import InternalAccount
 from rucio.core import rse as rse_module, distance as distance_module, account as account_module, identity as identity_module
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RSEType, AccountType, IdentityType
@@ -29,29 +31,29 @@ from rucio.common.config import config_get
 
 
 @transactional_session
-def import_rses(rses, rse_sync_method='edit', attr_sync_method='edit', protocol_sync_method='edit', session=None):
+def import_rses(rses, rse_sync_method='edit', attr_sync_method='edit', protocol_sync_method='edit', vo='def', session=None):
     new_rses = []
     for rse_name in rses:
         rse = rses[rse_name]
         if isinstance(rse.get('rse_type'), string_types):
             rse['rse_type'] = RSEType.from_string(str(rse['rse_type']))
 
-        if rse_module.rse_exists(rse_name, include_deleted=False, session=session):
+        if rse_module.rse_exists(rse_name, vo=vo, include_deleted=False, session=session):
             # RSE exists and is active
-            rse_id = rse_module.get_rse_id(rse=rse_name, session=session)
+            rse_id = rse_module.get_rse_id(rse=rse_name, vo=vo, session=session)
             rse_module.update_rse(rse_id=rse_id, parameters=rse, session=session)
-        elif rse_module.rse_exists(rse_name, include_deleted=True, session=session):
+        elif rse_module.rse_exists(rse_name, vo=vo, include_deleted=True, session=session):
             # RSE exists but in deleted state
             # Should only modify the RSE if importer is configured for edit or hard sync
             if rse_sync_method in ['edit', 'hard']:
-                rse_id = rse_module.get_rse_id(rse=rse_name, include_deleted=True, session=session)
+                rse_id = rse_module.get_rse_id(rse=rse_name, vo=vo, include_deleted=True, session=session)
                 rse_module.restore_rse(rse_id, session=session)
                 rse_module.update_rse(rse_id=rse_id, parameters=rse, session=session)
             else:
                 # Config is in RSE append only mode, should not modify the disabled RSE
                 continue
         else:
-            rse_id = rse_module.add_rse(rse=rse_name, deterministic=rse.get('deterministic'), volatile=rse.get('volatile'),
+            rse_id = rse_module.add_rse(rse=rse_name, vo=vo, deterministic=rse.get('deterministic'), volatile=rse.get('volatile'),
                                         city=rse.get('city'), region_code=rse.get('region_code'), country_name=rse.get('country_name'),
                                         staging_area=rse.get('staging_area'), continent=rse.get('continent'), time_zone=rse.get('time_zone'),
                                         ISP=rse.get('ISP'), rse_type=rse.get('rse_type'), latitude=rse.get('latitude'),
@@ -134,11 +136,11 @@ def import_rses(rses, rse_sync_method='edit', attr_sync_method='edit', protocol_
 
 
 @transactional_session
-def import_distances(distances, session=None):
+def import_distances(distances, vo='def', session=None):
     for src_rse_name in distances:
-        src = rse_module.get_rse_id(rse=src_rse_name, session=session)
+        src = rse_module.get_rse_id(rse=src_rse_name, vo=vo, session=session)
         for dest_rse_name in distances[src_rse_name]:
-            dest = rse_module.get_rse_id(rse=dest_rse_name, session=session)
+            dest = rse_module.get_rse_id(rse=dest_rse_name, vo=vo, session=session)
             distance = distances[src_rse_name][dest_rse_name]
             if 'src_rse_id' in distance:
                 del distance['src_rse_id']
@@ -186,8 +188,9 @@ def import_identities(identities, account_name, old_identities, old_identity_acc
 
 
 @transactional_session
-def import_accounts(accounts, session=None):
-    old_accounts = {account['account']: account for account in account_module.list_accounts(session=session)}
+def import_accounts(accounts, vo='def', session=None):
+    vo_filter = {'account': InternalAccount(account='*', vo=vo)}
+    old_accounts = {account['account']: account for account in account_module.list_accounts(filter=vo_filter, session=session)}
     missing_accounts = [account for account in accounts if account['account'] not in old_accounts]
     outdated_accounts = [account for account in accounts if account['account'] in old_accounts]
     to_be_removed_accounts = [old_account for old_account in old_accounts if old_account not in [account['account'] for account in accounts]]
@@ -222,7 +225,7 @@ def import_accounts(accounts, session=None):
 
 
 @transactional_session
-def import_data(data, session=None):
+def import_data(data, vo='def', session=None):
     """
     Import data to add and update records in Rucio.
 
@@ -235,14 +238,14 @@ def import_data(data, session=None):
 
     rses = data.get('rses')
     if rses:
-        import_rses(rses, rse_sync_method=rse_sync_method, attr_sync_method=attr_sync_method, protocol_sync_method=protocol_sync_method, session=session)
+        import_rses(rses, rse_sync_method=rse_sync_method, attr_sync_method=attr_sync_method, protocol_sync_method=protocol_sync_method, vo=vo, session=session)
 
     # Distances
     distances = data.get('distances')
     if distances:
-        import_distances(distances, session=session)
+        import_distances(distances, vo=vo, session=session)
 
     # Accounts
     accounts = data.get('accounts')
     if accounts:
-        import_accounts(accounts, session=session)
+        import_accounts(accounts, vo=vo, session=session)

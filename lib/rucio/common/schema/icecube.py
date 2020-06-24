@@ -17,6 +17,8 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -25,9 +27,11 @@ from jsonschema import validate, ValidationError
 from rucio.common.exception import InvalidObject
 
 
+ACCOUNT_LENGTH = 25
+
 ACCOUNT = {"description": "Account name",
            "type": "string",
-           "pattern": "^[a-z0-9-_]{1,30}$"}
+           "pattern": "^[a-z0-9-_]{1,%s}$" % ACCOUNT_LENGTH}
 
 ACCOUNTS = {"description": "Array of accounts",
             "type": "array",
@@ -347,6 +351,27 @@ ACCOUNT_ATTRIBUTE = {"description": "Account attribute",
 
 SCOPE_NAME_REGEXP = '/([^/]*)(?=/)(.*)'
 
+DISTANCE = {"description": "RSE distance",
+            "type": "object",
+            "properties": {
+                "src_rse_id": {"type": "string"},
+                "dest_rse_id": {"type": "string"},
+                "ranking": {"type": "integer"}
+            },
+            "required": ["src_rse_id", "dest_rse_id", "ranking"],
+            "additionalProperties": True}
+
+IMPORT = {"description": "import data into rucio.",
+          "type": "object",
+          "properties": {
+              "rses": {
+                  "type": "object"
+              },
+              "distances": {
+                  "type": "object"
+              }
+          }}
+
 SCHEMAS = {'account': ACCOUNT,
            'account_type': ACCOUNT_TYPE,
            'activity': ACTIVITY,
@@ -369,7 +394,8 @@ SCHEMAS = {'account': ACCOUNT,
            'subscription_filter': SUBSCRIPTION_FILTER,
            'cache_add_replicas': CACHE_ADD_REPLICAS,
            'cache_delete_replicas': CACHE_DELETE_REPLICAS,
-           'account_attribute': ACCOUNT_ATTRIBUTE}
+           'account_attribute': ACCOUNT_ATTRIBUTE,
+           'import': IMPORT}
 
 
 def validate_schema(name, obj):

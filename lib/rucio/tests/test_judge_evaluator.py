@@ -18,7 +18,9 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import get_usage
@@ -37,16 +39,21 @@ class TestJudgeEvaluator():
 
     @classmethod
     def setUpClass(cls):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+        else:
+            cls.vo = {}
+
         # Add test RSE
         cls.rse1 = 'MOCK'
         cls.rse3 = 'MOCK3'
         cls.rse4 = 'MOCK4'
         cls.rse5 = 'MOCK5'
 
-        cls.rse1_id = get_rse_id(rse=cls.rse1)
-        cls.rse3_id = get_rse_id(rse=cls.rse3)
-        cls.rse4_id = get_rse_id(rse=cls.rse4)
-        cls.rse5_id = get_rse_id(rse=cls.rse5)
+        cls.rse1_id = get_rse_id(rse=cls.rse1, **cls.vo)
+        cls.rse3_id = get_rse_id(rse=cls.rse3, **cls.vo)
+        cls.rse4_id = get_rse_id(rse=cls.rse4, **cls.vo)
+        cls.rse5_id = get_rse_id(rse=cls.rse5, **cls.vo)
 
         # Add Tags
         cls.T1 = tag_generator()
@@ -63,8 +70,8 @@ class TestJudgeEvaluator():
         add_rse_attribute(cls.rse5_id, "fakeweight", 0)
 
         # Add quota
-        cls.jdoe = InternalAccount('jdoe')
-        cls.root = InternalAccount('root')
+        cls.jdoe = InternalAccount('jdoe', **cls.vo)
+        cls.root = InternalAccount('root', **cls.vo)
         set_local_account_limit(cls.jdoe, cls.rse1_id, -1)
         set_local_account_limit(cls.jdoe, cls.rse3_id, -1)
         set_local_account_limit(cls.jdoe, cls.rse4_id, -1)
@@ -77,7 +84,7 @@ class TestJudgeEvaluator():
 
     def test_judge_add_files_to_dataset(self):
         """ JUDGE EVALUATOR: Test the judge when adding files to dataset"""
-        scope = InternalScope('mock')
+        scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
@@ -100,7 +107,7 @@ class TestJudgeEvaluator():
 
     def test_judge_add_dataset_to_container(self):
         """ JUDGE EVALUATOR: Test the judge when adding dataset to container"""
-        scope = InternalScope('mock')
+        scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
@@ -127,7 +134,7 @@ class TestJudgeEvaluator():
         re_evaluator(once=True)
         account_update(once=True)
 
-        scope = InternalScope('mock')
+        scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
@@ -151,7 +158,7 @@ class TestJudgeEvaluator():
         re_evaluator(once=True)
         account_update(once=True)
 
-        scope = InternalScope('mock')
+        scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
@@ -178,7 +185,7 @@ class TestJudgeEvaluator():
         """ JUDGE EVALUATOR: Test if the a datasetlock is detached correctly when removing a dataset from a container"""
         re_evaluator(once=True)
 
-        scope = InternalScope('mock')
+        scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
@@ -207,25 +214,25 @@ class TestJudgeEvaluator():
         """ JUDGE EVALUATOR: Test if the detach is done correctly"""
         re_evaluator(once=True)
 
-        scope = InternalScope('mock')
+        scope = InternalScope('mock', **self.vo)
         container = 'container_' + str(uuid())
         add_did(scope, container, DIDType.from_sym('CONTAINER'), self.jdoe)
 
-        scope = InternalScope('mock')
+        scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
         attach_dids(scope, container, [{'scope': scope, 'name': dataset}], self.jdoe)
 
-        scope = InternalScope('mock')
+        scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
         attach_dids(scope, container, [{'scope': scope, 'name': dataset}], self.jdoe)
 
-        scope = InternalScope('mock')
+        scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
@@ -249,7 +256,7 @@ class TestJudgeEvaluator():
 
     def test_judge_add_files_to_dataset_with_2_rules(self):
         """ JUDGE EVALUATOR: Test the judge when adding files to dataset with 2 rules"""
-        scope = InternalScope('mock')
+        scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
@@ -273,7 +280,7 @@ class TestJudgeEvaluator():
 
     def test_judge_add_files_to_dataset_rule_on_container(self):
         """ JUDGE EVALUATOR: Test the judge when attaching file to dataset with rule on two levels of containers"""
-        scope = InternalScope('mock')
+        scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
