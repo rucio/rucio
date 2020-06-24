@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2019
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2020
 # - Vincent Garonne, <vgaronne@gmail.com>, 2012-2018
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012-2019
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2017
@@ -2043,7 +2043,7 @@ You can filter by key/value, e.g.::
     upload_parser.add_argument('--protocol', action='store', help='Force the protocol to use')
     upload_parser.add_argument('--pfn', dest='pfn', action='store', help='Specify the exact PFN for the upload.')
     upload_parser.add_argument('--name', dest='name', action='store', help='Specify the exact LFN for the upload.')
-    upload_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('upload', 'transfer_timeout', False, 3600), help='Transfer timeout (in seconds).')
+    upload_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('upload', 'transfer_timeout', False, 360), help='Transfer timeout (in seconds).')
     upload_parser.add_argument(dest='args', action='store', nargs='+', help='files and datasets.')
 
     # The download and get subparser
@@ -2062,7 +2062,7 @@ You can filter by key/value, e.g.::
         selected_parser.add_argument('--pfn', dest='pfn', action='store', help="Specify the exact PFN for the download.")
         selected_parser.add_argument('--archive-did', action='store', dest='archive_did', help="Download from archive is transparent. This option is obsolete.")
         selected_parser.add_argument('--no-resolve-archives', action='store_true', default=False, help="If set archives will not be considered for download.")
-        selected_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('download', 'transfer_timeout', False, 3600), help='Transfer timeout (in seconds).')
+        selected_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('download', 'transfer_timeout', False, 360), help='Transfer timeout (in seconds).')
         selected_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
         selected_parser.add_argument('--trace_appid', dest='trace_appid', action='store', default=os.environ.get('RUCIO_TRACE_APPID', None), help=argparse.SUPPRESS)
         selected_parser.add_argument('--trace_dataset', dest='trace_dataset', action='store', default=os.environ.get('RUCIO_TRACE_DATASET', None), help=argparse.SUPPRESS)

@@ -322,9 +322,9 @@ def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, fo
     ret = {}
     gs = True  # gs represents the global status which indicates if every operation worked in bulk mode
 
-    protocol = create_protocol(rse_settings, 'write', scheme=force_scheme, domain=domain, auth_token=auth_token)
+    protocol = create_protocol(rse_settings, 'write', scheme=force_scheme, domain=domain, auth_token=auth_token, logger=logger)
     protocol.connect()
-    protocol_delete = create_protocol(rse_settings, 'delete', domain=domain, auth_token=auth_token)
+    protocol_delete = create_protocol(rse_settings, 'delete', domain=domain, auth_token=auth_token, logger=logger)
     protocol_delete.connect()
 
     lfns = [lfns] if not type(lfns) is list else lfns
@@ -399,7 +399,6 @@ def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, fo
                         for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
                             if (checksum_name in stats) and (checksum_name in lfn):
                                 verified_checksums.append(stats[checksum_name] == lfn[checksum_name])
-
                         # Upload is successful if at least one checksum was found
                         valid = any(verified_checksums)
                         if not valid and ('filesize' in stats) and ('filesize' in lfn):

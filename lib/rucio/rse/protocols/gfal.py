@@ -1,4 +1,4 @@
-# Copyright 2014-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2014-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2016
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2016-2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2016-2020
 # - Tobias Wegner <twegner@cern.ch>, 2017
 # - Nicolo Magini <Nicolo.Magini@cern.ch>, 2018-2019
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
@@ -28,8 +28,10 @@
 
 import errno
 import json
+import logging
 import os
 import re
+import subprocess
 try:
     # PY2
     import urlparse
@@ -552,3 +554,108 @@ class Default(protocol.RSEProtocol):
             return totalsize, unusedsize
         except gfal2.GError as error:  # pylint: disable=no-member
             raise Exception(str(error))
+
+
+class NoRename(Default):
+
+    """ Do not rename files on upload/download. Necessary for some storage endpoints. """
+
+    def __init__(self, protocol_attr, rse_settings, logger=None):
+        """ Initializes the object with information about the referred RSE.
+
+            :param props Properties derived from the RSE Repository
+        """
+        super(Default, self).__init__(protocol_attr, rse_settings, logger=logger)
+        self.renaming = False
+        self.attributes.pop('determinism_type', None)
+        self.files = []
+
+    def rename(self, pfn, new_pfn):
+        """ Allows to rename a file stored inside the connected RSE.
+
+            :param pfn      Current physical file name
+            :param new_pfn  New physical file name
+
+            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
+        """
+        raise NotImplementedError
+
+
+class CLI(Default):
+
+    def __init__(self, protocol_attr, rse_settings, logger=None):
+        """ Initializes the object with information about the referred RSE.
+
+            :param props Properties derived from the RSE Repository
+        """
+
+        super(Default, self).__init__(protocol_attr, rse_settings, logger=logger)
+        if not logger:
+            logger = logging.getLogger('%s.null' % __name__)
+        self.logger = logger
+
+    def get(self, path, dest, transfer_timeout=None):
+        """
+        Provides access to files stored inside connected the RSE.
+
+        :param path: Physical file name of requested file
+        :param dest: Name and path of the files when stored at the client
+        :param transfer_timeout: Transfer timeout (in seconds)
+
+        :raises RucioException: Passthrough of gfal-copy error message.
+        """
+
+        dest = os.path.abspath(dest)
+        if ':' not in dest:
+            dest = "file://" + dest
+
+        cmd = 'gfal-copy -vf -p -t %s -T %s %s %s' % (transfer_timeout, transfer_timeout, path, dest)
+        self.logger.debug('Command: ' + cmd)
+        cmd = cmd.split()
+
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = p.communicate()
+
+        if p.returncode:
+            self.logger.debug('Error STDOUT: ' + str(stdout))
+            self.logger.debug('Error STDERR: ' + str(stderr))
+            raise exception.RucioException(str(stderr))
+
+    def put(self, source, target, source_dir, transfer_timeout=None):
+        """
+        Allows to store files inside the referred RSE.
+
+        :param source: path to the source file on the client file system
+        :param target: path to the destination file on the storage
+        :param source_dir: Path where the to be transferred files are stored in the local file system
+        :param transfer_timeout: Transfer timeout (in seconds)
+
+        :raises RucioException: Passthrough of gfal-copy error message.
+        """
+
+        source_dir = source_dir or '.'
+        source_url = '%s/%s' % (source_dir, source)
+        self.logger.debug('source: ' + str(source_url))
+        source_url = os.path.abspath(source_url)
+        if not os.path.exists(source_url):
+            raise exception.SourceNotFound()
+        if ':' not in source_url:
+            source_url = "file://" + source_url
+
+        cmd = 'gfal-copy -vf -p -t %s -T %s %s %s ' % (transfer_timeout, transfer_timeout, source, target)
+
+        space_token = None
+        if self.attributes['extended_attributes'] is not None and 'space_token' in list(self.attributes['extended_attributes'].keys()):
+            space_token = self.attributes['extended_attributes']['space_token']
+            cmd = 'gfal-copy -vf -p -t %s -T %s -S %s %s %s ' % (transfer_timeout, transfer_timeout, space_token, source, target)
+
+        self.logger.debug('Command: ' + cmd)
+        cmd = cmd.split()
+
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = p.communicate()
+
+        if p.returncode:
+            self.logger.debug('Error STDOUT: ' + str(stdout))
+            self.logger.debug('Error STDERR: ' + str(stderr))
+            raise exception.RucioException(str(stderr))
