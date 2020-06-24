@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -34,7 +35,7 @@ from flask.views import MethodView
 from geoip2.errors import AddressNotFoundError
 from xml.sax.saxutils import escape
 
-from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replicas,
+from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replicas, list_dataset_replicas_bulk,
                                delete_replicas,
                                get_did_from_pfns, update_replicas_states,
                                declare_bad_file_replicas, add_bad_pfns, get_suspicious_files,
@@ -45,7 +46,7 @@ from rucio.db.sqla.constants import BadFilesStatus
 from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, InvalidType,
                                     DataIdentifierNotFound, Duplicate, InvalidPath,
                                     ResourceTemporaryUnavailable, RucioException,
-                                    RSENotFound, UnsupportedOperation, ReplicaNotFound)
+                                    RSENotFound, UnsupportedOperation, ReplicaNotFound, InvalidObject)
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
 from rucio.common.utils import generate_http_error_flask, parse_response, APIEncoder, render_json_list
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
@@ -707,6 +708,55 @@ class DatasetReplicas(MethodView):
             return error, 500
 
 
+class DatasetReplicasBulk(MethodView):
+
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
+    def post(self):
+        """
+        List dataset replicas for multiple DIDs.
+
+        .. :quickref: DatasetReplicasBulk; List dataset replicas (bulk).
+
+        :<json list dids: List of DIDs for querying the datasets.
+        :resheader Content-Type: application/x-json-stream
+        :status 200: OK.
+        :status 400: Bad Request.
+        :status 401: Invalid auth token.
+        :status 406: Not Acceptable.
+        :status 500: Internal Error.
+        :returns: A dictionary containing all replicas information.
+        """
+
+        json_data = request.data
+        try:
+            params = parse_response(json_data)
+            dids = params['dids']
+            didslength = len(dids)
+        except KeyError as error:
+            return generate_http_error_flask(400, 'KeyError', 'Cannot find mandatory parameter : %s' % str(error))
+        except ValueError:
+            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return error, 500
+        if didslength == 0:
+            return generate_http_error_flask(400, 'ValueError', 'List of DIDs is empty')
+        try:
+            data = ""
+            for row in list_dataset_replicas_bulk(dids=dids, vo=request.environ.get('vo')):
+                data += dumps(row, cls=APIEncoder) + '\n'
+            return Response(data, content_type='application/x-json-stream')
+        except InvalidObject as error:
+            return generate_http_error_flask(400, 'InvalidObject', 'Cannot validate DIDs: %s' % (str(error)))
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return error, 500
+
+
 class ReplicasRSE(MethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
@@ -848,6 +898,8 @@ replicas_rse_view = ReplicasRSE.as_view('replicas_rse')
 bp.add_url_rule('/rse/<rse>', view_func=replicas_rse_view, methods=['get', ])
 dataset_replicas_view = DatasetReplicas.as_view('dataset_replicas')
 bp.add_url_rule('/<scope>/<name>/datasets', view_func=dataset_replicas_view, methods=['get', ])
+dataset_replicas_bulk_view = DatasetReplicasBulk.as_view('dataset_replicas_bulk')
+bp.add_url_rule('/datasets_bulk', view_func=dataset_replicas_bulk_view, methods=['post', ])
 replicas_dids_view = ReplicasDIDs.as_view('replicas_dids')
 bp.add_url_rule('/dids', view_func=replicas_dids_view, methods=['post', ])
 suspicious_replicas_view = SuspiciousReplicas.as_view('suspicious_replicas')
