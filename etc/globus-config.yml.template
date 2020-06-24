@@ -1,0 +1,5 @@
+globus:
+  apps:
+    my-globus-auth-client-name:
+      client_id: a622
+      refresh_token: AgK1
