@@ -38,7 +38,7 @@ from rucio.common.utils import generate_uuid, chunks, get_parsed_throttler_mode
 from rucio.core.config import get
 from rucio.core.message import add_message
 from rucio.core.monitor import record_counter, record_timer
-from rucio.core.rse import get_rse_name, get_rse_transfer_limits
+from rucio.core.rse import get_rse_name, get_rse_transfer_limits, get_rse_vo
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import RequestState, RequestType, FTSState, ReplicaState, LockState, RequestErrMsg
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
@@ -1404,35 +1404,41 @@ def add_monitor_message(request, response, session=None):
         # for LOST request, response['external_host'] maybe is None
         transfer_link = None
 
-    add_message(transfer_status, {'activity': activity,
-                                  'request-id': response['request_id'],
-                                  'duration': duration,
-                                  'checksum-adler': adler32,
-                                  'checksum-md5': md5,
-                                  'file-size': filesize,
-                                  'bytes': filesize,
-                                  'guid': None,
-                                  'previous-request-id': response['previous_attempt_id'],
-                                  'protocol': dst_protocol,
-                                  'scope': response['scope'],
-                                  'name': response['name'],
-                                  'src-type': src_type,
-                                  'src-rse': src_rse,
-                                  'src-url': src_url,
-                                  'dst-type': dst_type,
-                                  'dst-rse': dst_rse,
-                                  'dst-url': dst_url,
-                                  'reason': reason,
-                                  'transfer-endpoint': response['external_host'],
-                                  'transfer-id': response['transfer_id'],
-                                  'transfer-link': transfer_link,
-                                  'created_at': str(created_at) if created_at else None,
-                                  'submitted_at': str(submitted_at) if submitted_at else None,
-                                  'started_at': str(started_at) if started_at else None,
-                                  'transferred_at': str(transferred_at) if transferred_at else None,
-                                  'tool-id': 'rucio-conveyor',
-                                  'account': account},
-                session=session)
+    message = {'activity': activity,
+               'request-id': response['request_id'],
+               'duration': duration,
+               'checksum-adler': adler32,
+               'checksum-md5': md5,
+               'file-size': filesize,
+               'bytes': filesize,
+               'guid': None,
+               'previous-request-id': response['previous_attempt_id'],
+               'protocol': dst_protocol,
+               'scope': response['scope'],
+               'name': response['name'],
+               'src-type': src_type,
+               'src-rse': src_rse,
+               'src-url': src_url,
+               'dst-type': dst_type,
+               'dst-rse': dst_rse,
+               'dst-url': dst_url,
+               'reason': reason,
+               'transfer-endpoint': response['external_host'],
+               'transfer-id': response['transfer_id'],
+               'transfer-link': transfer_link,
+               'created_at': str(created_at) if created_at else None,
+               'submitted_at': str(submitted_at) if submitted_at else None,
+               'started_at': str(started_at) if started_at else None,
+               'transferred_at': str(transferred_at) if transferred_at else None,
+               'tool-id': 'rucio-conveyor',
+               'account': account}
+
+    src_id = response['src_rse_id']
+    vo = get_rse_vo(rse_id=src_id)
+    if vo != 'def':
+        message['vo'] = vo
+
+    add_message(transfer_status, message, session=session)
 
 
 def get_transfer_error(state, reason=None):

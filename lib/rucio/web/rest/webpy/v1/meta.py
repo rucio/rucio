@@ -18,6 +18,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -89,7 +90,7 @@ class Meta(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            add_key(key=key, key_type=key_type, value_type=value_type, value_regexp=value_regexp, issuer=ctx.env.get('issuer'))
+            add_key(key=key, key_type=key_type, value_type=value_type, value_regexp=value_regexp, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except Duplicate as error:
             raise generate_http_error(409, 'Duplicate', error.args[0])
         except UnsupportedValueType as error:
@@ -145,7 +146,7 @@ class Values(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            add_value(key=key, value=value, issuer=ctx.env.get('issuer'))
+            add_value(key=key, value=value, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except Duplicate as error:
             raise generate_http_error(409, 'Duplicate', error.args[0])
         except InvalidValueForKey as error:

@@ -18,6 +18,8 @@
 #  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 #  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 #  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+#  - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
+#  - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -67,7 +69,10 @@ def get_global_account_limits(account=None, session=None):
 
     resolved_global_account_limits = {}
     for limit in global_account_limits:
-        resolved_rses = parse_expression(limit['rse_expression'], session=session)
+        if account:
+            resolved_rses = parse_expression(limit['rse_expression'], filter={'vo': account.vo}, session=session)
+        else:
+            resolved_rses = parse_expression(limit['rse_expression'], session=session)
         limit_in_bytes = limit['bytes']
         if limit_in_bytes == -1:
             limit_in_bytes = float('inf')
@@ -286,7 +291,8 @@ def get_global_account_usage(account, rse_expression=None, session=None):
     else:
         # One RSE Expression
         limit = get_global_account_limit(account=account, rse_expression=rse_expression, session=session)
-        resolved_rses = [resolved_rse['id'] for resolved_rse in parse_expression(rse_expression, session=session)]
+        vo = account.vo
+        resolved_rses = [resolved_rse['id'] for resolved_rse in parse_expression(rse_expression, filter={'vo': vo}, session=session)]
         usage = session.query(func.sum(models.AccountUsage.bytes), func.sum(models.AccountUsage.files))\
                        .filter(models.AccountUsage.account == account, models.AccountUsage.rse_id.in_(resolved_rses))\
                        .group_by(models.AccountUsage.account).first()

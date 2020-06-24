@@ -18,6 +18,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 if [[ $RDBMS == "oracle" ]]; then
     docker run -d -p 8080:8080 -p 1521:1521 --name=oracle -e processes=1000 -e sessions=1105 -e transactions=1215 -e ORACLE_ALLOW_REMOTE=true -e ORACLE_DISABLE_ASYNCH_IO=true rucio/oraclexe
@@ -89,7 +90,12 @@ elif [[ $RDBMS == "postgres12" ]]; then
 
 elif [[ $RDBMS == "sqlite" ]]; then
     docker run -d -p 443:443  --name=rucio rucio/rucio
-    docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_sqlite.cfg /opt/rucio/etc/rucio.cfg
+    if [[ $SUITE == "multi_vo" ]]; then
+        docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_multi_vo_tst_sqlite.cfg /opt/rucio/etc/rucio_multi_vo_tst.cfg
+        docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_multi_vo_ts2_sqlite.cfg /opt/rucio/etc/rucio_multi_vo_ts2.cfg
+    else
+        docker exec -it rucio cp /opt/rucio/etc/docker/travis/rucio_sqlite.cfg /opt/rucio/etc/rucio.cfg
+    fi
     docker exec -it rucio cp /opt/rucio/etc/docker/travis/alembic_sqlite.ini /opt/rucio/etc/alembic.ini
     docker exec -it rucio httpd -k restart
 fi

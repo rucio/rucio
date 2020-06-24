@@ -10,6 +10,8 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 
 import string
 import random
@@ -18,6 +20,7 @@ from nose.tools import assert_equal, assert_in
 
 from rucio.client.accountclient import AccountClient
 from rucio.client.accountlimitclient import AccountLimitClient
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount
 from rucio.core import account_limit
 from rucio.core.account import add_account
@@ -30,16 +33,23 @@ class TestCoreAccountLimits():
 
     @classmethod
     def setUpClass(cls):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.multi_vo = True
+        else:
+            cls.vo = {}
+            cls.multi_vo = False
+
         # Add test account
-        cls.account = InternalAccount(''.join(random.choice(string.ascii_uppercase) for x in range(10)))
+        cls.account = InternalAccount(''.join(random.choice(string.ascii_uppercase) for x in range(10)), **cls.vo)
         add_account(account=cls.account, type=AccountType.USER, email='rucio@email.com')
 
         # Add test RSE
         cls.rse1 = 'MOCK'
         cls.rse2 = 'MOCK2'
 
-        cls.rse1_id = get_rse_id(rse=cls.rse1)
-        cls.rse2_id = get_rse_id(rse=cls.rse2)
+        cls.rse1_id = get_rse_id(rse=cls.rse1, **cls.vo)
+        cls.rse2_id = get_rse_id(rse=cls.rse2, **cls.vo)
 
         cls.db_session = session.get_session()
 
@@ -73,33 +83,30 @@ class TestCoreAccountLimits():
 
     def test_global_account_limits(self):
         """ ACCOUNT_LIMIT (CORE): Set, get and delete global account limits """
-        expression = 'MOCK'
-        resolved_rse_ids = [get_rse_id('MOCK')]
+        resolved_rse_ids = [get_rse_id('MOCK', **self.vo)]
         resolved_rses = ['MOCK']
         limit = 10
-        account_limit.set_global_account_limit(self.account, expression, limit, session=self.db_session)
+        account_limit.set_global_account_limit(self.account, 'MOCK', limit, session=self.db_session)
         results = account_limit.get_global_account_limits(account=self.account, session=self.db_session)
         assert_equal(len(results), 1)
-        assert_in(expression, results)
-        assert_equal(results[expression]['resolved_rses'], resolved_rses)
-        assert_equal(results[expression]['resolved_rse_ids'], resolved_rse_ids)
-        assert_equal(results[expression]['limit'], limit)
-        account_limit.delete_global_account_limit(self.account, expression, session=self.db_session)
+        assert_in('MOCK', results)
+        assert_equal(results['MOCK']['resolved_rses'], resolved_rses)
+        assert_equal(results['MOCK']['resolved_rse_ids'], resolved_rse_ids)
+        assert_equal(results['MOCK']['limit'], limit)
+        account_limit.delete_global_account_limit(self.account, 'MOCK', session=self.db_session)
         results = account_limit.get_global_account_limits(account=self.account, session=self.db_session)
         assert_equal(len(results), 0)
 
     def test_get_global_account_usage(self):
         """ ACCOUNT_LIMIT (CORE): Get global account usage. """
-        rse_exp1 = 'MOCK|MOCK2'
-        rse_exp2 = 'MOCK4|MOCK3'
         limit1 = 10
         limit2 = 20
-        account_limit.set_global_account_limit(self.account, rse_exp1, limit1)
-        account_limit.set_global_account_limit(self.account, rse_exp2, limit2)
+        account_limit.set_global_account_limit(self.account, 'MOCK|MOCK2', limit1)
+        account_limit.set_global_account_limit(self.account, 'MOCK4|MOCK3', limit2)
         results = account_limit.get_global_account_usage(account=self.account)
         assert_equal(len(results), 2)
 
-        results = account_limit.get_global_account_usage(account=self.account, rse_expression=rse_exp1)
+        results = account_limit.get_global_account_usage(account=self.account, rse_expression='MOCK|MOCK2')
         assert_equal(len(results), 1)
 
     def test_local_account_limits(self):
@@ -122,16 +129,23 @@ class TestAccountClient():
 
     @classmethod
     def setUpClass(cls):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.multi_vo = True
+        else:
+            cls.vo = {}
+            cls.multi_vo = False
+
         # Add test account
-        cls.account = InternalAccount(''.join(random.choice(string.ascii_uppercase) for x in range(10)))
+        cls.account = InternalAccount(''.join(random.choice(string.ascii_uppercase) for x in range(10)), **cls.vo)
         add_account(account=cls.account, type=AccountType.USER, email='rucio@email.com')
 
         # Add test RSE
         cls.rse1 = 'MOCK'
         cls.rse2 = 'MOCK2'
 
-        cls.rse1_id = get_rse_id(rse=cls.rse1)
-        cls.rse2_id = get_rse_id(rse=cls.rse2)
+        cls.rse1_id = get_rse_id(rse=cls.rse1, **cls.vo)
+        cls.rse2_id = get_rse_id(rse=cls.rse2, **cls.vo)
 
         cls.db_session = session.get_session()
 
@@ -159,7 +173,7 @@ class TestAccountClient():
         """ ACCOUNT_LIMIT (CLIENTS): Get global account limits """
         expression = 'MOCK'
         resolved_rses = ['MOCK']
-        resolved_rse_ids = [get_rse_id('MOCK')]
+        resolved_rse_ids = [get_rse_id('MOCK', **self.vo)]
         limit = 10
         account_limit.set_global_account_limit(self.account, expression, limit)
         results = self.client.get_global_account_limits(account=self.account.external)

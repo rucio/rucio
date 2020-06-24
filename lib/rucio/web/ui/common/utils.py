@@ -9,6 +9,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2020
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 # - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019-2020
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 #
 # TO-DO !!! Remove passing data with account and other params to the functions
 # catch these from the webpy input() storage object
@@ -144,9 +145,9 @@ def select_account_name(identitystr, identity_type):
     return ui_account
 
 
-def get_token(token_method, acc=None, idt=None, pwd=None):
+def get_token(token_method, acc=None, vo=None, idt=None, pwd=None):
     """
-    Gets a token with the token_methosd provided.
+    Gets a token with the token_method provided.
     :param token_method: the method to get the token
     :param acc: Rucio account string
     :param idt: Rucio identity string
@@ -155,17 +156,19 @@ def get_token(token_method, acc=None, idt=None, pwd=None):
     """
     if not acc:
         acc = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
+    if not vo:
+        vo = ctx.env.get('HTTP_X_RUCIO_VO', 'def')
     if not idt:
         idt = ctx.env.get('SSL_CLIENT_S_DN')
         if not idt.startswith('/'):
             idt = '/%s' % '/'.join(idt.split(',')[::-1])
-    if not (acc and idt):
+    if not (acc and vo and idt):
         return None
     try:
         if pwd:
-            token = token_method(acc, idt, pwd, 'webui', ctx.env.get('REMOTE_ADDR')).token
+            token = token_method(acc, idt, pwd, 'webui', ctx.env.get('REMOTE_ADDR'), vo=vo).token
         else:
-            token = token_method(acc, idt, 'webui', ctx.env.get('REMOTE_ADDR')).token
+            token = token_method(acc, idt, 'webui', ctx.env.get('REMOTE_ADDR'), vo=vo).token
         return token
     except:
         return None

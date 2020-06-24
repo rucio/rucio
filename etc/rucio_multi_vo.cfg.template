@@ -1,0 +1,229 @@
+# Copyright European Organization for Nuclear Research (CERN)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2018
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012, 2015-2016
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
+# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+
+[common]
+logdir = /var/log/rucio
+loglevel = DEBUG
+mailtemplatedir=/opt/rucio/etc/mail_templates
+multi_vo = True
+
+[client]
+rucio_host = https://rucio-server-prod.cern.ch:443
+auth_host = https://rucio-auth-prod.cern.ch:443
+auth_type = userpass
+#auth_type = gss
+#auth_type = x509_proxy
+#auth_type = ssh
+username = ddmlab
+password = secret
+ca_cert = /opt/rucio/etc/web/ca.crt
+client_cert = /opt/rucio/etc/web/client.crt
+client_key = /opt/rucio/etc/web/client.key
+client_x509_proxy = $X509_USER_PROXY
+ssh_private_key = $HOME/.ssh/id_rsa
+account = root
+vo = tst
+request_retries = 3
+protocol_stat_retries = 6
+
+[upload]
+#transfer_timeout = 3600
+
+[download]
+#transfer_timeout = 3600
+
+[database]
+default = sqlite:////tmp/rucio.db
+#default = oracle://_____________:___________@(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=_________)(PORT=______))(ADDRESS=(PROTOCOL=TCP)(HOST=_________)(PORT=_____))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=__________)))
+#default = oracle://_____________:___________@(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=127.0.0.1)(PORT=______))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=_____________)))
+#schema=atlas_rucio  # only for cern oracle
+#default = mysql://rucio:rucio@localhost/rucio
+#default = postgresql://rucio:rucio@localhost/rucio
+pool_recycle=3600
+echo=0
+pool_reset_on_return=rollback
+
+[bootstrap]
+# Hardcoded salt = 0, String = secret, Python: hashlib.sha256("0secret").hexdigest()
+userpass_identity = ddmlab
+userpass_pwd = 2ccee6f6dd1bc2269cddd7cd5e47578e98e430539807c36df23fab7dd13e7583
+userpass_email = ph-adp-ddm-lab@cern.ch
+
+# Default DDMLAB client certificate from /opt/rucio/etc/web/client.crt
+x509_identity = /C=CH/ST=Geneva/O=CERN/OU=PH-ADP-CO/CN=DDMLAB Client Certificate/emailAddress=ph-adp-ddm-lab@cern.ch
+x509_email = ph-adp-ddm-lab@cern.ch
+
+# Default DDMLAB cern account
+gss_identity = ddmlab@CERN.CH
+gss_email = ph-adp-ddm-lab@cern.ch
+
+# Default DDMLAB ssh key
+ssh_identity = ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq5LySllrQFpPL614sulXQ7wnIr1aGhGtl8b+HCB/0FhMSMTHwSjX78UbfqEorZV16rXrWPgUpvcbp2hqctw6eCbxwqcgu3uGWaeS5A0iWRw7oXUh6ydnVy89zGzX1FJFFDZ+AgiZ3ytp55tg1bjqqhK1OSC0pJxdNe878TRVVo5MLI0S/rZY2UovCSGFaQG2iLj14wz/YqI7NFMUuJFR4e6xmNsOP7fCZ4bGMsmnhR0GmY0dWYTupNiP5WdYXAfKExlnvFLTlDI5Mgh4Z11NraQ8pv4YE1woolYpqOc/IMMBBXFniTT4tC7cgikxWb9ZmFe+r4t6yCDpX4IL8L5GOQ== ddmlab
+ssh_email = ph-adp-ddm-lab@cern.ch
+
+# Default DDMLAB SAML Name ID
+saml_id = ddmlab
+saml_email = ph-adp-ddm-lab@cern.ch
+
+[monitor]
+carbon_server = rucio-graphite-int.cern.ch
+carbon_port = 8125
+user_scope = your_username
+enable_metrics = False
+metrics_port = 8080
+
+[conveyor]
+scheme = srm,gsiftp,root,http,https
+transfertool = fts3
+ftshosts = https://fts3-pilot.cern.ch:8446, https://fts3-pilot.cern.ch:8446
+cacert = /opt/rucio/etc/web/ca.crt
+usercert = /opt/rucio/tools/x509up
+fts_throttler_cycle = fts_throttler_cycle.json
+fts_throttler_tuning_ratio = 20
+
+[messaging-fts3]
+port = 61123
+ssl_key_file = /home/mario/.ssh/hostkey.pem
+ssl_cert_file = /home/mario/.ssh/hostcert.pem
+destination = /topic/transfer.fts_monitoring_queue_state
+brokers = dashb-test-mb.cern.ch
+voname = atlas
+
+[messaging-hermes]
+username = ____
+password = ____
+port = 61023
+nonssl_port = 61013
+use_ssl = True
+ssl_key_file = /etc/grid-security/hostkey.pem
+ssl_cert_file = /etc/grid-security/hostcert.pem
+destination = /topic/rucio.events
+brokers = atlas-test-mb.cern.ch
+voname = atlas
+email_from = Rucio <atlas-adc-ddm-support@cern.ch>
+email_test = spamspamspam@cern.ch
+
+[transmogrifier]
+maxdids = 100000
+
+[accounts]
+# These are accounts that can write into scopes owned by another account
+special_accounts = panda, tier0
+
+[trace]
+tracedir = /var/log/rucio/trace
+brokers=atlas-test-mb.cern.ch
+port=61013
+username = _________
+password = _________
+topic = /topic/rucio.tracer
+
+[tracer-kronos]
+brokers=atlas-test-mb.cern.ch
+port=61013
+ssl_key_file = /etc/grid-security/hostkey.pem
+ssl_cert_file = /etc/grid-security/hostcert.pem
+queue = /queue/Consumer.kronos.rucio.tracer
+prefetch_size = 10
+chunksize = 10
+subscription_id = rucio-tracer-listener
+use_ssl = False
+reconnect_attempts = 100
+excluded_usrdns = /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=gangarbt/CN=722147/CN=Robot: Ganga Robot/CN=proxy
+username = _________
+password = _________
+dataset_wait = 60
+
+[injector]
+file = /opt/rucio/tools/test.file.1000
+bytes = 1000
+md5 = fd21ce524a9e45060fd3f62c4ef6a386
+adler32 = 52590737
+#file = /opt/rucio/tools/test.file.1G
+#bytes = 1000000000
+#md5sum = 1a3031f43cc0c0cf4f8341920a9faf52
+#adler32 = 5ff2d417
+
+[alembic]
+cfg = /opt/rucio/etc/alembic.ini
+
+[messaging-cache]
+port = 61023
+ssl_key_file = /etc/grid-security/hostkey.pem
+ssl_cert_file = /etc/grid-security/hostcert.pem
+destination = /topic/rucio.fax
+brokers = atlas-test-mb.cern.ch
+voname = atlas
+account = cache_mb
+
+[test]
+cacert = /opt/rucio/etc/web/ca.crt
+#cacert = /etc/pki/tls/certs/CERN-bundle.pem
+usercert = /opt/rucio/etc/web/usercert.pem
+#usercert = /home/mario/.ssh/usercert_with_key.pem
+
+[nagios]
+proxy = /opt/rucio/etc/ddmadmin.proxy.nagios
+rfcproxy = /opt/rucio/etc/ddmusr01.rfc.proxy
+fts_servers = https://fts3-pilot.cern.ch:8446, https://fts3-devel.cern.ch:8446, https://fts3.cern.ch:8446, https://lcgfts3.gridpp.rl.ac.uk:8446, https://fts3-test.gridpp.rl.ac.uk:8446, https://fts.usatlas.bnl.gov:8446
+
+[auditor]
+cache = /opt/rucio/auditor-cache
+results = /opt/rucio/auditor-results
+
+[c3po]
+placement_algorithm = t2_free_space
+elastic_url = http://aianalytics01.cern.ch:9200
+redis_host = localhost
+redis_port = 6379
+
+[c3po-popularity]
+elastic_url = http://rucio-logger-prod-01.cern.ch:9200
+
+[c3po-site-mapper]
+panda_url = http://atlas-agis-api.cern.ch/request/pandaqueue/query/list/?json
+ddm_url = http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json
+
+[c3po-workload]
+panda_url = http://bigpanda.cern.ch/jobs/?category=analysis&jobstatus=running
+window = 604800
+
+[sonar]
+dataset_prefix = sonar.test.medium.
+dataset_size = 5000000000
+dataset_dir = ~/public/sonar_medium_dataset/
+scope = user.vzavrtan
+
+[policy]
+#package = GenericMultiVORucioPolicy #doesn't exist
+permission = generic_multi_vo
+schema = generic_multi_vo
+lfn2pfn_algorithm_default = hash
+support = hn-atlas-dist-analysis-help@cern.ch
+support_rucio = https://github.com/rucio/rucio/issues/
+
+[webui]
+usercert = /opt/rucio/etc/usercert_with_key.pem
+
+[credentials]
+gcs = /opt/rucio/etc/google-cloud-storage-test.json
+signature_lifetime = 3600
+
+[saml]
+config_path = /opt/rucio/lib/rucio/web/ui/common/saml/
+
+[oidc]
+idpsecrets = /opt/rucio/etc/idpsecrets.json
+admin_issuer = wlcg

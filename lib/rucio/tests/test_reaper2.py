@@ -19,6 +19,7 @@
 from datetime import datetime, timedelta
 from nose.tools import assert_equal
 
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core import rse as rse_core
@@ -29,8 +30,13 @@ from rucio.tests.common import rse_name_generator
 
 def test_reaper():
     """ REAPER2 (DAEMON): Test the reaper2 daemon."""
+    if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+        vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+    else:
+        vo = {}
+
     rse_name = rse_name_generator()
-    rse_id = rse_core.add_rse(rse_name)
+    rse_id = rse_core.add_rse(rse_name, **vo)
 
     mock_protocol = {'scheme': 'MOCK',
                      'hostname': 'localhost',
@@ -53,16 +59,20 @@ def test_reaper():
     for i in range(nb_files):
         file_name = 'lfn' + generate_uuid()
         file_names.append(file_name)
-        replica_core.add_replica(rse_id=rse_id, scope=InternalScope('data13_hip'),
+        replica_core.add_replica(rse_id=rse_id, scope=InternalScope('data13_hip', **vo),
                                  name=file_name, bytes=file_size,
                                  tombstone=datetime.utcnow() - timedelta(days=1),
-                                 account=InternalAccount('root'), adler32=None, md5=None)
+                                 account=InternalAccount('root', **vo), adler32=None, md5=None)
 
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=800)
     rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=10737418240)
     rse_core.set_rse_limits(rse_id=rse_id, name='MaxBeingDeletedFiles', value=10)
 
-    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=[])
-    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=[])
+    if vo:
+        reaper(once=True, rses=[], include_rses='vo=%s&(%s)' % (vo['vo'], rse_name), exclude_rses=[])
+        reaper(once=True, rses=[], include_rses='vo=%s&(%s)' % (vo['vo'], rse_name), exclude_rses=[])
+    else:
+        reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=[])
+        reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=[])
 
-    assert_equal(len(list(replica_core.list_replicas(dids=[{'scope': InternalScope('data13_hip'), 'name': n} for n in file_names], rse_expression=rse_name))), nb_files - 5)
+    assert_equal(len(list(replica_core.list_replicas(dids=[{'scope': InternalScope('data13_hip', **vo), 'name': n} for n in file_names], rse_expression=rse_name))), nb_files - 5)

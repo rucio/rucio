@@ -18,6 +18,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019-2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 sudo:
   - required
@@ -52,7 +53,7 @@ script:
   - if [[ $SUITE == "python3" ]]; then ./tools/travis/check_python_3.sh  ; fi
   - if [[ $SUITE == "client" ]]; then nosetests -v lib/rucio/tests/test_clients.py; if [ $? -ne 0 ]; then exit 1 ; fi ; SUITE=$SUITE nosetests -v lib/rucio/tests/test_bin_rucio.py; if [ $? -ne 0 ]; then exit 1 ; fi ; nosetests -v lib/rucio/tests/test_module_import.py; if [ $? -ne 0 ]; then exit 1 ; fi ; fi
   - if [[ $SUITE == "all" ]]; then docker exec -it rucio /bin/sh -c "/opt/rucio/tools/run_tests_docker.sh" ; fi
-
+  - if [[ $SUITE == "multi_vo" ]]; then docker exec -it rucio /bin/sh -c "/opt/rucio/tools/run_multi_vo_tests_docker.sh" ; fi
 env:
     - SUITE=syntax
     - SUITE=all RDBMS=oracle
@@ -63,6 +64,7 @@ env:
     - SUITE=all RDBMS=sqlite
     - SUITE=client RDBMS=sqlite RUCIO_HOME=`pwd`
     - SUITE=python3
+    - SUITE=multi_vo RDBMS=sqlite
 
 matrix:
   fast_finish: true
@@ -85,6 +87,8 @@ matrix:
     env:  SUITE=all RDBMS=postgres12
   - python: 3.6
     env:  SUITE=all RDBMS=sqlite
+  - python: 3.6
+    env:  SUITE=multi_vo RDBMS=sqlite
   - python: 3.7
     env: SUITE=python3
   - python: 3.7
@@ -101,6 +105,8 @@ matrix:
     env:  SUITE=all RDBMS=postgres12
   - python: 3.7
     env:  SUITE=all RDBMS=sqlite
+  - python: 3.7
+    env:  SUITE=multi_vo RDBMS=sqlite
   - python: 3.8
     env: SUITE=python3
   - python: 3.8
@@ -117,6 +123,8 @@ matrix:
     env:  SUITE=all RDBMS=postgres12
   - python: 3.8
     env:  SUITE=all RDBMS=sqlite
+  - python: 3.8
+    env:  SUITE=multi_vo RDBMS=sqlite
   allow_failures:
   - python: 3.6
     env:  SUITE=all RDBMS=oracle

@@ -19,6 +19,7 @@
 # - Wen Guan, <wguan.icedew@gmail.com>, 2014-2016
 # - Vincent Garonne, <vgaronne@gmail.com>, 2016-2018
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -86,7 +87,7 @@ A tranfer request got created by executing the transfer. Depending on the transf
     parser.add_argument('--include-rses', action="store", default=None, type=str,
                         help='RSE expression to include')
     parser.add_argument('--rses', nargs='+', type=str,
-                        help='Explicit list of RSEs to include')
+                        help='Explicit list of RSEs to include (Single-VO only)')
     parser.add_argument('--activities', nargs='+', type=str,
                         help='Explicit list of activities to include')
     parser.add_argument('--exclude-activities', nargs='+', type=str,

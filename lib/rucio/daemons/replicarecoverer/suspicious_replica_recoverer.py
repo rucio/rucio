@@ -88,7 +88,7 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
     executable = argv[0]
     rses = []
     for rse in parse_expression(expression=rse_expression):
-        rses.append(rse['rse'])
+        rses.append(rse['id'])
     rses.sort()
     executable += ' --rse-expression ' + str(rses)
 
@@ -139,23 +139,26 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
                 logging.info('replica_recoverer[%i/%i]: looking for replica surls.', worker_number, total_workers)
 
                 start = time.time()
-                surls_to_recover = {}  # dictionary of { rse1: [surl1, surl2, ... ], rse2: ... }
+                surls_to_recover = {}  # dictionary of { vo1: {rse1: [surl1, surl2, ... ], rse2: ...}, vo2:... }
                 cnt_surl_not_found = 0
                 for replica in recoverable_replicas:
                     scope = replica['scope']
                     name = replica['name']
+                    vo = scope.vo
                     rse = replica['rse']
                     rse_id = replica['rse_id']
                     if GRACEFUL_STOP.is_set():
                         break
-                    if rse_id not in surls_to_recover:
-                        surls_to_recover[rse_id] = []
+                    if vo not in surls_to_recover:
+                        surls_to_recover[vo] = {}
+                    if rse_id not in surls_to_recover[vo]:
+                        surls_to_recover[vo][rse_id] = []
                     # for each suspicious replica, we get its surl through the list_replicas function
                     surl_not_found = True
                     for rep in list_replicas([{'scope': scope, 'name': name}]):
                         for site in rep['rses']:
                             if site == rse_id:
-                                surls_to_recover[rse_id].append(rep['rses'][site][0])
+                                surls_to_recover[vo][rse_id].append(rep['rses'][site][0])
                                 surl_not_found = False
                     if surl_not_found:
                         cnt_surl_not_found += 1
@@ -164,14 +167,16 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
                 logging.info('replica_recoverer[%i/%i]: found %i/%i surls (took %.2f seconds), declaring them as bad replicas now.',
                              worker_number, total_workers, len(recoverable_replicas) - cnt_surl_not_found, len(recoverable_replicas), time.time() - start)
 
-                for rse_id in surls_to_recover:
-                    logging.info('replica_recoverer[%i/%i]: ready to declare %i bad replica(s) on %s: %s.',
-                                 worker_number, total_workers, len(surls_to_recover[rse_id]), rse, str(surls_to_recover[rse_id]))
-                    if len(surls_to_recover[rse_id]) > max_replicas_per_rse:
-                        logging.warning('replica_recoverer[%i/%i]: encountered more than %i suspicious replicas (%s) on %s. Please investigate.', worker_number, total_workers, max_replicas_per_rse, str(len(surls_to_recover[rse_id])), rse)
-                    else:
-                        declare_bad_file_replicas(pfns=surls_to_recover[rse_id], reason='Suspicious. Automatic recovery.', issuer=InternalAccount('root'), status=BadFilesStatus.BAD, session=None)
-                        logging.info('replica_recoverer[%i/%i]: finished declaring bad replicas on %s.', worker_number, total_workers, rse)
+                for vo in surls_to_recover:
+                    for rse_id in surls_to_recover[vo]:
+                        logging.info('replica_recoverer[%i/%i]: ready to declare %i bad replica(s) on %s: %s.',
+                                     worker_number, total_workers, len(surls_to_recover[vo][rse_id]), rse, str(surls_to_recover[vo][rse_id]))
+                        if len(surls_to_recover[vo][rse_id]) > max_replicas_per_rse:
+                            logging.warning('replica_recoverer[%i/%i]: encountered more than %i suspicious replicas (%s) on %s. Please investigate.',
+                                            worker_number, total_workers, max_replicas_per_rse, str(len(surls_to_recover[vo][rse_id])), rse)
+                        else:
+                            declare_bad_file_replicas(pfns=surls_to_recover[vo][rse_id], reason='Suspicious. Automatic recovery.', issuer=InternalAccount('root', vo=vo), status=BadFilesStatus.BAD, session=None)
+                            logging.info('replica_recoverer[%i/%i]: finished declaring bad replicas on %s.', worker_number, total_workers, rse)
 
         except (DatabaseException, DatabaseError) as err:
             if match('.*QueuePool.*', str(err.args[0])):

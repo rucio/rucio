@@ -18,6 +18,8 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -57,7 +59,7 @@ class Scope(RucioController):
         HTTP Error:
             406 Not Acceptable
         """
-        return dumps(list_scopes())
+        return dumps(list_scopes(vo=ctx.env.get('vo')))
 
     def POST(self, account, scope):
         """
@@ -77,7 +79,7 @@ class Scope(RucioController):
         :params Rucio-Account: account belonging to the new scope.
         """
         try:
-            add_scope(scope, account, issuer=ctx.env.get('issuer'))
+            add_scope(scope, account, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except Duplicate as error:
             raise generate_http_error(409, 'Duplicate', error.args[0])
         except AccountNotFound as error:
@@ -113,7 +115,7 @@ class ScopeList(RucioController):
         """
         header('Content-Type', 'application/json')
         try:
-            scopes = get_scopes(account)
+            scopes = get_scopes(account, vo=ctx.env.get('vo'))
         except AccountNotFound as error:
             raise generate_http_error(404, 'AccountNotFound', error.args[0])
         except Exception as error:
