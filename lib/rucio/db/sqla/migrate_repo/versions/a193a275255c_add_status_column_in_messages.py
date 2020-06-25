@@ -36,7 +36,7 @@ def upgrade():
     schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name in ['oracle', 'postgresql', 'mysql']:
-        add_column('messages', sa.Column('state', sa.Integer(), server_default=1023), schema=schema)
+        add_column('messages', sa.Column('state', sa.Integer(), server_default=1023), schema=schema[:-1])
 
 
 def downgrade():
@@ -47,4 +47,4 @@ def downgrade():
     schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
     if context.get_context().dialect.name in ['oracle', 'postgresql', 'mysql']:
-        drop_column('messages', 'state', schema=schema)
+        drop_column('messages', 'state', schema=schema[:-1])
