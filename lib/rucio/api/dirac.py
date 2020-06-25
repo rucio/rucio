@@ -26,7 +26,6 @@ from rucio.core.rse import get_rse_id
 from rucio.core.scope import list_scopes
 from rucio.core import dirac
 from rucio.common.exception import AccessDenied
-from rucio.common.types import InternalAccount
 from rucio.common.utils import extract_scope
 
 
@@ -67,5 +66,4 @@ def add_files(lfns, issuer, ignore_availability):
     if not has_permission(issuer=issuer, action='add_dids', kwargs=kwargs):
         raise AccessDenied('Account %s can not bulk add data identifier' % (issuer))
 
-    issuer = InternalAccount(issuer)
     dirac.add_files(lfns=lfns, account=issuer, ignore_availability=ignore_availability, session=None)
