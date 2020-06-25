@@ -106,7 +106,7 @@ def aggregate_to_influx(messages, bin_size, endpoint, prepend_str):
             if transferred_at not in bins:
                 bins[transferred_at] = {}
             src_rse, dest_rse, activity = payload['src-rse'], payload['dst-rse'], payload['activity']
-            activity = re.sub(' ', '\ ', activity)
+            activity = re.sub(' ', '\ ', activity)  # noqa: W605
             key = 'transfer,activity=%s,src_rse=%s,dst_rse=%s' % (activity, src_rse, dest_rse)
             if key not in bins[transferred_at]:
                 bins[transferred_at][key] = [0, 0, 0, 0]

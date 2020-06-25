@@ -53,9 +53,9 @@ def add_message(event_type, payload, session=None):
         raise InvalidObject('Invalid JSON for payload: %(e)s' % locals())
 
     if len(payload) > 4000:
-        new_message = Message(event_type=event_type, payload='nolimit', payload_nolimit=payload, status=1023)
+        new_message = Message(event_type=event_type, payload='nolimit', payload_nolimit=payload, state=1023)
     else:
-        new_message = Message(event_type=event_type, payload=payload, status=1023)
+        new_message = Message(event_type=event_type, payload=payload, state=1023)
 
     new_message.save(session=session, flush=False)
 
