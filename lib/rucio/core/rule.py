@@ -1,4 +1,4 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -255,12 +256,12 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 try:
                     new_rule.save(session=session)
                 except IntegrityError as error:
-                    if match('.*ORA-00001.*', str(error.args[0]))\
-                       or match('.*IntegrityError.*UNIQUE constraint failed.*', str(error.args[0]))\
-                       or match('.*1062.*Duplicate entry.*for key.*', str(error.args[0]))\
-                       or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
-                       or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
-                       or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
+                    if match('.*ORA-00001.*', str(error.args[0])) \
+                            or match('.*IntegrityError.*UNIQUE constraint failed.*', str(error.args[0])) \
+                            or match('.*1062.*Duplicate entry.*for key.*', str(error.args[0])) \
+                            or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+                            or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
+                            or match('.*IntegrityError.*columns? .*not unique.*', error.args[0]):
                         raise DuplicateRule(error.args[0])
                     raise InvalidReplicationRule(error.args[0])
                 rule_ids.append(new_rule.id)
@@ -1326,10 +1327,10 @@ def update_rule(rule_id, options, session=None):
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
 
     except IntegrityError as error:
-        if match('.*ORA-00001.*', str(error.args[0]))\
-           or match('.*IntegrityError.*UNIQUE constraint failed.*', str(error.args[0]))\
-           or match('.*1062.*Duplicate entry.*for key.*', str(error.args[0]))\
-           or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
+        if match('.*ORA-00001.*', str(error.args[0])) \
+                or match('.*IntegrityError.*UNIQUE constraint failed.*', str(error.args[0])) \
+                or match('.*1062.*Duplicate entry.*for key.*', str(error.args[0])) \
+                or match('.*IntegrityError.*columns? .*not unique.*', str(error.args[0])):
             raise DuplicateRule(error.args[0])
         else:
             raise error

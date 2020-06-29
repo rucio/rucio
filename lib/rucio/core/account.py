@@ -1,4 +1,4 @@
-# Copyright 2012-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -38,6 +40,8 @@ import rucio.core.account_counter
 import rucio.core.rse
 
 from rucio.common import exception
+from rucio.common.config import config_get_bool
+from rucio.core.vo import vo_exists
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, AccountType
 from rucio.db.sqla.enum import EnumSymbol
@@ -55,6 +59,15 @@ def add_account(account, type, email, session=None):
     :param email: The Email address associated with the account.
     :param session: the database session in use.
     """
+    vo = account.vo
+    if not vo_exists(vo=vo, session=session):
+        raise exception.VONotFound('VO {} not found'.format(vo))
+
+    # Reserve the name 'super_root' for multi_vo admins
+    if account.external == 'super_root':
+        if not (vo == 'def' and config_get_bool('common', 'multi_vo', raise_exception=False, default=False)):
+            raise exception.UnsupportedAccountName('The name "%s" cannot be used.' % account.external)
+
     new_account = models.Account(account=account, account_type=type, email=email,
                                  status=AccountStatus.ACTIVE)
     try:
@@ -161,6 +174,12 @@ def list_accounts(filter={}, session=None):
             query = query.join(models.IdentityAccountAssociation, models.Account.account == models.IdentityAccountAssociation.account).\
                 filter(models.IdentityAccountAssociation.identity == filter['identity'])
 
+        elif filter_type == 'account':
+            if '*' in filter['account'].internal:
+                account_str = filter['account'].internal.replace('*', '%')
+                query = query.filter(models.Account.account.like(account_str))
+            else:
+                query = query.filter_by(account=filter['account'])
         else:
             query = query.join(models.AccountAttrAssociation, models.Account.account == models.AccountAttrAssociation.account).\
                 filter(models.AccountAttrAssociation.key == filter_type).\
@@ -261,7 +280,7 @@ def add_account_attribute(account, key, value, session=None):
         if match('.*IntegrityError.*ORA-00001: unique constraint.*ACCOUNT_ATTR_MAP_PK.*violated.*', error.args[0]) \
            or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
            or match('.*IntegrityError.*UNIQUE constraint failed: account_attr_map.account, account_attr_map.key.*', error.args[0]) \
-           or error.args[0] == "(IntegrityError) column account/key is not unique" \
+           or match('.*IntegrityError.*columns? account.*key.*not unique.*', error.args[0]) \
            or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
            or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]):
             raise exception.Duplicate('Key {0} already exist for account {1}!'.format(key, account))
