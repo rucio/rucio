@@ -35,7 +35,7 @@ Individual contributors to the source code
 - Robert Illingworth <illingwo@fnal.gov>, 2018
 - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 - James Perry <j.perry@epcc.ed.ac.uk>, 2019
-- Vivek Nigam <viveknigam.nigam3@gmail.com>, 2019
+- Vivek Nigam <viveknigam.nigam3@gmail.com>, 2019-2020
 - Kaustubh Hiware <hiwarekaustubh@gmail.com>, 2019
 - Florido Paganelli <florido.paganelli@hep.lu.se>, 2019
 - Boris Bauermeister <Boris.Bauermeister@gmail.com> 2019
