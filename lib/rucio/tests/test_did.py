@@ -24,6 +24,8 @@
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from __future__ import print_function
 
@@ -39,6 +41,7 @@ from rucio.client.metaclient import MetaClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (DataIdentifierNotFound, DataIdentifierAlreadyExists,
                                     InvalidPath, KeyNotFound, UnsupportedOperation,
                                     UnsupportedStatus, ScopeNotFound, FileAlreadyExists, FileConsistencyMismatch)
@@ -56,16 +59,21 @@ from rucio.tests.common import rse_name_generator, scope_name_generator
 
 
 class TestDIDCore:
+    def setup(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+        else:
+            self.vo = {}
 
     def test_list_dids(self):
         """ DATA IDENTIFIERS (CORE): List dids """
-        for d in list_dids(scope=InternalScope('data13_hip'), filters={'name': '*'}, type='collection'):
+        for d in list_dids(scope=InternalScope('data13_hip', **self.vo), filters={'name': '*'}, type='collection'):
             print(d)
 
     def test_delete_dids(self):
         """ DATA IDENTIFIERS (CORE): Delete dids """
-        tmp_scope = InternalScope('mock')
-        root = InternalAccount('root')
+        tmp_scope = InternalScope('mock', **self.vo)
+        root = InternalAccount('root', **self.vo)
         dsns = [{'name': 'dsn_%s' % generate_uuid(),
                  'scope': tmp_scope,
                  'purge_replicas': False,
@@ -76,8 +84,8 @@ class TestDIDCore:
 
     def test_touch_dids_atime(self):
         """ DATA IDENTIFIERS (CORE): Touch dids accessed_at timestamp"""
-        tmp_scope = InternalScope('mock')
-        root = InternalAccount('root')
+        tmp_scope = InternalScope('mock', **self.vo)
+        root = InternalAccount('root', **self.vo)
         tmp_dsn1 = 'dsn_%s' % generate_uuid()
         tmp_dsn2 = 'dsn_%s' % generate_uuid()
 
@@ -95,8 +103,8 @@ class TestDIDCore:
 
     def test_touch_dids_access_cnt(self):
         """ DATA IDENTIFIERS (CORE): Increase dids access_cnt"""
-        tmp_scope = InternalScope('mock')
-        root = InternalAccount('root')
+        tmp_scope = InternalScope('mock', **self.vo)
+        root = InternalAccount('root', **self.vo)
         tmp_dsn1 = 'dsn_%s' % generate_uuid()
         tmp_dsn2 = 'dsn_%s' % generate_uuid()
 
@@ -113,8 +121,8 @@ class TestDIDCore:
 
     def test_update_dids(self):
         """ DATA IDENTIFIERS (CORE): Update file size and checksum"""
-        tmp_scope = InternalScope('mock')
-        root = InternalAccount('root')
+        tmp_scope = InternalScope('mock', **self.vo)
+        root = InternalAccount('root', **self.vo)
         dsn = 'dsn_%s' % generate_uuid()
         lfn = 'lfn.%s' % str(generate_uuid())
         add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
@@ -122,7 +130,7 @@ class TestDIDCore:
         files = [{'scope': tmp_scope, 'name': lfn,
                   'bytes': 724963570, 'adler32': '0cc737eb',
                   'meta': {'guid': str(generate_uuid()), 'events': 100}}]
-        attach_dids(scope=tmp_scope, name=dsn, rse_id=get_rse_id(rse='MOCK'), dids=files, account=root)
+        attach_dids(scope=tmp_scope, name=dsn, rse_id=get_rse_id(rse='MOCK', **self.vo), dids=files, account=root)
 
         set_metadata(scope=tmp_scope, name=lfn, key='adler32', value='0cc737ee')
         assert_equal(get_metadata(scope=tmp_scope, name=lfn)['adler32'], '0cc737ee')
@@ -135,14 +143,14 @@ class TestDIDCore:
 
     def test_get_did_with_dynamic(self):
         """ DATA IDENTIFIERS (CORE): Get did with dynamic resolve of size"""
-        tmp_scope = InternalScope('mock')
-        root = InternalAccount('root')
+        tmp_scope = InternalScope('mock', **self.vo)
+        root = InternalAccount('root', **self.vo)
         tmp_dsn1 = 'dsn_%s' % generate_uuid()
         tmp_dsn2 = 'dsn_%s' % generate_uuid()
         tmp_dsn3 = 'dsn_%s' % generate_uuid()
         tmp_dsn4 = 'dsn_%s' % generate_uuid()
 
-        rse_id = get_rse_id(rse='MOCK')
+        rse_id = get_rse_id(rse='MOCK', **self.vo)
 
         add_did(scope=tmp_scope, name=tmp_dsn1, type=DIDType.DATASET, account=root)
         add_replica(rse_id=rse_id, scope=tmp_scope, name=tmp_dsn2, bytes=10, account=root)
@@ -157,8 +165,8 @@ class TestDIDCore:
 
     def test_reattach_dids(self):
         """ DATA IDENTIFIERS (CORE): Repeatedly attach and detach DIDs """
-        tmp_scope = InternalScope('mock')
-        root = InternalAccount('root')
+        tmp_scope = InternalScope('mock', **self.vo)
+        root = InternalAccount('root', **self.vo)
         parent_name = 'parent_%s' % generate_uuid()
         add_did(scope=tmp_scope, name=parent_name, type=DIDType.DATASET, account=root)
 
@@ -166,7 +174,7 @@ class TestDIDCore:
         files = [{'scope': tmp_scope, 'name': child_name,
                   'bytes': 12345, 'adler32': '0cc737eb'}]
 
-        rse_id = get_rse_id('MOCK')
+        rse_id = get_rse_id('MOCK', **self.vo)
         attach_dids(scope=tmp_scope, name=parent_name, rse_id=rse_id, dids=files, account=root)
 
         detach_dids(scope=tmp_scope, name=parent_name, dids=files)
@@ -177,9 +185,9 @@ class TestDIDCore:
 
     def test_add_did_to_followed(self):
         """ DATA IDENTIFIERS (CORE): Mark a did as followed """
-        tmp_scope = InternalScope('mock')
+        tmp_scope = InternalScope('mock', **self.vo)
         dsn = 'dsn_%s' % generate_uuid()
-        root = InternalAccount('root')
+        root = InternalAccount('root', **self.vo)
 
         add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
         add_did_to_followed(scope=tmp_scope, name=dsn, account=root)
@@ -192,9 +200,9 @@ class TestDIDCore:
 
     def test_get_users_following_did(self):
         """ DATA IDENTIFIERS (CORE): Get the list of users following a did """
-        tmp_scope = InternalScope('mock')
+        tmp_scope = InternalScope('mock', **self.vo)
         dsn = 'dsn_%s' % generate_uuid()
-        root = InternalAccount('root')
+        root = InternalAccount('root', **self.vo)
 
         add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
         add_did_to_followed(scope=tmp_scope, name=dsn, account=root)
@@ -208,9 +216,9 @@ class TestDIDCore:
 
     def test_remove_did_from_followed(self):
         """ DATA IDENTIFIERS (CORE): Mark a did as not followed """
-        tmp_scope = InternalScope('mock')
+        tmp_scope = InternalScope('mock', **self.vo)
         dsn = 'dsn_%s' % generate_uuid()
-        root = InternalAccount('root')
+        root = InternalAccount('root', **self.vo)
 
         add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
         add_did_to_followed(scope=tmp_scope, name=dsn, account=root)
@@ -233,19 +241,24 @@ class TestDIDCore:
 
 
 class TestDIDApi:
+    def setup(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+        else:
+            self.vo = {}
 
     def test_list_new_dids(self):
         """ DATA IDENTIFIERS (API): List new identifiers """
         tmp_scope = scope_name_generator()
         tmp_dsn = 'dsn_%s' % generate_uuid()
-        scope.add_scope(tmp_scope, 'jdoe', 'jdoe')
+        scope.add_scope(tmp_scope, 'jdoe', 'jdoe', **self.vo)
         for i in range(0, 5):
-            did.add_did(scope=tmp_scope, name='%s-%i' % (tmp_dsn, i), type='DATASET', issuer='root')
-        for i in did.list_new_dids('DATASET'):
+            did.add_did(scope=tmp_scope, name='%s-%i' % (tmp_dsn, i), type='DATASET', issuer='root', **self.vo)
+        for i in did.list_new_dids('DATASET', **self.vo):
             assert_not_equal(i, {})
             assert_equal(str(i['did_type']), 'DATASET')
             break
-        for i in did.list_new_dids():
+        for i in did.list_new_dids(**self.vo):
             assert_not_equal(i, {})
             break
 
@@ -253,21 +266,26 @@ class TestDIDApi:
         """ DATA IDENTIFIERS (API): List new identifiers and update the flag new """
         tmp_scope = scope_name_generator()
         tmp_dsn = 'dsn_%s' % generate_uuid()
-        scope.add_scope(tmp_scope, 'jdoe', 'jdoe')
+        scope.add_scope(tmp_scope, 'jdoe', 'jdoe', **self.vo)
         dids = []
         for i in range(0, 5):
             d = {'scope': tmp_scope, 'name': '%s-%i' % (tmp_dsn, i), 'did_type': DIDType.DATASET}
-            did.add_did(scope=tmp_scope, name='%s-%i' % (tmp_dsn, i), type='DATASET', issuer='root')
+            did.add_did(scope=tmp_scope, name='%s-%i' % (tmp_dsn, i), type='DATASET', issuer='root', **self.vo)
             dids.append(d)
-        st = did.set_new_dids(dids, None)
+        st = did.set_new_dids(dids, None, **self.vo)
         assert_true(st)
         with assert_raises(DataIdentifierNotFound):
-            did.set_new_dids([{'scope': 'dummyscope', 'name': 'dummyname', 'did_type': DIDType.DATASET}], None)
+            did.set_new_dids([{'scope': 'dummyscope', 'name': 'dummyname', 'did_type': DIDType.DATASET}], None, **self.vo)
 
 
 class TestDIDClients:
 
     def setup(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+        else:
+            self.vo = {}
+
         self.account_client = AccountClient()
         self.scope_client = ScopeClient()
         self.meta_client = MetaClient()
@@ -439,9 +457,9 @@ class TestDIDClients:
         tmp_scope = 'mock'
         tmp_rse = 'MOCK'
         tmp_dsn = 'dsn_%s' % generate_uuid()
-        root = InternalAccount('root')
-        set_local_account_limit(root, get_rse_id('MOCK'), -1)
-        set_local_account_limit(root, get_rse_id('CERN-PROD_TZERO'), -1)
+        root = InternalAccount('root', **self.vo)
+        set_local_account_limit(root, get_rse_id('MOCK', **self.vo), -1)
+        set_local_account_limit(root, get_rse_id('CERN-PROD_TZERO', **self.vo), -1)
 
         # PFN example: rfio://castoratlas.cern.ch/castor/cern.ch/grid/atlas/tzero/xx/xx/xx/filename
         dataset_meta = {'project': 'data13_hip',
@@ -456,7 +474,7 @@ class TestDIDClients:
         with assert_raises(ScopeNotFound):
             self.did_client.add_dataset(scope='Nimportnawak', name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules)
 
-        files = [{'scope': tmp_scope, 'name': 'lfn.%(tmp_dsn)s.' % locals() + str(generate_uuid()), 'bytes': 724963570, 'adler32': '0cc737eb'}, ]
+        files = [{'scope': InternalScope(tmp_scope, **self.vo), 'name': 'lfn.%(tmp_dsn)s.' % locals() + str(generate_uuid()), 'bytes': 724963570, 'adler32': '0cc737eb'}, ]
         with assert_raises(DataIdentifierNotFound):
             self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules, files=files)
 
@@ -471,7 +489,7 @@ class TestDIDClients:
             # pfn = 'srm://mock2.com:2880/pnfs/rucio/disk-only/scratchdisk/rucio_tests/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
             pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
             file_meta = {'guid': str(generate_uuid()), 'events': 10}
-            files.append({'scope': tmp_scope, 'name': lfn,
+            files.append({'scope': InternalScope(tmp_scope, **self.vo), 'name': lfn,
                           'bytes': 724963570, 'adler32': '0cc737eb',
                           'pfn': pfn, 'meta': file_meta})
 
@@ -494,7 +512,7 @@ class TestDIDClients:
             # pfn = 'srm://mock2.com:2880/pnfs/rucio/disk-only/scratchdisk/rucio_tests/%(project)s/%(version)s/%(prod_step)s' % dataset_meta
             pfn += '%(tmp_dsn)s/%(lfn)s' % locals()
             file_meta = {'guid': str(generate_uuid()), 'events': 100}
-            files.append({'scope': tmp_scope, 'name': lfn,
+            files.append({'scope': InternalScope(tmp_scope, **self.vo), 'name': lfn,
                           'bytes': 724963570, 'adler32': '0cc737eb',
                           'pfn': pfn, 'meta': file_meta})
         rules = [{'copies': 1, 'rse_expression': 'CERN-PROD_TZERO', 'lifetime': timedelta(days=2)}]

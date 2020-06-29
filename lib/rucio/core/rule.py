@@ -25,6 +25,7 @@
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -142,10 +143,11 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     with record_timer_block('rule.add_rule'):
         # 1. Resolve the rse_expression into a list of RSE-ids
         with record_timer_block('rule.add_rule.parse_rse_expression'):
+            vo = account.vo
             if ignore_availability:
-                rses = parse_expression(rse_expression, session=session)
+                rses = parse_expression(rse_expression, filter={'vo': vo}, session=session)
             else:
-                rses = parse_expression(rse_expression, filter={'availability_write': True}, session=session)
+                rses = parse_expression(rse_expression, filter={'vo': vo, 'availability_write': True}, session=session)
 
             if lifetime is None:  # Check if one of the rses is a staging area
                 if [rse for rse in rses if rse.get('staging_area', False)]:
@@ -169,7 +171,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                         raise ManualRuleApprovalBlocked()
 
             if source_replica_expression:
-                source_rses = parse_expression(source_replica_expression, session=session)
+                source_rses = parse_expression(source_replica_expression, filter={'vo': vo}, session=session)
             else:
                 source_rses = []
 
@@ -383,15 +385,17 @@ def add_rules(dids, rules, session=None):
         all_source_rses = []
         with record_timer_block('rule.add_rules.parse_rse_expressions'):
             for rule in rules:
+                vo = rule['account'].vo
                 if rule.get('ignore_availability'):
-                    restrict_rses.extend(parse_expression(rule['rse_expression'], session=session))
+                    restrict_rses.extend(parse_expression(rule['rse_expression'], filter={'vo': vo}, session=session))
                 else:
-                    restrict_rses.extend(parse_expression(rule['rse_expression'], filter={'availability_write': True}, session=session))
+                    restrict_rses.extend(parse_expression(rule['rse_expression'], filter={'vo': vo, 'availability_write': True}, session=session))
             restrict_rses = list(set([rse['id'] for rse in restrict_rses]))
 
             for rule in rules:
                 if rule.get('source_replica_expression'):
-                    all_source_rses.extend(parse_expression(rule.get('source_replica_expression'), session=session))
+                    vo = rule['account'].vo
+                    all_source_rses.extend(parse_expression(rule.get('source_replica_expression'), filter={'vo': vo}, session=session))
             all_source_rses = list(set([rse['id'] for rse in all_source_rses]))
 
         for elem in dids:
@@ -446,10 +450,11 @@ def add_rules(dids, rules, session=None):
             for rule in rules:
                 with record_timer_block('rule.add_rules.add_rule'):
                     # 4. Resolve the rse_expression into a list of RSE-ids
+                    vo = rule['account'].vo
                     if rule.get('ignore_availability'):
-                        rses = parse_expression(rule['rse_expression'], session=session)
+                        rses = parse_expression(rule['rse_expression'], filter={'vo': vo}, session=session)
                     else:
-                        rses = parse_expression(rule['rse_expression'], filter={'availability_write': True}, session=session)
+                        rses = parse_expression(rule['rse_expression'], filter={'vo': vo, 'availability_write': True}, session=session)
 
                     if rule.get('lifetime', None) is None:  # Check if one of the rses is a staging area
                         if [rse for rse in rses if rse.get('staging_area', False)]:
@@ -478,7 +483,7 @@ def add_rules(dids, rules, session=None):
                                 raise ManualRuleApprovalBlocked()
 
                     if rule.get('source_replica_expression'):
-                        source_rses = parse_expression(rule.get('source_replica_expression'), session=session)
+                        source_rses = parse_expression(rule.get('source_replica_expression'), filter={'vo': vo}, session=session)
                     else:
                         source_rses = []
 
@@ -669,13 +674,14 @@ def inject_rule(rule_id, session=None):
 
     # 1. Resolve the rse_expression into a list of RSE-ids
     with record_timer_block('rule.add_rule.parse_rse_expression'):
+        vo = rule['account'].vo
         if rule.ignore_availability:
-            rses = parse_expression(rule.rse_expression, session=session)
+            rses = parse_expression(rule.rse_expression, filter={'vo': vo}, session=session)
         else:
-            rses = parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session)
+            rses = parse_expression(rule.rse_expression, filter={'vo': vo, 'availability_write': True}, session=session)
 
         if rule.source_replica_expression:
-            source_rses = parse_expression(rule.source_replica_expression, session=session)
+            source_rses = parse_expression(rule.source_replica_expression, filter={'vo': vo}, session=session)
         else:
             source_rses = []
 
@@ -756,7 +762,13 @@ def list_rules(filters={}, session=None):
     query = session.query(models.ReplicationRule)
     if filters:
         for (key, value) in filters.items():
-            if key == 'created_before':
+            if key in ['account', 'scope']:
+                if '*' in value.internal:
+                    value = value.internal.replace('*', '%')
+                    query = query.filter(getattr(models.ReplicationRule, key).like(value))
+                    continue
+                # else fall through
+            elif key == 'created_before':
                 query = query.filter(models.ReplicationRule.created_at <= str_to_date(value))
                 continue
             elif key == 'created_after':
@@ -975,13 +987,14 @@ def repair_rule(rule_id, session=None):
 
         # Evaluate the RSE expression to see if there is an alternative RSE anyway
         try:
-            rses = parse_expression(rule.rse_expression, session=session)
+            vo = rule.account.vo
+            rses = parse_expression(rule.rse_expression, filter={'vo': vo}, session=session)
             if rule.ignore_availability:
-                target_rses = parse_expression(rule.rse_expression, session=session)
+                target_rses = parse_expression(rule.rse_expression, filter={'vo': vo}, session=session)
             else:
-                target_rses = parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session)
+                target_rses = parse_expression(rule.rse_expression, filter={'vo': vo, 'availability_write': True}, session=session)
             if rule.source_replica_expression:
-                source_rses = parse_expression(rule.source_replica_expression, session=session)
+                source_rses = parse_expression(rule.source_replica_expression, filter={'vo': vo}, session=session)
             else:
                 source_rses = []
         except (InvalidRSEExpression, RSEBlacklisted) as error:
@@ -1223,7 +1236,8 @@ def update_rule(rule_id, options, session=None):
         for key in options:
             if key == 'lifetime':
                 # Check SCRATCHDISK Policy
-                rses = parse_expression(rule.rse_expression, session=session)
+                vo = rule.account.vo
+                rses = parse_expression(rule.rse_expression, filter={'vo': vo}, session=session)
                 try:
                     lifetime = get_scratch_policy(rule.account, rses, options['lifetime'], session=session)
                 except UndefinedPolicy:
@@ -1764,11 +1778,15 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
     for dts in datasets:
         logging.info('File %s:%s bad at site %s is completely lost from dataset %s:%s. Will be marked as LOST and detached', scope, name, rse, dts['scope'], dts['name'])
         rucio.core.did.detach_dids(scope=dts['scope'], name=dts['name'], dids=[{'scope': scope, 'name': name}], session=session)
-        add_message('LOST', {'scope': scope.external,
-                             'name': name,
-                             'dataset_name': dts['name'],
-                             'dataset_scope': dts['scope'].external},
-                    session=session)
+
+        message = {'scope': scope.external,
+                   'name': name,
+                   'dataset_name': dts['name'],
+                   'dataset_scope': dts['scope'].external}
+        if scope.vo != 'def':
+            message['vo'] = scope.vo
+
+        add_message('LOST', message, session=session)
 
 
 @transactional_session
@@ -1862,27 +1880,35 @@ def generate_rule_notifications(rule, replicating_locks_before=None, session=Non
 
         # RULE_OK RULE_PROGRESS NOTIFICATIONS:
         if rule.notification == RuleNotification.YES:
-            add_message(event_type='RULE_OK',
-                        payload={'scope': rule.scope.external,
-                                 'name': rule.name,
-                                 'rule_id': rule.id},
-                        session=session)
+            payload = {'scope': rule.scope.external,
+                       'name': rule.name,
+                       'rule_id': rule.id}
+            if rule.scope.vo != 'def':
+                payload['vo'] = rule.scope.vo
+
+            add_message(event_type='RULE_OK', payload=payload, session=session)
+
         elif rule.notification in [RuleNotification.CLOSE, RuleNotification.PROGRESS]:
             try:
                 did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, session=session)
                 if not did['open']:
-                    add_message(event_type='RULE_OK',
-                                payload={'scope': rule.scope.external,
-                                         'name': rule.name,
-                                         'rule_id': rule.id},
-                                session=session)
+                    payload = {'scope': rule.scope.external,
+                               'name': rule.name,
+                               'rule_id': rule.id}
+                    if rule.scope.vo != 'def':
+                        payload['vo'] = rule.scope.vo
+
+                    add_message(event_type='RULE_OK', payload=payload, session=session)
+
                     if rule.notification == RuleNotification.PROGRESS:
-                        add_message(event_type='RULE_PROGRESS',
-                                    payload={'scope': rule.scope.external,
-                                             'name': rule.name,
-                                             'rule_id': rule.id,
-                                             'progress': __progress_class(rule.locks_replicating_cnt, total_locks)},
-                                    session=session)
+                        payload = {'scope': rule.scope.external,
+                                   'name': rule.name,
+                                   'rule_id': rule.id,
+                                   'progress': __progress_class(rule.locks_replicating_cnt, total_locks)}
+                        if rule.scope.vo != 'def':
+                            payload['vo'] = rule.scope.vo
+
+                        add_message(event_type='RULE_PROGRESS', payload=payload, session=session)
 
             except DataIdentifierNotFound:
                 pass
@@ -1893,13 +1919,16 @@ def generate_rule_notifications(rule, replicating_locks_before=None, session=Non
             if rule.notification == RuleNotification.YES:
                 dataset_locks = session.query(models.DatasetLock).filter_by(rule_id=rule.id).all()
                 for dataset_lock in dataset_locks:
-                    add_message(event_type='DATASETLOCK_OK',
-                                payload={'scope': dataset_lock.scope.external,
-                                         'name': dataset_lock.name,
-                                         'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
-                                         'rse_id': dataset_lock.rse_id,
-                                         'rule_id': rule.id},
-                                session=session)
+                    payload = {'scope': dataset_lock.scope.external,
+                               'name': dataset_lock.name,
+                               'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
+                               'rse_id': dataset_lock.rse_id,
+                               'rule_id': rule.id}
+                    if dataset_lock.scope.vo != 'def':
+                        payload['vo'] = dataset_lock.scope.vo
+
+                    add_message(event_type='DATASETLOCK_OK', payload=payload, session=session)
+
             elif rule.notification == RuleNotification.CLOSE:
                 dataset_locks = session.query(models.DatasetLock).filter_by(rule_id=rule.id).all()
                 for dataset_lock in dataset_locks:
@@ -1909,13 +1938,16 @@ def generate_rule_notifications(rule, replicating_locks_before=None, session=Non
                             if did['length'] is None:
                                 return
                             if did['length'] * rule.copies == rule.locks_ok_cnt:
-                                add_message(event_type='DATASETLOCK_OK',
-                                            payload={'scope': dataset_lock.scope.external,
-                                                     'name': dataset_lock.name,
-                                                     'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
-                                                     'rse_id': dataset_lock.rse_id,
-                                                     'rule_id': rule.id},
-                                            session=session)
+                                payload = {'scope': dataset_lock.scope.external,
+                                           'name': dataset_lock.name,
+                                           'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
+                                           'rse_id': dataset_lock.rse_id,
+                                           'rule_id': rule.id}
+                                if dataset_lock.scope.vo != 'def':
+                                    payload['vo'] = dataset_lock.scope.vo
+
+                                add_message(event_type='DATASETLOCK_OK', payload=payload, session=session)
+
                     except DataIdentifierNotFound:
                         pass
 
@@ -1925,12 +1957,15 @@ def generate_rule_notifications(rule, replicating_locks_before=None, session=Non
             try:
                 did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, session=session)
                 if not did['open']:
-                    add_message(event_type='RULE_PROGRESS',
-                                payload={'scope': rule.scope.external,
-                                         'name': rule.name,
-                                         'rule_id': rule.id,
-                                         'progress': __progress_class(rule.locks_replicating_cnt, total_locks)},
-                                session=session)
+                    payload = {'scope': rule.scope.external,
+                               'name': rule.name,
+                               'rule_id': rule.id,
+                               'progress': __progress_class(rule.locks_replicating_cnt, total_locks)}
+                    if rule.scope.vo != 'def':
+                        payload['vo'] = rule.scope.vo
+
+                    add_message(event_type='RULE_PROGRESS', payload=payload, session=session)
+
             except DataIdentifierNotFound:
                 pass
 
@@ -2045,7 +2080,8 @@ def approve_rule(rule_id, approver=None, notify_approvers=True, session=None):
                     template = Template(templatefile.read())
                 text = template.safe_substitute({'rule_id': str(rule.id),
                                                  'approver': approver})
-                recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=session)
+                vo = rule.account.vo
+                recipents = __create_recipents_list(rse_expression=rule.rse_expression, filter={'vo': vo}, session=session)
                 for recipent in recipents:
                     add_message(event_type='email',
                                 payload={'body': text,
@@ -2103,7 +2139,8 @@ def deny_rule(rule_id, approver=None, reason=None, session=None):
             text = template.safe_substitute({'rule_id': str(rule.id),
                                              'approver': approver,
                                              'reason': reason})
-            recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=session)
+            vo = rule.account.vo
+            recipents = __create_recipents_list(rse_expression=rule.rse_expression, filter={'vo': vo}, session=session)
             for recipent in recipents:
                 add_message(event_type='email',
                             payload={'body': text,
@@ -2494,11 +2531,12 @@ def __evaluate_did_attach(eval_did, session=None):
                     source_rses = []
                     for rule in rules:
                         try:
+                            vo = rule.account.vo
                             if rule.source_replica_expression:
-                                source_rses.extend(parse_expression(rule.source_replica_expression, session=session))
+                                source_rses.extend(parse_expression(rule.source_replica_expression, filter={'vo': vo}, session=session))
 
                             # if rule.ignore_availability:
-                            possible_rses.extend(parse_expression(rule.rse_expression, session=session))
+                            possible_rses.extend(parse_expression(rule.rse_expression, filter={'vo': vo}, session=session))
                             # else:
                             #     possible_rses.extend(parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session))
                         except (InvalidRSEExpression, RSEBlacklisted):
@@ -2521,13 +2559,14 @@ def __evaluate_did_attach(eval_did, session=None):
 
                         # 1. Resolve the rse_expression into a list of RSE-ids
                         try:
+                            vo = rule.account.vo
                             if rule.ignore_availability:
-                                rses = parse_expression(rule.rse_expression, session=session)
+                                rses = parse_expression(rule.rse_expression, filter={'vo': vo}, session=session)
                             else:
-                                rses = parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session)
+                                rses = parse_expression(rule.rse_expression, filter={'vo': vo, 'availability_write': True}, session=session)
                             source_rses = []
                             if rule.source_replica_expression:
-                                source_rses = parse_expression(rule.source_replica_expression, session=session)
+                                source_rses = parse_expression(rule.source_replica_expression, filter={'vo': vo}, session=session)
                         except (InvalidRSEExpression, RSEBlacklisted) as error:
                             rule.state = RuleState.STUCK
                             rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
@@ -2942,7 +2981,8 @@ def __create_rule_approval_email(rule, session=None):
     rses = [rep['rse_id'] for rep in rucio.core.replica.list_dataset_replicas(scope=rule.scope, name=rule.name, session=session) if rep['state'] == ReplicaState.AVAILABLE]
 
     # RSE occupancy
-    target_rses = parse_expression(rule.rse_expression, session=session)
+    vo = rule.account.vo
+    target_rses = parse_expression(rule.rse_expression, filter={'vo': vo}, session=session)
     if len(target_rses) > 1:
         target_rse = 'Multiple'
         free_space = 'undefined'
@@ -2965,7 +3005,7 @@ def __create_rule_approval_email(rule, session=None):
             pass
 
     # Resolve recipents:
-    recipents = __create_recipents_list(rse_expression=rule.rse_expression, session=session)
+    recipents = __create_recipents_list(rse_expression=rule.rse_expression, filter={'vo': vo}, session=session)
 
     for recipent in recipents:
         text = template.safe_substitute({'rule_id': str(rule.id),
@@ -2996,7 +3036,7 @@ def __create_rule_approval_email(rule, session=None):
 
 
 @transactional_session
-def __create_recipents_list(rse_expression, session=None):
+def __create_recipents_list(rse_expression, filter=None, session=None):
     """
     Create a list of recipents for a notification email based on rse_expression.
 
@@ -3008,7 +3048,7 @@ def __create_recipents_list(rse_expression, session=None):
 
     # APPROVERS-LIST
     # If there are accounts in the approvers-list of any of the RSEs only these should be used
-    for rse in parse_expression(rse_expression, session=session):
+    for rse in parse_expression(rse_expression, filter=filter, session=session):
         rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
         if rse_attr.get('rule_approvers'):
             for account in rse_attr.get('rule_approvers').split(','):
@@ -3022,7 +3062,7 @@ def __create_recipents_list(rse_expression, session=None):
 
     # LOCALGROUPDISK/LOCALGROUPTAPE
     if not recipents:
-        for rse in parse_expression(rse_expression, session=session):
+        for rse in parse_expression(rse_expression, filter=filter, session=session):
             rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
             if rse_attr.get('type', '') in ('LOCALGROUPDISK', 'LOCALGROUPTAPE'):
                 accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='country-%s' % rse_attr.get('country', ''),
@@ -3037,7 +3077,7 @@ def __create_recipents_list(rse_expression, session=None):
 
     # GROUPDISK
     if not recipents:
-        for rse in parse_expression(rse_expression, session=session):
+        for rse in parse_expression(rse_expression, filter=filter, session=session):
             rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
             if rse_attr.get('type', '') == 'GROUPDISK':
                 accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='group-%s' % rse_attr.get('physgroup', ''),
@@ -3084,7 +3124,7 @@ def archive_localgroupdisk_datasets(scope, name, session=None):
 
     rses_to_rebalance = []
 
-    archive = InternalScope('archive')
+    archive = InternalScope('archive', vo=scope.vo)
     # Check if the archival dataset already exists
     try:
         rucio.core.did.get_did(scope=archive, name=name, session=session)

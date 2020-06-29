@@ -22,6 +22,7 @@
 # - Robert Illingworth <illingwo@fnal.gov>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
@@ -58,7 +59,7 @@ from rucio.common.exception import DatabaseException, ConfigNotFound, Unsupporte
 from rucio.core import request as request_core, heartbeat, replica as replica_core
 from rucio.core.config import items
 from rucio.core.monitor import record_timer, record_counter
-from rucio.core.rse import list_rses, get_rse_name
+from rucio.core.rse import list_rses
 from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState, BadFilesStatus
 from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager
@@ -243,8 +244,7 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, prep
                 # for TAPE, replica path is needed
                 if req['request_type'] in (RequestType.TRANSFER, RequestType.STAGEIN) and req['dest_rse_id'] in undeterministic_rses:
                     if req['dest_rse_id'] not in rses_info:
-                        dest_rse = get_rse_name(rse_id=req['dest_rse_id'])
-                        rses_info[req['dest_rse_id']] = rsemanager.get_rse_info(dest_rse)
+                        rses_info[req['dest_rse_id']] = rsemanager.get_rse_info(rse_id=req['dest_rse_id'])
                     pfn = req['dest_url']
                     scheme = urlparse(pfn).scheme
                     dest_rse_id_scheme = '%s_%s' % (req['dest_rse_id'], scheme)
@@ -361,7 +361,7 @@ def __check_suspicious_files(req, suspicious_patterns):
                     pfns.append(url['url'])
                 if pfns:
                     logging.debug("Found suspicious urls: %s", str(pfns))
-                    replica_core.declare_bad_file_replicas(pfns, reason=reason, issuer=InternalAccount('root'), status=BadFilesStatus.SUSPICIOUS)
+                    replica_core.declare_bad_file_replicas(pfns, reason=reason, issuer=InternalAccount('root', vo=req['scope'].vo), status=BadFilesStatus.SUSPICIOUS)
     except Exception as error:
         logging.warning("Failed to check suspicious file with request: %s - %s", req['request_id'], str(error))
     return is_suspicious
@@ -454,7 +454,7 @@ def __update_replica(replica, session=None):
                                          replica['name'],
                                          replica['bytes'],
                                          pfn=replica['pfn'] if 'pfn' in replica else None,
-                                         account=InternalAccount('root'),  # it will deleted immediately, do we need to get the accurate account from rule?
+                                         account=InternalAccount('root', vo=replica['scope'].vo),  # it will deleted immediately, do we need to get the accurate account from rule?
                                          adler32=replica['adler32'],
                                          tombstone=datetime.datetime.utcnow(),
                                          session=session)

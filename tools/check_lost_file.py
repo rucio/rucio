@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2015
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 
 import commands
 import logging
@@ -103,7 +104,7 @@ for scope, name, rse_name in lost_requests:
         rse_id = rse_ids[rse_name]
 
     try:
-        replica = replica_core.get_replica(rse=rse_name, scope=scope, name=name, rse_id=rse_id, session=session)
+        replica = replica_core.get_replica(scope=scope, name=name, rse_id=rse_id, session=session)
     except NoResultFound:
         continue
     if replica['state'] != ReplicaState.AVAILABLE:
@@ -112,7 +113,7 @@ for scope, name, rse_name in lost_requests:
     if rse_name not in protocols:
         rse_info = rsemgr.get_rse_info(rse_name, session=session)
         protocols[rse_name] = rsemgr.create_protocol(rse_info, 'write', 'srm,gsiftp')
-    lfn = {'scope': replica['scope'], 'name': replica['name'], 'path': replica['path']}
+    lfn = {'scope': replica['scope'].external, 'name': replica['name'], 'path': replica['path']}
 
     try:
         pfn = protocols[rse_name].lfns2pfns([lfn])['%s:%s' % (scope, name)]

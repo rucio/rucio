@@ -18,6 +18,8 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -79,7 +81,7 @@ class LocalAccountLimit(RucioController):
             raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            set_local_account_limit(account=account, rse=rse, bytes=bytes, issuer=ctx.env.get('issuer'))
+            set_local_account_limit(account=account, rse=rse, bytes=bytes, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except AccessDenied as exception:
             raise generate_http_error(401, 'AccessDenied', exception.args[0])
         except RSENotFound as exception:
@@ -108,7 +110,7 @@ class LocalAccountLimit(RucioController):
         :param rse:                  RSE name.
         """
         try:
-            delete_local_account_limit(account=account, rse=rse, issuer=ctx.env.get('issuer'))
+            delete_local_account_limit(account=account, rse=rse, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except AccessDenied as exception:
             raise generate_http_error(401, 'AccessDenied', exception.args[0])
         except AccountNotFound as exception:
@@ -155,7 +157,7 @@ class GlobalAccountLimit(RucioController):
             raise generate_http_error(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            set_global_account_limit(account=account, rse_expression=rse_expression, bytes=bytes, issuer=ctx.env.get('issuer'))
+            set_global_account_limit(account=account, rse_expression=rse_expression, bytes=bytes, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except AccessDenied as exception:
             raise generate_http_error(401, 'AccessDenied', exception.args[0])
         except RSENotFound as exception:
@@ -184,7 +186,7 @@ class GlobalAccountLimit(RucioController):
         :param rse_expression:       RSE expression.
         """
         try:
-            delete_global_account_limit(account=account, rse_expression=rse_expression, issuer=ctx.env.get('issuer'))
+            delete_global_account_limit(account=account, rse_expression=rse_expression, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except AccessDenied as exception:
             raise generate_http_error(401, 'AccessDenied', exception.args[0])
         except AccountNotFound as exception:

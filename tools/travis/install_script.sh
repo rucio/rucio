@@ -18,6 +18,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 # Force compile against OpenSSL, otherwise Travis will try to use GnuTLS
 # which is not installed by default.
@@ -58,6 +59,11 @@ elif [[ $SUITE == "all" ]]; then
         docker build -t rucio/oraclexe .
         cd ..
     fi
+
+elif [[ $SUITE == "multi_vo" ]]; then
+    echo $TRAVIS_PYTHON_VERSION
+    cp etc/docker/travis/Dockerfile Dockerfile
+    docker build -t rucio/rucio --build-arg python=$TRAVIS_PYTHON_VERSION .
 
 elif [[ $SUITE == 'python3' ]]; then 
     sudo apt-get update

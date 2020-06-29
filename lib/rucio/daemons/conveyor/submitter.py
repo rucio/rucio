@@ -17,7 +17,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2019
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2014-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2020
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
 # - Tomas Kouba <tomas.kouba@cern.ch>, 2014
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2016
@@ -157,7 +157,7 @@ def submitter(once=False, rses=None, mock=False,
 
                 logging.info('%s Starting to get transfer transfers for %s', prepend_str, activity)
                 start_time = time.time()
-                transfers = __get_transfers(total_workers=heart_beat['nr_threads'] - 1,
+                transfers = __get_transfers(total_workers=heart_beat['nr_threads'],
                                             worker_number=heart_beat['assign_thread'],
                                             failover_schemes=failover_scheme,
                                             limit=bulk,

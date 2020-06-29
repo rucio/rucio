@@ -39,22 +39,23 @@ def add_identity(identity_key, id_type, email, password=None):
     return identity.add_identity(identity_key, IdentityType.from_sym(id_type), email, password=password)
 
 
-def del_identity(identity_key, id_type, issuer):
+def del_identity(identity_key, id_type, issuer, vo='def'):
     """
     Deletes a user identity.
     :param identity_key: The identity key name. For example x509 DN, or a username.
     :param id_type: The type of the authentication (x509, gss, userpass, ssh, saml).
     :param issuer: The issuer account.
+    :param vo: the VO of the issuer.
     """
     id_type = IdentityType.from_sym(id_type)
     kwargs = {'accounts': identity.list_accounts_for_identity(identity_key, id_type)}
-    if not permission.has_permission(issuer=issuer, action='del_identity', kwargs=kwargs):
+    if not permission.has_permission(issuer=issuer, vo=vo, action='del_identity', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not delete identity' % (issuer))
 
     return identity.del_identity(identity_key, id_type)
 
 
-def add_account_identity(identity_key, id_type, account, email, issuer, default=False, password=None):
+def add_account_identity(identity_key, id_type, account, email, issuer, default=False, password=None, vo='def'):
     """
     Adds a membership association between identity and account.
 
@@ -65,17 +66,18 @@ def add_account_identity(identity_key, id_type, account, email, issuer, default=
     :param issuer: The issuer account.
     :param default: If True, the account should be used by default with the provided identity.
     :param password: Password if id_type is userpass.
+    :param vo: the VO to act on.
     """
     kwargs = {'identity': identity_key, 'type': id_type, 'account': account}
-    if not permission.has_permission(issuer=issuer, action='add_account_identity', kwargs=kwargs):
+    if not permission.has_permission(issuer=issuer, vo=vo, action='add_account_identity', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not add account identity' % (issuer))
 
-    account = InternalAccount(account)
+    account = InternalAccount(account, vo=vo)
 
     return identity.add_account_identity(identity=identity_key, type=IdentityType.from_sym(id_type), default=default, email=email, account=account, password=password)
 
 
-def del_account_identity(identity_key, id_type, account, issuer):
+def del_account_identity(identity_key, id_type, account, issuer, vo='def'):
     """
     Removes a membership association between identity and account.
 
@@ -83,12 +85,13 @@ def del_account_identity(identity_key, id_type, account, issuer):
     :param id_type: The type of the authentication (x509, gss, userpass, ssh, saml).
     :param account: The account name.
     :param issuer: The issuer account.
+    :param vo: the VO to act on.
     """
     kwargs = {'account': account}
-    if not permission.has_permission(issuer=issuer, action='del_account_identity', kwargs=kwargs):
+    if not permission.has_permission(issuer=issuer, vo=vo, action='del_account_identity', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not delete account identity' % (issuer))
 
-    account = InternalAccount(account)
+    account = InternalAccount(account, vo=vo)
 
     return identity.del_account_identity(identity_key, IdentityType.from_sym(id_type), account)
 

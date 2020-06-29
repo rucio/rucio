@@ -28,6 +28,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -71,12 +72,13 @@ REGION = make_region().configure('dogpile.cache.memcached',
 
 
 @transactional_session
-def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None,
+def add_rse(rse, vo='def', deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None,
             ISP=None, staging_area=False, rse_type=RSEType.DISK, longitude=None, latitude=None, ASN=None, availability=7, session=None):
     """
     Add a rse with the given location name.
 
     :param rse: the name of the new rse.
+    :param vo: the vo to add the RSE to.
     :param deterministic: Boolean to know if the pfn is generated deterministically.
     :param volatile: Boolean for RSE cache.
     :param city: City for the RSE.
@@ -96,7 +98,7 @@ def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None
     if isinstance(rse_type, string_types):
         rse_type = RSEType.from_string(str(rse_type))
 
-    new_rse = models.RSE(rse=rse, deterministic=deterministic, volatile=volatile, city=city,
+    new_rse = models.RSE(rse=rse, vo=vo, deterministic=deterministic, volatile=volatile, city=city,
                          region_code=region_code, country_name=country_name,
                          continent=continent, time_zone=time_zone, staging_area=staging_area, ISP=ISP, availability=availability,
                          rse_type=rse_type, longitude=longitude, latitude=latitude, ASN=ASN)
@@ -120,16 +122,17 @@ def add_rse(rse, deterministic=True, volatile=False, city=None, region_code=None
 
 
 @read_session
-def rse_exists(rse, include_deleted=False, session=None):
+def rse_exists(rse, vo='def', include_deleted=False, session=None):
     """
     Checks to see if RSE exists.
 
     :param rse: Name of the rse.
+    :param vo: The VO for the RSE.
     :param session: The database session in use.
 
     :returns: True if found, otherwise false.
     """
-    return True if session.query(models.RSE).filter_by(rse=rse, deleted=include_deleted).first() else False
+    return True if session.query(models.RSE).filter_by(rse=rse, vo=vo, deleted=include_deleted).first() else False
 
 
 @read_session
@@ -247,7 +250,7 @@ def get_rse(rse_id, session=None):
 
 
 @read_session
-def get_rse_id(rse, session=None, include_deleted=True):
+def get_rse_id(rse, vo='def', session=None, include_deleted=True):
     """
     Get a RSE ID or raise if it does not exist.
 
@@ -261,18 +264,21 @@ def get_rse_id(rse, session=None, include_deleted=True):
     """
 
     if include_deleted:
-        cache_key = 'rse-id_{}'.format(rse).replace(' ', '.')
+        if vo != 'def':
+            cache_key = 'rse-id_{}@{}'.format(rse, vo).replace(' ', '.')
+        else:
+            cache_key = 'rse-id_{}'.format(rse).replace(' ', '.')
         result = REGION.get(cache_key)
         if result != NO_VALUE:
             return result
 
     try:
-        query = session.query(models.RSE.id).filter_by(rse=rse)
+        query = session.query(models.RSE.id).filter_by(rse=rse, vo=vo)
         if not include_deleted:
             query = query.filter_by(deleted=False)
         result = query.one()[0]
     except sqlalchemy.orm.exc.NoResultFound:
-        raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse)
+        raise exception.RSENotFound("RSE '%s' cannot be found in vo '%s'" % (rse, vo))
 
     if include_deleted:
         REGION.set(cache_key, result)
@@ -313,6 +319,39 @@ def get_rse_name(rse_id, session=None, include_deleted=True):
 
 
 @read_session
+def get_rse_vo(rse_id, session=None, include_deleted=True):
+    """
+    Get the VO for a given RSE id.
+
+    :param rse_id: the rse uuid from the database.
+    :param session: the database session in use.
+    :param include_deleted: Flag to toggle finding rse's marked as deleted.
+
+    :returns The vo name.
+
+    :raises RSENotFound: If referred RSE was not found in database.
+    """
+
+    if include_deleted:
+        cache_key = 'rse-vo_{}'.format(rse_id)
+        result = REGION.get(cache_key)
+        if result != NO_VALUE:
+            return result
+
+    try:
+        query = session.query(models.RSE.vo).filter_by(id=rse_id)
+        if not include_deleted:
+            query = query.filter_by(deleted=False)
+        result = query.one()[0]
+    except sqlalchemy.orm.exc.NoResultFound:
+        raise exception.RSENotFound('RSE with ID \'%s\' cannot be found' % rse_id)
+
+    if include_deleted:
+        REGION.set(cache_key, result)
+    return result
+
+
+@read_session
 def list_rses(filters={}, session=None):
     """
     Returns a list of all RSEs.
@@ -328,6 +367,13 @@ def list_rses(filters={}, session=None):
     availability_mask2 = 7
     availability_mapping = {'availability_read': 4, 'availability_write': 2, 'availability_delete': 1}
     false_value = False  # To make pep8 checker happy ...
+
+    if filters and filters.get('vo'):
+        filters = filters.copy()  # Make a copy so we can pop('vo') without affecting the object `filters` outside this function
+        vo = filters.pop('vo')
+    else:
+        vo = None
+
     if filters:
         if 'availability' in filters and ('availability_read' in filters or 'availability_write' in filters or 'availability_delete' in filters):
             raise exception.InvalidObject('Cannot use availability and read, write, delete filter at the same time.')
@@ -361,20 +407,18 @@ def list_rses(filters={}, session=None):
 
         if 'availability' not in filters:
             query = query.filter(sqlalchemy.and_(sqlalchemy.or_(*condition1), sqlalchemy.or_(*condition2)))
-
-        for row in query:
-            d = {}
-            for column in row.__table__.columns:
-                d[column.name] = getattr(row, column.name)
-            rse_list.append(d)
     else:
 
         query = session.query(models.RSE).filter_by(deleted=False).order_by(models.RSE.rse)
-        for row in query:
-            dic = {}
-            for column in row.__table__.columns:
-                dic[column.name] = getattr(row, column.name)
-            rse_list.append(dic)
+
+    if vo:
+        query = query.filter(getattr(models.RSE, 'vo') == vo)
+
+    for row in query:
+        dic = {}
+        for column in row.__table__.columns:
+            dic[column.name] = getattr(row, column.name)
+        rse_list.append(dic)
 
     return rse_list
 
@@ -482,7 +526,7 @@ def get_rses_with_attribute(key, session=None):
 
 
 @read_session
-def get_rses_with_attribute_value(key, value, lookup_key, session=None):
+def get_rses_with_attribute_value(key, value, lookup_key, vo='def', session=None):
     """
     Return all RSEs with a certain attribute.
 
@@ -493,8 +537,12 @@ def get_rses_with_attribute_value(key, value, lookup_key, session=None):
 
     :returns: List of rse dictionaries with the rse_id and lookup_key/value pair
     """
+    if vo != 'def':
+        cache_key = 'av-%s-%s-%s@%s' % (key, value, lookup_key, vo)
+    else:
+        cache_key = 'av-%s-%s-%s' % (key, value, lookup_key)
 
-    result = REGION.get('av-%s-%s-%s' % (key, value, lookup_key))
+    result = REGION.get(cache_key)
     if result is NO_VALUE:
 
         rse_list = []
@@ -510,14 +558,15 @@ def get_rses_with_attribute_value(key, value, lookup_key, session=None):
                        .join(models.RSE, models.RSE.id == models.RSEAttrAssociation.rse_id)\
                        .join(subquery, models.RSEAttrAssociation.rse_id == subquery.c.rse_id)\
                        .filter(models.RSE.deleted == false(),
-                               models.RSEAttrAssociation.key == lookup_key)
+                               models.RSEAttrAssociation.key == lookup_key,
+                               models.RSE.vo == vo)
 
         for row in query:
             rse_list.append({'rse_id': row[0],
                              'key': row[1],
                              'value': row[2]})
 
-        REGION.set('av-%s-%s-%s' % (key, value, lookup_key), rse_list)
+        REGION.set(cache_key, rse_list)
         return rse_list
 
     return result
@@ -1182,7 +1231,7 @@ def update_rse(rse_id, parameters, session=None):
     try:
         query = session.query(models.RSE).filter_by(id=rse_id).one()
     except sqlalchemy.orm.exc.NoResultFound:
-        raise exception.RSENotFound('RSE \'%s\' cannot be found' % rse_id)
+        raise exception.RSENotFound('RSE with ID \'%s\' cannot be found' % rse_id)
     availability = 0
     rse = query.rse
     for column in query:

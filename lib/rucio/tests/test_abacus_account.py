@@ -16,6 +16,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -27,6 +28,7 @@ from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
 from rucio.client.accountclient import AccountClient
 from rucio.client.uploadclient import UploadClient
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.utils import generate_uuid
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.account import get_usage_history
@@ -43,19 +45,28 @@ from rucio.tests.common import file_generator
 class TestAbacusAccount():
 
     def setUp(self):
-        self.account = InternalAccount('root')
-        self.scope = InternalScope('mock')
+        self.rse = 'MOCK4'
+        self.file_sizes = 2
         self.upload_client = UploadClient()
         self.account_client = AccountClient()
-        self.file_sizes = 2
-        self.rse = 'MOCK4'
-        self.rse_id = get_rse_id(self.rse)
         self.session = get_session()
+
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+        else:
+            self.vo = {}
+
+        self.account = InternalAccount('root', **self.vo)
+        self.scope = InternalScope('mock', **self.vo)
+        self.rse_id = get_rse_id(self.rse, session=self.session, **self.vo)
 
     def tearDown(self):
         undertaker.run(once=True)
         cleaner.run(once=True)
-        reaper.run(once=True, rses=[self.rse], greedy=True)
+        if self.vo:
+            reaper.run(once=True, include_rses='vo=%s&(%s)' % (self.vo['vo'], self.rse), greedy=True)
+        else:
+            reaper.run(once=True, include_rses=self.rse, greedy=True)
 
     def test_abacus_account(self):
         """ ABACUS (ACCOUNT): Test update of account usage """

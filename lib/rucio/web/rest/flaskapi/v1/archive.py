@@ -18,6 +18,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -26,7 +27,7 @@ from json import dumps
 from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
 
-from flask import Flask, Blueprint, Response
+from flask import Flask, Blueprint, Response, request
 from flask.views import MethodView
 
 from rucio.api.did import list_archive_content
@@ -56,7 +57,7 @@ class Archive(MethodView):
         """
         try:
             data = ""
-            for file in list_archive_content(scope=scope, name=name):
+            for file in list_archive_content(scope=scope, name=name, vo=request.environ.get('vo')):
                 data += dumps(file) + '\n'
             return Response(data, content_type="application/x-json-stream")
         except Exception as error:

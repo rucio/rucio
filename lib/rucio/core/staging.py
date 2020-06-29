@@ -8,7 +8,9 @@
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -89,7 +91,7 @@ def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, f
                     # Get destination rse information and protocol
                     dest_rse_name = get_rse_name(rse_id=dest_rse_id, session=session)
                     if dest_rse_id not in rses_info:
-                        rses_info[dest_rse_id] = rsemgr.get_rse_info(rse=dest_rse_name, session=session)
+                        rses_info[dest_rse_id] = rsemgr.get_rse_info(rse_id=dest_rse_id, session=session)
 
                     if staging_buffer != dest_rse_id:
                         continue
@@ -104,7 +106,7 @@ def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, f
                     source_replica_expression = attr["source_replica_expression"] if "source_replica_expression" in attr else None
                     if source_replica_expression:
                         try:
-                            parsed_rses = parse_expression(source_replica_expression, session=session)
+                            parsed_rses = parse_expression(source_replica_expression, filter={'vo': scope.vo}, session=session)
                         except InvalidRSEExpression as error:
                             logging.error(prepend_str + "Invalid RSE exception %s: %s" % (source_replica_expression, error))
                             continue
@@ -115,7 +117,7 @@ def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, f
 
                     source_rse_name = get_rse_name(rse_id=source_rse_id, session=session)
                     if source_rse_id not in rses_info:
-                        rses_info[source_rse_id] = rsemgr.get_rse_info(rse=source_rse_name, session=session)
+                        rses_info[source_rse_id] = rsemgr.get_rse_info(rse_id=source_rse_id, session=session)
                     if source_rse_id not in rse_attrs:
                         rse_attrs[source_rse_id] = get_rse_attributes(rse_id=source_rse_id, session=session)
 
@@ -130,7 +132,7 @@ def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, f
                        'space_token' in protocols[source_rse_id].attributes['extended_attributes']:
                         dest_spacetoken = protocols[source_rse_id].attributes['extended_attributes']['space_token']
 
-                    source_url = protocols[source_rse_id].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values()[0]
+                    source_url = protocols[source_rse_id].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': path}).values()[0]
                 else:
                     # source_rse_id will be None if no source replicas
                     # rse will be None if rse is staging area
@@ -148,7 +150,7 @@ def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, f
                     # to get space token and fts attribute
                     source_rse_name = get_rse_name(rse_id=source_rse_id, session=session)
                     if source_rse_id not in rses_info:
-                        rses_info[source_rse_id] = rsemgr.get_rse_info(rse=source_rse_name, session=session)
+                        rses_info[source_rse_id] = rsemgr.get_rse_info(rse_id=source_rse_id, session=session)
                     if source_rse_id not in rse_attrs:
                         rse_attrs[source_rse_id] = get_rse_attributes(rse_id=source_rse_id, session=session)
 

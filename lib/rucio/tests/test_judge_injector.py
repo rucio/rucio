@@ -9,9 +9,11 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2015-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from nose.tools import assert_raises
 
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import RuleNotFound
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
@@ -29,16 +31,21 @@ class TestJudgeEvaluator():
 
     @classmethod
     def setUpClass(cls):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+        else:
+            cls.vo = {}
+
         # Add test RSE
         cls.rse1 = 'MOCK'
         cls.rse3 = 'MOCK3'
         cls.rse4 = 'MOCK4'
         cls.rse5 = 'MOCK5'
 
-        cls.rse1_id = get_rse_id(rse=cls.rse1)
-        cls.rse3_id = get_rse_id(rse=cls.rse3)
-        cls.rse4_id = get_rse_id(rse=cls.rse4)
-        cls.rse5_id = get_rse_id(rse=cls.rse5)
+        cls.rse1_id = get_rse_id(rse=cls.rse1, **cls.vo)
+        cls.rse3_id = get_rse_id(rse=cls.rse3, **cls.vo)
+        cls.rse4_id = get_rse_id(rse=cls.rse4, **cls.vo)
+        cls.rse5_id = get_rse_id(rse=cls.rse5, **cls.vo)
 
         # Add Tags
         cls.T1 = tag_generator()
@@ -55,8 +62,8 @@ class TestJudgeEvaluator():
         add_rse_attribute(cls.rse5_id, "fakeweight", 0)
 
         # Add quota
-        cls.jdoe = InternalAccount('jdoe')
-        cls.root = InternalAccount('root')
+        cls.jdoe = InternalAccount('jdoe', **cls.vo)
+        cls.root = InternalAccount('root', **cls.vo)
         set_local_account_limit(cls.jdoe, cls.rse1_id, -1)
         set_local_account_limit(cls.jdoe, cls.rse3_id, -1)
         set_local_account_limit(cls.jdoe, cls.rse4_id, -1)
@@ -69,7 +76,7 @@ class TestJudgeEvaluator():
 
     def test_judge_inject_rule(self):
         """ JUDGE INJECTOR: Test the judge when injecting a rule"""
-        scope = InternalScope('mock')
+        scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
@@ -89,7 +96,7 @@ class TestJudgeEvaluator():
 
     def test_judge_ask_approval(self):
         """ JUDGE INJECTOR: Test the judge when asking approval for a rule"""
-        scope = InternalScope('mock')
+        scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
@@ -113,7 +120,7 @@ class TestJudgeEvaluator():
 
     def test_judge_deny_rule(self):
         """ JUDGE INJECTOR: Test the judge when asking approval for a rule and denying it"""
-        scope = InternalScope('mock')
+        scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
         add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
@@ -130,7 +137,7 @@ class TestJudgeEvaluator():
 
     def test_add_rule_with_r2d2_container_treating(self):
         """ JUDGE INJECTOR (CORE): Add a replication rule with an r2d2 container treatment"""
-        scope = InternalScope('mock')
+        scope = InternalScope('mock', **self.vo)
         container = 'asdf.r2d2_request.2016-04-01-15-00-00.ads.' + str(uuid())
         add_did(scope, container, DIDType.from_sym('CONTAINER'), self.jdoe)
         datasets = []
@@ -153,7 +160,7 @@ class TestJudgeEvaluator():
 
     def test_add_rule_with_r2d2_container_treating_and_duplicate_rule(self):
         """ JUDGE INJECTOR (CORE): Add a replication rule with an r2d2 container treatment and duplicate rule"""
-        scope = InternalScope('mock')
+        scope = InternalScope('mock', **self.vo)
         container = 'asdf.r2d2_request.2016-04-01-15-00-00.ads.' + str(uuid())
         add_did(scope, container, DIDType.from_sym('CONTAINER'), self.jdoe)
         datasets = []

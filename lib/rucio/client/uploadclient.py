@@ -21,6 +21,7 @@
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Gabriele Fronze' <gfronze@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
@@ -70,6 +71,8 @@ class UploadClient:
         self.trace = {}
         self.trace['hostname'] = socket.getfqdn()
         self.trace['account'] = self.client.account
+        if self.client.vo != 'def':
+            self.trace['vo'] = self.client.vo
         self.trace['eventType'] = 'upload'
         self.trace['eventVersion'] = version.RUCIO_VERSION[0]
 
@@ -113,7 +116,7 @@ class UploadClient:
         for file in files:
             rse = file['rse']
             if not self.rses.get(rse):
-                rse_settings = self.rses.setdefault(rse, rsemgr.get_rse_info(rse))
+                rse_settings = self.rses.setdefault(rse, rsemgr.get_rse_info(rse, vo=self.client.vo))
                 if rse_settings['availability_write'] != 1:
                     raise RSEBlacklisted('%s is blacklisted for writing. No actions have been taken' % rse)
 
@@ -300,7 +303,7 @@ class UploadClient:
                     if checksum_name in file:
                         final_summary[file_did_str][checksum_name] = file[checksum_name]
 
-            with open(summary_file_path, 'wb') as summary_file:
+            with open(summary_file_path, 'w') as summary_file:
                 json.dump(final_summary, summary_file, sort_keys=True, indent=1)
 
         if num_succeeded == 0:

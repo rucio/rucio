@@ -19,6 +19,7 @@
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -62,7 +63,7 @@ def redirect_auth_oidc(authn_code, fetchtoken=False):
     return authentication.redirect_auth_oidc(authn_code, fetchtoken)
 
 
-def get_auth_oidc(account, **kwargs):
+def get_auth_oidc(account, vo='def', **kwargs):
     """
     Assembles the authorization request of the Rucio Client tailored to the Rucio user
     & Identity Provider. Saves authentication session parameters in the oauth_requests
@@ -72,6 +73,7 @@ def get_auth_oidc(account, **kwargs):
     be used in user's browser for authentication.
 
     :param account: Rucio Account identifier as a string.
+    :param vo: The VO to act on.
     :param auth_scope: space separated list of scope names. Scope parameter
                        defines which user's info the user allows to provide
                        to the Rucio Client.
@@ -96,7 +98,7 @@ def get_auth_oidc(account, **kwargs):
     """
     # no permission layer for the moment !
 
-    account = InternalAccount(account)
+    account = InternalAccount(account, vo=vo)
     return oidc.get_auth_oidc(account, **kwargs)
 
 
@@ -118,7 +120,7 @@ def get_token_oidc(auth_query_string, ip=None):
     return oidc.get_token_oidc(auth_query_string, ip)
 
 
-def get_auth_token_user_pass(account, username, password, appid, ip=None):
+def get_auth_token_user_pass(account, username, password, appid, ip=None, vo='def'):
     """
     Authenticate a Rucio account temporarily via username and password.
 
@@ -129,19 +131,20 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None):
     :param password: SHA1 hash of the password as a string.
     :param appid: The application identifier as a string.
     :param ip: IP address of the client as a string.
+    :param vo: The VO to act on.
     :returns: Authentication token as a variable-length string.
     """
 
     kwargs = {'account': account, 'username': username, 'password': password}
-    if not permission.has_permission(issuer=account, action='get_auth_token_user_pass', kwargs=kwargs):
+    if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_user_pass', kwargs=kwargs):
         raise exception.AccessDenied('User with identity %s can not log to account %s' % (username, account))
 
-    account = InternalAccount(account)
+    account = InternalAccount(account, vo=vo)
 
     return authentication.get_auth_token_user_pass(account, username, password, appid, ip)
 
 
-def get_auth_token_gss(account, gsscred, appid, ip=None):
+def get_auth_token_gss(account, gsscred, appid, ip=None, vo='def'):
     """
     Authenticate a Rucio account temporarily via a GSS token.
 
@@ -151,19 +154,20 @@ def get_auth_token_gss(account, gsscred, appid, ip=None):
     :param gsscred: GSS principal@REALM as a string.
     :param appid: The application identifier as a string.
     :param ip: IP address of the client as a string.
+    :param vo: The VO to act on.
     :returns: Authentication token as a variable-length string.
     """
 
     kwargs = {'account': account, 'gsscred': gsscred}
-    if not permission.has_permission(issuer=account, action='get_auth_token_gss', kwargs=kwargs):
+    if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_gss', kwargs=kwargs):
         raise exception.AccessDenied('User with identity %s can not log to account %s' % (gsscred, account))
 
-    account = InternalAccount(account)
+    account = InternalAccount(account, vo=vo)
 
     return authentication.get_auth_token_gss(account, gsscred, appid, ip)
 
 
-def get_auth_token_x509(account, dn, appid, ip=None):
+def get_auth_token_x509(account, dn, appid, ip=None, vo='def'):
     """
     Authenticate a Rucio account temporarily via an x509 certificate.
 
@@ -173,6 +177,7 @@ def get_auth_token_x509(account, dn, appid, ip=None):
     :param dn: Client certificate distinguished name string, as extracted by Apache/mod_ssl.
     :param appid: The application identifier as a string.
     :param ip: IP address of the client as a string.
+    :param vo: The VO to act on.
     :returns: Authentication token as a variable-length string.
     """
 
@@ -180,15 +185,15 @@ def get_auth_token_x509(account, dn, appid, ip=None):
         account = identity.get_default_account(dn, IdentityType.X509).external
 
     kwargs = {'account': account, 'dn': dn}
-    if not permission.has_permission(issuer=account, action='get_auth_token_x509', kwargs=kwargs):
+    if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_x509', kwargs=kwargs):
         raise exception.AccessDenied('User with identity %s can not log to account %s' % (dn, account))
 
-    account = InternalAccount(account)
+    account = InternalAccount(account, vo=vo)
 
     return authentication.get_auth_token_x509(account, dn, appid, ip)
 
 
-def get_auth_token_ssh(account, signature, appid, ip=None):
+def get_auth_token_ssh(account, signature, appid, ip=None, vo='def'):
     """
     Authenticate a Rucio account temporarily via SSH key exchange.
 
@@ -198,19 +203,20 @@ def get_auth_token_ssh(account, signature, appid, ip=None):
     :param signature: Response to challenge token signed with SSH private key as a base64 encoded string.
     :param appid: The application identifier as a string.
     :param ip: IP address of the client as a string.
+    :param vo: The VO to act on.
     :returns: Authentication token as a variable-length string.
     """
 
     kwargs = {'account': account, 'signature': signature}
-    if not permission.has_permission(issuer=account, action='get_auth_token_ssh', kwargs=kwargs):
+    if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_ssh', kwargs=kwargs):
         raise exception.AccessDenied('User with provided signature can not log to account %s' % account)
 
-    account = InternalAccount(account)
+    account = InternalAccount(account, vo=vo)
 
     return authentication.get_auth_token_ssh(account, signature, appid, ip)
 
 
-def get_ssh_challenge_token(account, appid, ip=None):
+def get_ssh_challenge_token(account, appid, ip=None, vo='def'):
     """
     Get a challenge token for subsequent SSH public key authentication.
 
@@ -219,19 +225,20 @@ def get_ssh_challenge_token(account, appid, ip=None):
     :param account: Account identifier as a string.
     :param appid: The application identifier as a string.
     :param ip: IP address of the client as a string.
+    :param vo: The VO to act on.
     :returns: Challenge token as a variable-length string.
     """
 
     kwargs = {'account': account}
-    if not permission.has_permission(issuer=account, action='get_ssh_challenge_token', kwargs=kwargs):
+    if not permission.has_permission(issuer=account, vo=vo, action='get_ssh_challenge_token', kwargs=kwargs):
         raise exception.AccessDenied('User can not get challenge token for account %s' % account)
 
-    account = InternalAccount(account)
+    account = InternalAccount(account, vo=vo)
 
     return authentication.get_ssh_challenge_token(account, appid, ip)
 
 
-def get_auth_token_saml(account, saml_nameid, appid, ip=None):
+def get_auth_token_saml(account, saml_nameid, appid, ip=None, vo='def'):
     """
     Authenticate a Rucio account temporarily via SSO.
 
@@ -245,10 +252,10 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None):
     """
 
     kwargs = {'account': account, 'saml_nameid': saml_nameid}
-    if not permission.has_permission(issuer=account, action='get_auth_token_saml', kwargs=kwargs):
+    if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_saml', kwargs=kwargs):
         raise exception.AccessDenied('User with identity %s can not log to account %s' % (saml_nameid, account))
 
-    account = InternalAccount(account)
+    account = InternalAccount(account, vo=vo)
 
     return authentication.get_auth_token_saml(account, saml_nameid, appid, ip)
 
@@ -263,8 +270,14 @@ def validate_auth_token(token):
                            identity: <identity>,
                            lifetime: <token lifetime>,
                            audience: <audience>,
-                           authz_scope: <authz_scope> }
+                           authz_scope: <authz_scope>,
+                           vo: <vo> }
               if successful, None otherwise.
     """
 
-    return api_update_return_dict(authentication.validate_auth_token(token))
+    auth = authentication.validate_auth_token(token)
+    if auth is not None:
+        vo = auth['account'].vo
+        auth = api_update_return_dict(auth)
+        auth['vo'] = vo
+    return auth

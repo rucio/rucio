@@ -9,6 +9,7 @@
 # - Tomas Javurek, <tomas.javurek@cern.ch>, 2017
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -90,7 +91,8 @@ print('Excluding RSEs as destination which have active Background Rebalancing ru
 for rse in active_rses:
     print('  %s' % (rse[0]))
     for des in rses_under_ratio:
-        if des['rse'] == rse[0]:
+        des_as_expr = des['rse']
+        if des_as_expr == rse[0]:
             rses_under_ratio.remove(des)
             break
 
@@ -106,7 +108,7 @@ for src in rses_over_ratio:
         print('  %s' % (src['rse']))
         rses_over_ratio.remove(src)
 
-print('Excluding RSEs as desetinations which are blacklisted:')
+print('Excluding RSEs as destinations which are blacklisted:')
 for des in rses_under_ratio:
     if des['availability'] != 7:
         print('  %s' % (des['rse']))
@@ -137,8 +139,10 @@ for source_rse in rses_over_ratio:
             if available_target_rebalance_volume >= available_source_rebalance_volume:
                 available_target_rebalance_volume = available_source_rebalance_volume
 
-            print('Rebalance %dTB from %s(%f) to %s(%f)' % (available_target_rebalance_volume / 1E12, source_rse['rse'], source_rse['ratio'], destination_rse['rse'], destination_rse['ratio']))
-            rebalance_rse(source_rse['rse'], max_bytes=available_target_rebalance_volume, dry_run=False, comment='Nuclei Background rebalancing', force_expression=destination_rse['rse'])
+            vo_str = 'on VO {}'.format(destination_rse['vo']) if destination_rse['vo'] != 'def' else 'def'
+            print('Rebalance %dTB from %s(%f) to %s(%f)%s' % (available_target_rebalance_volume / 1E12, source_rse['rse'], source_rse['ratio'], destination_rse['rse'], destination_rse['ratio'], vo_str))
+            expr = destination_rse['rse']
+            rebalance_rse(rse_id=source_rse['id'], max_bytes=available_target_rebalance_volume, dry_run=False, comment='Nuclei Background rebalancing', force_expression=expr)
 
             destination_rse['receive_volume'] += available_target_rebalance_volume
             total_rebalance_volume += available_target_rebalance_volume

@@ -7,6 +7,8 @@
 #
 # Authors:
 # - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from __future__ import print_function
 from os import remove, path
@@ -15,6 +17,7 @@ from datetime import datetime, timedelta
 
 from nose.tools import assert_true
 
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalScope
 from rucio.core.replica import (update_replica_state, list_replicas, list_bad_replicas_status)
 from rucio.core.rse import get_rse_id
@@ -28,16 +31,20 @@ from rucio.daemons.replicarecoverer.suspicious_replica_recoverer import run, sto
 class TestReplicaRecoverer():
 
     def setUp(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+        else:
+            self.vo = {}
 
         self.replica_client = ReplicaClient()
 
         # Using two test RSEs
         self.rse4suspicious = 'MOCK_SUSPICIOUS'
-        self.rse4suspicious_id = get_rse_id(self.rse4suspicious)
+        self.rse4suspicious_id = get_rse_id(self.rse4suspicious, **self.vo)
         self.rse4recovery = 'MOCK_RECOVERY'
-        self.rse4recovery_id = get_rse_id(self.rse4recovery)
+        self.rse4recovery_id = get_rse_id(self.rse4recovery, **self.vo)
         self.scope = 'mock'
-        self.internal_scope = InternalScope(self.scope)
+        self.internal_scope = InternalScope(self.scope, **self.vo)
 
         # For testing, we create 3 files and upload them to Rucio to two test RSEs.
         self.tmp_file1 = file_generator()
@@ -101,14 +108,14 @@ class TestReplicaRecoverer():
 
         # Checking if only self.tmp_file2 is declared as 'BAD'
         self.from_date = datetime.now() - timedelta(days=1)
-        bad_replicas_list = list_bad_replicas_status(rse_id=self.rse4suspicious_id, younger_than=self.from_date)
+        bad_replicas_list = list_bad_replicas_status(rse_id=self.rse4suspicious_id, younger_than=self.from_date, **self.vo)
         bad_checklist = [(badf['name'], badf['rse_id'], badf['state']) for badf in bad_replicas_list]
 
         assert_true((path.basename(self.tmp_file2), self.rse4suspicious_id, BadFilesStatus.BAD) in bad_checklist)
         assert_true((path.basename(self.tmp_file1), self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist)
         assert_true((path.basename(self.tmp_file3), self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist)
 
-        bad_replicas_list = list_bad_replicas_status(rse_id=self.rse4recovery_id, younger_than=self.from_date)
+        bad_replicas_list = list_bad_replicas_status(rse_id=self.rse4recovery_id, younger_than=self.from_date, **self.vo)
         bad_checklist = [(badf['name'], badf['rse_id'], badf['state']) for badf in bad_replicas_list]
 
         assert_true((path.basename(self.tmp_file1), self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist)
@@ -174,14 +181,14 @@ class TestReplicaRecoverer():
                 assert_true((self.rse4recovery_id in replica['states']) is False)
 
         # Checking if replicas declared as 'BAD'
-        bad_replicas_list = list_bad_replicas_status(rse_id=self.rse4suspicious_id, younger_than=self.from_date)
+        bad_replicas_list = list_bad_replicas_status(rse_id=self.rse4suspicious_id, younger_than=self.from_date, **self.vo)
         bad_checklist = [(badf['name'], badf['rse_id'], badf['state']) for badf in bad_replicas_list]
 
         assert_true((path.basename(self.tmp_file1), self.rse4suspicious_id, BadFilesStatus.BAD) in bad_checklist)
         assert_true((path.basename(self.tmp_file2), self.rse4suspicious_id, BadFilesStatus.BAD) in bad_checklist)
         assert_true((path.basename(self.tmp_file3), self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist)
 
-        bad_replicas_list = list_bad_replicas_status(rse_id=self.rse4recovery_id, younger_than=self.from_date)
+        bad_replicas_list = list_bad_replicas_status(rse_id=self.rse4recovery_id, younger_than=self.from_date, **self.vo)
         bad_checklist = [(badf['name'], badf['rse_id'], badf['state']) for badf in bad_replicas_list]
 
         assert_true((path.basename(self.tmp_file1), self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist)
