@@ -1,4 +1,4 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -209,7 +210,7 @@ def add_dids(dids, account, session=None):
                 or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
                 or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
                 or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
-                or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
+                or match('.*IntegrityError.*columns? .*not unique.*', error.args[0]):
             raise exception.DataIdentifierAlreadyExists('Data Identifier already exists!')
 
         if match('.*IntegrityError.*02291.*integrity constraint.*DIDS_SCOPE_FK.*violated - parent key not found.*', error.args[0]) \
@@ -218,7 +219,7 @@ def add_dids(dids, account, session=None):
                 or match('.*IntegrityError.*02291.*integrity constraint.*DIDS_SCOPE_FK.*violated - parent key not found.*', error.args[0]) \
                 or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint.*', error.args[0]) \
                 or match('.*ForeignKeyViolation.*insert or update on table.*violates foreign key constraint.*', error.args[0]) \
-                or match('.*sqlite3.IntegrityError.*foreign key constraint failed', error.args[0]):
+                or match('.*IntegrityError.*foreign key constraints? failed.*', error.args[0]):
             raise exception.ScopeNotFound('Scope not found!')
 
         raise exception.RucioException(error.args)
@@ -386,7 +387,7 @@ def __add_files_to_dataset(scope, name, files, account, rse_id, ignore_duplicate
     except IntegrityError as error:
         if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', error.args[0]) \
                 or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', error.args[0]) \
-                or error.args[0] == "(IntegrityError) foreign key constraint failed" \
+                or match('.*IntegrityError.*foreign key constraints? failed.*', error.args[0]) \
                 or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint.*', error.args[0]):
             raise exception.DataIdentifierNotFound("Data identifier not found")
         elif match('.*IntegrityError.*ORA-00001: unique constraint .*CONTENTS_PK.*violated.*', error.args[0]) \
@@ -395,7 +396,7 @@ def __add_files_to_dataset(scope, name, files, account, rse_id, ignore_duplicate
                 or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
                 or match('.*IntegrityError.*1062.*Duplicate entry .*for key.*PRIMARY.*', error.args[0]) \
                 or match('.*duplicate entry.*key.*PRIMARY.*', error.args[0]) \
-                or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
+                or match('.*IntegrityError.*columns? .*not unique.*', error.args[0]):
             raise exception.FileAlreadyExists(error.args)
         else:
             raise exception.RucioException(error.args)
@@ -461,13 +462,13 @@ def __add_collections_to_container(scope, name, collections, account, session):
         session.flush()
     except IntegrityError as error:
         if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', error.args[0]) \
-           or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', error.args[0]) \
-           or error.args[0] == "(IntegrityError) foreign key constraint failed" \
-           or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint.*', error.args[0]):
+                or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', error.args[0]) \
+                or match('.*IntegrityError.*foreign key constraints? failed.*', error.args[0]) \
+                or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint.*', error.args[0]):
             raise exception.DataIdentifierNotFound("Data identifier not found")
         elif match('.*IntegrityError.*ORA-00001: unique constraint .*CONTENTS_PK.*violated.*', error.args[0]) \
                 or match('.*IntegrityError.*1062.*Duplicate entry .*for key.*PRIMARY.*', error.args[0]) \
-                or match('.*columns scope, name, child_scope, child_name are not unique.*', error.args[0]) \
+                or match('.*IntegrityError.*columns? scope.*name.*child_scope.*child_name.*not unique.*', error.args[0]) \
                 or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
                 or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
                 or match('.*IntegrityError.* UNIQUE constraint failed: contents.scope, contents.name, contents.child_scope, contents.child_name.*', error.args[0]):

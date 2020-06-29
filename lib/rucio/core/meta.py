@@ -1,18 +1,24 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
-  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
-
-  PY3K COMPATIBLE
-'''
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+#
+# PY3K COMPATIBLE
 
 from __future__ import print_function
 from re import match
@@ -63,7 +69,7 @@ def add_key(key, key_type, value_type=None, value_regexp=None, session=None):
     try:
         new_key.save(session=session)
     except IntegrityError as error:
-        if error.args[0] == "(IntegrityError) column key is not unique":
+        if match('.*IntegrityError.*columns? key.*not unique.*', error.args[0]):
             raise Duplicate('key \'%(key)s\' already exists!' % locals())
         raise
 
@@ -108,10 +114,9 @@ def add_value(key, value, session=None):
     try:
         new_value.save(session=session)
     except IntegrityError as error:
-        if error.args[0] == "(IntegrityError) columns key, value are not unique":
+        if match('.*IntegrityError.*columns? key.*value.*not unique.*', error.args[0]):
             raise Duplicate('key-value \'%(key)s-%(value)s\' already exists!' % locals())
-
-        if error.args[0] == "(IntegrityError) foreign key constraint failed":
+        if match('.*IntegrityError.*foreign key constraints? failed.*', error.args[0]):
             raise KeyNotFound("key '%(key)s' does not exist!" % locals())
         if match('.*IntegrityError.*ORA-02291: integrity constraint.*DID_MAP_KEYS_FK.*violated.*', error.args[0]):
             raise KeyNotFound("key '%(key)s' does not exist!" % locals())
