@@ -1,4 +1,4 @@
-# Copyright 2012-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -261,7 +262,7 @@ def add_account_attribute(account, key, value, session=None):
         if match('.*IntegrityError.*ORA-00001: unique constraint.*ACCOUNT_ATTR_MAP_PK.*violated.*', error.args[0]) \
            or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
            or match('.*IntegrityError.*UNIQUE constraint failed: account_attr_map.account, account_attr_map.key.*', error.args[0]) \
-           or error.args[0] == "(IntegrityError) column account/key is not unique" \
+           or match('.*IntegrityError.*columns? account.*key.*not unique.*', error.args[0]) \
            or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
            or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]):
             raise exception.Duplicate('Key {0} already exist for account {1}!'.format(key, account))
