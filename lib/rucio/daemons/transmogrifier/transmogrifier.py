@@ -22,6 +22,8 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
@@ -124,10 +126,20 @@ def is_matching_subscription(subscription, did, metadata):
         elif key == 'scope':
             match_scope = False
             for scope in values:
-                if re.match(scope, did['scope'].external):
+                if re.match(scope, did['scope'].internal):
                     match_scope = True
                     break
             if not match_scope:
+                return False
+        elif key == 'account':
+            match_account = False
+            if not isinstance(values, list):
+                values = [values]
+            for account in values:
+                if account == metadata['account'].internal:
+                    match_account = True
+                    break
+            if not match_account:
                 return False
         else:
             if not isinstance(values, list):
@@ -163,8 +175,9 @@ def select_algorithm(algorithm, rule_ids, params):
             rule = get_rule(rule_id)
             logging.debug('In select_algorithm, %s', str(rule))
             rse = rule['rse_expression']
-            if rse_exists(rse):
-                rse_id = get_rse_id(rse)
+            vo = rule['account'].vo
+            if rse_exists(rse, vo=vo):
+                rse_id = get_rse_id(rse, vo=vo)
                 rse_attributes = list_rse_attributes(rse_id)
                 associated_sites = rse_attributes.get('associated_sites', None)
                 associated_site_idx = params.get('associated_site_idx', None)
@@ -317,12 +330,13 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                     else:
                                         # In the case of chained subscription, don't use rseselector but use the rses returned by the algorithm
                                         if split_rule:
-                                            rses = parse_expression(rse_expression)
+                                            vo = account.vo
+                                            rses = parse_expression(rse_expression, filter={'vo': vo})
                                             list_of_rses = [rse['id'] for rse in rses]
                                             # Check that some rule doesn't already exist for this DID and subscription
                                             preferred_rse_ids = []
                                             for rule in list_rules(filters={'subscription_id': subscription_id, 'scope': did['scope'], 'name': did['name']}):
-                                                already_existing_rses = [(rse['rse'], rse['id']) for rse in parse_expression(rule['rse_expression'])]
+                                                already_existing_rses = [(rse['rse'], rse['id']) for rse in parse_expression(rule['rse_expression'], filter={'vo': vo})]
                                                 for rse, rse_id in already_existing_rses:
                                                     if (rse_id in list_of_rses) and (rse_id not in preferred_rse_ids):
                                                         preferred_rse_ids.append(rse_id)

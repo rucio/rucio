@@ -13,6 +13,9 @@
 # - Eric Vaandering, <ewv@fnal.gov>, 2018-2020
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -160,7 +163,7 @@ def perm_add_rule(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
 
-    rses = parse_expression(kwargs['rse_expression'])
+    rses = parse_expression(kwargs['rse_expression'], filter={'vo': issuer.vo})
     # If all the RSEs matching the expression need approval, the rule cannot be created
     if not kwargs['ask_approval']:
         all_rses_need_approval = True
@@ -369,7 +372,7 @@ def perm_add_did(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     # Check the accounts of the issued rules
-    if issuer != 'root' and not has_account_attribute(account=issuer, key='admin'):
+    if not _is_root(issuer) and not has_account_attribute(account=issuer, key='admin'):
         for rule in kwargs.get('rules', []):
             if rule['account'] != issuer:
                 return False
@@ -377,7 +380,7 @@ def perm_add_did(issuer, kwargs):
     return (_is_root(issuer)
             or has_account_attribute(account=issuer, key='admin')  # NOQA: W503
             or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)  # NOQA: W503
-            or kwargs['scope'] == u'mock')  # NOQA: W503
+            or kwargs['scope'].external == u'mock')  # NOQA: W503
 
 
 def perm_add_dids(issuer, kwargs):
@@ -389,7 +392,7 @@ def perm_add_dids(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     # Check the accounts of the issued rules
-    if issuer != 'root' and not has_account_attribute(account=issuer, key='admin'):
+    if not _is_root(issuer) and not has_account_attribute(account=issuer, key='admin'):
         for did in kwargs['dids']:
             for rule in did.get('rules', []):
                 if rule['account'] != issuer:
@@ -409,7 +412,7 @@ def perm_attach_dids(issuer, kwargs):
     return (_is_root(issuer)
             or has_account_attribute(account=issuer, key='admin')  # NOQA: W503
             or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)  # NOQA: W503
-            or kwargs['scope'] == 'mock')  # NOQA: W503
+            or kwargs['scope'].external == 'mock')  # NOQA: W503
 
 
 def perm_attach_dids_to_dids(issuer, kwargs):
@@ -443,7 +446,7 @@ def perm_create_did_sample(issuer, kwargs):
     return issuer == ('root'
                       or has_account_attribute(account=issuer, key='admin')  # NOQA: W503
                       or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)  # NOQA: W503
-                      or kwargs['scope'] == 'mock')  # NOQA: W503
+                      or kwargs['scope'].external == 'mock')  # NOQA: W503
 
 
 def perm_del_rule(issuer, kwargs):
@@ -487,7 +490,7 @@ def perm_approve_rule(issuer, kwargs):
         return True
 
     rule = get_rule(rule_id=kwargs['rule_id'])
-    rses = parse_expression(rule['rse_expression'])
+    rses = parse_expression(rule['rse_expression'], filter={'vo': issuer.vo})
 
     # Those in rule_approvers can approve the rule
     for rse in rses:
@@ -571,7 +574,7 @@ def perm_set_status(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     if kwargs.get('open', False):
-        if issuer != 'root' and not has_account_attribute(account=issuer, key='admin'):
+        if not _is_root(issuer) and not has_account_attribute(account=issuer, key='admin'):
             return False
 
     return (_is_root(issuer) or has_account_attribute(account=issuer, key='admin')
@@ -807,7 +810,7 @@ def perm_set_global_account_limit(issuer, kwargs):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
     resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country')
-                              for rse in parse_expression(kwargs['rse_expression'])}
+                              for rse in parse_expression(kwargs['rse_expression'], filter={'vo': issuer.vo})}
     if resolved_rse_countries.issubset(admin_in_country):
         return True
     return False
@@ -830,7 +833,7 @@ def perm_delete_global_account_limit(issuer, kwargs):
             admin_in_country.add(kv['key'].partition('-')[2])
     if admin_in_country:
         resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country')
-                                  for rse in parse_expression(kwargs['rse_expression'])}
+                                  for rse in parse_expression(kwargs['rse_expression'], filter={'vo': issuer.vo})}
         if resolved_rse_countries.issubset(admin_in_country):
             return True
     return False
@@ -988,7 +991,7 @@ def perm_remove_did_from_followed(issuer, kwargs):
     return (_is_root(issuer)
             or has_account_attribute(account=issuer, key='admin')  # NOQA: W503
             or kwargs['account'] == issuer  # NOQA: W503
-            or kwargs['scope'] == 'mock')  # NOQA: W503
+            or kwargs['scope'].external == 'mock')  # NOQA: W503
 
 
 def perm_remove_dids_from_followed(issuer, kwargs):

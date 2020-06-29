@@ -15,6 +15,7 @@
 #
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -54,7 +55,7 @@ class Import(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
 
         try:
-            import_data(data=data_to_import, issuer=ctx.env.get('issuer'))
+            import_data(data=data_to_import, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
 

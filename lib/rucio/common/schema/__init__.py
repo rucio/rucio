@@ -17,6 +17,7 @@
 # - Edgar Fajardo <emfajard@ucsd.edu>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 
 try:
     from ConfigParser import NoOptionError, NoSectionError
@@ -31,6 +32,15 @@ import importlib
 schema_modules = {}
 
 # TODO: load schema module for each VO in multi-VO installations
+
+try:
+    if config.config_get_bool('common', 'multi_vo'):
+        GENERIC_FALLBACK = 'generic_multi_vo'
+    else:
+        GENERIC_FALLBACK = 'generic'
+except (NoOptionError, NoSectionError) as error:
+    GENERIC_FALLBACK = 'generic'
+
 if config.config_has_section('policy'):
     try:
         POLICY = config.config_get('policy', 'package') + ".schema"
@@ -39,10 +49,10 @@ if config.config_has_section('policy'):
         try:
             POLICY = config.config_get('policy', 'schema')
         except (NoOptionError, NoSectionError) as error:
-            POLICY = 'generic'
+            POLICY = GENERIC_FALLBACK
         POLICY = 'rucio.common.schema.' + POLICY.lower()
 else:
-    POLICY = 'rucio.common.schema.generic'
+    POLICY = 'rucio.common.schema.' + GENERIC_FALLBACK.lower()
 
 try:
     module = importlib.import_module(POLICY)

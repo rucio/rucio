@@ -25,6 +25,7 @@
 # - Eric Vaandering <ericvaandering@gmail.com>, 2018
 # - Asket Agarwal <asket.agarwal96@gmail.com>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -51,9 +52,9 @@ class DIDClient(BaseClient):
     ARCHIVES_BASEURL = 'archives'
 
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None,
-                 auth_type=None, creds=None, timeout=600, user_agent='rucio-clients'):
+                 auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None):
         super(DIDClient, self).__init__(rucio_host, auth_host, account, ca_cert,
-                                        auth_type, creds, timeout, user_agent)
+                                        auth_type, creds, timeout, user_agent, vo=vo)
 
     def list_dids(self, scope, filters, type='collection', long=False, recursive=False):
         """
@@ -373,15 +374,18 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def get_did(self, scope, name):
+    def get_did(self, scope, name, dynamic=False):
         """
         Retrieve a single data identifier.
 
         :param scope: The scope name.
         :param name: The data identifier name.
+        :param dynamic: Calculate sizes dynamically when True
         """
 
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name)])
+        if dynamic:
+            path += '?dynamic=True'
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:

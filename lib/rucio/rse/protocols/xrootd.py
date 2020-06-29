@@ -1,19 +1,30 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - WeiJen Chang, <wchang@cern.ch>, 2013
-  - Cheng-Hsi Chao, <cheng-hsi.chao@cern.ch>, 2014
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2016-2017
-  - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
-
-  PY3K COMPATIBLE
-'''
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - WeiJen Chang <e4523744@gmail.com>, 2013
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
+# - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2016-2020
+# - Nicolo Magini <Nicolo.Magini@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Tomas Javurek <tomasjavurek09@gmail.com>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2020
+#  - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+#
+# PY3K COMPATIBLE
 
 import os
 import logging
@@ -72,10 +83,10 @@ class Default(protocol.RSEProtocol):
         self.logger.debug('xrootd.exists: pfn: {}'.format(pfn))
         try:
             path = self.pfn2path(pfn)
-            cmd = 'xrdfs %s:%s stat %s' % (self.hostname, self.port, path)
+            cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s stat %s' % (self.hostname, self.port, path)
             self.logger.info('xrootd.exists: cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
-            if not status == 0:
+            if status != 0:
                 return False
         except Exception as e:
             raise exception.ServiceUnavailable(e)
@@ -100,14 +111,14 @@ class Default(protocol.RSEProtocol):
 
         try:
             # xrdfs stat for getting filesize
-            cmd = 'xrdfs %s:%s stat %s' % (self.hostname, self.port, path)
+            cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s stat %s' % (self.hostname, self.port, path)
             self.logger.info('xrootd.stat: filesize cmd: {}'.format(cmd))
             status_stat, out, err = execute(cmd)
             if status_stat == 0:
                 ret['filesize'] = out.split('\n')[2].split()[-1]
 
             # xrdfs query checksum for getting checksum
-            cmd = 'xrdfs %s:%s query checksum %s' % (self.hostname, self.port, path)
+            cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s query checksum %s' % (self.hostname, self.port, path)
             self.logger.info('xrootd.stat: checksum cmd: {}'.format(cmd))
             status_query, out, err = execute(cmd)
             if status_query == 0:
@@ -163,7 +174,7 @@ class Default(protocol.RSEProtocol):
 
         lfns = [lfns] if type(lfns) == dict else lfns
         for lfn in lfns:
-            scope, name = str(lfn['scope']), lfn['name']
+            scope, name = lfn['scope'], lfn['name']
             if 'path' in lfn and lfn['path'] is not None:
                 pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), prefix, lfn['path']])
             else:
@@ -187,7 +198,7 @@ class Default(protocol.RSEProtocol):
             cmd = 'XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 xrdfs %s:%s query config %s:%s' % (self.hostname, self.port, self.hostname, self.port)
             self.logger.info('xrootd.connect: cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
-            if not status == 0:
+            if status != 0:
                 raise exception.RSEAccessDenied(err)
         except Exception as e:
             raise exception.RSEAccessDenied(e)
@@ -241,7 +252,7 @@ class Default(protocol.RSEProtocol):
             cmd = 'XrdSecPROTOCOL=gsi xrdcp -f %s %s' % (source_url, path)
             self.logger.info('xrootd.put: cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
-            if not status == 0:
+            if status != 0:
                 raise exception.RucioException(err)
         except Exception as e:
             raise exception.ServiceUnavailable(e)
@@ -263,7 +274,7 @@ class Default(protocol.RSEProtocol):
             cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s rm %s' % (self.hostname, self.port, path)
             self.logger.info('xrootd.delete: cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
-            if not status == 0:
+            if status != 0:
                 raise exception.RucioException(err)
         except Exception as e:
             raise exception.ServiceUnavailable(e)
@@ -290,7 +301,7 @@ class Default(protocol.RSEProtocol):
             cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s mv %s %s' % (self.hostname, self.port, path, new_path)
             self.logger.info('xrootd.stat: rename cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
-            if not status == 0:
+            if status != 0:
                 raise exception.RucioException(err)
         except Exception as e:
             raise exception.ServiceUnavailable(e)

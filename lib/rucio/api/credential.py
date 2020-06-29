@@ -14,17 +14,17 @@
 #
 # Authors:
 # - Mario Lassnig <mario@lassnig.net>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
 from rucio.api import permission
 from rucio.common import exception
-from rucio.common.types import InternalAccount
 from rucio.core import credential
 from rucio.core.rse import get_rse_id
 
 
-def get_signed_url(account, appid, ip, rse, service, operation, url, lifetime):
+def get_signed_url(account, appid, ip, rse, service, operation, url, lifetime, vo='def'):
     """
     Get a signed URL for a particular service and operation.
 
@@ -38,11 +38,12 @@ def get_signed_url(account, appid, ip, rse, service, operation, url, lifetime):
     :param operation: The operation to sign, either 'read', 'write', or 'delete'.
     :param url: The URL to sign.
     :param lifetime: Lifetime in seconds.
+    :param vo: The vo to act on.
     :returns: Signed URL as a variable-length string.
     """
 
-    kwargs = {'account': InternalAccount(account)}
-    if not permission.has_permission(issuer=account, action='get_signed_url', kwargs=kwargs):
+    kwargs = {'account': account}
+    if not permission.has_permission(issuer=account, vo=vo, action='get_signed_url', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not get signed URL for rse=%s, service=%s, operation=%s, url=%s, lifetime=%s' % (account,
                                                                                                                                       rse,
                                                                                                                                       service,
@@ -51,6 +52,6 @@ def get_signed_url(account, appid, ip, rse, service, operation, url, lifetime):
                                                                                                                                       lifetime))
 
     # look up RSE ID for name
-    rse_id = get_rse_id(rse)
+    rse_id = get_rse_id(rse, vo=vo)
 
     return credential.get_signed_url(rse_id, service, operation, url, lifetime)

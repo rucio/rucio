@@ -19,6 +19,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2018
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -58,7 +59,7 @@ class LockByRSE(MethodView):
         try:
             if did_type == 'dataset':
                 data = ""
-                for lock in get_dataset_locks_by_rse(rse):
+                for lock in get_dataset_locks_by_rse(rse, vo=request.environ.get('vo')):
                     data += render_json(**lock) + '\n'
                 return Response(data, content_type="application/x-json-stream")
             else:
@@ -93,7 +94,7 @@ class LockByScopeName(MethodView):
         try:
             if did_type == 'dataset':
                 data = ""
-                for lock in get_dataset_locks(scope, name):
+                for lock in get_dataset_locks(scope, name, vo=request.environ.get('vo')):
                     data += render_json(**lock) + '\n'
                 return Response(data, content_type="application/x-json-stream")
             else:

@@ -14,6 +14,7 @@
 #
 # Authors:
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -30,9 +31,9 @@ class CredentialClient(BaseClient):
     CREDENTIAL_BASEURL = 'credentials'
 
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None,
-                 auth_type=None, creds=None, timeout=600, user_agent='rucio-clients'):
+                 auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None):
         super(CredentialClient, self).__init__(rucio_host, auth_host, account, ca_cert,
-                                               auth_type, creds, timeout, user_agent)
+                                               auth_type, creds, timeout, user_agent, vo=vo)
 
     def get_signed_url(self, rse, service, operation, url, lifetime=3600):
         """

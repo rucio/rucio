@@ -16,6 +16,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2015-2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -166,6 +167,7 @@ def place_replica(once=False,
                 return
             client = Client(auth_type='x509_proxy', account='c3po', creds={'client_proxy': '/opt/rucio/etc/ddmadmin.long.proxy'})
 
+        vo = client.vo
         instances = {}
         for algorithm in algorithms:
             module_path = 'rucio.daemons.c3po.algorithms.' + algorithm
@@ -215,7 +217,7 @@ def place_replica(once=False,
             for _ in range(0, len_dids):
                 did = did_queue.get()
                 if isinstance(did[0], string_types):
-                    did[0] = InternalScope(did[0])
+                    did[0] = InternalScope(did[0], vo=vo)
                 for algorithm, instance in instances.items():
                     logging.info('(%s:%s) Retrieved %s:%s from queue. Run placement algorithm' % (algorithm, instance_id, did[0], did[1]))
                     decision = instance.place(did)
