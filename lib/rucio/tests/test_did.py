@@ -1026,8 +1026,8 @@ class TestDIDClients:
             meta_mapping['%s:%s' % (scope, cnt[idx])] = (key, 'cnt_%s' % idx)
         list_meta = [_ for _ in self.did_client.get_metadata_bulk(list_dids)]
         res_list_dids = [{'scope': entry['scope'], 'name': entry['name']} for entry in list_meta]
-        res_list_dids.sort()
-        list_dids.sort()
+        res_list_dids.sort(key=lambda item: item['name'])
+        list_dids.sort(key=lambda item: item['name'])
         assert_equal(list_dids, res_list_dids)
         for meta in list_meta:
             did = '%s:%s' % (meta['scope'], meta['name'])

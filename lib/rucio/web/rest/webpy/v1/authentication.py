@@ -923,6 +923,10 @@ class SAML(RucioController):
         header('Cache-Control', 'post-check=0, pre-check=0', False)
         header('Pragma', 'no-cache')
 
+        if not EXTRA_MODULES['onelogin']:
+            header('X-Rucio-Auth-Token', None)
+            return "SAML not configured on the server side."
+
         saml_nameid = cookies().get('saml-nameid')
         account = ctx.env.get('HTTP_X_RUCIO_ACCOUNT')
         appid = ctx.env.get('HTTP_X_RUCIO_APPID')
@@ -962,6 +966,11 @@ class SAML(RucioController):
         return str()
 
     def POST(self):
+
+        if not EXTRA_MODULES['onelogin']:
+            header('X-Rucio-Auth-Token', None)
+            return "SAML not configured on the server side."
+
         SAML_PATH = config_get('saml', 'config_path')
         request = ctx.env
         data = dict(param_input())
