@@ -20,7 +20,6 @@
 from datetime import datetime, timedelta
 from nose.tools import assert_equal
 
-from rucio.client.rseclient import RSEClient
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid

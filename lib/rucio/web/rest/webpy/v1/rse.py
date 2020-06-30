@@ -904,7 +904,7 @@ class QoSPolicy(RucioController):
         header('Content-Type', 'application/json')
 
         try:
-            add_qos_policy(rse=rse, qos_policy=qos_policy, issuer=ctx.env.get('issuer'))
+            add_qos_policy(rse=rse, qos_policy=qos_policy, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except RSENotFound as error:
             raise generate_http_error(404, 'RSENotFound', error.args[0])
         except RucioException as error:
@@ -926,7 +926,7 @@ class QoSPolicy(RucioController):
         header('Content-Type', 'application/json')
 
         try:
-            delete_qos_policy(rse=rse, qos_policy=qos_policy, issuer=ctx.env.get('issuer'))
+            delete_qos_policy(rse=rse, qos_policy=qos_policy, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except RSENotFound as error:
             raise generate_http_error(404, 'RSENotFound', error.args[0])
         except RucioException as error:
@@ -947,7 +947,7 @@ class QoSPolicy(RucioController):
         header('Content-Type', 'application/json')
 
         try:
-            qos_policies = list_qos_policies(rse=rse, issuer=ctx.env.get('issuer'))
+            qos_policies = list_qos_policies(rse=rse, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
             return dumps(qos_policies, cls=APIEncoder)
         except RSENotFound as error:
             raise generate_http_error(404, 'RSENotFound', error.args[0])
