@@ -41,12 +41,12 @@ ACCOUNT_TYPE = {"description": "Account type",
 
 ACTIVITY = {"description": "Activity name",
             "type": "string",
-            "enum": ["Data Brokering", "Data Consolidation", "Data rebalancing",
-                     "Debug", "Express", "Functional Test", "Group Subscriptions",
-                     "Production Input", "Production Output",
+            "enum": ["Data Consolidation", "Data Rebalancing",
+                     "Functional Test", "Functional Test WebDAV", "Recovery",
+                     "Production Input", "Production Output", "Production Merge",
                      "Analysis Input", "Analysis Output", "Staging",
-                     "T0 Export", "T0 Tape", "Upload/Download (Job)",
-                     "Upload/Download (User)", "User Subscriptions"]}
+                     "Raw Export", "Upload/Download (Job)", "Upload/Download (User)",
+                     "User Merge", "User Transfers"]}
 
 SCOPE_LENGTH = 25
 
