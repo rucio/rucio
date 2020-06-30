@@ -38,11 +38,10 @@ except ImportError:
 from web import application, ctx, data, Created, header, InternalError, OK, loadhook
 
 from rucio.api.did import (add_did, add_dids, list_content, list_content_history,
-                           list_dids, list_files, scope_list, get_did, set_metadata,
-                           get_metadata, get_metadata_bulk, set_status, attach_dids, detach_dids,
+                           list_dids, list_dids_extended, list_files, scope_list, get_did, set_metadata,
+                           get_metadata, get_metadata_bulk, delete_metadata, set_status, attach_dids, detach_dids,
                            attach_dids_to_dids, get_dataset_by_guid, list_parent_dids,
-                           create_did_sample, list_new_dids, resurrect, get_did_meta,
-                           add_did_meta, list_dids_by_meta, delete_did_meta, add_did_to_followed,
+                           create_did_sample, list_new_dids, resurrect, add_did_to_followed,
                            get_users_following_did, remove_did_from_followed)
 from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
@@ -60,6 +59,7 @@ URLS = (
     '/(.*)/$', 'Scope',
     '/(.*)/guid', 'GUIDLookup',
     '/(.*)/dids/search', 'Search',
+    '/(.*)/dids/search_extended', 'SearchExtended',
     '%s/files' % SCOPE_NAME_REGEXP, 'Files',
     '%s/dids/history' % SCOPE_NAME_REGEXP, 'AttachmentHistory',
     '%s/dids' % SCOPE_NAME_REGEXP, 'Attachment',
@@ -69,14 +69,12 @@ URLS = (
     '%s/rules' % SCOPE_NAME_REGEXP, 'Rules',
     '%s/parents' % SCOPE_NAME_REGEXP, 'Parents',
     '%s/associated_rules' % SCOPE_NAME_REGEXP, 'AssociatedRules',
-    '%s/did_meta' % SCOPE_NAME_REGEXP, 'DidMeta',
     '/(.*)/(.*)/(.*)/(.*)/(.*)/sample', 'Sample',
     '%s' % SCOPE_NAME_REGEXP, 'DIDs',
     '', 'BulkDIDS',
     '/attachments', 'Attachments',
     '/new', 'NewDIDs',
     '/resurrect', 'Resurrect',
-    '/list_dids_by_meta', 'ListByMeta',
     '%s/follow' % SCOPE_NAME_REGEXP, 'Follow',
     '/bulkmeta', 'BulkMeta',
 )
@@ -156,6 +154,53 @@ class Search(RucioController):
 
         try:
             for did in list_dids(scope=scope, filters=filters, type=type, long=long, recursive=recursive, vo=ctx.env.get('vo')):
+                yield dumps(did) + '\n'
+        except UnsupportedOperation as error:
+            raise generate_http_error(409, 'UnsupportedOperation', error.args[0])
+        except KeyNotFound as error:
+            raise generate_http_error(404, 'KeyNotFound', error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+
+
+class SearchExtended(RucioController):
+
+    @check_accept_header_wrapper(['application/x-json-stream'])
+    def GET(self, scope):
+        """
+        List all data identifiers in a scope which match a given metadata.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 KeyNotFound
+            406 Not Acceptable
+            409 UnsupportedOperation
+
+        :param scope: The scope name.
+        """
+
+        header('Content-Type', 'application/x-json-stream')
+        filters = {}
+        long = False
+        recursive = False
+        if ctx.query:
+            params = parse_qs(ctx.query[1:])
+            for k, v in params.items():
+                if k == 'type':
+                    type = v[0]
+                elif k == 'long':
+                    long = v[0] == '1'
+                elif k == 'recursive':
+                    recursive = v[0] == 'True'
+                else:
+                    filters[k] = v[0]
+
+        try:
+            for did in list_dids_extended(scope=scope, filters=filters, type=type, long=long, recursive=recursive, vo=ctx.env.get('vo')):
                 yield dumps(did) + '\n'
         except UnsupportedOperation as error:
             raise generate_http_error(409, 'UnsupportedOperation', error.args[0])
@@ -598,7 +643,12 @@ class Meta(RucioController):
         """
         header('Content-Type', 'application/json')
         try:
-            meta = get_metadata(scope=scope, name=name, vo=ctx.env.get('vo'))
+            plugin = 'DID_COLUMN'
+            if ctx.query:
+                params = parse_qs(ctx.query[1:])
+                if 'plugin' in params:
+                    plugin = params['plugin'][0]
+            meta = get_metadata(scope=scope, name=name, plugin=plugin, vo=ctx.env.get('vo'))
             return render_json(**meta)
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
@@ -654,6 +704,39 @@ class Meta(RucioController):
             raise InternalError(error)
 
         raise Created()
+
+    def DELETE(self, scope, name):
+        """
+        Deletes the specified key from the DID
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 KeyNotFound
+        """
+        key = ""
+        if ctx.query:
+            params = parse_qs(ctx.query[1:])
+            if 'key' in params:
+                key = params['key'][0]
+            else:
+                raise generate_http_error(404, 'KeyNotFound', 'No key provided to remove')
+
+        try:
+            delete_metadata(scope=scope, name=name, key=key)
+        except KeyNotFound as error:
+            raise generate_http_error(404, 'KeyNotFound', error.args[0])
+        except DataIdentifierNotFound as error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
+        except NotImplementedError:
+            raise generate_http_error(409, 'NotImplementedError', 'Feature not in current database')
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+        raise OK()
 
 
 class Rules(RucioController):
@@ -899,144 +982,6 @@ class Resurrect(RucioController):
             print(format_exc())
             raise InternalError(error)
         raise Created()
-
-
-class ListByMeta(RucioController):
-
-    @check_accept_header_wrapper(['application/x-json-stream'])
-    def GET(self):
-        """
-        List all data identifiers in a scope(optional) which match a given metadata.
-
-        HTTP Success:
-            200 OK
-
-        HTTP Error:
-            406 Not Acceptable
-            500 Server Error
-
-        :param scope: The scope name.
-        """
-
-        select = {}
-        scope = ""
-        if ctx.query:
-            params = parse_qs(ctx.query[1:])
-            if 'scope' in params:
-                scope = params['scope'][0]
-            if 'select' in params:
-                select = loads(params['select'][0])
-
-        try:
-            dids = list_dids_by_meta(scope=scope, select=select, vo=ctx.env.get('vo'))
-            yield dumps(dids, cls=APIEncoder) + '\n'
-        except NotImplementedError:
-            raise generate_http_error(409, 'NotImplementedError', 'Feature not in current database')
-        except Exception as error:
-            print(format_exc())
-            raise InternalError(error)
-
-
-class DidMeta(RucioController):
-
-    def POST(self, scope, name):
-        """
-        Add did_meta to DID
-        HTTP Success:
-        201 Created
-
-        HTTP Error:
-            401 Unauthorized
-            404 Not Found
-            500 Internal Error
-
-        """
-        json_data = data()
-        try:
-            meta = loads(json_data)
-        except ValueError:
-            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
-
-        try:
-            add_did_meta(scope=scope, name=name, meta=meta, vo=ctx.env.get('vo'))
-        except DataIdentifierNotFound as error:
-            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
-        except DataIdentifierAlreadyExists as error:
-            raise generate_http_error(409, 'DataIdentifierAlreadyExists', error.args[0])
-        except AccessDenied as error:
-            raise generate_http_error(401, 'AccessDenied', error.args[0])
-        except UnsupportedOperation as error:
-            raise generate_http_error(409, 'UnsupportedOperation', error.args[0])
-        except NotImplementedError:
-            raise generate_http_error(409, 'NotImplementedError', 'Feature not in current database')
-        except DatabaseException as error:
-            raise generate_http_error(500, 'DatabaseException', error.args[0])
-        except RucioException as error:
-            raise generate_http_error(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            print(format_exc())
-            raise InternalError(error)
-        raise Created()
-
-    @check_accept_header_wrapper(['application/x-json-stream'])
-    def GET(self, scope, name):
-        """
-        Gets metadata for a did
-        HTTP Success:
-            200 OK
-
-        HTTP Error:
-            401 Unauthorized
-            404 DataIdentifier Not found
-            406 Not Acceptable
-            409 NotImplemented
-        """
-        header('Content-Type', 'application/x-json-stream')
-        try:
-            meta = get_did_meta(scope=scope, name=name, vo=ctx.env.get('vo'))
-            yield dumps(meta, cls=APIEncoder) + "\n"
-        except DataIdentifierNotFound as error:
-            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
-        except RucioException as error:
-            raise generate_http_error(500, error.__class__.__name__, error.args[0])
-        except NotImplementedError:
-            raise generate_http_error(409, 'NotImplementedError', 'Feature not in current database')
-        except Exception as error:
-            print(format_exc())
-            raise InternalError(error)
-
-    def DELETE(self, scope, name):
-        """
-        Deletes the specified key from the DID
-        HTTP Success:
-            200 OK
-
-        HTTP Error:
-            401 Unauthorized
-            404 KeyNotFound
-        """
-        key = ""
-        if ctx.query:
-            params = parse_qs(ctx.query[1:])
-            if 'key' in params:
-                key = params['key'][0]
-            else:
-                raise generate_http_error(404, 'KeyNotFound', 'No key provided to remove')
-
-        try:
-            delete_did_meta(scope=scope, name=name, key=key, vo=ctx.env.get('vo'))
-        except KeyNotFound as error:
-            raise generate_http_error(404, 'KeyNotFound', error.args[0])
-        except DataIdentifierNotFound as error:
-            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
-        except NotImplementedError:
-            raise generate_http_error(409, 'NotImplementedError', 'Feature not in current database')
-        except RucioException as error:
-            raise generate_http_error(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            print(format_exc())
-            raise InternalError(error)
-        raise OK()
 
 
 class Follow(RucioController):
