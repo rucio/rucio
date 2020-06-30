@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -322,24 +322,49 @@ def list_dataset_replicas(args):
     List dataset replicas
     """
     client = get_client(args)
-    datasets, result = {}, {}
-    scope, name = extract_scope(args.did)
-    meta = client.get_metadata(scope, name)
-    if meta['did_type'] != 'DATASET':
-        dids = client.scope_list(scope=scope, name=name, recursive=True)
-        for did in dids:
-            if did['type'] == 'FILE':
-                dsn = '%s:%s' % (did['parent']['scope'], did['parent']['name'])
-                if dsn not in datasets:
-                    datasets[dsn] = 0
-                datasets[dsn] += 1
+    result = {}
+    datasets = []
+
+    def _append_to_datasets(scope, name):
+        filedid = {'scope': scope, 'name': name}
+        if filedid not in datasets:
+            datasets.append(filedid)
+
+    def _fetch_datasets_for_meta(meta):
+        """Internal function to fetch datasets and recurse into files."""
+        if meta['did_type'] != 'DATASET':
+            dids = client.scope_list(scope=meta['scope'], name=meta['name'], recursive=True)
+            for did in dids:
+                if did['type'] == 'FILE':
+                    _append_to_datasets(did['parent']['scope'], did['parent']['name'])
+        else:
+            _append_to_datasets(meta['scope'], meta['name'])
+
+    def _append_result(dsn, replica):
+        if dsn not in result:
+            result[dsn] = {}
+        result[dsn][replica['rse']] = [replica['rse'], replica['available_length'], replica['length']]
+
+    if len(args.dids) == 1:
+        scope, name = extract_scope(args.dids[0])
+        dmeta = client.get_metadata(scope, name)
+        _fetch_datasets_for_meta(meta=dmeta)
     else:
-        datasets['%s:%s' % (scope, name)] = 0
-    for dsn in datasets:
-        scope, name = extract_scope(dsn)
-        result[dsn] = {}
-        for rep in client.list_dataset_replicas(scope, name, args.deep):
-            result[dsn][rep['rse']] = [rep['rse'], rep['available_length'], rep['length']]
+        extractdids = (extract_scope(did) for did in args.dids)
+        splitdids = [{'scope': scope, 'name': name} for scope, name in extractdids]
+        for dmeta in client.get_metadata_bulk(dids=splitdids):
+            _fetch_datasets_for_meta(meta=dmeta)
+
+    if args.deep or len(datasets) < 2:
+        for did in datasets:
+            dsn = "%s:%s" % (did['scope'], did['name'])
+            for rep in client.list_dataset_replicas(scope=did['scope'], name=did['name'], deep=args.deep):
+                _append_result(dsn=dsn, replica=rep)
+    else:
+        for rep in client.list_dataset_replicas_bulk(dids=datasets):
+            dsn = "%s:%s" % (rep['scope'], rep['name'])
+            _append_result(dsn=dsn, replica=rep)
+
     if args.csv:
         for dsn in result:
             for rse in list(result[dsn].values()):
@@ -1799,7 +1824,7 @@ To list the missing replica of a dataset of a given RSE::
     +------------+---------+---------+
     ''')
     list_dataset_replicas_parser.set_defaults(function=list_dataset_replicas)
-    list_dataset_replicas_parser.add_argument(dest='did', action='store', help='The name of the DID to search.')
+    list_dataset_replicas_parser.add_argument(dest='dids', action='store', nargs='+', help='The name of the DID to search.')
     list_dataset_replicas_parser.add_argument('--deep', action='store_true', help='Make a deep check.')
     list_dataset_replicas_parser.add_argument('--csv', dest='csv', action='store_true', default=False, help='Comma Separated Value output.',)
 
