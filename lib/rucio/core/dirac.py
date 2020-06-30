@@ -70,7 +70,6 @@ def add_files(lfns, account, ignore_availability, session=None):
     for lfn in lfns:
         # First chekck if the file exists
         filename = lfn['lfn']
-        print(filename)
         lfn_scope, _ = extract_scope(filename, scopes)
         lfn_scope = InternalScope(lfn_scope)
         if _exists(lfn_scope, filename):
@@ -118,18 +117,16 @@ def add_files(lfns, account, ignore_availability, session=None):
             files['pfn'] = str(pfn)
         if guid:
             files['meta'] = {'guid': guid}
-        res = add_replicas(rse_id=rse_id,
-                           files=[files],
-                           dataset_meta=None,
-                           account=account,
-                           ignore_availability=ignore_availability,
-                           session=session)
+        add_replicas(rse_id=rse_id,
+                     files=[files],
+                     dataset_meta=None,
+                     account=account,
+                     ignore_availability=ignore_availability,
+                     session=session)
         attachments.append({'scope': dsn_scope, 'name': dsn_name, 'dids': [{'scope': lfn_scope, 'name': filename}]})
-        print(res)
 
         # Now loop over the ascendants of the dataset and created them
         for lpn in lpns[1:]:
-            print('HERE')
             child_scope, _ = extract_scope(lpn, scopes)
             child_scope = InternalScope(child_scope)
             if (lpn not in exist_lfn) and (not _exists(child_scope, lpn)):
@@ -150,7 +147,6 @@ def add_files(lfns, account, ignore_availability, session=None):
                 parent_scope, _ = extract_scope(parent_name, scopes)
                 parent_scope = InternalScope(parent_scope)
                 attachments.append({'scope': parent_scope, 'name': parent_name, 'dids': [{'scope': child_scope, 'name': lpn}]})
-        print(attachments)
     # Finally attach everything
     attach_dids_to_dids(attachments,
                         account=account,
