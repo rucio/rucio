@@ -18,7 +18,8 @@
 # PY3K COMPATIBLE
 
 from rucio.client.rseclient import RSEClient
-from rucio.core.rse import update_rse, get_rse, get_rse_id
+from rucio.core.rse import add_rse, del_rse, update_rse, get_rse, get_rse_id
+from rucio.tests.common import rse_name_generator
 
 from nose.tools import assert_equal
 
@@ -28,58 +29,59 @@ class TestQoS(object):
     @classmethod
     def setupClass(self):
         self.rse_client = RSEClient()
+        self.tmp_rse_name = rse_name_generator()
+        add_rse(self.tmp_rse_name)
+        self.tmp_rse = get_rse_id(self.tmp_rse_name)
 
     @classmethod
     def teardownClass(self):
-        pass
+        del_rse(self.tmp_rse)
 
     def test_update_and_remove_rse_qos_class(self):
         """ QoS (CORE): Update and remove QoS class for RSE """
 
-        mock_rse = get_rse_id('MOCK')
-
-        update_rse(mock_rse, {'qos_class': 'fast_and_expensive'})
-        rse = get_rse(mock_rse)
+        update_rse(self.tmp_rse, {'qos_class': 'fast_and_expensive'})
+        rse = get_rse(self.tmp_rse)
         assert_equal(rse['qos_class'], 'fast_and_expensive')
 
-        update_rse(mock_rse, {'qos_class': 'slow_but_cheap'})
-        rse = get_rse(mock_rse)
+        update_rse(self.tmp_rse, {'qos_class': 'slow_but_cheap'})
+        rse = get_rse(self.tmp_rse)
         assert_equal(rse['qos_class'], 'slow_but_cheap')
 
-        update_rse(mock_rse, {'qos_class': None})
-        rse = get_rse(mock_rse)
+        update_rse(self.tmp_rse, {'qos_class': None})
+        rse = get_rse(self.tmp_rse)
         assert_equal(rse['qos_class'], None)
 
     def test_update_and_remove_rse_qos_class_client(self):
         """ QoS (CLIENT): Update and remove QoS class for RSE """
 
-        self.rse_client.update_rse('MOCK', {'qos_class': 'fast_and_expensive'})
-        rse = self.rse_client.get_rse('MOCK')
+        self.rse_client.update_rse(self.tmp_rse_name, {'qos_class': 'fast_and_expensive'})
+        rse = self.rse_client.get_rse(self.tmp_rse_name)
         assert_equal(rse['qos_class'], 'fast_and_expensive')
 
-        self.rse_client.update_rse('MOCK', {'qos_class': 'slow_but_cheap'})
-        rse = self.rse_client.get_rse('MOCK')
+        self.rse_client.update_rse(self.tmp_rse_name, {'qos_class': 'slow_but_cheap'})
+        rse = self.rse_client.get_rse(self.tmp_rse_name)
         assert_equal(rse['qos_class'], 'slow_but_cheap')
 
-        self.rse_client.update_rse('MOCK', {'qos_class': None})
-        rse = self.rse_client.get_rse('MOCK')
+        self.rse_client.update_rse(self.tmp_rse_name, {'qos_class': None})
+        rse = self.rse_client.get_rse(self.tmp_rse_name)
         assert_equal(rse['qos_class'], None)
 
     def test_qos_policies(self):
         """ QoS (CLIENT): Add QoS policy for RSE """
 
-        self.rse_client.add_qos_policy('MOCK', 'FOO')
-        policies = self.rse_client.list_qos_policies('MOCK')
+        self.rse_client.add_qos_policy(self.tmp_rse_name, 'FOO')
+        policies = self.rse_client.list_qos_policies(self.tmp_rse_name)
         assert_equal(policies, ['FOO'])
 
-        self.rse_client.add_qos_policy('MOCK', 'BAR')
-        policies = sorted(self.rse_client.list_qos_policies('MOCK'))
+        self.rse_client.add_qos_policy(self.tmp_rse_name, 'BAR')
+        policies = sorted(self.rse_client.list_qos_policies(self.tmp_rse_name))
         assert_equal(policies, ['BAR', 'FOO'])
 
-        self.rse_client.delete_qos_policy('MOCK', 'BAR')
-        policies = self.rse_client.list_qos_policies('MOCK')
+        self.rse_client.delete_qos_policy(self.tmp_rse_name, 'BAR')
+        policies = self.rse_client.list_qos_policies(self.tmp_rse_name)
         assert_equal(policies, ['FOO'])
 
-        self.rse_client.delete_qos_policy('MOCK', 'FOO')
-        policies = self.rse_client.list_qos_policies('MOCK')
+        self.rse_client.delete_qos_policy(self.tmp_rse_name, 'FOO')
+        policies = self.rse_client.list_qos_policies(self.tmp_rse_name)
         assert_equal(policies, [])
