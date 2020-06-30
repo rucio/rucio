@@ -28,13 +28,22 @@ import json
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 
+from dogpile.cache import make_region
+from dogpile.cache.api import NO_VALUE
 
-from rucio.common.exception import InvalidObject, RucioException
+from rucio.common.config import config_get
+from rucio.common.exception import InvalidObject, RucioException, ConfigNotFound
 from rucio.common.utils import APIEncoder
 from rucio.core.config import get
 from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla.models import Message, MessageHistory
 from rucio.db.sqla.session import transactional_session
+
+
+REGION = make_region().configure('dogpile.cache.memcached',
+                                 expiration_time=3600,
+                                 arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'),
+                                            'distributed_lock': True})
 
 
 @transactional_session
@@ -49,7 +58,13 @@ def add_message(event_type, payload, session=None):
     :param session: The database session to use.
     """
 
-    services_list = get('hermes', 'services_list', session=session)
+    services_list = REGION.get('services_list')
+    if services_list == NO_VALUE:
+        try:
+            services_list = get('hermes', 'services_list')
+        except ConfigNotFound:
+            services_list = None
+        REGION.set('services_list', services_list)
 
     try:
         payload = json.dumps(payload, cls=APIEncoder)
