@@ -464,19 +464,20 @@ def get_distance(source, destination, issuer, vo='def'):
     return [api_update_return_dict(d) for d in distances]
 
 
-def add_qos_policy(rse, qos_policy, issuer):
+def add_qos_policy(rse, qos_policy, issuer, vo='def'):
     """
     Add a QoS policy from an RSE.
 
     :param rse: The name of the RSE.
     :param qos_policy: The QoS policy to add.
     :param issuer: The issuer account.
+    :param vo: The VO to act on.
 
     :raises Duplicate: If the QoS policy already exists.
     :returns: True if successful, except otherwise.
     """
 
-    rse_id = rse_module.get_rse_id(rse=rse)
+    rse_id = rse_module.get_rse_id(rse=rse, vo=vo)
     kwargs = {'rse_id': rse_id}
     if not permission.has_permission(issuer=issuer, action='add_qos_policy', kwargs=kwargs):
         raise exception.AccessDenied('Account %s cannot add QoS policies to RSE %s' % (issuer, rse))
@@ -484,18 +485,19 @@ def add_qos_policy(rse, qos_policy, issuer):
     return rse_module.add_qos_policy(rse_id, qos_policy)
 
 
-def delete_qos_policy(rse, qos_policy, issuer):
+def delete_qos_policy(rse, qos_policy, issuer, vo='def'):
     """
     Delete a QoS policy from an RSE.
 
     :param rse: The name of the RSE.
     :param qos_policy: The QoS policy to delete.
     :param issuer: The issuer account.
+    :param vo: The VO to act on.
 
     :returns: True if successful, silent failure if QoS policy does not exist.
     """
 
-    rse_id = rse_module.get_rse_id(rse=rse)
+    rse_id = rse_module.get_rse_id(rse=rse, vo=vo)
     kwargs = {'rse_id': rse}
     if not permission.has_permission(issuer=issuer, action='delete_qos_policy', kwargs=kwargs):
         raise exception.AccessDenied('Account %s cannot delete QoS policies from RSE %s' % (issuer, rse))
@@ -503,15 +505,16 @@ def delete_qos_policy(rse, qos_policy, issuer):
     return rse_module.delete_qos_policy(rse_id, qos_policy)
 
 
-def list_qos_policies(rse, issuer):
+def list_qos_policies(rse, issuer, vo='def'):
     """
     List all QoS policies of an RSE.
 
     :param rse: The id of the RSE.
     :param issuer: The issuer account.
+    :param vo: The VO to act on.
 
     :returns: List containing all QoS policies.
     """
 
-    rse_id = rse_module.get_rse_id(rse=rse)
+    rse_id = rse_module.get_rse_id(rse=rse, vo=vo)
     return rse_module.list_qos_policies(rse_id)
