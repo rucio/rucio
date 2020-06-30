@@ -28,8 +28,10 @@ import json
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 
+
 from rucio.common.exception import InvalidObject, RucioException
 from rucio.common.utils import APIEncoder
+from rucio.core.config import get
 from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla.models import Message, MessageHistory
 from rucio.db.sqla.session import transactional_session
@@ -47,15 +49,17 @@ def add_message(event_type, payload, session=None):
     :param session: The database session to use.
     """
 
+    services_list = get('hermes', 'services_list', session=session)
+
     try:
         payload = json.dumps(payload, cls=APIEncoder)
     except TypeError as e:
         raise InvalidObject('Invalid JSON for payload: %(e)s' % locals())
 
     if len(payload) > 4000:
-        new_message = Message(event_type=event_type, payload='nolimit', payload_nolimit=payload, state=1023)
+        new_message = Message(event_type=event_type, payload='nolimit', payload_nolimit=payload, services=services_list)
     else:
-        new_message = Message(event_type=event_type, payload=payload, state=1023)
+        new_message = Message(event_type=event_type, payload=payload, services=services_list)
 
     new_message.save(session=session, flush=False)
 
@@ -73,7 +77,7 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
     :param lock: Select exclusively some rows.
     :param session: The database session to use.
 
-    :returns messages: List of dictionaries {id, created_at, event_type, payload, state}
+    :returns messages: List of dictionaries {id, created_at, event_type, payload, services}
     """
     messages = []
     try:
@@ -96,7 +100,7 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
                               Message.created_at,
                               Message.event_type,
                               Message.payload,
-                              Message.state)\
+                              Message.services)\
             .filter(Message.id.in_(subquery))\
             .with_for_update(nowait=True)
 
@@ -108,11 +112,11 @@ def retrieve_messages(bulk=1000, thread=None, total_threads=None, event_type=Non
 
         # Step 3:
         # Assemble message object
-        for id, created_at, event_type, payload, state in query:
+        for id, created_at, event_type, payload, services in query:
             message = {'id': id,
                        'created_at': created_at,
                        'event_type': event_type,
-                       'state': state}
+                       'services': services}
 
             # Only switch SQL context when necessary
             if payload == 'nolimit':
@@ -169,12 +173,12 @@ def truncate_messages(session=None):
 
 
 @transactional_session
-def update_messages_state(messages, state, session=None):
+def update_messages_services(messages, services, session=None):
     """
-    Update all messages with the given IDs to the given state.
+    Update the services for all messages with the given IDs.
 
     :param messages: The messages to delete as a list of dictionaries.
-    :param state: An integer to track the state of the submission
+    :param services: A coma separated string containing the list of services to report to.
     :param session: The database session to use.
     """
     message_condition = []
@@ -188,7 +192,7 @@ def update_messages_state(messages, state, session=None):
             session.query(Message).\
                 with_hint(Message, "index(messages MESSAGES_ID_PK)", 'oracle').\
                 filter(or_(*message_condition)).\
-                update({'state': state}, synchronize_session=False)
+                update({'services': services}, synchronize_session=False)
 
     except IntegrityError as err:
         raise RucioException(err.args)

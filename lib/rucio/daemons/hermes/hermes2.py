@@ -33,13 +33,14 @@ import threading
 import time
 import traceback
 
+from copy import deepcopy
 
 import requests
 
 from rucio.common.config import config_get
 from rucio.core import heartbeat
 from rucio.core.config import get
-from rucio.core.message import retrieve_messages, delete_messages, update_messages_state
+from rucio.core.message import retrieve_messages, delete_messages, update_messages_services
 from rucio.common.exception import ConfigNotFound
 
 
@@ -70,8 +71,8 @@ def submit_to_elastic(messages, endpoint, prepend_str):
     """
     text = ''
     for message in messages:
-        state = message['state']
-        if state & 2 == 0:
+        services = message['services']
+        if services and 'elastic' not in services.split(','):
             continue
         text += '{ "index":{ } }\n%s\n' % json.dumps(message, default=default)
     res = requests.post(endpoint, data=text, headers={'Content-Type': 'application/json'})
@@ -93,8 +94,8 @@ def aggregate_to_influx(messages, bin_size, endpoint, prepend_str):
     microsecond = dtime.microsecond
 
     for message in messages:
-        state = message['state']
-        if state & 1 == 0:
+        services = message['services']
+        if services and 'influx' not in services.split(','):
             continue
         event_type = message['event_type']
         payload = message['payload']
@@ -176,10 +177,8 @@ def hermes2(once=False, thread=0, bulk=1000, sleep_time=10):
     except ConfigNotFound as err:
         logging.debug('No services found, exiting')
         sys.exit(1)
-    service_mask = 0
     if 'influx' in services_list:
         try:
-            service_mask |= 1
             influx_endpoint = config_get('hermes', 'influxdb_endpoint', False, None)
             if not influx_endpoint:
                 logging.error('InfluxDB defined in the services list, but no endpoint can be find. Exiting')
@@ -188,7 +187,6 @@ def hermes2(once=False, thread=0, bulk=1000, sleep_time=10):
             logging.error(err)
     if 'elastic' in services_list:
         try:
-            service_mask |= 2
             elastic_endpoint = config_get('hermes', 'elastic_endpoint', False, None)
             if not elastic_endpoint:
                 logging.error('Elastic defined in the services list, but no endpoint can be find. Exiting')
@@ -197,7 +195,6 @@ def hermes2(once=False, thread=0, bulk=1000, sleep_time=10):
             logging.error(err)
     if 'activemq' in services_list:
         try:
-            service_mask |= 4
             activemq_endpoint = config_get('hermes', 'activemq_endpoint', False, None)
             if not activemq_endpoint:
                 logging.error('ActiveMQ defined in the services list, but no endpoint can be find. Exiting')
@@ -218,7 +215,7 @@ def hermes2(once=False, thread=0, bulk=1000, sleep_time=10):
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
 
     while not GRACEFUL_STOP.is_set():
-        message_status = service_mask
+        message_status = deepcopy(services_list)
         stime = time.time()
         try:
             start_time = time.time()
@@ -230,19 +227,19 @@ def hermes2(once=False, thread=0, bulk=1000, sleep_time=10):
 
             if messages:
                 logging.debug('%s Retrieved %i messages retrieved in %s seconds', prepend_str, len(messages), time.time() - start_time)
-                if 'influx' in services_list:
+                if 'influx' in message_status:
                     logging.debug('%s Will submit to influxDB', prepend_str)
                     state = aggregate_to_influx(messages, bin_size='1m', endpoint=influx_endpoint, prepend_str=prepend_str)
                     if state in [204, 200]:
                         logging.info('%s Messages successfully submitted to influxDB', prepend_str)
-                        message_status ^= 1
+                        message_status.remove('influx')
                     else:
                         logging.info('%s Failure to submit to influxDB', prepend_str)
-                if 'elastic' in services_list:
+                if 'elastic' in message_status:
                     state = submit_to_elastic(messages, endpoint=elastic_endpoint, prepend_str=prepend_str)
                     if state in [200, 204]:
                         logging.info('%s Messages successfully submitted to elastic', prepend_str)
-                        message_status ^= 2
+                        message_status.remove('elastic')
                     else:
                         logging.info('%s Failure to submit to elastic', prepend_str)
 
@@ -253,11 +250,11 @@ def hermes2(once=False, thread=0, bulk=1000, sleep_time=10):
                                                 'updated_at': message['created_at'],
                                                 'payload': str(message['payload']),
                                                 'event_type': 'email'})
-                if message_status == 0:
+                if message_status == []:
                     delete_messages(messages=to_delete_or_update)
                 else:
                     logging.info('%s Failure to submit to one service. Will update the message status', prepend_str)
-                    update_messages_state(messages=to_delete_or_update, state=message_status)
+                    update_messages_services(messages=to_delete_or_update, services=",".join(message_status))
 
             if once:
                 break
