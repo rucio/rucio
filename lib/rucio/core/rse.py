@@ -1,4 +1,4 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2017
@@ -161,7 +161,6 @@ def sort_rses(rses, session=None):
         condition.append(models.RSE.id == rse['id'])
     query = query.filter(or_(*condition)).order_by(models.RSEUsage.free.asc())
     return [{'rse': rse, 'staging_area': staging_area, 'id': rse_id} for rse, staging_area, rse_id in query]
-    # return sample(rses, len(rses))
 
 
 @transactional_session
@@ -980,21 +979,22 @@ def get_rse_protocols(rse_id, schemes=None, session=None):
     write = True if _rse.availability & 2 else False
     delete = True if _rse.availability & 1 else False
 
-    info = {'id': _rse.id,
-            'rse': _rse.rse,
+    info = {'availability_delete': delete,
             'availability_read': read,
             'availability_write': write,
-            'availability_delete': delete,
-            'domain': utils.rse_supported_protocol_domains(),
-            'protocols': list(),
-            'deterministic': _rse.deterministic,
-            'lfn2pfn_algorithm': lfn2pfn_algorithm,
-            'rse_type': str(_rse.rse_type),
             'credentials': None,
-            'volatile': _rse.volatile,
-            'verify_checksum': verify_checksum[0] if verify_checksum else True,
+            'deterministic': _rse.deterministic,
+            'domain': utils.rse_supported_protocol_domains(),
+            'id': _rse.id,
+            'lfn2pfn_algorithm': lfn2pfn_algorithm,
+            'protocols': list(),
+            'qos_class': _rse.qos_class,
+            'rse': _rse.rse,
+            'rse_type': str(_rse.rse_type),
             'sign_url': sign_url[0] if sign_url else None,
-            'staging_area': _rse.staging_area}
+            'staging_area': _rse.staging_area,
+            'verify_checksum': verify_checksum[0] if verify_checksum else True,
+            'volatile': _rse.volatile}
 
     for op in utils.rse_supported_protocol_operations():
         info['%s_protocol' % op] = 1  # 1 indicates the default protocol
@@ -1237,8 +1237,10 @@ def update_rse(rse_id, parameters, session=None):
     for column in query:
         if column[0] == 'availability':
             availability = column[1] or availability
+
     param = {}
     availability_mapping = {'availability_read': 4, 'availability_write': 2, 'availability_delete': 1}
+
     for key in parameters:
         if key == 'name' and parameters['name'] != rse:  # Needed due to wrongly setting name in pre1.22.7 clients
             param['rse'] = parameters['name']
@@ -1247,9 +1249,16 @@ def update_rse(rse_id, parameters, session=None):
                 availability = availability | availability_mapping[key]
             else:
                 availability = availability & ~availability_mapping[key]
-        elif key in ['latitude', 'longitude', 'time_zone', 'rse_type', 'volatile', 'deterministic', 'region_code', 'country_name', 'city', 'staging_area']:
+        elif key in ['latitude', 'longitude', 'time_zone', 'rse_type', 'volatile', 'deterministic', 'region_code', 'country_name', 'city', 'staging_area', 'qos_class']:
             param[key] = parameters[key]
     param['availability'] = availability
+
+    # handle null-able keys
+    for key in parameters:
+        if key in ['qos_class']:
+            if param[key] and param[key].lower() in ['', 'none', 'null']:
+                param[key] = None
+
     query.update(param)
     if 'rse' in param:
         add_rse_attribute(rse_id=rse_id, key=parameters['name'], value=True, session=session)
@@ -1299,3 +1308,77 @@ def export_rse(rse_id, session=None):
     rse_data['MaxBeingDeletedFiles'] = limits.get('MaxBeingDeletedFiles')
 
     return rse_data
+
+
+@transactional_session
+def add_qos_policy(rse_id, qos_policy, session=None):
+    """
+    Add a QoS policy from an RSE.
+
+    :param rse_id: The id of the RSE.
+    :param qos_policy: The QoS policy to add.
+    :param session: The database session in use.
+
+    :raises Duplicate: If the QoS policy already exists.
+    :returns: True if successful, except otherwise.
+    """
+
+    try:
+        new_qos_policy = models.RSEQoSAssociation()
+        new_qos_policy.update({'rse_id': rse_id,
+                               'qos_policy': qos_policy})
+        new_qos_policy.save(session=session)
+    except (IntegrityError, FlushError, OperationalError) as error:
+        if ('UNIQUE constraint failed' in error.args[0]) or ('conflicts with persistent instance' in error.args[0]) \
+           or match('.*IntegrityError.*ORA-00001: unique constraint.*RSE_PROTOCOLS_PK.*violated.*', error.args[0]) \
+           or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
+           or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0])\
+           or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0])\
+           or match('.*IntegrityError.*columns.*are not unique.*', error.args[0]):
+            raise exception.Duplicate('QoS policy %s already exists!' % qos_policy)
+    except DatabaseError as error:
+        raise exception.RucioException(error.args)
+
+    return True
+
+
+@transactional_session
+def delete_qos_policy(rse_id, qos_policy, session=None):
+    """
+    Delete a QoS policy from an RSE.
+
+    :param rse_id: The id of the RSE.
+    :param qos_policy: The QoS policy to delete.
+    :param session: The database session in use.
+
+    :returns: True if successful, silent failure if QoS policy does not exist.
+    """
+
+    try:
+        session.query(models.RSEQoSAssociation.qos_policy).filter_by(rse_id=rse_id, qos_policy=qos_policy).delete()
+    except DatabaseError as error:
+        raise exception.RucioException(error.args)
+
+    return True
+
+
+@read_session
+def list_qos_policies(rse_id, session=None):
+    """
+    List all QoS policies of an RSE.
+
+    :param rse_id: The id of the RSE.
+    :param session: The database session in use.
+
+    :returns: List containing all QoS policies.
+    """
+
+    qos_policies = []
+    try:
+        query = session.query(models.RSEQoSAssociation.qos_policy).filter_by(rse_id=rse_id)
+        for qos_policy in query:
+            qos_policies.append(qos_policy[0])
+    except DatabaseError as error:
+        raise exception.RucioException(error.args)
+
+    return qos_policies

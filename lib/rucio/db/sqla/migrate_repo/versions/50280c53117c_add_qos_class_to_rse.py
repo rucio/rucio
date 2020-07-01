@@ -13,18 +13,18 @@
 # limitations under the License.
 #
 # Authors:
-# - John Doe <john.doe@asdf.com>, 2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 
-''' ${message} '''
+''' add qos class to rse '''
 
 import sqlalchemy as sa
 
 from alembic import context
-from alembic.op import execute
+from alembic.op import add_column, drop_column
 
 # Alembic revision identifiers
-revision = ${repr(up_revision)}
-down_revision = ${repr(down_revision)}
+revision = '50280c53117c'
+down_revision = 'c0937668555f'
 
 
 def upgrade():
@@ -34,17 +34,8 @@ def upgrade():
 
     schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
-    if context.get_context().dialect.name == 'oracle':
-        pass
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
-
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
-        pass
-
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
-        pass
+    if context.get_context().dialect.name in ['oracle', 'postgresql', 'mysql']:
+        add_column('rses', sa.Column('qos_class', sa.String(64)), schema=schema[:-1])
 
 
 def downgrade():
@@ -54,14 +45,5 @@ def downgrade():
 
     schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
-    if context.get_context().dialect.name == 'oracle':
-        pass
-
-    elif context.get_context().dialect.name == 'postgresql':
-        pass
-
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
-        pass
-
-    elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
-        pass
+    if context.get_context().dialect.name in ['oracle', 'postgresql', 'mysql']:
+        drop_column('rses', 'qos_class', schema=schema[:-1])
