@@ -769,12 +769,12 @@ def extract_scope_belleii(did, scopes):
     if did.find('/belle/Raw/') > -1:
         return 'raw', did
     if did.find('/belle/user/') > -1:
-        if len(split_did) > 5:
-            if len(split_did[4]) == 1 and 'user.%s' % (split_did[5]) in scopes:
-                return 'user.%s' % split_did[5], did
         if len(split_did) > 4:
-            if 'user.%s' % (split_did[4]) in scopes:
+            if len(split_did[3]) == 1 and 'user.%s' % (split_did[4]) in scopes:
                 return 'user.%s' % split_did[4], did
+        if len(split_did) > 3:
+            if 'user.%s' % (split_did[3]) in scopes:
+                return 'user.%s' % split_did[3], did
         return 'user', did
     if did.find('/belle/data/') > -1:
         if len(split_did) > 5:
