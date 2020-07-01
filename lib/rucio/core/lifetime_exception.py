@@ -1,15 +1,23 @@
-#  Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2017-2020 CERN for the benefit of the ATLAS collaboration.
 #
-#  Licensed under the Apache License, Version 2.0 (the "License");
-#  You may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#  http://www.apache.org/licenses/LICENSE-2.0
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-#  Authors:
-#  - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2018
-#  - Dimitrios Christidis, <dimitrios.christidis@cern.ch> 2018
-#  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
-#  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2018
+# - Dimitrios Christidis, <dimitrios.christidis@cern.ch> 2018
+# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -115,10 +123,10 @@ def add_exception(dids, account, pattern, comments, expires_at, session=None):
         try:
             new_exception.save(session=session, flush=False)
         except IntegrityError as error:
-            if match('.*ORA-00001.*', str(error.args[0]))\
-               or match('.*IntegrityError.*UNIQUE constraint failed.*', str(error.args[0]))\
-               or match('.*1062.*Duplicate entry.*for key.*', str(error.args[0]))\
-               or match('.*sqlite3.IntegrityError.*are not unique.*', error.args[0]):
+            if match('.*ORA-00001.*', str(error.args[0])) \
+                    or match('.*IntegrityError.*UNIQUE constraint failed.*', str(error.args[0])) \
+                    or match('.*1062.*Duplicate entry.*for key.*', str(error.args[0])) \
+                    or match('.*IntegrityError.*columns? .*not unique.*', error.args[0]):
                 raise LifetimeExceptionDuplicate()
             raise RucioException(error.args[0])
     if truncated_message:
