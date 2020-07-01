@@ -1,4 +1,4 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -109,7 +110,7 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
     except IntegrityError as error:
         if re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTIONS_PK.*violated.*', error.args[0])\
            or re.match(".*IntegrityError.*UNIQUE constraint failed: subscriptions.name, subscriptions.account.*", error.args[0])\
-           or re.match(".*columns name, account are not unique.*", error.args[0])\
+           or re.match('.*IntegrityError.*columns? name.*account.*not unique.*', error.args[0]) \
            or re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTIONS_NAME_ACCOUNT_UQ.*violated.*', error.args[0])\
            or re.match('.*IntegrityError.*1062.*Duplicate entry.*', error.args[0]) \
            or re.match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
