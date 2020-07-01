@@ -34,7 +34,7 @@ from web import application, ctx, loadhook, header
 from rucio.api import request
 from rucio.db.sqla.constants import RequestState
 from rucio.core.rse import get_rses_with_attribute_value, get_rse_name
-from rucio.common.schema import SCOPE_NAME_REGEXP
+from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_http_error, render_json
 from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrapper, check_accept_header_wrapper
 
@@ -44,7 +44,7 @@ SH = StreamHandler()
 SH.setLevel(DEBUG)
 LOGGER.addHandler(SH)
 
-URLS = ('%s/(.+)' % SCOPE_NAME_REGEXP, 'RequestGet',
+URLS = ('%s/(.+)' % get_schema_value('SCOPE_NAME_REGEXP'), 'RequestGet',
         '/list', 'RequestsGet')
 
 

@@ -31,7 +31,7 @@ from web import application, ctx, header, InternalError, loadhook
 
 from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks
 from rucio.common.exception import RucioException, RSENotFound
-from rucio.common.schema import SCOPE_NAME_REGEXP
+from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_http_error, render_json
 from rucio.web.rest.common import rucio_loadhook, check_accept_header_wrapper
 
@@ -40,7 +40,7 @@ SH = StreamHandler()
 SH.setLevel(DEBUG)
 LOGGER.addHandler(SH)
 
-URLS = ('%s' % SCOPE_NAME_REGEXP, 'LockByScopeName',
+URLS = ('%s' % get_schema_value('SCOPE_NAME_REGEXP'), 'LockByScopeName',
         '/(.*)', 'LockByRSE')
 
 

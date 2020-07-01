@@ -37,7 +37,7 @@ from rucio.client.didclient import DIDClient
 from rucio.client.rseclient import RSEClient
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import DataIdentifierNotFound
-from rucio.common.schema import CACHE_ADD_REPLICAS, CACHE_DELETE_REPLICAS, MESSAGE_OPERATION
+from rucio.common.schema import get_schema_value
 
 SUCCESS = 0
 FAILURE = 1
@@ -74,13 +74,13 @@ def validate_rse(rse):
 def cache_operation(args):
     """ cache operation"""
     payload = json.loads(args.message)
-    validate(payload, MESSAGE_OPERATION)
+    validate(payload, get_schema_value('MESSAGE_OPERATION'))
     validate_rse(payload["rse"])
     if payload["operation"] == "add_replicas":
-        validate(payload, CACHE_ADD_REPLICAS)
+        validate(payload, get_schema_value('CACHE_ADD_REPLICAS'))
         validate_files(payload["files"])
     else:
-        validate(payload, CACHE_DELETE_REPLICAS)
+        validate(payload, get_schema_value('CACHE_DELETE_REPLICAS'))
     conn = stomp.Connection([(args.broker, args.port)], use_ssl=True, ssl_key_file=args.ssl_key_file, ssl_cert_file=args.ssl_cert_file, ssl_version=ssl.PROTOCOL_TLSv1)
 
     conn.start()
