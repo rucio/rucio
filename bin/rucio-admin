@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2018
+# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2020
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012-2020
 # - Vincent Garonne, <vgaronne@gmail.com>, 2012-2018
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2013
@@ -476,7 +476,7 @@ def add_rse(args):
     """
     %(prog)s add [options] <field1=value1 field2=value2 ...>
 
-    Adds a new rse. Specify metadata fields as arguments.
+    Adds a new RSE. Specify metadata fields as arguments.
 
     """
     client = get_client(args)
@@ -490,7 +490,7 @@ def disable_rse(args):
     """
     %(prog)s del [options] <field1=value1 field2=value2 ...>
 
-    Disable rse.
+    Disable RSE.
 
     """
     client = get_client(args)
@@ -503,7 +503,7 @@ def list_rses(args):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
-    List rses.
+    List RSEs.
 
     """
     client = get_client(args)
@@ -518,8 +518,13 @@ def update_rse(args):
     """
     %(prog)s update [options] <field1=value1 field2=value2 ...>
 
-    Update the settings of the RSE ('availability_read', 'availability_write', 'availability_delete', 'latitude', 'longitude', 'time_zone', 'rse_type',
-    'volatile', 'deterministic', 'region_code', 'country_name', 'city', or 'staging_area')
+    Update the settings of the RSE:
+      deterministic, rse_type, staging_are, volatile, qos_class,
+      availability_delete, availability_read, availability_write,
+      city, country_name, latitude, longitude, region_code, time_zone
+
+    Use '', 'None' or 'null' to wipe the value of following RSE settings:
+      qos_class
     """
     client = get_client(args)
     if args.value in ['true', 'True', 'TRUE', '1']:
@@ -528,7 +533,7 @@ def update_rse(args):
         args.value = False
     params = {args.param: args.value}
     client.update_rse(args.rse, parameters=params)
-    print('Updated RSE %s settings %s to %s' % (args.rse, args.param, args.value))
+    print('Updated RSE %s settings %s to %s' % (args.rse, args.param, args.value if args.value.lower() not in ['', 'none', 'null'] else '[WIPED]'))
     return SUCCESS
 
 
@@ -537,7 +542,7 @@ def info_rse(args):
     """
     %(prog)s info [options] <field1=value1 field2=value2 ...>
 
-    Show extended information of a given rse
+    Show extended information of a given RSE
 
     """
     client = get_client(args)
@@ -546,24 +551,24 @@ def info_rse(args):
     usage = client.get_rse_usage(rse=args.rse)
     print('Settings:')
     print('=========')
-    for key in rseinfo:
+    for key in sorted(rseinfo):
         if key != 'protocols':
             print('  ' + key + ': ' + str(rseinfo[key]))
     print('Attributes:')
     print('===========')
-    for attribute in attributes:
+    for attribute in sorted(attributes):
         print('  ' + attribute + ': ' + str(attributes[attribute]))
     print('Protocols:')
     print('==========')
-    for protocol in rseinfo['protocols']:
+    for protocol in sorted(rseinfo['protocols']):
         print('  ' + protocol['scheme'])
-        for item in protocol:
+        for item in sorted(protocol):
             print('    ' + item + ': ' + str(protocol[item]))
     print('Usage:')
     print('======')
-    for elem in usage:
+    for elem in sorted(usage):
         print('  ' + elem['source'])
-        for item in elem:
+        for item in sorted(elem):
             print('    ' + item + ': ' + str(elem[item]))
 
     return SUCCESS
@@ -574,7 +579,7 @@ def set_attribute_rse(args):
     """
     %(prog)s set-attribute [options] <field1=value1 field2=value2 ...>
 
-    setattr RSE.
+    Set RSE attributes.
 
     """
     client = get_client(args)
@@ -588,7 +593,7 @@ def get_attribute_rse(args):
     """
     %(prog)s get-attribute [options] <field1=value1 field2=value2 ...>
 
-    getattr RSE.
+    Get RSE attributes.
 
     """
     client = get_client(args)
@@ -604,7 +609,7 @@ def delete_attribute_rse(args):
     """
     %(prog)s delete-attribute [options] <field1=value1 field2=value2 ...>
 
-    setattr RSE.
+    Delete RSE attributes.
 
     """
     client = get_client(args)
@@ -711,6 +716,46 @@ def del_protocol_rse(args):
     if args.hostname:
         kwargs['hostname'] = args.hostname
     client.delete_protocols(args.rse, args.scheme, **kwargs)
+
+
+@exception_handler
+def add_qos_policy(args):
+    """
+    %(prog)s add-qos-policy <rse> <qos_policy>
+
+    Add a QoS policy to an RSE.
+    """
+    client = get_client(args)
+    client.add_qos_policy(args.rse, args.qos_policy)
+    print('Added QoS policy to RSE %s: %s' % (args.rse, args.qos_policy))
+    return SUCCESS
+
+
+@exception_handler
+def delete_qos_policy(args):
+    """
+    %(prog)s delete-qos-policy <rse> <qos_policy>
+
+    Delete a QoS policy from an RSE.
+    """
+    client = get_client(args)
+    client.delete_qos_policy(args.rse, args.qos_policy)
+    print('Deleted QoS policy from RSE %s: %s' % (args.rse, args.qos_policy))
+    return SUCCESS
+
+
+@exception_handler
+def list_qos_policies(args):
+    """
+    %(prog)s list-qos-policies <rse>
+
+    List all QoS policies of an RSE.
+    """
+    client = get_client(args)
+    qos_policies = client.list_qos_policies(args.rse)
+    for qos_policy in sorted(qos_policies):
+        print(qos_policy)
+    return SUCCESS
 
 
 @exception_handler
@@ -1545,11 +1590,11 @@ def get_parser():
                                                      '"""""""""""""\n'
                                                      '::\n'
                                                      '\n'
-                                                     '    $ rucio-admin rse add JDOES-TEST_DATADISK\n'
-                                                     '    Added new deterministic RSE: JDOES-TEST_DATADISK\n'
+                                                     '    $ rucio-admin rse add JDOE_DATADISK\n'
+                                                     '    Added new deterministic RSE: JDOE_DATADISK\n'
                                                      '\n'
-                                                     '    $ rucio-admin rse add --non-deterministic JDOES-TEST_DATATAPE\n'
-                                                     '    Added new non-deterministic RSE: JDOES-TEST_DATATAPE\n'
+                                                     '    $ rucio-admin rse add --non-deterministic JDOE-TEST_DATATAPE\n'
+                                                     '    Added new non-deterministic RSE: JDOE-TEST_DATATAPE\n'
                                                      '\n')
     add_rse_parser.set_defaults(which='add_rse')
     add_rse_parser.add_argument('rse', action='store', help='RSE name')
@@ -1561,15 +1606,14 @@ def get_parser():
                                                  formatter_class=argparse.RawDescriptionHelpFormatter,
                                                  epilog='Example Usage\n'
                                                         '"""""""""""""\n'
-                                                        '::\n'
                                                         '\n'
-                                                        '    $ rucio-admin rse update --param availability_write --value False\n'
+                                                        '    $ rucio-admin rse update --setting availability_write --value False\n'
                                                         '\n'
                                                         '\n')
     update_rse_parser.set_defaults(which='update_rse')
-    update_rse_parser.add_argument('--rse', dest='rse', action='store', help='RSE name')
-    update_rse_parser.add_argument('--setting', dest='param', action='store', help="One of availability_read, availability_write, availability_delete, name, latitude, longitude, time_zone, region_code, country_name, or city")
-    update_rse_parser.add_argument('--value', dest='value', action='store', help='Value for the new setting configuration.')
+    update_rse_parser.add_argument('--rse', dest='rse', action='store', help='RSE name', required=True)
+    update_rse_parser.add_argument('--setting', dest='param', action='store', help="One of deterministic, rse_type, staging_are, volatile, qos_class, availability_delete, availability_read, availability_write, city, country_name, latitude, longitude, region_code, time_zone", required=True)
+    update_rse_parser.add_argument('--value', dest='value', action='store', help='Value for the new setting configuration. Use "", None or null to wipe the value', required=True)
 
     # The info_rse command
     info_rse_parser = rse_subparser.add_parser('info',
@@ -1579,7 +1623,7 @@ def get_parser():
                                                       '"""""""""""""\n'
                                                       'Information about a RSE::\n'
                                                       '\n'
-                                                      '    $ rucio-admin rse info JDOES-TEST_DATADISK\n'
+                                                      '    $ rucio-admin rse info JDOE_DATADISK\n'
                                                       '    Settings:\n'
                                                       '    =========\n'
                                                       '      third_party_copy_protocol: 1\n'
@@ -1587,7 +1631,7 @@ def get_parser():
                                                       '      domain: [u\'lan\', u\'wan\']\n'
                                                       '      availability_delete: True\n'
                                                       '      delete_protocol: 1\n'
-                                                      '      rse: JDOES-TEST_DATADISK\n'
+                                                      '      rse: JDOE_DATADISK\n'
                                                       '      deterministic: True\n'
                                                       '      write_protocol: 1\n'
                                                       '      read_protocol: 1\n'
@@ -1600,20 +1644,20 @@ def get_parser():
                                                       '      id: 9c54c73cbd534450b2202a576f809f1f\n'
                                                       '    Attributes:\n'
                                                       '    ===========\n'
-                                                      '      JDOES-TEST_DATADISK: True\n'
+                                                      '      JDOE_DATADISK: True\n'
                                                       '    Protocols:\n'
                                                       '    ==========\n'
                                                       '    Usage:\n'
                                                       '    ======\n'
                                                       '      rucio\n'
                                                       '      used: 0\n'
-                                                      '      rse: JDOES-TEST_DATADISK\n'
+                                                      '      rse: JDOE_DATADISK\n'
                                                       '      updated_at: 2018-02-16 13:08:28\n'
                                                       '      free: None\n'
                                                       '      source: rucio\n'
                                                       '      total: 0\n'
                                                       '\n'
-                                                      'Note: alternatively:  rucio list-rse-usage JDOES-TEST_DATADISK.\n'
+                                                      'Note: alternatively:  rucio list-rse-usage JDOE_DATADISK.\n'
                                                       '\n')
     info_rse_parser.set_defaults(which='info_rse')
     info_rse_parser.add_argument('rse', action='store', help='RSE name')
@@ -1626,10 +1670,10 @@ def get_parser():
                                                                '"""""""""""""\n'
                                                                '::\n'
                                                                '\n'
-                                                               '    $ rucio-admin rse set-attribute --rse JDOES-TEST_DATADISK --key owner --value jdoe\n'
-                                                               '    Added new RSE attribute for JDOES-TEST_DATADISK: owner-jdoe\n'
+                                                               '    $ rucio-admin rse set-attribute --rse JDOE_DATADISK --key owner --value jdoe\n'
+                                                               '    Added new RSE attribute for JDOE_DATADISK: owner-jdoe\n'
                                                                '\n'
-                                                               'CAUTION: the existing attribute can be overwritten. Check rucio list-rse-attributes JDOES-TEST_DATADISK before setting an attribute.\n'
+                                                               'CAUTION: the existing attribute can be overwritten. Check rucio list-rse-attributes JDOE_DATADISK before setting an attribute.\n'
                                                                '\n')
     set_attribute_rse_parser.set_defaults(which='set_attribute_rse')
     set_attribute_rse_parser.add_argument('--rse', dest='rse', action='store', help='RSE name', required=True)
@@ -1644,8 +1688,8 @@ def get_parser():
                                                                   '"""""""""""""\n'
                                                                   '::\n'
                                                                   '\n'
-                                                                  '    $ rucio-admin rse delete-attribute --rse JDOES-TEST_DATADISK --key owner --value jdoe\n'
-                                                                  '    Deleted RSE attribute for JDOES-TEST_DATADISK: owner-jdoe\n'
+                                                                  '    $ rucio-admin rse delete-attribute --rse JDOE_DATADISK --key owner --value jdoe\n'
+                                                                  '    Deleted RSE attribute for JDOE_DATADISK: owner-jdoe\n'
                                                                   '\n')
     delete_attribute_rse_parser.set_defaults(which='delete_attribute_rse')
     delete_attribute_rse_parser.add_argument('--rse', dest='rse', action='store', help='RSE name', required=True)
@@ -1660,8 +1704,8 @@ def get_parser():
                                                                '"""""""""""""\n'
                                                                '::\n'
                                                                '\n'
-                                                               '    $ rucio-admin rse add-distance JDOES-TEST2_DATADISK JDOES-TEST_DATADISK\n'
-                                                               '    Set distance from JDOES-TEST2_DATADISK to JDOES-TEST_DATADISK to 1 with ranking 1/n'
+                                                               '    $ rucio-admin rse add-distance JDOE_SCRATCHDISK JDOE_DATADISK\n'
+                                                               '    Set distance from JDOE_SCRATCHDISK to JDOE_DATADISK to 1 with ranking 1/n'
                                                                '\n'
                                                                'Note::\n'
                                                                '\n'
@@ -1682,8 +1726,8 @@ def get_parser():
                                                                   '"""""""""""""\n'
                                                                   '::\n'
                                                                   '\n'
-                                                                  '    $ rucio-admin rse update-distance JDOES-TEST_DATADISK JDOES-TEST2_DATADISK --ranking 10\n'
-                                                                  '    Update distance information from JDOES-TEST_DATADISK to JDOES-TEST2_DATADISK:\n'
+                                                                  '    $ rucio-admin rse update-distance JDOE_DATADISK JDOE_SCRATCHDISK --ranking 10\n'
+                                                                  '    Update distance information from JDOE_DATADISK to JDOE_SCRATCHDISK:\n'
                                                                   '    - Ranking set to 10\n'
                                                                   '\n'
                                                                   'Note::\n'
@@ -1707,8 +1751,8 @@ def get_parser():
                                                                '"""""""""""""\n'
                                                                '::\n'
                                                                '\n'
-                                                               '    $ rucio-admin rse get-distance JDOES-TEST_DATADISK JDOES-TEST2_DATADISK\n'
-                                                               '    Distance information from JDOES-TEST_DATADISK to JDOES-TEST2_DATADISK: distance=3, ranking=10\n'
+                                                               '    $ rucio-admin rse get-distance JDOE_DATADISK JDOE_SCRATCHDISK\n'
+                                                               '    Distance information from JDOE_DATADISK to JDOE_SCRATCHDISK: distance=3, ranking=10\n'
                                                                '\n'
                                                                'Note: order of RSEs is fixed: source, destination.\n'
                                                                '\n')
@@ -1724,11 +1768,11 @@ def get_parser():
                                                                '"""""""""""""\n'
                                                                '::\n'
                                                                '\n'
-                                                               '    $ rucio-admin rse get-attribute JDOES-TEST_DATADISK\n'
+                                                               '    $ rucio-admin rse get-attribute JDOE_DATADISK\n'
                                                                '    owner: jdoe\n'
-                                                               '    JDOES-TEST_DATADISK: True\n'
+                                                               '    JDOE_DATADISK: True\n'
                                                                '\n'
-                                                               'Note: alternatively: rucio list-rse-attributes JDOES-TEST_DATADISK.\n'
+                                                               'Note: alternatively: rucio list-rse-attributes JDOE_DATADISK.\n'
                                                                '\n')
     get_attribute_rse_parser.set_defaults(which='get_attribute_rse')
     get_attribute_rse_parser.add_argument(dest='rse', action='store', help='RSE name')
@@ -1741,7 +1785,7 @@ def get_parser():
                                                               '"""""""""""""\n'
                                                               '::\n'
                                                               '\n'
-                                                              '    $ rucio-admin rse add-protocol --hostname jdoes.test.org --scheme gsiftp --prefix \'/atlasdatadisk/rucio/\' --port 8443 JDOES-TEST_DATADISK\n'
+                                                              '    $ rucio-admin rse add-protocol --hostname jdoes.test.org --scheme gsiftp --prefix \'/atlasdatadisk/rucio/\' --port 8443 JDOE_DATADISK\n'
                                                               '\n'
                                                               'Note: no printed stdout.\n'
                                                               'Note: examples of optional parametres::\n'
@@ -1775,7 +1819,7 @@ def get_parser():
                                                               '"""""""""""""\n'
                                                               '::\n'
                                                               '\n'
-                                                              '   $ rucio-admin rse delete-protocol  --scheme gsiftp JDOES-TEST_DATADISK\n'
+                                                              '   $ rucio-admin rse delete-protocol  --scheme gsiftp JDOE_DATADISK\n'
                                                               '\n'
                                                               'Note: no printed stdout.\n'
                                                               '\n')
@@ -1793,13 +1837,48 @@ def get_parser():
                                                          '"""""""""""""\n'
                                                          '::\n'
                                                          '\n'
-                                                         '   $ rucio-admin rse delete JDOES-TEST2_DATADISK\n'
+                                                         '   $ rucio-admin rse delete JDOE_SCRATCHDISK\n'
                                                          '\n'
                                                          'Note: no printed stdout.\n'
                                                          'CAUTION: all information about the RSE might be lost!\n'
                                                          '\n')
     disable_rse_parser.set_defaults(which='disable_rse')
     disable_rse_parser.add_argument('rse', action='store', help='RSE name')
+
+    # The add_qos_policy command
+    add_qos_policy_parser = rse_subparser.add_parser('add-qos-policy',
+                                                     help='Add a QoS policy to an RSE.',
+                                                     formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                     epilog='Usage example\n'
+                                                            '"""""""""""""\n'
+                                                            '\n'
+                                                            '   $ rucio-admin rse add-qos-policy JDOE_DATADISK SLOW_BUT_CHEAP')
+    add_qos_policy_parser.set_defaults(which='add_qos_policy')
+    add_qos_policy_parser.add_argument('rse', action='store', help='RSE name')
+    add_qos_policy_parser.add_argument('qos_policy', action='store', help='QoS policy')
+
+    # The delete_qos_policy command
+    delete_qos_policy_parser = rse_subparser.add_parser('delete-qos-policy',
+                                                        help='Delete a QoS policy from an RSE.',
+                                                        formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                        epilog='Usage example\n'
+                                                               '"""""""""""""\n'
+                                                               '\n'
+                                                               '   $ rucio-admin rse delete-qos-policy JDOE_DATADISK SLOW_BUT_CHEAP')
+    delete_qos_policy_parser.set_defaults(which='delete_qos_policy')
+    delete_qos_policy_parser.add_argument('rse', action='store', help='RSE name')
+    delete_qos_policy_parser.add_argument('qos_policy', action='store', help='QoS policy')
+
+    # The delete_qos_policy command
+    list_qos_policies_parser = rse_subparser.add_parser('list-qos-policies',
+                                                        help='List all QoS policies of an RSE.',
+                                                        formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                        epilog='Usage example\n'
+                                                               '"""""""""""""\n'
+                                                               '\n'
+                                                               '   $ rucio-admin rse list-qos-policies JDOE_DATADISK')
+    list_qos_policies_parser.set_defaults(which='list_qos_policies')
+    list_qos_policies_parser.add_argument('rse', action='store', help='RSE name')
 
     # The scope subparser
     scope_parser = subparsers.add_parser('scope', help='Scope methods')
@@ -1911,7 +1990,7 @@ def get_parser():
                                                       '::\n'
                                                       '\n'
                                                       '    $ rucio-admin subscription add --lifetime 2 --account jdoe --priority 1 jdoes_txt_files_on_datadisk\n'
-                                                      '    \'{\"scope\": [\"user.jdoe\"], \"datatype\": [\"txt\"]}\' \'[{\"copies\": 1, \"rse_expression\": \"JDOES-TEST_DATADISK\", \"lifetime\": 3600, \"activity\": \"User Subscriptions\"}]\'\n'
+                                                      '    \'{\"scope\": [\"user.jdoe\"], \"datatype\": [\"txt\"]}\' \'[{\"copies\": 1, \"rse_expression\": \"JDOE_DATADISK\", \"lifetime\": 3600, \"activity\": \"User Subscriptions\"}]\'\n'
                                                       '    \'keeping replica on jdoes disk for 60 mins\'\n'
                                                       '    Subscription added 9a89cc8e692f4cabb8836fdafd884c5a\n'
                                                       '\n'
@@ -1939,7 +2018,7 @@ def get_parser():
                                                        '    jdoe: jdoes_txt_files_on_datadisk UPDATED\n'
                                                        '    priority: 1\n'
                                                        '    filter: {\'datatype\': [\'txt\'], \'scope\': [\'user.jdoe\']}\n'
-                                                       '    rules: [{\'lifetime\': 3600, \'rse_expression\': \'JDOES-TEST_DATADISK\', \'copies\': 1, \'activity\': \'User Subscriptions\'}]\n'
+                                                       '    rules: [{\'lifetime\': 3600, \'rse_expression\': \'JDOE_DATADISK\', \'copies\': 1, \'activity\': \'User Subscriptions\'}]\n'
                                                        '    comments: keeping replica on jdoes disk for 60 mins\n'
                                                        '\n')
     list_sub_parser.set_defaults(which='list_subscriptions')
@@ -1956,7 +2035,7 @@ def get_parser():
                                                          '::\n'
                                                          '\n'
                                                          '    $ rucio-admin subscription update --lifetime 3 --account jdoe --priority 1 jdoes_txt_files_on_datadisk\n'
-                                                         '    \'{\"scope\": [\"user.jdoe\"], \"datatype\": [\"txt\"]}\' \'[{\"copies\": 1, \"rse_expression\": \"JDOES-TEST_DATADISK\", \"lifetime\": 3600, \"activity\": \"User Subscriptions\"}]\n'
+                                                         '    \'{\"scope\": [\"user.jdoe\"], \"datatype\": [\"txt\"]}\' \'[{\"copies\": 1, \"rse_expression\": \"JDOE_DATADISK\", \"lifetime\": 3600, \"activity\": \"User Subscriptions\"}]\n'
                                                          '    keeping replica on jdoes disk for 60 mins, valid until 23.2.2018\n'
                                                          '\n'
                                                          'Note: no printed stdout.\n'
@@ -1967,7 +2046,7 @@ def get_parser():
                                                          '    jdoe: jdoes_txt_files_on_datadisk UPDATED\n'
                                                          '    priority: 1\n'
                                                          '    filter: {\"datatype\": [\"txt\"], \"scope\": [\"user.jdoe\"]}\n'
-                                                         '    rules: [{\"lifetime\": 3600, \"rse_expression\": \"JDOES-TEST_DATADISK\", \"copies\": 1, \"activity\": \"User Subscriptions\"}]\n'
+                                                         '    rules: [{\"lifetime\": 3600, \"rse_expression\": \"JDOE_DATADISK\", \"copies\": 1, \"activity\": \"User Subscriptions\"}]\n'
                                                          '    comments: keeping replica on jdoes disk for 60 mins, valid until 23.2.2018\n'
                                                          '\n')
     update_sub_parser.set_defaults(which='update_subscription')
@@ -2108,6 +2187,9 @@ if __name__ == '__main__':
                 'del_protocol_rse': del_protocol_rse,
                 'list_rses': list_rses,
                 'disable_rse': disable_rse,
+                'add_qos_policy': add_qos_policy,
+                'delete_qos_policy': delete_qos_policy,
+                'list_qos_policies': list_qos_policies,
                 'add_scope': add_scope,
                 'list_scopes': list_scopes,
                 'info_rse': info_rse,
@@ -2123,7 +2205,8 @@ if __name__ == '__main__':
                 'list_pfns': list_pfns,
                 'import': import_data,
                 'export': export_data,
-                'set_tombstone': set_tombstone}
+                'set_tombstone': set_tombstone,
+                }
 
     try:
         if args.verbose:

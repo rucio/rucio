@@ -362,7 +362,8 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
     prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info('%s Reaper starting', prepend_str)
 
-    GRACEFUL_STOP.wait(10)  # To prevent running on the same partition if all the reapers restart at the same time
+    if not once:
+        GRACEFUL_STOP.wait(10)  # To prevent running on the same partition if all the reapers restart at the same time
     heart_beat = live(executable, hostname, pid, hb_thread)
     prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info('%s Reaper started', prepend_str)

@@ -1,4 +1,4 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 
 from datetime import datetime, timedelta
 from nose.tools import assert_equal
@@ -22,8 +23,8 @@ from nose.tools import assert_equal
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
-from rucio.core import rse as rse_core
 from rucio.core import replica as replica_core
+from rucio.core import rse as rse_core
 from rucio.daemons.reaper.reaper2 import reaper
 from rucio.tests.common import rse_name_generator
 

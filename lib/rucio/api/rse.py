@@ -1,25 +1,31 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2017
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2013
-  - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2014
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014, 2017
-  - Martin Barisits, <martin.barisits@cern.ch>, 2013
-  - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
-  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
-  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-  - Gabriele Fronze' <gfronze@cern.ch>, 2019
-  - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
-  - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
-
-  PY3K COMPATIBLE
-'''
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Mario Lassnig <mario@lassnig.net>, 2012-2020
+# - Vincent Garonne <vgaronne@gmail.com>, 2012-2017
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2014
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Gabriele <sucre.91@hotmail.it>, 2019
+# - elichad <eli.chadwick.256@gmail.com>, 2020
+# - patrick-austin <patrick.austin@stfc.ac.uk>, 2020
+#
+#  PY3K COMPATIBLE
 
 from rucio.api import permission
 from rucio.common import exception
@@ -84,7 +90,7 @@ def get_rse(rse, vo='def'):
 
 def del_rse(rse, issuer, vo='def'):
     """
-    Disables a RSE with the provided RSE name.
+    Disables an RSE with the provided RSE name.
 
     :param rse: The RSE name.
     :param issuer: The issuer account.
@@ -456,3 +462,59 @@ def get_distance(source, destination, issuer, vo='def'):
                                               dest_rse_id=rse_module.get_rse_id(destination, vo=vo))
 
     return [api_update_return_dict(d) for d in distances]
+
+
+def add_qos_policy(rse, qos_policy, issuer, vo='def'):
+    """
+    Add a QoS policy from an RSE.
+
+    :param rse: The name of the RSE.
+    :param qos_policy: The QoS policy to add.
+    :param issuer: The issuer account.
+    :param vo: The VO to act on.
+
+    :raises Duplicate: If the QoS policy already exists.
+    :returns: True if successful, except otherwise.
+    """
+
+    rse_id = rse_module.get_rse_id(rse=rse, vo=vo)
+    kwargs = {'rse_id': rse_id}
+    if not permission.has_permission(issuer=issuer, action='add_qos_policy', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s cannot add QoS policies to RSE %s' % (issuer, rse))
+
+    return rse_module.add_qos_policy(rse_id, qos_policy)
+
+
+def delete_qos_policy(rse, qos_policy, issuer, vo='def'):
+    """
+    Delete a QoS policy from an RSE.
+
+    :param rse: The name of the RSE.
+    :param qos_policy: The QoS policy to delete.
+    :param issuer: The issuer account.
+    :param vo: The VO to act on.
+
+    :returns: True if successful, silent failure if QoS policy does not exist.
+    """
+
+    rse_id = rse_module.get_rse_id(rse=rse, vo=vo)
+    kwargs = {'rse_id': rse}
+    if not permission.has_permission(issuer=issuer, action='delete_qos_policy', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s cannot delete QoS policies from RSE %s' % (issuer, rse))
+
+    return rse_module.delete_qos_policy(rse_id, qos_policy)
+
+
+def list_qos_policies(rse, issuer, vo='def'):
+    """
+    List all QoS policies of an RSE.
+
+    :param rse: The id of the RSE.
+    :param issuer: The issuer account.
+    :param vo: The VO to act on.
+
+    :returns: List containing all QoS policies.
+    """
+
+    rse_id = rse_module.get_rse_id(rse=rse, vo=vo)
+    return rse_module.list_qos_policies(rse_id)
