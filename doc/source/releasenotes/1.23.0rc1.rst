@@ -1,0 +1,96 @@
+=========
+1.23.0rc1
+=========
+
+-----------------
+Release Candidate
+-----------------
+
+This is a release candidate! Only to be used in testing environments!
+
+--------------------
+Upgrade Instructions
+--------------------
+
+This feature release requires a database schema upgrade. Please consult the `documentation <https://rucio.readthedocs.io/en/latest/database.html>`_ about upgrading your database schema.
+
+The following changes are necessary and are covered by the ``alembic upgrade head`` command:
+
+1. Adding column ``services`` to ``messages`` and ``messages_history`` table (Alembic revision ``a193a275255c``)
+
+2. Preparation for QoS feature (Alembic revision ``c0937668555f`` and ``50280c53117c``)
+
+   - Adding ``rse_qos_map`` table
+   - Adding ``qos_class`` column to ``rses`` table
+
+-----------------
+Important changes
+-----------------
+
+1. Due to the metadata unification feature (`#3096 <https://github.com/rucio/rucio/issues/3096>`_) added in this release, the APIs for ``add_did_meta``, ``get_did_meta``, and ``delete_did_meta`` were removed. This data is now available through the plugin mechanism of the common ``get_metadata`` API.
+ 
+-------
+General
+-------
+
+********
+Features
+********
+
+- Core & Internals: MultiVO functionality for Rucio `#2635 <https://github.com/rucio/rucio/issues/2635>`_
+- Core & Internals: Unification of metadata interfaces `#3096 <https://github.com/rucio/rucio/issues/3096>`_
+- Core & Internals: QoS: Core and interfaces `#3543 <https://github.com/rucio/rucio/issues/3543>`_
+- Messaging: Extending Hermes to submit to influxDB or Elastic `#3680 <https://github.com/rucio/rucio/issues/3680>`_
+
+************
+Enhancements
+************
+
+- Authentication & Authorisation: OAuth2/OIDC: token exchange of JWTs not acquired via Rucio CLI (cases with offline_access scope) `#3778 <https://github.com/rucio/rucio/issues/3778>`_
+- Core & Internals: Support bulk requests in the list_dataset_replicas CLI API `#2459 <https://github.com/rucio/rucio/issues/2459>`_
+- Core & Internals: Introduce BelleII activities `#3771 <https://github.com/rucio/rucio/issues/3771>`_
+- RSE Manager: GlobusRSEProtocol Modifications: remove RSEDeterministicTranslation and call super of protocol base class `#3584 <https://github.com/rucio/rucio/issues/3584>`_
+- Testing: Reaper tests make no assertions or deletions `#3726 <https://github.com/rucio/rucio/issues/3726>`_
+- Transfers: Adding list and exists methods to GlobusRSEProtocol `#3346 <https://github.com/rucio/rucio/issues/3346>`_
+
+****
+Bugs
+****
+
+- Authentication & Authorisation: OAuth2/OIDC: fix to py2/3 compatibility of common.utils  `#3743 <https://github.com/rucio/rucio/issues/3743>`_
+- Core & Internals: Internal error during adding duplicate attribute to account `#3777 <https://github.com/rucio/rucio/issues/3777>`_
+- Core & Internals: Fix extract_scope method for BelleII `#3797 <https://github.com/rucio/rucio/issues/3797>`_
+- Transfers: Conveyor submitter creates partitions wrongly `#3752 <https://github.com/rucio/rucio/issues/3752>`_
+
+-------
+Clients
+-------
+
+********
+Features
+********
+
+- Clients: Moving upload method from rsemgr to client `#3084 <https://github.com/rucio/rucio/issues/3084>`_
+
+************
+Enhancements
+************
+
+- Clients: Allow passing the dynamic parameter to get_did() `#3760 <https://github.com/rucio/rucio/issues/3760>`_
+
+****
+Bugs
+****
+
+- Clients: Python 3 error with uploadclient json.dump `#3747 <https://github.com/rucio/rucio/issues/3747>`_
+
+  
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- WebUI: Harden security on the Web UI `#3757 <https://github.com/rucio/rucio/issues/3757>`_

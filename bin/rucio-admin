@@ -1612,7 +1612,7 @@ def get_parser():
                                                         '\n')
     update_rse_parser.set_defaults(which='update_rse')
     update_rse_parser.add_argument('--rse', dest='rse', action='store', help='RSE name', required=True)
-    update_rse_parser.add_argument('--setting', dest='param', action='store', help="One of deterministic, rse_type, staging_are, volatile, qos_class, availability_delete, availability_read, availability_write, city, country_name, latitude, longitude, region_code, time_zone", required=True)
+    update_rse_parser.add_argument('--setting', dest='param', action='store', help="One of deterministic, rse_type, staging_are, volatile, qos_class, availability_delete, availability_read, availability_write, city, country_name, latitude, longitude, region_code, time_zone", required=True)  # noqa: E501
     update_rse_parser.add_argument('--value', dest='value', action='store', help='Value for the new setting configuration. Use "", None or null to wipe the value', required=True)
 
     # The info_rse command
