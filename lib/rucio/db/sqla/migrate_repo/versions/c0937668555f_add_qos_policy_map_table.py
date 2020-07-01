@@ -28,7 +28,7 @@ from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
 revision = 'c0937668555f'
-down_revision = 'a118956323f8'
+down_revision = 'a193a275255c'
 
 
 def upgrade():
