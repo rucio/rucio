@@ -19,7 +19,7 @@
 
 from rucio.client.rseclient import RSEClient
 from rucio.common.config import config_get, config_get_bool
-from rucio.core.rse import add_rse, del_rse, update_rse, get_rse, get_rse_id
+from rucio.core.rse import update_rse, get_rse
 from rucio.tests.common import rse_name_generator
 
 from nose.tools import assert_equal
@@ -36,12 +36,12 @@ class TestQoS(object):
 
         self.rse_client = RSEClient()
         self.tmp_rse_name = rse_name_generator()
-        add_rse(self.tmp_rse_name, vo=self.vo)
-        self.tmp_rse = get_rse_id(self.tmp_rse_name, vo=self.vo)
+        self.rse_client.add_rse(self.tmp_rse_name, vo=self.vo)
+        self.tmp_rse = self.rse_client.get_rse(self.tmp_rse_name)['id']
 
     @classmethod
     def teardownClass(self):
-        del_rse(self.tmp_rse)
+        self.rse_client.delete_rse(self.tmp_rse_name)
 
     def test_update_and_remove_rse_qos_class(self):
         """ QoS (CORE): Update and remove QoS class for RSE """
