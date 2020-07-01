@@ -35,10 +35,11 @@ import logging
 import time
 
 from rucio.client.client import Client
-from rucio.common.exception import (RucioException, RSEBlacklisted, DataIdentifierAlreadyExists,
-                                    DataIdentifierNotFound, NoFilesUploaded, NotAllFilesUploaded,
-                                    ResourceTemporaryUnavailable, ServiceUnavailable, InputValidationError)
-from rucio.common.utils import adler32, detect_client_location, execute, generate_uuid, md5, send_trace, GLOBALLY_SUPPORTED_CHECKSUMS
+from rucio.common.config import config_get_int
+from rucio.common.exception import (RucioException, RSEBlacklisted, DataIdentifierAlreadyExists, RSEOperationNotSupported,
+                                    DataIdentifierNotFound, NoFilesUploaded, NotAllFilesUploaded, FileReplicaAlreadyExists,
+                                    ResourceTemporaryUnavailable, ServiceUnavailable, InputValidationError, RSEChecksumUnavailable)
+from rucio.common.utils import adler32, detect_client_location, execute, generate_uuid, make_valid_did, md5, send_trace, GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
 
@@ -105,6 +106,7 @@ class UploadClient:
 
         # check given sources, resolve dirs into files, and collect meta infos
         files = self._collect_and_validate_file_info(items)
+        logger.debug('Num. of files that upload client is processing: {}'.format(len(files)))
 
         # check if RSE of every file is available for writing
         # and cache rse settings
@@ -128,6 +130,7 @@ class UploadClient:
         wrong_dids = registered_file_dids.intersection(registered_dataset_dids)
         if len(wrong_dids):
             raise InputValidationError('DIDs used to address both files and datasets: %s' % str(wrong_dids))
+        logger.debug('Input validation done.')
 
         # clear this set again to ensure that we only try to register datasets once
         registered_dataset_dids = set()
@@ -177,6 +180,7 @@ class UploadClient:
             if (self.client_location and 'lan' in rse_settings['domain'] and 'site' in rse_attributes):
                 if self.client_location['site'] == rse_attributes['site']:
                     domain = 'lan'
+            logger.debug('{} is used for the upload'.format(domain))
 
             if not no_register and not register_after_upload:
                 self._register_file(file, registered_dataset_dids)
@@ -212,6 +216,7 @@ class UploadClient:
             protocols.reverse()
             success = False
             state_reason = ''
+            logger.debug(str(protocols))
             while not success and len(protocols):
                 protocol = protocols.pop()
                 cur_scheme = protocol['scheme']
@@ -234,22 +239,20 @@ class UploadClient:
                 trace['protocol'] = cur_scheme
                 trace['transferStart'] = time.time()
                 try:
-                    state = rsemgr.upload(rse_settings=rse_settings,
-                                          lfns=lfn,
-                                          domain=domain,
-                                          source_dir=file['dirname'],
-                                          force_scheme=cur_scheme,
-                                          force_pfn=pfn,
-                                          transfer_timeout=file.get('transfer_timeout'),
-                                          delete_existing=delete_existing,
-                                          sign_service=sign_service,
-                                          auth_token=self.auth_token,
-                                          logger=logger)
-                    success = state['success']
-                    file['upload_result'] = state
+                    self._upload_item(rse_settings=rse_settings,
+                                      lfn=lfn,
+                                      source_dir=file['dirname'],
+                                      force_scheme=cur_scheme,
+                                      force_pfn=pfn,
+                                      transfer_timeout=file.get('transfer_timeout'),
+                                      delete_existing=delete_existing,
+                                      sign_service=sign_service)
+                    logger.debug('Upload done.')
+                    success = True
+                    file['upload_result'] = {0: True, 1: None, 'success': True, 'pfn': pfn}  # needs to be removed
                 except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:
                     logger.warning('Upload attempt failed')
-                    logger.debug('Exception: %s' % str(error))
+                    logger.info('Exception: %s' % str(error))
                     state_reason = str(error)
 
             if success:
@@ -276,7 +279,7 @@ class UploadClient:
                         self.client.attach_dids(file['dataset_scope'], file['dataset_name'], [file_did])
                     except Exception as error:
                         logger.warning('Failed to attach file to the dataset')
-                        logger.debug(error)
+                        logger.debug('Attaching to dataset {}'.format(str(error)))
             else:
                 trace['clientState'] = 'FAILED'
                 trace['stateReason'] = state_reason
@@ -284,6 +287,7 @@ class UploadClient:
                 logger.error('Failed to upload file %s' % basename)
 
         if summary_file_path:
+            logger.debug('Summary will be available at {}'.format(summary_file_path))
             final_summary = {}
             for file in summary:
                 file_scope = file['did_scope']
@@ -323,6 +327,12 @@ class UploadClient:
         """
         logger = self.logger
         logger.debug('Registering file')
+
+        # verification whether the scope exists
+        account_scopes = self.client.list_scopes_for_account(self.client.account)
+        if file['did_scope'] not in account_scopes:
+            logger.warning('Scope {} not found for the account {}.'.format(file['did_scope'], self.client.account))
+
         rse = file['rse']
         dataset_did_str = file.get('dataset_did_str')
         # register a dataset if we need to
@@ -494,6 +504,157 @@ class UploadClient:
         if pfn:
             replica['pfn'] = pfn
         return replica
+
+    def _upload_item(self, rse_settings, lfn, source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False, sign_service=None):
+        """
+            Uploads a file to the connected storage.
+
+            :param lfn:         a single dict containing 'scope' and 'name'.
+                                Example:
+                             {'name': '1_rse_local_put.raw', 'scope': 'user.jdoe', 'filesize': 42, 'adler32': '87HS3J968JSNWID'}
+                              If the 'filename' key is present, it will be used by Rucio as the actual name of the file on disk (separate from the Rucio 'name').
+            :param source_dir:  path to the local directory including the source files
+            :param force_pfn: use the given PFN -- can lead to dark data, use sparingly
+            :param force_scheme: use the given protocol scheme, overriding the protocol priority in the RSE description
+            :param transfer_timeout: set this timeout (in seconds) for the transfers, for protocols that support it
+            :param sign_service: use the given service (e.g. gcs, s3, swift) to sign the URL
+
+            :raises RucioException(msg): general exception with msg for more details.
+        """
+        logger = self.logger
+
+        # Construct protocol for write and read operation.
+        protocol_write = self._create_protocol(rse_settings, 'write', force_scheme=force_scheme)
+        protocol_read = self._create_protocol(rse_settings, 'read')
+
+        base_name = lfn.get('filename', lfn['name'])
+        name = lfn.get('name', base_name)
+        scope = lfn['scope']
+
+        # Conditional lfn properties
+        if 'adler32' not in lfn:
+            logger.warning('Missing checksum for file %s:%s' % (lfn['scope'], name))
+
+        # Getting pfn
+        pfn = None
+        readpfn = None
+        try:
+            pfn = list(protocol_write.lfns2pfns(make_valid_did(lfn)).values())[0]
+            readpfn = list(protocol_read.lfns2pfns(make_valid_did(lfn)).values())[0]
+            logger.debug('The PFN created from the LFN: {}'.format(pfn))
+        except Exception as error:
+            logger.warning('Failed to create PFN for LFN: %s' % lfn)
+            logger.debug(str(error))
+        if force_pfn:
+            pfn = force_pfn
+            readpfn = pfn
+            logger.debug('The given PFN is used: {}'.format(pfn))
+
+        # Auth. mostly for object stores
+        if sign_service:
+            pfn = self.client.get_signed_url(sign_service, 'write', pfn)       # NOQA pylint: disable=undefined-variable
+            readpfn = self.client.get_signed_url(sign_service, 'read', pfn)    # NOQA pylint: disable=undefined-variable
+
+        # Create a name of tmp file if renaming operation is supported
+        pfn_tmp = '%s.rucio.upload' % pfn if protocol_write.renaming else pfn
+        readpfn_tmp = '%s.rucio.upload' % readpfn if protocol_write.renaming else readpfn
+
+        # Either DID eixsts or not register_after_upload
+        if protocol_write.overwrite is False and delete_existing is False and protocol_read.exists(readpfn):
+            raise FileReplicaAlreadyExists('File %s in scope %s already exists on storage as PFN %s' % (name, scope, pfn))  # wrong exception ?
+
+        # Removing tmp from earlier attempts
+        if protocol_read.exists('%s.rucio.upload' % readpfn):
+            logger.debug('Removing remains of previous upload attemtps.')
+            try:
+                # Construct protocol for delete operation.
+                protocol_delete = self._create_protocol(rse_settings, 'delete')
+                protocol_delete.delete('%s.rucio.upload' % list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0])
+                protocol_delete.close()
+            except Exception as e:
+                raise RSEOperationNotSupported('Unable to remove temporary file %s.rucio.upload: %s' % (pfn, str(e)))
+
+        # Removing not registered files from earlier attempts
+        if delete_existing:
+            logger.debug('Removing not-registered remains of previous upload attemtps.')
+            try:
+                # Construct protocol for delete operation.
+                protocol_delete = self._create_protocol(rse_settings, 'delete')
+                protocol_delete.delete('%s' % list(protocol_delete.lfns2pfns(make_valid_did(lfn)).values())[0])
+                protocol_delete.close()
+            except Exception as error:
+                raise RSEOperationNotSupported('Unable to remove file %s: %s' % (pfn, str(error)))
+
+        # Process the upload of the tmp file
+        try:
+            protocol_write.put(base_name, pfn_tmp, source_dir, transfer_timeout=transfer_timeout)
+            logger.info('Successful upload of temporary file. {}'.format(pfn_tmp))
+        except Exception as error:
+            raise RSEOperationNotSupported(str(error))
+
+        # Checksum verification, obsolete, see Gabriele changes.
+        try:
+            stats = self._retry_protocol_stat(protocol_read, readpfn_tmp)
+            if not isinstance(stats, dict):
+                raise RucioException('Could not get protocol.stats for given PFN: %s' % pfn)
+
+            # The checksum and filesize check
+            if ('filesize' in stats) and ('filesize' in lfn):
+                if int(stats['filesize']) != int(lfn['filesize']):
+                    raise RucioException('Filesize mismatch. Source: %s Destination: %s' % (lfn['filesize'], stats['filesize']))
+            if rse_settings['verify_checksum'] is not False:
+                if ('adler32' in stats) and ('adler32' in lfn):
+                    if stats['adler32'] != lfn['adler32']:
+                        raise RucioException('Checksum mismatch. Source: %s Destination: %s' % (lfn['adler32'], stats['adler32']))
+
+        except Exception as error:
+            raise error
+
+        # The upload finished successful and the file can be renamed
+        try:
+            if protocol_write.renaming:
+                logger.debug('Renaming file %s to %s' % (pfn_tmp, pfn))
+                protocol_write.rename(pfn_tmp, pfn)
+        except Exception as e:
+            raise RucioException('Unable to rename the tmp file %s.' % pfn_tmp)
+
+        protocol_write.close()
+        protocol_read.close()
+
+    def _retry_protocol_stat(self, protocol, pfn):
+        """
+        try to stat file, on fail try again 1s, 2s, 4s, 8s, 16s, 32s later. Fail is all fail
+        :param protocol     The protocol to use to reach this file
+        :param pfn          Physical file name of the target for the protocol stat
+        """
+        retries = config_get_int('client', 'protocol_stat_retries', raise_exception=False, default=6)
+        for attempt in range(retries):
+            try:
+                stats = protocol.stat(pfn)
+                return stats
+            except RSEChecksumUnavailable as error:
+                # The stat succeeded here, but the checksum failed
+                raise error
+            except Exception as error:
+                time.sleep(2**attempt)
+        return protocol.stat(pfn)
+
+    def _create_protocol(self, rse_settings, operation, force_scheme=None):
+        """
+        Protol construction.
+        :param: rse_settings        rse_settings
+        :param: operation           activity, e.g. read, write, delete etc.
+        :param: force_scheme        custom scheme
+        :param auth_token: Optionally passing JSON Web Token (OIDC) string for authentication
+        """
+        try:
+            protocol = rsemgr.create_protocol(rse_settings, operation, scheme=force_scheme, auth_token=self.auth_token)
+            protocol.connect()
+        except Exception as error:
+            self.logger.warning('Failed to create protocol for operation: %s' % operation)
+            self.logger.debug('scheme: %s, exception: %s' % (force_scheme, error))
+            raise error
+        return protocol
 
     def _send_trace(self, trace):
         """
