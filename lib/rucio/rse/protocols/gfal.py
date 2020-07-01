@@ -565,7 +565,7 @@ class NoRename(Default):
 
             :param props Properties derived from the RSE Repository
         """
-        super(Default, self).__init__(protocol_attr, rse_settings, logger=logger)
+        super(NoRename, self).__init__(protocol_attr, rse_settings, logger=logger)
         self.renaming = False
         self.attributes.pop('determinism_type', None)
         self.files = []
@@ -589,7 +589,7 @@ class CLI(Default):
             :param props Properties derived from the RSE Repository
         """
 
-        super(Default, self).__init__(protocol_attr, rse_settings, logger=logger)
+        super(CLI, self).__init__(protocol_attr, rse_settings, logger=logger)
         if not logger:
             logger = logging.getLogger('%s.null' % __name__)
         self.logger = logger
