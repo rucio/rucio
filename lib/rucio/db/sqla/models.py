@@ -17,7 +17,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2019
 # - Angelos Molfetas, <angelos.molfetas@cern.ch>, 2012
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2020
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2020
 # - Wen Guan, <wen.guan@cern.ch>, 2015
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2019
@@ -1223,6 +1223,7 @@ class Message(BASE, ModelBase):
     event_type = Column(String(1024))
     payload = Column(String(4000))
     payload_nolimit = Column(Text)
+    services = Column(String(2048))
     _table_args = (PrimaryKeyConstraint('id', name='MESSAGES_ID_PK'),
                    CheckConstraint('EVENT_TYPE IS NOT NULL', name='MESSAGES_EVENT_TYPE_NN'),
                    CheckConstraint('PAYLOAD IS NOT NULL', name='MESSAGES_PAYLOAD_NN'),)
@@ -1235,6 +1236,7 @@ class MessageHistory(BASE, ModelBase):
     event_type = Column(String(1024))
     payload = Column(String(4000))
     payload_nolimit = Column(Text)
+    services = Column(String(2048))
     __mapper_args__ = {
         'primary_key': [id]  # Fake primary key for SQLA
     }

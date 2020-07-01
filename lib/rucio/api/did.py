@@ -66,6 +66,34 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
         yield api_update_return_dict(d)
 
 
+def list_dids_extended(scope, filters, type='collection', ignore_case=False, limit=None, offset=None, long=False, recursive=False, vo='def'):
+    """
+    List dids in a scope.
+
+    :param scope: The scope name.
+    :param pattern: The wildcard pattern.
+    :param type:  The type of the did: all(container, dataset, file), collection(dataset or container), dataset, container
+    :param ignore_case: Ignore case distinctions.
+    :param limit: The maximum number of DIDs returned.
+    :param offset: Offset number.
+    :param long: Long format option to display more information for each DID.
+    :param recursive: Recursively list DIDs content.
+    """
+    validate_schema(name='did_filters', obj=filters)
+    scope = InternalScope(scope, vo=vo)
+
+    if 'account' in filters:
+        filters['account'] = InternalAccount(filters['account'], vo=vo)
+    if 'scope' in filters:
+        filters['scope'] = InternalScope(filters['scope'], vo=vo)
+
+    result = did.list_dids_extended(scope=scope, filters=filters, type=type, ignore_case=ignore_case,
+                                    limit=limit, offset=offset, long=long, recursive=recursive)
+
+    for d in result:
+        yield api_update_return_dict(d)
+
+
 def add_did(scope, name, type, issuer, account=None, statuses={}, meta={}, rules=[], lifetime=None, dids=[], rse=None, vo='def'):
     """
     Add data did.
@@ -83,8 +111,8 @@ def add_did(scope, name, type, issuer, account=None, statuses={}, meta={}, rules
     :param rse: The RSE name when registering replicas.
     :param vo: The VO to act on.
     """
-    validate_schema(name='name', obj=name)
-    validate_schema(name='scope', obj=scope)
+    v_did = {'name': name, 'type': type.upper(), 'scope': scope}
+    validate_schema(name='did', obj=v_did)
     validate_schema(name='dids', obj=dids)
     validate_schema(name='rse', obj=rse)
     kwargs = {'scope': scope, 'name': name, 'type': type, 'issuer': issuer, 'account': account, 'statuses': statuses, 'meta': meta, 'rules': rules, 'lifetime': lifetime}
@@ -386,7 +414,7 @@ def set_metadata(scope, name, key, value, issuer, recursive=False, vo='def'):
     return did.set_metadata(scope=scope, name=name, key=key, value=value, recursive=recursive)
 
 
-def get_metadata(scope, name, vo='def'):
+def get_metadata(scope, name, plugin='DID_COLUMN', vo='def'):
     """
     Get data identifier metadata
 
@@ -397,7 +425,7 @@ def get_metadata(scope, name, vo='def'):
 
     scope = InternalScope(scope, vo=vo)
 
-    d = did.get_metadata(scope=scope, name=name)
+    d = did.get_metadata(scope=scope, name=name, plugin=plugin)
     return api_update_return_dict(d)
 
 
@@ -416,34 +444,7 @@ def get_metadata_bulk(dids, vo='def', session=None):
         yield api_update_return_dict(met)
 
 
-def get_did_meta(scope, name, vo='def'):
-    """
-    Get all metadata for a given did
-
-    :param scope: the scope of did
-    :param name: the name of the did
-    :param vo: The VO to act on.
-    """
-
-    scope = InternalScope(scope, vo=vo)
-    return did.get_did_meta(scope=scope, name=name)
-
-
-def add_did_meta(scope, name, meta, vo='def'):
-    """
-    Add or update the given metadata to the given did
-
-    :param scope: the scope of the did
-    :param name: the name of the did
-    :param meta: the metadata to be added or updated
-    :param vo: The VO to act on.
-    """
-
-    scope = InternalScope(scope, vo=vo)
-    return did.add_did_meta(scope=scope, name=name, meta=meta)
-
-
-def delete_did_meta(scope, name, key, vo='def'):
+def delete_metadata(scope, name, key, vo='def'):
     """
     Delete a key from the metadata column
 
@@ -454,20 +455,7 @@ def delete_did_meta(scope, name, key, vo='def'):
     """
 
     scope = InternalScope(scope, vo=vo)
-    return did.delete_did_meta(scope=scope, name=name, key=key)
-
-
-def list_dids_by_meta(scope, select, vo='def'):
-    """
-    List all data identifiers in a scope(optional) which match a given metadata.
-
-    :param scope: the scope to search in(optional)
-    :param select: the list of key value pairs to filter on
-    :param vo: The VO to act on.
-    """
-
-    scope = InternalScope(scope, vo=vo)
-    return [api_update_return_dict(d) for d in did.list_dids_by_meta(scope=scope, select=select)]
+    return did.delete_metadata(scope=scope, name=name, key=key)
 
 
 def set_status(scope, name, issuer, vo='def', **kwargs):

@@ -1,4 +1,4 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,6 +55,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import and_, or_, text, true, null, tuple_
 
 from rucio.core.account import has_account_attribute
+from rucio.core.config import get as core_config_get
 import rucio.core.did
 import rucio.core.lock  # import get_replica_locks, get_files_and_replica_locks_of_dataset
 import rucio.core.replica  # import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
@@ -78,13 +79,18 @@ from rucio.core.monitor import record_timer_block
 from rucio.core.rse import get_rse_name, list_rse_attributes, get_rse, get_rse_usage
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rse_selector import RSESelector
-from rucio.core.rule_grouping import apply_rule_grouping, repair_stuck_locks_and_apply_rule_grouping, create_transfer_dict
+from rucio.core.rule_grouping import apply_rule_grouping, repair_stuck_locks_and_apply_rule_grouping, create_transfer_dict, apply_rule
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import (LockState, ReplicaState, RuleState, RuleGrouping,
                                      DIDAvailability, DIDReEvaluation, DIDType,
                                      RequestType, RuleNotification, OBSOLETE, RSEType)
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 from rucio.extensions.forecast import T3CModel
+
+
+# module variable to activate use of new rule algorithm (rucio.core.rule_grouping.apply_rule)
+USE_NEW_RULE_ALGORITHM = False
+
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging,
@@ -139,6 +145,11 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     rule_ids = []
 
     grouping = {'ALL': RuleGrouping.ALL, 'NONE': RuleGrouping.NONE}.get(grouping, RuleGrouping.DATASET)
+
+    if USE_NEW_RULE_ALGORITHM:
+        use_new_rule_algorithm = True
+    else:
+        use_new_rule_algorithm = core_config_get('rules', 'use_new_rule_algorithm', default=False, session=session)
 
     with record_timer_block('rule.add_rule'):
         # 1. Resolve the rse_expression into a list of RSE-ids
@@ -309,33 +320,41 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 logging.debug("Created rule %s for injection due to Split Container mode", str(new_rule.id))
                 continue
 
-            # 5. Resolve the did to its contents
-            with record_timer_block('rule.add_rule.resolve_dids_to_locks_replicas'):
-                # Get all Replicas, not only the ones interesting for the rse_expression
-                datasetfiles, locks, replicas, source_replicas = __resolve_did_to_locks_and_replicas(did=did,
-                                                                                                     nowait=False,
-                                                                                                     restrict_rses=[rse['id'] for rse in rses],
-                                                                                                     source_rses=[rse['id'] for rse in source_rses],
-                                                                                                     session=session)
+            if use_new_rule_algorithm:
+                # 5. Apply the rule
+                with record_timer_block('rule.add_rule.apply_rule'):
+                    try:
+                        apply_rule(did, new_rule, [x['id'] for x in rses], [x['id'] for x in source_rses], rseselector, session=session)
+                    except IntegrityError as error:
+                        raise ReplicationRuleCreationTemporaryFailed(error.args[0])
+            else:
+                # 5. Resolve the did to its contents
+                with record_timer_block('rule.add_rule.resolve_dids_to_locks_replicas'):
+                    # Get all Replicas, not only the ones interesting for the rse_expression
+                    datasetfiles, locks, replicas, source_replicas = __resolve_did_to_locks_and_replicas(did=did,
+                                                                                                         nowait=False,
+                                                                                                         restrict_rses=[rse['id'] for rse in rses],
+                                                                                                         source_rses=[rse['id'] for rse in source_rses],
+                                                                                                         session=session)
 
-            sumfiles = sum([len(x['files']) for x in datasetfiles])
-            if sumfiles > 30000:
-                logging.warning('Rule %s for %s:%s involves %d files', str(new_rule.id), new_rule.scope, new_rule.name, sumfiles)
+                sumfiles = sum([len(x['files']) for x in datasetfiles])
+                if sumfiles > 30000:
+                    logging.warning('Rule %s for %s:%s involves %d files', str(new_rule.id), new_rule.scope, new_rule.name, sumfiles)
 
-            # 6. Apply the replication rule to create locks, replicas and transfers
-            with record_timer_block('rule.add_rule.create_locks_replicas_transfers'):
-                try:
-                    __create_locks_replicas_transfers(datasetfiles=datasetfiles,
-                                                      locks=locks,
-                                                      replicas=replicas,
-                                                      source_replicas=source_replicas,
-                                                      rseselector=rseselector,
-                                                      rule=new_rule,
-                                                      preferred_rse_ids=[],
-                                                      source_rses=[rse['id'] for rse in source_rses],
-                                                      session=session)
-                except IntegrityError as error:
-                    raise ReplicationRuleCreationTemporaryFailed(error.args[0])
+                # 6. Apply the replication rule to create locks, replicas and transfers
+                with record_timer_block('rule.add_rule.create_locks_replicas_transfers'):
+                    try:
+                        __create_locks_replicas_transfers(datasetfiles=datasetfiles,
+                                                          locks=locks,
+                                                          replicas=replicas,
+                                                          source_replicas=source_replicas,
+                                                          rseselector=rseselector,
+                                                          rule=new_rule,
+                                                          preferred_rse_ids=[],
+                                                          source_rses=[rse['id'] for rse in source_rses],
+                                                          session=session)
+                    except IntegrityError as error:
+                        raise ReplicationRuleCreationTemporaryFailed(error.args[0])
 
             if new_rule.locks_stuck_cnt > 0:
                 new_rule.state = RuleState.STUCK
@@ -358,7 +377,10 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             # Add rule to History
             insert_rule_history(rule=new_rule, recent=True, longterm=True, session=session)
 
-            logging.info("Created rule %s [%d/%d/%d] for did %s:%s in state %s", str(new_rule.id), new_rule.locks_ok_cnt, new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt, new_rule.scope, new_rule.name, str(new_rule.state))
+            if use_new_rule_algorithm:
+                logging.info("Created rule %s [%d/%d/%d] with new algorithm for did %s:%s in state %s", str(new_rule.id), new_rule.locks_ok_cnt, new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt, new_rule.scope, new_rule.name, str(new_rule.state))
+            else:
+                logging.info("Created rule %s [%d/%d/%d] for did %s:%s in state %s", str(new_rule.id), new_rule.locks_ok_cnt, new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt, new_rule.scope, new_rule.name, str(new_rule.state))
 
     return rule_ids
 
@@ -625,6 +647,12 @@ def inject_rule(rule_id, session=None):
     :param session:    The database session in use.
     :raises:           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataId, RSEOverQuota
     """
+
+    if USE_NEW_RULE_ALGORITHM:
+        use_new_rule_algorithm = True
+    else:
+        use_new_rule_algorithm = core_config_get('rules', 'use_new_rule_algorithm', default=False, session=session)
+
     try:
         rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_for_update(nowait=True).one()
     except NoResultFound:
@@ -699,54 +727,65 @@ def inject_rule(rule_id, session=None):
         except TypeError as error:
             raise InvalidObject(error.args)
 
-    # 5. Resolve the did to its contents
-    with record_timer_block('rule.add_rule.resolve_dids_to_locks_replicas'):
-        # Get all Replicas, not only the ones interesting for the rse_expression
-        datasetfiles, locks, replicas, source_replicas = __resolve_did_to_locks_and_replicas(did=did,
-                                                                                             nowait=True,
-                                                                                             restrict_rses=[rse['id'] for rse in rses],
-                                                                                             source_rses=[rse['id'] for rse in source_rses],
-                                                                                             session=session)
+    if use_new_rule_algorithm:
+        # 4. Apply the rule
+        with record_timer_block('rule.add_rule.apply_rule'):
+            try:
+                apply_rule(did, rule, [x['id'] for x in rses], [x['id'] for x in source_rses], rseselector, session=session)
+            except IntegrityError as error:
+                raise ReplicationRuleCreationTemporaryFailed(error.args[0])
+    else:
+        # 5. Resolve the did to its contents
+        with record_timer_block('rule.add_rule.resolve_dids_to_locks_replicas'):
+            # Get all Replicas, not only the ones interesting for the rse_expression
+            datasetfiles, locks, replicas, source_replicas = __resolve_did_to_locks_and_replicas(did=did,
+                                                                                                 nowait=True,
+                                                                                                 restrict_rses=[rse['id'] for rse in rses],
+                                                                                                 source_rses=[rse['id'] for rse in source_rses],
+                                                                                                 session=session)
 
-    # 6. Apply the replication rule to create locks, replicas and transfers
-    with record_timer_block('rule.add_rule.create_locks_replicas_transfers'):
-        try:
-            __create_locks_replicas_transfers(datasetfiles=datasetfiles,
-                                              locks=locks,
-                                              replicas=replicas,
-                                              source_replicas=source_replicas,
-                                              rseselector=rseselector,
-                                              rule=rule,
-                                              preferred_rse_ids=[],
-                                              source_rses=[rse['id'] for rse in source_rses],
-                                              session=session)
-        except IntegrityError as error:
-            raise ReplicationRuleCreationTemporaryFailed(error.args[0])
+        # 6. Apply the replication rule to create locks, replicas and transfers
+        with record_timer_block('rule.add_rule.create_locks_replicas_transfers'):
+            try:
+                __create_locks_replicas_transfers(datasetfiles=datasetfiles,
+                                                  locks=locks,
+                                                  replicas=replicas,
+                                                  source_replicas=source_replicas,
+                                                  rseselector=rseselector,
+                                                  rule=rule,
+                                                  preferred_rse_ids=[],
+                                                  source_rses=[rse['id'] for rse in source_rses],
+                                                  session=session)
+            except IntegrityError as error:
+                raise ReplicationRuleCreationTemporaryFailed(error.args[0])
 
-        if rule.locks_stuck_cnt > 0:
-            rule.state = RuleState.STUCK
-            rule.error = 'MissingSourceReplica'
-            if rule.grouping != RuleGrouping.NONE:
-                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
-        elif rule.locks_replicating_cnt == 0:
-            rule.state = RuleState.OK
-            if rule.grouping != RuleGrouping.NONE:
-                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
-                session.flush()
-            if rule.notification == RuleNotification.YES:
-                generate_email_for_rule_ok_notification(rule=rule, session=session)
-            generate_rule_notifications(rule=rule, replicating_locks_before=0, session=session)
-            # Try to release potential parent rules
-            release_parent_rule(child_rule_id=rule.id, session=session)
-        else:
-            rule.state = RuleState.REPLICATING
-            if rule.grouping != RuleGrouping.NONE:
-                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.REPLICATING})
+    if rule.locks_stuck_cnt > 0:
+        rule.state = RuleState.STUCK
+        rule.error = 'MissingSourceReplica'
+        if rule.grouping != RuleGrouping.NONE:
+            session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+    elif rule.locks_replicating_cnt == 0:
+        rule.state = RuleState.OK
+        if rule.grouping != RuleGrouping.NONE:
+            session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.OK})
+            session.flush()
+        if rule.notification == RuleNotification.YES:
+            generate_email_for_rule_ok_notification(rule=rule, session=session)
+        generate_rule_notifications(rule=rule, replicating_locks_before=0, session=session)
+        # Try to release potential parent rules
+        release_parent_rule(child_rule_id=rule.id, session=session)
+    else:
+        rule.state = RuleState.REPLICATING
+        if rule.grouping != RuleGrouping.NONE:
+            session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.REPLICATING})
 
-        # Add rule to History
-        insert_rule_history(rule=rule, recent=True, longterm=True, session=session)
+    # Add rule to History
+    insert_rule_history(rule=rule, recent=True, longterm=True, session=session)
 
-        logging.debug("Created rule %s [%d/%d/%d]", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
+    if use_new_rule_algorithm:
+        logging.info("Created rule %s [%d/%d/%d] with new algorithm for did %s:%s in state %s", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt, rule.scope, rule.name, str(rule.state))
+    else:
+        logging.info("Created rule %s [%d/%d/%d] for did %s:%s in state %s", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt, rule.scope, rule.name, str(rule.state))
 
 
 @stream_session

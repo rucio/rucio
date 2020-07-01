@@ -1,4 +1,4 @@
-# Copyright 2015-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,10 +19,11 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
-from nose.tools import assert_equal, assert_true
+from nose.tools import assert_equal, assert_true, assert_not_equal
 
 from rucio.core.did import attach_dids, add_did, add_dids
 from rucio.core.replica import list_datasets_per_rse, update_collection_replica, get_cleaned_updated_collection_replicas, delete_replicas, add_replicas
@@ -59,6 +60,28 @@ class TestDatasetReplicaClient:
         replicas = [r for r in replica_client.list_dataset_replicas(scope=scope, name=dataset)]
         assert_equal(len(replicas), 1)
 
+    def test_list_dataset_replicas_bulk(self):
+        """ REPLICA (CLIENT): List dataset replicas bulk."""
+        replica_client = ReplicaClient()
+        rule_client = RuleClient()
+        did_client = DIDClient()
+        scope = 'mock'
+        did1 = {'scope': scope, 'name': 'dataset_' + str(generate_uuid())}
+        did_client.add_dataset(**did1)
+        did2 = {'scope': scope, 'name': 'dataset_' + str(generate_uuid())}
+        did_client.add_dataset(**did2)
+        dids = [did1, did2]
+        rule_client.add_replication_rule(dids=dids,
+                                         account='root', copies=1, rse_expression='MOCK',
+                                         grouping='DATASET')
+        replicas = list(replica_client.list_dataset_replicas_bulk(dids=dids))
+
+        assert_equal(len(replicas), 2)
+        for did in dids:
+            def replica_contains_did(rep):
+                return all(map(lambda k: k in rep and did[k] == rep[k], did))
+            assert_true(any(map(replica_contains_did, replicas)), "%s must be in returned replicas" % (did, ))
+
     def test_list_datasets_per_rse(self):
         """ REPLICA (CLIENT): List datasets in RSE."""
         rule_client = RuleClient()
@@ -70,8 +93,9 @@ class TestDatasetReplicaClient:
         rule_client.add_replication_rule(dids=[{'scope': scope, 'name': dataset}],
                                          account='root', copies=1, rse_expression='MOCK',
                                          grouping='DATASET')
-        replicas = [r for r in list_datasets_per_rse(rse_id=get_rse_id(rse='MOCK', **self.vo), filters={'scope': InternalScope(scope, **self.vo), 'name': 'data*'})]
-        assert(replicas != [])
+        replicas = [r for r in list_datasets_per_rse(rse_id=get_rse_id(rse='MOCK', **self.vo),
+                                                     filters={'scope': InternalScope(scope, **self.vo), 'name': 'data*'})]
+        assert_not_equal(replicas, [])
 
     def test_list_dataset_replicas_archive(self):
         """ REPLICA (CLIENT): List dataset replicas with archives. """

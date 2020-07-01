@@ -32,7 +32,7 @@ from rucio.common.policy import get_policy
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.account_limit import set_local_account_limit
-from rucio.core.did import add_dids, attach_dids, list_expired_dids, get_did, add_did_meta
+from rucio.core.did import add_dids, attach_dids, list_expired_dids, get_did, set_metadata
 from rucio.core.replica import get_replica
 from rucio.core.rule import add_rules, list_rules
 from rucio.core.rse import get_rse_id, add_rse
@@ -80,9 +80,8 @@ class TestUndertaker:
         add_dids(dids=dsns1 + dsns2, account=root)
 
         # Add generic metadata on did
-        test_metadata = {"test_key": "test_value"}
         try:
-            add_did_meta(tmp_scope, dsns1[0]['name'], test_metadata)
+            set_metadata(tmp_scope, dsns1[0]['name'], "test_key", "test_value")
         except NotImplementedError:
             # add_did_meta is not Implemented for Oracle < 12
             pass

@@ -1,4 +1,4 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
 # - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -217,6 +218,8 @@ def add_replicas(rse, files, issuer, ignore_availability=False, vo='def'):
 
     :returns: True is successful, False otherwise
     """
+    for v_file in files:
+        v_file.update({"type": "FILE"})  # Make sure DIDs are identified as files for checking
     validate_schema(name='dids', obj=files)
 
     rse_id = get_rse_id(rse=rse, vo=vo)
@@ -273,6 +276,8 @@ def update_replicas_states(rse, files, issuer, vo='def'):
     :param issuer: The issuer account.
     :param vo: The VO to act on.
     """
+    for v_file in files:
+        v_file.update({"type": "FILE"})  # Make sure DIDs are identified as files for checking
     validate_schema(name='dids', obj=files)
 
     rse_id = get_rse_id(rse=rse, vo=vo)
@@ -302,6 +307,34 @@ def list_dataset_replicas(scope, name, deep=False, vo='def'):
     scope = InternalScope(scope, vo=vo)
 
     replicas = replica.list_dataset_replicas(scope=scope, name=name, deep=deep)
+
+    for r in replicas:
+        r['scope'] = r['scope'].external
+        yield r
+
+
+def list_dataset_replicas_bulk(dids, vo='def'):
+    """
+    :param dids: The list of did dictionaries with scope and name.
+    :param vo: The VO to act on.
+
+    :returns: A list of dict dataset replicas
+    """
+
+    validate_schema(name='dids', obj=dids)
+    names_by_scope = dict()
+    for d in dids:
+        if d['scope'] in names_by_scope:
+            names_by_scope[d['scope']].append(d['name'])
+        else:
+            names_by_scope[d['scope']] = [d['name'], ]
+
+    names_by_intscope = dict()
+    for scope in names_by_scope:
+        internal_scope = InternalScope(scope, vo=vo)
+        names_by_intscope[internal_scope] = names_by_scope[scope]
+
+    replicas = replica.list_dataset_replicas_bulk(names_by_intscope)
 
     for r in replicas:
         yield api_update_return_dict(r)
