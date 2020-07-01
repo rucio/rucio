@@ -34,7 +34,7 @@ from oic.oic.message import (AccessTokenResponse, AuthorizationResponse,
                              Message, RegistrationResponse)
 from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 from oic.utils import time_util
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import (CannotAuthenticate, CannotAuthorize,
                                     RucioException)
 from rucio.common.types import InternalAccount
@@ -66,6 +66,8 @@ IDPSECRETS = config_get('oidc', 'idpsecrets', False)
 ADMIN_ISSUER_ID = config_get('oidc', 'admin_issuer', False)
 EXPECTED_OIDC_AUDIENCE = config_get('oidc', 'expected_audience', False, 'rucio')
 EXPECTED_OIDC_SCOPE = config_get('oidc', 'expected_scope', False, 'openid profile')
+EXCHANGE_GRANT_TYPE = config_get('oidc', 'exchange_grant_type', False, 'urn:ietf:params:oauth:grant-type:token-exchange')
+REFRESH_LIFETIME_H = config_get_int('oidc', 'default_jwt_refresh_lifetime', False, 96)
 
 # TO-DO permission layer: if scope == 'wlcg.groups'
 # --> check 'profile' info (requested profile scope)
@@ -255,7 +257,7 @@ def get_auth_oidc(account, session=None, **kwargs):
         issuer_id = ADMIN_ISSUER_ID
     auto = kwargs.get('auto', False)
     polling = kwargs.get('polling', False)
-    refresh_lifetime = kwargs.get('refresh_lifetime', 96)
+    refresh_lifetime = kwargs.get('refresh_lifetime', REFRESH_LIFETIME_H)
     ip = kwargs.get('ip', None)
     webhome = kwargs.get('webhome', None)
     # For webui a mock account will be used here and default account
@@ -415,14 +417,14 @@ def get_token_oidc(auth_query_string, ip=None, session=None):
             try:
                 extra_dict['refresh_lifetime'] = int(oauth_req_params.refresh_lifetime)
             except Exception:
-                extra_dict['refresh_lifetime'] = 96
+                extra_dict['refresh_lifetime'] = REFRESH_LIFETIME_H
             try:
                 values = __get_keyvalues_from_claims(oidc_tokens['refresh_token'], ['exp'])
                 exp = values['exp']
                 extra_dict['refresh_expired_at'] = datetime.utcfromtimestamp(float(exp))
             except Exception:
                 # 4 day expiry period by default
-                extra_dict['refresh_expired_at'] = datetime.utcnow() + timedelta(hours=96)
+                extra_dict['refresh_expired_at'] = datetime.utcnow() + timedelta(hours=REFRESH_LIFETIME_H)
 
         new_token = __save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict, session=session)
         record_counter(counters='IdP_authorization.access_token.saved')
@@ -694,16 +696,21 @@ def __exchange_token_oidc(subject_token_object, session=None, **kwargs):
 
     :returns: new DB access token object
     """
-    grant_type = kwargs.get('grant_type', "urn:ietf:params:oauth:grant-type:token-exchange")
+    grant_type = kwargs.get('grant_type', EXCHANGE_GRANT_TYPE)
     jwt_row_dict, extra_dict = {}, {}
-    jwt_row_dict['account'] = kwargs.get('account', None)
-    jwt_row_dict['authz_scope'] = kwargs.get('scope', None)
-    jwt_row_dict['audience'] = kwargs.get('audience', None)
-    jwt_row_dict['identity'] = kwargs.get('identity', None)
+    jwt_row_dict['account'] = kwargs.get('account', '')
+    jwt_row_dict['authz_scope'] = kwargs.get('scope', '')
+    jwt_row_dict['audience'] = kwargs.get('audience', '')
+    jwt_row_dict['identity'] = kwargs.get('identity', '')
     extra_dict['ip'] = kwargs.get('ip', None)
 
+    # if subject token has offline access scope but *no* refresh token in the DB
+    # (happens when user presents subject token acquired from other sources then Rucio CLI mechanism),
+    # add offline_access scope to the token exchange request !
+    if 'offline_access' in str(subject_token_object.oidc_scope) and not subject_token_object.refresh_token:
+        jwt_row_dict['authz_scope'] += ' offline_access'
     if not grant_type:
-        grant_type = "urn:ietf:params:oauth:grant-type:token-exchange"
+        grant_type = EXCHANGE_GRANT_TYPE
     try:
         start = time.time()
 
@@ -735,13 +742,15 @@ def __exchange_token_oidc(subject_token_object, session=None, **kwargs):
         if 'refresh_token' in oidc_tokens:
             extra_dict['refresh_token'] = oidc_tokens['refresh_token']
             extra_dict['refresh'] = True
-            extra_dict['refresh_lifetime'] = kwargs.get('refresh_lifetime', 96)
+            extra_dict['refresh_lifetime'] = kwargs.get('refresh_lifetime', REFRESH_LIFETIME_H)
+            if extra_dict['refresh_lifetime'] is None:
+                extra_dict['refresh_lifetime'] = REFRESH_LIFETIME_H
             try:
                 values = __get_keyvalues_from_claims(oidc_tokens['refresh_token'], ['exp'])
                 extra_dict['refresh_expired_at'] = datetime.utcfromtimestamp(float(values['exp']))
             except Exception:
                 # 4 day expiry period by default
-                extra_dict['refresh_expired_at'] = datetime.utcnow() + timedelta(hours=96)
+                extra_dict['refresh_expired_at'] = datetime.utcnow() + timedelta(hours=REFRESH_LIFETIME_H)
 
         new_token = __save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict, session=session)
         record_counter(counters='IdP_authorization.access_token.saved')
@@ -918,7 +927,7 @@ def __refresh_token_oidc(token_object, session=None):
             if token_object.refresh_start:
                 extra_dict['refresh_start'] = token_object.refresh_start
         # check if refresh lifetime is set for the token
-        extra_dict['refresh_lifetime'] = 96
+        extra_dict['refresh_lifetime'] = REFRESH_LIFETIME_H
         if token_object.refresh_lifetime:
             extra_dict['refresh_lifetime'] = token_object.refresh_lifetime
         # if the token has been refreshed for time exceeding
@@ -957,7 +966,7 @@ def __refresh_token_oidc(token_object, session=None):
                 extra_dict['refresh_expired_at'] = datetime.utcfromtimestamp(float(values['exp']))
             except Exception:
                 # 4 day expiry period by default
-                extra_dict['refresh_expired_at'] = datetime.utcnow() + timedelta(hours=96)
+                extra_dict['refresh_expired_at'] = datetime.utcnow() + timedelta(hours=REFRESH_LIFETIME_H)
             new_token = __save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict, session=session)
             record_counter(counters='IdP_authorization.access_token.saved')
             record_counter(counters='IdP_authorization.refresh_token.saved')

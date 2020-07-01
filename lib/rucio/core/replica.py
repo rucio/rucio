@@ -30,6 +30,7 @@
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -2391,6 +2392,46 @@ def list_dataset_replicas(scope, name, deep=False, session=None):
             else:
                 replica['state'] = ReplicaState.UNAVAILABLE
             yield replica
+
+
+@stream_session
+def list_dataset_replicas_bulk(names_by_intscope, session=None):
+    """
+    :param names_by_intscope: The dictionary of internal scopes pointing at the list of names.
+    :param session: Database session to use.
+
+    :returns: A list of dictionaries containing the dataset replicas
+              with associated metrics and timestamps
+    """
+
+    condition = []
+    for scope in names_by_intscope:
+        condition.append(and_(models.CollectionReplica.scope == scope,
+                              models.CollectionReplica.name.in_(names_by_intscope[scope])))
+
+    try:
+        # chunk size refers to the number of different scopes, see above
+        for chunk in chunks(condition, 10):
+            query = session.query(models.CollectionReplica.scope,
+                                  models.CollectionReplica.name,
+                                  models.RSE.rse,
+                                  models.CollectionReplica.rse_id,
+                                  models.CollectionReplica.bytes,
+                                  models.CollectionReplica.length,
+                                  models.CollectionReplica.available_bytes,
+                                  models.CollectionReplica.available_replicas_cnt.label("available_length"),
+                                  models.CollectionReplica.state,
+                                  models.CollectionReplica.created_at,
+                                  models.CollectionReplica.updated_at,
+                                  models.CollectionReplica.accessed_at) \
+                .filter(models.CollectionReplica.did_type == DIDType.DATASET) \
+                .filter(models.CollectionReplica.rse_id == models.RSE.id) \
+                .filter(or_(*chunk)) \
+                .filter(models.RSE.deleted == false())
+            for row in query:
+                yield row._asdict()
+    except NoResultFound:
+        raise exception.DataIdentifierNotFound('No Data Identifiers found')
 
 
 @stream_session

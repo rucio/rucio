@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -31,6 +32,7 @@ from datetime import datetime
 from json import dumps, loads
 from six import string_types
 from traceback import format_exc
+
 try:
     from urllib import unquote
     from urlparse import parse_qs
@@ -42,7 +44,7 @@ from xml.sax.saxutils import escape
 
 from geoip2.errors import AddressNotFoundError
 
-from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replicas,
+from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replicas, list_dataset_replicas_bulk,
                                delete_replicas, list_dataset_replicas_vp,
                                get_did_from_pfns, update_replicas_states,
                                declare_bad_file_replicas, add_bad_pfns, get_suspicious_files,
@@ -54,7 +56,7 @@ from rucio.common.config import config_get
 from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, InvalidType,
                                     DataIdentifierNotFound, Duplicate, InvalidPath,
                                     ResourceTemporaryUnavailable, RucioException,
-                                    RSENotFound, UnsupportedOperation, ReplicaNotFound)
+                                    RSENotFound, UnsupportedOperation, ReplicaNotFound, InvalidObject)
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
 from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_http_error, parse_response, APIEncoder, render_json_list
@@ -71,6 +73,7 @@ URLS = ('/list/?$', 'ListReplicas',
         '/bad/?$', 'BadReplicas',
         '/dids/?$', 'ReplicasDIDs',
         '%s/datasets$' % get_schema_value('SCOPE_NAME_REGEXP'), 'DatasetReplicas',
+        '/datasets_bulk/?$', 'DatasetReplicasBulk',
         '%s/datasets_vp$' % get_schema_value('SCOPE_NAME_REGEXP'), 'DatasetReplicasVP',
         '%s/?$' % get_schema_value('SCOPE_NAME_REGEXP'), 'Replicas',
         '/tombstone/?$', 'Tombstone')
@@ -754,7 +757,7 @@ class DatasetReplicas(RucioController):
     @check_accept_header_wrapper(['application/x-json-stream'])
     def GET(self, scope, name):
         """
-        List dataset replicas replicas.
+        List dataset replicas.
 
         HTTP Success:
             200 OK
@@ -778,6 +781,53 @@ class DatasetReplicas(RucioController):
         try:
             for row in list_dataset_replicas(scope=scope, name=name, deep=deep, vo=ctx.env.get('vo')):
                 yield dumps(row, cls=APIEncoder) + '\n'
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+
+
+class DatasetReplicasBulk(RucioController):
+
+    @check_accept_header_wrapper(['application/x-json-stream'])
+    def POST(self):
+        """
+        List dataset replicas for multiple DIDs.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            400 Bad Request
+            401 Unauthorized
+            406 Not Acceptable
+            500 InternalError
+
+        :returns: A dictionary containing all replicas information.
+        """
+        header('Content-Type', 'application/x-json-stream')
+        json_data = data()
+        try:
+            params = parse_response(json_data)
+            dids = params['dids']
+            didslength = len(dids)
+        except KeyError as error:
+            raise generate_http_error(400, 'KeyError', 'Cannot find mandatory parameter : %s' % str(error))
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+        if didslength == 0:
+            raise generate_http_error(400, 'ValueError', 'List of DIDs is empty')
+        try:
+            for row in list_dataset_replicas_bulk(dids=dids, vo=ctx.env.get('vo')):
+                yield dumps(row, cls=APIEncoder) + '\n'
+        except InvalidObject as error:
+            raise generate_http_error(400, 'InvalidObject', 'Cannot validate DIDs: %s' % (str(error)))
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:

@@ -1083,7 +1083,7 @@ class TestReplicationRuleCore():
             add_did(scope=scope, name='ds2', type='DATASET', account=account)
             attach_dids(scope=scope, name='ds2', dids=[{'scope': scope, 'name': 'file_%06d.data' % i} for i in range(11, 20 + 1)], account=account)
             add_did(scope=scope, name='ds3', type='DATASET', account=account)
-            attach_dids(scope=scope, name='ds3', dids=[{'scope': scope, 'name': 'file_%06d.data' % i} for i in (range(21, 25 + 1) + [1, 2, 11, 12])], account=account)
+            attach_dids(scope=scope, name='ds3', dids=[{'scope': scope, 'name': 'file_%06d.data' % i} for i in (list(range(21, 25 + 1)) + [1, 2, 11, 12])], account=account)
             add_did(scope=scope, name='container12', type='CONTAINER', account=account)
             attach_dids(scope=scope, name='container12', dids=[{'scope': scope, 'name': 'ds1'}, {'scope': scope, 'name': 'ds2'}, ], account=account)
             add_did(scope=scope, name='container13', type='CONTAINER', account=account)
