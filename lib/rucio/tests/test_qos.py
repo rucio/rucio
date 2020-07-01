@@ -18,6 +18,7 @@
 # PY3K COMPATIBLE
 
 from rucio.client.rseclient import RSEClient
+from rucio.common.config import config_get, config_get_bool
 from rucio.core.rse import add_rse, del_rse, update_rse, get_rse, get_rse_id
 from rucio.tests.common import rse_name_generator
 
@@ -28,10 +29,15 @@ class TestQoS(object):
 
     @classmethod
     def setupClass(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+        else:
+            self.vo = {}
+
         self.rse_client = RSEClient()
         self.tmp_rse_name = rse_name_generator()
-        add_rse(self.tmp_rse_name)
-        self.tmp_rse = get_rse_id(self.tmp_rse_name)
+        add_rse(self.tmp_rse_name, vo=self.vo)
+        self.tmp_rse = get_rse_id(self.tmp_rse_name, vo=self.vo)
 
     @classmethod
     def teardownClass(self):
