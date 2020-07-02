@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2012, 2014
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
@@ -887,4 +887,5 @@ class Distance(RucioController):
 
 APP = application(URLS, globals())
 APP.add_processor(loadhook(rucio_loadhook))
-application = APP.wsgifunc()
+if __name__ != "rucio.web.rest.rse":
+    application = APP.wsgifunc()

@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Angelos Molfetas <angelos.molfetas@cern.ch>, 2012
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2013,2015
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2020
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
 # - Yun-Pin Sun <yun-pin.sun@cern.ch>, 2013
@@ -1140,4 +1140,5 @@ class Follow(RucioController):
 
 APP = application(URLS, globals())
 APP.add_processor(loadhook(rucio_loadhook))
-application = APP.wsgifunc()
+if __name__ != "rucio.web.rest.did":
+    application = APP.wsgifunc()
