@@ -1042,5 +1042,6 @@ class Validate(RucioController):
    Web service startup
 ----------------------"""
 
+
 APP = application(URLS, globals())
 application = APP.wsgifunc()
