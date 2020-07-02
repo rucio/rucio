@@ -315,4 +315,3 @@ APP = application(URLS, globals())
 APP.add_processor(loadhook(rucio_loadhook))
 if __name__ != "rucio.web.rest.subscription":
     application = APP.wsgifunc()
-
