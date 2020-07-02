@@ -22,25 +22,25 @@ from web import application, loadhook
 
 from rucio.common.schema import SCOPE_NAME_REGEXP
 from rucio.web.rest.common import rucio_loadhook
-from rucio.web.rest.account import Attributes as AAttributes, Scopes as AScopes, Identities as AIdentities, LocalAccountLimits as ALocalAccountLimits, GlobalAccountLimits as AGlobalAccountLimits, LocalAccountLimits as ALocalAccountLimits, Rules as ARules, UsageHistory as AUsageHistory, LocalUsage as ALocalUsage, GlobalUsage as AGlobalUsage, AccountParameter as AAccountParameter, Account as AAccount # NOQA: F401
-from rucio.web.rest.account_limit import LocalAccountLimit as ALLocalAccountLimit, GlobalAccountLimit as ALGlobalAccountLimit # NOQA: F401
-from rucio.web.rest.archive import Archive as AVArchive # NOQA: F401
-from rucio.web.rest.config import OptionSet as COptionSet, OptionGetDel as COptionGetDel, Section as CSection, Config as CConfig # NOQA: F401
-from rucio.web.rest.did import Scope as DScope, GUIDLookup as DGUIDLookup, Search as DSearch, Files as DFiles, AttachmentHistory as DAttachmentHistory, Attachment as DAttachment, Meta as DMeta, DIDs as DDIDs, Rules as DRules, Parents as DParents, AssociatedRules as DAssociatedRules, DidMeta as DDidMeta, Sample as DSample, BulkDIDS as DBulkDIDS, Attachments as DAttachments, NewDIDs as DNewDIDs, Resurrect as DResurrect, ListByMeta as DListByMeta, Follow as DFollow, BulkMeta as DBulkMeta # NOQA: F401
-from rucio.web.rest.exporter import Export as EExport # NOQA: F401
-from rucio.web.rest.heartbeat import Heartbeat as HHeartbeat # NOQA: F401
-from rucio.web.rest.identity import Accounts as IAccounts, UserPass as IUserPass, X509 as IX509, GSS as IGSS # NOQA: F401
-from rucio.web.rest.importer import Import as IMImport # NOQA: F401
-from rucio.web.rest.lifetime_exception import LifetimeException as LELifetimeException, LifetimeExceptionId as LELifetimeExceptionId # NOQA: F401
-from rucio.web.rest.meta import Values as MValues, Meta as MMeta # NOQA: F401
-from rucio.web.rest.lock import LockByScopeName as LLockByScopeName, LockByRSE as LLockByRSE # NOQA: F401
-from rucio.web.rest.replica import ListReplicas as RPListReplicas, Replicas as RPReplicas, SuspiciousReplicas as RPSuspiciousReplicas, BadReplicasStates as RPBadReplicasStates, BadReplicasSummary as RPBadReplicasSummary, BadPFNs as RPBadPFNs, ReplicasRSE as RPReplicasRSE, BadReplicas as RPBadReplicas, ReplicasDIDs as RPReplicasDIDs, DatasetReplicas as RPDatasetReplicas, DatasetReplicasVP as RPDatasetReplicasVP, Tombstone as RPTombstone # NOQA: F401
-from rucio.web.rest.request import RequestGet as RQRequestGet, RequestsGet as RQRequestsGet # NOQA: F401
-from rucio.web.rest.rule import ReplicaLocks as RUReplicaLocks, ReduceRule as RUReduceRule, MoveRule as RUMoveRule, RuleHistoryFull as RURuleHistoryFull, RuleHistory as RURuleHistory, RuleAnalysis as RURuleAnalysis, AllRule as RUAllRule, Rule as RURule # NOQA: F401
-from rucio.web.rest.rse import Attributes as RAttributes, Distance as RDistance, Protocol as RProtocol, Protocols as RProtocols, LFNS2PFNS as RLFNS2PFNS, RSEAccountUsageLimit as RRSEAccountUsageLimit, Usage as RUsage, UsageHistory as RUsageHistory, Limits as RLimits, RSE as RRSE, RSEs as RRSEs # NOQA: F401
-from rucio.web.rest.scope import Scope as SCScope, ScopeList as SCScopeList # NOQA: F401
-from rucio.web.rest.subscription import SubscriptionId as SSubscriptionId, States as AStates, Rules as SRules, SubscriptionName as SSubscriptionName, Subscription as SSubscription # NOQA: F401
-from rucio.web.rest.temporary_did import BulkDIDS as TBulkDIDS # NOQA: F401
+from rucio.web.rest.account import Attributes as AAttributes, Scopes as AScopes, Identities as AIdentities, LocalAccountLimits as ALocalAccountLimits, GlobalAccountLimits as AGlobalAccountLimits, Rules as ARules, UsageHistory as AUsageHistory, LocalUsage as ALocalUsage, GlobalUsage as AGlobalUsage, AccountParameter as AAccountParameter, Account as AAccount  # NOQA: F401
+from rucio.web.rest.account_limit import LocalAccountLimit as ALLocalAccountLimit, GlobalAccountLimit as ALGlobalAccountLimit  # NOQA: F401
+from rucio.web.rest.archive import Archive as AVArchive  # NOQA: F401
+from rucio.web.rest.config import OptionSet as COptionSet, OptionGetDel as COptionGetDel, Section as CSection, Config as CConfig  # NOQA: F401
+from rucio.web.rest.did import Scope as DScope, GUIDLookup as DGUIDLookup, Search as DSearch, Files as DFiles, AttachmentHistory as DAttachmentHistory, Attachment as DAttachment, Meta as DMeta, DIDs as DDIDs, Rules as DRules, Parents as DParents, AssociatedRules as DAssociatedRules, DidMeta as DDidMeta, Sample as DSample, BulkDIDS as DBulkDIDS, Attachments as DAttachments, NewDIDs as DNewDIDs, Resurrect as DResurrect, ListByMeta as DListByMeta, Follow as DFollow, BulkMeta as DBulkMeta  # NOQA: F401
+from rucio.web.rest.exporter import Export as EExport  # NOQA: F401
+from rucio.web.rest.heartbeat import Heartbeat as HHeartbeat  # NOQA: F401
+from rucio.web.rest.identity import Accounts as IAccounts, UserPass as IUserPass, X509 as IX509, GSS as IGSS  # NOQA: F401
+from rucio.web.rest.importer import Import as IMImport  # NOQA: F401
+from rucio.web.rest.lifetime_exception import LifetimeException as LELifetimeException, LifetimeExceptionId as LELifetimeExceptionId  # NOQA: F401
+from rucio.web.rest.meta import Values as MValues, Meta as MMeta  # NOQA: F401
+from rucio.web.rest.lock import LockByScopeName as LLockByScopeName, LockByRSE as LLockByRSE  # NOQA: F401
+from rucio.web.rest.replica import ListReplicas as RPListReplicas, Replicas as RPReplicas, SuspiciousReplicas as RPSuspiciousReplicas, BadReplicasStates as RPBadReplicasStates, BadReplicasSummary as RPBadReplicasSummary, BadPFNs as RPBadPFNs, ReplicasRSE as RPReplicasRSE, BadReplicas as RPBadReplicas, ReplicasDIDs as RPReplicasDIDs, DatasetReplicas as RPDatasetReplicas, DatasetReplicasVP as RPDatasetReplicasVP, Tombstone as RPTombstone  # NOQA: F401
+from rucio.web.rest.request import RequestGet as RQRequestGet, RequestsGet as RQRequestsGet  # NOQA: F401
+from rucio.web.rest.rule import ReplicaLocks as RUReplicaLocks, ReduceRule as RUReduceRule, MoveRule as RUMoveRule, RuleHistoryFull as RURuleHistoryFull, RuleHistory as RURuleHistory, RuleAnalysis as RURuleAnalysis, AllRule as RUAllRule, Rule as RURule  # NOQA: F401
+from rucio.web.rest.rse import Attributes as RAttributes, Distance as RDistance, Protocol as RProtocol, Protocols as RProtocols, LFNS2PFNS as RLFNS2PFNS, RSEAccountUsageLimit as RRSEAccountUsageLimit, Usage as RUsage, UsageHistory as RUsageHistory, Limits as RLimits, RSE as RRSE, RSEs as RRSEs  # NOQA: F401
+from rucio.web.rest.scope import Scope as SCScope, ScopeList as SCScopeList  # NOQA: F401
+from rucio.web.rest.subscription import SubscriptionId as SSubscriptionId, States as AStates, Rules as SRules, SubscriptionName as SSubscriptionName, Subscription as SSubscription  # NOQA: F401
+from rucio.web.rest.temporary_did import BulkDIDS as TBulkDIDS  # NOQA: F401
 
 
 URLS = [
