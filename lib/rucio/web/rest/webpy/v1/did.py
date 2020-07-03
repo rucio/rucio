@@ -22,7 +22,9 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
 # - Martin Baristis <martin.barisits@cern.ch>, 2014-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -36,11 +38,10 @@ except ImportError:
 from web import application, ctx, data, Created, header, InternalError, OK, loadhook
 
 from rucio.api.did import (add_did, add_dids, list_content, list_content_history,
-                           list_dids, list_files, scope_list, get_did, set_metadata,
-                           get_metadata, get_metadata_bulk, set_status, attach_dids, detach_dids,
+                           list_dids, list_dids_extended, list_files, scope_list, get_did, set_metadata,
+                           get_metadata, get_metadata_bulk, delete_metadata, set_status, attach_dids, detach_dids,
                            attach_dids_to_dids, get_dataset_by_guid, list_parent_dids,
-                           create_did_sample, list_new_dids, resurrect, get_did_meta,
-                           add_did_meta, list_dids_by_meta, delete_did_meta, add_did_to_followed,
+                           create_did_sample, list_new_dids, resurrect, add_did_to_followed,
                            get_users_following_did, remove_did_from_followed)
 from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
@@ -50,7 +51,7 @@ from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     UnsupportedStatus, UnsupportedOperation,
                                     RSENotFound, RucioException, RuleNotFound,
                                     InvalidMetadata)
-from rucio.common.schema import SCOPE_NAME_REGEXP
+from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_http_error, render_json, APIEncoder, parse_response
 from rucio.web.rest.common import rucio_loadhook, RucioController, check_accept_header_wrapper
 
@@ -58,24 +59,24 @@ URLS = (
     '/(.*)/$', 'Scope',
     '/(.*)/guid', 'GUIDLookup',
     '/(.*)/dids/search', 'Search',
-    '%s/files' % SCOPE_NAME_REGEXP, 'Files',
-    '%s/dids/history' % SCOPE_NAME_REGEXP, 'AttachmentHistory',
-    '%s/dids' % SCOPE_NAME_REGEXP, 'Attachment',
-    '%s/meta/(.*)' % SCOPE_NAME_REGEXP, 'Meta',
-    '%s/meta' % SCOPE_NAME_REGEXP, 'Meta',
-    '%s/status' % SCOPE_NAME_REGEXP, 'DIDs',
-    '%s/rules' % SCOPE_NAME_REGEXP, 'Rules',
-    '%s/parents' % SCOPE_NAME_REGEXP, 'Parents',
-    '%s/associated_rules' % SCOPE_NAME_REGEXP, 'AssociatedRules',
-    '%s/did_meta' % SCOPE_NAME_REGEXP, 'DidMeta',
+    '/(.*)/dids/search_extended', 'SearchExtended',
+    '%s/files' % get_schema_value('SCOPE_NAME_REGEXP'), 'Files',
+    '%s/dids/history' % get_schema_value('SCOPE_NAME_REGEXP'), 'AttachmentHistory',
+    '%s/dids' % get_schema_value('SCOPE_NAME_REGEXP'), 'Attachment',
+    '%s/meta/(.*)' % get_schema_value('SCOPE_NAME_REGEXP'), 'Meta',
+    '%s/meta' % get_schema_value('SCOPE_NAME_REGEXP'), 'Meta',
+    '%s/status' % get_schema_value('SCOPE_NAME_REGEXP'), 'DIDs',
+    '%s/rules' % get_schema_value('SCOPE_NAME_REGEXP'), 'Rules',
+    '%s/parents' % get_schema_value('SCOPE_NAME_REGEXP'), 'Parents',
+    '%s/associated_rules' % get_schema_value('SCOPE_NAME_REGEXP'), 'AssociatedRules',
+    '%s/did_meta' % get_schema_value('SCOPE_NAME_REGEXP'), 'DidMeta',
     '/(.*)/(.*)/(.*)/(.*)/(.*)/sample', 'Sample',
-    '%s' % SCOPE_NAME_REGEXP, 'DIDs',
+    '%s' % get_schema_value('SCOPE_NAME_REGEXP'), 'DIDs',
     '', 'BulkDIDS',
     '/attachments', 'Attachments',
     '/new', 'NewDIDs',
     '/resurrect', 'Resurrect',
-    '/list_dids_by_meta', 'ListByMeta',
-    '%s/follow' % SCOPE_NAME_REGEXP, 'Follow',
+    '%s/follow' % get_schema_value('SCOPE_NAME_REGEXP'), 'Follow',
     '/bulkmeta', 'BulkMeta',
 )
 
@@ -108,7 +109,7 @@ class Scope(RucioController):
                 recursive = True
 
         try:
-            for did in scope_list(scope=scope, name=name, recursive=recursive):
+            for did in scope_list(scope=scope, name=name, recursive=recursive, vo=ctx.env.get('vo')):
                 yield render_json(**did) + '\n'
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
@@ -153,7 +154,54 @@ class Search(RucioController):
                     filters[k] = v[0]
 
         try:
-            for did in list_dids(scope=scope, filters=filters, type=type, long=long, recursive=recursive):
+            for did in list_dids(scope=scope, filters=filters, type=type, long=long, recursive=recursive, vo=ctx.env.get('vo')):
+                yield dumps(did) + '\n'
+        except UnsupportedOperation as error:
+            raise generate_http_error(409, 'UnsupportedOperation', error.args[0])
+        except KeyNotFound as error:
+            raise generate_http_error(404, 'KeyNotFound', error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+
+
+class SearchExtended(RucioController):
+
+    @check_accept_header_wrapper(['application/x-json-stream'])
+    def GET(self, scope):
+        """
+        List all data identifiers in a scope which match a given metadata.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 KeyNotFound
+            406 Not Acceptable
+            409 UnsupportedOperation
+
+        :param scope: The scope name.
+        """
+
+        header('Content-Type', 'application/x-json-stream')
+        filters = {}
+        long = False
+        recursive = False
+        if ctx.query:
+            params = parse_qs(ctx.query[1:])
+            for k, v in params.items():
+                if k == 'type':
+                    type = v[0]
+                elif k == 'long':
+                    long = v[0] == '1'
+                elif k == 'recursive':
+                    recursive = v[0] == 'True'
+                else:
+                    filters[k] = v[0]
+
+        try:
+            for did in list_dids_extended(scope=scope, filters=filters, type=type, long=long, recursive=recursive, vo=ctx.env.get('vo')):
                 yield dumps(did) + '\n'
         except UnsupportedOperation as error:
             raise generate_http_error(409, 'UnsupportedOperation', error.args[0])
@@ -173,7 +221,7 @@ class BulkDIDS(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            add_dids(json_data, issuer=ctx.env.get('issuer'))
+            add_dids(json_data, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except DuplicateContent as error:
@@ -212,7 +260,7 @@ class Attachments(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            attach_dids_to_dids(attachments=attachments, ignore_duplicate=ignore_duplicate, issuer=ctx.env.get('issuer'))
+            attach_dids_to_dids(attachments=attachments, ignore_duplicate=ignore_duplicate, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except DuplicateContent as error:
@@ -257,7 +305,7 @@ class DIDs(RucioController):
                 params = parse_qs(ctx.query[1:])
                 if 'dynamic' in params:
                     dynamic = True
-            did = get_did(scope=scope, name=name, dynamic=dynamic)
+            did = get_did(scope=scope, name=name, dynamic=dynamic, vo=ctx.env.get('vo'))
             return render_json(**did)
         except ScopeNotFound as error:
             raise generate_http_error(404, 'ScopeNotFound', error.args[0])
@@ -305,7 +353,7 @@ class DIDs(RucioController):
             raise generate_http_error(400, 'ValueError', str(error))
 
         try:
-            add_did(scope=scope, name=name, type=type, statuses=statuses, meta=meta, rules=rules, lifetime=lifetime, dids=dids, rse=rse, issuer=ctx.env.get('issuer'))
+            add_did(scope=scope, name=name, type=type, statuses=statuses, meta=meta, rules=rules, lifetime=lifetime, dids=dids, rse=rse, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except DuplicateContent as error:
@@ -346,7 +394,7 @@ class DIDs(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json data parameter')
 
         try:
-            set_status(scope=scope, name=name, issuer=ctx.env.get('issuer'), **kwargs)
+            set_status(scope=scope, name=name, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'), **kwargs)
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except UnsupportedStatus as error:
@@ -386,7 +434,7 @@ class Attachment(RucioController):
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            for did in list_content(scope=scope, name=name):
+            for did in list_content(scope=scope, name=name, vo=ctx.env.get('vo')):
                 yield render_json(**did) + '\n'
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
@@ -416,7 +464,7 @@ class Attachment(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            attach_dids(scope=scope, name=name, attachment=json_data, issuer=ctx.env.get('issuer'))
+            attach_dids(scope=scope, name=name, attachment=json_data, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except DuplicateContent as error:
@@ -457,7 +505,7 @@ class Attachment(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            detach_dids(scope=scope, name=name, dids=dids, issuer=ctx.env.get('issuer'))
+            detach_dids(scope=scope, name=name, dids=dids, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except UnsupportedOperation as error:
             raise generate_http_error(409, 'UnsupportedOperation', error.args[0])
         except DataIdentifierNotFound as error:
@@ -493,7 +541,7 @@ class AttachmentHistory(RucioController):
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            for did in list_content_history(scope=scope, name=name):
+            for did in list_content_history(scope=scope, name=name, vo=ctx.env.get('vo')):
                 yield render_json(**did) + '\n'
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
@@ -533,7 +581,7 @@ class Files(RucioController):
             if 'long' in params:
                 long = True
         try:
-            for file in list_files(scope=scope, name=name, long=long):
+            for file in list_files(scope=scope, name=name, long=long, vo=ctx.env.get('vo')):
                 yield dumps(file) + "\n"
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
@@ -562,7 +610,7 @@ class Parents(RucioController):
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            for dataset in list_parent_dids(scope=scope, name=name):
+            for dataset in list_parent_dids(scope=scope, name=name, vo=ctx.env.get('vo')):
                 yield render_json(**dataset) + "\n"
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
@@ -596,7 +644,12 @@ class Meta(RucioController):
         """
         header('Content-Type', 'application/json')
         try:
-            meta = get_metadata(scope=scope, name=name)
+            plugin = 'DID_COLUMN'
+            if ctx.query:
+                params = parse_qs(ctx.query[1:])
+                if 'plugin' in params:
+                    plugin = params['plugin'][0]
+            meta = get_metadata(scope=scope, name=name, plugin=plugin, vo=ctx.env.get('vo'))
             return render_json(**meta)
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
@@ -634,7 +687,7 @@ class Meta(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
         try:
             set_metadata(scope=scope, name=name, key=key, value=value,
-                         issuer=ctx.env.get('issuer'), recursive=recursive)
+                         issuer=ctx.env.get('issuer'), recursive=recursive, vo=ctx.env.get('vo'))
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except Duplicate as error:
@@ -652,6 +705,39 @@ class Meta(RucioController):
             raise InternalError(error)
 
         raise Created()
+
+    def DELETE(self, scope, name):
+        """
+        Deletes the specified key from the DID
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 KeyNotFound
+        """
+        key = ""
+        if ctx.query:
+            params = parse_qs(ctx.query[1:])
+            if 'key' in params:
+                key = params['key'][0]
+            else:
+                raise generate_http_error(404, 'KeyNotFound', 'No key provided to remove')
+
+        try:
+            delete_metadata(scope=scope, name=name, key=key)
+        except KeyNotFound as error:
+            raise generate_http_error(404, 'KeyNotFound', error.args[0])
+        except DataIdentifierNotFound as error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
+        except NotImplementedError:
+            raise generate_http_error(409, 'NotImplementedError', 'Feature not in current database')
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+        raise OK()
 
 
 class Rules(RucioController):
@@ -673,7 +759,7 @@ class Rules(RucioController):
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            for rule in list_replication_rules({'scope': scope, 'name': name}):
+            for rule in list_replication_rules({'scope': scope, 'name': name}, vo=ctx.env.get('vo')):
                 yield dumps(rule, cls=APIEncoder) + '\n'
         except RuleNotFound as error:
             raise generate_http_error(404, 'RuleNotFound', error.args[0])
@@ -708,7 +794,7 @@ class BulkMeta(RucioController):
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
         try:
-            for meta in get_metadata_bulk(dids):
+            for meta in get_metadata_bulk(dids, vo=ctx.env.get('vo')):
                 yield render_json(**meta) + '\n'
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
@@ -740,7 +826,7 @@ class AssociatedRules(RucioController):
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            for rule in list_associated_replication_rules_for_file(scope=scope, name=name):
+            for rule in list_associated_replication_rules_for_file(scope=scope, name=name, vo=ctx.env.get('vo')):
                 yield dumps(rule, cls=APIEncoder) + '\n'
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
@@ -769,7 +855,7 @@ class GUIDLookup(RucioController):
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            for dataset in get_dataset_by_guid(guid):
+            for dataset in get_dataset_by_guid(guid, vo=ctx.env.get('vo')):
                 yield dumps(dataset, cls=APIEncoder) + '\n'
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
@@ -802,7 +888,7 @@ class Sample(RucioController):
         :param nbfiles: The number of files to register in the output dataset.
         """
         try:
-            create_did_sample(input_scope=input_scope, input_name=input_name, output_scope=output_scope, output_name=output_name, issuer=ctx.env.get('issuer'), nbfiles=nbfiles)
+            create_did_sample(input_scope=input_scope, input_name=input_name, output_scope=output_scope, output_name=output_name, issuer=ctx.env.get('issuer'), nbfiles=nbfiles, vo=ctx.env.get('vo'))
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except DuplicateContent as error:
@@ -846,7 +932,7 @@ class NewDIDs(RucioController):
         if 'type' in params:
             type = params['type'][0]
         try:
-            for did in list_new_dids(type):
+            for did in list_new_dids(type, vo=ctx.env.get('vo')):
                 yield dumps(did, cls=APIEncoder) + '\n'
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
@@ -878,7 +964,7 @@ class Resurrect(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            resurrect(dids=dids, issuer=ctx.env.get('issuer'))
+            resurrect(dids=dids, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except DuplicateContent as error:
@@ -897,144 +983,6 @@ class Resurrect(RucioController):
             print(format_exc())
             raise InternalError(error)
         raise Created()
-
-
-class ListByMeta(RucioController):
-
-    @check_accept_header_wrapper(['application/x-json-stream'])
-    def GET(self):
-        """
-        List all data identifiers in a scope(optional) which match a given metadata.
-
-        HTTP Success:
-            200 OK
-
-        HTTP Error:
-            406 Not Acceptable
-            500 Server Error
-
-        :param scope: The scope name.
-        """
-
-        select = {}
-        scope = ""
-        if ctx.query:
-            params = parse_qs(ctx.query[1:])
-            if 'scope' in params:
-                scope = params['scope'][0]
-            if 'select' in params:
-                select = loads(params['select'][0])
-
-        try:
-            dids = list_dids_by_meta(scope=scope, select=select)
-            yield dumps(dids, cls=APIEncoder) + '\n'
-        except NotImplementedError:
-            raise generate_http_error(409, 'NotImplementedError', 'Feature not in current database')
-        except Exception as error:
-            print(format_exc())
-            raise InternalError(error)
-
-
-class DidMeta(RucioController):
-
-    def POST(self, scope, name):
-        """
-        Add did_meta to DID
-        HTTP Success:
-        201 Created
-
-        HTTP Error:
-            401 Unauthorized
-            404 Not Found
-            500 Internal Error
-
-        """
-        json_data = data()
-        try:
-            meta = loads(json_data)
-        except ValueError:
-            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
-
-        try:
-            add_did_meta(scope=scope, name=name, meta=meta)
-        except DataIdentifierNotFound as error:
-            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
-        except DataIdentifierAlreadyExists as error:
-            raise generate_http_error(409, 'DataIdentifierAlreadyExists', error.args[0])
-        except AccessDenied as error:
-            raise generate_http_error(401, 'AccessDenied', error.args[0])
-        except UnsupportedOperation as error:
-            raise generate_http_error(409, 'UnsupportedOperation', error.args[0])
-        except NotImplementedError:
-            raise generate_http_error(409, 'NotImplementedError', 'Feature not in current database')
-        except DatabaseException as error:
-            raise generate_http_error(500, 'DatabaseException', error.args[0])
-        except RucioException as error:
-            raise generate_http_error(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            print(format_exc())
-            raise InternalError(error)
-        raise Created()
-
-    @check_accept_header_wrapper(['application/x-json-stream'])
-    def GET(self, scope, name):
-        """
-        Gets metadata for a did
-        HTTP Success:
-            200 OK
-
-        HTTP Error:
-            401 Unauthorized
-            404 DataIdentifier Not found
-            406 Not Acceptable
-            409 NotImplemented
-        """
-        header('Content-Type', 'application/x-json-stream')
-        try:
-            meta = get_did_meta(scope=scope, name=name)
-            yield dumps(meta, cls=APIEncoder) + "\n"
-        except DataIdentifierNotFound as error:
-            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
-        except RucioException as error:
-            raise generate_http_error(500, error.__class__.__name__, error.args[0])
-        except NotImplementedError:
-            raise generate_http_error(409, 'NotImplementedError', 'Feature not in current database')
-        except Exception as error:
-            print(format_exc())
-            raise InternalError(error)
-
-    def DELETE(self, scope, name):
-        """
-        Deletes the specified key from the DID
-        HTTP Success:
-            200 OK
-
-        HTTP Error:
-            401 Unauthorized
-            404 KeyNotFound
-        """
-        key = ""
-        if ctx.query:
-            params = parse_qs(ctx.query[1:])
-            if 'key' in params:
-                key = params['key'][0]
-            else:
-                raise generate_http_error(404, 'KeyNotFound', 'No key provided to remove')
-
-        try:
-            delete_did_meta(scope=scope, name=name, key=key)
-        except KeyNotFound as error:
-            raise generate_http_error(404, 'KeyNotFound', error.args[0])
-        except DataIdentifierNotFound as error:
-            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
-        except NotImplementedError:
-            raise generate_http_error(409, 'NotImplementedError', 'Feature not in current database')
-        except RucioException as error:
-            raise generate_http_error(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            print(format_exc())
-            raise InternalError(error)
-        raise OK()
 
 
 class Follow(RucioController):
@@ -1058,7 +1006,7 @@ class Follow(RucioController):
         header('Content-Type', 'application/json')
         try:
             # Get the users following a did and render it as json.
-            for user in get_users_following_did(scope=scope, name=name):
+            for user in get_users_following_did(scope=scope, name=name, vo=ctx.env.get('vo')):
                 yield render_json(**user) + '\n'
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
@@ -1089,7 +1037,7 @@ class Follow(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            add_did_to_followed(scope=scope, name=name, account=json_data['account'])
+            add_did_to_followed(scope=scope, name=name, account=json_data['account'], vo=ctx.env.get('vo'))
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except AccessDenied as error:
@@ -1122,7 +1070,7 @@ class Follow(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            remove_did_from_followed(scope=scope, name=name, account=json_data['account'], issuer=ctx.env.get('issuer'))
+            remove_did_from_followed(scope=scope, name=name, account=json_data['account'], issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException as error:

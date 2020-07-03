@@ -11,6 +11,7 @@
 # - Robert Illingworth, <illingwo@fnal.gov>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 

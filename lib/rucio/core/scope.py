@@ -1,9 +1,16 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
@@ -12,6 +19,9 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -19,7 +29,8 @@ from re import match
 from sqlalchemy.exc import IntegrityError
 from traceback import format_exc
 
-from rucio.common.exception import AccountNotFound, Duplicate, RucioException
+from rucio.common.exception import AccountNotFound, Duplicate, RucioException, VONotFound
+from rucio.core.vo import vo_exists
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, ScopeStatus
 from rucio.db.sqla.session import read_session, transactional_session
@@ -34,6 +45,9 @@ def add_scope(scope, account, session=None):
     :param session: The database session in use.
     """
 
+    if not vo_exists(vo=scope.vo, session=session):
+        raise VONotFound('VO {} not found'.format(scope.vo))
+
     result = session.query(models.Account).filter_by(account=account, status=AccountStatus.ACTIVE).first()
     if result is None:
         raise AccountNotFound('Account ID \'%s\' does not exist' % account)
@@ -43,11 +57,11 @@ def add_scope(scope, account, session=None):
         new_scope.save(session=session)
     except IntegrityError as e:
         if match('.*IntegrityError.*ORA-00001: unique constraint.*SCOPES_PK.*violated.*', e.args[0]) \
-           or match('.*IntegrityError.*Duplicate entry.*for key.*', e.args[0]) \
-           or match('.*IntegrityError.*UNIQUE constraint failed: scopes.scope.*', e.args[0]) \
-           or match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0]) \
-           or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', e.args[0]) \
-           or match('.*sqlite3.IntegrityError.*is not unique.*', e.args[0]):
+                or match('.*IntegrityError.*Duplicate entry.*for key.*', e.args[0]) \
+                or match('.*IntegrityError.*UNIQUE constraint failed: scopes.scope.*', e.args[0]) \
+                or match('.*IntegrityError.*duplicate key value violates unique constraint.*', e.args[0]) \
+                or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', e.args[0]) \
+                or match('.*IntegrityError.*columns? .*not unique.*', e.args[0]):
             raise Duplicate('Scope \'%s\' already exists!' % scope)
         else:
             raise RucioException(e)
@@ -73,16 +87,24 @@ def bulk_add_scopes(scopes, account, skipExisting=False, session=None):
 
 
 @read_session
-def list_scopes(session=None):
+def list_scopes(filter={}, session=None):
     """
     Lists all scopes.
-
+    :param filter: Dictionary of attributes by which the input data should be filtered
     :param session: The database session in use.
 
     :returns: A list containing all scopes.
     """
     scope_list = []
     query = session.query(models.Scope).filter(models.Scope.status != ScopeStatus.DELETED)
+    for filter_type in filter:
+        if filter_type == 'scope':
+            if '*' in filter['scope'].internal:
+                scope_str = filter['scope'].internal.replace('*', '%')
+                query = query.filter(models.Scope.scope.like(scope_str))
+            else:
+                query = query.filter_by(scope=filter['scope'])
+
     for s in query:
         scope_list.append(s.scope)
     return scope_list

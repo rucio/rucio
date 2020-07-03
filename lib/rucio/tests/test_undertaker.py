@@ -19,15 +19,20 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 
 from datetime import datetime, timedelta
+from logging import getLogger
 
 from nose.tools import assert_not_equal
 
+from rucio.common.config import config_get, config_get_bool
+from rucio.common.policy import get_policy
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.account_limit import set_local_account_limit
-from rucio.core.did import add_dids, attach_dids, list_expired_dids, get_did, add_did_meta
+from rucio.core.did import add_dids, attach_dids, list_expired_dids, get_did, set_metadata
 from rucio.core.replica import get_replica
 from rucio.core.rule import add_rules, list_rules
 from rucio.core.rse import get_rse_id, add_rse
@@ -35,18 +40,27 @@ from rucio.daemons.undertaker.undertaker import undertaker
 from rucio.tests.common import rse_name_generator
 
 
+LOG = getLogger(__name__)
+
+
 class TestUndertaker:
+
+    def setup(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+        else:
+            self.vo = {}
 
     def test_undertaker(self):
         """ UNDERTAKER (CORE): Test the undertaker. """
-        tmp_scope = InternalScope('mock')
-        jdoe = InternalAccount('jdoe')
-        root = InternalAccount('root')
+        tmp_scope = InternalScope('mock', **self.vo)
+        jdoe = InternalAccount('jdoe', **self.vo)
+        root = InternalAccount('root', **self.vo)
 
         nbdatasets = 5
         nbfiles = 5
         rse = 'MOCK'
-        rse_id = get_rse_id('MOCK')
+        rse_id = get_rse_id('MOCK', **self.vo)
 
         set_local_account_limit(jdoe, rse_id, -1)
 
@@ -66,9 +80,8 @@ class TestUndertaker:
         add_dids(dids=dsns1 + dsns2, account=root)
 
         # Add generic metadata on did
-        test_metadata = {"test_key": "test_value"}
         try:
-            add_did_meta(tmp_scope, dsns1[0]['name'], test_metadata)
+            set_metadata(tmp_scope, dsns1[0]['name'], "test_key", "test_value")
         except NotImplementedError:
             # add_did_meta is not Implemented for Oracle < 12
             pass
@@ -91,12 +104,12 @@ class TestUndertaker:
 
     def test_list_expired_dids_with_locked_rules(self):
         """ UNDERTAKER (CORE): Test that the undertaker does not list expired dids with locked rules"""
-        tmp_scope = InternalScope('mock')
-        jdoe = InternalAccount('jdoe')
-        root = InternalAccount('root')
+        tmp_scope = InternalScope('mock', **self.vo)
+        jdoe = InternalAccount('jdoe', **self.vo)
+        root = InternalAccount('root', **self.vo)
 
         # Add quota
-        set_local_account_limit(jdoe, get_rse_id('MOCK'), -1)
+        set_local_account_limit(jdoe, get_rse_id('MOCK', **self.vo), -1)
 
         dsn = {'name': 'dsn_%s' % generate_uuid(),
                'scope': tmp_scope,
@@ -113,15 +126,19 @@ class TestUndertaker:
 
     def test_atlas_archival_policy(self):
         """ UNDERTAKER (CORE): Test the atlas archival policy. """
-        tmp_scope = InternalScope('mock')
-        jdoe = InternalAccount('jdoe')
-        root = InternalAccount('root')
+        if get_policy() != 'atlas':
+            LOG.info("Skipping atlas-specific test")
+            return
+
+        tmp_scope = InternalScope('mock', **self.vo)
+        jdoe = InternalAccount('jdoe', **self.vo)
+        root = InternalAccount('root', **self.vo)
 
         nbdatasets = 5
         nbfiles = 5
 
         rse = 'LOCALGROUPDISK_%s' % rse_name_generator()
-        rse_id = add_rse(rse)
+        rse_id = add_rse(rse, **self.vo)
 
         set_local_account_limit(jdoe, rse_id, -1)
 
@@ -148,5 +165,5 @@ class TestUndertaker:
             assert(get_replica(scope=replica['scope'], name=replica['name'], rse_id=rse_id)['tombstone'] is None)
 
         for dsn in dsns2:
-            assert(get_did(scope=InternalScope('archive'), name=dsn['name'])['name'] == dsn['name'])
-            assert(len([x for x in list_rules(filters={'scope': InternalScope('archive'), 'name': dsn['name']})]) == 1)
+            assert(get_did(scope=InternalScope('archive', **self.vo), name=dsn['name'])['name'] == dsn['name'])
+            assert(len([x for x in list_rules(filters={'scope': InternalScope('archive', **self.vo), 'name': dsn['name']})]) == 1)

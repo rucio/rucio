@@ -22,6 +22,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
 # - Martin Baristis <martin.barisits@cern.ch>, 2014-2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -33,8 +34,8 @@ from flask import Flask, Blueprint, Response, request
 from flask.views import MethodView
 
 from rucio.api.did import (add_did, add_dids, list_content, list_content_history,
-                           list_dids, list_files, scope_list, get_did, set_metadata,
-                           get_metadata, get_metadata_bulk, set_status, attach_dids, detach_dids,
+                           list_dids, list_dids_extended, list_files, scope_list, get_did,
+                           set_metadata, get_metadata, get_metadata_bulk, set_status, attach_dids, detach_dids,
                            attach_dids_to_dids, get_dataset_by_guid, list_parent_dids,
                            create_did_sample, list_new_dids, resurrect)
 from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
@@ -97,7 +98,7 @@ class Scope(MethodView):
 
         try:
             data = ""
-            for did in scope_list(scope=scope, name=name, recursive=recursive):
+            for did in scope_list(scope=scope, name=name, recursive=recursive, vo=request.environ.get('vo')):
                 data += render_json(**did) + '\n'
             return Response(data, content_type='application/x-json-stream')
         except DataIdentifierNotFound as error:
@@ -172,7 +173,85 @@ class Search(MethodView):
 
         try:
             data = ""
-            for did in list_dids(scope=scope, filters=filters, type=type, long=long, recursive=recursive):
+            for did in list_dids(scope=scope, filters=filters, type=type, long=long, recursive=recursive, vo=request.environ.get('vo')):
+                data += dumps(did) + '\n'
+            return Response(data, content_type='application/x-json-stream')
+        except UnsupportedOperation as error:
+            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0])
+        except KeyNotFound as error:
+            return generate_http_error_flask(404, 'KeyNotFound', error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return error, 500
+
+
+class SearchExtended(MethodView):
+
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
+    def get(self, scope):
+        """
+        List all data identifiers in a scope which match a given metadata.
+        Extended Version to included meteadata from various plugins.
+
+        .. :quickref: Search; Search DIDs in a scope with given metadata.
+
+        **Example request**:
+
+        .. sourcecode:: http
+
+            GET /dids/scope1/dids/search_extended?type=collection&long=True&length.lt=10 HTTP/1.1
+            Host: rucio.cern.ch
+
+        **Example response**:
+
+        .. sourcecode:: http
+
+            HTTP/1.1 200 OK
+            Vary: Accept
+            Content-Type: application/x-json-stream
+
+            {"scope": "scope1", "did_type": "CONTAINER", "name": "container1",
+             "bytes": 1234, "length": 1}
+            {"scope": "scope1", "did_type": "DATASET", "name": "dataset1",
+             "bytes": 234, "length": 3}
+
+        :query type: specify a DID type to search for
+        :query long: set to True for long output, otherwise only name
+        :query recursive: set to True to recursively list DIDs content
+        :query created_before: Date string in RFC-1123 format where the creation date was earlier
+        :query created_after: Date string in RFC-1123 format where the creation date was later
+        :query length: Exact number of attached DIDs
+        :query length.gt: Number of attached DIDs greater than
+        :query length.lt: Number of attached DIDs less than
+        :query length.gte: Number of attached DIDs greater than or equal to
+        :query length.lte: Number of attached DIDs less than or equal to
+        :query name: Name or pattern of a DID name
+        :resheader Content-Type: application/x-json-stream
+        :status 200: DIDs found
+        :status 401: Invalid Auth Token
+        :status 404: Invalid key in filters
+        :status 406: Not Acceptable
+        :status 409: Wrong DID type
+        :returns: Line separated name of DIDs or dictionaries of DIDs for long option
+        """
+
+        filters = {}
+        long = False
+        recursive = False
+        type = 'collection'
+        for k, v in request.args.items():
+            if k == 'type':
+                type = v
+            elif k == 'long':
+                long = v == '1'
+            elif k == 'recursive':
+                recursive = v == 'True'
+            else:
+                filters[k] = v
+
+        try:
+            data = ""
+            for did in list_dids_extended(scope=scope, filters=filters, type=type, long=long, recursive=recursive, vo=request.environ.get('vo')):
                 data += dumps(did) + '\n'
             return Response(data, content_type='application/x-json-stream')
         except UnsupportedOperation as error:
@@ -234,7 +313,7 @@ class BulkDIDS(MethodView):
 
         try:
             print(json_data)
-            add_dids(json_data, issuer=request.environ.get('issuer'))
+            add_dids(json_data, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except DuplicateContent as error:
@@ -278,7 +357,7 @@ class Attachments(MethodView):
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            attach_dids_to_dids(attachments=attachments, ignore_duplicate=ignore_duplicate, issuer=request.environ.get('issuer'))
+            attach_dids_to_dids(attachments=attachments, ignore_duplicate=ignore_duplicate, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except DuplicateContent as error:
@@ -338,7 +417,7 @@ class DIDs(MethodView):
             dynamic = False
             if 'dynamic' in request.args:
                 dynamic = True
-            did = get_did(scope=scope, name=name, dynamic=dynamic)
+            did = get_did(scope=scope, name=name, dynamic=dynamic, vo=request.environ.get('vo'))
             return Response(render_json(**did), content_type='application/json')
         except ScopeNotFound as error:
             return generate_http_error_flask(404, 'ScopeNotFound', error.args[0])
@@ -407,7 +486,7 @@ class DIDs(MethodView):
             return generate_http_error_flask(400, 'ValueError', str(error))
 
         try:
-            add_did(scope=scope, name=name, type=type, statuses=statuses, meta=meta, rules=rules, lifetime=lifetime, dids=dids, rse=rse, issuer=request.environ.get('issuer'))
+            add_did(scope=scope, name=name, type=type, statuses=statuses, meta=meta, rules=rules, lifetime=lifetime, dids=dids, rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except DuplicateContent as error:
@@ -464,7 +543,7 @@ class DIDs(MethodView):
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json data parameter')
 
         try:
-            set_status(scope=scope, name=name, issuer=request.environ.get('issuer'), **kwargs)
+            set_status(scope=scope, name=name, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'), **kwargs)
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except UnsupportedStatus as error:
@@ -520,7 +599,7 @@ class Attachment(MethodView):
         """
         try:
             data = ""
-            for did in list_content(scope=scope, name=name):
+            for did in list_content(scope=scope, name=name, vo=request.environ.get('vo')):
                 data += render_json(**did) + '\n'
             return Response(data, content_type="application/x-json-stream")
         except DataIdentifierNotFound as error:
@@ -571,7 +650,7 @@ class Attachment(MethodView):
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            attach_dids(scope=scope, name=name, attachment=json_data, issuer=request.environ.get('issuer'))
+            attach_dids(scope=scope, name=name, attachment=json_data, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except DuplicateContent as error:
@@ -613,7 +692,7 @@ class Attachment(MethodView):
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            detach_dids(scope=scope, name=name, dids=dids, issuer=request.environ.get('issuer'))
+            detach_dids(scope=scope, name=name, dids=dids, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except UnsupportedOperation as error:
             return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0])
         except DataIdentifierNotFound as error:
@@ -648,7 +727,7 @@ class AttachmentHistory(MethodView):
         """
         try:
             data = ""
-            for did in list_content_history(scope=scope, name=name):
+            for did in list_content_history(scope=scope, name=name, vo=request.environ.get('vo')):
                 data += render_json(**did) + '\n'
             return Response(data, content_type="application/x-json-stream")
         except DataIdentifierNotFound as error:
@@ -685,7 +764,7 @@ class Files(MethodView):
             long = True
         try:
             data = ""
-            for file in list_files(scope=scope, name=name, long=long):
+            for file in list_files(scope=scope, name=name, long=long, vo=request.environ.get('vo')):
                 data += dumps(file) + "\n"
             return Response(data, content_type="application/x-json-stream")
         except DataIdentifierNotFound as error:
@@ -717,7 +796,7 @@ class Parents(MethodView):
         """
         try:
             data = ""
-            for dataset in list_parent_dids(scope=scope, name=name):
+            for dataset in list_parent_dids(scope=scope, name=name, vo=request.environ.get('vo')):
                 data += render_json(**dataset) + "\n"
             return Response(data, content_type="application/x-json-stream")
         except DataIdentifierNotFound as error:
@@ -749,7 +828,10 @@ class Meta(MethodView):
         :returns: A dictionary containing all meta.
         """
         try:
-            meta = get_metadata(scope=scope, name=name)
+            plugin = 'DID_COLUMN'
+            if 'plugin' in request.args:
+                plugin = request.args.plugin
+            meta = get_metadata(scope=scope, name=name, plugin=plugin, vo=request.environ.get('vo'))
             return Response(render_json(**meta), content_type='application/json')
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
@@ -789,7 +871,7 @@ class Meta(MethodView):
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
         try:
             set_metadata(scope=scope, name=name, key=key, value=value,
-                         issuer=request.environ.get('issuer'), recursive=recursive)
+                         issuer=request.environ.get('issuer'), recursive=recursive, vo=request.environ.get('vo'))
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except Duplicate as error:
@@ -834,7 +916,7 @@ class BulkMeta(MethodView):
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
         try:
             data = ""
-            for meta in get_metadata_bulk(dids):
+            for meta in get_metadata_bulk(dids, vo=request.environ.get('vo')):
                 data += render_json(**meta) + '\n'
             return Response(data, content_type='application/x-json-stream')
         except ValueError:
@@ -870,7 +952,7 @@ class Rules(MethodView):
 
         try:
             data = ""
-            for rule in list_replication_rules({'scope': scope, 'name': name}):
+            for rule in list_replication_rules({'scope': scope, 'name': name}, vo=request.environ.get('vo')):
                 data += dumps(rule, cls=APIEncoder) + '\n'
             return Response(data, content_type="application/x-json-stream")
         except RuleNotFound as error:
@@ -902,7 +984,7 @@ class AssociatedRules(MethodView):
         """
         try:
             data = ""
-            for rule in list_associated_replication_rules_for_file(scope=scope, name=name):
+            for rule in list_associated_replication_rules_for_file(scope=scope, name=name, vo=request.environ.get('vo')):
                 data += dumps(rule, cls=APIEncoder) + '\n'
             return Response(data, content_type="application/x-json-stream")
         except RucioException as error:
@@ -931,7 +1013,7 @@ class GUIDLookup(MethodView):
         """
         try:
             data = ""
-            for dataset in get_dataset_by_guid(guid):
+            for dataset in get_dataset_by_guid(guid, vo=request.environ.get('vo')):
                 data += dumps(dataset, cls=APIEncoder) + '\n'
             return Response(data, content_type="application/x-json-stream")
         except DataIdentifierNotFound as error:
@@ -967,7 +1049,7 @@ class Sample(MethodView):
         :param nbfiles: The number of files to register in the output dataset.
         """
         try:
-            create_did_sample(input_scope=input_scope, input_name=input_name, output_scope=output_scope, output_name=output_name, issuer=request.environ.get('issuer'), nbfiles=nbfiles)
+            create_did_sample(input_scope=input_scope, input_name=input_name, output_scope=output_scope, output_name=output_name, issuer=request.environ.get('issuer'), nbfiles=nbfiles, vo=request.environ.get('vo'))
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except DuplicateContent as error:
@@ -1011,7 +1093,7 @@ class NewDIDs(MethodView):
             type = request.args.get('type')
         try:
             data = ""
-            for did in list_new_dids(type):
+            for did in list_new_dids(type, vo=request.environ.get('vo')):
                 data += dumps(did, cls=APIEncoder) + '\n'
             return Response(data, content_type="application/x-json-stream")
         except RucioException as error:
@@ -1046,7 +1128,7 @@ class Resurrect(MethodView):
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            resurrect(dids=dids, issuer=request.environ.get('issuer'))
+            resurrect(dids=dids, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except DuplicateContent as error:
@@ -1075,6 +1157,8 @@ guid_lookup_view = GUIDLookup.as_view('guid_lookup')
 bp.add_url_rule('/<guid>/guid', view_func=guid_lookup_view, methods=['get', ])
 search_view = Search.as_view('search')
 bp.add_url_rule('/<scope>/dids/search', view_func=search_view, methods=['get', ])
+search_extended_view = SearchExtended.as_view('search_extended')
+bp.add_url_rule('/<scope>/dids/search_extended', view_func=search_extended_view, methods=['get', ])
 bulkdids_view = BulkDIDS.as_view('bulkdids')
 bp.add_url_rule('/', view_func=bulkdids_view, methods=['post', ])
 attachements_view = Attachments.as_view('attachments')

@@ -16,10 +16,10 @@ etc/web/lighttpd*.conf
 etc/alembic.ini
 etc/ldap.cfg
 etc/rucio-server-gcs.json
+etc/globus-config.yml
 alembic.ini
 .gitlabkey
 .githubtoken
-lib/rucio/transfertool/config.yml
 
 # ignore test proxies
 *.proxy
@@ -62,3 +62,4 @@ pylint.out
 
 # Conveyor test files
 tools/test.file.1G
+

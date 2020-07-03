@@ -18,6 +18,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -40,8 +41,8 @@ class RuleClient(BaseClient):
 
     RULE_BASEURL = 'rules'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, dq2_wrapper=False):
-        super(RuleClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, dq2_wrapper)
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, dq2_wrapper=False, vo=None):
+        super(RuleClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, dq2_wrapper, vo=vo)
 
     def add_replication_rule(self, dids, copies, rse_expression, weight=None, lifetime=None, grouping='DATASET', account=None,
                              locked=False, source_replica_expression=None, activity=None, notify='N', purge_replicas=False,

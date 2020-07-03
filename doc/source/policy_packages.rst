@@ -52,9 +52,13 @@ event that the policy package interface changes in the future. Example::
 Custom surl construction algorithms can be registered in `__init__.py`::
 
     from rucio.common.utils import register_surl_algorithm
-    register_surl_algorithm(construct_surl_special, 'special')
+    register_surl_algorithm(construct_surl_special, 'voname_special')
 
 So can custom lfn to pfn algorithms::
 
     from rucio.rse.protocols.protocol import RSEDeterministicTranslation
-    RSEDeterministicTranslation.register(lfn2pfn_special, 'special')
+    RSEDeterministicTranslation.register(lfn2pfn_special, 'voname_special')
+
+In both cases the name used to register the function must be prefixed with the
+name of the virtual organisation that owns the policy package, to avoid naming
+conflicts on multi-VO Rucio installations.

@@ -18,6 +18,8 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann, <thomas.beermann@cern.ch> 2018
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -51,7 +53,7 @@ class LifetimeException(MethodView):
         """
         try:
             data = ""
-            for exception in list_exceptions():
+            for exception in list_exceptions(vo=request.environ.get('vo')):
                 data += dumps(exception, cls=APIEncoder) + '\n'
             return Response(data, content_type="application/x-json-stream")
         except LifetimeExceptionNotFound as error:
@@ -95,7 +97,8 @@ class LifetimeException(MethodView):
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            exception_id = add_exception(dids=dids, account=request.environ.get('issuer'), pattern=pattern, comments=comments, expires_at=expires_at)
+            exception_id = add_exception(dids=dids, account=request.environ.get('issuer'), vo=request.environ.get('vo'),
+                                         pattern=pattern, comments=comments, expires_at=expires_at)
         except InvalidObject as error:
             return generate_http_error_flask(400, 'InvalidObject', error.args[0])
         except AccessDenied as error:
@@ -130,7 +133,7 @@ class LifetimeExceptionId(MethodView):
         """
         try:
             data = ""
-            for exception in list_exceptions(exception_id):
+            for exception in list_exceptions(exception_id, vo=request.environ.get('vo')):
                 data += dumps(exception, cls=APIEncoder) + '\n'
 
             return Response(data, content_type="application/x-json-stream")
@@ -165,7 +168,7 @@ class LifetimeExceptionId(MethodView):
         except KeyError:
             state = None
         try:
-            update_exception(exception_id=exception_id, state=state, issuer=request.environ.get('issuer'))
+            update_exception(exception_id=exception_id, state=state, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except UnsupportedOperation as error:
             return generate_http_error_flask(400, 'UnsupportedOperation', error.args[0])
         except AccessDenied as error:

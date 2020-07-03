@@ -21,6 +21,8 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2017
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -43,7 +45,7 @@ from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, Acce
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime,
                                     DuplicateRule, InvalidObject, AccountNotFound, RuleReplaceFailed, ScratchDiskLifetimeConflict,
                                     ManualRuleApprovalBlocked, UnsupportedOperation)
-from rucio.common.schema import SCOPE_NAME_REGEXP
+from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_http_error, render_json, APIEncoder
 from rucio.web.rest.common import rucio_loadhook, check_accept_header_wrapper
 
@@ -55,7 +57,7 @@ LOGGER.addHandler(SH)
 URLS = ('/(.+)/locks', 'ReplicaLocks',
         '/(.+)/reduce', 'ReduceRule',
         '/(.+)/move', 'MoveRule',
-        '%s/history' % SCOPE_NAME_REGEXP, 'RuleHistoryFull',
+        '%s/history' % get_schema_value('SCOPE_NAME_REGEXP'), 'RuleHistoryFull',
         '/(.+)/history', 'RuleHistory',
         '/(.+)/analysis', 'RuleAnalysis',
         '/', 'AllRule',
@@ -90,7 +92,7 @@ class Rule:
         except ValueError:
             estimate_ttc = False
         try:
-            rule = get_replication_rule(rule_id, estimate_ttc=estimate_ttc)
+            rule = get_replication_rule(rule_id, estimate_ttc=estimate_ttc, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except RuleNotFound as error:
             raise generate_http_error(404, 'RuleNotFound', error.args[0])
         except RucioException as error:
@@ -116,7 +118,7 @@ class Rule:
         try:
             params = loads(json_data)
             options = params['options']
-            update_replication_rule(rule_id=rule_id, options=options, issuer=ctx.env.get('issuer'))
+            update_replication_rule(rule_id=rule_id, options=options, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except RuleNotFound as error:
@@ -155,7 +157,7 @@ class Rule:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            delete_replication_rule(rule_id=rule_id, purge_replicas=purge_replicas, issuer=ctx.env.get('issuer'))
+            delete_replication_rule(rule_id=rule_id, purge_replicas=purge_replicas, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except UnsupportedOperation as error:
@@ -192,7 +194,7 @@ class AllRule:
             filters.update(params)
 
         try:
-            for rule in list_replication_rules(filters=filters):
+            for rule in list_replication_rules(filters=filters, vo=ctx.env.get('vo')):
                 yield dumps(rule, cls=APIEncoder) + '\n'
         except RuleNotFound as error:
             raise generate_http_error(404, 'RuleNotFound', error.args[0])
@@ -283,7 +285,8 @@ class AllRule:
                                             priority=priority,
                                             split_container=split_container,
                                             meta=meta,
-                                            issuer=ctx.env.get('issuer'))
+                                            issuer=ctx.env.get('issuer'),
+                                            vo=ctx.env.get('vo'))
         # TODO: Add all other error cases here
         except InvalidReplicationRule as error:
             raise generate_http_error(409, 'InvalidReplicationRule', error.args[0])
@@ -379,7 +382,8 @@ class ReduceRule:
             rule_ids = reduce_replication_rule(rule_id=rule_id,
                                                copies=copies,
                                                exclude_expression=exclude_expression,
-                                               issuer=ctx.env.get('issuer'))
+                                               issuer=ctx.env.get('issuer'),
+                                               vo=ctx.env.get('vo'))
         # TODO: Add all other error cases here
         except RuleReplaceFailed as error:
             raise generate_http_error(409, 'RuleReplaceFailed', error.args[0])
@@ -423,7 +427,8 @@ class MoveRule:
         try:
             rule_ids = move_replication_rule(rule_id=rule_id,
                                              rse_expression=rse_expression,
-                                             issuer=ctx.env.get('issuer'))
+                                             issuer=ctx.env.get('issuer'),
+                                             vo=ctx.env.get('vo'))
         except RuleReplaceFailed as error:
             raise generate_http_error(409, 'RuleReplaceFailed', error.args[0])
         except RuleNotFound as error:
@@ -457,7 +462,7 @@ class RuleHistory:
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            history = list_replication_rule_history(rule_id)
+            history = list_replication_rule_history(rule_id, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -486,7 +491,7 @@ class RuleHistoryFull:
         """
         header('Content-Type', 'application/x-json-stream')
         try:
-            history = list_replication_rule_full_history(scope, name)
+            history = list_replication_rule_full_history(scope, name, vo=ctx.env.get('vo'))
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -515,7 +520,7 @@ class RuleAnalysis:
         """
         header('Content-Type', 'application/json')
         try:
-            analysis = examine_replication_rule(rule_id)
+            analysis = examine_replication_rule(rule_id, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:

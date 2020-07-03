@@ -20,6 +20,8 @@
 # - Sartirana Andrea <sartiran@llr.in2p3.fr>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -28,9 +30,11 @@ from jsonschema import validate, ValidationError
 from rucio.common.exception import InvalidObject
 
 
+ACCOUNT_LENGTH = 25
+
 ACCOUNT = {"description": "Account name",
            "type": "string",
-           "pattern": "^[a-z0-9-_]{1,30}$"}
+           "pattern": "^[a-z0-9-_]{1,%s}$" % ACCOUNT_LENGTH}
 
 ACCOUNTS = {"description": "Array of accounts",
             "type": "array",
@@ -56,7 +60,7 @@ SCOPE_LENGTH = 25
 
 SCOPE = {"description": "Scope name",
          "type": "string",
-         "pattern": r"^(cms)|(user\.[a-zA-Z0-9\.]{1,%s})$" % (SCOPE_LENGTH - len('user.'))}
+         "pattern": r"^(cms)|(user\.[a-z0-9-_]{1,%s})$" % (SCOPE_LENGTH - len('user.'))}
 
 R_SCOPE = {"description": "Scope name",
            "type": "string",
@@ -230,6 +234,16 @@ COLLECTIONS = {"description": "Array of datasets or containers",
                "minItems": 1,
                "maxItems": 1000}
 
+# No else if in JSON Schema
+# if type == container
+#      must match CMS dataset/container guidelines
+# else if type == dataset
+#      must match CMS block guidelines
+# else if type == file
+#      must match CMS LFN guidelines
+#      CMS scope must not be in /store/user
+#      user.jdoe scope must be in /store/user/rucio
+#         (making sure it's in /store/user/rucio/jdoe seems to be impossible in JSON Schema, handled outside)
 DID = {"description": "Data Identifier(DID)",
        "type": "object",
        "properties": {"scope": SCOPE,
@@ -242,7 +256,24 @@ DID = {"description": "Data Identifier(DID)",
                       "md5": MD5,
                       "state": REPLICA_STATE,
                       "pfn": PFN},
-       "required": ["scope", "name"],
+       "allOf": [
+           {"if": {"properties": {"type": {"const": "CONTAINER"}}},
+            "then": {"properties": {"name": {"pattern": CMS_DATASET}}}},
+           {"if": {"properties": {"type": {"const": "DATASET"}}},
+            "then": {"properties": {"name": {"pattern": CMS_BLOCK}}}},
+           {"if": {"properties": {"type": {"const": "FILE"}}},
+            "then": {"properties": {"name": {"pattern": CMS_LFN}}}},
+           {"if": {"properties": {"type": {"const": "F"}}},
+            "then": {"properties": {"name": {"pattern": CMS_LFN}}}},
+           {"if": {"allOf": [
+               {"properties": {"scope": {"pattern": "^user\\."}}},
+               {"properties": {"type": {"const": "FILE"}}},
+           ], },
+               "then": {"properties": {"name": {"pattern": "^/store/user/rucio/"}}}},
+           {"if": {"properties": {"scope": {"const": "cms"}}},
+            "then": {"not": {"properties": {"name": {"pattern": "^/store/user/"}}}}},
+       ],
+       "required": ["scope", "name", "type"],
        "additionalProperties": False}
 
 DID_FILTERS = {"description": "Filters dictionary to list DIDs",
@@ -285,7 +316,7 @@ ATTACHMENT = {"description": "Attachement",
                              "rse": {"description": "RSE name",
                                      "type": ["string", "null"],
                                      "pattern": "^T[0-3]_[A-Z]{2}((_[A-Za-z0-9]+)+)$"},
-                             "dids": DIDS},
+                             "dids": R_DIDS},  # Loosen up, we're not creating these DIDs
               "required": ["dids"],
               "additionalProperties": False}
 
@@ -418,3 +449,28 @@ def validate_schema(name, obj):
             validate(obj, SCHEMAS.get(name, {}))
     except ValidationError as error:  # NOQA, pylint: disable=W0612
         raise InvalidObject("Problem validating %(name)s : %(error)s" % locals())
+
+    # Apply some extra constraints to CMS DIDs
+    if name.lower() in ['did']:
+        validate_cms_did(obj)
+    elif name.lower() in ['dids']:
+        for did in obj:
+            validate_cms_did(did)
+
+
+def validate_cms_did(obj):
+    """
+    Special checking for DIDs
+    Most of the checking is done with JSON schema, but this check
+    makes sure user LFNs are in the correct /store/user/rucio/USERNAME namespace
+    """
+    if not obj:
+        return
+
+    lfn = obj['name']
+    did_type = obj['type']
+    scope = obj['scope']
+    if scope.startswith('user.') and did_type == 'FILE':
+        _, user = scope.split('.', 1)
+        if not lfn.startswith('/store/user/rucio/%s/' % user):
+            raise InvalidObject("Problem with LFN %(lfn)s : Not allowed for user %(user)s" % locals())

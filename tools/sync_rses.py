@@ -10,6 +10,7 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013-2014
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Cedric Serfon, <cedric.serfom@cern.ch>, 2020
 
 import json
 import sys
@@ -23,10 +24,13 @@ CRITICAL = 2
 WARNING = 1
 OK = 0
 
-if __name__ == '__main__':
 
+def main(argv):
     # parameters
-    rse_repo_file = 'etc/rse_repository.json'
+    if argv:
+        rse_repo_file = argv[0]
+    else:
+        rse_repo_file = 'etc/rse_repository.json'
 
     json_data = open(rse_repo_file)
     repo_data = json.load(json_data)
@@ -65,3 +69,7 @@ if __name__ == '__main__':
                 errno, errstr = sys.exc_info()[:2]
                 trcbck = traceback.format_exc()
                 print('Interrupted processing for %s with %s %s %s.' % (rse, errno, errstr, trcbck))
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:])

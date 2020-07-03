@@ -8,6 +8,7 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2015
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -44,7 +45,7 @@ class PlacementAlgorithm:
 
     def place(self, did):
         self.__update_penalties()
-        decision = {'did': ':'.join(did)}
+        decision = {'did': '{}:{}'.format(did['scope'].internal, did['name'])}
         try:
             meta = get_did(did[0], did[1])
         except DataIdentifierNotFound:

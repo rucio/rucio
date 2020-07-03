@@ -24,19 +24,22 @@ class InternalType(object):
     '''
     Base for Internal representations of string types
     '''
-    def __init__(self, value, fromExternal=True):
+    def __init__(self, value, vo='def', fromExternal=True):
         if value is None:
             self.external = None
             self.internal = None
+            self.vo = vo
         elif not isinstance(value, string_types):
-            raise TypeError('Expected string type, got %s' % type(value))
+            raise TypeError('Expected value to be string type, got %s' % type(value))
         elif fromExternal:
             self.external = value
+            self.vo = vo
             self.internal = self._calc_internal()
         else:
             self.internal = value
-            external = self._calc_external()
+            vo, external = self._calc_external()
             self.external = external
+            self.vo = vo
 
     def __repr__(self):
         return self.internal
@@ -72,24 +75,34 @@ class InternalType(object):
 
     def _calc_external(self):
         ''' Utility to convert between internal and external representations'''
-        return self.internal
+        split = self.internal.split('@', 1)
+        if len(split) == 1:  # if cannot convert, vo is '' and this is single vo
+            vo = 'def'
+            external = split[0]
+        else:
+            vo = split[1]
+            external = split[0]
+        return vo, external
 
     def _calc_internal(self):
         ''' Utility to convert between internal and external representations'''
-        return self.external
+        if self.vo == 'def':
+            return self.external
+        internal = '{}@{}'.format(self.external, self.vo)
+        return internal
 
 
 class InternalAccount(InternalType):
     '''
     Internal representation of an account
     '''
-    def __init__(self, value, fromExternal=True):
-        super(InternalAccount, self).__init__(value=value, fromExternal=fromExternal)
+    def __init__(self, account, vo='def', fromExternal=True):
+        super(InternalAccount, self).__init__(value=account, vo=vo, fromExternal=fromExternal)
 
 
 class InternalScope(InternalType):
     '''
     Internal representation of a scope
     '''
-    def __init__(self, value, fromExternal=True):
-        super(InternalScope, self).__init__(value=value, fromExternal=fromExternal)
+    def __init__(self, scope, vo='def', fromExternal=True):
+        super(InternalScope, self).__init__(value=scope, vo=vo, fromExternal=fromExternal)

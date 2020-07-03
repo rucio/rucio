@@ -22,6 +22,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -50,7 +51,7 @@ from dogpile.cache.api import NO_VALUE
 from prometheus_client import Counter
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (DatabaseException, RSENotFound, ConfigNotFound, ReplicaUnAvailable, ReplicaNotFound, ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable, SourceNotFound)
 from rucio.common.utils import chunks
 from rucio.core import monitor
@@ -99,13 +100,18 @@ def get_rses_to_process(rses, include_rses, exclude_rses):
         return result
 
     all_rses = list_rses()
+
     if rses:
-        invalid = set(rses) - set([rse['rse'] for rse in all_rses])
-        if invalid:
-            msg = 'RSE{} {} cannot be found'.format('s' if len(invalid) > 1 else '',
-                                                    ', '.join([repr(rse) for rse in invalid]))
-            raise RSENotFound(msg)
-        rses = [rse for rse in all_rses if rse['rse'] in rses]
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            logging.warning('Ignoring argument rses, this is only available in a single-VO setup. Please try an RSE Expression with include_rses if it is required.')
+            rses = all_rses
+        else:
+            invalid = set(rses) - set([rse['rse'] for rse in all_rses])
+            if invalid:
+                msg = 'RSE{} {} cannot be found'.format('s' if len(invalid) > 1 else '',
+                                                        ', '.join([repr(rse) for rse in invalid]))
+                raise RSENotFound(msg)
+            rses = [rse for rse in all_rses if rse['rse'] in rses]
     else:
         rses = all_rses
 
@@ -356,7 +362,8 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
     prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info('%s Reaper starting', prepend_str)
 
-    GRACEFUL_STOP.wait(10)  # To prevent running on the same partition if all the reapers restart at the same time
+    if not once:
+        GRACEFUL_STOP.wait(10)  # To prevent running on the same partition if all the reapers restart at the same time
     heart_beat = live(executable, hostname, pid, hb_thread)
     prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info('%s Reaper started', prepend_str)
@@ -505,7 +512,7 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
                         for replica in file_replicas:
                             try:
                                 replica['pfn'] = str(list(rsemgr.lfns2pfns(rse_settings=rse_info,
-                                                                           lfns=[{'scope': replica['scope'], 'name': replica['name'], 'path': replica['path']}],
+                                                                           lfns=[{'scope': replica['scope'].external, 'name': replica['name'], 'path': replica['path']}],
                                                                            operation='delete', scheme=scheme).values())[0])
                             except (ReplicaUnAvailable, ReplicaNotFound) as error:
                                 logging.warning('%s Failed get pfn UNAVAILABLE replica %s:%s on %s with error %s', prepend_str, replica['scope'], replica['name'], rse_name, str(error))
@@ -565,7 +572,7 @@ def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=N
     :param threads_per_worker: Total number of threads created by each worker.
     :param once:               If True, only runs one iteration of the main loop.
     :param greedy:             If True, delete right away replicas with tombstone.
-    :param rses:               List of RSEs the reaper should work against. If empty, it considers all RSEs.
+    :param rses:               List of RSEs the reaper should work against. If empty, it considers all RSEs. (Single-VO only)
     :param scheme:             Force the reaper to use a particular protocol/scheme, e.g., mock.
     :param exclude_rses:       RSE expression to exclude RSEs from the Reaper.
     :param include_rses:       RSE expression to include RSEs.

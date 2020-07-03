@@ -17,7 +17,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2019
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2014-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2020
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
 # - Tomas Kouba <tomas.kouba@cern.ch>, 2014
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2016
@@ -51,7 +51,7 @@ from six import iteritems
 from prometheus_client import Counter
 
 from rucio.common.config import config_get
-from rucio.common.schema import ACTIVITY
+from rucio.common.schema import get_schema_value
 from rucio.core import heartbeat, request as request_core, transfer as transfer_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfer, get_conveyor_rses, USER_ACTIVITY
@@ -157,7 +157,7 @@ def submitter(once=False, rses=None, mock=False,
 
                 logging.info('%s Starting to get transfer transfers for %s', prepend_str, activity)
                 start_time = time.time()
-                transfers = __get_transfers(total_workers=heart_beat['nr_threads'] - 1,
+                transfers = __get_transfers(total_workers=heart_beat['nr_threads'],
                                             worker_number=heart_beat['assign_thread'],
                                             failover_schemes=failover_scheme,
                                             limit=bulk,
@@ -264,7 +264,7 @@ def run(once=False, group_bulk=1, group_policy='rule',
 
     if exclude_activities:
         if not activities:
-            activities = ACTIVITY
+            activities = get_schema_value('ACTIVITY')
         for activity in exclude_activities:
             if activity in activities:
                 activities.remove(activity)

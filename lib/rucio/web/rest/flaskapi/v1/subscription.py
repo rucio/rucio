@@ -18,6 +18,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
@@ -56,7 +57,7 @@ class Subscription(MethodView):
         """
         try:
             data = ""
-            for subscription in list_subscriptions(name=name, account=account):
+            for subscription in list_subscriptions(name=name, account=account, vo=request.environ.get('vo')):
                 data += dumps(subscription, cls=APIEncoder) + '\n'
             return Response(data, content_type="application/x-json-stream")
         except SubscriptionNotFound as error:
@@ -93,7 +94,7 @@ class Subscription(MethodView):
         metadata['retroactive'] = params.get('retroactive', None)
         metadata['priority'] = params.get('priority', None)
         try:
-            update_subscription(name=name, account=account, metadata=metadata, issuer=request.environ.get('issuer'))
+            update_subscription(name=name, account=account, metadata=metadata, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except (InvalidObject, TypeError) as error:
             return generate_http_error_flask(400, 'InvalidObject', error.args[0])
         except AccessDenied as error:
@@ -137,9 +138,17 @@ class Subscription(MethodView):
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            subscription_id = add_subscription(name=name, account=account, filter=filter, replication_rules=replication_rules,
-                                               comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run,
-                                               priority=priority, issuer=request.environ.get('issuer'))
+            subscription_id = add_subscription(name=name,
+                                               account=account,
+                                               filter=filter,
+                                               replication_rules=replication_rules,
+                                               comments=comments,
+                                               lifetime=lifetime,
+                                               retroactive=retroactive,
+                                               dry_run=dry_run,
+                                               priority=priority,
+                                               issuer=request.environ.get('issuer'),
+                                               vo=request.environ.get('vo'))
         except (InvalidObject, TypeError) as error:
             return generate_http_error_flask(400, 'InvalidObject', error.args[0])
         except AccessDenied as error:
@@ -174,7 +183,7 @@ class SubscriptionName(MethodView):
         """
         try:
             data = ""
-            for subscription in list_subscriptions(name=name):
+            for subscription in list_subscriptions(name=name, vo=request.environ.get('vo')):
                 data += dumps(subscription, cls=APIEncoder) + '\n'
             return Response(data, content_type="application/x-json-stream")
         except SubscriptionNotFound as error:
@@ -205,14 +214,14 @@ class Rules(MethodView):
         """
         state = request.args.get('state', None)
         try:
-            subscriptions = [subscription['id'] for subscription in list_subscriptions(name=name, account=account)]
+            subscriptions = [subscription['id'] for subscription in list_subscriptions(name=name, account=account, vo=request.environ.get('vo'))]
             data = ""
             if len(subscriptions) > 0:
                 if state:
-                    for rule in list_replication_rules({'subscription_id': subscriptions[0], 'state': state}):
+                    for rule in list_replication_rules({'subscription_id': subscriptions[0], 'state': state}, vo=request.environ.get('vo')):
                         data += dumps(rule, cls=APIEncoder) + '\n'
                 else:
-                    for rule in list_replication_rules({'subscription_id': subscriptions[0]}):
+                    for rule in list_replication_rules({'subscription_id': subscriptions[0]}, vo=request.environ.get('vo')):
                         data += dumps(rule, cls=APIEncoder) + '\n'
             return Response(data, content_type='application/x-json-stream')
         except RuleNotFound as error:
@@ -245,7 +254,7 @@ class States(MethodView):
         """
         try:
             data = ""
-            for row in list_subscription_rule_states(account=account):
+            for row in list_subscription_rule_states(account=account, vo=request.environ.get('vo')):
                 data += dumps(row, cls=APIEncoder) + '\n'
             return Response(data, content_type='application/x-json-stream')
         except RucioException as error:
@@ -273,7 +282,7 @@ class SubscriptionId(MethodView):
         :returns: dictionary with subscription information.
         """
         try:
-            subscription = get_subscription_by_id(subscription_id)
+            subscription = get_subscription_by_id(subscription_id, vo=request.environ.get('vo'))
         except SubscriptionNotFound as error:
             return generate_http_error_flask(404, 'SubscriptionNotFound', error.args[0])
         except RucioException as error:

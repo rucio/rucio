@@ -16,6 +16,7 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -65,6 +66,7 @@ class SignURL(MethodView):
         """
         Sign a URL for a limited lifetime for a particular service.
 
+        :reqheader X-Rucio-VO: VO name as a string (Multi-VO only).
         :reqheader X-Rucio-Account: Account identifier as a string.
         :reqheader X-Rucio-AppID: Application identifier as a string.
         :resheader Access-Control-Allow-Origin:
@@ -92,6 +94,7 @@ class SignURL(MethodView):
         response.headers['Cache-Control'] = 'post-check=0, pre-check=0'
         response.headers['Pragma'] = 'no-cache'
 
+        vo = request.environ.get('HTTP_X_RUCIO_VO', 'def')
         account = request.environ.get('HTTP_X_RUCIO_ACCOUNT')
         appid = request.environ.get('HTTP_X_RUCIO_APPID')
         if appid is None:
@@ -134,7 +137,7 @@ class SignURL(MethodView):
             return generate_http_error_flask(400, 'ValueError', 'Parameter "op" must be either empty(=read), read, write, or delete.')
 
         try:
-            result = get_signed_url(account, appid, ip, rse=rse, service=service, operation=operation, url=url, lifetime=lifetime)
+            result = get_signed_url(account, appid, ip, rse=rse, service=service, operation=operation, url=url, lifetime=lifetime, vo=vo)
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:

@@ -15,10 +15,12 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2018
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from nose.tools import assert_equal, assert_raises, assert_in, assert_greater
 
 from rucio.client import client
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.credential import get_signed_url
@@ -30,12 +32,16 @@ from rucio.tests.common import rse_name_generator
 class TestCredential(object):
 
     def setup(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+        else:
+            self.vo = {}
 
         self.rc = client.ReplicaClient()
         self.rse1 = rse_name_generator()
         self.rse2 = rse_name_generator()
-        self.rse1_id = add_rse(self.rse1)
-        self.rse2_id = add_rse(self.rse2)
+        self.rse1_id = add_rse(self.rse1, **self.vo)
+        self.rse2_id = add_rse(self.rse2, **self.vo)
 
         add_protocol(self.rse1_id, {'scheme': 'https',
                                     'hostname': 'storage.googleapis.com',
@@ -56,12 +62,12 @@ class TestCredential(object):
                                         'wan': {'read': 1, 'write': 1, 'delete': 1, 'third_party_copy': 1}}})
 
         # register some files there
-        self.files = [{'scope': InternalScope('mock'),
+        self.files = [{'scope': InternalScope('mock', **self.vo),
                        'name': 'file-on-gcs_%s' % i,
                        'bytes': 1234,
                        'adler32': 'deadbeef',
                        'meta': {'events': 666}} for i in range(0, 3)]
-        root = InternalAccount('root')
+        root = InternalAccount('root', **self.vo)
         add_replicas(rse_id=self.rse1_id,
                      files=self.files,
                      account=root,

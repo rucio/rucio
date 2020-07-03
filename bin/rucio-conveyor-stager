@@ -17,6 +17,7 @@
 # - Wen Guan, <wguan.icedew@gmail.com>, 2015
 # - Vincent Garonne, <vgaronne@gmail.com>, 2015-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2018-2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -54,7 +55,7 @@ def get_parser():
     parser.add_argument('--include-rses', action="store", default=None, type=str,
                         help='RSE expression to include')
     parser.add_argument('--rses', nargs='+', type=str,
-                        help='Explicit list of RSEs to include')
+                        help='Explicit list of RSEs to include (Single-VO only)')
     parser.add_argument('--activities', nargs='+', type=str,
                         help='Explicit list of activities to include')
     parser.add_argument('--sleep-time', action="store", default=600, type=int,
