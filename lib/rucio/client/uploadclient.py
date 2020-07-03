@@ -44,6 +44,19 @@ from rucio.rse import rsemanager as rsemgr
 from rucio import version
 
 
+# retries on callback func.
+def retries(f, *args, **kwargs):
+    mtries = 3
+    err = None
+    while mtries >= 1:
+        try:
+            return f(*args, **kwargs)
+        except Exception as e:
+            e = err
+            mtries -= 1
+    raise e
+
+
 class UploadClient:
 
     def __init__(self, _client=None, logger=None, tracing=True):
@@ -180,7 +193,7 @@ class UploadClient:
             if (self.client_location and 'lan' in rse_settings['domain'] and 'site' in rse_attributes):
                 if self.client_location['site'] == rse_attributes['site']:
                     domain = 'lan'
-            logger.debug('{} is used for the upload'.format(domain))
+            logger.debug('{} domain is used for the upload'.format(domain))
 
             if not no_register and not register_after_upload:
                 self._register_file(file, registered_dataset_dids)
@@ -250,7 +263,7 @@ class UploadClient:
                     logger.debug('Upload done.')
                     success = True
                     file['upload_result'] = {0: True, 1: None, 'success': True, 'pfn': pfn}  # needs to be removed
-                except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:
+                except (ServiceUnavailable, ResourceTemporaryUnavailable, RSEOperationNotSupported, RucioException) as error:
                     logger.warning('Upload attempt failed')
                     logger.info('Exception: %s' % str(error))
                     state_reason = str(error)
@@ -587,7 +600,7 @@ class UploadClient:
 
         # Process the upload of the tmp file
         try:
-            protocol_write.put(base_name, pfn_tmp, source_dir, transfer_timeout=transfer_timeout)
+            retries(protocol_write.put, base_name, pfn_tmp, source_dir, transfer_timeout=transfer_timeout)
             logger.info('Successful upload of temporary file. {}'.format(pfn_tmp))
         except Exception as error:
             raise RSEOperationNotSupported(str(error))
