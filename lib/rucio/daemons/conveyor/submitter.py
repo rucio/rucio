@@ -17,7 +17,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2019
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2014-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2020
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
 # - Tomas Kouba <tomas.kouba@cern.ch>, 2014
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2016
@@ -133,21 +133,20 @@ def submitter(once=False, rses=None, mock=False,
     logging.info('%s Transfer submitter started', prepend_str)
 
     while not graceful_stop.is_set():
-
-        try:
-            heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
-            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-
-            if activities is None:
-                activities = [None]
-            if rses:
-                rse_ids = [rse['id'] for rse in rses]
-            else:
-                rse_ids = None
-            for activity in activities:
+        if activities is None:
+            activities = [None]
+        if rses:
+            rse_ids = [rse['id'] for rse in rses]
+        else:
+            rse_ids = None
+        for activity in activities:
+            try:
                 if activity_next_exe_time[activity] > time.time():
                     graceful_stop.wait(1)
                     continue
+
+                heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
+                prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
 
                 user_transfer = False
 
@@ -222,8 +221,8 @@ def submitter(once=False, rses=None, mock=False,
                     logging.info('%s Only %s transfers for %s which is less than group bulk %s, sleep %s seconds', prepend_str, len(transfers), activity, group_bulk, sleep_time)
                     if activity_next_exe_time[activity] < time.time():
                         activity_next_exe_time[activity] = time.time() + sleep_time
-        except Exception:
-            logging.critical('%s %s', prepend_str, str(traceback.format_exc()))
+            except Exception:
+                logging.critical('%s %s', prepend_str, str(traceback.format_exc()))
 
         if once:
             break
