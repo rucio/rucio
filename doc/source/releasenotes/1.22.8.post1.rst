@@ -1,0 +1,13 @@
+============
+1.22.8.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Transfers: Conveyor crash within activity loop restarts activities `#3819 <https://github.com/rucio/rucio/issues/3819>`_
