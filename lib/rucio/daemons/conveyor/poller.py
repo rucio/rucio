@@ -20,6 +20,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -82,7 +83,7 @@ def poller(once=False, activities=None, sleep_time=60,
     except NoOptionError:
         timeout = None
 
-    executable = sys.argv[0]
+    executable = 'conveyor-poller'
     if activities:
         activities.sort()
         executable += '--activities ' + str(activities)

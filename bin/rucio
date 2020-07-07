@@ -19,7 +19,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2012-2019
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2017
 # - Yun-Pin Sun, <winter0128@gmail.com>, 2012-2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2018
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
 # - David Cameron, <d.g.cameron@gmail.com>, 2014
 # - Tomas Kouba, <tomas.kouba@cern.ch>, 2014
@@ -33,7 +33,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2020
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
-# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019-2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
@@ -68,7 +68,7 @@ from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, D
                                     RSENotFound, InvalidRSEExpression, InputValidationError, DuplicateContent,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation,
                                     RucioException, DuplicateRule, InvalidType)
-from rucio.common.utils import sizefmt, Color, detect_client_location, chunks, parse_did_filter_from_string
+from rucio.common.utils import sizefmt, Color, detect_client_location, chunks, parse_did_filter_from_string, extract_scope
 
 SUCCESS = 0
 FAILURE = 1
@@ -135,7 +135,7 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 
-def extract_scope(did):
+def extract_scope_old(did):
     # Try to extract the scope from the DSN
     if did.find(':') > -1:
         if len(did.split(':')) > 2:
@@ -202,7 +202,7 @@ def exception_handler(function):
             logger.debug('This means one dependency is missing.')
             return error.error_code
         except KeyError as error:
-            if 'x-rucio-auth-token' in error:
+            if 'x-rucio-auth-token' in str(error):
                 used_account = None
                 try:  # get the configured account from the configuration file
                     used_account = '%s (from rucio.cfg)' % config_get('client', 'account')
@@ -278,7 +278,7 @@ def get_client(args):
                         user_agent=args.user_agent)
     except CannotAuthenticate as error:
         logger.error(error)
-        if 'alert certificate expired' in error:
+        if 'alert certificate expired' in str(error):
             logger.error('The server certificate expired.')
         elif auth_type.lower() == 'x509_proxy':
             logger.error('Please verify that your proxy is still valid and renew it if needed.')

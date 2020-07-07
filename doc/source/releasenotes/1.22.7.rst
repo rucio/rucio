@@ -1,0 +1,52 @@
+======
+1.22.7
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Authentication & Authorisation: Default identity not transferred end to end `#3627 <https://github.com/rucio/rucio/issues/3627>`_
+- Clients: list-rules --file should show an appropriate error if the DID does not exist `#3617 <https://github.com/rucio/rucio/issues/3617>`_
+- Core & Internals: Bulk get_metadata method `#3645 <https://github.com/rucio/rucio/issues/3645>`_
+- Core & Internals: remove all non-essential parameters from the heartbeat executable `#3646 <https://github.com/rucio/rucio/issues/3646>`_
+- Documentation: REST API documentation does not reflect some actual endpoints `#3630 <https://github.com/rucio/rucio/issues/3630>`_
+- Documentation: Fix spelling errors in documentation `#3673 <https://github.com/rucio/rucio/issues/3673>`_
+- Subscriptions: Subscription client does not allow listing subscriptions by name only `#3582 <https://github.com/rucio/rucio/issues/3582>`_
+- Testing: Travis syntax test fails for forked repositories `#3640 <https://github.com/rucio/rucio/issues/3640>`_
+- Transfers: Multihop resolve query inefficient in case of not-connected RSEs `#3261 <https://github.com/rucio/rucio/issues/3261>`_
+
+****
+Bugs
+****
+
+- Core & Internals: Bad exception when failing to set global account limit `#3199 <https://github.com/rucio/rucio/issues/3199>`_
+- Core & Internals: rucio-admin rse update removes default RSE-Tag `#3608 <https://github.com/rucio/rucio/issues/3608>`_
+- Deletion: reaper2 crashes on python3 `#3644 <https://github.com/rucio/rucio/issues/3644>`_
+- Monitoring & Logging: monitor.py fails with non-default metrics_port `#3623 <https://github.com/rucio/rucio/issues/3623>`_
+- Recovery: necromancer do not work if there is more than 1 thread `#3610 <https://github.com/rucio/rucio/issues/3610>`_
+- Transfers: __sort_link_ranking in conveyor is done in wrong order `#3340 <https://github.com/rucio/rucio/issues/3340>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Double slash when uploading with xrootd. `#3670 <https://github.com/rucio/rucio/issues/3670>`_
+- Rules: List all rules does not have a python equivalent, only REST `#3666 <https://github.com/rucio/rucio/issues/3666>`_
+
+****
+Bugs
+****
+
+- Authentication & Authorisation: OAuth2/OIDC: fix Rucio Client import with auth_type oidc in 1.22.6 `#3609 <https://github.com/rucio/rucio/issues/3609>`_
+- Authentication & Authorisation: OAuth2/OIDC: compatibility with Python3 (raw_input/input) `#3637 <https://github.com/rucio/rucio/issues/3637>`_
+- Clients: Use quote_plus for rule client `#3135 <https://github.com/rucio/rucio/issues/3135>`_
+- RSE Manager: Rucio upload does not honour write_lan `#3626 <https://github.com/rucio/rucio/issues/3626>`_

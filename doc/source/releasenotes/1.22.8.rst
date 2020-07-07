@@ -1,0 +1,49 @@
+======
+1.22.8
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Clients: Define extract_scope based on policy `#3679 <https://github.com/rucio/rucio/issues/3679>`_
+- Core & Internals: Logging in xrootd `#3685 <https://github.com/rucio/rucio/issues/3685>`_
+- Core & Internals: Belleii : Adding permission file + fixing regular expression in schema.py `#3690 <https://github.com/rucio/rucio/issues/3690>`_
+- Documentation: Unused and broken submodule `doc/source/sphinx-argparse` `#3664 <https://github.com/rucio/rucio/issues/3664>`_
+
+****
+Bugs
+****
+
+- Authentication & Authorisation: OAuth2/OIDC: py2/3 compatibility of utils.py `#3713 <https://github.com/rucio/rucio/issues/3713>`_
+- Core & Internals: Unable to create new meta key with string type `#3512 <https://github.com/rucio/rucio/issues/3512>`_
+- Core & Internals: Internal server error when listing another account's quota `#3695 <https://github.com/rucio/rucio/issues/3695>`_
+- Traces: kronos crashes for touch events `#3733 <https://github.com/rucio/rucio/issues/3733>`_
+
+-------
+Clients
+-------
+
+********
+Features
+********
+
+- Clients: StoRM - archives and logging. `#3472 <https://github.com/rucio/rucio/issues/3472>`_
+
+************
+Enhancements
+************
+
+- Clients: Add dirac_add_files method for the Rucio/Dirac integration `#3692 <https://github.com/rucio/rucio/issues/3692>`_
+- Clients: Write domain used for storm protocol. `#3696 <https://github.com/rucio/rucio/issues/3696>`_
+
+****
+Bugs
+****
+
+- Clients: do not skip CA check on retry `#3702 <https://github.com/rucio/rucio/issues/3702>`_
+- Clients: Xrd: Tiny fixes `#3723 <https://github.com/rucio/rucio/issues/3723>`_

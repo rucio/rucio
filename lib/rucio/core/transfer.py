@@ -488,8 +488,7 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
     if multihop_rses is None:
         multihop_rses = []
 
-    # TODO: Might be problematic to always load the distance_graph, since it might be expensive
-    # TODO: Have an rse_expression to specify the eligible hops
+    # TODO: Might be problematic to always load the distance_graph, since it might be expensiv
 
     # Load the graph from the distances table
     # distance_graph = __load_distance_graph(session=session)
@@ -522,6 +521,11 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
 
     # 2. There is no connection or no scheme match --> Try a multi hop --> Dijkstra algorithm
     HOP_PENALTY = core_config_get('transfers', 'hop_penalty', default=10, session=session)  # Penalty to be applied to each further hop
+
+    # Check if the destination RSE is an island RSE:
+    if not __load_distance_edges_node(rse_id=dest_rse_id, session=session):
+        # The destination RSE is an island
+        raise NoDistance()
 
     visited_nodes = {source_rse_id: {'distance': 0,
                                      'path': []}}  # Dijkstra already visisted nodes
@@ -1119,7 +1123,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     new_req = queue_requests(requests=[{'dest_rse_id': dest_rse_id,
                                                         'scope': scope,
                                                         'name': name,
-                                                        'rule_id': None,
+                                                        'rule_id': '00000000000000000000000000000000',  # Dummy Rule ID used for multihop. TODO: Replace with actual rule_id once we can flag intermediate requests
                                                         'attributes': req_attributes,
                                                         'request_type': RequestType.TRANSFER,
                                                         'retry_count': retry_count,
@@ -1211,6 +1215,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     transfers[new_req_id] = {'request_id': new_req_id,
                                              'initial_request_id': req_id,
                                              'parent_request': parent_request,
+                                             'account': InternalAccount('root'),
                                              'schemes': __add_compatible_schemes(schemes=[destination_protocol], allowed_schemes=current_schemes),
                                              # 'src_urls': [source_url],
                                              'sources': [(source_rse_name, source_url, source_rse_id, 0, 0)],
