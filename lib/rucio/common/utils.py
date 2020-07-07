@@ -1374,5 +1374,5 @@ class retry:
                 if logger:
                     logger.debug('{}: Attempt failed {}'.format(self.func.__name__, mtries - attempt + 1))
                     logger.debug(str(e))
-                mtries -= 1
+                attempt -= 1
         return self.func(*self.args, **self.kwargs)
