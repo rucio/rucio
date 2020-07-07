@@ -39,22 +39,10 @@ from rucio.common.config import config_get_int
 from rucio.common.exception import (RucioException, RSEBlacklisted, DataIdentifierAlreadyExists, RSEOperationNotSupported,
                                     DataIdentifierNotFound, NoFilesUploaded, NotAllFilesUploaded, FileReplicaAlreadyExists,
                                     ResourceTemporaryUnavailable, ServiceUnavailable, InputValidationError, RSEChecksumUnavailable)
-from rucio.common.utils import adler32, detect_client_location, execute, generate_uuid, make_valid_did, md5, send_trace, GLOBALLY_SUPPORTED_CHECKSUMS
+from rucio.common.utils import (adler32, detect_client_location, execute, generate_uuid, make_valid_did, md5, send_trace,
+                                retry, GLOBALLY_SUPPORTED_CHECKSUMS)
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
-
-
-# retries on callback func.
-def retries(f, *args, **kwargs):
-    mtries = 3
-    err = None
-    while mtries >= 1:
-        try:
-            return f(*args, **kwargs)
-        except Exception as e:
-            e = err
-            mtries -= 1
-    raise e
 
 
 class UploadClient:
@@ -600,7 +588,7 @@ class UploadClient:
 
         # Process the upload of the tmp file
         try:
-            retries(protocol_write.put, base_name, pfn_tmp, source_dir, transfer_timeout=transfer_timeout)
+            retry(protocol_write.put, base_name, pfn_tmp, source_dir, transfer_timeout=transfer_timeout)(mtries=2, logger=logger)
             logger.info('Successful upload of temporary file. {}'.format(pfn_tmp))
         except Exception as error:
             raise RSEOperationNotSupported(str(error))
