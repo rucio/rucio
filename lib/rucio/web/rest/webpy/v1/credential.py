@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 #
 # PY3K COMPATIBLE
@@ -25,13 +25,12 @@ try:
     from urlparse import parse_qs
 except ImportError:
     from urllib.parse import parse_qs
-from web import application, ctx, OK, header, InternalError
+from web import application, ctx, OK, header, InternalError, loadhook, unloadhook
 
-from rucio.api.authentication import validate_auth_token
 from rucio.api.credential import get_signed_url
 from rucio.common.exception import RucioException
 from rucio.common.utils import generate_http_error
-from rucio.web.rest.common import RucioController, check_accept_header_wrapper
+from rucio.web.rest.common import RucioController, check_accept_header_wrapper, rucio_loadhook, rucio_unloadhook
 
 URLS = (
     '/signurl?$', 'SignURL',
@@ -84,14 +83,6 @@ class SignURL(RucioController):
         if ip is None:
             ip = ctx.ip
 
-        try:
-            validate_auth_token(ctx.env.get('HTTP_X_RUCIO_AUTH_TOKEN'))
-        except RucioException as e:
-            raise generate_http_error(500, e.__class__.__name__, e.args[0][0])
-        except Exception as e:
-            print(format_exc())
-            raise InternalError(e)
-
         svc, operation, url = None, None, None
         try:
             params = parse_qs(ctx.query[1:])
@@ -130,4 +121,6 @@ class SignURL(RucioController):
 ----------------------"""
 
 APP = application(URLS, globals())
+APP.add_processor(loadhook(rucio_loadhook))
+APP.add_processor(unloadhook(rucio_unloadhook))
 application = APP.wsgifunc()
