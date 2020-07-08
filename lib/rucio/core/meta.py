@@ -70,6 +70,7 @@ def add_key(key, key_type, value_type=None, value_regexp=None, session=None):
     try:
         new_key.save(session=session)
     except IntegrityError as error:
+<<<<<<< HEAD
         if ('UNIQUE constraint failed' in error.args[0]) \
                 or ('conflicts with persistent instance' in error.args[0]) \
                 or match('.*IntegrityError.*ORA-00001: unique constraint.*DID_KEYS_PK.*violated.*', error.args[0]) \
@@ -77,6 +78,9 @@ def add_key(key, key_type, value_type=None, value_regexp=None, session=None):
                 or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
                 or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
                 or match('.*IntegrityError.*columns? key.*not unique.*', error.args[0]):
+=======
+        if match('.*IntegrityError.*columns? key.*not unique.*', error.args[0]):
+>>>>>>> 62ae0fbd1cb74e99ef60549675c91cc7959486a6
             raise Duplicate('key \'%(key)s\' already exists!' % locals())
         raise
 
@@ -121,6 +125,7 @@ def add_value(key, value, session=None):
     try:
         new_value.save(session=session)
     except IntegrityError as error:
+<<<<<<< HEAD
         if ('UNIQUE constraint failed' in error.args[0]) \
                 or ('conflicts with persistent instance' in error.args[0]) \
                 or match('.*IntegrityError.*ORA-00001: unique constraint.*DID_KEYS_PK.*violated.*', error.args[0]) \
@@ -128,6 +133,9 @@ def add_value(key, value, session=None):
                 or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
                 or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
                 or match('.*IntegrityError.*columns? key.*value.*not unique.*', error.args[0]):
+=======
+        if match('.*IntegrityError.*columns? key.*value.*not unique.*', error.args[0]):
+>>>>>>> 62ae0fbd1cb74e99ef60549675c91cc7959486a6
             raise Duplicate('key-value \'%(key)s-%(value)s\' already exists!' % locals())
         if match('.*IntegrityError.*foreign key constraints? failed.*', error.args[0]):
             raise KeyNotFound("key '%(key)s' does not exist!" % locals())
