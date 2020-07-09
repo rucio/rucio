@@ -488,6 +488,11 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
     :raises:                   NoDistance
     """
 
+    # Check if there is a cached result
+    result = REGION_SHORT.get('get_hops_%s_%s' % (str(source_rse_id), str(dest_rse_id)))
+    if not isinstance(result, NoValue):
+        return result
+
     if multihop_rses is None:
         multihop_rses = []
 
@@ -506,12 +511,14 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
                                                           operation_src='third_party_copy',
                                                           operation_dest='third_party_copy',
                                                           domain='wan')
-            return [{'source_rse_id': source_rse_id,
+            path = [{'source_rse_id': source_rse_id,
                      'dest_rse_id': dest_rse_id,
                      'source_scheme': matching_scheme[1],
                      'dest_scheme': matching_scheme[0],
                      'source_scheme_priority': matching_scheme[3],
                      'dest_scheme_priority': matching_scheme[2]}]
+            REGION_SHORT.set('get_hops_%s_%s' % (str(source_rse_id), str(dest_rse_id)), path)
+            return path
         except RSEProtocolNotSupported as error:
             if include_multihop:
                 # Delete the edge from the graph
@@ -577,6 +584,7 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
                     except RSEProtocolNotSupported:
                         pass
     if dest_rse_id in visited_nodes:
+        REGION_SHORT.set('get_hops_%s_%s' % (str(source_rse_id), str(dest_rse_id)), visited_nodes[dest_rse_id]['path'])
         return visited_nodes[dest_rse_id]['path']
     else:
         raise NoDistance()
