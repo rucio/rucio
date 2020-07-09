@@ -61,7 +61,7 @@ def add_rse(rse, issuer, vo='def', deterministic=True, volatile=False, city=None
     :param ASN: Access service network.
     :param availability: Availability.
     """
-    validate_schema(name='rse', obj=rse)
+    validate_schema(name='rse', obj=rse, vo=vo)
     kwargs = {'rse': rse}
     if not permission.has_permission(issuer=issuer, vo=vo, action='add_rse', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not add RSE' % (issuer))

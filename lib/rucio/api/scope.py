@@ -51,7 +51,7 @@ def add_scope(scope, account, issuer, vo='def'):
     :param vo: The VO to act on.
     """
 
-    validate_schema(name='scope', obj=scope)
+    validate_schema(name='scope', obj=scope, vo=vo)
 
     kwargs = {'scope': scope, 'account': account}
     if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='add_scope', kwargs=kwargs):

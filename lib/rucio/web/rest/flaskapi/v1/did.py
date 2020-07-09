@@ -427,7 +427,7 @@ class DIDs(MethodView):
         :returns: Dictionary with DID metadata
         """
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
             dynamic = 'dynamic' in request.args
             did = get_did(scope=scope, name=name, dynamic=dynamic, vo=request.environ.get('vo'))
             return Response(render_json(**did), content_type='application/json')
@@ -478,7 +478,7 @@ class DIDs(MethodView):
         :status 500: Database Exception
         """
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
@@ -556,7 +556,7 @@ class DIDs(MethodView):
         :status 500: Database Exception
         """
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
@@ -625,7 +625,7 @@ class Attachment(MethodView):
         :returns: Dictionary with DID metadata
         """
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
 
             def generate(vo):
                 for did in list_content(scope=scope, name=name, vo=vo):
@@ -675,7 +675,7 @@ class Attachment(MethodView):
         :status 500: Database Exception
         """
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
@@ -721,7 +721,7 @@ class Attachment(MethodView):
         :status 500: Database Exception
         """
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
@@ -769,7 +769,7 @@ class AttachmentHistory(MethodView):
         :returns: Stream of dictionarys with DIDs
         """
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
 
             def generate(vo):
                 for did in list_content_history(scope=scope, name=name, vo=vo):
@@ -808,7 +808,7 @@ class Files(MethodView):
         long = 'long' in request.args
 
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
 
             def generate(vo):
                 for file in list_files(scope=scope, name=name, long=long, vo=vo):
@@ -844,7 +844,7 @@ class Parents(MethodView):
         :returns: A list of dictionary containing all dataset information.
         """
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
 
             def generate(vo):
                 for dataset in list_parent_dids(scope=scope, name=name, vo=vo):
@@ -881,7 +881,7 @@ class Meta(MethodView):
         :returns: A dictionary containing all meta.
         """
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
@@ -921,7 +921,7 @@ class Meta(MethodView):
 
         """
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
@@ -970,7 +970,7 @@ class Meta(MethodView):
             404 KeyNotFound
         """
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
@@ -1017,7 +1017,7 @@ class Rules(MethodView):
         :returns: List of replication rules.
         """
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
 
             def generate(vo):
                 for rule in list_replication_rules({'scope': scope, 'name': name}, vo=vo):
@@ -1096,7 +1096,7 @@ class AssociatedRules(MethodView):
         :returns: List of associated rules.
         """
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
 
             def generate(vo):
                 for rule in list_associated_replication_rules_for_file(scope=scope, name=name, vo=vo):
@@ -1286,7 +1286,7 @@ class Follow(MethodView):
         :status 406: Not Acceptable
         """
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
 
             def generate(vo):
                 for user in get_users_following_did(scope=scope, name=name, vo=vo):
@@ -1320,7 +1320,7 @@ class Follow(MethodView):
         :param scope_name: data identifier (scope)/(name).
         """
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
@@ -1362,7 +1362,7 @@ class Follow(MethodView):
         :param scope_name: data identifier (scope)/(name).
         """
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
