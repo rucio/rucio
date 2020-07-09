@@ -28,7 +28,7 @@ def import_data(data, issuer, vo='def'):
     :param vo: the VO of the issuer.
     """
     kwargs = {'issuer': issuer}
-    validate_schema(name='import', obj=data)
+    validate_schema(name='import', obj=data, vo=vo)
     if not permission.has_permission(issuer=issuer, vo=vo, action='import', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not import data' % issuer)
 

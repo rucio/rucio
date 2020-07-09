@@ -96,17 +96,18 @@ def check_accept_header_wrapper_flask(supported_content_types):
     return wrapper
 
 
-def parse_scope_name(scope_name):
+def parse_scope_name(scope_name, vo):
     """
     Parses the given scope_name according to the schema's
     SCOPE_NAME_REGEXP and returns a (scope, name) tuple.
 
     :param scope_name: the scope_name string to be parsed.
+    :param vo: the vo currently in use.
     :raises ValueError: when scope_name could not be parsed.
     :returns: a (scope, name) tuple.
     """
     # why again does that regex start with a slash?
-    scope_name = re.match(get_schema_value('SCOPE_NAME_REGEXP'), '/' + scope_name)
+    scope_name = re.match(get_schema_value('SCOPE_NAME_REGEXP', vo), '/' + scope_name)
     if scope_name is None:
         raise ValueError('cannot parse scope and name')
     return scope_name.group(1, 2)

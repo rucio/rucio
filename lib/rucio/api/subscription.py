@@ -64,13 +64,13 @@ def add_subscription(name, account, filter, replication_rules, comments, lifetim
         if filter:
             if not isinstance(filter, dict):
                 raise TypeError('filter should be a dict')
-            validate_schema(name='subscription_filter', obj=filter)
+            validate_schema(name='subscription_filter', obj=filter, vo=vo)
         if replication_rules:
             if not isinstance(replication_rules, list):
                 raise TypeError('replication_rules should be a list')
             else:
                 for rule in replication_rules:
-                    validate_schema(name='activity', obj=rule.get('activity', 'default'))
+                    validate_schema(name='activity', obj=rule.get('activity', 'default'), vo=vo)
         else:
             raise InvalidObject('You must specify a rule')
     except ValueError as error:
@@ -114,13 +114,13 @@ def update_subscription(name, account, metadata=None, issuer=None, vo='def'):
         if 'filter' in metadata and metadata['filter']:
             if not isinstance(metadata['filter'], dict):
                 raise TypeError('filter should be a dict')
-            validate_schema(name='subscription_filter', obj=metadata['filter'])
+            validate_schema(name='subscription_filter', obj=metadata['filter'], vo=vo)
         if 'replication_rules' in metadata and metadata['replication_rules']:
             if not isinstance(metadata['replication_rules'], list):
                 raise TypeError('replication_rules should be a list')
             else:
                 for rule in metadata['replication_rules']:
-                    validate_schema(name='activity', obj=rule.get('activity', 'default'))
+                    validate_schema(name='activity', obj=rule.get('activity', 'default'), vo=vo)
     except ValueError as error:
         raise TypeError(error)
 
