@@ -18,6 +18,8 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -62,7 +64,7 @@ class Scope(MethodView):
         :status 406: Not Acceptable
         :returns: :class:`String`
         """
-        return dumps(list_scopes())
+        return dumps(list_scopes(vo=request.environ.get('vo')))
 
     def post(self, account, scope):
         """Add a new scope.
@@ -77,7 +79,7 @@ class Scope(MethodView):
         :status 500: internal server error
         """
         try:
-            add_scope(scope, account, issuer=request.environ.get('issuer'))
+            add_scope(scope, account, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except Duplicate as error:
             return generate_http_error_flask(409, 'Duplicate', error.args[0])
         except AccountNotFound as error:

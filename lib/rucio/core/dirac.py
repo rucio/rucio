@@ -24,7 +24,7 @@ from rucio.db.sqla import models
 from rucio.db.sqla.session import transactional_session, read_session
 from rucio.db.sqla.constants import DIDType, RuleGrouping
 from rucio.common.exception import InvalidType
-from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.types import InternalScope
 from rucio.common.utils import extract_scope
 from rucio.core.did import add_did, attach_dids_to_dids
 from rucio.core.replica import add_replicas
@@ -62,13 +62,12 @@ def add_files(lfns, account, ignore_availability, session=None):
     :session: The session used
     """
     attachments = []
-    account = InternalAccount(account)
     # The list of scopes is necessary for the extract_scope
     scopes = list_scopes(session=session)
     scopes = [scope.external for scope in scopes]
     exist_lfn = []
     for lfn in lfns:
-        # First chekck if the file exists
+        # First check if the file exists
         filename = lfn['lfn']
         lfn_scope, _ = extract_scope(filename, scopes)
         lfn_scope = InternalScope(lfn_scope)

@@ -15,6 +15,8 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -23,9 +25,11 @@ from jsonschema import validate, ValidationError
 from rucio.common.exception import InvalidObject
 
 
+ACCOUNT_LENGTH = 25
+
 ACCOUNT = {"description": "Account name",
            "type": "string",
-           "pattern": "^[a-z0-9-_]{1,30}$"}
+           "pattern": "^[a-z0-9-_]{1,%s}$" % ACCOUNT_LENGTH}
 
 ACCOUNTS = {"description": "Array of accounts",
             "type": "array",
@@ -368,6 +372,10 @@ IMPORT = {"description": "import data into rucio.",
               }
           }}
 
+VO = {"description": "VO tag",
+      "type": "string",
+      "pattern": "^([a-zA-Z_\\-.0-9]{3})?$"}
+
 SCHEMAS = {'account': ACCOUNT,
            'account_type': ACCOUNT_TYPE,
            'activity': ACTIVITY,
@@ -391,7 +399,8 @@ SCHEMAS = {'account': ACCOUNT,
            'cache_add_replicas': CACHE_ADD_REPLICAS,
            'cache_delete_replicas': CACHE_DELETE_REPLICAS,
            'account_attribute': ACCOUNT_ATTRIBUTE,
-           'import': IMPORT}
+           'import': IMPORT,
+           'vo': VO}
 
 
 def validate_schema(name, obj):

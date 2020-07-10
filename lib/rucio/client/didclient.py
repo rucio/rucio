@@ -25,6 +25,7 @@
 # - Eric Vaandering <ericvaandering@gmail.com>, 2018
 # - Asket Agarwal <asket.agarwal96@gmail.com>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -51,9 +52,9 @@ class DIDClient(BaseClient):
     ARCHIVES_BASEURL = 'archives'
 
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None,
-                 auth_type=None, creds=None, timeout=600, user_agent='rucio-clients'):
+                 auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None):
         super(DIDClient, self).__init__(rucio_host, auth_host, account, ca_cert,
-                                        auth_type, creds, timeout, user_agent)
+                                        auth_type, creds, timeout, user_agent, vo=vo)
 
     def list_dids(self, scope, filters, type='collection', long=False, recursive=False):
         """
@@ -80,6 +81,38 @@ class DIDClient(BaseClient):
 
         url = build_url(choice(self.list_hosts), path=path, params=payload)
 
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            dids = self._load_json_data(r)
+            return dids
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
+
+    def list_dids_extended(self, scope, filters, type='collection', long=False, recursive=False):
+        """
+        List all data identifiers in a scope which match a given pattern. Extended version that goes through plugin mechanism.
+
+        :param scope: The scope name.
+        :param filters: A dictionary of key/value pairs like {'name': 'file_name','rse-expression': 'tier0'}.
+        :param type: The type of the did: 'all'(container, dataset or file)|'collection'(dataset or container)|'dataset'|'container'|'file'
+        :param long: Long format option to display more information for each DID.
+        :param recursive: Recursively list DIDs content.
+        """
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), 'dids', 'search_extended'])
+        payload = {}
+        if long:
+            payload['long'] = 1
+
+        for k, v in list(filters.items()):
+            if k in ('created_before', 'created_after'):
+                payload[k] = date_to_str(v)
+            else:
+                payload[k] = v
+        payload['type'] = type
+        payload['recursive'] = recursive
+
+        url = build_url(choice(self.list_hosts), path=path, params=payload)
         r = self._send_request(url, type='GET')
         if r.status_code == codes.ok:
             dids = self._load_json_data(r)
@@ -393,7 +426,7 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def get_metadata(self, scope, name):
+    def get_metadata(self, scope, name, plugin='DID_COLUMN'):
         """
         Get data identifier metadata
 
@@ -402,7 +435,9 @@ class DIDClient(BaseClient):
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta'])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='GET')
+        payload = {}
+        payload['plugin'] = plugin
+        r = self._send_request(url, type='GET', params=payload)
         if r.status_code == codes.ok:
             meta = self._load_json_data(r)
             return next(meta)
@@ -479,10 +514,10 @@ class DIDClient(BaseClient):
         :param name: The data identifier.
         :param key: the key.
         """
-        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta', key])
-        url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='DEL')
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta'])
+        url = build_url(choice(self.list_hosts), path=path, params={'key': key})
 
+        r = self._send_request(url, type='DEL')
         if r.status_code == codes.ok:
             return True
         else:
@@ -645,59 +680,6 @@ class DIDClient(BaseClient):
             return self._load_json_data(r)
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
-
-    def add_did_meta(self, scope, name, meta):
-        """
-        Insert metadata to the json column of a did, updates key if already present
-
-        :param scope: the scope of did
-        :param name: the name of the did
-        :param meta: the metadata to be inserted or updated(in json format)
-        """
-        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'did_meta'])
-        url = build_url(choice(self.list_hosts), path=path)
-        data = dumps(meta)
-        r = self._send_request(url, type='POST', data=data)
-        if r.status_code == codes.created:
-            return True
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
-
-    def delete_did_meta(self, scope, name, key):
-        """
-        Delete a key from the metadata column
-
-        :param scope: the scope of did
-        :param name: the name of the did
-        :param key: the key to be deleted
-        """
-        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'did_meta'])
-        url = build_url(choice(self.list_hosts), path=path, params={'key': key})
-        r = self._send_request(url, type='DEL')
-
-        if r.status_code == codes.ok:
-            print(r.text)
-            return True
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
-
-    def get_did_meta(self, scope, name):
-        """
-        Get all metadata for a given did
-        :param scope: the scope of did
-        :param name: the name of the did
-        """
-        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'did_meta'])
-        url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type='GET')
-        if r.status_code == codes.ok:
-            meta = self._load_json_data(r)
-            return next(meta)
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
 
     def list_dids_by_meta(self, scope=None, select={}):
         """

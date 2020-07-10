@@ -19,6 +19,8 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Brandon White, <bjwhite@fnal.gov>, 2019
+# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -37,8 +39,8 @@ from rucio.core.rse import list_rses, get_rses_with_attribute, get_rse_attribute
 from rucio.db.sqla.session import transactional_session
 
 
-DEFAULT_RSE_ATTRIBUTE = schema.DEFAULT_RSE_ATTRIBUTE['pattern']
-RSE_ATTRIBUTE = schema.RSE_ATTRIBUTE['pattern']
+DEFAULT_RSE_ATTRIBUTE = schema.get_schema_value('DEFAULT_RSE_ATTRIBUTE')['pattern']
+RSE_ATTRIBUTE = schema.get_schema_value('RSE_ATTRIBUTE')['pattern']
 PRIMITIVE = r'(\(*(%s|%s|%s)\)*)' % (RSE_ATTRIBUTE, DEFAULT_RSE_ATTRIBUTE, r'\*')
 UNION = r'(\|%s)' % (PRIMITIVE)
 INTERSECTION = r'(\&%s)' % (PRIMITIVE)
@@ -92,20 +94,31 @@ def parse_expression(expression, filter=None, session=None):
             result.append(result_tuple[1][rse])
         REGION.set(sha256(expression.encode()).hexdigest(), result)
 
-    if not result:
+    # Filter for VO
+    vo_result = []
+    if filter and filter.get('vo'):
+        filter = filter.copy()  # Make a copy so we can pop('vo') without affecting the object `filter` outside this function
+        vo = filter.pop('vo')
+        for rse in result:
+            if rse.get('vo') == vo:
+                vo_result.append(rse)
+    else:
+        vo_result = result
+
+    if not vo_result:
         raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
 
     # Filter
     final_result = []
     if filter:
-        for rse in result:
+        for rse in vo_result:
             if filter.get('availability_write', False):
                 if rse.get('availability') & 2:
                     final_result.append(rse)
         if not final_result:
             raise RSEBlacklisted('RSE excluded due to write blacklisting.')
     else:
-        final_result = result
+        final_result = vo_result
 
     # final_result = [{rse-info}]
     return final_result

@@ -1,4 +1,4 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,12 +15,13 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014
 # - Wen Guan <wguan.icedew@gmail.com>, 2014
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -42,9 +43,9 @@ class RSEClient(BaseClient):
     RSE_BASEURL = 'rses'
 
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None,
-                 auth_type=None, creds=None, timeout=600, user_agent='rucio-clients'):
+                 auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None):
         super(RSEClient, self).__init__(rucio_host, auth_host, account, ca_cert,
-                                        auth_type, creds, timeout, user_agent)
+                                        auth_type, creds, timeout, user_agent, vo=vo)
 
     def get_rse(self, rse):
         """
@@ -419,6 +420,69 @@ class RSEClient(BaseClient):
         self.update_protocols(rse, protocol_a['scheme'], {'domains': {domain: {operation: priority_b}}}, protocol_a['hostname'], protocol_a['port'])
         self.update_protocols(rse, protocol_b['scheme'], {'domains': {domain: {operation: priority_a}}}, protocol_b['hostname'], protocol_b['port'])
         return True
+
+    def add_qos_policy(self, rse, qos_policy):
+        """
+        Add a QoS policy from an RSE.
+
+        :param rse_id: The id of the RSE.
+        :param qos_policy: The QoS policy to add.
+        :param session: The database session in use.
+
+        :raises Duplicate: If the QoS policy already exists.
+        :returns: True if successful, except otherwise.
+        """
+
+        path = [self.RSE_BASEURL, rse, 'qos_policy', qos_policy]
+        path = '/'.join(path)
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='POST')
+        if r.status_code == codes.created:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
+
+    def delete_qos_policy(self, rse, qos_policy):
+        """
+        Delete a QoS policy from an RSE.
+
+        :param rse_id: The id of the RSE.
+        :param qos_policy: The QoS policy to delete.
+        :param session: The database session in use.
+
+        :returns: True if successful, silent failure if QoS policy does not exist.
+        """
+
+        path = [self.RSE_BASEURL, rse, 'qos_policy', qos_policy]
+        path = '/'.join(path)
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='DEL')
+        if r.status_code == codes.ok:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
+
+    def list_qos_policies(self, rse):
+        """
+        List all QoS policies of an RSE.
+
+        :param rse_id: The id of the RSE.
+        :param session: The database session in use.
+
+        :returns: List containing all QoS policies.
+        """
+
+        path = [self.RSE_BASEURL, rse, 'qos_policy']
+        path = '/'.join(path)
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return loads(r.text)
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
 
     def set_rse_usage(self, rse, source, used, free):
         """

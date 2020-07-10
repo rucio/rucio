@@ -19,6 +19,7 @@
 # - James Perry, <j.perry@epcc.ed.ac.uk>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White, <bjwhite@fnal.gov>, 2019
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -39,30 +40,31 @@ else:
     setattr(rsemanager, 'SERVER_MODE', True)
 
 
-def get_rse_client(rse, **kwarg):
+def get_rse_client(rse, vo='def', **kwarg):
     '''
     get_rse_client
     '''
     from rucio.client.rseclient import RSEClient
-    return RSEClient().get_rse(rse)
+    client = RSEClient(vo=vo)
+    return client.get_rse(rse)
 
 
-def get_signed_url_client(rse, service, op, url):
+def get_signed_url_client(rse, service, op, url, vo='def'):
     '''
     get_signed_url_client
     '''
     from rucio.client.credentialclient import CredentialClient
-    return CredentialClient().get_signed_url(rse, service, op, url)
+    return CredentialClient(vo=vo).get_signed_url(rse, service, op, url)
 
 
-def get_signed_url_server(rse, service, op, url):
+def get_signed_url_server(rse, service, op, url, vo='def'):
     '''
     get_signed_url_server
     '''
     from rucio.core.rse import get_rse_id
     from rucio.core.credential import get_signed_url
 
-    rse_id = get_rse_id(rse=rse)
+    rse_id = get_rse_id(rse=rse, vo=vo)
     return get_signed_url(rse_id, service, op, url)
 
 
@@ -70,16 +72,15 @@ def rse_key_generator(namespace, fn, **kwargs):
     '''
     Key generator for RSE
     '''
-    def generate_key(rse, session=None):
+    def generate_key(rse, vo='def', session=None):
         '''
         generate_key
         '''
-        return str(rse)
+        return '{}:{}'.format(rse, vo)
     return generate_key
 
 
 if rsemanager.CLIENT_MODE:   # pylint:disable=no-member
-    setattr(rsemanager, '__request_rse_info', get_rse_client)
     setattr(rsemanager, '__request_rse_info', get_rse_client)
     setattr(rsemanager, '__get_signed_url', get_signed_url_client)
 
@@ -93,8 +94,9 @@ if rsemanager.CLIENT_MODE:   # pylint:disable=no-member
 if rsemanager.SERVER_MODE:   # pylint:disable=no-member
     from rucio.core.rse import get_rse_protocols, get_rse_id
 
-    def tmp_rse_info(rse, session=None):
-        rse_id = get_rse_id(rse=rse)
+    def tmp_rse_info(rse=None, vo='def', rse_id=None, session=None):
+        if rse_id is None:
+            rse_id = get_rse_id(rse=rse, vo=vo)
         return get_rse_protocols(rse_id=rse_id, session=session)
 
     setattr(rsemanager, '__request_rse_info', tmp_rse_info)

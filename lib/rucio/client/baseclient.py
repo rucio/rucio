@@ -23,8 +23,11 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
 # - Tobias Wegner <twegner@cern.ch>, 2017
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2017-2018
-# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019-2020
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -114,7 +117,7 @@ class BaseClient(object):
     TOKEN_PREFIX = 'auth_token_'
     TOKEN_EXP_PREFIX = 'auth_token_exp_'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients'):
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None):
         """
         Constructor of the BaseClient.
         :param rucio_host: the address of the rucio server, if None it is read from the config file.
@@ -127,6 +130,7 @@ class BaseClient(object):
         :param auth_type: the type of authentication (e.g.: 'userpass', 'kerberos' ...)
         :param creds: a dictionary with credentials needed for authentication.
         :param user_agent: indicates the client
+        :param vo: the vo to authenticate into.
         """
 
         self.host = rucio_host
@@ -147,6 +151,7 @@ class BaseClient(object):
             raise MissingClientParameter('Section client and Option \'%s\' cannot be found in config file' % error.args[0])
 
         self.account = account
+        self.vo = vo
         self.ca_cert = ca_cert
         self.auth_type = auth_type
         self.creds = creds
@@ -255,13 +260,26 @@ class BaseClient(object):
                     self.account = config_get('client', 'account')
                 except (NoOptionError, NoSectionError):
                     raise MissingClientParameter('Option \'account\' cannot be found in config file and RUCIO_ACCOUNT is not set.')
-        # if token file path is defined in the rucio.cfg file, use that file
+
+        if vo is None:
+            LOG.debug('no vo passed. Trying to get it from the config file.')
+            try:
+                self.vo = environ['RUCIO_VO']
+            except KeyError:
+                try:
+                    self.vo = config_get('client', 'vo')
+                except (NoOptionError, NoSectionError):
+                    self.vo = 'def'
+
+        # if token file path is defined in the rucio.cfg file, use that file. Currently this prevents authenticating as another user or VO.
         if self.auth_token_file_path:
             self.token_file = self.auth_token_file_path
             self.token_path = '/'.join(self.token_file.split('/')[:-1])
             self.token_exp_epoch_file = self.token_path + '/' + self.TOKEN_EXP_PREFIX + self.account
         else:
             self.token_path = self.TOKEN_PATH_PREFIX + self.account
+            if self.vo != 'def':
+                self.token_path += '@%s' % self.vo
             self.token_file = self.token_path + '/' + self.TOKEN_PREFIX + self.account
             self.token_exp_epoch_file = self.token_path + '/' + self.TOKEN_EXP_PREFIX + self.account
 
@@ -328,7 +346,7 @@ class BaseClient(object):
         :param params: (optional) Dictionary or bytes to be sent in the url query string.
         :return: the HTTP return body.
         """
-        hds = {'X-Rucio-Auth-Token': self.auth_token, 'X-Rucio-Account': self.account,
+        hds = {'X-Rucio-Auth-Token': self.auth_token, 'X-Rucio-Account': self.account, 'X-Rucio-VO': self.vo,
                'Connection': 'Keep-Alive', 'User-Agent': self.user_agent,
                'X-Rucio-Script': self.script_id}
 
@@ -372,7 +390,11 @@ class BaseClient(object):
         :returns: True if the token was successfully received. False otherwise.
         """
 
-        headers = {'X-Rucio-Account': self.account, 'X-Rucio-Username': self.creds['username'], 'X-Rucio-Password': self.creds['password']}
+        headers = {'X-Rucio-VO': self.vo,
+                   'X-Rucio-Account': self.account,
+                   'X-Rucio-Username': self.creds['username'],
+                   'X-Rucio-Password': self.creds['password']}
+
         url = build_url(self.auth_host, path='auth/userpass')
 
         result = None
@@ -612,7 +634,7 @@ class BaseClient(object):
         :returns: True if the token was successfully received. False otherwise.
         """
 
-        headers = {'X-Rucio-Account': self.account}
+        headers = {'X-Rucio-Account': self.account, 'X-Rucio-VO': self.vo}
 
         client_cert = None
         client_key = None
@@ -672,7 +694,7 @@ class BaseClient(object):
 
         :returns: True if the token was successfully received. False otherwise.
         """
-        headers = {'X-Rucio-Account': self.account}
+        headers = {'X-Rucio-Account': self.account, 'X-Rucio-VO': self.vo}
 
         private_key_path = self.creds['ssh_private_key']
         if not path.exists(private_key_path):
@@ -754,7 +776,7 @@ class BaseClient(object):
         if not EXTRA_MODULES['requests_kerberos']:
             raise MissingModuleException('The requests-kerberos module is not installed.')
 
-        headers = {'X-Rucio-Account': self.account}
+        headers = {'X-Rucio-Account': self.account, 'X-Rucio-VO': self.vo}
         url = build_url(self.auth_host, path='auth/gss')
 
         result = None
@@ -790,7 +812,7 @@ class BaseClient(object):
         :returns: True if the token was successfully received. False otherwise.
         """
 
-        headers = {'X-Rucio-Account': self.account}
+        headers = {'X-Rucio-Account': self.account, 'X-Rucio-VO': self.vo}
         userpass = {'username': self.creds['username'], 'password': self.creds['password']}
         url = build_url(self.auth_host, path='auth/saml')
 

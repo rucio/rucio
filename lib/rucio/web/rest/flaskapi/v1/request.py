@@ -18,6 +18,9 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -64,7 +67,8 @@ class RequestGet(MethodView):
             res = json.dumps(request.get_request_by_did(scope=scope,
                                                         name=name,
                                                         rse=rse,
-                                                        issuer=f_request.environ.get('issuer')),
+                                                        issuer=f_request.environ.get('issuer'),
+                                                        vo=f_request.environ.get('vo')),
                              cls=APIEncoder)
             return Response(res, content_type="application/json")
         except Exception:
@@ -114,11 +118,11 @@ class RequestsGet(MethodView):
         src_rses = []
         dst_rses = []
         if src_site:
-            src_rses = get_rses_with_attribute_value(key='site', value=src_site, lookup_key='site')
+            src_rses = get_rses_with_attribute_value(key='site', value=src_site, lookup_key='site', vo=f_request.environ.get('vo'))
             if not src_rses:
                 return generate_http_error_flask(404, 'NotFound', 'Could not resolve site name %s to RSE' % src_site)
             src_rses = [get_rse_name(rse['rse_id']) for rse in src_rses]
-            dst_rses = get_rses_with_attribute_value(key='site', value=dst_site, lookup_key='site')
+            dst_rses = get_rses_with_attribute_value(key='site', value=dst_site, lookup_key='site', vo=f_request.environ.get('vo'))
             if not dst_rses:
                 return generate_http_error_flask(404, 'NotFound', 'Could not resolve site name %s to RSE' % dst_site)
             dst_rses = [get_rse_name(rse['rse_id']) for rse in dst_rses]
@@ -127,8 +131,7 @@ class RequestsGet(MethodView):
             src_rses = [src_rse]
 
         results = []
-        for result in request.list_requests(src_rses, dst_rses, states, issuer=f_request.environ.get('issuer')):
-            result = result.to_dict()
+        for result in request.list_requests(src_rses, dst_rses, states, issuer=f_request.environ.get('issuer'), vo=f_request.environ.get('vo')):
             del result['_sa_instance_state']
             results.append(result)
         return json.dumps(results, cls=APIEncoder)

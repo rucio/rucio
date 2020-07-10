@@ -20,6 +20,7 @@
 # - Tobias Wegner <tobias.wegner@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -157,6 +158,8 @@ class DownloadClient:
         self.trace_tpl['hostname'] = self.client_location['fqdn']
         self.trace_tpl['localSite'] = self.client_location['site']
         self.trace_tpl['account'] = self.client.account
+        if self.client.vo != 'def':
+            self.trace_tpl['vo'] = self.client.vo
         self.trace_tpl['eventType'] = 'download'
         self.trace_tpl['eventVersion'] = 'api_%s' % version.RUCIO_VERSION[0]
 
@@ -531,7 +534,7 @@ class DownloadClient:
             scheme = pfn.split(':')[0]
 
             try:
-                rse = rsemgr.get_rse_info(rse_name)
+                rse = rsemgr.get_rse_info(rse_name, vo=self.client.vo)
             except RucioException as error:
                 logger.warning('%sCould not get info of RSE %s: %s' % (log_prefix, rse_name, error))
                 trace['stateReason'] = str(error)

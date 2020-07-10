@@ -16,6 +16,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 
 from __future__ import print_function
 
@@ -33,8 +34,8 @@ class LifetimeClient(BaseClient):
 
     LIFETIME_BASEURL = 'lifetime_exceptions'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients'):
-        super(LifetimeClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent)
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None):
+        super(LifetimeClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent, vo=vo)
 
     def list_exceptions(self, exception_id=None, states=None):
         """

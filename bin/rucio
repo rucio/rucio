@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -322,24 +322,49 @@ def list_dataset_replicas(args):
     List dataset replicas
     """
     client = get_client(args)
-    datasets, result = {}, {}
-    scope, name = extract_scope(args.did)
-    meta = client.get_metadata(scope, name)
-    if meta['did_type'] != 'DATASET':
-        dids = client.scope_list(scope=scope, name=name, recursive=True)
-        for did in dids:
-            if did['type'] == 'FILE':
-                dsn = '%s:%s' % (did['parent']['scope'], did['parent']['name'])
-                if dsn not in datasets:
-                    datasets[dsn] = 0
-                datasets[dsn] += 1
+    result = {}
+    datasets = []
+
+    def _append_to_datasets(scope, name):
+        filedid = {'scope': scope, 'name': name}
+        if filedid not in datasets:
+            datasets.append(filedid)
+
+    def _fetch_datasets_for_meta(meta):
+        """Internal function to fetch datasets and recurse into files."""
+        if meta['did_type'] != 'DATASET':
+            dids = client.scope_list(scope=meta['scope'], name=meta['name'], recursive=True)
+            for did in dids:
+                if did['type'] == 'FILE':
+                    _append_to_datasets(did['parent']['scope'], did['parent']['name'])
+        else:
+            _append_to_datasets(meta['scope'], meta['name'])
+
+    def _append_result(dsn, replica):
+        if dsn not in result:
+            result[dsn] = {}
+        result[dsn][replica['rse']] = [replica['rse'], replica['available_length'], replica['length']]
+
+    if len(args.dids) == 1:
+        scope, name = extract_scope(args.dids[0])
+        dmeta = client.get_metadata(scope, name)
+        _fetch_datasets_for_meta(meta=dmeta)
     else:
-        datasets['%s:%s' % (scope, name)] = 0
-    for dsn in datasets:
-        scope, name = extract_scope(dsn)
-        result[dsn] = {}
-        for rep in client.list_dataset_replicas(scope, name, args.deep):
-            result[dsn][rep['rse']] = [rep['rse'], rep['available_length'], rep['length']]
+        extractdids = (extract_scope(did) for did in args.dids)
+        splitdids = [{'scope': scope, 'name': name} for scope, name in extractdids]
+        for dmeta in client.get_metadata_bulk(dids=splitdids):
+            _fetch_datasets_for_meta(meta=dmeta)
+
+    if args.deep or len(datasets) < 2:
+        for did in datasets:
+            dsn = "%s:%s" % (did['scope'], did['name'])
+            for rep in client.list_dataset_replicas(scope=did['scope'], name=did['name'], deep=args.deep):
+                _append_result(dsn=dsn, replica=rep)
+    else:
+        for rep in client.list_dataset_replicas_bulk(dids=datasets):
+            dsn = "%s:%s" % (rep['scope'], rep['name'])
+            _append_result(dsn=dsn, replica=rep)
+
     if args.csv:
         for dsn in result:
             for rse in list(result[dsn].values()):
@@ -570,6 +595,60 @@ def list_dids(args):
     filters['name'] = name
 
     for did in client.list_dids(scope, filters=filters, type=type, long=True, recursive=args.recursive):
+        table.append(['%s:%s' % (did['scope'], did['name']), did['did_type']])
+
+    if args.short:
+        for did, dummy in table:
+            print(did)
+    else:
+        print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
+    return SUCCESS
+
+
+@exception_handler
+def list_dids_extended(args):
+    """
+    %(prog)s list-dids-extended scope[:*|:name] [--filter 'key=value' | --recursive]
+
+    List the data identifiers for a given scope.
+    """
+    client = get_client(args)
+    filters = {}
+    type = 'collection'
+    table = []
+    if args.filter:
+        try:
+            filters, type = parse_did_filter_from_string(args.filter)
+        except InvalidType as error:
+            logger.error(error)
+            return FAILURE
+        except ValueError as error:
+            logger.error(error)
+            return FAILURE
+        except Exception:
+            logger.error("Invalid Filter. Filter must be 'key=value', 'key>=value', 'key>value', 'key<=value', 'key<value'")
+            return FAILURE
+
+    try:
+        scope, name = extract_scope(args.did[0])
+        if name == '':
+            name = '*'
+    except InvalidObject:
+        scope = args.did[0]
+        name = '*'
+    if scope not in client.list_scopes():
+        logger.error('Scope not found')
+        return FAILURE
+
+    if args.recursive and '*' in name:
+        logger.error('Option recursive cannot be used with wildcards')
+        return FAILURE
+    elif ('name' in filters) and (name != '*'):
+        logger.error('You cannot use a wildcard query and a filter by name')
+        return FAILURE
+    filters['name'] = name
+
+    for did in client.list_dids_extended(scope, filters=filters, type=type, long=True, recursive=args.recursive):
         table.append(['%s:%s' % (did['scope'], did['name']), did['did_type']])
 
     if args.short:
@@ -1049,11 +1128,16 @@ def get_metadata(args):
     Get data identifier metadata
     """
     client = get_client(args)
+    if args.plugin:
+        plugin = args.plugin
+    else:
+        plugin = 'DID_COLUMN'
+
     for i, did in enumerate(args.dids):
         if i > 0:
             print('------')
         scope, name = extract_scope(did)
-        meta = client.get_metadata(scope=scope, name=name)
+        meta = client.get_metadata(scope=scope, name=name, plugin=plugin)
         table = [(k + ':', str(v)) for (k, v) in sorted(meta.items())]
         print(tabulate.tabulate(table, tablefmt='plain'))
     return SUCCESS
@@ -1075,57 +1159,16 @@ def set_metadata(args):
     return SUCCESS
 
 
+@exception_handler
 def delete_metadata(args):
     """
     %(prog)s set_metadata [options] <field1=value1 field2=value2 ...>
 
     Delete data identifier metadata
     """
-    # For the moment..
-    raise NotImplementedError
-
-
-@exception_handler
-def get_did_meta(args):
-    """
-    %(prog)s get-did-meta [options] <field1=value1 field2=value2 ...>
-
-    Get data identifier metadata
-    """
-    client = get_client(args)
-    for i, did in enumerate(args.dids):
-        if i > 0:
-            print('------')
-        scope, name = extract_scope(did)
-        meta = client.get_did_meta(scope=scope, name=name)
-        table = [(k + ':', str(v)) for (k, v) in sorted(meta.items())]
-        print(tabulate.tabulate(table, tablefmt='plain'))
-    return SUCCESS
-
-
-@exception_handler
-def add_did_meta(args):
-    """
-    %(prog)s add-did-meta [options] <field1=value1 field2=value2 ...>
-
-    Add or update data identifier metadata
-    """
     client = get_client(args)
     scope, name = extract_scope(args.did)
-    client.add_did_meta(scope=scope, name=name, meta={args.key: args.value})
-    return SUCCESS
-
-
-@exception_handler
-def delete_did_meta(args):
-    """
-    %(prog)s delete-did-meta [options] <field1=value1 field2=value2 ...>
-
-    Delete data identifier metadata
-    """
-    client = get_client(args)
-    scope, name = extract_scope(args.did)
-    client.delete_did_meta(scope=scope, name=name, key=args.key)
+    client.delete_metadata(scope=scope, name=name, key=args.key)
     return SUCCESS
 
 
@@ -1781,7 +1824,7 @@ To list the missing replica of a dataset of a given RSE::
     +------------+---------+---------+
     ''')
     list_dataset_replicas_parser.set_defaults(function=list_dataset_replicas)
-    list_dataset_replicas_parser.add_argument(dest='did', action='store', help='The name of the DID to search.')
+    list_dataset_replicas_parser.add_argument(dest='dids', action='store', nargs='+', help='The name of the DID to search.')
     list_dataset_replicas_parser.add_argument('--deep', action='store_true', help='Make a deep check.')
     list_dataset_replicas_parser.add_argument('--csv', dest='csv', action='store_true', default=False, help='Comma Separated Value output.',)
 
@@ -1933,6 +1976,50 @@ You can filter by key/value, e.g.::
     list_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
     list_parser.add_argument(dest='did', nargs=1, action='store', default=None, help='Data IDentifier pattern')
 
+    # The extended version of list_dids that goes through the plugin mechanism
+    list_extended_parser = subparsers.add_parser('list-dids-extended',
+                                                 help='List the data identifiers matching some metadata (extended version to include metadata from various resources).',
+                                                 description='''List the Data IDentifiers matching certain pattern.
+Only the collections (i.e. dataset or container) are returned by default.
+With the filter option, you can specify a list of metadata that the Data IDentifier should match.
+Please use the filter option `--filter type=all` to find all types of Data IDentifiers.''',
+                                                 formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''Usage example
+"""""""""""""
+
+You can query the DIDs matching a certain pattern. It always requires to specify the scope in which you want to search::
+
+    $ rucio list-dids --filter 'type=all' user.jdoe:*
+    +-------------------------------------------+--------------+
+    | SCOPE:NAME                                | [DID TYPE]   |
+    |-------------------------------------------+--------------|
+    | user.jdoe:user.jdoe.test.container.1234.1 | CONTAINER    |
+    | user.jdoe:user.jdoe.test.container.1234.2 | CONTAINER    |
+    | user.jdoe:user.jdoe.test.cont.1234.2      | CONTAINER    |
+    | user.jdoe:user.jdoe.test.dataset.1        | DATASET      |
+    | user.jdoe:user.jdoe.test.dataset.2        | DATASET      |
+    | user.jdoe:user.jdoe.test.data.1234.1      | DATASET      |
+    | user.jdoe:test.file.1                     | FILE         |
+    | user.jdoe:test.file.2                     | FILE         |
+    | user.jdoe:test.file.3                     | FILE         |
+    +-------------------------------------------+--------------+
+
+You can filter by key/value, e.g.::
+
+    $ rucio list-dids --filter 'type=CONTAINER'
+    +-------------------------------------------+--------------+
+    | SCOPE:NAME                                | [DID TYPE]   |
+    |-------------------------------------------+--------------|
+    | user.jdoe:user.jdoe.test.container.1234.1 | CONTAINER    |
+    | user.jdoe:user.jdoe.test.container.1234.2 | CONTAINER    |
+    | user.jdoe:user.jdoe.test.cont.1234.2      | CONTAINER    |
+    +-------------------------------------------+--------------+''')
+
+    list_extended_parser.set_defaults(function=list_dids_extended)
+    list_extended_parser.add_argument('--recursive', dest='recursive', action='store_true', default=False, help='List data identifiers recursively.')
+    list_extended_parser.add_argument('--filter', dest='filter', action='store', help='Filter arguments in form `key=value,another_key>=next_value`. Valid keys are type and length. Use `type` to specify a DID type to search for. Valid values are `ALL`, `COLLECTION`, `CONTAINER`, `DATASET`, `FILE`. Use `length` to filter for an amount of corresponding Data IDentifiers. Valid operators are `=`, `>`, `>=`, `<`, `<=`.')  # noqa: E501
+    list_extended_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
+    list_extended_parser.add_argument(dest='did', nargs=1, action='store', default=None, help='Data IDentifier pattern')
+
     # The list parent-dids command
     list_parent_parser = subparsers.add_parser('list-parent-dids', help='List parent DIDs for a given DID', description='List all parents Data IDentifier that contains the target Data IDentifier.',
                                                formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''Usage example
@@ -2079,6 +2166,7 @@ You can filter by key/value, e.g.::
     get_metadata_parser = subparsers.add_parser('get-metadata', help='Get metadata for DIDs.')
     get_metadata_parser.set_defaults(function=get_metadata)
     get_metadata_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
+    get_metadata_parser.add_argument('--plugin', dest='plugin', action='store', help='Filter down to metdata from specific metadata plugin', required=False)
 
     # The set-metadata subparser
     set_metadata_parser = subparsers.add_parser('set-metadata', help='set-metadata method')
@@ -2087,29 +2175,11 @@ You can filter by key/value, e.g.::
     set_metadata_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
     set_metadata_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
 
-    # The get-did-meta subparser
-    get_did_meta_parser = subparsers.add_parser('get-did-meta', help='Get generic metadata for DIDs.')
-    get_did_meta_parser.set_defaults(function=get_did_meta)
-    get_did_meta_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
-
-    # Add add-did-meta subparser
-    add_did_meta_parser = subparsers.add_parser('add-did-meta', help='Add or update metadata')
-    add_did_meta_parser.set_defaults(function=add_did_meta)
-    add_did_meta_parser.add_argument('--did', dest='did', action='store', help='Data identifier to which the metadata will be added', required=True)
-    add_did_meta_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
-    add_did_meta_parser.add_argument('--value', dest='value', action='store', help='Attribute value', required=True)
-
     # delete-did-meta subparser
-    delete_did_meta_parser = subparsers.add_parser('delete-did-meta', help='delete metadata')
-    delete_did_meta_parser.set_defaults(function=delete_did_meta)
-    delete_did_meta_parser.add_argument('--did', dest='did', action='store', help='Data identifier to delete', required=True)
-    delete_did_meta_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
-
-    # Get dids by metadata key value
-    list_dids_by_meta_parser = subparsers.add_parser('list-dids-by-meta', help='list dids by a key value pairs')
-    list_dids_by_meta_parser.set_defaults(function=list_dids_by_meta)
-    list_dids_by_meta_parser.add_argument(dest='key_values', nargs='+', action='store', help='KeyValue pairs')
-    list_dids_by_meta_parser.add_argument('--scope', dest='scope', action='store', default=None, help='The scope of the search.')
+    delete_metadata_parser = subparsers.add_parser('delete-metadata', help='delete metadata')
+    delete_metadata_parser.set_defaults(function=delete_metadata)
+    delete_metadata_parser.add_argument('--did', dest='did', action='store', help='Data identifier to delete', required=True)
+    delete_metadata_parser.add_argument('--key', dest='key', action='store', help='Attribute key', required=True)
 
     # The list-rse-usage subparser
     list_rse_usage_parser = subparsers.add_parser('list-rse-usage', help='Shows the total/free/used space for a given RSE. This values can differ for different RSE source.')

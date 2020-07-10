@@ -18,23 +18,24 @@ from rucio.core import temporary_did
 from rucio.core.rse import get_rse_id
 
 
-def add_temporary_dids(dids, issuer):
+def add_temporary_dids(dids, issuer, vo='def'):
     """
     Bulk add temporary data identifiers.
 
     :param dids: A list of dids.
     :param issuer: The issuer account.
+    :param vo: The VO to act on.
     """
     for did in dids:
         if 'rse' in did and 'rse_id' not in did:
             rse_id = None
             if did['rse'] is not None:
-                rse_id = get_rse_id(rse=did['rse'])
+                rse_id = get_rse_id(rse=did['rse'], vo=vo)
             did['rse_id'] = rse_id
         if 'scope' in did:
-            did['scope'] = InternalScope(did['scope'])
+            did['scope'] = InternalScope(did['scope'], vo=vo)
         if 'parent_scope' in did:
-            did['parent_scope'] = InternalScope(did['parent_scope'])
+            did['parent_scope'] = InternalScope(did['parent_scope'], vo=vo)
 
-    issuer = InternalAccount(issuer)
+    issuer = InternalAccount(issuer, vo=vo)
     return temporary_did.add_temporary_dids(dids=dids, account=issuer)

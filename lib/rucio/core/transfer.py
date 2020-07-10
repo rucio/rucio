@@ -26,6 +26,7 @@
 # - maatthias <maatthias@gmail.com>, 2019
 # - Gabriele <sucre.91@hotmail.it>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -62,7 +63,7 @@ from rucio.core.monitor import record_counter, record_timer
 from rucio.core.oidc import get_token_for_account_operation
 from rucio.core.replica import add_replicas
 from rucio.core.request import queue_requests, set_requests_state
-from rucio.core.rse import get_rse_name, list_rses, get_rse_supported_checksums
+from rucio.core.rse import get_rse_name, get_rse_vo, list_rses, get_rse_supported_checksums
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import DIDType, RequestState, FTSState, RSEType, RequestType, ReplicaState
@@ -257,6 +258,8 @@ def set_transfers_state(transfers, submitted_at, session=None):
                    'external-id': transfers[request_id]['external_id'],
                    'external-host': transfers[request_id]['external_host'],
                    'queued_at': str(submitted_at)}
+            if transfers[request_id]['scope'].vo != 'def':
+                msg['vo'] = transfers[request_id]['scope'].vo
 
             if msg['request-type']:
                 transfer_status = '%s-%s' % (msg['request-type'], msg['state'])
@@ -485,6 +488,11 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
     :raises:                   NoDistance
     """
 
+    # Check if there is a cached result
+    result = REGION_SHORT.get('get_hops_%s_%s' % (str(source_rse_id), str(dest_rse_id)))
+    if not isinstance(result, NoValue):
+        return result
+
     if multihop_rses is None:
         multihop_rses = []
 
@@ -503,12 +511,14 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
                                                           operation_src='third_party_copy',
                                                           operation_dest='third_party_copy',
                                                           domain='wan')
-            return [{'source_rse_id': source_rse_id,
+            path = [{'source_rse_id': source_rse_id,
                      'dest_rse_id': dest_rse_id,
                      'source_scheme': matching_scheme[1],
                      'dest_scheme': matching_scheme[0],
                      'source_scheme_priority': matching_scheme[3],
                      'dest_scheme_priority': matching_scheme[2]}]
+            REGION_SHORT.set('get_hops_%s_%s' % (str(source_rse_id), str(dest_rse_id)), path)
+            return path
         except RSEProtocolNotSupported as error:
             if include_multihop:
                 # Delete the edge from the graph
@@ -574,6 +584,7 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
                     except RSEProtocolNotSupported:
                         pass
     if dest_rse_id in visited_nodes:
+        REGION_SHORT.set('get_hops_%s_%s' % (str(source_rse_id), str(dest_rse_id)), visited_nodes[dest_rse_id]['path'])
         return visited_nodes[dest_rse_id]['path']
     else:
         raise NoDistance()
@@ -704,7 +715,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             if hop['dest_rse_id'] not in rse_mapping:
                 rse_mapping[hop['dest_rse_id']] = get_rse_name(rse_id=hop['dest_rse_id'], session=session)
             if hop['dest_rse_id'] not in rses_info:
-                rses_info[hop['dest_rse_id']] = rsemgr.get_rse_info(rse=rse_mapping[hop['dest_rse_id']], session=session)
+                rses_info[hop['dest_rse_id']] = rsemgr.get_rse_info(rse=rse_mapping[hop['dest_rse_id']],
+                                                                    vo=get_rse_vo(rse_id=hop['dest_rse_id'], session=session),
+                                                                    session=session)
             if hop['dest_rse_id'] not in rse_attrs:
                 rse_attrs[hop['dest_rse_id']] = get_rse_attributes(hop['dest_rse_id'], session=session)
 
@@ -734,7 +747,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
             # Get the source rse information
             if source_rse_id not in rses_info:
-                rses_info[source_rse_id] = rsemgr.get_rse_info(rse=source_rse_name, session=session)
+                rses_info[source_rse_id] = rsemgr.get_rse_info(rse=source_rse_name,
+                                                               vo=get_rse_vo(rse_id=source_rse_id, session=session),
+                                                               session=session)
             if source_rse_id not in rse_attrs:
                 rse_attrs[source_rse_id] = get_rse_attributes(source_rse_id, session=session)
             # Get source protocol
@@ -765,7 +780,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 # I.3 - Compute the destination url
                 if rses_info[dest_rse_id]['deterministic']:
-                    dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name}).values())[0]
+                    dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name}).values())[0]
                 else:
                     # compute dest url in case of non deterministic
                     # naming convention, etc.
@@ -777,10 +792,10 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                         if retry_count or activity == 'Recovery':
                             dest_path = '%s_%i' % (dest_path, int(time.time()))
 
-                    dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': dest_path}).values())[0]
+                    dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': dest_path}).values())[0]
 
                 # II - Compute the source URL
-                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values())[0]
+                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': path}).values())[0]
 
                 # III - Extend the metadata dictionary with request attributes
                 overwrite, bring_online = True, None
@@ -935,7 +950,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                     # I.3.2 - Compute the destination url
                     if rses_info[dest_rse_id]['deterministic']:
-                        dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name}).values())[0]
+                        dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name}).values())[0]
                     else:
                         # compute dest url in case of non deterministic
                         # naming convention, etc.
@@ -947,10 +962,10 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                             if retry_count or activity == 'Recovery':
                                 dest_path = '%s_%i' % (dest_path, int(time.time()))
 
-                        dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': dest_path}).values())[0]
+                        dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': dest_path}).values())[0]
 
                 # II - Build the source URL
-                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': path}).values())[0]
+                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': path}).values())[0]
                 sign_url = rse_attrs[dest_rse_id].get('sign_url', None)
                 if sign_url == 'gcs':
                     dest_url = re.sub('davs', 'gclouds', dest_url)
@@ -1082,6 +1097,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 dest_rse_id = hop['dest_rse_id']
                 source_rse_name = rse_mapping[source_rse_id]
                 dest_rse_name = rse_mapping[dest_rse_id]
+                dest_rse_vo = get_rse_vo(rse_id=hop['dest_rse_id'], session=session)
                 transfer_src_type = "DISK"
                 transfer_dst_type = "DISK"
                 allow_tape_source = True
@@ -1091,7 +1107,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     protocols[source_rse_id_key] = rsemgr.create_protocol(rses_info[source_rse_id], 'third_party_copy', source_protocol)
                 if hop['dest_rse_id'] not in rse_attrs:
                     rse_attrs[dest_rse_id] = get_rse_attributes(hop['dest_rse_id'], session=session)
-                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': None}).values())[0]
+                source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': None}).values())[0]
 
                 if transfers[req_id]['file_metadata']['dest_rse_id'] != hop['dest_rse_id']:
                     files = [{'scope': scope,
@@ -1103,7 +1119,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     try:
                         add_replicas(rse_id=hop['dest_rse_id'],
                                      files=files,
-                                     account=InternalAccount('root'),
+                                     account=InternalAccount('root', vo=dest_rse_vo),
                                      ignore_availability=False,
                                      dataset_meta=None,
                                      session=session)
@@ -1127,7 +1143,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                                         'attributes': req_attributes,
                                                         'request_type': RequestType.TRANSFER,
                                                         'retry_count': retry_count,
-                                                        'account': InternalAccount('root'),
+                                                        'account': InternalAccount('root', vo=dest_rse_vo),
                                                         'requested_at': datetime.datetime.now()}], session=session)
                     # If a request already exists, new_req will be an empty list.
                     if not new_req:
@@ -1166,7 +1182,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                     # I.3 - Compute the destination url
                     if rses_info[dest_rse_id]['deterministic']:
-                        dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name}).values())[0]
+                        dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name}).values())[0]
                     else:
                         # compute dest url in case of non deterministic
                         # naming convention, etc.
@@ -1178,7 +1194,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                             if retry_count or activity == 'Recovery':
                                 dest_path = '%s_%i' % (dest_path, int(time.time()))
 
-                        dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope, 'name': name, 'path': dest_path}).values())[0]
+                        dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': dest_path}).values())[0]
 
                     # II - Extend the metadata dictionary with request attributes
                     overwrite, bring_online = True, None
@@ -1444,6 +1460,7 @@ def __load_rse_settings(rse_id, session=None):
     result = REGION_SHORT.get('rse_settings_%s' % str(rse_id))
     if isinstance(result, NoValue):
         result = rsemgr.get_rse_info(rse=get_rse_name(rse_id=rse_id, session=session),
+                                     vo=get_rse_vo(rse_id=rse_id, session=session),
                                      session=session)
         REGION_SHORT.set('rse_settings_%s' % str(rse_id), result)
     return result
