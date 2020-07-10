@@ -956,8 +956,14 @@ def download(args):
     max_file_count = 0
     if args.dids:
         for d in args.dids:
-            scope, name = d.split(':')
-            max_file_count += len(list(client.list_files(scope, name)))
+            scope, name_exp = d.split(':')
+            if '*' in name_exp:
+                tmp_filter = {'name': name_exp}
+                tmp_did_names = list(client.list_dids(scope, filters=tmp_filter, type='all'))
+            else:
+                tmp_did_names = [name_exp]
+            for name in tmp_did_names:
+                max_file_count += len(list(client.list_files(scope, name)))
 
     # Get filters
     filters = {}
