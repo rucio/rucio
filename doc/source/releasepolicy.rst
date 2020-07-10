@@ -14,10 +14,10 @@ A release line is only maintained with patch releases until the start of the nex
 Version           Code name                Release date     Supported until
 ================  ======================== ================ ====================
 1.24              Aquadonkey               2020-11          ~2021-02
-**1.23 LTS**      The incredible Donkey    2020-06          at least 2022-06
+**1.23 LTS**      The incredible Donkey    2020-07          at least 2022-07
 1.22              Green Donkey             2020-02          2020-06
 1.21              Donkeys of the Galaxy    2019-11          2020-02
-**1.20 LTS**      Wonder Donkey            2019-06          at least 2021-06
+**1.20 LTS**      Wonder Donkey            2019-06          2021-07-10
 1.19              Fantastic Donkeys        2019-02          2019-06
 1.18              Invisible Donkey         2018-09          2019-02
 1.17              Donkey Surfer            2018-06          2018-09
