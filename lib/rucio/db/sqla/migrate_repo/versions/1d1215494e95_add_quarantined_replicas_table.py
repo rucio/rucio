@@ -26,7 +26,7 @@ from alembic import context
 from alembic.op import (create_table, create_primary_key, create_foreign_key,
                         create_check_constraint, drop_table)
 
-from rucio.common.schema import SCOPE_LENGTH, NAME_LENGTH
+from rucio.common.schema import get_schema_value
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
@@ -46,8 +46,8 @@ def upgrade():
                      sa.Column('bytes', sa.BigInteger),
                      sa.Column('md5', sa.String(32)),
                      sa.Column('adler32', sa.String(8)),
-                     sa.Column('scope', sa.String(SCOPE_LENGTH)),
-                     sa.Column('name', sa.String(NAME_LENGTH)),
+                     sa.Column('scope', sa.String(get_schema_value('SCOPE_LENGTH'))),
+                     sa.Column('name', sa.String(get_schema_value('NAME_LENGTH'))),
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
 
@@ -57,8 +57,8 @@ def upgrade():
                      sa.Column('bytes', sa.BigInteger),
                      sa.Column('md5', sa.String(32)),
                      sa.Column('adler32', sa.String(8)),
-                     sa.Column('scope', sa.String(SCOPE_LENGTH)),
-                     sa.Column('name', sa.String(NAME_LENGTH)),
+                     sa.Column('scope', sa.String(get_schema_value('SCOPE_LENGTH'))),
+                     sa.Column('name', sa.String(get_schema_value('NAME_LENGTH'))),
                      sa.Column('created_at', sa.DateTime),
                      sa.Column('updated_at', sa.DateTime),
                      sa.Column('deleted_at', sa.DateTime, default=datetime.datetime.utcnow))

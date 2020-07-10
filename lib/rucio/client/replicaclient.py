@@ -1,4 +1,4 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,9 @@
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -43,8 +45,8 @@ class ReplicaClient(BaseClient):
 
     REPLICAS_BASEURL = 'replicas'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients'):
-        super(ReplicaClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent)
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None):
+        super(ReplicaClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent, vo=vo)
 
     def declare_bad_file_replicas(self, pfns, reason):
         """
@@ -275,6 +277,22 @@ class ReplicaClient(BaseClient):
                         path='/'.join([self.REPLICAS_BASEURL, quote_plus(scope), quote_plus(name), 'datasets']),
                         params=payload)
         r = self._send_request(url, type='GET')
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
+
+    def list_dataset_replicas_bulk(self, dids):
+        """
+        List dataset replicas for a did (scope:name).
+
+        :param dids: The list of DIDs of the datasets.
+
+        :returns: A list of dict dataset replicas.
+        """
+        payload = {'dids': list(dids)}
+        url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'datasets_bulk']))
+        r = self._send_request(url, type='POST', data=dumps(payload))
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)

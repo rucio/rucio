@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -33,7 +35,7 @@ from flask.views import MethodView
 from geoip2.errors import AddressNotFoundError
 from xml.sax.saxutils import escape
 
-from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replicas,
+from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replicas, list_dataset_replicas_bulk,
                                delete_replicas,
                                get_did_from_pfns, update_replicas_states,
                                declare_bad_file_replicas, add_bad_pfns, get_suspicious_files,
@@ -44,7 +46,7 @@ from rucio.db.sqla.constants import BadFilesStatus
 from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, InvalidType,
                                     DataIdentifierNotFound, Duplicate, InvalidPath,
                                     ResourceTemporaryUnavailable, RucioException,
-                                    RSENotFound, UnsupportedOperation, ReplicaNotFound)
+                                    RSENotFound, UnsupportedOperation, ReplicaNotFound, InvalidObject)
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
 from rucio.common.utils import generate_http_error_flask, parse_response, APIEncoder, render_json_list
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
@@ -102,7 +104,7 @@ class Replicas(MethodView):
                 data += '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
 
             # then, stream the replica information
-            for rfile in list_replicas(dids=dids, schemes=schemes):
+            for rfile in list_replicas(dids=dids, schemes=schemes, vo=request.environ.get('vo')):
                 client_ip = request.environ.get('HTTP_X_FORWARDED_FOR')
                 if client_ip is None:
                     client_ip = request.remote_addr
@@ -181,7 +183,9 @@ class Replicas(MethodView):
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            add_replicas(rse=parameters['rse'], files=parameters['files'], issuer=request.environ.get('issuer'), ignore_availability=parameters.get('ignore_availability', False))
+            add_replicas(rse=parameters['rse'], files=parameters['files'],
+                         issuer=request.environ.get('issuer'), vo=request.environ.get('vo'),
+                         ignore_availability=parameters.get('ignore_availability', False))
         except InvalidPath as error:
             return generate_http_error_flask(400, 'InvalidPath', error.args[0])
         except AccessDenied as error:
@@ -221,7 +225,7 @@ class Replicas(MethodView):
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            update_replicas_states(rse=parameters['rse'], files=parameters['files'], issuer=request.environ.get('issuer'))
+            update_replicas_states(rse=parameters['rse'], files=parameters['files'], issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except UnsupportedOperation as error:
@@ -256,7 +260,9 @@ class Replicas(MethodView):
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            delete_replicas(rse=parameters['rse'], files=parameters['files'], issuer=request.environ.get('issuer'), ignore_availability=parameters.get('ignore_availability', False))
+            delete_replicas(rse=parameters['rse'], files=parameters['files'],
+                            issuer=request.environ.get('issuer'), vo=request.environ.get('vo'),
+                            ignore_availability=parameters.get('ignore_availability', False))
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except RSENotFound as error:
@@ -363,7 +369,7 @@ class ListReplicas(MethodView):
                                        all_states=all_states,
                                        rse_expression=rse_expression,
                                        client_location=client_location,
-                                       domain=domain):
+                                       domain=domain, vo=request.environ.get('vo')):
                 replicas = []
                 dictreplica = {}
                 for rse in rfile['rses']:
@@ -450,7 +456,7 @@ class ReplicasDIDs(MethodView):
 
         try:
             data = ""
-            for pfn in get_did_from_pfns(pfns, rse):
+            for pfn in get_did_from_pfns(pfns, rse, vo=request.environ.get('vo')):
                 data += dumps(pfn) + '\n'
             return Response(data, content_type='application/x-json-string')
         except RucioException as error:
@@ -492,7 +498,7 @@ class BadReplicas(MethodView):
 
         not_declared_files = {}
         try:
-            not_declared_files = declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=request.environ.get('issuer'))
+            not_declared_files = declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except ReplicaNotFound as error:
             return generate_http_error_flask(404, 'ReplicaNotFound', error.args[0])
         except RucioException as error:
@@ -534,7 +540,7 @@ class SuspiciousReplicas(MethodView):
 
         not_declared_files = {}
         try:
-            not_declared_files = declare_suspicious_file_replicas(pfns=pfns, reason=reason, issuer=request.environ.get('issuer'))
+            not_declared_files = declare_suspicious_file_replicas(pfns=pfns, reason=reason, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except ReplicaNotFound as error:
             return generate_http_error_flask(404, 'ReplicaNotFound', error.args[0])
         except RucioException as error:
@@ -565,7 +571,7 @@ class SuspiciousReplicas(MethodView):
             younger_than = datetime.strptime(younger_than, "%Y-%m-%dT%H:%M:%S.%f")
 
         try:
-            result = get_suspicious_files(rse_expression=rse_expression, younger_than=younger_than, nattempts=nattempts)
+            result = get_suspicious_files(rse_expression=rse_expression, younger_than=younger_than, nattempts=nattempts, vo=request.environ.get('vo'))
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -616,7 +622,7 @@ class BadReplicasStates(MethodView):
             list_pfns = bool(list_pfns)
 
         try:
-            result = list_bad_replicas_status(state=state, rse=rse, younger_than=younger_than, older_than=older_than, limit=limit, list_pfns=list_pfns)
+            result = list_bad_replicas_status(state=state, rse=rse, younger_than=younger_than, older_than=older_than, limit=limit, list_pfns=list_pfns, vo=request.environ.get('vo'))
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -659,7 +665,7 @@ class BadReplicasSummary(MethodView):
             to_date = datetime.strptime(to_date, "%Y-%m-%d")
 
         try:
-            result = get_bad_replicas_summary(rse_expression=rse_expression, from_date=from_date, to_date=to_date)
+            result = get_bad_replicas_summary(rse_expression=rse_expression, from_date=from_date, to_date=to_date, vo=request.environ.get('vo'))
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -692,9 +698,58 @@ class DatasetReplicas(MethodView):
         deep = request.args.get('deep', False)
         try:
             data = ""
-            for row in list_dataset_replicas(scope=scope, name=name, deep=deep):
+            for row in list_dataset_replicas(scope=scope, name=name, deep=deep, vo=request.environ.get('vo')):
                 data += dumps(row, cls=APIEncoder) + '\n'
             return Response(data, content_type='application/x-json-stream')
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return error, 500
+
+
+class DatasetReplicasBulk(MethodView):
+
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
+    def post(self):
+        """
+        List dataset replicas for multiple DIDs.
+
+        .. :quickref: DatasetReplicasBulk; List dataset replicas (bulk).
+
+        :<json list dids: List of DIDs for querying the datasets.
+        :resheader Content-Type: application/x-json-stream
+        :status 200: OK.
+        :status 400: Bad Request.
+        :status 401: Invalid auth token.
+        :status 406: Not Acceptable.
+        :status 500: Internal Error.
+        :returns: A dictionary containing all replicas information.
+        """
+
+        json_data = request.data
+        try:
+            params = parse_response(json_data)
+            dids = params['dids']
+            didslength = len(dids)
+        except KeyError as error:
+            return generate_http_error_flask(400, 'KeyError', 'Cannot find mandatory parameter : %s' % str(error))
+        except ValueError:
+            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return error, 500
+        if didslength == 0:
+            return generate_http_error_flask(400, 'ValueError', 'List of DIDs is empty')
+        try:
+            data = ""
+            for row in list_dataset_replicas_bulk(dids=dids, vo=request.environ.get('vo')):
+                data += dumps(row, cls=APIEncoder) + '\n'
+            return Response(data, content_type='application/x-json-stream')
+        except InvalidObject as error:
+            return generate_http_error_flask(400, 'InvalidObject', 'Cannot validate DIDs: %s' % (str(error)))
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -720,7 +775,7 @@ class ReplicasRSE(MethodView):
         """
         try:
             data = ""
-            for row in list_datasets_per_rse(rse=rse):
+            for row in list_datasets_per_rse(rse=rse, vo=request.environ.get('vo')):
                 data += dumps(row, cls=APIEncoder) + '\n'
             return Response(data, content_type='application/x-json-stream')
         except RucioException as error:
@@ -768,7 +823,7 @@ class BadPFNs(MethodView):
                 reason = params['state']
             if 'expires_at' in params:
                 expires_at = datetime.strptime(params['expires_at'], "%Y-%m-%dT%H:%M:%S.%f")
-            add_bad_pfns(pfns=pfns, issuer=request.environ.get('issuer'), state=state, reason=reason, expires_at=expires_at)
+            add_bad_pfns(pfns=pfns, issuer=request.environ.get('issuer'), state=state, reason=reason, expires_at=expires_at, vo=request.environ.get('vo'))
         except (ValueError, InvalidType) as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except AccessDenied as error:
@@ -813,7 +868,7 @@ class Tombstone(MethodView):
 
         try:
             for replica in replicas:
-                set_tombstone(replica['rse'], replica['scope'], replica['name'], issuer=request.environ.get('issuer'))
+                set_tombstone(replica['rse'], replica['scope'], replica['name'], issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except ReplicaNotFound as error:
             return generate_http_error_flask(404, 'ReplicaNotFound', error.args[0])
         except RucioException as error:
@@ -843,6 +898,8 @@ replicas_rse_view = ReplicasRSE.as_view('replicas_rse')
 bp.add_url_rule('/rse/<rse>', view_func=replicas_rse_view, methods=['get', ])
 dataset_replicas_view = DatasetReplicas.as_view('dataset_replicas')
 bp.add_url_rule('/<scope>/<name>/datasets', view_func=dataset_replicas_view, methods=['get', ])
+dataset_replicas_bulk_view = DatasetReplicasBulk.as_view('dataset_replicas_bulk')
+bp.add_url_rule('/datasets_bulk', view_func=dataset_replicas_bulk_view, methods=['post', ])
 replicas_dids_view = ReplicasDIDs.as_view('replicas_dids')
 bp.add_url_rule('/dids', view_func=replicas_dids_view, methods=['post', ])
 suspicious_replicas_view = SuspiciousReplicas.as_view('suspicious_replicas')

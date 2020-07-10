@@ -16,6 +16,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
@@ -120,6 +121,7 @@ def minos(bulk=1000, once=False, sleep_time=60):
             # Process the bad and suspicious files
             # The scope, name, rse_id are extracted and filled into the bad_replicas table
             for account, reason, state in bad_replicas:
+                vo = account.vo
                 pfns = bad_replicas[(account, reason, state)]
                 logging.info(prepend_str + 'Declaring %s replicas with state %s and reason %s' % (len(pfns), str(state), reason))
                 session = get_session()
@@ -134,7 +136,7 @@ def minos(bulk=1000, once=False, sleep_time=60):
                             schemes[scheme] = []
                         schemes[scheme].append(pfn)
                     for scheme in schemes:
-                        _, tmp_dict_rse, tmp_unknown_replicas = get_pfn_to_rse(schemes[scheme])
+                        _, tmp_dict_rse, tmp_unknown_replicas = get_pfn_to_rse(schemes[scheme], vo=vo)
                         for rse_id in tmp_dict_rse:
                             if rse_id not in dict_rse:
                                 dict_rse[rse_id] = []
@@ -146,7 +148,8 @@ def minos(bulk=1000, once=False, sleep_time=60):
                         bulk_delete_bad_pfns(pfns=unknown_replicas, session=None)
 
                     for rse_id in dict_rse:
-                        logging.debug(prepend_str + 'Running on RSE %s with %s replicas' % (get_rse_name(rse_id=rse_id), len(dict_rse[rse_id])))
+                        vo_str = '' if vo == 'def' else ' on VO ' + vo
+                        logging.debug(prepend_str + 'Running on RSE %s%s with %s replicas' % (get_rse_name(rse_id=rse_id), vo_str, len(dict_rse[rse_id])))
                         nchunk = 0
                         tot_chunk = int(math.ceil(len(dict_rse[rse_id]) / chunk_size))
                         for chunk in chunks(dict_rse[rse_id], chunk_size):
@@ -163,6 +166,7 @@ def minos(bulk=1000, once=False, sleep_time=60):
 
             # Now get the temporary unavailable and update the replicas states
             for account, reason, expires_at in temporary_unvailables:
+                vo = account.vo
                 pfns = temporary_unvailables[(account, reason, expires_at)]
                 logging.info(prepend_str + 'Declaring %s replicas temporary available with timeout %s and reason %s' % (len(pfns), str(expires_at), reason))
                 logging.debug(prepend_str + 'Extracting RSEs')
@@ -177,7 +181,7 @@ def minos(bulk=1000, once=False, sleep_time=60):
                         schemes[scheme] = []
                     schemes[scheme].append(pfn)
                 for scheme in schemes:
-                    _, tmp_dict_rse, tmp_unknown_replicas = get_pfn_to_rse(schemes[scheme])
+                    _, tmp_dict_rse, tmp_unknown_replicas = get_pfn_to_rse(schemes[scheme], vo=vo)
                     for rse_id in tmp_dict_rse:
                         if rse_id not in dict_rse:
                             dict_rse[rse_id] = []
@@ -192,8 +196,9 @@ def minos(bulk=1000, once=False, sleep_time=60):
                 for rse_id in dict_rse:
                     replicas = []
                     rse = get_rse_name(rse_id=rse_id, session=None)
-                    logging.debug(prepend_str + 'Running on RSE %s' % rse)
-                    for rep in get_did_from_pfns(pfns=dict_rse[rse_id], rse_id=None, session=None):
+                    rse_vo_str = rse if vo == 'def' else '{} on {}'.format(rse, vo)
+                    logging.debug(prepend_str + 'Running on RSE %s' % rse_vo_str)
+                    for rep in get_did_from_pfns(pfns=dict_rse[rse_id], rse_id=None, vo=vo, session=None):
                         for pfn in rep:
                             scope = rep[pfn]['scope']
                             name = rep[pfn]['name']
@@ -202,7 +207,7 @@ def minos(bulk=1000, once=False, sleep_time=60):
                     # We update the replicas states to TEMPORARY_UNAVAILABLE
                     # then insert a row in the bad_replicas table. TODO Update the row if it already exists
                     # then delete the corresponding rows into the bad_pfns table
-                    logging.debug(prepend_str + 'Running on %s replicas on RSE %s' % (len(replicas), rse))
+                    logging.debug(prepend_str + 'Running on %s replicas on RSE %s' % (len(replicas), rse_vo_str))
                     nchunk = 0
                     tot_chunk = int(math.ceil(len(replicas) / float(chunk_size)))
                     session = get_session()

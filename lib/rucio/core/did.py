@@ -28,11 +28,11 @@
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
+# - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019 - 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
-import json
 import logging
 import random
 import sys
@@ -40,13 +40,13 @@ import sys
 from datetime import datetime, timedelta
 from hashlib import md5
 from re import match
-from six import string_types, iteritems
+from six import string_types
 
-from sqlalchemy import and_, or_, exists, String, cast, type_coerce, JSON
-from sqlalchemy.exc import DatabaseError, IntegrityError, CompileError, InvalidRequestError
+from sqlalchemy import and_, or_, exists
+from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
-from sqlalchemy.sql.expression import bindparam, case, text, select, true
+from sqlalchemy.sql.expression import bindparam, case, select, true
 
 import rucio.core.rule
 import rucio.core.replica  # import add_replicas
@@ -54,7 +54,7 @@ import rucio.core.replica  # import add_replicas
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.utils import str_to_date, is_archive, chunks
-from rucio.core import account_counter, rse_counter, config as config_core
+from rucio.core import did_meta_plugins, config as config_core
 from rucio.core.message import add_message
 from rucio.core.monitor import record_timer_block, record_counter
 from rucio.core.naming_convention import validate_name
@@ -62,7 +62,6 @@ from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, RuleState
 from rucio.db.sqla.enum import EnumSymbol
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
-
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging,
@@ -192,11 +191,14 @@ def add_dids(dids, account, session=None):
                 if did['type'] == DIDType.DATASET:
                     event_type = 'CREATE_DTS'
                 if event_type:
-                    add_message(event_type, {'account': account.external,
-                                             'scope': did['scope'].external,
-                                             'name': did['name'],
-                                             'expired_at': str(expired_at) if expired_at is not None else None},
-                                session=session)
+                    message = {'account': account.external,
+                               'scope': did['scope'].external,
+                               'name': did['name'],
+                               'expired_at': str(expired_at) if expired_at is not None else None}
+                    if account.vo != 'def':
+                        message['vo'] = account.vo
+
+                    add_message(event_type, message, session=session)
 
             except KeyError:
                 # ToDo
@@ -451,13 +453,17 @@ def __add_collections_to_container(scope, name, collections, account, session):
             chld_type = 'DATASET'
         else:
             chld_type = 'UNKNOWN'
-        add_message('REGISTER_CNT', {'account': account.external,
-                                     'scope': scope.external,
-                                     'name': name,
-                                     'childscope': c['scope'].external,
-                                     'childname': c['name'],
-                                     'childtype': chld_type},
-                    session=session)
+
+        message = {'account': account.external,
+                   'scope': scope.external,
+                   'name': name,
+                   'childscope': c['scope'].external,
+                   'childname': c['name'],
+                   'childtype': chld_type}
+        if account.vo != 'def':
+            message['vo'] = account.vo
+
+        add_message('REGISTER_CNT', message, session=session)
     try:
         session.flush()
     except IntegrityError as error:
@@ -614,10 +620,13 @@ def delete_dids(dids, account, expire_rules=False, session=None):
             metadata_to_delete.append(and_(models.DidMeta.scope == did['scope'], models.DidMeta.name == did['name']))
 
         # Send message
-        add_message('ERASE', {'account': account.external,
-                              'scope': did['scope'].external,
-                              'name': did['name']},
-                    session=session)
+        message = {'account': account.external,
+                   'scope': did['scope'].external,
+                   'name': did['name']}
+        if did['scope'].vo != 'def':
+            message['vo'] = did['scope'].vo
+
+        add_message('ERASE', message, session=session)
     # Delete rules on did
     skip_deletion = False  # Skip deletion in case of expiration of a rule
     if rule_id_clause:
@@ -778,20 +787,26 @@ def detach_dids(scope, name, dids, session=None):
             else:
                 chld_type = 'UNKNOWN'
 
-            add_message('ERASE_CNT', {'scope': scope.external,
-                                      'name': name,
-                                      'childscope': source['scope'].external,
-                                      'childname': source['name'],
-                                      'childtype': chld_type},
-                        session=session)
+            message = {'scope': scope.external,
+                       'name': name,
+                       'childscope': source['scope'].external,
+                       'childname': source['name'],
+                       'childtype': chld_type}
+            if scope.vo != 'def':
+                message['vo'] = scope.vo
 
-        add_message('DETACH', {'scope': scope.external,
-                               'name': name,
-                               'did_type': str(did.did_type),
-                               'child_scope': source['scope'].external,
-                               'child_name': str(source['name']),
-                               'child_type': str(child_type)},
-                    session=session)
+            add_message('ERASE_CNT', message, session=session)
+
+        message = {'scope': scope.external,
+                   'name': name,
+                   'did_type': str(did.did_type),
+                   'child_scope': source['scope'].external,
+                   'child_name': str(source['name']),
+                   'child_type': str(child_type)}
+        if scope.vo != 'def':
+            message['vo'] = scope.vo
+
+        add_message('DETACH', message, session=session)
 
 
 @stream_session
@@ -1219,111 +1234,21 @@ def set_metadata(scope, name, key, value, type=None, did=None,
     :param recursive: Option to propagate the metadata change to content.
     :param session: The database session in use.
     """
-    try:
-        rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
-            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').one()
-    except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (scope, name))
-
-    if key == 'lifetime':
-        try:
-            expired_at = None
-            if value is not None:
-                expired_at = datetime.utcnow() + timedelta(seconds=float(value))
-            rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).update({'expired_at': expired_at}, synchronize_session='fetch')
-        except TypeError as error:
-            raise exception.InvalidValueForKey(error)
-    elif key in ['guid', 'events']:
-        rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
-
-        session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
-        if key == 'events':
-            for parent_scope, parent_name in session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).filter_by(child_scope=scope, child_name=name):
-                events = session.query(func.sum(models.DataIdentifierAssociation.events)).filter_by(scope=parent_scope, name=parent_name).one()[0]
-                session.query(models.DataIdentifier).filter_by(scope=parent_scope, name=parent_name).update({'events': events}, synchronize_session=False)
-
-    elif key == 'adler32':
-        rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
-        session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
-        session.query(models.Request).filter_by(scope=scope, name=name).update({key: value}, synchronize_session=False)
-        session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name).update({key: value}, synchronize_session=False)
-
-    elif key == 'bytes':
-        rowcount = session.query(models.DataIdentifier).filter_by(scope=scope, name=name, did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
-        session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
-        session.query(models.Request).filter_by(scope=scope, name=name).update({key: value}, synchronize_session=False)
-
-        for account, bytes, rse_id, rule_id in session.query(models.ReplicaLock.account, models.ReplicaLock.bytes, models.ReplicaLock.rse_id, models.ReplicaLock.rule_id).filter_by(scope=scope, name=name):
-            session.query(models.ReplicaLock).filter_by(scope=scope, name=name, rule_id=rule_id, rse_id=rse_id).update({key: value}, synchronize_session=False)
-            account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes=bytes, session=session)
-            account_counter.increase(rse_id=rse_id, account=account, files=1, bytes=value, session=session)
-
-        for bytes, rse_id in session.query(models.RSEFileAssociation.bytes, models.RSEFileAssociation.rse_id).filter_by(scope=scope, name=name):
-            session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, rse_id=rse_id).update({key: value}, synchronize_session=False)
-            rse_counter.decrease(rse_id=rse_id, files=1, bytes=bytes, session=session)
-            rse_counter.increase(rse_id=rse_id, files=1, bytes=value, session=session)
-
-        for parent_scope, parent_name in session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).filter_by(child_scope=scope, child_name=name):
-
-            values = {}
-            values['length'], values['bytes'], values['events'] = session.query(func.count(models.DataIdentifierAssociation.scope),
-                                                                                func.sum(models.DataIdentifierAssociation.bytes),
-                                                                                func.sum(models.DataIdentifierAssociation.events)).filter_by(scope=parent_scope, name=parent_name).one()
-            session.query(models.DataIdentifier).filter_by(scope=parent_scope, name=parent_name).update(values, synchronize_session=False)
-            session.query(models.DatasetLock).filter_by(scope=parent_scope, name=parent_name).update({'length': values['length'], 'bytes': values['bytes']}, synchronize_session=False)
-    else:
-        try:
-            rowcount = session.query(models.DataIdentifier).\
-                with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
-                filter_by(scope=scope, name=name).\
-                update({key: value}, synchronize_session='fetch')
-        except CompileError as error:
-            raise exception.InvalidMetadata(error)
-        except InvalidRequestError as error:
-            raise exception.InvalidMetadata("Key %s is not accepted" % key)
-
-        # propagate metadata updates to child content
-        if recursive:
-            content_query = session.query(models.DataIdentifierAssociation.child_scope,
-                                          models.DataIdentifierAssociation.child_name).\
-                with_hint(models.DataIdentifierAssociation,
-                          "INDEX(CONTENTS CONTENTS_PK)", 'oracle').\
-                filter_by(scope=scope, name=name)
-
-            for child_scope, child_name in content_query:
-                try:
-                    session.query(models.DataIdentifier).\
-                        with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
-                        filter_by(scope=child_scope, name=child_name).\
-                        update({key: value}, synchronize_session='fetch')
-                except CompileError as error:
-                    raise exception.InvalidMetadata(error)
-                except InvalidRequestError as error:
-                    raise exception.InvalidMetadata("Key %s is not accepted" % key)
-
-    if not rowcount:
-        # check for did presence
-        raise exception.UnsupportedOperation('%(key)s for %(scope)s:%(name)s cannot be updated' % locals())
+    did_meta_plugins.set_metadata(scope=scope, name=name, key=key, value=value, recursive=recursive, session=session)
 
 
 @read_session
-def get_metadata(scope, name, session=None):
+def get_metadata(scope, name, plugin='DID_COLUMN', session=None):
     """
     Get data identifier metadata
 
     :param scope: The scope name.
     :param name: The data identifier name.
     :param session: The database session in use.
+
+    :returns: List of HARDCODED metadata for did.
     """
-    try:
-        row = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
-            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').one()
-        d = {}
-        for column in row.__table__.columns:
-            d[column.name] = getattr(row, column.name)
-        return d
-    except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+    return did_meta_plugins.get_metadata(scope, name, plugin=plugin, session=session)
 
 
 @stream_session
@@ -1349,75 +1274,8 @@ def get_metadata_bulk(dids, session=None):
         raise exception.DataIdentifierNotFound('No Data Identifiers found')
 
 
-@read_session
-def get_did_meta(scope, name, session=None):
-    """
-    Get all metadata for a given did
-
-    :param scope: the scope of did
-    :param name: the name of the did
-    """
-    if session.bind.dialect.name == 'oracle':
-        oracle_version = int(session.connection().connection.version.split('.')[0])
-        if oracle_version < 12:
-            raise NotImplementedError
-
-    try:
-        row = session.query(models.DidMeta).filter_by(scope=scope, name=name).one()
-        meta = getattr(row, 'meta')
-        return json.loads(meta) if session.bind.dialect.name in ['oracle', 'sqlite'] else meta
-    except NoResultFound:
-        raise exception.DataIdentifierNotFound("No generic metadata found for '%(scope)s:%(name)s'" % locals())
-
-
 @transactional_session
-def add_did_meta(scope, name, meta, session=None):
-    """
-    Add or update the given metadata to the given did
-
-    :param scope: the scope of the did
-    :param name: the name of the did
-    :param meta: the metadata to be added or updated
-    """
-    if session.bind.dialect.name == 'oracle':
-        oracle_version = int(session.connection().connection.version.split('.')[0])
-        if oracle_version < 12:
-            raise NotImplementedError
-
-    try:
-        row_did = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one()
-        row_did_meta = session.query(models.DidMeta).filter_by(scope=scope, name=name).scalar()
-        if row_did_meta is None:
-            # Add metadata column to new table (if not already present)
-            row_did_meta = models.DidMeta(scope=scope, name=name)
-            row_did_meta.save(session=session, flush=True)
-
-        existing_meta = getattr(row_did_meta, 'meta')
-
-        # Oracle returns a string instead of a dict
-        if session.bind.dialect.name in ['oracle', 'sqlite'] and existing_meta is not None:
-            existing_meta = json.loads(existing_meta)
-
-        if existing_meta is None:
-            existing_meta = {}
-
-        for k, v in iteritems(meta):
-            existing_meta[k] = v
-
-        row_did_meta.meta = None
-        session.flush()
-
-        # Oracle insert takes a string as input
-        if session.bind.dialect.name in ['oracle', 'sqlite']:
-            existing_meta = json.dumps(existing_meta)
-
-        row_did_meta.meta = existing_meta
-    except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
-
-
-@transactional_session
-def delete_did_meta(scope, name, key, session=None):
+def delete_metadata(scope, name, key, session=None):
     """
     Delete a key from the metadata column
 
@@ -1425,65 +1283,7 @@ def delete_did_meta(scope, name, key, session=None):
     :param name: the name of the did
     :param key: the key to be deleted
     """
-    if session.bind.dialect.name == 'oracle':
-        oracle_version = int(session.connection().connection.version.split('.')[0])
-        if oracle_version < 12:
-            raise NotImplementedError
-
-    try:
-        row = session.query(models.DidMeta).filter_by(scope=scope, name=name).one()
-        existing_meta = getattr(row, 'meta')
-        # Oracle returns a string instead of a dict
-        if session.bind.dialect.name in ['oracle', 'sqlite'] and existing_meta is not None:
-            existing_meta = json.loads(existing_meta)
-
-        if key not in existing_meta:
-            raise exception.KeyNotFound(key)
-
-        existing_meta.pop(key, None)
-
-        row.meta = None
-        session.flush()
-
-        # Oracle insert takes a string as input
-        if session.bind.dialect.name in ['oracle', 'sqlite']:
-            existing_meta = json.dumps(existing_meta)
-
-        row.meta = existing_meta
-    except NoResultFound:
-        raise exception.DataIdentifierNotFound("Key not found for data identifier '%(scope)s:%(name)s'" % locals())
-
-
-@read_session
-def list_dids_by_meta(scope, select, session=None):
-    """
-    Add or update the given metadata to the given did
-
-    :param scope: the scope of the did
-    :param name: the name of the did
-    :param meta: the metadata to be added or updated
-    """
-    # Currently for sqlite only add, get and delete is implemented.
-    if session.bind.dialect.name == 'sqlite':
-        raise NotImplementedError
-    if session.bind.dialect.name == 'oracle':
-        oracle_version = int(session.connection().connection.version.split('.')[0])
-        if oracle_version < 12:
-            raise NotImplementedError
-
-    query = session.query(models.DidMeta)
-    if scope is not None:
-        query = query.filter(models.DidMeta.scope == scope)
-
-    for k, v in iteritems(select):
-        if session.bind.dialect.name == 'oracle':
-            query = query.filter(text("json_exists(meta,'$.%s?(@==''%s'')')" % (k, v)))
-        else:
-            query = query.filter(cast(models.DidMeta.meta[k], String) == type_coerce(v, JSON))
-    dids = list()
-    for row in query.yield_per(10):
-        dids.append({'scope': row.scope, 'name': row.name})
-    return dids
+    did_meta_plugins.delete_metadata(scope, name, key, session=session)
 
 
 @transactional_session
@@ -1514,17 +1314,25 @@ def set_status(scope, name, session=None, **kwargs):
                 session.query(models.DatasetLock).filter_by(scope=scope, name=name).update({'length': values['length'], 'bytes': values['bytes']})
 
                 # Generate a message
-                add_message('CLOSE', {'scope': scope.external, 'name': name,
-                                      'bytes': values['bytes'],
-                                      'length': values['length'],
-                                      'events': values['events']},
-                            session=session)
+                message = {'scope': scope.external,
+                           'name': name,
+                           'bytes': values['bytes'],
+                           'length': values['length'],
+                           'events': values['events']}
+                if scope.vo != 'def':
+                    message['vo'] = scope.vo
+
+                add_message('CLOSE', message, session=session)
 
             else:
                 # Set status to open only for privileged accounts
                 query = query.filter_by(is_open=False).filter(models.DataIdentifier.did_type != DIDType.FILE)
                 values['is_open'] = True
-                add_message('OPEN', {'scope': scope.external, 'name': name}, session=session)
+
+                message = {'scope': scope.external, 'name': name}
+                if scope.vo != 'def':
+                    message['vo'] = scope.vo
+                add_message('OPEN', message, session=session)
 
     rowcount = query.update(values, synchronize_session='fetch')
 
@@ -1660,6 +1468,25 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
     else:
         for scope, name, did_type, bytes, length in query.yield_per(5):
             yield name
+
+
+@read_session
+def list_dids_extended(scope, filters, type='collection', ignore_case=False, limit=None,
+                       offset=None, long=False, recursive=False, session=None):
+    """
+    Search data identifiers
+
+    :param scope: the scope name.
+    :param filters: dictionary of attributes by which the results should be filtered.
+    :param type: the type of the did: all(container, dataset, file), collection(dataset or container), dataset, container, file.
+    :param ignore_case: ignore case distinctions.
+    :param limit: limit number.
+    :param offset: offset number.
+    :param long: Long format option to display more information for each DID.
+    :param session: The database session in use.
+    :param recursive: Recursively list DIDs content.
+    """
+    return did_meta_plugins.list_dids(scope, filters, type, ignore_case, limit, offset, long, recursive, session=session)
 
 
 @read_session

@@ -89,13 +89,16 @@ class Consumer(object):
                 if 'rse_id' in msg:
                     rse_id = msg['rse_id']
                 else:
-                    rse_id = get_rse_id(rse=msg['rse'])
+                    rse_id = get_rse_id(rse=msg['rse'], vo=msg.get('vo', 'def'))
 
+                rse_vo_str = msg['rse']
+                if 'vo' in msg and msg['vo'] != 'def':
+                    rse_vo_str = '{} on {}'.format(rse_vo_str, msg['vo'])
                 if msg['operation'] == 'add_replicas':
-                    logging.info('add_replicas to RSE %s: %s ' % (msg['rse'], str(msg['files'])))
+                    logging.info('add_replicas to RSE %s: %s ' % (rse_vo_str, str(msg['files'])))
                     add_volatile_replicas(rse_id=rse_id, replicas=msg['files'])
                 elif msg['operation'] == 'delete_replicas':
-                    logging.info('delete_replicas to RSE %s: %s ' % (msg['rse'], str(msg['files'])))
+                    logging.info('delete_replicas to RSE %s: %s ' % (rse_vo_str, str(msg['files'])))
                     delete_volatile_replicas(rse_id=rse_id, replicas=msg['files'])
         except:
             logging.error(str(format_exc()))

@@ -18,6 +18,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -30,7 +31,7 @@ from web import application, ctx, header, InternalError, loadhook
 
 from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks
 from rucio.common.exception import RucioException, RSENotFound
-from rucio.common.schema import SCOPE_NAME_REGEXP
+from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_http_error, render_json
 from rucio.web.rest.common import rucio_loadhook, check_accept_header_wrapper
 
@@ -39,7 +40,7 @@ SH = StreamHandler()
 SH.setLevel(DEBUG)
 LOGGER.addHandler(SH)
 
-URLS = ('%s' % SCOPE_NAME_REGEXP, 'LockByScopeName',
+URLS = ('%s' % get_schema_value('SCOPE_NAME_REGEXP'), 'LockByScopeName',
         '/(.*)', 'LockByRSE')
 
 
@@ -68,7 +69,7 @@ class LockByRSE(object):
                 did_type = params['did_type'][0]
         try:
             if did_type == 'dataset':
-                for lock in get_dataset_locks_by_rse(rse):
+                for lock in get_dataset_locks_by_rse(rse, vo=ctx.env.get('vo')):
                     yield render_json(**lock) + '\n'
             else:
                 raise InternalError('Wrong did_type specified')
@@ -105,7 +106,7 @@ class LockByScopeName(object):
                 did_type = params['did_type'][0]
         try:
             if did_type == 'dataset':
-                for lock in get_dataset_locks(scope, name):
+                for lock in get_dataset_locks(scope, name, vo=ctx.env.get('vo')):
                     yield render_json(**lock) + '\n'
             else:
                 raise InternalError('Wrong did_type specified')

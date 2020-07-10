@@ -15,6 +15,7 @@
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -27,6 +28,7 @@ from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.uploadclient import UploadClient
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.replica import delete_replicas
@@ -43,19 +45,29 @@ class TestAbacusCollectionReplica():
     def setUp(self):
         self.account = 'root'
         self.scope = 'mock'
+        self.rse = 'MOCK5'
+        self.file_sizes = 2
+        self.dataset = 'dataset_%s' % generate_uuid()
+
         self.rule_client = RuleClient()
         self.did_client = DIDClient()
         self.replica_client = ReplicaClient()
         self.upload_client = UploadClient()
-        self.file_sizes = 2
-        self.dataset = 'dataset_%s' % generate_uuid()
-        self.rse = 'MOCK5'
-        self.rse_id = get_rse_id(rse=self.rse)
+
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+        else:
+            self.vo = {}
+
+        self.rse_id = get_rse_id(rse=self.rse, **self.vo)
 
     def tearDown(self):
         undertaker.run(once=True)
         cleaner.run(once=True)
-        reaper.run(once=True, rses=[self.rse], greedy=True)
+        if self.vo:
+            reaper.run(once=True, include_rses='vo=%s&(%s)' % (self.vo['vo'], self.rse), greedy=True)
+        else:
+            reaper.run(once=True, include_rses=self.rse, greedy=True)
 
     def test_abacus_collection_replica(self):
         """ ABACUS (COLLECTION REPLICA): Test update of collection replica. """
@@ -87,7 +99,7 @@ class TestAbacusCollectionReplica():
 
         # Delete one file -> collection replica should be unavailable
         cleaner.run(once=True)
-        delete_replicas(rse_id=self.rse_id, files=[{'name': self.files[0]['did_name'], 'scope': InternalScope(self.files[0]['did_scope'])}])
+        delete_replicas(rse_id=self.rse_id, files=[{'name': self.files[0]['did_name'], 'scope': InternalScope(self.files[0]['did_scope'], **self.vo)}])
         self.rule_client.add_replication_rule([{'scope': self.scope, 'name': self.dataset}], 1, self.rse, lifetime=-1)
         collection_replica.run(once=True)
         dataset_replica = [replica for replica in self.replica_client.list_dataset_replicas(self.scope, self.dataset)][0]
@@ -99,7 +111,10 @@ class TestAbacusCollectionReplica():
 
         # Delete all files -> collection replica should be deleted
         cleaner.run(once=True)
-        reaper.run(once=True, rses=[self.rse], greedy=True)
+        if self.vo:
+            reaper.run(once=True, include_rses='vo=%s&(%s)' % (self.vo['vo'], self.rse), greedy=True)
+        else:
+            reaper.run(once=True, include_rses=self.rse, greedy=True)
         self.rule_client.add_replication_rule([{'scope': self.scope, 'name': self.dataset}], 1, self.rse, lifetime=-1)
         collection_replica.run(once=True)
         dataset_replica = [replica for replica in self.replica_client.list_dataset_replicas(self.scope, self.dataset)]

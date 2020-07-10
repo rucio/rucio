@@ -27,6 +27,7 @@
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Gabriele Fronze' <gfronze@cern.ch>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -1279,20 +1280,23 @@ def api_update_return_dict(dictionary):
 
     copied = False  # Avoid side effects from pass by object
 
-    if 'rse_id' in dictionary.keys():
-        if 'rse' not in dictionary.keys():
-            if not copied:
-                dictionary = dictionary.copy()
-                copied = True
+    for rse_str in ['rse', 'src_rse', 'source_rse', 'dest_rse', 'destination_rse']:
+        rse_id_str = '%s_id' % rse_str
+        if rse_id_str in dictionary.keys() and dictionary[rse_id_str] is not None:
+            if rse_str not in dictionary.keys():
+                if not copied:
+                    dictionary = dictionary.copy()
+                    copied = True
+                import rucio.core.rse
+                dictionary[rse_str] = rucio.core.rse.get_rse_name(rse_id=dictionary[rse_id_str])
 
-            import rucio.core.rse
-            dictionary['rse'] = rucio.core.rse.get_rse_name(rse_id=dictionary['rse_id'])
-    if 'account' in dictionary.keys():
+    if 'account' in dictionary.keys() and dictionary['account'] is not None:
         if not copied:
             dictionary = dictionary.copy()
             copied = True
         dictionary['account'] = dictionary['account'].external
-    if 'scope' in dictionary.keys():
+
+    if 'scope' in dictionary.keys() and dictionary['scope'] is not None:
         if not copied:
             dictionary = dictionary.copy()
             copied = True

@@ -19,6 +19,8 @@
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Fernando Lopez <fernando.e.lopez@gmail.com>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 from paste.fixture import TestApp
 from random import choice
@@ -32,6 +34,7 @@ import tempfile
 
 from rucio.client.accountclient import AccountClient
 from rucio.common import exception
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.utils import generate_uuid as uuid
 
 
@@ -83,9 +86,15 @@ def get_auth_token(account, username, password):
     :param password: the password linked to the account
     :returns: the authentication token
     """
+    if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+        vo_header = {'X-Rucio-VO': config_get('client', 'vo', raise_exception=False, default='tst')}
+    else:
+        vo_header = {}
+
     from rucio.web.rest.authentication import APP as auth_app
     mw = []
     header = {'Rucio-Account': account, 'Rucio-Username': username, 'Rucio-Password': password}
+    header.update(vo_header)
     r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=header, expect_errors=True)
     token = str(r1.header('Rucio-Auth-Token'))
     return token
@@ -96,7 +105,7 @@ def account_name_generator():
 
     :returns: A random account name
     """
-    return 'jdoe-' + str(uuid()).lower()[:20]
+    return 'jdoe-' + str(uuid()).lower()[:16]
 
 
 def scope_name_generator():
@@ -104,7 +113,7 @@ def scope_name_generator():
 
     :returns: A random scope name
     """
-    return 'mock_' + str(uuid()).lower()[:20]
+    return 'mock_' + str(uuid()).lower()[:16]
 
 
 def rse_name_generator(size=10):

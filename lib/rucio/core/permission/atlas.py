@@ -1,4 +1,4 @@
-# Copyright 2016-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2016-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,11 +16,13 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2016
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2019
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Eric Vaandering, <ewv@fnal.gov>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -56,6 +58,8 @@ def has_permission(issuer, action, kwargs):
             'add_protocol': perm_add_protocol,
             'del_protocol': perm_del_protocol,
             'update_protocol': perm_update_protocol,
+            'add_qos_policy': perm_add_qos_policy,
+            'delete_qos_policy': perm_delete_qos_policy,
             'declare_bad_file_replicas': perm_declare_bad_file_replicas,
             'declare_suspicious_file_replicas': perm_declare_suspicious_file_replicas,
             'add_replicas': perm_add_replicas,
@@ -118,7 +122,12 @@ def has_permission(issuer, action, kwargs):
             'del_account_identity': perm_del_account_identity,
             'del_identity': perm_del_identity,
             'remove_did_from_followed': perm_remove_did_from_followed,
-            'remove_dids_from_followed': perm_remove_dids_from_followed}
+            'remove_dids_from_followed': perm_remove_dids_from_followed,
+            'add_vo': perm_add_vo,
+            'list_vos': perm_list_vos,
+            'recover_vo_root_identity': perm_recover_vo_root_identity,
+            'update_vo': perm_update_vo,
+            'access_rule_vo': perm_access_rule_vo}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -386,7 +395,7 @@ def perm_add_did(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     # Check the accounts of the issued rules
-    if issuer != 'root' and not has_account_attribute(account=issuer, key='admin'):
+    if not _is_root(issuer) and not has_account_attribute(account=issuer, key='admin'):
         for rule in kwargs.get('rules', []):
             if rule['account'] != issuer:
                 return False
@@ -394,7 +403,7 @@ def perm_add_did(issuer, kwargs):
     return _is_root(issuer)\
         or has_account_attribute(account=issuer, key='admin')\
         or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)\
-        or kwargs['scope'] == u'mock'
+        or kwargs['scope'].external == u'mock'
 
 
 def perm_add_dids(issuer, kwargs):
@@ -406,7 +415,7 @@ def perm_add_dids(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     # Check the accounts of the issued rules
-    if issuer != 'root' and not has_account_attribute(account=issuer, key='admin'):
+    if not _is_root(issuer) and not has_account_attribute(account=issuer, key='admin'):
         for did in kwargs['dids']:
             for rule in did.get('rules', []):
                 if rule['account'] != issuer:
@@ -426,7 +435,7 @@ def perm_attach_dids(issuer, kwargs):
     return _is_root(issuer)\
         or has_account_attribute(account=issuer, key='admin')\
         or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)\
-        or kwargs['scope'] == 'mock'
+        or kwargs['scope'].external == 'mock'
 
 
 def perm_attach_dids_to_dids(issuer, kwargs):
@@ -459,7 +468,7 @@ def perm_create_did_sample(issuer, kwargs):
     return _is_root(issuer)\
         or has_account_attribute(account=issuer, key='admin')\
         or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)\
-        or kwargs['scope'] == 'mock'
+        or kwargs['scope'].external == 'mock'
 
 
 def perm_del_rule(issuer, kwargs):
@@ -482,7 +491,7 @@ def perm_del_rule(issuer, kwargs):
             admin_in_country.append(kv['key'].partition('-')[2])
 
     rule = get_rule(rule_id=kwargs['rule_id'])
-    rses = parse_expression(rule['rse_expression'])
+    rses = parse_expression(rule['rse_expression'], filter={'vo': issuer.vo})
     if admin_in_country:
         for rse in rses:
             if list_rse_attributes(rse_id=rse['id']).get('country') in admin_in_country:
@@ -525,7 +534,7 @@ def perm_update_rule(issuer, kwargs):
             admin_in_country.append(kv['key'].partition('-')[2])
 
     rule = get_rule(rule_id=kwargs['rule_id'])
-    rses = parse_expression(rule['rse_expression'])
+    rses = parse_expression(rule['rse_expression'], filter={'vo': issuer.vo})
     if admin_in_country:
         for rse in rses:
             if list_rse_attributes(rse_id=rse['id']).get('country') in admin_in_country:
@@ -565,13 +574,13 @@ def perm_move_rule(issuer, kwargs):
 
     if admin_in_country:
         rule = get_rule(rule_id=kwargs['rule_id'])
-        rses = parse_expression(rule['rse_expression'])
+        rses = parse_expression(rule['rse_expression'], filter={'vo': issuer.vo})
         for rse in rses:
             if list_rse_attributes(rse_id=rse['id']).get('country') in admin_in_country:
                 admin_source = True
                 break
 
-        rses = parse_expression(kwargs['rse_expression'])
+        rses = parse_expression(kwargs['rse_expression'], filter={'vo': issuer.vo})
         for rse in rses:
             if list_rse_attributes(rse_id=rse['id']).get('country') in admin_in_country:
                 admin_destination = True
@@ -596,7 +605,7 @@ def perm_approve_rule(issuer, kwargs):
         return True
 
     rule = get_rule(rule_id=kwargs['rule_id'])
-    rses = parse_expression(rule['rse_expression'])
+    rses = parse_expression(rule['rse_expression'], filter={'vo': issuer.vo})
 
     # APPROVERS can approve the rule
     for rse in rses:
@@ -679,7 +688,7 @@ def perm_set_metadata(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     cond = _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
-    if kwargs['scope'] != 'archive':
+    if kwargs['scope'].external != 'archive':
         return cond or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
     meta = rucio.core.did.get_metadata(scope=kwargs['scope'], name=kwargs['name'])
     return cond or meta.get('account', False) == issuer
@@ -694,10 +703,10 @@ def perm_set_status(issuer, kwargs):
     :returns: True if account is allowed, otherwise False
     """
     if kwargs.get('open', False):
-        if issuer != 'root' and not has_account_attribute(account=issuer, key='admin'):
+        if not _is_root(issuer) and not has_account_attribute(account=issuer, key='admin'):
             return False
     cond = (_is_root(issuer) or has_account_attribute(account=issuer, key='admin'))
-    if kwargs['scope'] != 'archive':
+    if kwargs['scope'].external != 'archive':
         return cond or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
     meta = rucio.core.did.get_metadata(scope=kwargs['scope'], name=kwargs['name'])
     return cond or meta.get('account', False) == issuer
@@ -728,6 +737,28 @@ def perm_del_protocol(issuer, kwargs):
 def perm_update_protocol(issuer, kwargs):
     """
     Checks if an account can update protocols of an RSE.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+
+
+def perm_add_qos_policy(issuer, kwargs):
+    """
+    Checks if an account can add QoS policies to an RSE.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
+
+
+def perm_delete_qos_policy(issuer, kwargs):
+    """
+    Checks if an account can delete QoS policies from an RSE.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
@@ -953,7 +984,7 @@ def perm_set_global_account_limit(issuer, kwargs):
     for kv in list_account_attributes(account=issuer):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
-    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country') for rse in parse_expression(kwargs['rse_expression'])}
+    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country') for rse in parse_expression(kwargs['rse_expression'], filter={'vo': issuer.vo})}
     if resolved_rse_countries.issubset(admin_in_country):
         return True
     return False
@@ -974,7 +1005,7 @@ def perm_delete_global_account_limit(issuer, kwargs):
     for kv in list_account_attributes(account=issuer):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
-    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country') for rse in parse_expression(kwargs['rse_expression'])}
+    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country') for rse in parse_expression(kwargs['rse_expression'], filter={'vo': issuer.vo})}
     if resolved_rse_countries.issubset(admin_in_country):
         return True
     return False
@@ -1127,7 +1158,7 @@ def perm_remove_did_from_followed(issuer, kwargs):
     return _is_root(issuer)\
         or has_account_attribute(account=issuer, key='admin')\
         or kwargs['account'] == issuer\
-        or kwargs['scope'] == 'mock'
+        or kwargs['scope'].external == 'mock'
 
 
 def perm_remove_dids_from_followed(issuer, kwargs):
@@ -1143,3 +1174,58 @@ def perm_remove_dids_from_followed(issuer, kwargs):
     if not kwargs['account'] == issuer:
         return False
     return True
+
+
+def perm_add_vo(issuer, kwargs):
+    """
+    Checks if an account can add a VO.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return (issuer.internal == 'super_root')
+
+
+def perm_list_vos(issuer, kwargs):
+    """
+    Checks if an account can list a VO.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return (issuer.internal == 'super_root')
+
+
+def perm_recover_vo_root_identity(issuer, kwargs):
+    """
+    Checks if an account can recover identities for VOs.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return (issuer.internal == 'super_root')
+
+
+def perm_update_vo(issuer, kwargs):
+    """
+    Checks if an account can update a VO.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return (issuer.internal == 'super_root')
+
+
+def perm_access_rule_vo(issuer, kwargs):
+    """
+    Checks if we're at the same VO as the rule_id's
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return get_rule(kwargs['rule_id'])['scope'].vo == issuer.vo

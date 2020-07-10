@@ -12,6 +12,7 @@
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2014, 2017
 # - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -68,7 +69,7 @@ class Default(protocol.RSEProtocol):
         lfns = [lfns] if type(lfns) == dict else lfns
         if not self.attributes['port']:
             for lfn in lfns:
-                scope, name, path = str(lfn['scope']), lfn['name'], lfn.get('path')
+                scope, name, path = lfn['scope'], lfn['name'], lfn.get('path')
                 if not path:
                     path = self._get_path(scope=scope, name=name)
                 if path.startswith('/'):
@@ -77,7 +78,7 @@ class Default(protocol.RSEProtocol):
                                                          hostname, web_service_path, prefix, path])
         else:
             for lfn in lfns:
-                scope, name, path = str(lfn['scope']), lfn['name'], lfn.get('path')
+                scope, name, path = lfn['scope'], lfn['name'], lfn.get('path')
                 if not path:
                     path = self._get_path(scope=scope, name=name)
                 if path.startswith('/'):

@@ -20,6 +20,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 #
 # PY3K COMPATIBLE
 
@@ -69,6 +70,7 @@ class UserPass(MethodView):
 
         .. :quickref: UserPass; Authenticate with username/password
 
+        :reqheader X-Rucio-VO: VO name as a string (Multi-VO Only)
         :reqheader X-Rucio-Account: Account identifier as a string.
         :reqheader X-Rucio-Username: Username as a string.
         :reqheader X-Rucio-Password: password as a text-plain string.
@@ -95,6 +97,7 @@ class UserPass(MethodView):
         response.headers['Cache-Control'] = 'post-check=0, pre-check=0'
         response.headers['Pragma'] = 'no-cache'
 
+        vo = request.environ.get('HTTP_X_RUCIO_VO', 'def')
         account = request.environ.get('HTTP_X_RUCIO_ACCOUNT')
         username = request.environ.get('HTTP_X_RUCIO_USERNAME')
         password = request.environ.get('HTTP_X_RUCIO_PASSWORD')
@@ -107,7 +110,7 @@ class UserPass(MethodView):
 
         print(account, username, password, appid)
         try:
-            result = get_auth_token_user_pass(account, username, password, appid, ip)
+            result = get_auth_token_user_pass(account, username, password, appid, ip, vo=vo)
         except AccessDenied:
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
         except RucioException as error:
@@ -151,6 +154,7 @@ class GSS(MethodView):
 
         .. :quickref: GSS; Authenticate with GSS token
 
+        :reqheader Rucio-VO: VO name as a string (Multi-VO only).
         :reqheader Rucio-Account: Account identifier as a string.
         :reqheader Rucio-AppID: Application identifier as a string.
         :reqheader SavedCredentials: Apache mod_auth_kerb SavedCredentials.
@@ -176,6 +180,7 @@ class GSS(MethodView):
         response.headers['Cache-Control'] = 'post-check=0, pre-check=0'
         response.headers['Pragma'] = 'no-cache'
 
+        vo = request.environ.get('HTTP_X_RUCIO_VO', 'def')
         account = request.environ.get('HTTP_X_RUCIO_ACCOUNT')
         gsscred = request.environ.get('REMOTE_USER')
         appid = request.environ.get('HTTP_X_RUCIO_APPID')
@@ -186,7 +191,7 @@ class GSS(MethodView):
             ip = request.remote_addr
 
         try:
-            result = get_auth_token_gss(account, gsscred, appid, ip)
+            result = get_auth_token_gss(account, gsscred, appid, ip, vo=vo)
         except AccessDenied:
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
 
@@ -227,6 +232,7 @@ class x509(MethodView):
 
         .. :quickref: x509; Authenticate with x509 certificate.
 
+        :reqheader Rucio-VO: VO name as a string (Multi-VO only).
         :reqheader Rucio-Account: Account identifier as a string.
         :reqheader Rucio-AppID: Application identifier as a string.
         :reqheader SSLStdEnv: Apache mod_ssl SSL Standard Env Variables.
@@ -252,6 +258,7 @@ class x509(MethodView):
         response.headers['Cache-Control'] = 'post-check=0, pre-check=0'
         response.headers['Pragma'] = 'no-cache'
 
+        vo = request.environ.get('HTTP_X_RUCIO_VO', 'def')
         account = request.environ.get('HTTP_X_RUCIO_ACCOUNT')
         dn = request.environ.get('SSL_CLIENT_S_DN')
         if not dn:
@@ -282,16 +289,16 @@ class x509(MethodView):
                 break
 
         try:
-            result = get_auth_token_x509(account, dn, appid, ip)
+            result = get_auth_token_x509(account, dn, appid, ip, vo=vo)
         except AccessDenied:
-            print('Cannot Authenticate', account, dn, appid, ip)
+            print('Cannot Authenticate', account, dn, appid, ip, vo)
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
         except IdentityError:
-            print('Cannot Authenticate', account, dn, appid, ip)
+            print('Cannot Authenticate', account, dn, appid, ip, vo)
             return generate_http_error_flask(401, 'CannotAuthenticate', 'No default account set for %(dn)s' % locals())
 
         if not result:
-            print('Cannot Authenticate', account, dn, appid, ip)
+            print('Cannot Authenticate', account, dn, appid, ip, vo)
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
 
         response.headers['X-Rucio-Auth-Token'] = result
@@ -327,6 +334,7 @@ class SSH(MethodView):
 
         .. :quickref: SSH; Authenticate with SSH key exchange.
 
+        :reqheader Rucio-VO: VO name as a string (Multi-VO only).
         :reqheader Rucio-Account: Account identifier as a string.
         :reqheader Rucio-SSH-Signature: Response to server challenge signed with SSH private key as a base64 encoded string.
         :reqheader Rucio-AppID: Application identifier as a string.
@@ -352,6 +360,7 @@ class SSH(MethodView):
         response.headers['Cache-Control'] = 'post-check=0, pre-check=0'
         response.headers['Pragma'] = 'no-cache'
 
+        vo = request.environ.get('HTTP_X_RUCIO_VO', 'def')
         account = request.environ.get('HTTP_X_RUCIO_ACCOUNT')
         signature = request.environ.get('HTTP_X_RUCIO_SSH_SIGNATURE')
         appid = request.environ.get('HTTP_X_RUCIO_APPID')
@@ -368,7 +377,7 @@ class SSH(MethodView):
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with malformed signature' % locals())
 
         try:
-            result = get_auth_token_ssh(account, signature, appid, ip)
+            result = get_auth_token_ssh(account, signature, appid, ip, vo=vo)
         except AccessDenied:
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
         except RucioException as error:
@@ -413,6 +422,7 @@ class SSHChallengeToken(MethodView):
 
         .. :quickref: SSHChallengeToken; Request SSH Challenge Token
 
+        :reqheader Rucio-VO: VO name as a string (Multi-VO only).
         :reqheader Rucio-Account: Account identifier as a string.
         :reqheader Rucio-AppID: Application identifier as a string.
         :resheader Access-Control-Allow-Origin:
@@ -437,6 +447,7 @@ class SSHChallengeToken(MethodView):
         response.headers['Cache-Control'] = 'post-check=0, pre-check=0'
         response.headers['Pragma'] = 'no-cache'
 
+        vo = request.environ.get('HTTP_X_RUCIO_VO', 'def')
         account = request.environ.get('HTTP_X_RUCIO_ACCOUNT')
         appid = request.environ.get('HTTP_X_RUCIO_APPID')
         if appid is None:
@@ -446,7 +457,7 @@ class SSHChallengeToken(MethodView):
             ip = request.remote_addr
 
         try:
-            result = get_ssh_challenge_token(account, appid, ip)
+            result = get_ssh_challenge_token(account, appid, ip, vo=vo)
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:

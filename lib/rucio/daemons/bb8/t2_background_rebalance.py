@@ -9,6 +9,7 @@
 # - Tomas Javurek, <tomas.javurek@cern.ch>, 2017
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -91,7 +92,8 @@ print('Excluding RSEs as destination which have active Background Rebalancing ru
 for rse in active_rses:
     print('  %s' % (rse[0]))
     for des in rses_under_ratio:
-        if des['rse'] == rse[0]:
+        des_as_expr = des['rse']
+        if des_as_expr == rse[0]:
             rses_under_ratio.remove(des)
             break
 
@@ -139,7 +141,8 @@ for source_rse in rses_over_ratio:
                 available_target_rebalance_volume = available_source_rebalance_volume
 
             print('Rebalance %dTB from %s(%f) to %s(%f)' % (available_target_rebalance_volume / 1E12, source_rse['rse'], source_rse['ratio'], destination_rse['rse'], destination_rse['ratio']))
-            rebalance_rse(source_rse['rse'], max_bytes=available_target_rebalance_volume, dry_run=False, comment='T2 Background rebalancing', force_expression=destination_rse['rse'])
+            expr = destination_rse['rse']
+            rebalance_rse(rse_id=source_rse['id'], max_bytes=available_target_rebalance_volume, dry_run=False, comment='T2 Background rebalancing', force_expression=expr)
 
             destination_rse['receive_volume'] += available_target_rebalance_volume
             total_rebalance_volume += available_target_rebalance_volume

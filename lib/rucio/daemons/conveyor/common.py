@@ -41,7 +41,7 @@ import logging
 import time
 import traceback
 
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound, ConfigNotFound, DuplicateFileTransferSubmission
 from rucio.common.utils import chunks, set_checksum_value
 from rucio.core import request, transfer as transfer_core
@@ -444,7 +444,7 @@ def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None):
     """
     Get a list of rses for conveyor
 
-    :param rses:          List of rses
+    :param rses:          List of rses (Single-VO only)
     :param include_rses:  RSEs to include
     :param exclude_rses:  RSEs to exclude
     :return:              List of working rses
@@ -452,7 +452,10 @@ def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None):
     working_rses = []
     rses_list = list_rses()
     if rses:
-        working_rses = [rse for rse in rses_list if rse['rse'] in rses]
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            logging.warning('Ignoring argument rses, this is only available in a single-vo setup. Please try an RSE Expression with include_rses if it is required.')
+        else:
+            working_rses = [rse for rse in rses_list if rse['rse'] in rses]
 
     if include_rses:
         try:
@@ -475,5 +478,5 @@ def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None):
         else:
             working_rses = [rse for rse in working_rses if rse not in parsed_rses]
 
-    working_rses = [rsemgr.get_rse_info(rse['rse']) for rse in working_rses]
+    working_rses = [rsemgr.get_rse_info(rse['id']) for rse in working_rses]
     return working_rses

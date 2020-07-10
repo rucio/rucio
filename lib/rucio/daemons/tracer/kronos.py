@@ -139,6 +139,9 @@ class AMQConsumer(object):
         replicas = []
         rses = []
         for report in self.__reports:
+            if 'vo' not in report:
+                report['vo'] = 'def'
+
             try:
                 # Identify suspicious files
                 try:
@@ -151,7 +154,7 @@ class AMQConsumer(object):
                                 else:
                                     try:
                                         surl = report['url']
-                                        declare_bad_file_replicas([surl, ], reason=reason, issuer=InternalAccount('root'), status=BadFilesStatus.SUSPICIOUS)
+                                        declare_bad_file_replicas([surl, ], reason=reason, issuer=InternalAccount('root', vo=report['vo']), status=BadFilesStatus.SUSPICIOUS)
                                         logging.info('Declare suspicious file %s with reason %s' % (report['url'], reason))
                                     except Exception as error:
                                         logging.error('Failed to declare suspicious file' + str(error))
@@ -165,7 +168,7 @@ class AMQConsumer(object):
                         continue
                 else:
                     record_counter('daemons.tracer.kronos.with_scope')
-                    report['scope'] = InternalScope(report['scope'])
+                    report['scope'] = InternalScope(report['scope'], report['vo'])
 
                 # handle all events starting with get* and download and touch events.
                 if not report['eventType'].startswith('get') and not report['eventType'].startswith('sm_get') and not report['eventType'] == 'download' and not report['eventType'] == 'touch':
@@ -218,7 +221,7 @@ class AMQConsumer(object):
                     rses = report['remoteSite'].strip().split(',')
                     for rse in rses:
                         try:
-                            rse_id = get_rse_id(rse=rse)
+                            rse_id = get_rse_id(rse=rse, vo=report['vo'])
                         except RSENotFound:
                             logging.error(format_exc())
                             record_counter('daemons.tracer.kronos.rse_not_found')
@@ -234,17 +237,24 @@ class AMQConsumer(object):
                     if 'remoteSite' in report:
                         rse = report['remoteSite']
                         try:
-                            rse_id = get_rse_id(rse=rse)
+                            rse_id = get_rse_id(rse=rse, vo=report['vo'])
                         except RSENotFound:
                             logging.error(format_exc())
                             record_counter('daemons.tracer.kronos.rse_not_found')
                     if 'datasetScope' in report:
-                        self.__dataset_queue.put({'scope': InternalScope(report['datasetScope']), 'name': report['dataset'], 'rse_id': rse_id, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
+                        self.__dataset_queue.put({'scope': InternalScope(report['datasetScope'], vo=report['vo']),
+                                                  'name': report['dataset'],
+                                                  'rse_id': rse_id,
+                                                  'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
                         continue
                     else:
                         if 'remoteSite' not in report:
                             continue
-                        replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': rse, 'rse_id': rse_id, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
+                        replicas.append({'name': report['filename'],
+                                         'scope': report['scope'],
+                                         'rse': rse,
+                                         'rse_id': rse_id,
+                                         'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
 
             except (KeyError, AttributeError):
                 logging.error(format_exc())
@@ -259,7 +269,7 @@ class AMQConsumer(object):
                     continue
                 for rse in rses:
                     try:
-                        rse_id = get_rse_id(rse=rse)
+                        rse_id = get_rse_id(rse=rse, vo=report['vo'])
                     except RSENotFound:
                         logging.error(format_exc())
                         record_counter('daemons.tracer.kronos.rse_not_found')
@@ -273,8 +283,16 @@ class AMQConsumer(object):
             for replica in replicas:
                 # if touch replica hits a locked row put the trace back into queue for later retry
                 if not touch_replica(replica):
-                    resubmit = {'filename': replica['name'], 'scope': replica['scope'].external, 'remoteSite': replica['rse'], 'traceTimeentryUnix': replica['traceTimeentryUnix'],
-                                'eventType': 'get', 'usrdn': 'someuser', 'clientState': 'DONE', 'eventVersion': replica['eventVersion']}
+                    resubmit = {'filename': replica['name'],
+                                'scope': replica['scope'].external,
+                                'remoteSite': replica['rse'],
+                                'traceTimeentryUnix': replica['traceTimeentryUnix'],
+                                'eventType': 'get',
+                                'usrdn': 'someuser',
+                                'clientState': 'DONE',
+                                'eventVersion': replica['eventVersion']}
+                    if replica['scope'].vo != 'def':
+                        resubmit['vo'] = replica['scope'].vo
                     self.__conn.send(body=jdumps(resubmit), destination=self.__queue, headers={'appversion': 'rucio', 'resubmitted': '1'})
                     record_counter('daemons.tracer.kronos.sent_resubmitted')
                     logging.warning('(kronos_file) hit locked row, resubmitted to queue')
