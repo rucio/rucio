@@ -1,0 +1,17 @@
+=======
+1.20.10
+=======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Core & Internals: rucio-admin rse update removes default RSE-Tag `#3608 <https://github.com/rucio/rucio/issues/3608>`_
+- Core & Internals: Credentials: Token validation for signatures `#3841 <https://github.com/rucio/rucio/issues/3841>`_
+- Core & Internals: Removal of fts3-rest-api dependency `#2518 <https://github.com/rucio/rucio/issues/2518>`_
+- Rules: Filtering of blocklisted updated_dids needs to be added to sql query `#3228 <https://github.com/rucio/rucio/issues/3228>`_
+- Testing: ius repo link is being decommissioned `#3618 <https://github.com/rucio/rucio/issues/3618>`_
