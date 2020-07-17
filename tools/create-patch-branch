@@ -8,16 +8,13 @@ if [[ $# -ne 2 ]] ; then
     exit 1
 fi
 
+echo "Fetching upstream"
+git fetch upstream --progress
+
 echo "Switching to master"
-git checkout master
-
-echo "Updating master"
-git pull --all --prune --progress
-
-echo "Rebasing master"
-git reset --hard upstream/master
+git checkout upstream/master -B master
 if [ $? != 0 ]; then
-    echo "Can't rebase to master. Unstaged changes?"
+    echo "Can't reset and checkout master"
     exit 1
 fi
 

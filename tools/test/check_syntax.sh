@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 echo '==============================='
 echo 'Running flake8                 '
@@ -47,7 +48,7 @@ echo '==============================='
 echo 'Running Sphinx                 '
 echo '==============================='
 
-RUCIO_HOME=$TRAVIS_BUILD_DIR sphinx-build -avT doc/source/ doc/build/html
+RUCIO_HOME=/usr/local/src/rucio sphinx-build -avT doc/source/ doc/build/html
 
 if [ $? -ne 0 ]; then
     exit 1
