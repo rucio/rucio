@@ -1,20 +1,27 @@
 #!/bin/bash
 
 if [[ $# -ne 3 ]] ; then
-    echo 'usage: tools/create-hotfix-branch <version> <ticketnumber> <branchname>'
+    echo 'usage: tools/create-hotfix-branch <release tag/release branch> <ticketnumber> <branchname>'
     echo
-    echo 'examples: tools/create-patch-branch 1.2.3 1234 fancypatch'
-    echo '          tools/create-patch-branch 1.2.3 1234 "my fancy patch"'
+    echo 'examples: tools/create-hotfix-branch 1.20.0 1234 fancypatch'
+    echo '          tools/create-hotfix-branch release-1.20-LTS 1234 "my fancy patch"'
     exit 1
 fi
 
-echo "Switching to master"
-git checkout master
+echo "Fetching upstream"
+git fetch upstream --progress --tags
 
-echo "Updating all"
-git pull --all --prune --progress
+echo "Switching to branch $1"
+git checkout $1
+if [ $? != 0 ]; then
+    echo "Can't checkout $1"
+    exit 1
+fi
+
+echo "Pulling newer changes, if possible/necessary"
+git pull --ff-only
 
 echo "Creating hotfix branch"
-git checkout -b hotfix-$2-${3//[^a-zA-Z0-9]/_} $1
+git checkout -b hotfix-$2-${3//[^a-zA-Z0-9]/_}
 
 echo "Done"

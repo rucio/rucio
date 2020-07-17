@@ -18,3 +18,4 @@ subprocess32==3.5.4; python_version <= '3.0'  # A backport of the subprocess mod
 pycodestyle==2.5.0                            # New package replacing pep8
 mock==3.0.5                                   # Mock package needed for readthedocs build for mocking pycurls
 s3cmd==2.0.2                                  # Used for testing of S3
+PyYAML==5.3.1                                 # Used for reading test configuration files
