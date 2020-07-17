@@ -23,6 +23,10 @@ On release day both master and the related release branch are essentially the sa
 
 Generally all `pull requests <https://github.com/rucio/rucio/pulls>`_ are to be created against the Rucio **master** branch. Features will end up in the upstream **master** only and patches are cherry-picked to the maintained releases if applicable. Release-specific changes are excluded from that rule and might be needed if e.g. cherry-picking to the last release was not successful.
 
+The following figure might help you with an overview:
+
+.. image:: https://raw.githubusercontent.com/rucio/rucio/master/doc/source/images/branching_strategy.svg
+
 
 Getting started
 ---------------

@@ -23,10 +23,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Install pip requirements
-        run: |
-          pip3 install -U pip setuptools
-          pip3 install -U PyYAML # needed by matrix_parser.py
+      - name: Update pip
+        run: python3 -m pip install -U pip setuptools
+      - name: Install python requirements for matrix_parser.py
+        run: python3 -m pip install -U PyYAML
       - name: Identify Matrix
         id: matrix
         run: echo "::set-output name=matrix::$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml)"
@@ -38,15 +38,15 @@ jobs:
       - pr_setup
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         cfg: ${{ fromJson(needs.setup.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v2
-      - name: Install pip requirements
-        run: |
-          pip3 install -U pip setuptools
-          pip3 install -U sh # needed by mergetest.py
+      - name: Update pip
+        run: python3 -m pip install -U pip setuptools
+      - name: Install python requirements for mergetest.py
+        run: python3 -m pip install -U sh
       - name: Test cherry-picking pull request changes
         run: |
           echo '{
@@ -60,11 +60,21 @@ jobs:
         run: BASE_BRANCH="${{ needs.pr_setup.outputs.release_branch }}" ./tools/test/create_changelist.sh
       - name: Build images
         id: images
+        shell: bash
         run: |
           docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
-          echo "::set-output name=images::$(echo '${{ toJson(matrix.cfg) }}' | ./tools/test/build_images.py \
-          --cache-repo docker.pkg.github.com/${{ github.repository }} ./etc/docker/test)"
+          i=0; until [ "$i" -ge 3 ]; do
+            IMAGES=$(echo '${{ toJson(matrix.cfg) }}' | ./tools/test/build_images.py \
+                --cache-repo docker.pkg.github.com/${{ github.repository }} ./etc/docker/test || echo "")
+            if [[ -n $IMAGES ]]; then break;
+            else
+              i=$((i+1)); sleep 5;
+              echo "::warning::Building images failed, retrying…"
+            fi
+          done
           docker logout https://docker.pkg.github.com
+          if [[ -z $IMAGES ]]; then exit 1; fi
+          echo "::set-output name=images::$IMAGES"
       - name: Run test with cfg
         run: 'echo ''{"matrix": ${{ toJson(matrix.cfg) }}, "images": ${{ steps.images.outputs.images }} }'' | ./tools/test/run_tests.py'
   test:
@@ -77,15 +87,23 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Create changed_files.txt
-        run: |
-          BASE_BRANCH=`if [[ -z "$GITHUB_BASE_REF" ]]; then echo "${{ github.event.repository.default_branch }}"; else echo "$GITHUB_BASE_REF"; fi` \
-            ./tools/test/create_changelist.sh
+        run: 'BASE_BRANCH=`if [[ -z "$GITHUB_BASE_REF" ]]; then echo "${{ github.event.repository.default_branch }}"; else echo "$GITHUB_BASE_REF"; fi` ./tools/test/create_changelist.sh'
       - name: Build images
         id: images
+        shell: bash
         run: |
           docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
-          echo "::set-output name=images::$(echo '${{ toJson(matrix.cfg) }}' | ./tools/test/build_images.py \
-          --cache-repo docker.pkg.github.com/${{ github.repository }} ./etc/docker/test)"
+          i=0; until [ "$i" -ge 3 ]; do
+            IMAGES=$(echo '${{ toJson(matrix.cfg) }}' | ./tools/test/build_images.py \
+                --cache-repo docker.pkg.github.com/${{ github.repository }} ./etc/docker/test || echo "")
+            if [[ -n $IMAGES ]]; then break;
+            else
+              i=$((i+1)); sleep 5;
+              echo "::warning::Building images failed, retrying…"
+            fi
+          done
           docker logout https://docker.pkg.github.com
+          if [[ -z $IMAGES ]]; then exit 1; fi
+          echo "::set-output name=images::$IMAGES"
       - name: Run test with cfg
         run: 'echo ''{"matrix": ${{ toJson(matrix.cfg) }}, "images": ${{ steps.images.outputs.images }} }'' | ./tools/test/run_tests.py'
