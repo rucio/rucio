@@ -1,6 +1,7 @@
 name: Daily image cache build for autotests
 
 on:
+  workflow_dispatch: {}
   schedule:
     - cron: '0 3 * * 1-5'
 
@@ -9,19 +10,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-      - name: Install pip requirements
-        run: |
-          pip3 install -U pip setuptools
-          pip3 install -U PyYAML # needed by matrix_parser.py
+      - name: Update pip
+        run: python3 -m pip install -U pip setuptools
+      - name: Install python requirements for matrix_parser.py
+        run: python3 -m pip install -U PyYAML
       - name: Identify Matrix
         id: matrix
         run: echo "::set-output name=matrix::$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml)"
       - name: Build and upload images
         id: images
+        shell: bash
         run: |
           docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
-          echo '${{ steps.matrix.outputs.matrix }}' | ./tools/test/build_images.py --output list \
-          --build-no-cache --cache-repo docker.pkg.github.com/${{ github.repository }} --push-cache ./etc/docker/test
+          i=0; until [ "$i" -ge 3 ]; do
+            IMAGES=$(echo '${{ steps.matrix.outputs.matrix }}' | ./tools/test/build_images.py --output list \
+                --build-no-cache --cache-repo docker.pkg.github.com/${{ github.repository }} --push-cache \
+                ./etc/docker/test || echo "")
+            if [[ -n $IMAGES ]]; then break;
+            else
+              i=$((i+1)); sleep 5;
+              echo "::warning::Building images failed, retrying…"
+            fi
+          done
           docker logout https://docker.pkg.github.com
+          if [[ -z $IMAGES ]]; then echo "::error::Building images failed ultimately"; exit 1; fi
