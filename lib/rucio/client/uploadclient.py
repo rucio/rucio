@@ -555,8 +555,8 @@ class UploadClient:
 
         # Auth. mostly for object stores
         if sign_service:
-            pfn = self.client.get_signed_url(sign_service, 'write', pfn)       # NOQA pylint: disable=undefined-variable
-            readpfn = self.client.get_signed_url(sign_service, 'read', pfn)    # NOQA pylint: disable=undefined-variable
+            pfn = self.client.get_signed_url(rse_settings['rse'], sign_service, 'write', pfn)       # NOQA pylint: disable=undefined-variable
+            readpfn = self.client.get_signed_url(rse_settings['rse'], sign_service, 'read', pfn)    # NOQA pylint: disable=undefined-variable
 
         # Create a name of tmp file if renaming operation is supported
         pfn_tmp = '%s.rucio.upload' % pfn if protocol_write.renaming else pfn
