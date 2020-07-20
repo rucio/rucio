@@ -761,14 +761,14 @@ def extract_scope_atlas(did, scopes):
 
 def extract_scope_belleii(did, scopes):
     split_did = did.split('/')
-    if did.find('/belle/MC/') > -1:
-        if len(split_did) > 5:
-            if split_did[4] in ['fab', 'merge1', 'skim']:
+    if did.startswith('/belle/MC/'):
+        if len(split_did) > 4:
+            if split_did[3] in ['fab', 'merge1', 'skim']:
                 return 'mc_tmp', did
         return 'mc', did
-    if did.find('/belle/Raw/') > -1:
+    if did.startswith('/belle/Raw/'):
         return 'raw', did
-    if did.find('/belle/user/') > -1:
+    if did.startswith('/belle/user/'):
         if len(split_did) > 4:
             if len(split_did[3]) == 1 and 'user.%s' % (split_did[4]) in scopes:
                 return 'user.%s' % split_did[4], did
@@ -776,12 +776,12 @@ def extract_scope_belleii(did, scopes):
             if 'user.%s' % (split_did[3]) in scopes:
                 return 'user.%s' % split_did[3], did
         return 'user', did
-    if did.find('/belle/data/') > -1:
-        if len(split_did) > 5:
-            if split_did[4] in ['fab', 'skim']:
+    if did.startswith('/belle/data/') or did.startswith('/belle/Data/'):
+        if len(split_did) > 4:
+            if split_did[3] in ['fab', 'skim']:
                 return 'data_tmp', did
         return 'data', did
-    if did.find('/belle/ddm/functional_tests/') > -1:
+    if did.startswith('/belle/ddm/functional_tests/') or did.startswith('/belle/ddm/tests/'):
         return 'test', did
     return 'other', did
 
