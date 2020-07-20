@@ -53,7 +53,13 @@ Contributing
 
 **Step 1**: If not exist, create an `issue <https://github.com/rucio/rucio/issues/new>`_ with the description of the contribution (motivation, modification and expected results). Every issue will get a **unique issue number**.
 
-**Step 2**: Create a local branch that corresponds to the issue. There are utility scripts to help you with this::
+**Step 2**: Create a local branch that corresponds to the issue. To easily identify the purpose of branches different keywords must be used:
+
+* Patch branches must be named **patch-[issue number]-[short description]**
+* Feature branches must be named **feature-[issue number]-[short description]**
+* Hotfix branches must be named **hotfix-[issue number]-[short description]**
+
+If you create these branches by hand please check the spelling because otherwise the test automation might misidentify your branch. There are utility scripts to fetch master and create these branches for you::
 
     $ ./tools/create-patch-branch <unique issue number> '<short_change_message>'
     $ ./tools/create-feature-branch <unique issue number> '<short_change_message>'
