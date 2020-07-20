@@ -242,14 +242,14 @@ class UploadClient:
                 trace['protocol'] = cur_scheme
                 trace['transferStart'] = time.time()
                 try:
-                    self._upload_item(rse_settings=rse_settings,
-                                      lfn=lfn,
-                                      source_dir=file['dirname'],
-                                      force_scheme=cur_scheme,
-                                      force_pfn=pfn,
-                                      transfer_timeout=file.get('transfer_timeout'),
-                                      delete_existing=delete_existing,
-                                      sign_service=sign_service)
+                    pfn = self._upload_item(rse_settings=rse_settings,
+                                            lfn=lfn,
+                                            source_dir=file['dirname'],
+                                            force_scheme=cur_scheme,
+                                            force_pfn=pfn,
+                                            transfer_timeout=file.get('transfer_timeout'),
+                                            delete_existing=delete_existing,
+                                            sign_service=sign_service)
                     logger.debug('Upload done.')
                     success = True
                     file['upload_result'] = {0: True, 1: None, 'success': True, 'pfn': pfn}  # needs to be removed
@@ -623,6 +623,8 @@ class UploadClient:
 
         protocol_write.close()
         protocol_read.close()
+
+        return pfn
 
     def _retry_protocol_stat(self, protocol, pfn):
         """
