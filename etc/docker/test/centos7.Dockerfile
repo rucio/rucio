@@ -50,7 +50,8 @@ RUN if [ "$PYTHON" == "3.6" ] ; then ln -sf python3.6 /usr/bin/python ; ln -sf p
 # to fix the setup.py error:
 # install fails with: `install_requires` must be a string or list of strings
 RUN if [ "$PYTHON" == "2.7" ] ; then pip install --no-cache-dir --upgrade pip 'setuptools<45' ; \
-    else pip install --no-cache-dir --upgrade pip setuptools ; fi
+    else pip install --no-cache-dir --upgrade pip setuptools ; fi && \
+    pip install --no-cache-dir -U wheel
 
 RUN mkdir -p /var/log/rucio/trace && \
   chmod -R 777 /var/log/rucio
@@ -72,6 +73,10 @@ RUN cp etc/certs/hostcert_rucio.pem /etc/grid-security/hostcert.pem && \
 RUN rpm -i etc/docker/test/extra/oic.rpm; \
     echo "/usr/lib/oracle/12.2/client64/lib" >/etc/ld.so.conf.d/oracle.conf; \
     ldconfig
+
+# pre-install requirements
+RUN pip install --no-cache-dir -r etc/pip-requires -r etc/pip-requires-client -r etc/pip-requires-test \
+    'cx_oracle==6.3.1' 'psycopg2-binary>=2.4.2,<2.8' 'PyMySQL' 'kerberos>=1.3.0' 'pykerberos>=1.2.1' 'requests-kerberos>=0.12.0' 'python3-saml>=1.6.0'
 
 # copy everything else (anything above is cache-friendly)
 COPY . .
