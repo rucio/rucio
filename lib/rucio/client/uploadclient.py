@@ -595,23 +595,27 @@ class UploadClient:
         except Exception as error:
             raise RSEOperationNotSupported(str(error))
 
+        # Is stat after that upload allowed?
+        skip_upload_stat = rse_settings.get('skip_upload_stat', False)
+
         # Checksum verification, obsolete, see Gabriele changes.
-        try:
-            stats = self._retry_protocol_stat(protocol_read, readpfn_tmp)
-            if not isinstance(stats, dict):
-                raise RucioException('Could not get protocol.stats for given PFN: %s' % pfn)
+        if not skip_upload_stat:
+            try:
+                stats = self._retry_protocol_stat(protocol_read, readpfn_tmp)
+                if not isinstance(stats, dict):
+                    raise RucioException('Could not get protocol.stats for given PFN: %s' % pfn)
 
-            # The checksum and filesize check
-            if ('filesize' in stats) and ('filesize' in lfn):
-                if int(stats['filesize']) != int(lfn['filesize']):
-                    raise RucioException('Filesize mismatch. Source: %s Destination: %s' % (lfn['filesize'], stats['filesize']))
-            if rse_settings['verify_checksum'] is not False:
-                if ('adler32' in stats) and ('adler32' in lfn):
-                    if stats['adler32'] != lfn['adler32']:
-                        raise RucioException('Checksum mismatch. Source: %s Destination: %s' % (lfn['adler32'], stats['adler32']))
+                # The checksum and filesize check
+                if ('filesize' in stats) and ('filesize' in lfn):
+                    if int(stats['filesize']) != int(lfn['filesize']):
+                        raise RucioException('Filesize mismatch. Source: %s Destination: %s' % (lfn['filesize'], stats['filesize']))
+                if rse_settings['verify_checksum'] is not False:
+                    if ('adler32' in stats) and ('adler32' in lfn):
+                        if stats['adler32'] != lfn['adler32']:
+                            raise RucioException('Checksum mismatch. Source: %s Destination: %s' % (lfn['adler32'], stats['adler32']))
 
-        except Exception as error:
-            raise error
+            except Exception as error:
+                raise error
 
         # The upload finished successful and the file can be renamed
         try:
