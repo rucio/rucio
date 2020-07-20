@@ -223,17 +223,20 @@ class Config:
         else:
             self.parser = ConfigParser.ConfigParser(defaults=os.environ)
 
+        # test to not fail when build the API doc
+        builds_doc = 'sphinx' in sys.modules
+
         if 'RUCIO_CONFIG' in os.environ:
             self.configfile = os.environ['RUCIO_CONFIG']
         else:
             configs = [os.path.join(confdir, 'rucio.cfg') for confdir in get_config_dirs()]
             self.configfile = next(iter(filter(os.path.exists, configs)), None)
-            if self.configfile is None:
+            if not builds_doc and self.configfile is None:
                 raise RuntimeError('Could not load Rucio configuration file. '
                                    'Rucio looked in the following paths for a configuration file, in order:'
                                    '\n\t' + '\n\t'.join(configs))
 
-        if not self.parser.read(self.configfile) == [self.configfile]:
+        if not builds_doc and not self.parser.read(self.configfile) == [self.configfile]:
             raise RuntimeError('Could not load Rucio configuration file. '
                                'Rucio tried loading the following configuration file:'
                                '\n\t' + self.configfile)
