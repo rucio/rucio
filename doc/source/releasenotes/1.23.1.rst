@@ -1,0 +1,31 @@
+======
+1.23.1
+======
+
+-------
+General
+-------
+
+********
+Features
+********
+
+- Release management: New code management model `#3417 <https://github.com/rucio/rucio/issues/3417>`_
+
+************
+Enhancements
+************
+
+- Core & Internals: BelleII : Change in the extract_scope algorithm `#3857 <https://github.com/rucio/rucio/issues/3857>`_
+
+-------
+Clients
+-------
+
+****
+Bugs
+****
+
+- Clients: Add option to skip stats in the upload client `#3842 <https://github.com/rucio/rucio/issues/3842>`_
+- Clients: Uploadclient: upload method needs to propagate pfn correctly `#3844 <https://github.com/rucio/rucio/issues/3844>`_
+- Clients: Uploadclient: needs to pass RSE name to get_signed_url `#3850 <https://github.com/rucio/rucio/issues/3850>`_
