@@ -22,4 +22,4 @@ suites:
   - id: client
     RDBMS: sqlite
   - id: multi_vo
-    RDBMS: sqlite
+    RDBMS: postgres12
