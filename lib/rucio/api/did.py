@@ -16,6 +16,7 @@
   - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
   - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
   - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+  - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
   PY3K COMPATIBLE
 '''
@@ -174,6 +175,8 @@ def add_dids(dids, issuer, vo='def'):
     issuer = InternalAccount(issuer, vo=vo)
     for d in dids:
         d['scope'] = InternalScope(d['scope'], vo=vo)
+        if 'account' in d.keys():
+            d['account'] = InternalAccount(d['account'], vo=vo)
         if 'dids' in d.keys():
             for child in d['dids']:
                 child['scope'] = InternalScope(child['scope'], vo=vo)
@@ -206,6 +209,8 @@ def attach_dids(scope, name, attachment, issuer, vo='def'):
         attachment['account'] = InternalAccount(attachment['account'], vo=vo)
     for d in attachment['dids']:
         d['scope'] = InternalScope(d['scope'], vo=vo)
+        if 'account' in d.keys():
+            d['account'] = InternalAccount(d['account'], vo=vo)
 
     if rse_id is not None:
         dids = did.attach_dids(scope=scope, name=name, dids=attachment['dids'],
@@ -243,6 +248,8 @@ def attach_dids_to_dids(attachments, issuer, ignore_duplicate=False, vo='def'):
         attachment['scope'] = InternalScope(attachment['scope'], vo=vo)
         for d in attachment['dids']:
             d['scope'] = InternalScope(d['scope'], vo=vo)
+            if 'account' in d.keys():
+                d['account'] = InternalAccount(d['account'], vo=vo)
 
     return did.attach_dids_to_dids(attachments=attachments, account=issuer,
                                    ignore_duplicate=ignore_duplicate)

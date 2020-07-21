@@ -641,7 +641,7 @@ class TestDIDClients:
         tmp_scope = 'mock'
         dsns = list()
         for i in range(500):
-            tmp_dsn = {'name': 'dsn_%s' % generate_uuid(), 'scope': tmp_scope, 'meta': {'project': 'data13_hip'}}
+            tmp_dsn = {'name': 'dsn_%s' % generate_uuid(), 'scope': tmp_scope, 'meta': {'project': 'data13_hip'}, 'account': 'root'}
             dsns.append(tmp_dsn)
         self.did_client.add_datasets(dsns)
 
