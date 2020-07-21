@@ -134,17 +134,18 @@ elif [[ $RDBMS == "postgres12" ]]; then
         echo Could not connect to Postgres in time.
         exit 1
     fi
+    if [[ $SUITE == "multi_vo" ]]; then
+        docker exec rucio mkdir -p /opt/rucio/etc/multi_vo/tst/etc
+        docker exec rucio mkdir -p /opt/rucio/etc/multi_vo/ts2/etc
+        docker exec rucio cp /usr/local/src/rucio/etc/docker/test/extra/rucio_multi_vo_tst_postgres12.cfg /opt/rucio/etc/multi_vo/tst/etc/rucio.cfg
+        docker exec rucio cp /usr/local/src/rucio/etc/docker/test/extra/rucio_multi_vo_ts2_postgres12.cfg /opt/rucio/etc/multi_vo/ts2/etc/rucio.cfg
+    fi
     docker exec rucio cp /usr/local/src/rucio/etc/docker/test/extra/rucio_postgres12.cfg /opt/rucio/etc/rucio.cfg
     docker exec rucio cp /usr/local/src/rucio/etc/docker/test/extra/alembic_postgres12.ini /opt/rucio/etc/alembic.ini
     docker exec rucio httpd -k restart
 
 elif [[ $RDBMS == "sqlite" ]]; then
-    if [[ $SUITE == "multi_vo" ]]; then
-        docker exec rucio cp /usr/local/src/rucio/etc/docker/test/extra/rucio_multi_vo_tst_sqlite.cfg /opt/rucio/etc/rucio_multi_vo_tst.cfg
-        docker exec rucio cp /usr/local/src/rucio/etc/docker/test/extra/rucio_multi_vo_ts2_sqlite.cfg /opt/rucio/etc/rucio_multi_vo_ts2.cfg
-    else
-        docker exec rucio cp /usr/local/src/rucio/etc/docker/test/extra/rucio_sqlite.cfg /opt/rucio/etc/rucio.cfg
-    fi
+    docker exec rucio cp /usr/local/src/rucio/etc/docker/test/extra/rucio_sqlite.cfg /opt/rucio/etc/rucio.cfg
     docker exec rucio cp /usr/local/src/rucio/etc/docker/test/extra/alembic_sqlite.ini /opt/rucio/etc/alembic.ini
     docker exec rucio httpd -k restart
 fi

@@ -732,7 +732,7 @@ class Meta(RucioController):
                 raise generate_http_error(404, 'KeyNotFound', 'No key provided to remove')
 
         try:
-            delete_metadata(scope=scope, name=name, key=key)
+            delete_metadata(scope=scope, name=name, key=key, vo=ctx.env.get('vo'))
         except KeyNotFound as error:
             raise generate_http_error(404, 'KeyNotFound', error.args[0])
         except DataIdentifierNotFound as error:
