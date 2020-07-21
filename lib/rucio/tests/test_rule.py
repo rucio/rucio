@@ -566,7 +566,7 @@ class TestReplicationRuleCore():
         account_counter_before_1 = get_usage(self.rse1_id, self.jdoe)
         account_counter_before_2 = get_usage(self.rse1_id, self.root)
 
-        update_rule(rule_id, {'account': self.root})
+        rucio.api.rule.update_replication_rule(rule_id, {'account': 'root'}, issuer='root', **self.vo)
         account_update(once=True)
 
         # Check if the counter has been updated correctly
