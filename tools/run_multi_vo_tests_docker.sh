@@ -40,8 +40,7 @@ do
     r) activate_rse="true";;
   esac
 done
-
-cp /opt/rucio/etc/rucio_multi_vo_tst.cfg /opt/rucio/etc/rucio.cfg
+export RUCIO_HOME=/opt/rucio/etc/multi_vo/tst
 
 echo 'Clearing memcache'
 echo flush_all > /dev/tcp/127.0.0.1/11211
@@ -130,7 +129,7 @@ if [ $? != 0 ]; then
 fi
 
 echo 'Tests on first VO successful, preparing second VO'
-cp /opt/rucio/etc/rucio_multi_vo_ts2.cfg /opt/rucio/etc/rucio.cfg
+export RUCIO_HOME=/opt/rucio/etc/multi_vo/ts2
 
 echo 'Clearing memcache'
 echo flush_all > /dev/tcp/127.0.0.1/11211
