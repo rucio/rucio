@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2014
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
@@ -324,4 +324,5 @@ class SubscriptionId:
 
 APP = application(URLS, globals())
 APP.add_processor(loadhook(rucio_loadhook))
-application = APP.wsgifunc()
+if __name__ != "rucio.web.rest.subscription":
+    application = APP.wsgifunc()
