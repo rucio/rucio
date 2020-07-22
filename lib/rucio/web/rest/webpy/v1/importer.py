@@ -16,6 +16,7 @@
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -68,4 +69,5 @@ class Import(RucioController):
 
 APP = application(URLS, globals())
 APP.add_processor(loadhook(rucio_loadhook))
-application = APP.wsgifunc()
+if __name__ != "rucio.web.rest.importer":
+    application = APP.wsgifunc()
