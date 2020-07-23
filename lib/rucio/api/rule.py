@@ -228,6 +228,8 @@ def update_replication_rule(rule_id, options, issuer, vo='def'):
     else:
         if not has_permission(issuer=issuer, vo=vo, action='update_rule', kwargs=kwargs):
             raise AccessDenied('Account %s can not update this replication rule.' % (issuer))
+        if 'account' in options:
+            options['account'] = InternalAccount(options['account'], vo=vo)
         rule.update_rule(rule_id=rule_id, options=options)
 
 
