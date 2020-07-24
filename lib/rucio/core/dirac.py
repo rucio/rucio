@@ -24,7 +24,7 @@ from rucio.db.sqla import models
 from rucio.db.sqla.session import transactional_session, read_session
 from rucio.db.sqla.constants import DIDType, RuleGrouping
 from rucio.common.exception import InvalidType
-from rucio.common.types import InternalScope
+from rucio.common.types import InternalScope, InternalAccount
 from rucio.common.utils import extract_scope
 from rucio.core.did import add_did, attach_dids_to_dids
 from rucio.core.replica import add_replicas
@@ -89,10 +89,10 @@ def add_files(lfns, account, ignore_availability, session=None):
             add_did(scope=dsn_scope,
                     name=dsn_name,
                     type=DIDType.DATASET,
-                    account=account,
+                    account=InternalAccount(account),
                     statuses=None,
                     meta=None,
-                    rules=[{'copies': 1, 'rse_expression': 'ANY=true', 'weight': None, 'account': account, 'lifetime': None, 'GROUPING': RuleGrouping.NONE}],
+                    rules=[{'copies': 1, 'rse_expression': 'ANY=true', 'weight': None, 'account': InternalAccount(account), 'lifetime': None, 'GROUPING': RuleGrouping.NONE}],
                     lifetime=None,
                     dids=None,
                     rse_id=None,
@@ -119,7 +119,7 @@ def add_files(lfns, account, ignore_availability, session=None):
         add_replicas(rse_id=rse_id,
                      files=[files],
                      dataset_meta=None,
-                     account=account,
+                     account=InternalAccount(account),
                      ignore_availability=ignore_availability,
                      session=session)
         attachments.append({'scope': dsn_scope, 'name': dsn_name, 'dids': [{'scope': lfn_scope, 'name': filename}]})
@@ -133,7 +133,7 @@ def add_files(lfns, account, ignore_availability, session=None):
                 add_did(scope=child_scope,
                         name=lpn,
                         type=DIDType.CONTAINER,
-                        account=account,
+                        account=InternalAccount(account),
                         statuses=None,
                         meta=None,
                         rules=None,
@@ -148,6 +148,6 @@ def add_files(lfns, account, ignore_availability, session=None):
                 attachments.append({'scope': parent_scope, 'name': parent_name, 'dids': [{'scope': child_scope, 'name': lpn}]})
     # Finally attach everything
     attach_dids_to_dids(attachments,
-                        account=account,
+                        account=InternalAccount(account),
                         ignore_duplicate=True,
                         session=session)
