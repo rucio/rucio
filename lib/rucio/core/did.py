@@ -1902,3 +1902,97 @@ def insert_content_history(content_clause, did_created_at, session=None):
             did_created_at=new_did_created_at,
             deleted_at=datetime.utcnow()
         ).save(session=session, flush=False)
+
+
+@transactional_session
+def insert_deleted_dids(did_clause, session=None):
+    """
+    Insert into deleted_dids a list of did
+
+    :param did_clause: DID clause of the files to archive
+    :param session: The database session in use.
+    """
+    query = session.query(models.DataIdentifier.scope,
+                          models.DataIdentifier.name,
+                          models.DataIdentifier.account,
+                          models.DataIdentifier.did_type,
+                          models.DataIdentifier.is_open,
+                          models.DataIdentifier.monotonic,
+                          models.DataIdentifier.hidden,
+                          models.DataIdentifier.obsolete,
+                          models.DataIdentifier.complete,
+                          models.DataIdentifier.is_new,
+                          models.DataIdentifier.availability,
+                          models.DataIdentifier.suppressed,
+                          models.DataIdentifier.bytes,
+                          models.DataIdentifier.length,
+                          models.DataIdentifier.md5,
+                          models.DataIdentifier.adler32,
+                          models.DataIdentifier.expired_at,
+                          models.DataIdentifier.purge_replicas,
+                          models.DataIdentifier.deleted_at,
+                          models.DataIdentifier.events,
+                          models.DataIdentifier.guid,
+                          models.DataIdentifier.project,
+                          models.DataIdentifier.datatype,
+                          models.DataIdentifier.run_number,
+                          models.DataIdentifier.stream_name,
+                          models.DataIdentifier.prod_step,
+                          models.DataIdentifier.version,
+                          models.DataIdentifier.campaign,
+                          models.DataIdentifier.task_id,
+                          models.DataIdentifier.panda_id,
+                          models.DataIdentifier.lumiblocknr,
+                          models.DataIdentifier.provenance,
+                          models.DataIdentifier.phys_group,
+                          models.DataIdentifier.transient,
+                          models.DataIdentifier.accessed_at,
+                          models.DataIdentifier.closed_at,
+                          models.DataIdentifier.eol_at,
+                          models.DataIdentifier.is_archive,
+                          models.DataIdentifier.constituent,
+                          models.DataIdentifier.access_cnt).\
+        filter(or_(*did_clause))
+
+    for did in query.all():
+        models.DeletedDataIdentifier(
+            scope=did.scope,
+            name=did.name,
+            account=did.account,
+            did_type=did.did_type,
+            is_open=did.is_open,
+            monotonic=did.monotonic,
+            hidden=did.hidden,
+            obsolete=did.obsolete,
+            complete=did.complete,
+            is_new=did.is_new,
+            availability=did.availability,
+            suppressed=did.suppressed,
+            bytes=did.bytes,
+            length=did.length,
+            md5=did.md5,
+            adler32=did.adler32,
+            expired_at=did.expired_at,
+            purge_replicas=did.purge_replicas,
+            deleted_at=datetime.utcnow(),
+            events=did.events,
+            guid=did.guid,
+            project=did.project,
+            datatype=did.datatype,
+            run_number=did.run_number,
+            stream_name=did.stream_name,
+            prod_step=did.prod_step,
+            version=did.version,
+            campaign=did.campaign,
+            task_id=did.task_id,
+            panda_id=did.panda_id,
+            lumiblocknr=did.lumiblocknr,
+            provenance=did.provenance,
+            phys_group=did.phys_group,
+            transient=did.transient,
+            accessed_at=did.accessed_at,
+            closed_at=did.closed_at,
+            eol_at=did.eol_at,
+            is_archive=did.is_archive,
+            constituent=did.constituent
+        ).save(session=session, flush=False)
