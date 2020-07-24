@@ -1,4 +1,4 @@
-$def with (token, account, rucio_ui_version, policy, content)
+$def with (token, account, vo, multi_vo, rucio_ui_version, policy, content)
 <!--
  Copyright European Organization for Nuclear Research (CERN)
 
@@ -20,6 +20,7 @@ $def with (token, account, rucio_ui_version, policy, content)
   <head>
     $:token
     $:account
+    $:vo
     <title>Rucio UI - $:content.title</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
@@ -136,7 +137,11 @@ $def with (token, account, rucio_ui_version, policy, content)
 
           <ul class="right">
             <li id="accountlist" class="has-dropdown">
-              <a>Using account: <span id="current_account">[loading]</span></a>
+              <a>Using account: <span id="current_account">[loading]</span>
+              $if multi_vo:
+                 on VO: <span id="current_vo">[loading]</span></a>
+              $else:
+                </a>
               <ul id="accountselecter" class="dropdown">
               </ul>
             </li>
