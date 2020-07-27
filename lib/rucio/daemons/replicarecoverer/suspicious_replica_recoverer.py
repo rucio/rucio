@@ -19,6 +19,7 @@
 #  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 #  - Martin Barisits, <martin.barisits@cern.ch>, 2019
 #  - Brandon White, <bjwhite@fnal.gov>, 2019
+#  - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # PY3K COMPATIBLE
 
 """
@@ -44,11 +45,12 @@ from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
 from rucio.core.replica import list_replicas, declare_bad_file_replicas, get_suspicious_files
 from rucio.core.rse_expression_parser import parse_expression
+from rucio.core.vo import list_vos
 
 from rucio.db.sqla.constants import BadFilesStatus
 from rucio.db.sqla.util import get_db_time
-from rucio.common.config import config_get
-from rucio.common.exception import DatabaseException
+from rucio.common.config import config_get, config_get_bool
+from rucio.common.exception import DatabaseException, VONotFound, InvalidRSEExpression
 from rucio.common.types import InternalAccount
 
 
@@ -62,7 +64,7 @@ logging.basicConfig(stream=stdout,
 GRACEFUL_STOP = threading.Event()
 
 
-def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rse_expression='MOCK', max_replicas_per_rse=100):
+def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rse_expression='MOCK', vos=None, max_replicas_per_rse=100):
 
     """
     Main loop to check for available replicas which are labeled as suspicious
@@ -77,6 +79,8 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
     :param nattempts: The minimum number of appearances in the bad_replica DB table
                       in order to appear in the resulting list of replicas for recovery.
     :param rse_expression: Search for suspicious replicas on RSEs matching the 'rse_expression'.
+    :param vos: VOs on which to look for RSEs. Only used in multi-VO mode.
+                If None, we either use all VOs if run from "def",
     :param max_replicas_per_rse: Maximum number of replicas which are allowed to be labeled as bad per RSE.
                                  If more is found, processing is skipped and warning is printed.
     :returns: None
@@ -86,9 +90,36 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
     # in order to have the possibility to detect a start of a second instance with the same set of RSES
 
     executable = argv[0]
+
+    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
+    if not multi_vo:
+        if vos:
+            logging.warning('Ignoring argument vos, this is only applicable in a multi-VO setup.')
+        vos = ['def']
+    else:
+        if vos:
+            invalid = set(vos) - set([v['vo'] for v in list_vos()])
+            if invalid:
+                msg = 'VO{} {} cannot be found'.format('s' if len(invalid) > 1 else '', ', '.join([repr(v) for v in invalid]))
+                raise VONotFound(msg)
+        else:
+            vos = [v['vo'] for v in list_vos()]
+        logging.info('replica_recoverer: This instance will work on VO%s: %s' % ('s' if len(vos) > 1 else '', ', '.join([v for v in vos])))
+
+    # Don't require a result from the expression at each VO, only raise if we can't get a result from any of them
     rses = []
-    for rse in parse_expression(expression=rse_expression):
-        rses.append(rse['id'])
+    exceptions_raised = 0
+    for vo in vos:
+        try:
+            parsed_rses = parse_expression(expression=rse_expression, filter={'vo': vo})
+        except InvalidRSEExpression:
+            exceptions_raised += 1
+            parsed_rses = []
+        for rse in parsed_rses:
+            rses.append(rse['id'])
+    if exceptions_raised == len(vos):
+        raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
+
     rses.sort()
     executable += ' --rse-expression ' + str(rses)
 
@@ -127,7 +158,16 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
                               'available_elsewhere': True,
                               'is_suspicious': True}
 
-            recoverable_replicas = get_suspicious_files(rse_expression, **getfileskwargs)
+            # Don't require a result from the expression at each VO, only raise if we can't get a result from any of them
+            recoverable_replicas = []
+            exceptions_raised = 0
+            for vo in vos:
+                try:
+                    recoverable_replicas.extend(get_suspicious_files(rse_expression, filter={'vo': vo}, **getfileskwargs))
+                except InvalidRSEExpression:
+                    exceptions_raised += 1
+            if exceptions_raised == len(vos):
+                raise InvalidRSEExpression('RSE Expression resulted in an empty set.')
 
             logging.info('replica_recoverer[%i/%i]: suspicious replica query took %.2f seconds, total of %i replicas were found.',
                          worker_number, total_workers, time.time() - start, len(recoverable_replicas))
@@ -198,7 +238,7 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
     logging.info('replica_recoverer[%i/%i]: graceful stop done', worker_number, total_workers)
 
 
-def run(once=False, younger_than=3, nattempts=10, rse_expression='MOCK', max_replicas_per_rse=100):
+def run(once=False, younger_than=3, nattempts=10, rse_expression='MOCK', vos=None, max_replicas_per_rse=100):
 
     """
     Starts up the Suspicious-Replica-Recoverer threads.
@@ -214,13 +254,13 @@ def run(once=False, younger_than=3, nattempts=10, rse_expression='MOCK', max_rep
     sanity_check(executable='rucio-replica-recoverer', hostname=socket.gethostname())
 
     if once:
-        declare_suspicious_replicas_bad(once, younger_than, nattempts, rse_expression, max_replicas_per_rse)
+        declare_suspicious_replicas_bad(once, younger_than, nattempts, rse_expression, vos, max_replicas_per_rse)
     else:
         logging.info('Suspicious file replicas recovery starting 1 worker.')
         t = threading.Thread(target=declare_suspicious_replicas_bad,
                              kwargs={'once': once, 'younger_than': younger_than,
                                      'nattempts': nattempts, 'rse_expression': rse_expression,
-                                     'max_replicas_per_rse': max_replicas_per_rse})
+                                     'vos': vos, 'max_replicas_per_rse': max_replicas_per_rse})
         t.start()
         logging.info('waiting for interrupts')
 

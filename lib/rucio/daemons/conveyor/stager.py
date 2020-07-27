@@ -20,6 +20,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -43,7 +44,7 @@ try:
 except Exception:
     from configparser import NoOptionError  # py3
 
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_bool
 from rucio.core import heartbeat
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.request import set_requests_state
@@ -186,8 +187,8 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, total_threads=1, group_bulk=1, group_policy='rule',
-        mock=False, rses=None, include_rses=None, exclude_rses=None, bulk=100, source_strategy=None,
+def run(once=False, total_threads=1, group_bulk=1, group_policy='rule', mock=False,
+        rses=None, include_rses=None, exclude_rses=None, vos=None, bulk=100, source_strategy=None,
         activities=[], sleep_time=600, retry_other_fts=False):
     """
     Starts up the conveyer threads.
@@ -196,12 +197,16 @@ def run(once=False, total_threads=1, group_bulk=1, group_policy='rule',
     if mock:
         logging.info('mock source replicas: enabled')
 
+    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
     working_rses = None
     if rses or include_rses or exclude_rses:
-        working_rses = get_conveyor_rses(rses, include_rses, exclude_rses)
+        working_rses = get_conveyor_rses(rses, include_rses, exclude_rses, vos)
         logging.info("RSE selection: RSEs: %s, Include: %s, Exclude: %s" % (rses,
                                                                             include_rses,
                                                                             exclude_rses))
+    elif multi_vo:
+        working_rses = get_conveyor_rses(rses, include_rses, exclude_rses, vos)
+        logging.info("RSE selection: automatic for relevant VOs")
     else:
         logging.info("RSE selection: automatic")
 
