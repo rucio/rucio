@@ -18,6 +18,7 @@
 # - Vincent Garonne, <vgaronne@gmail.com>, 2015-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -55,7 +56,9 @@ def get_parser():
     parser.add_argument('--include-rses', action="store", default=None, type=str,
                         help='RSE expression to include')
     parser.add_argument('--rses', nargs='+', type=str,
-                        help='Explicit list of RSEs to include (Single-VO only)')
+                        help='Explicit list of RSEs to include')
+    parser.add_argument('--vos', nargs='+', type=str,
+                        help='Optional list of VOs to consider. Only used in multi-VO mode.')
     parser.add_argument('--activities', nargs='+', type=str,
                         help='Explicit list of activities to include')
     parser.add_argument('--sleep-time', action="store", default=600, type=int,
@@ -79,6 +82,7 @@ if __name__ == "__main__":
             include_rses=args.include_rses,
             exclude_rses=args.exclude_rses,
             rses=args.rses,
+            vos=args.vos,
             source_strategy=args.source_strategy,
             activities=args.activities,
             sleep_time=args.sleep_time,
