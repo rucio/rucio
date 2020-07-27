@@ -24,6 +24,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -50,7 +51,7 @@ except Exception:
 from six import iteritems
 from prometheus_client import Counter
 
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.schema import get_schema_value
 from rucio.core import heartbeat, request as request_core, transfer as transfer_core
 from rucio.core.monitor import record_counter, record_timer
@@ -242,8 +243,8 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, group_bulk=1, group_policy='rule',
-        mock=False, rses=None, include_rses=None, exclude_rses=None, bulk=100, source_strategy=None,
+def run(once=False, group_bulk=1, group_policy='rule', mock=False,
+        rses=None, include_rses=None, exclude_rses=None, vos=None, bulk=100, source_strategy=None,
         activities=None, exclude_activities=None, sleep_time=600, max_sources=4, retry_other_fts=False, total_threads=1):
     """
     Starts up the conveyer threads.
@@ -252,10 +253,14 @@ def run(once=False, group_bulk=1, group_policy='rule',
     if mock:
         logging.info('mock source replicas: enabled')
 
+    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
     working_rses = None
     if rses or include_rses or exclude_rses:
-        working_rses = get_conveyor_rses(rses, include_rses, exclude_rses)
+        working_rses = get_conveyor_rses(rses, include_rses, exclude_rses, vos)
         logging.info("RSE selection: RSEs: %s, Include: %s, Exclude: %s", rses, include_rses, exclude_rses)
+    elif multi_vo:
+        working_rses = get_conveyor_rses(rses, include_rses, exclude_rses, vos)
+        logging.info("RSE selection: automatic for relevant VOs")
     else:
         logging.info("RSE selection: automatic")
 
@@ -263,7 +268,17 @@ def run(once=False, group_bulk=1, group_policy='rule',
 
     if exclude_activities:
         if not activities:
-            activities = get_schema_value('ACTIVITY')
+            if not multi_vo:
+                vos = ['def']
+            if vos and len(vos) == 1:
+                activities = get_schema_value('ACTIVITY', vos[0])
+            elif vos and len(vos) > 1:
+                logging.warning('Cannot get activity list from schema when multiple VOs given, either provide `activities` argument or run on a single VO')
+                activities = [None]
+            else:
+                logging.warning('Cannot get activity list from schema when no VO given, either provide `activities` argument or `vos` with a single entry')
+                activities = [None]
+
         for activity in exclude_activities:
             if activity in activities:
                 activities.remove(activity)

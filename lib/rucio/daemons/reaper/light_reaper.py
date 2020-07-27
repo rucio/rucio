@@ -18,6 +18,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -37,13 +38,14 @@ import traceback
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (SourceNotFound, DatabaseException, ServiceUnavailable,
-                                    RSEAccessDenied, ResourceTemporaryUnavailable)
+                                    RSEAccessDenied, RSENotFound, ResourceTemporaryUnavailable, VONotFound)
 from rucio.core import rse as rse_core
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import add_message
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.temporary_did import (list_expired_temporary_dids, delete_temporary_dids)
 from rucio.rse import rsemanager as rsemgr
+from rucio.core.vo import list_vos
 
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
@@ -69,13 +71,13 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
     :param once: If True, only runs one iteration of the main loop.
     :param scheme: Force the reaper to use a particular protocol, e.g., mock.
     """
-    logging.info('Starting Light Reaper %s-%s: Will work on RSEs: %s', worker_number, total_workers, str(rses))
+    logging.info('Starting Light Reaper %s-%s: Will work on RSEs: %s', worker_number, total_workers, ', '.join([rse['rse'] for rse in rses]))
 
     pid = os.getpid()
     thread = threading.current_thread()
     hostname = socket.gethostname()
     executable = ' '.join(sys.argv)
-    hash_executable = hashlib.sha256(sys.argv[0] + ''.join(rses)).hexdigest()
+    hash_executable = hashlib.sha256(sys.argv[0] + ''.join([rse['rse'] for rse in rses])).hexdigest()
     sanity_check(executable=None, hostname=hostname)
 
     while not GRACEFUL_STOP.is_set():
@@ -86,12 +88,13 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
             nothing_to_do = True
 
             random.shuffle(rses)
-            for rse_id in rses:
+            for rse in rses:
+                rse_id = rse['id']
+                rse = rse['rse']
                 replicas = list_expired_temporary_dids(rse_id=rse_id,
                                                        limit=chunk_size, worker_number=worker_number,
                                                        total_workers=total_workers)
 
-                rse = rse_core.get_rse_name(rse_id=rse_id)
                 rse_info = rsemgr.get_rse_info(rse_id=rse_id)
                 rse_protocol = rse_core.get_rse_protocols(rse_id=rse_id)
                 prot = rsemgr.create_protocol(rse_info, 'delete', scheme=scheme)
@@ -172,47 +175,68 @@ def stop(signum=None, frame=None):
     GRACEFUL_STOP.set()
 
 
-def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
-        exclude_rses=None, include_rses=None, delay_seconds=0, all_rses=False):
+def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None, all_rses=False,
+        exclude_rses=None, include_rses=None, vos=None, delay_seconds=0):
     """
     Starts up the reaper threads.
 
     :param total_workers: The total number of workers.
     :param chunk_size: the size of chunk for deletion.
-    :param threads_per_worker: Total number of threads created by each worker.
     :param once: If True, only runs one iteration of the main loop.
-    :param greedy: If True, delete right away replicas with tombstone.
     :param rses: List of RSEs the reaper should work against. If empty, it considers all RSEs. (Single-VO only)
     :param scheme: Force the reaper to use a particular protocol/scheme, e.g., mock.
     :param exclude_rses: RSE expression to exclude RSEs from the Reaper.
     :param include_rses: RSE expression to include RSEs.
+    :param vos: VOs on which to look for RSEs. Only used in multi-VO mode.
+                If None, we either use all VOs if run from "def", or the current VO otherwise.
     """
     logging.info('main: starting processes')
 
-    all_rses = rse_core.list_rses()
-    if all_rses:
-        rses = all_rses
+    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
+    if not multi_vo:
+        if vos:
+            logging.warning('Ignoring argument vos, this is only applicable in a multi-VO setup.')
+        vos = ['def']
+
+        # Preserve the old behaviour until a feature release
+        all_rses = rse_core.list_rses()
+        if all_rses:
+            rses = all_rses
     else:
+        if vos:
+            invalid = set(vos) - set([v['vo'] for v in list_vos()])
+            if invalid:
+                msg = 'VO{} {} cannot be found'.format('s' if len(invalid) > 1 else '', ', '.join([repr(v) for v in invalid]))
+                raise VONotFound(msg)
+        else:
+            vos = [v['vo'] for v in list_vos()]
+        logging.info('Light Reaper: This instance will work on VO%s: %s' % ('s' if len(vos) > 1 else '', ', '.join([v for v in vos])))
+
+        # Only use the include/exclude RSE options for m-VO until a feature release
+        all_rses = []
+        for vo in vos:
+            all_rses.extend(rse_core.list_rses(filters={'vo': vo}))
+
         if rses:
-            if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-                logging.warning('Ignoring argument rses, this is only available in a single-vo setup. Please try an RSE Expression with include_rses if it is required.')
-                rses = []
-            else:
-                rses = [rse_core.get_rse_id(rse=rse) for rse in rses]
-                rses = [rse for rse in rses if rse in all_rses]
+            invalid = set(rses) - set([rse['rse'] for rse in all_rses])
+            if invalid:
+                msg = 'RSE{} {} cannot be found'.format('s' if len(invalid) > 1 else '',
+                                                        ', '.join([repr(rse) for rse in invalid]))
+                raise RSENotFound(msg)
+            rses = [rse for rse in all_rses if rse['rse'] in rses]
         else:
             rses = all_rses
 
         if exclude_rses:
-            excluded_rses = [rse['id'] for rse in parse_expression(exclude_rses)]
+            excluded_rses = parse_expression(exclude_rses)
             rses = [rse for rse in rses if rse not in excluded_rses]
 
         if include_rses:
-            included_rses = [rse['id'] for rse in parse_expression(include_rses)]
+            included_rses = parse_expression(include_rses)
             rses = [rse for rse in rses if rse in included_rses]
 
         if not rses:
-            logging.error('Dark Reaper: No RSEs found. Exiting.')
+            logging.error('Light Reaper: No RSEs found. Exiting.')
             return
 
     threads = []

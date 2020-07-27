@@ -29,6 +29,7 @@
 # - Gabriele Fronze' <gfronze@cern.ch>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -45,13 +46,15 @@ import time
 import traceback
 
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.exception import InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound, ConfigNotFound, DuplicateFileTransferSubmission
+from rucio.common.exception import (InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound,
+                                    ConfigNotFound, DuplicateFileTransferSubmission, VONotFound)
 from rucio.common.utils import chunks, set_checksum_value
 from rucio.core import request, transfer as transfer_core
 from rucio.core.config import get
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import list_rses, get_rse_supported_checksums
 from rucio.core.rse_expression_parser import parse_expression
+from rucio.core.vo import list_vos
 from rucio.db.sqla.session import read_session
 from rucio.db.sqla.constants import RequestState
 from rucio.rse import rsemanager as rsemgr
@@ -443,32 +446,49 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
     return grouped_jobs
 
 
-def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None):
+def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None, vos=None):
     """
     Get a list of rses for conveyor
 
     :param rses:          List of rses (Single-VO only)
     :param include_rses:  RSEs to include
     :param exclude_rses:  RSEs to exclude
+    :param vos:           VOs on which to look for RSEs. Only used in multi-VO mode.
+                          If None, we either use all VOs if run from "def", or the current VO otherwise.
     :return:              List of working rses
     """
-    working_rses = []
-    rses_list = list_rses()
-    if rses:
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            logging.warning('Ignoring argument rses, this is only available in a single-vo setup. Please try an RSE Expression with include_rses if it is required.')
+    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
+    if not multi_vo:
+        if vos:
+            logging.warning('Ignoring argument vos, this is only applicable in a multi-VO setup.')
+        vos = ['def']
+    else:
+        if vos:
+            invalid = set(vos) - set([v['vo'] for v in list_vos()])
+            if invalid:
+                msg = 'VO{} {} cannot be found'.format('s' if len(invalid) > 1 else '', ', '.join([repr(v) for v in invalid]))
+                raise VONotFound(msg)
         else:
-            working_rses = [rse for rse in rses_list if rse['rse'] in rses]
+            vos = [v['vo'] for v in list_vos()]
+        logging.info('This instance will work on VO%s: %s' % ('s' if len(vos) > 1 else '', ', '.join([v for v in vos])))
+
+    working_rses = []
+    rses_list = []
+    for vo in vos:
+        rses_list.extend(list_rses(filters={'vo': vo}))
+    if rses:
+        working_rses = [rse for rse in rses_list if rse['rse'] in rses]
 
     if include_rses:
-        try:
-            parsed_rses = parse_expression(include_rses, session=None)
-        except InvalidRSEExpression:
-            logging.error("Invalid RSE exception %s to include RSEs", include_rses)
-        else:
-            for rse in parsed_rses:
-                if rse not in working_rses:
-                    working_rses.append(rse)
+        for vo in vos:
+            try:
+                parsed_rses = parse_expression(include_rses, filter={'vo': vo}, session=None)
+            except InvalidRSEExpression:
+                logging.error("Invalid RSE exception %s to include RSEs", include_rses)
+            else:
+                for rse in parsed_rses:
+                    if rse not in working_rses:
+                        working_rses.append(rse)
 
     if not (rses or include_rses):
         working_rses = rses_list
@@ -481,5 +501,5 @@ def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None):
         else:
             working_rses = [rse for rse in working_rses if rse not in parsed_rses]
 
-    working_rses = [rsemgr.get_rse_info(rse['id']) for rse in working_rses]
+    working_rses = [rsemgr.get_rse_info(rse_id=rse['id']) for rse in working_rses]
     return working_rses
