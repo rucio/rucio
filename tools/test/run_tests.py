@@ -53,12 +53,22 @@ def main():
         for image, idgroup in obj["images"].items():
             if matches(idgroup, case):
                 case = {str(k): str(v) for k, v in case.items()}
+                pod = ""
                 cid = "rucio"
-                print("*** Starting", {**case, "IMAGE": image}, file=sys.stderr, flush=True)
+                if 'USE_PODMAN' in os.environ and os.environ['USE_PODMAN'] == '1':
+                    print("*** Starting with pod for", {**case, "IMAGE": image}, file=sys.stderr, flush=True)
+                    stdout = run('podman', 'pod', 'create', return_stdout=True, check=True)
+                    pod = stdout.decode().strip()
+                    if not pod:
+                        raise RuntimeError("Could not determine pod id after " + ' '.join(args))
+                    os.environ['POD'] = pod
+                else:
+                    print("*** Starting", {**case, "IMAGE": image}, file=sys.stderr, flush=True)
                 docker_env_args = list(itertools.chain(*map(lambda x: ('--env', f'{x[0]}={x[1]}'), case.items())))
                 try:
+                    pod_net_args = ('--pod', pod) if pod else ('--hostname', 'rucio')
                     # Running rucio container from given image
-                    stdout = run('docker', 'run', '--detach', '--name', 'rucio', '--hostname', 'rucio',
+                    stdout = run('docker', 'run', '--detach', '--name', 'rucio', *pod_net_args,
                                  *docker_env_args, image, return_stdout=True, check=True)
                     cid = stdout.decode().strip()
                     if not cid:
@@ -81,6 +91,9 @@ def main():
                     if cid:
                         run('docker', 'stop', cid, check=False)
                         run('docker', 'rm', '-v', cid, check=False)
+                    if pod:
+                        run('podman', 'pod', 'stop', '-t', '10', pod, check=False)
+                        run('podman', 'pod', 'rm', '--force', pod, check=False)
 
 
 if __name__ == "__main__":
