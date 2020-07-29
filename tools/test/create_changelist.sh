@@ -25,7 +25,7 @@ if [[ -z "$BASE_BRANCH" ]]; then
 fi
 
 appendChanges() {
-    $* | grep -E 'bin/|\.py$' | grep -v '^A' | grep -v 'conf.py' | cut -f 2 | paste -sd " " - >> changed_files.txt.new || true
+    $* | grep -E 'bin/|\.py$' | grep -v '^A' | grep -v 'conf.py' | grep -v 'tools/test/' | cut -f 2 | paste -sd " " - >> changed_files.txt.new || true
 }
 
 # change directory to main repository directory
