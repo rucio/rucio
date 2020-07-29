@@ -16,6 +16,7 @@
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
+import io
 import itertools
 import json
 import os
@@ -31,12 +32,17 @@ def matches(small: typing.Dict, group: typing.Dict):
     return True
 
 
-def run(*args, env=None):
-    print("** Running", " ".join(args), file=sys.stderr, flush=True)
-    if env is None:
-        subprocess.run(args, check=True, stdout=sys.stderr, stderr=subprocess.STDOUT)
-    else:
-        subprocess.run(args, check=True, stdout=sys.stderr, stderr=subprocess.STDOUT, env=env)
+def run(*args, check=True, return_stdout=False, env=None) -> typing.Union[typing.NoReturn, io.TextIOBase]:
+    kwargs = {'check': check, 'stdout': sys.stderr, 'stderr': subprocess.STDOUT}
+    if env is not None:
+        kwargs['env'] = env
+    if return_stdout:
+        del kwargs['stderr']
+        kwargs['stdout'] = subprocess.PIPE
+    print("** Running", " ".join(args), kwargs, file=sys.stderr, flush=True)
+    proc = subprocess.run(args, **kwargs)
+    if return_stdout:
+        return proc.stdout
 
 
 def main():
@@ -50,41 +56,30 @@ def main():
                 print("*** Starting", {**case, "IMAGE": image}, file=sys.stderr, flush=True)
                 docker_env_args = list(itertools.chain(*map(lambda x: ('--env', f'{x[0]}={x[1]}'), case.items())))
                 try:
+                    # Running rucio container from given image
+                    stdout = run('docker', 'run', '--detach', '--name', 'rucio', '--hostname', 'rucio',
+                                 *docker_env_args, image, return_stdout=True, check=True)
+                    cid = stdout.decode().strip()
+                    if not cid:
+                        raise RuntimeError("Could not determine container id after docker run")
+
                     # Running before_script.sh
-                    run('./tools/test/before_script.sh', env={**os.environ,
-                                                              **case,
-                                                              "DOCKER_PASS_ENV": ' '.join(docker_env_args),
-                                                              "IMAGE": image})
+                    run('./tools/test/before_script.sh', env={**os.environ, **case, "IMAGE": image})
 
-                    # A container named "rucio" might have been spawned by before_script
-                    args = ('docker', 'inspect', '--type', 'container', 'rucio')
-                    print("** Checking for running rucio container", file=sys.stderr, flush=True)
-                    proc = subprocess.run(args, stdout=subprocess.PIPE, check=False)
-                    try:
-                        rucio_containers = json.loads(proc.stdout)
-                    except ValueError:
-                        rucio_containers = []
-
-                    if len(rucio_containers) == 0 or not rucio_containers[0]["State"]["Running"]:
-                        # Running rucio container if not already started
-                        args = ('docker', 'run', '--detach', *docker_env_args, image)
-                        print("** Running", " ".join(args), file=sys.stderr, flush=True)
-                        proc = subprocess.run(args, stdout=subprocess.PIPE, check=True)
-                        cid = proc.stdout.decode().strip()
-                        if not cid:
-                            raise RuntimeError("Could not determine container id after docker run")
+                    # output registered hostnames
+                    run('docker', 'exec', cid, 'cat', '/etc/hosts')
 
                     # Running install_script.sh
-                    run('docker', 'exec', '-t', cid, './tools/test/install_script.sh')
+                    run('docker', 'exec', cid, './tools/test/install_script.sh')
 
                     # Running test.sh
-                    run('docker', 'exec', '-t', cid, './tools/test/test.sh')
+                    run('docker', 'exec', cid, './tools/test/test.sh')
                 finally:
                     print("*** Finalizing", {**case, "IMAGE": image}, file=sys.stderr, flush=True)
 
                     if cid:
-                        run('docker', 'stop', cid)
-                        run('docker', 'rm', '-v', cid)
+                        run('docker', 'stop', cid, check=False)
+                        run('docker', 'rm', '-v', cid, check=False)
 
 
 if __name__ == "__main__":
