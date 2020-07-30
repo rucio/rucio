@@ -27,22 +27,29 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+
 echo '==============================='
 echo 'Running pylint                 '
 echo '==============================='
 
-pylint --rcfile=pylintrc `cat changed_files.txt` > pylint.out
+pylint --rcfile=pylintrc --errors-only --ignore=lib/rucio/tests lib/rucio/ bin/*
 
-if [ $(($? & 3)) -ne 0 ]; then
+if [ $? -ne 0 ]; then
     echo "PYLINT FAILED"
-    cat pylint.out
     exit 1
 else
     echo "PYLINT PASSED"
-    tail -n 3 pylint.out
 fi
 
-# 2to3 --no-diffs lib/rucio  2>&1 |grep 'RefactoringTool: Refactored'|wc
+
+if [ -n "$SYNTAX_REPORT" -a "$SYNTAX_REPORT" -eq "1" ]; then
+    echo '==============================='
+    echo 'Pylint report                  '
+    echo '==============================='
+
+    pylint --rcfile=pylintrc --reports y --exit-zero lib/rucio/ bin/*
+fi
+
 
 echo '==============================='
 echo 'Running Sphinx                 '
