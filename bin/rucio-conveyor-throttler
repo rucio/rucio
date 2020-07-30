@@ -18,6 +18,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -46,6 +47,24 @@ Setup the transfer limit::
   from rucio.core.rse import set_rse_transfer_limits
   set_rse_transfer_limits('MOCK2', 'User Subscriptions', max_transfers=1)
   $ rucio-admin config set --section throttler --option 'User Subscriptions,MOCK2' --value 1
+
+If Rucio is running in multi-VO mode, then the RSE ID should be used in place of its name when setting the config::
+
+  $ rucio-admin rse info MOCK2
+  Settings:
+  =========
+    ...
+  Attributes:
+  ===========
+    ...
+  Protocols:
+  ==========
+    ...
+  Usage:
+  ======
+    ...
+    rse_id: 9c54c73cbd534450b2202a576f809f1f
+  $ rucio-admin config set --section throttler --option 'User Subscriptions,9c54c73cbd534450b2202a576f809f1f' --value 1
 
 Upload two files and create replication rules to the same RSE::
 
