@@ -46,6 +46,7 @@ def main():
     for case in cases:
         for image, idgroup in obj["images"].items():
             if matches(idgroup, case):
+                case = {str(k): str(v) for k, v in case.items()}
                 cid = "rucio"
                 print("*** Starting", {**case, "IMAGE": image}, file=sys.stderr, flush=True)
                 docker_env_args = list(itertools.chain(*map(lambda x: ('--env', f'{x[0]}={x[1]}'), case.items())))
