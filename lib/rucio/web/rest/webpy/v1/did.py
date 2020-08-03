@@ -25,6 +25,7 @@
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Muhammad Aditya Hilmy <mhilmy@hey.com>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -139,6 +140,7 @@ class Search(RucioController):
 
         header('Content-Type', 'application/x-json-stream')
         filters = {}
+        limit = None
         long = False
         recursive = False
         if ctx.query:
@@ -146,6 +148,8 @@ class Search(RucioController):
             for k, v in params.items():
                 if k == 'type':
                     type = v[0]
+                elif k == 'limit':
+                    limit = v[0]
                 elif k == 'long':
                     long = v[0] == '1'
                 elif k == 'recursive':
@@ -154,7 +158,7 @@ class Search(RucioController):
                     filters[k] = v[0]
 
         try:
-            for did in list_dids(scope=scope, filters=filters, type=type, long=long, recursive=recursive, vo=ctx.env.get('vo')):
+            for did in list_dids(scope=scope, filters=filters, type=type, limit=limit, long=long, recursive=recursive, vo=ctx.env.get('vo')):
                 yield dumps(did) + '\n'
         except UnsupportedOperation as error:
             raise generate_http_error(409, 'UnsupportedOperation', error.args[0])
@@ -186,6 +190,7 @@ class SearchExtended(RucioController):
 
         header('Content-Type', 'application/x-json-stream')
         filters = {}
+        limit = None
         long = False
         recursive = False
         if ctx.query:
@@ -193,6 +198,8 @@ class SearchExtended(RucioController):
             for k, v in params.items():
                 if k == 'type':
                     type = v[0]
+                elif k == 'limit':
+                    limit = v[0]
                 elif k == 'long':
                     long = v[0] == '1'
                 elif k == 'recursive':
@@ -201,7 +208,7 @@ class SearchExtended(RucioController):
                     filters[k] = v[0]
 
         try:
-            for did in list_dids_extended(scope=scope, filters=filters, type=type, long=long, recursive=recursive, vo=ctx.env.get('vo')):
+            for did in list_dids_extended(scope=scope, filters=filters, type=type, limit=limit, long=long, recursive=recursive, vo=ctx.env.get('vo')):
                 yield dumps(did) + '\n'
         except UnsupportedOperation as error:
             raise generate_http_error(409, 'UnsupportedOperation', error.args[0])

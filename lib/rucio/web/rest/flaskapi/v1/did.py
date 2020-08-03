@@ -23,6 +23,7 @@
 # - Martin Baristis <martin.barisits@cern.ch>, 2014-2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Muhammad Aditya Hilmy <mhilmy@hey.com>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -138,6 +139,7 @@ class Search(MethodView):
              "bytes": 234, "length": 3}
 
         :query type: specify a DID type to search for
+        :query limit: The maximum number of DIDs returned.
         :query long: set to True for long output, otherwise only name
         :query recursive: set to True to recursively list DIDs content
         :query created_before: Date string in RFC-1123 format where the creation date was earlier
@@ -158,12 +160,15 @@ class Search(MethodView):
         """
 
         filters = {}
+        limit = None
         long = False
         recursive = False
         type = 'collection'
         for k, v in request.args.items():
             if k == 'type':
                 type = v
+            elif k == 'limit':
+                limit = v[0]
             elif k == 'long':
                 long = v == '1'
             elif k == 'recursive':
@@ -173,7 +178,7 @@ class Search(MethodView):
 
         try:
             data = ""
-            for did in list_dids(scope=scope, filters=filters, type=type, long=long, recursive=recursive, vo=request.environ.get('vo')):
+            for did in list_dids(scope=scope, filters=filters, type=type, limit=limit, long=long, recursive=recursive, vo=request.environ.get('vo')):
                 data += dumps(did) + '\n'
             return Response(data, content_type='application/x-json-stream')
         except UnsupportedOperation as error:
@@ -216,6 +221,7 @@ class SearchExtended(MethodView):
              "bytes": 234, "length": 3}
 
         :query type: specify a DID type to search for
+        :query limit: The maximum number of DIDs returned.
         :query long: set to True for long output, otherwise only name
         :query recursive: set to True to recursively list DIDs content
         :query created_before: Date string in RFC-1123 format where the creation date was earlier
@@ -236,12 +242,15 @@ class SearchExtended(MethodView):
         """
 
         filters = {}
+        limit = None
         long = False
         recursive = False
         type = 'collection'
         for k, v in request.args.items():
             if k == 'type':
                 type = v
+            elif k == 'limit':
+                limit = v[0]
             elif k == 'long':
                 long = v == '1'
             elif k == 'recursive':
@@ -251,7 +260,7 @@ class SearchExtended(MethodView):
 
         try:
             data = ""
-            for did in list_dids_extended(scope=scope, filters=filters, type=type, long=long, recursive=recursive, vo=request.environ.get('vo')):
+            for did in list_dids_extended(scope=scope, filters=filters, type=type, limit=limit, long=long, recursive=recursive, vo=request.environ.get('vo')):
                 data += dumps(did) + '\n'
             return Response(data, content_type='application/x-json-stream')
         except UnsupportedOperation as error:
