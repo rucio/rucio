@@ -662,6 +662,10 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
         multihop = False
 
+        # Add req to req_no_source list (Will be removed later if needed)
+        if req_id not in reqs_no_source:
+            reqs_no_source.append(req_id)
+
         # source_rse_id will be None if no source replicas
         # rse will be None if rse is staging area
         if source_rse_id is None or rse is None:
