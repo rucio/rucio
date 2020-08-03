@@ -453,6 +453,8 @@ class DownloadClient:
         trace.setdefault('datasetScope', item.get('dataset_scope', ''))
         trace.setdefault('dataset', item.get('dataset_name', ''))
         trace.setdefault('filesize', item.get('bytes'))
+        trace.setdefault('clientState', 'PROCESSING')
+        trace.setdefault('stateReason', 'UNKNOWN')
 
         dest_file_paths = item['dest_file_paths']
 
