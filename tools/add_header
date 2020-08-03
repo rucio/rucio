@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # coding=utf-8
-# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,50 +15,68 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
-'''
+"""
 Utility script to generate header file
 Usage: add_header {file name}
-'''
+Highly recommended usage: add_header -i <source_file{.py,.sh}>
+"""
 
 import argparse
 import collections
+import datetime
+import sys
+
 try:
     import commands
 except ImportError:
     import subprocess as commands
-import datetime
-import sys
 
-if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--script', '-s', dest='script', action='store_true', default=False,
-                        help='Generate header for python script.')
-    parser.add_argument('--documentation', '-D', dest='documentation', action='store_true', default=False,
-                        help='Generate header for documentation file.')
-    parser.add_argument('--in-place', '-i', action='store_true', default=False,
-                        help='Edit files in-place (otherwise prepend).')
-    parser.add_argument('--dry-run', '-d', action='store_true', help='Dry run mode')
-    parser.add_argument(dest='MyFiles', action='store', nargs='+', default=None, help='The files')
+author_map = {
+    ("Vincent Garonne", "<vgaronne@gmail.com>"): ("Vincent Garonne", "<vincent.garonne@cern.ch>"),
+    ("Mario Lassnig", "<mario@lassnig.net>"): ("Mario Lassnig", "<mario.lassnig@cern.ch>"),
+    ("Jaroslav Guenther", "<jaroslav.guenther@gmail.com>"): ("Jaroslav Guenther", "<jaroslav.guenther@cern.ch>"),
+    ("Jaroslav Guenther", "<Jaroslav.Guenther@cern.ch>"): ("Jaroslav Guenther", "<jaroslav.guenther@cern.ch>"),
+    ("Tomas Javurek", "<tomasjavurek09@gmail.com>"): ("Tomas Javurek", "<tomas.javurek@cern.ch>"),
+    ("Tomas", "<tomasjavurek09@gmail.com>"): ("Tomas Javurek", "<tomas.javurek@cern.ch>"),
+    ("Wen Guan", "<wguan.icedew@gmail.com>"): ("Wen Guan", "<wen.guan@cern.ch>"),
+    ("Alessandro Di Girolamo", "<digirola@lxplus030.cern.ch>"): ("Ale Di Girolamo", "<alessandro.di.girolamo@cern.ch>"),
+    ("elichad", "<eli.chadwick.256@gmail.com>"): ("Eli Chadwick", "<eli.chadwick@stfc.ac.uk>"),
+    ("efajardo", "<efajardo@physics.ucsd.edu>"): ("Edgar Fajardo", "<emfajard@ucsd.edu>"),
+    ("patrick-austin", "<patrick.austin@stfc.ac.uk>"): ("Patrick Austin", "<patrick.austin@stfc.ac.uk>"),
+    ("patrick-austin", "<61705287+patrick-austin@users.noreply.github.com>"): ("Patrick Austin", "<patrick.austin@stfc.ac.uk>"),
+    ("gabrielefronze", "<sucre.91@hotmail.it>"): ("Gabriele Fronze'", "<gfronze@cern.ch>"),
+    ("Gabriele", "<sucre.91@hotmail.it>"): ("Gabriele Fronze'", "<gfronze@cern.ch>"),
+    ("Ruturaj", "<ruturaj2305@gmail.com>"): ("Ruturaj Gujar", "<ruturaj.gujar23@gmail.com>"),
+    ("Ruturaj123", "<ruturaj2305@gmail.com>"): ("Ruturaj Gujar", "<ruturaj.gujar23@gmail.com>"),
+    ("Boris", "<Boris.Bauermeister@fysik.su.se>"): ("Boris Bauermeister", "<boris.bauermeister@fysik.su.se>"),
+    ("Nicolo Magini", "<Nicolo.Magini@cern.ch>"): ("Nicolo Magini", "<nicolo.magini@cern.ch>"),
+    ("jamesp-epcc", "<j.perry@epcc.ed.ac.uk>"): ("James Perry", "<j.perry@epcc.ed.ac.uk>"),
+}
 
-    arguments = parser.parse_args()
-    format = '%aN,<%aE>,%ad'
+
+def map_authors(author, mail):
+    return author_map.get((author, mail), (author, mail))
+
+
+def main(arguments):
     now = datetime.datetime.now()
 
     # Get username and mail from git
-    cmd = 'git config --global user.name'
+    cmd = 'git config --get user.name'
     status, username = commands.getstatusoutput(cmd)
     username = username.strip()
-    cmd = 'git config --global user.email'
+    cmd = 'git config --get user.email'
     status, email = commands.getstatusoutput(cmd)
     email = email.strip()
     email = '<%s>' % email
 
     for MyFile in arguments.MyFiles:
         # Query log history
-        cmd = '''git log --reverse --date=short --format='%s'  %s ''' % (format, MyFile)
+        cmd = '''git log --reverse --date=short --format='%s'  %s ''' % ('%aN,<%aE>,%ad', MyFile)
         status, output = commands.getstatusoutput(cmd)
 
         # parse git log output
@@ -72,6 +90,7 @@ if __name__ == '__main__':
 
             # split the line into words
             author, mail, date = line.split(',')
+            author, mail = map_authors(author, mail)
             year = int(date.split('-')[0])
 
             if int(min) > int(year):
@@ -124,11 +143,11 @@ if __name__ == '__main__':
                     header += '   - %(name)s %(mail)s, %(min)s-%(max)s\n' % authors[author]
 
             if not arguments.dry_run:
-                    with open(MyFile, 'r') as original:
-                        data = original.read()
+                with open(MyFile, 'r') as original:
+                    data = original.read()
 
-                    with open(MyFile, 'w') as modified:
-                        modified.write(header + data)
+                with open(MyFile, 'w') as modified:
+                    modified.write(header + data)
             else:
                 print(header)
 
@@ -172,7 +191,6 @@ if __name__ == '__main__':
             header = header.replace(old, new)
 
         if not arguments.dry_run:
-
             if not arguments.in_place:
                 with open(MyFile, 'r') as original:
                     data = original.read()
@@ -180,14 +198,51 @@ if __name__ == '__main__':
                 with open(MyFile, 'w') as modified:
                     modified.write(header + data)
             else:
-
                 with open(MyFile, 'r') as original:
                     lines = original.readlines()
 
                 with open(MyFile, 'w') as modified:
+                    if not arguments.script and lines[0].rstrip() == '#!/usr/bin/env python':
+                        modified.write(lines[0])
+                        if lines[1].rstrip() == '# coding=utf-8':
+                            modified.write(lines[1])
+                    elif lines[0].rstrip() == '# coding=utf-8':
+                        modified.write(lines[0])
+                    elif lines[0].rstrip() == '#!/bin/bash':
+                        modified.write(lines[0])
+                    elif lines[0].rstrip() == '#!/bin/sh':
+                        modified.write(lines[0])
                     modified.write(header)
+
+                    first = True
+                    count = 50  # only deletes old comments in the first n lines or until the first non-comment
                     for line in lines:
-                        if not line.startswith('#'):
+                        not_comment_line = not line.startswith('#') and len(line.lstrip()) != 0
+                        if count != 0 and not_comment_line:
+                            count = 0
+                        if count == 0 or not_comment_line:
+                            if first:
+                                first = False
+                                modified.write('\n')
                             modified.write(line)
+                        else:  # still in the comments section..
+                            if 'PY3K COMPATIBLE' in line:
+                                modified.write('#\n# PY3K COMPATIBLE\n')
+                            count -= 1
+
         else:
             print(header)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--script', '-s', dest='script', action='store_true', default=False,
+                        help='Generate header for python script.')
+    parser.add_argument('--documentation', '-D', dest='documentation', action='store_true', default=False,
+                        help='Generate header for documentation file.')
+    parser.add_argument('--in-place', '-i', action='store_true', default=False,
+                        help='Edit files in-place (otherwise prepend).')
+    parser.add_argument('--dry-run', '-d', action='store_true', help='Dry run mode')
+    parser.add_argument(dest='MyFiles', action='store', nargs='+', default=None, help='The files')
+
+    main(parser.parse_args())
