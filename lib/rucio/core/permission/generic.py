@@ -888,7 +888,6 @@ def perm_get_global_account_usage(issuer, kwargs):
         return True
 
     # Check if user is a country admin for all involved countries
-    admin_in_country = set()
     for kv in list_account_attributes(account=issuer):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             return True
