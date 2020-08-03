@@ -31,82 +31,112 @@ env
 echo
 
 if [[ $RDBMS == "oracle" ]]; then
-    # delete if directory exists
-    rm -rf docker-oracle-xe-11g/
-    git clone https://github.com/wnameless/docker-oracle-xe-11g.git
-    docker build -t rucio/oraclexe --file docker-oracle-xe-11g/Dockerfile docker-oracle-xe-11g/
-    # cleanup
-    rm -rf docker-oracle-xe-11g/
+    docker run -d --name oracle --network container:rucio -e processes=1000 -e sessions=1105 -e transactions=1215 -e ORACLE_ALLOW_REMOTE=true -e ORACLE_DISABLE_ASYNCH_IO=true docker.io/wnameless/oracle-xe-11g-r2
+    docker run -d --name activemq --network container:rucio docker.io/webcenter/activemq:latest
+    docker exec rucio sh -c 'echo 127.0.0.1 oracle activemq >> /etc/hosts'
 
-    docker run -d -p 8080:8080 -p 1521:1521 --name=oracle -e processes=1000 -e sessions=1105 -e transactions=1215 -e ORACLE_ALLOW_REMOTE=true -e ORACLE_DISABLE_ASYNCH_IO=true rucio/oraclexe
-    docker run --name=activemq -d webcenter/activemq:latest
-    docker run -d --link oracle:oracle --link activemq:activemq $DOCKER_PASS_ENV --name=rucio $IMAGE
+    docker cp tools/test/oracle_startup.sh oracle:/
     docker cp tools/test/oracle_wait.sh oracle:/
     docker cp tools/test/oracle_setup.sh oracle:/
     date
-    while ! docker exec oracle /bin/bash -c "/oracle_wait.sh" 2>&1; do
-        sleep 1
+    # sometimes, Oracle needs a little kick...
+    docker exec oracle /bin/bash -c "/oracle_startup.sh" || true
+    for i in {1..30}; do
+        sleep 2
+        cont=$(bash -c 'docker exec oracle /bin/bash -c "/oracle_wait.sh" 1>&2; echo $?')
+        [[ "$cont" -eq "0" ]] && break
     done
     date
+    if [[ "$cont" -ne "0" ]]; then
+        echo Could not connect to Oracle in time.
+        exit 1
+    fi
     docker exec oracle /bin/bash -c "/oracle_setup.sh"
     docker exec rucio cp /usr/local/src/rucio/etc/docker/test/extra/rucio_oracle.cfg /opt/rucio/etc/rucio.cfg
     docker exec rucio cp /usr/local/src/rucio/etc/docker/test/extra/alembic_oracle.ini /opt/rucio/etc/alembic.ini
     docker exec rucio httpd -k restart
 
 elif [[ $RDBMS == "mysql5" ]]; then
-    docker run --name=mysql5 -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% -d mysql/mysql-server:5.7
-    docker run --name=activemq -d webcenter/activemq:latest
-    docker run -d --link mysql5:mysql5 --link activemq:activemq $DOCKER_PASS_ENV --name=rucio $IMAGE
+    docker run -d --name mysql5 --network container:rucio -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% docker.io/mysql/mysql-server:5.7
+    docker run -d --name activemq --network container:rucio docker.io/webcenter/activemq:latest
+    docker exec rucio sh -c 'echo 127.0.0.1 mysql5 activemq >> /etc/hosts'
+
     date
-    while ! docker exec mysql5 mysqladmin --user=root --password=secret ping 2>&1; do
-        sleep 1
+    for i in {1..30}; do
+        sleep 2
+        cont=$(bash -c 'ping=`docker exec mysql5 mysqladmin --user=root --password=secret ping`; echo $ping 1>&2; echo $ping | grep "mysqld is alive" 1>&2; echo $?')
+        [[ "$cont" -eq "0" ]] && break
     done
     date
+    if [[ "$cont" -ne "0" ]]; then
+        echo Could not connect to MySQL in time.
+        exit 1
+    fi
     docker exec rucio cp /usr/local/src/rucio/etc/docker/test/extra/rucio_mysql5.cfg /opt/rucio/etc/rucio.cfg
     docker exec rucio cp /usr/local/src/rucio/etc/docker/test/extra/alembic_mysql5.ini /opt/rucio/etc/alembic.ini
     docker exec rucio httpd -k restart
 
 elif [[ $RDBMS == "mysql8" ]]; then
-    docker run --name=mysql8 -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% -d mysql/mysql-server:8.0 --default-authentication-plugin=mysql_native_password --character-set-server=latin1
-    docker run --name=activemq -d webcenter/activemq:latest
-    docker run -d --link mysql8:mysql8 --link activemq:activemq $DOCKER_PASS_ENV --name=rucio $IMAGE
+    docker run -d --name mysql8 --network container:rucio -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% docker.io/mysql/mysql-server:8.0 --default-authentication-plugin=mysql_native_password --character-set-server=latin1
+    docker run -d --name activemq --network container:rucio docker.io/webcenter/activemq:latest
+    docker exec rucio sh -c 'echo 127.0.0.1 mysql8 activemq >> /etc/hosts'
+
     date
-    while ! docker exec mysql8 mysqladmin --user=root --password=secret ping 2>&1; do
-        sleep 1
+    for i in {1..30}; do
+        sleep 4
+        cont=$(bash -c 'ping=`docker exec mysql8 mysqladmin --user=root --password=secret ping`; echo $ping 1>&2; echo $ping | grep "mysqld is alive" 1>&2; echo $?')
+        [[ "$cont" -eq "0" ]] && break
     done
     date
+    if [[ "$cont" -ne "0" ]]; then
+        echo Could not connect to MySQL in time.
+        exit 1
+    fi
     docker exec rucio cp /usr/local/src/rucio/etc/docker/test/extra/rucio_mysql8.cfg /opt/rucio/etc/rucio.cfg
     docker exec rucio cp /usr/local/src/rucio/etc/docker/test/extra/alembic_mysql8.ini /opt/rucio/etc/alembic.ini
     docker exec rucio httpd -k restart
 
 elif [[ $RDBMS == "postgres9" ]]; then
-    docker run --name=postgres9 -e POSTGRES_PASSWORD=secret -d postgres:9 -c 'max_connections=300'
-    docker run --name=activemq -d webcenter/activemq:latest
-    docker run -d --link postgres9:postgres9 --link activemq:activemq $DOCKER_PASS_ENV --name=rucio $IMAGE
+    docker run -d --name postgres9 --network container:rucio -e POSTGRES_PASSWORD=secret docker.io/postgres:9 -c 'max_connections=300'
+    docker run -d --name activemq --network container:rucio docker.io/webcenter/activemq:latest
+    docker exec rucio sh -c 'echo 127.0.0.1 postgres9 activemq >> /etc/hosts'
+
     date
-    while ! docker exec postgres9 pg_isready 2>&1; do
+    for i in {1..30}; do
         sleep 1
+        cont=$(bash -c 'docker exec postgres9 pg_isready 1>&2; echo $?')
+        [[ "$cont" -eq "0" ]] && break
     done
     date
+    if [[ "$cont" -ne "0" ]]; then
+        echo Could not connect to Postgres in time.
+        exit 1
+    fi
     docker exec rucio cp /usr/local/src/rucio/etc/docker/test/extra/rucio_postgres9.cfg /opt/rucio/etc/rucio.cfg
     docker exec rucio cp /usr/local/src/rucio/etc/docker/test/extra/alembic_postgres9.ini /opt/rucio/etc/alembic.ini
     docker exec rucio httpd -k restart
 
 elif [[ $RDBMS == "postgres12" ]]; then
-    docker run --name=postgres12 -e POSTGRES_PASSWORD=secret -d postgres:12 -c 'max_connections=300'
-    docker run --name=activemq -d webcenter/activemq:latest
-    docker run -d --link postgres12:postgres12 --link activemq:activemq $DOCKER_PASS_ENV --name=rucio $IMAGE
+    docker run -d --name postgres12 --network container:rucio -e POSTGRES_PASSWORD=secret docker.io/postgres:12 -c 'max_connections=300'
+    docker run -d --name activemq --network container:rucio docker.io/webcenter/activemq:latest
+    docker exec rucio sh -c 'echo 127.0.0.1 postgres12 activemq >> /etc/hosts'
+
     date
-    while ! docker exec postgres12 pg_isready 2>&1; do
+    for i in {1..30}; do
         sleep 1
+        cont=$(bash -c 'docker exec postgres12 pg_isready 1>&2; echo $?')
+        [[ "$cont" -eq "0" ]] && break
     done
     date
+    if [[ "$cont" -ne "0" ]]; then
+        echo Could not connect to Postgres in time.
+        exit 1
+    fi
     docker exec rucio cp /usr/local/src/rucio/etc/docker/test/extra/rucio_postgres12.cfg /opt/rucio/etc/rucio.cfg
     docker exec rucio cp /usr/local/src/rucio/etc/docker/test/extra/alembic_postgres12.ini /opt/rucio/etc/alembic.ini
     docker exec rucio httpd -k restart
 
 elif [[ $RDBMS == "sqlite" ]]; then
-    docker run -d -p 443:443 $DOCKER_PASS_ENV --name=rucio $IMAGE
     if [[ $SUITE == "multi_vo" ]]; then
         docker exec rucio cp /usr/local/src/rucio/etc/docker/test/extra/rucio_multi_vo_tst_sqlite.cfg /opt/rucio/etc/rucio_multi_vo_tst.cfg
         docker exec rucio cp /usr/local/src/rucio/etc/docker/test/extra/rucio_multi_vo_ts2_sqlite.cfg /opt/rucio/etc/rucio_multi_vo_ts2.cfg
