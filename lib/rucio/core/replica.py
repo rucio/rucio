@@ -1592,6 +1592,8 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
             with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
             filter(or_(*chunk)).\
             delete(synchronize_session=False)
+        if session.bind.dialect.name != 'oracle':
+            rucio.core.did.insert_deleted_dids(chunk, session=session)
 
     # Decrease RSE counter
     decrease(rse_id=rse_id, files=delta, bytes=bytes, session=session)
