@@ -40,7 +40,8 @@ from rucio.common.config import config_get_int
 from rucio.common.exception import (RucioException, RSEBlacklisted, DataIdentifierAlreadyExists, RSEOperationNotSupported,
                                     DataIdentifierNotFound, NoFilesUploaded, NotAllFilesUploaded, FileReplicaAlreadyExists,
                                     ResourceTemporaryUnavailable, ServiceUnavailable, InputValidationError, RSEChecksumUnavailable)
-from rucio.common.utils import adler32, detect_client_location, execute, generate_uuid, make_valid_did, md5, send_trace, GLOBALLY_SUPPORTED_CHECKSUMS
+from rucio.common.utils import (adler32, detect_client_location, execute, generate_uuid, make_valid_did, md5, send_trace,
+                                retry, GLOBALLY_SUPPORTED_CHECKSUMS)
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
 
@@ -183,7 +184,7 @@ class UploadClient:
             if (self.client_location and 'lan' in rse_settings['domain'] and 'site' in rse_attributes):
                 if self.client_location['site'] == rse_attributes['site']:
                     domain = 'lan'
-            logger.debug('{} is used for the upload'.format(domain))
+            logger.debug('{} domain is used for the upload'.format(domain))
 
             if not no_register and not register_after_upload:
                 self._register_file(file, registered_dataset_dids)
@@ -254,7 +255,7 @@ class UploadClient:
                     logger.debug('Upload done.')
                     success = True
                     file['upload_result'] = {0: True, 1: None, 'success': True, 'pfn': pfn}  # needs to be removed
-                except (ServiceUnavailable, ResourceTemporaryUnavailable) as error:
+                except (ServiceUnavailable, ResourceTemporaryUnavailable, RSEOperationNotSupported, RucioException) as error:
                     logger.warning('Upload attempt failed')
                     logger.info('Exception: %s' % str(error))
                     state_reason = str(error)
@@ -591,7 +592,7 @@ class UploadClient:
 
         # Process the upload of the tmp file
         try:
-            protocol_write.put(base_name, pfn_tmp, source_dir, transfer_timeout=transfer_timeout)
+            retry(protocol_write.put, base_name, pfn_tmp, source_dir, transfer_timeout=transfer_timeout)(mtries=2, logger=logger)
             logger.info('Successful upload of temporary file. {}'.format(pfn_tmp))
         except Exception as error:
             raise RSEOperationNotSupported(str(error))
