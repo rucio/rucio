@@ -90,6 +90,7 @@ def setup_logger(logger):
         def func(*args):
             if 'RUCIO_LOGGING_FORMAT' not in os.environ:
                 levelno = args[0].levelno
+                format_str = '%(asctime)s\t%(levelname)s\t%(message)s\033[0m'
                 if levelno >= logging.CRITICAL:
                     color = '\033[31;1m'
                 elif levelno >= logging.ERROR:
@@ -100,9 +101,10 @@ def setup_logger(logger):
                     color = '\033[32;1m'
                 elif levelno >= logging.DEBUG:
                     color = '\033[36;1m'
+                    format_str = '%(asctime)s\t%(levelname)s\t%(filename)s\t%(funcName)s\t%(message)s\033[0m'
                 else:
                     color = '\033[0m'
-                formatter = logging.Formatter('{0}%(asctime)s\t%(levelname)s\t%(message)s\033[0m'.format(color))
+                formatter = logging.Formatter('{0}{1}'.format(color, format_str))
             else:
                 formatter = logging.Formatter(os.environ['RUCIO_LOGGING_FORMAT'])
             hdlr.setFormatter(formatter)
