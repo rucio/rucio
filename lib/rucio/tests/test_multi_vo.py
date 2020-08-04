@@ -18,10 +18,20 @@
 
 from json import dumps
 from logging import getLogger
+from mock import patch
 from nose.tools import assert_equal, assert_false, assert_in, assert_is_not_none, assert_not_equal, assert_not_in, assert_raises, assert_true
+from oic import rndstr
+from os import remove
 from paste.fixture import TestApp
 from random import choice
+from re import search
 from string import ascii_uppercase, ascii_lowercase
+try:
+    # Python 2
+    from urlparse import urlparse, parse_qs
+except ImportError:
+    # Python 3
+    from urllib.parse import urlparse, parse_qs
 
 from rucio.api import vo as vo_api
 from rucio.api.account import add_account, list_accounts
@@ -47,7 +57,7 @@ from rucio.client.uploadclient import UploadClient
 from rucio.common.config import config_get, config_get_bool, config_remove_option, config_set
 from rucio.common.exception import AccessDenied, Duplicate, InvalidRSEExpression, UnsupportedAccountName, UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import generate_uuid, parse_response, ssh_sign
+from rucio.common.utils import generate_uuid, get_tmp_dir, parse_response, ssh_sign
 from rucio.core.replica import add_replica
 from rucio.core.rse import get_rses_with_attribute_value, get_rse_id, get_rse_vo
 from rucio.core.rse_expression_parser import parse_expression
@@ -55,7 +65,9 @@ from rucio.core.rule import add_rule
 from rucio.core.vo import add_vo, vo_exists
 from rucio.daemons.automatix.automatix import automatix
 from rucio.db.sqla import models, session as db_session
+from rucio.tests.common import execute
 from rucio.tests.test_authentication import PRIVATE_KEY, PUBLIC_KEY
+from rucio.tests.test_oidc import get_mock_oidc_client, NEW_TOKEN_DICT
 from rucio.web.rest.account import APP as account_app
 from rucio.web.rest.authentication import APP as auth_app
 from rucio.web.rest.vo import APP as vo_app
@@ -214,6 +226,123 @@ class TestVORestAPI(object):
             cls.new_header = {}
             cls.account_tst = ''
             cls.account_new = ''
+
+    def auth_oidc_handling(self, mock_oidc_client, vo, account_in, account_not_in, auto, polling):
+        """
+        Utility script to handle the REST calls with various urls and codes needed to authenticate via OIDC.
+        IdP responses are faked using code from `test_oidc.py`.
+
+        :param mock_oidc_client: Mock OIDC client used to fake responses from the IdP for test purposes.
+        :param vo: Dictionary containing the VO to authenticate against under the key 'vo'.
+        :param account_in: A string (externally) representing an account we DO expect to find at the VO.
+        :param account_not_in: A string (externally) representing an account we DO NOT expect to find at the VO.
+        :param auto: Boolean to specify whether we automatically submit userpass to the IdP as part of authentication.
+        :param auto: Boolean to specify whether we poll the IdP for a successful login as part of authentication.
+        """
+        mock_oidc_client.side_effect = get_mock_oidc_client
+        mw = []
+
+        try:
+            add_account_identity('SUB=knownsub, ISS=https://test_issuer/', 'OIDC', 'root', 'rucio_test@test.com', 'root', **vo)
+        except Duplicate:
+            pass  # Might already exist, can skip
+
+        # Define headers
+        headers = {'X-Rucio-Account': 'root',
+                   'X-Rucio-VO': vo['vo'],
+                   'X-Rucio-Client-Authorize-Auto': str(auto),
+                   'X-Rucio-Client-Authorize-Polling': str(polling),
+                   'X-Rucio-Client-Authorize-Scope': 'openid profile',
+                   'X-Rucio-Client-Authorize-Refresh-Lifetime': '96',
+                   'X-Rucio-Client-Authorize-Audience': 'rucio',
+                   'X-Rucio-Client-Authorize-Issuer': 'dummy_admin_iss_nickname'}
+
+        res = TestApp(auth_app.wsgifunc(*mw)).get('/oidc', headers=headers, expect_errors=True)
+        assert_equal(res.status, 200)
+        if auto:
+            # Get the auth_url without any redirect
+            auth_url = res.header('X-Rucio-OIDC-Auth-URL')
+        else:
+            # Get the redirect_url
+            redirect_url = res.header('X-Rucio-OIDC-Auth-URL')
+            assert_in('https://test_redirect_string/auth/oidc_redirect?', redirect_url)
+            if polling:
+                assert_in('_polling', redirect_url)
+            else:
+                assert_not_in('_polling', redirect_url)
+            redirect_url_parsed = urlparse(redirect_url)
+
+            # Get the auth_url from the redirect_url
+            res = TestApp(auth_app.wsgifunc(*mw)).get('/oidc_redirect?%s' % redirect_url_parsed.query, headers=headers, expect_errors=True)
+            assert_equal(res.status, 303)
+            auth_url = res.header('location')
+
+        assert_in('https://test_auth_url_string?', auth_url)
+        auth_url_parsed = urlparse(auth_url)
+        auth_url_params = parse_qs(auth_url_parsed.query)
+
+        # Fake the IdP response for a successful login
+        code_response = rndstr()
+        access_token = rndstr()
+        NEW_TOKEN_DICT['access_token'] = access_token
+        NEW_TOKEN_DICT['id_token'] = {'sub': 'knownsub', 'iss': 'https://test_issuer/', 'nonce': auth_url_params['nonce'][0]}
+        headers['X-Rucio-Client-Fetch-Token'] = 'True'
+
+        if auto:
+            # Can get the token now
+            res = TestApp(auth_app.wsgifunc(*mw)).get('/oidc_token?state=%s&code=%s' % (auth_url_params['state'][0], code_response), headers=headers, expect_errors=True)
+        else:
+            # Get the html response
+            res = TestApp(auth_app.wsgifunc(*mw)).get('/oidc_code?state=%s&code=%s' % (auth_url_params['state'][0], code_response), headers=headers, expect_errors=True)
+            assert_equal(res.status, 200)
+            split_res = res.body.decode().split('\n')
+            if polling:
+                # Check the response is OK, then poll the original redirect_url for the token
+                for text in split_res:
+                    ok_code = search('Rucio Client should now be able to fetch your token automatically.', text)
+                    if ok_code:
+                        ok_code = ok_code.group()
+                        break
+                assert_is_not_none(ok_code)
+                res = TestApp(auth_app.wsgifunc(*mw)).get('/oidc_redirect?%s' % redirect_url_parsed.query, headers=headers, expect_errors=True)
+            else:
+                # Get the fetch_code from the response, then submit it
+                for text in split_res:
+                    fetch_code = search(r'<b>[a-zA-Z0-9]{50}</b>', text)
+                    if fetch_code:
+                        fetch_code = fetch_code.group()[3:53]
+                        break
+                assert_is_not_none(fetch_code)
+                res = TestApp(auth_app.wsgifunc(*mw)).get('/oidc_redirect?%s' % fetch_code, headers=headers, expect_errors=True)
+
+        # Regardless of how we got it, check we have the token and that we only get results from our VO when using it
+        assert_equal(res.status, 200)
+        token = str(res.header('X-Rucio-Auth-Token'))
+        headers = {'X-Rucio-Auth-Token': str(token)}
+        res = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers, expect_errors=True)
+        assert_equal(res.status, 200)
+        accounts = [parse_response(a)['account'] for a in res.body.decode().split('\n')[:-1]]
+        assert_not_equal(len(accounts), 0)
+        assert_in(account_in, accounts)
+        assert_not_in(account_not_in, accounts)
+
+    @patch('rucio.core.oidc.__get_init_oidc_client')
+    def test_auth_oidc(self, mock_oidc_client):
+        """ MULTI VO (REST): Test oidc authentication to multiple VOs """
+        self.auth_oidc_handling(mock_oidc_client, self.vo, self.account_tst, self.account_new, auto=False, polling=False)
+        self.auth_oidc_handling(mock_oidc_client, self.new_vo, self.account_new, self.account_tst, auto=False, polling=False)
+
+    @patch('rucio.core.oidc.__get_init_oidc_client')
+    def test_auth_oidc_polling(self, mock_oidc_client):
+        """ MULTI VO (REST): Test oidc authentication to multiple VOs using 'polling' option """
+        self.auth_oidc_handling(mock_oidc_client, self.vo, self.account_tst, self.account_new, auto=False, polling=True)
+        self.auth_oidc_handling(mock_oidc_client, self.new_vo, self.account_new, self.account_tst, auto=False, polling=True)
+
+    @patch('rucio.core.oidc.__get_init_oidc_client')
+    def test_auth_oidc_auto(self, mock_oidc_client):
+        """ MULTI VO (REST): Test oidc authentication to multiple VOs using 'auto' option """
+        self.auth_oidc_handling(mock_oidc_client, self.vo, self.account_tst, self.account_new, auto=True, polling=False)
+        self.auth_oidc_handling(mock_oidc_client, self.new_vo, self.account_new, self.account_tst, auto=True, polling=False)
 
     def test_auth_gss(self):
         """ MULTI VO (REST): Test gss authentication to multiple VOs """
@@ -905,6 +1034,106 @@ class TestMultiVoClients(object):
             assert_equal(account.vo, self.new_vo['vo'])
 
         session.commit()
+
+
+class TestMultiVOBinRucio():
+
+    @classmethod
+    def setUpClass(cls):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+            cls.new_vo = {'vo': 'new'}
+            cls.fake_vo = {'vo': 'fke'}
+            if not vo_exists(**cls.new_vo):
+                add_vo(description='Test', email='rucio@email.com', **cls.new_vo)
+
+            # Setup RSEs at two VOs so we can determine which VO we authenticated against
+            rse_str = ''.join(choice(ascii_uppercase) for x in range(10))
+            cls.rse_tst = 'TST_%s' % rse_str
+            cls.rse_new = 'NEW_%s' % rse_str
+            add_rse(cls.rse_tst, 'root', **cls.vo)
+            add_rse(cls.rse_new, 'root', **cls.new_vo)
+
+            try:
+                remove(get_tmp_dir() + '/.rucio_root@%s/auth_token_root' % cls.vo['vo'])
+            except OSError as e:
+                if e.args[0] != 2:
+                    raise e
+            try:
+                remove(get_tmp_dir() + '/.rucio_root@%s/auth_token_root' % cls.new_vo['vo'])
+            except OSError as e:
+                if e.args[0] != 2:
+                    raise e
+
+        else:
+            LOG.warning('multi_vo mode is not enabled. Running multi_vo tests in single_vo mode will result in failures.')
+            cls.vo = {}
+            cls.new_vo = {}
+            cls.fake_vo = {}
+            cls.rse_tst = ''
+            cls.rse_new = ''
+
+        cls.marker = '$> '
+
+    def test_vo_option_admin_cli(self):
+        """ MULTI VO (USER): Test authentication to multiple VOs via the admin CLI """
+        cmd = 'rucio-admin --vo %s rse list' % self.vo['vo']
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, )
+        assert_in(self.rse_tst, out)
+        assert_not_in(self.rse_new, out)
+
+        cmd = 'rucio-admin --vo %s rse list' % self.new_vo['vo']
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, )
+        assert_not_in(self.rse_tst, out)
+        assert_in(self.rse_new, out)
+
+        cmd = 'rucio-admin --vo %s rse list' % self.fake_vo['vo']
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert_equal(len(out), 0)
+        assert_in('cannot get auth_token', err)
+
+        cmd = 'rucio-admin rse list'
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, )
+        assert_in(self.rse_tst, out)
+        assert_not_in(self.rse_new, out)
+
+    def test_vo_option_cli(self):
+        """ MULTI VO (USER): Test authentication to multiple VOs via the CLI """
+        cmd = 'rucio --vo %s list-rses' % self.vo['vo']
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, )
+        assert_in(self.rse_tst, out)
+        assert_not_in(self.rse_new, out)
+
+        cmd = 'rucio --vo %s list-rses' % self.new_vo['vo']
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, )
+        assert_not_in(self.rse_tst, out)
+        assert_in(self.rse_new, out)
+
+        cmd = 'rucio --vo %s list-rses' % self.fake_vo['vo']
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert_equal(len(out), 0)
+        assert_in('cannot get auth_token', err)
+
+        cmd = 'rucio list-rses'
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, )
+        assert_in(self.rse_tst, out)
+        assert_not_in(self.rse_new, out)
 
 
 class TestMultiVODaemons(object):
