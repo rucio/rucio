@@ -1350,3 +1350,33 @@ def query_bunches(query, bunch_by):
     if item_bunch:
         filtered_bunches.append(item_bunch)
     return filtered_bunches
+
+
+class retry:
+    """Retry callable object with configuragle number of attempts"""
+
+    def __init__(self, func, *args, **kwargs):
+        '''
+        :param func: a method that should be executed with retries
+        :param args parametres of the func
+        :param kwargs: key word arguments of the func
+        '''
+        self.func, self.args, self.kwargs = func, args, kwargs
+
+    def __call__(self, mtries=3, logger=None):
+        '''
+        :param mtries: maximum number of attempts to execute the function
+        :param logger: preferred logger
+        '''
+        attempt = mtries
+        while mtries > 1:
+            try:
+                if logger:
+                    logger.debug('{}: Attempt {}'.format(self.func.__name__, mtries - attempt + 1))
+                return self.func(*self.args, **self.kwargs)
+            except Exception as e:
+                if logger:
+                    logger.debug('{}: Attempt failed {}'.format(self.func.__name__, mtries - attempt + 1))
+                    logger.debug(str(e))
+                attempt -= 1
+        return self.func(*self.args, **self.kwargs)
