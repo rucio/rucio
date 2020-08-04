@@ -1,43 +1,58 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019-2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
 
+import sys
 import time
 import traceback
-
 from datetime import datetime, timedelta
-from mock import MagicMock, patch
+
 from nose.tools import assert_true, assert_false
 from oic import rndstr
-from rucio.core.account import add_account
-from rucio.core.identity import add_account_identity
+
 from rucio.common.config import config_get, config_get_bool
+from rucio.common.exception import (CannotAuthenticate, DatabaseException)
 from rucio.common.exception import Duplicate
 from rucio.common.types import InternalAccount
 from rucio.common.utils import oidc_identity_string
-from rucio.db.sqla.constants import IdentityType
+from rucio.core.account import add_account
+from rucio.core.authentication import redirect_auth_oidc, validate_auth_token
+from rucio.core.identity import add_account_identity
 from rucio.core.oidc import (get_auth_oidc, get_token_oidc,
                              get_token_for_account_operation, EXPECTED_OIDC_AUDIENCE, EXPECTED_OIDC_SCOPE)
-from rucio.core.authentication import redirect_auth_oidc, validate_auth_token
-from rucio.common.exception import (CannotAuthenticate, DatabaseException)
 from rucio.db.sqla import models
-from rucio.db.sqla.session import get_session
 from rucio.db.sqla.constants import AccountType
+from rucio.db.sqla.constants import IdentityType
+from rucio.db.sqla.session import get_session
+
 try:
     # Python 2
     from urlparse import urlparse, parse_qs
 except ImportError:
     # Python 3
     from urllib.parse import urlparse, parse_qs
+
+if sys.version_info >= (3, 3):
+    from unittest.mock import MagicMock, patch
+else:
+    from mock import MagicMock, patch
 
 NEW_TOKEN_DICT = {'access_token': 'eyJ3bG...',
                   'expires_in': 3599,

@@ -1,4 +1,4 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,8 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -21,7 +22,8 @@ from __future__ import print_function
 
 from nose.tools import assert_equal
 
-from rucio.client import AccountClient, RSEClient
+from rucio.client.accountclient import AccountClient
+from rucio.client.rseclient import RSEClient
 from rucio.common.utils import generate_uuid
 from rucio.tests.common import rse_name_generator
 

@@ -1,14 +1,22 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#                       http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
-
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 import random
 
@@ -32,7 +40,7 @@ def createMetadata():
 
 def createRSEs():
     # Add test RSEs
-    for i in xrange(0, 3):
+    for i in range(3):
         rse1 = str(uuid())
         rse2 = str(uuid())
         add_rse(rse1, issuer='root')
@@ -42,7 +50,7 @@ def createRSEs():
         add_rse_attribute(rse1, "DISK", True, issuer='root')
         add_rse_attribute(rse2, "TAPE", True, issuer='root')
 
-    for i in xrange(0, 10):
+    for i in range(10):
         rse1 = str(uuid())
         add_rse(rse1, issuer='root')
         add_rse_attribute(rse1, "T2", True, issuer='root')
@@ -55,7 +63,7 @@ def createRSEs():
 
 def populateDB():
     listrses = list_rses({'T1': '1'})
-    print len(listrses), listrses
+    print(len(listrses), listrses)
     # listrses = list_rses()
     # print len(listrses), listrses
     # sys.exit()
@@ -67,8 +75,8 @@ def populateDB():
                    {'datatype': 'AOD', 'prodstep': 'recon', 'nbfiles': 858, 'totfilesize': 182186965627, 'nbreplicas': 1}]
 
     for d in dictDistrib:
-        for day in xrange(0, 180):
-            for i in xrange(0, 30):
+        for day in range(180):
+            for i in range(30):
                 scope = project
                 prod_step = d['prodstep']
                 datatype = d['datatype']
@@ -89,9 +97,9 @@ def populateDB():
 
                     try:
                         dsn = '%s.%s.%s.%i.%i' % (project, prod_step, datatype, day, i)
-                        print '%i Creating %s with %i files of size %i located at %i sites' % (i, dsn, nbfiles, filesize, len(source_rses))
+                        print('%i Creating %s with %i files of size %i located at %i sites' % (i, dsn, nbfiles, filesize, len(source_rses)))
                         add_identifier(scope=scope, name=dsn, type='dataset', issuer=account, statuses={'monotonic': True}, meta=dataset_meta)
-                        files = ['file_%s' % uuid() for i in xrange(nbfiles)]
+                        files = ['file_%s' % uuid() for i in range(nbfiles)]
                         listfiles = []
                         for file in files:
                             listfiles.append({'scope': scope, 'name': file, 'size': filesize})
@@ -102,12 +110,10 @@ def populateDB():
                             try:
                                 add_replication_rule(dids=[{'scope': scope, 'name': dsn}], account=account, copies=1, rse_expression=source_rse,
                                                      grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, issuer='root')
-                            except InvalidReplicationRule, e:
-                                print e
-                    except RucioException, e:
-                        print e
+                            except InvalidReplicationRule as e:
+                                print(e)
+                    except RucioException as e:
+                        print(e)
 
 
-# createRSEs()
-# createMetadata()
 populateDB()
