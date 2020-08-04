@@ -62,7 +62,7 @@ except ImportError:
 
 from functools import wraps
 
-from rucio.client.client import Client
+from rucio.client import Client
 from rucio import version
 from rucio.common.config import config_get
 from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject,
@@ -136,22 +136,15 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 
-def extract_scope_old(did):
-    # Try to extract the scope from the DSN
-    if did.find(':') > -1:
-        if len(did.split(':')) > 2:
-            raise RucioException('Too many colons. Cannot extract scope and name')
-        scope, name = did.split(':')[0], did.split(':')[1]
-        if name.endswith('/'):
-            name = name[:-1]
+def get_scope(did, client):
+    try:
+        scope, name = extract_scope(did)
         return scope, name
-    else:
-        scope = did.split('.')[0]
-        if did.startswith('user') or did.startswith('group'):
-            scope = ".".join(did.split('.')[0:2])
-        if did.endswith('/'):
-            did = did[:-1]
-        return scope, did
+    except TypeError:
+        scopes = client.list_scopes()
+        scope, name = extract_scope(did, scopes)
+        return scope, name
+    return None, did
 
 
 def exception_handler(function):
@@ -347,11 +340,11 @@ def list_dataset_replicas(args):
         result[dsn][replica['rse']] = [replica['rse'], replica['available_length'], replica['length']]
 
     if len(args.dids) == 1:
-        scope, name = extract_scope(args.dids[0])
+        scope, name = get_scope(args.dids[0], client)
         dmeta = client.get_metadata(scope, name)
         _fetch_datasets_for_meta(meta=dmeta)
     else:
-        extractdids = (extract_scope(did) for did in args.dids)
+        extractdids = (get_scope(did, client) for did in args.dids)
         splitdids = [{'scope': scope, 'name': name} for scope, name in extractdids]
         for dmeta in client.get_metadata_bulk(dids=splitdids):
             _fetch_datasets_for_meta(meta=dmeta)
@@ -403,7 +396,7 @@ def list_file_replicas(args):
         return FAILURE
 
     for did in args.dids:
-        scope, name = extract_scope(did)
+        scope, name = get_scope(did, client)
         client.get_metadata(scope=scope, name=name)  # break with Exception before streaming replicas if DID does not exist
         dids.append({'scope': scope, 'name': name})
 
@@ -469,7 +462,7 @@ def add_dataset(args):
     Add a dataset identifier.
     """
     client = get_client(args)
-    scope, name = extract_scope(args.did)
+    scope, name = get_scope(args.did, client)
     client.add_dataset(scope=scope, name=name, statuses={'monotonic': args.monotonic}, lifetime=args.lifetime)
     print('Added %s:%s' % (scope, name))
     return SUCCESS
@@ -483,7 +476,7 @@ def add_container(args):
     Add a container identifier.
     """
     client = get_client(args)
-    scope, name = extract_scope(args.did)
+    scope, name = get_scope(args.did, client)
     client.add_container(scope=scope, name=name, statuses={'monotonic': args.monotonic}, lifetime=args.lifetime)
     print('Added %s:%s' % (scope, name))
     return SUCCESS
@@ -497,7 +490,7 @@ def attach(args):
     Attach a data identifier.
     """
     client = get_client(args)
-    scope, name = extract_scope(args.todid)
+    scope, name = get_scope(args.todid, client)
     dids = args.dids
     limit = 499
 
@@ -512,7 +505,7 @@ def attach(args):
             logger.error("Can't open file '" + dids[0] + "'.")
             return FAILURE
 
-    dids = [{'scope': extract_scope(did)[0], 'name': extract_scope(did)[1]} for did in dids]
+    dids = [{'scope': get_scope(did, client)[0], 'name': get_scope(did, client)[1]} for did in dids]
     if len(dids) <= limit:
         client.attach_dids(scope=scope, name=name, dids=dids)
     else:
@@ -542,10 +535,10 @@ def detach(args):
     Detach data identifier.
     """
     client = get_client(args)
-    scope, name = extract_scope(args.fromdid)
+    scope, name = get_scope(args.fromdid, client)
     dids = []
     for did in args.dids:
-        cscope, cname = extract_scope(did)
+        cscope, cname = get_scope(did, client)
         dids.append({'scope': cscope, 'name': cname})
     client.detach_dids(scope=scope, name=name, dids=dids)
     print('DIDs successfully detached from %s:%s' % (scope, name))
@@ -577,7 +570,7 @@ def list_dids(args):
             return FAILURE
 
     try:
-        scope, name = extract_scope(args.did[0])
+        scope, name = get_scope(args.did[0], client)
         if name == '':
             name = '*'
     except InvalidObject:
@@ -631,7 +624,7 @@ def list_dids_extended(args):
             return FAILURE
 
     try:
-        scope, name = extract_scope(args.did[0])
+        scope, name = get_scope(args.did[0], client)
         if name == '':
             name = '*'
     except InvalidObject:
@@ -685,7 +678,7 @@ def list_files(args):
     client = get_client(args)
     if args.csv:
         for did in args.dids:
-            scope, name = extract_scope(did)
+            scope, name = get_scope(did, client)
             for f in client.list_files(scope=scope, name=name):
                 guid = f['guid']
                 if guid:
@@ -710,7 +703,7 @@ def list_files(args):
  </File>'''
 
         for did in args.dids:
-            scope, name = extract_scope(did)
+            scope, name = get_scope(did, client)
             for f in client.list_files(scope=scope, name=name):
                 guid = f['guid']
                 if guid:
@@ -727,7 +720,7 @@ def list_files(args):
             totfiles = 0
             totsize = 0
             totevents = 0
-            scope, name = extract_scope(did)
+            scope, name = get_scope(did, client)
             for file in client.list_files(scope=scope, name=name):
                 totfiles += 1
                 totsize += int(file['bytes'])
@@ -757,7 +750,7 @@ def list_content(args):
     client = get_client(args)
     table = []
     for did in args.dids:
-        scope, name = extract_scope(did)
+        scope, name = get_scope(did, client)
         for content in client.list_content(scope=scope, name=name):
             table.append(['%s:%s' % (content['scope'], content['name']), content['type'].upper()])
     if args.short:
@@ -778,7 +771,7 @@ def list_content_history(args):
     client = get_client(args)
     table = []
     for did in args.dids:
-        scope, name = extract_scope(did)
+        scope, name = get_scope(did, client)
         for content in client.list_content_history(scope=scope, name=name):
             table.append(['%s:%s' % (content['scope'], content['name']), content['type'].upper()])
     print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
@@ -825,7 +818,7 @@ def list_parent_dids(args):
             print('Parents : ', ','.join(dict_datasets[guid]))
     elif args.did:
         table = []
-        scope, name = extract_scope(args.did)
+        scope, name = get_scope(args.did, client)
         for dataset in client.list_parent_dids(scope=scope, name=name):
             table.append(['%s:%s' % (dataset['scope'], dataset['name']), dataset['type']])
         print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
@@ -844,7 +837,7 @@ def close(args):
     """
     client = get_client(args)
     for did in args.dids:
-        scope, name = extract_scope(did)
+        scope, name = get_scope(did, client)
         client.set_status(scope=scope, name=name, open=False)
         print('%(scope)s:%(name)s has been closed.' % locals())
     return SUCCESS
@@ -859,7 +852,7 @@ def reopen(args):
     """
     client = get_client(args)
     for did in args.dids:
-        scope, name = extract_scope(did)
+        scope, name = get_scope(did, client)
         client.set_status(scope=scope, name=name, open=True)
         print('%(scope)s:%(name)s has been reopened.' % locals())
     return SUCCESS
@@ -876,7 +869,7 @@ def stat(args):
     for i, did in enumerate(args.dids):
         if i > 0:
             print('------')
-        scope, name = extract_scope(did)
+        scope, name = get_scope(did, client)
         info = client.get_did(scope=scope, name=name)
         table = [(k + ':', str(v)) for (k, v) in sorted(info.items())]
         print(tabulate.tabulate(table, tablefmt='plain'))
@@ -895,7 +888,7 @@ def erase(args):
             logger.warning("This command doesn't support wildcards! Skipping DID: %s" % did)
             continue
         try:
-            scope, name = extract_scope(did)
+            scope, name = get_scope(did, client)
         except RucioException as error:
             logger.warning('DID is in wrong format: %s' % did)
             logger.debug('Error: %s' % error)
@@ -1137,7 +1130,7 @@ def get_metadata(args):
     for i, did in enumerate(args.dids):
         if i > 0:
             print('------')
-        scope, name = extract_scope(did)
+        scope, name = get_scope(did, client)
         meta = client.get_metadata(scope=scope, name=name, plugin=plugin)
         table = [(k + ':', str(v)) for (k, v) in sorted(meta.items())]
         print(tabulate.tabulate(table, tablefmt='plain'))
@@ -1155,7 +1148,7 @@ def set_metadata(args):
     value = args.value
     if args.key == 'lifetime':
         value = float(args.value)
-    scope, name = extract_scope(args.did)
+    scope, name = get_scope(args.did, client)
     client.set_metadata(scope=scope, name=name, key=args.key, value=value)
     return SUCCESS
 
@@ -1168,7 +1161,7 @@ def delete_metadata(args):
     Delete data identifier metadata
     """
     client = get_client(args)
-    scope, name = extract_scope(args.did)
+    scope, name = get_scope(args.did, client)
     client.delete_metadata(scope=scope, name=name, key=args.key)
     return SUCCESS
 
@@ -1208,7 +1201,7 @@ def add_rule(args):
     dids = []
     rule_ids = []
     for did in args.dids:
-        scope, name = extract_scope(did)
+        scope, name = get_scope(did, client)
         dids.append({'scope': scope, 'name': name})
     try:
         rule_ids = client.add_replication_rule(dids=dids,
@@ -1271,7 +1264,7 @@ def delete_rule(args):
         if not args.rse_expression:
             logger.error('A RSE expression must be specified if you do not provide a rule_id but a DID')
             return FAILURE
-        scope, name = extract_scope(args.rule_id)
+        scope, name = get_scope(args.rule_id, client)
         rules = client.list_did_rules(scope=scope, name=name)
         if args.rule_account is None:
             account = client.account
@@ -1413,16 +1406,16 @@ def list_rules(args):
     if args.rule_id:
         rules = [client.get_replication_rule(args.rule_id)]
     elif args.file:
-        scope, name = extract_scope(args.file)
+        scope, name = get_scope(args.file, client)
         rules = client.list_associated_rules_for_file(scope=scope, name=name)
     elif args.traverse:
-        scope, name = extract_scope(args.did)
+        scope, name = get_scope(args.did, client)
         locks = client.get_dataset_locks(scope=scope, name=name)
         rules = []
         for rule_id in list(set([lock['rule_id'] for lock in locks])):
             rules.append(client.get_replication_rule(rule_id))
     elif args.did:
-        scope, name = extract_scope(args.did)
+        scope, name = get_scope(args.did, client)
         meta = client.get_metadata(scope=scope, name=name)
         rules = client.list_did_rules(scope=scope, name=name)
         try:
@@ -1484,7 +1477,7 @@ def list_rules_history(args):
     """
     rule_dict = []
     client = get_client(args)
-    scope, name = extract_scope(args.did)
+    scope, name = get_scope(args.did, client)
     for rule in client.list_replication_rule_full_history(scope, name):
         if rule['rule_id'] not in rule_dict:
             rule_dict.append(rule['rule_id'])
@@ -1683,7 +1676,7 @@ def touch(args):
     client = get_client(args)
 
     for did in args.dids:
-        scope, name = extract_scope(did)
+        scope, name = get_scope(did, client)
         client.touch(scope, name, args.rse)
 
 
