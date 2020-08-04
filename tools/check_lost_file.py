@@ -1,13 +1,23 @@
-#!/usr/bin/env sh
-# Copyright European Organization for Nuclear Research (CERN)
+#!/usr/bin/env python
+# Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2015
-# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+# - Wen Guan <wen.guan@cern.ch>, 2015
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 import commands
 import logging
@@ -39,7 +49,7 @@ class Worker(Thread):
                 func, args, kargs = self.tasks.get()
                 try:
                     func(*args, **kargs)
-                except Exception, e:
+                except Exception as e:
                     logging.warning("ThreadPool Worker func exception: %s, %s" % (str(e), traceback.format_exc()))
                 except:
                     logging.warning("ThreadPool Worker func unknow exception: %s" % traceback.format_exc())
@@ -71,9 +81,9 @@ def check_file_path(scope, name, rse_id, dest_url):
         return True
     else:
         if "No such file or directory" in output:
-            print "LOST: scope %s, name %s, rse_id %s, url: %s" % (scope, name, rse_id, dest_url)
+            print("LOST: scope %s, name %s, rse_id %s, url: %s" % (scope, name, rse_id, dest_url))
         else:
-            print "UNKNOWN: scope %s, name %s, rse_id %s, url: %s, error: %s" % (scope, name, rse_id, dest_url, output)
+            print("UNKNOWN: scope %s, name %s, rse_id %s, url: %s, error: %s" % (scope, name, rse_id, dest_url, output))
     return False
 
 
@@ -119,10 +129,10 @@ for scope, name, rse_name in lost_requests:
         pfn = protocols[rse_name].lfns2pfns([lfn])['%s:%s' % (scope, name)]
     except ReplicaNotFound:
         # for stagin rses, it's undeterminstric, but the path is not set. here protocol.lfns2pfns will throw an exception
-        print "ReplicaNotFound: scope %s, name %s, rse_id %s, rse %s" % (scope, name, rse_id, rse_name)
+        print("ReplicaNotFound: scope %s, name %s, rse_id %s, rse %s" % (scope, name, rse_id, rse_name))
         continue
     except:
-        print "Unknow: scope %s, name %s, rse_id %s, rse %s" % (scope, name, rse_id, rse_name)
+        print("Unknow: scope %s, name %s, rse_id %s, rse %s" % (scope, name, rse_id, rse_name))
         continue
 
     threadPool.add_task(check_file_path, scope, name, rse_id, pfn)

@@ -1,14 +1,21 @@
 #!/usr/bin/env python
-
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2014-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Cheng-Hsi Chao, <cheng-hsi.chaos@cern.ch>, 2014
-# - Martin Barisits, <martin.barisits@cern.ch>, 2019
+# - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
@@ -60,10 +67,9 @@ def initiate_ldap():
             try:
                 ldap_obj.whoami_s()
             except ldap.UNWILLING_TO_PERFORM:
-                print 'Anonymous binding is disabled by server'
+                print('Anonymous binding is disabled by server')
                 raise SystemExit
         return ldap_obj
-        break
 
 
 def add_identity(ldapObject):
@@ -78,7 +84,7 @@ def add_identity(ldapObject):
             else:
                 account = result[1]['uid'][0]
             if not re.match(r'^[a-z0-9-_]{1,30}$', account):
-                print 'account: \'' + account + '\' is invalid as Rucio account'
+                print('account: \'' + account + '\' is invalid as Rucio account')
                 continue
             if 'auth_type' in retrieveAttributes:
                 authtype = result[1]['auth_type'][0]
@@ -88,12 +94,12 @@ def add_identity(ldapObject):
             email = result[1]['mail'][0]
             add_account(account)
             client.add_identity(account, identity, authtype, email)  # pylint: disable:no-value-for-parameter
-            print 'Added new identity to account: %s-%s' % (identity, account)
+            print('Added new identity to account: %s-%s' % (identity, account))
         except KeyError as e:
-            print 'Attribute', e, 'for account \'' + account + '\' is missing'
+            print('Attribute', e, 'for account \'' + account + '\' is missing')
             continue
         except exception.Duplicate as e:
-            print e[0][0]
+            print(e[0][0])
             continue
 
 
@@ -104,12 +110,12 @@ def add_account(account):
     type = 'USER'
     try:
         client.get_account(account)
-        print 'Account \'' + account + '\' is already registered as Rucio account'
+        print('Account \'' + account + '\' is already registered as Rucio account')
     except exception.AccountNotFound:
         client.add_account(account, type, None)
         pass
     except exception.InvalidObject as e:
-        print e[0][0]
+        print(e[0][0])
         pass
 
 

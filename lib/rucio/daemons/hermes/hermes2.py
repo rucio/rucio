@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2014-2020 CERN
+# Copyright 2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 #
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -174,7 +175,7 @@ def hermes2(once=False, thread=0, bulk=1000, sleep_time=10):
     try:
         services_list = get('hermes', 'services_list')
         services_list = services_list.split(',')
-    except ConfigNotFound as err:
+    except ConfigNotFound:
         logging.debug('No services found, exiting')
         sys.exit(1)
     if 'influx' in services_list:

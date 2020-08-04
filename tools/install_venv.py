@@ -1,21 +1,35 @@
-#    copyright: European Organization for Nuclear Research (CERN)
-#    @author:
-#    - Vincent Garonne, <vincent.garonne@cern.ch>, 2011-1013
-#    @contact: U{ph-adp-ddm-lab@cern.ch<mailto:ph-adp-ddm-lab@cern.ch>}
-#    @license: Licensed under the Apache License, Version 2.0 (the "License");
-#    You may not use this file except in compliance with the License.
-#    You may obtain a copy of the License at U{http://www.apache.org/licenses/LICENSE-2.0}
+# Copyright 2011-2020 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2011-2013
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+
 """
 Installation script Rucio's development virtualenv
 """
 
+from __future__ import print_function
+
 import errno
 import optparse
 import os
-import subprocess
 import shutil
+import subprocess
 import sys
-
 
 ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 VENV = os.path.join(ROOT, '.venv')
@@ -25,7 +39,7 @@ PIP_REQUIRES_TEST = os.path.join(ROOT, 'etc', 'pip-requires-test')
 
 
 def die(message, *args):
-    print >> sys.stderr, message % args
+    print(message % args, file=sys.stderr)
     sys.exit(1)
 
 
@@ -56,10 +70,10 @@ def check_dependencies():
     """Make sure virtualenv is in the path."""
 
     if not HAS_VIRTUALENV:
-        print 'virtualenv not found.'
+        print('virtualenv not found.')
         # Try installing it via curl/pip/easy_install...
         if HAS_PIP:
-            print 'Installing virtualenv via pip...',
+            print('Installing virtualenv via pip...', end=' ')
             if not run_command(['which', 'pip']):
                 die('ERROR: virtualenv not found.\n\n'
                     'Rucio development requires virtualenv, please install'
@@ -67,9 +81,9 @@ def check_dependencies():
             else:
                 if not run_command(['pip', 'install', 'virtualenv']).strip():
                     die("Failed to install virtualenv.")
-            print 'done.'
+            print('done.')
         elif HAS_EASY_INSTALL:
-            print 'Installing virtualenv via easy_install...',
+            print('Installing virtualenv via easy_install...', end=' ')
             if not run_command(['which', 'easy_install']):
                 die('ERROR: virtualenv not found.\n\n'
                     'Rucio development requires virtualenv, please install'
@@ -77,8 +91,8 @@ def check_dependencies():
             else:
                 if not run_command(['easy_install', 'virtualenv']).strip():
                     die("Failed to install virtualenv.")
-            print 'done.'
-    print 'done.'
+            print('done.')
+    print('done.')
 
 
 def create_virtualenv(venv=VENV):
@@ -87,21 +101,21 @@ def create_virtualenv(venv=VENV):
     virtual environment
     """
     if HAS_VIRTUALENV:
-        print 'Creating venv...'
+        print('Creating venv...')
         run_command(['virtualenv', '-q', '--no-site-packages', VENV])
     elif HAS_CURL:
-        print 'Creating venv via curl...',
+        print('Creating venv via curl...', end=' ')
         if not run_command("curl -s https://raw.github.com/pypa/virtualenv/master/virtualenv.py | %s - --no-site-packages %s" % (sys.executable, VENV), shell=True):
             die('Failed to install virtualenv with curl.')
-    print 'done.'
-    print 'Installing pip in virtualenv...',
+    print('done.')
+    print('Installing pip in virtualenv...', end=' ')
     if not run_command(['tools/with_venv.sh', 'pip', 'install', 'pip>=9.0.1']).strip():
         die("Failed to install pip.")
-    print 'done.'
+    print('done.')
 
 
 def install_dependencies(venv=VENV, client=False):
-    print 'Installing dependencies with pip (this can take a while)...'
+    print('Installing dependencies with pip (this can take a while)...')
 
     run_command(['.venv/bin/pip', 'install', '-r', PIP_REQUIRES_CLIENT], redirect_output=False)
 
@@ -127,7 +141,7 @@ def _detect_python_version(venv):
 
 
 def create_symlinks(venv=VENV, atlas_clients=False):
-    print 'Installing binaries symlinks ...'
+    print('Installing binaries symlinks ...')
     bin_dir = os.path.join(ROOT, "bin")
     venv_bin_dir = os.path.join(venv, "bin")
     binaries = os.listdir(bin_dir)
@@ -136,14 +150,14 @@ def create_symlinks(venv=VENV, atlas_clients=False):
         link_name = os.path.join(venv_bin_dir, binary)
         try:
             os.path.exists(link_name) and source != os.readlink(link_name)
-        except OSError, e:
+        except OSError as e:
             if e.errno == errno.EINVAL:
-                print 'Delete broken symlink: %(link_name)s -> %(source)s' % locals()
+                print('Delete broken symlink: %(link_name)s -> %(source)s' % locals())
                 os.remove(link_name)
             else:
                 raise e
         if not os.path.exists(link_name):
-            print 'Create the symlink: %(link_name)s -> %(source)s' % locals()
+            print('Create the symlink: %(link_name)s -> %(source)s' % locals())
             os.symlink(source, link_name)
 
     if atlas_clients:
@@ -151,20 +165,20 @@ def create_symlinks(venv=VENV, atlas_clients=False):
         link_name = os.path.join(venv, "etc")
         try:
             os.path.exists(link_name) and source != os.readlink(link_name)
-        except OSError, e:
+        except OSError as e:
             if e.errno == errno.EINVAL:
-                print 'Delete broken symlink: %(link_name)s -> %(source)s' % locals()
+                print('Delete broken symlink: %(link_name)s -> %(source)s' % locals())
                 os.remove(link_name)
             else:
                 raise e
         if not os.path.exists(link_name):
-            print 'Create the symlink: %(link_name)s -> %(source)s' % locals()
+            print('Create the symlink: %(link_name)s -> %(source)s' % locals())
             os.symlink(source, link_name)
 
         cfg_name = os.path.join(link_name, 'rucio.cfg')
         tpl_cfg_name = os.path.join(link_name, 'rucio.cfg.template')
         if not os.path.exists(cfg_name):
-            print 'Configuring Rucio with etc/rucio.cfg.template'
+            print('Configuring Rucio with etc/rucio.cfg.template')
             shutil.copy(src=tpl_cfg_name, dst=cfg_name)
 
 
@@ -187,7 +201,7 @@ def print_help():
 
  Also, make test will automatically use the virtualenv.
     """
-    print help
+    print(help)
 
 
 if __name__ == '__main__':

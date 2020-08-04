@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2014-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,23 +14,29 @@
 # limitations under the License.
 #
 # Authors:
-# - Wen Guan <wguan.icedew@gmail.com>, 2014
+# - Wen Guan <wen.guan@cern.ch>, 2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
-# - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - nataliaratnikova <natasha@fnal.gov>, 2018
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2019
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
     Rucio Cache client.
 """
+
+from __future__ import print_function
 
 import argparse
 import json
 import os
 import random
 import ssl
-import stomp
 import sys
 
+import stomp
 from jsonschema import validate
 
 from rucio.client.didclient import DIDClient
@@ -63,8 +69,8 @@ def validate_rse(rse):
     client = RSEClient()
     try:
         rse_attributes = client.get_rse(rse)
-    except Exception, e:
-        raise Exception(e)
+    except Exception as error:
+        raise Exception(error)
 
     if not rse_attributes["volatile"]:
         err = "%s volatile is not True, Rucio Cache should not update it." % (rse)
@@ -135,6 +141,6 @@ if __name__ == '__main__':
     try:
         result = cache_operation(args)
         sys.exit(result)
-    except (RuntimeError, NotImplementedError), e:
-        print >> sys.stderr, "ERROR: ", e
+    except (RuntimeError, NotImplementedError) as e:
+        print("ERROR: ", e, file=sys.stderr)
         sys.exit(FAILURE)

@@ -1,27 +1,40 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Fernando Lopez <fernando.e.lopez@gmail.com>, 2015-2016
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2017
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+#
+# PY3K COMPATIBLE
 
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Vincent Garonne,  <vincent.garonne@cern.ch> , 2017
- - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
-
- PY3K COMPATIBLE
-'''
 import os
 import shutil
 import string
+import sys
 import tempfile
-
-import mock
-
 from datetime import datetime
+
 from nose.tools import eq_
 
 from rucio.daemons.auditor import hdfs
+
+if sys.version_info >= (3, 3):
+    from unittest import mock
+else:
+    import mock
 
 
 class FakeHDFSGet(object):

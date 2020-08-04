@@ -1,4 +1,4 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,9 +15,10 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2017
-# - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -111,12 +112,12 @@ def trace(payload):
                     logging.info('reconnect to ' + conn.transport._Transport__host_and_ports[0][0])
                     conn.start()
                     conn.connect(USERNAME, PASSWORD)
-            except stomp.exception.NotConnectedException as error:
+            except stomp.exception.NotConnectedException:
                 logging.warn('Could not connect to broker %s, try another one' %
                              conn.transport._Transport__host_and_ports[0][0])
                 t_conns.remove(conn)
                 continue
-            except stomp.exception.ConnectFailedException as error:
+            except stomp.exception.ConnectFailedException:
                 logging.warn('Could not connect to broker %s, try another one' %
                              conn.transport._Transport__host_and_ports[0][0])
                 t_conns.remove(conn)

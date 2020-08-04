@@ -1,4 +1,4 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,15 +16,17 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
 # - David Cameron <d.g.cameron@gmail.com>, 2014
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2015
-# - Wen Guan <wguan.icedew@gmail.com>, 2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2015-2018
+# - Wen Guan <wen.guan@cern.ch>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Robert Illingworth <illingwo@fnal.gov>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Brandon White <bjwhite@fnal.gov>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -406,7 +408,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                             # Errors to be retried
                                             logging.error(prepend_str + '%s Will perform an other attempt %i/%i' % (str(error), attempt + 1, nattempt))
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error.__class__.__name__)), delta=1)
-                                        except Exception as error:
+                                        except Exception:
                                             # Unexpected errors
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.unknown', delta=1)
                                             exc_type, exc_value, exc_traceback = exc_info()
