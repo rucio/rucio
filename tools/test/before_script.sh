@@ -30,9 +30,11 @@ echo "* env"
 env
 echo
 
+POD_NETWORK_ARG=$(if [[ -n "$POD" ]]; then echo "--pod $POD"; else echo "--network container:rucio"; fi)
+
 if [[ $RDBMS == "oracle" ]]; then
-    docker run -d --name oracle --network container:rucio -e processes=1000 -e sessions=1105 -e transactions=1215 -e ORACLE_ALLOW_REMOTE=true -e ORACLE_DISABLE_ASYNCH_IO=true docker.io/wnameless/oracle-xe-11g-r2
-    docker run -d --name activemq --network container:rucio docker.io/webcenter/activemq:latest
+    docker run -d --name oracle $POD_NETWORK_ARG -e processes=1000 -e sessions=1105 -e transactions=1215 -e ORACLE_ALLOW_REMOTE=true -e ORACLE_DISABLE_ASYNCH_IO=true docker.io/wnameless/oracle-xe-11g-r2
+    docker run -d --name activemq $POD_NETWORK_ARG docker.io/webcenter/activemq:latest
     docker exec rucio sh -c 'echo 127.0.0.1 oracle activemq >> /etc/hosts'
 
     docker cp tools/test/oracle_startup.sh oracle:/
@@ -57,8 +59,8 @@ if [[ $RDBMS == "oracle" ]]; then
     docker exec rucio httpd -k restart
 
 elif [[ $RDBMS == "mysql5" ]]; then
-    docker run -d --name mysql5 --network container:rucio -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% docker.io/mysql/mysql-server:5.7
-    docker run -d --name activemq --network container:rucio docker.io/webcenter/activemq:latest
+    docker run -d --name mysql5 $POD_NETWORK_ARG -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% docker.io/mysql/mysql-server:5.7
+    docker run -d --name activemq $POD_NETWORK_ARG docker.io/webcenter/activemq:latest
     docker exec rucio sh -c 'echo 127.0.0.1 mysql5 activemq >> /etc/hosts'
 
     date
@@ -77,8 +79,8 @@ elif [[ $RDBMS == "mysql5" ]]; then
     docker exec rucio httpd -k restart
 
 elif [[ $RDBMS == "mysql8" ]]; then
-    docker run -d --name mysql8 --network container:rucio -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% docker.io/mysql/mysql-server:8.0 --default-authentication-plugin=mysql_native_password --character-set-server=latin1
-    docker run -d --name activemq --network container:rucio docker.io/webcenter/activemq:latest
+    docker run -d --name mysql8 $POD_NETWORK_ARG -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% docker.io/mysql/mysql-server:8.0 --default-authentication-plugin=mysql_native_password --character-set-server=latin1
+    docker run -d --name activemq $POD_NETWORK_ARG docker.io/webcenter/activemq:latest
     docker exec rucio sh -c 'echo 127.0.0.1 mysql8 activemq >> /etc/hosts'
 
     date
@@ -97,8 +99,8 @@ elif [[ $RDBMS == "mysql8" ]]; then
     docker exec rucio httpd -k restart
 
 elif [[ $RDBMS == "postgres9" ]]; then
-    docker run -d --name postgres9 --network container:rucio -e POSTGRES_PASSWORD=secret docker.io/postgres:9 -c 'max_connections=300'
-    docker run -d --name activemq --network container:rucio docker.io/webcenter/activemq:latest
+    docker run -d --name postgres9 $POD_NETWORK_ARG -e POSTGRES_PASSWORD=secret docker.io/postgres:9 -c 'max_connections=300'
+    docker run -d --name activemq $POD_NETWORK_ARG docker.io/webcenter/activemq:latest
     docker exec rucio sh -c 'echo 127.0.0.1 postgres9 activemq >> /etc/hosts'
 
     date
@@ -117,8 +119,8 @@ elif [[ $RDBMS == "postgres9" ]]; then
     docker exec rucio httpd -k restart
 
 elif [[ $RDBMS == "postgres12" ]]; then
-    docker run -d --name postgres12 --network container:rucio -e POSTGRES_PASSWORD=secret docker.io/postgres:12 -c 'max_connections=300'
-    docker run -d --name activemq --network container:rucio docker.io/webcenter/activemq:latest
+    docker run -d --name postgres12 $POD_NETWORK_ARG -e POSTGRES_PASSWORD=secret docker.io/postgres:12 -c 'max_connections=300'
+    docker run -d --name activemq $POD_NETWORK_ARG docker.io/webcenter/activemq:latest
     docker exec rucio sh -c 'echo 127.0.0.1 postgres12 activemq >> /etc/hosts'
 
     date
