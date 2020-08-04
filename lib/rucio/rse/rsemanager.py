@@ -1,4 +1,4 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,22 +14,27 @@
 #
 # Authors:
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
-# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2019
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
-# - Wen Guan <wguan.icedew@gmail.com>, 2014-2017
-# - Martin Barisits <martin.barisits@cern.ch>, 2017-2019
-# - Tobias Wegner <twegner@cern.ch>, 2017-2018
+# - Wen Guan <wen.guan@cern.ch>, 2014-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
+# - Tobias Wegner <twegner@cern.ch>, 2017-2019
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018-2019
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2018-2020
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
-# - Gabriele Fronze' <gfronze@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Gabriele Fronze' <gfronze@cern.ch>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -415,7 +420,7 @@ def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, fo
                             valid = True
                         else:
                             raise exception.RucioException('Checksum not validated')
-                    except exception.RSEChecksumUnavailable as e:
+                    except exception.RSEChecksumUnavailable:
                         if rse_settings['verify_checksum'] is False:
                             valid = True
                         else:
@@ -471,7 +476,7 @@ def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, fo
                             valid = True
                         else:
                             raise exception.RucioException('Checksum not validated')
-                    except exception.RSEChecksumUnavailable as e:
+                    except exception.RSEChecksumUnavailable:
                         if rse_settings['verify_checksum'] is False:
                             valid = True
                         else:
@@ -728,9 +733,9 @@ def _retry_protocol_stat(protocol, pfn):
         except exception.RSEChecksumUnavailable as e:
             # The stat succeeded here, but the checksum failed
             raise e
-        except NotImplementedError as e:
+        except NotImplementedError:
             break
-        except Exception as e:
+        except Exception:
             sleep(2**attempt)
     return protocol.stat(pfn)
 

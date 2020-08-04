@@ -1,4 +1,4 @@
-# Copyright 2017-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2017-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,11 +13,12 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2017-2018
 # - Edgar Fajardo <emfajard@ucsd.edu>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
-# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2019-2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 try:
     from ConfigParser import NoOptionError, NoSectionError
@@ -38,17 +39,17 @@ try:
         GENERIC_FALLBACK = 'generic_multi_vo'
     else:
         GENERIC_FALLBACK = 'generic'
-except (NoOptionError, NoSectionError) as error:
+except (NoOptionError, NoSectionError):
     GENERIC_FALLBACK = 'generic'
 
 if config.config_has_section('policy'):
     try:
         POLICY = config.config_get('policy', 'package') + ".schema"
-    except (NoOptionError, NoSectionError) as error:
+    except (NoOptionError, NoSectionError):
         # fall back to old system for now
         try:
             POLICY = config.config_get('policy', 'schema')
-        except (NoOptionError, NoSectionError) as error:
+        except (NoOptionError, NoSectionError):
             POLICY = GENERIC_FALLBACK
         POLICY = 'rucio.common.schema.' + POLICY.lower()
 else:
@@ -56,7 +57,7 @@ else:
 
 try:
     module = importlib.import_module(POLICY)
-except (ImportError) as error:
+except ImportError:
     raise exception.PolicyPackageNotFound('Module ' + POLICY + ' not found')
 
 schema_modules["def"] = module

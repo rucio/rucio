@@ -1,4 +1,4 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +13,14 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2015
 # - WeiJen Chang <e4523744@gmail.com>, 2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 '''
 Compatibility Wrapper for DQ2 and Rucio.
@@ -31,7 +32,6 @@ from __future__ import print_function
 import copy
 import hashlib
 import re
-import string
 
 from datetime import datetime, timedelta
 from rucio.client.client import Client
@@ -874,7 +874,7 @@ class DQ2Client:
         result = []
         pattern = None
         if name:
-            pattern = string.replace(name, '*', '.*')
+            pattern = str.replace(name, '*', '.*')
         for did in self.client.get_dataset_locks_by_rse(site):
             scope = did['scope']
             dsn = did['name']

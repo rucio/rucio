@@ -1,4 +1,4 @@
-# Copyright 2015-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,10 +14,11 @@
 #
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2017
-# - Vincent Garonne <vgaronne@gmail.com>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-# - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -127,9 +128,9 @@ def rule_injector(once=False):
                         paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
                         logging.warning('rule_injector[%s/%s]: ReplicationRuleCreationTemporaryFailed for rule %s' % (heartbeat['assign_thread'], heartbeat['nr_threads'], rule_id))
                         record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
-                    except RuleNotFound as e:
+                    except RuleNotFound:
                         pass
-                    except InsufficientAccountLimit as e:
+                    except InsufficientAccountLimit:
                         # A rule with InsufficientAccountLimit on injection hangs there potentially forever
                         # It should be marked as SUSPENDED
                         logging.info('rule_injector[%s/%s]: Marking rule %s as SUSPENDED due to InsufficientAccountLimit' % (heartbeat['assign_thread'], heartbeat['nr_threads'], rule_id))

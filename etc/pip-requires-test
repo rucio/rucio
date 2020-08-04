@@ -9,7 +9,8 @@ Pygments==2.5.2                               # Python Syntax highlighter (2.5.2
 docutils==0.16                                # Needed for sphinx
 pyflakes==2.1.1                               # Passive checker of Python programs
 flake8==3.7.8                                 # Wrapper around PyFlakes&pep8
-pylint==1.9.4; python_version >= '2.7'        # static code analysis. 1.9.5 last 2.7 compatible release
+pylint==1.9.4                                 # static code analysis. 1.9.5 last 2.7 compatible release
+isort>=4.2.5,<5                               # pylint up to now (2.5.3) does not support isort 5
 virtualenv==20.0.12                           # Virtual Python Environment builder
 xmltodict==0.12.0                             # Makes working with XML feel like you are working with JSON
 pytz==2019.3                                  # World timezone definitions, modern and historical

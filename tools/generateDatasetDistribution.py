@@ -1,13 +1,22 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#                       http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2014
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2016
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 import os
 import random
@@ -38,14 +47,14 @@ def createScope():
     # add_account('tier0', 'user', 'root')
     # add_scope('data12_8TeV', 'root', 'root')
     add_scope('mc12_8TeV', 'root', 'root')
-    for i in xrange(0, 20):
-        print i
+    for i in range(0, 20):
+        print(i)
         group = 'group%i' % (i)
         try:
             add_account(group, 'user', 'root')
             add_scope('group.%s' % (group), group, 'root')
-        except Duplicate, e:
-            print e
+        except Duplicate as e:
+            print(e)
 
 
 def createMetadata():
@@ -61,7 +70,7 @@ def createMetadata():
 
 def createRSEs():
     # Add test RSEs
-    for i in xrange(0, 3):
+    for i in range(0, 3):
         rse1 = str(uuid())
         rse2 = str(uuid())
         add_rse(rse1, issuer='root')
@@ -71,7 +80,7 @@ def createRSEs():
         add_rse_attribute(rse1, "DISK", True, issuer='root')
         add_rse_attribute(rse2, "TAPE", True, issuer='root')
 
-    for i in xrange(0, 10):
+    for i in range(0, 10):
         rse1 = str(uuid())
         add_rse(rse1, issuer='root')
         add_rse_attribute(rse1, "T2", True, issuer='root')
@@ -84,7 +93,7 @@ def createRSEs():
 
 def populateDB(filename=None):
     listrses = list_rses(filters={'deterministic': 1})
-    print listrses
+    print(listrses)
     listrses = map(lambda x: x['rse'], listrses)
     account = 'root'
     nbDatasets = 0
@@ -109,7 +118,7 @@ def populateDB(filename=None):
     f.close()
 
     # Generate 200000 datasets according to the dataset distribution
-    for i in xrange(0, 200000):
+    for i in range(200000):
         rnd = random.random() * nbDatasets
         for lower, upper in dictDistrib:
             if (rnd > lower) and (rnd < upper):
@@ -155,34 +164,34 @@ def populateDB(filename=None):
                     run_number_string = str(run_number)
                     run_number_string = run_number_string.rjust(7, '0')
                     dsn = '%s.%s.%s.%s.%s.%s' % (project, run_number_string, stream_name, prod_step, datatype, tag)
-                    print '%i Creating %s:%s with %i files of size %i located at %i sites' % (i, scope, dsn, nbfiles, filesize, len(source_rses))
+                    print('%i Creating %s:%s with %i files of size %i located at %i sites' % (i, scope, dsn, nbfiles, filesize, len(source_rses)))
                     stime1 = time.time()
                     add_identifier(scope=scope, name=dsn, type='dataset', issuer=account, statuses={'monotonic': True}, meta=dataset_meta)
                     stime2 = time.time()
-                    print 'Time to generate a dataset : %s' % str(stime2 - stime1)
+                    print('Time to generate a dataset : %s' % str(stime2 - stime1))
                     monitor.record(timeseries='dbfiller.addnewdataset', delta=1)
-                    files = ['file_%s' % uuid() for i in xrange(nbfiles)]
+                    files = ['file_%s' % uuid() for i in range(nbfiles)]
                     listfiles = []
                     for file in files:
                         listfiles.append({'scope': scope, 'name': file, 'size': filesize})
                         for source_rse in source_rses:
                             add_file_replica(source_rse, scope, file, filesize, issuer=account)
                     stime3 = time.time()
-                    print 'Time to create replicas : %s' % str(stime3 - stime2)
+                    print('Time to create replicas : %s' % str(stime3 - stime2))
                     monitor.record(timeseries='dbfiller.addreplicas', delta=nbfiles * len(source_rses))
                     attach_identifier(scope, name=dsn, dids=listfiles, issuer=account)
                     stime4 = time.time()
-                    print 'Time to attach files : %s' % str(stime4 - stime3)
+                    print('Time to attach files : %s' % str(stime4 - stime3))
                     monitor.record(timeseries='dbfiller.addnewfile', delta=nbfiles)
                     for source_rse in source_rses:
                         try:
                             add_replication_rule(dids=[{'scope': scope, 'name': dsn}], account=account, copies=1, rse_expression=source_rse,
                                                  grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, issuer='root')
                             monitor.record(timeseries='dbfiller.addreplicationrules', delta=1)
-                        except InvalidReplicationRule, e:
-                            print e
+                        except InvalidReplicationRule as e:
+                            print(e)
                     stime5 = time.time()
-                    print 'Time to attach files : %s' % str(stime5 - stime4)
+                    print('Time to attach files : %s' % str(stime5 - stime4))
 
 
 def main(argv):
@@ -193,7 +202,7 @@ def main(argv):
     try:
         filename = argv[0]
     except IndexError:
-        print 'Will use the default file : data12_8TeV_distribution.txt'
+        print('Will use the default file : data12_8TeV_distribution.txt')
     populateDB(filename)
 
 
