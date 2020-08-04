@@ -81,3 +81,4 @@ The methods are separated per resource type.
     restapi/subscription
     restapi/temporary_did
     restapi/trace
+    restapi/vo
