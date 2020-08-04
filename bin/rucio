@@ -1025,6 +1025,19 @@ def download(args):
     if archive_did:
         logger.warning("Archives are treated transparently. --archive-did option is being obsoleted.")  # TODO
 
+    # file counts without any filters
+    max_file_count = 0
+    if args.dids:
+        for d in args.dids:
+            scope, name_exp = d.split(':')
+            if '*' in name_exp:
+                tmp_filter = {'name': name_exp}
+                tmp_did_names = list(client.list_dids(scope, filters=tmp_filter, type='all'))
+            else:
+                tmp_did_names = [name_exp]
+            for name in tmp_did_names:
+                max_file_count += len(list(client.list_files(scope, name)))
+
     # Get filters
     filters = {}
     type = 'all'
@@ -1106,10 +1119,12 @@ def download(args):
         downloaded_files = summary[summary_key]['DONE']
         local_files = summary[summary_key]['ALREADY_DONE']
         not_downloaded_files = ds_total - downloaded_files - local_files
-        print('{0:40} {1:6d}'.format('Total files : ', ds_total))
+        print('{0:40} {1:6d}'.format('Total files in the input args DS(s): ', max_file_count))
         print('{0:40} {1:6d}'.format('Downloaded files : ', downloaded_files))
         print('{0:40} {1:6d}'.format('Files already found locally : ', local_files))
         print('{0:40} {1:6d}'.format('Files that cannot be downloaded : ', not_downloaded_files))
+        if ds_total != max_file_count and args.dids:
+            print('WARNING: Less files was requested than found in the input datasets. Ignore if intentional.')
 
     return SUCCESS
 
