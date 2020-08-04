@@ -59,6 +59,7 @@ class UploadClient:
             logger.disabled = True
 
         self.logger = logger
+
         self.client = _client if _client else Client()
         self.client_location = detect_client_location()
         # if token should be used, use only JWT tokens
@@ -104,7 +105,6 @@ class UploadClient:
         :raises NotAllFilesUploaded: if not all files were successfully uploaded
         """
         logger = self.logger
-
         self.trace['uuid'] = generate_uuid()
 
         # check given sources, resolve dirs into files, and collect meta infos
@@ -200,16 +200,16 @@ class UploadClient:
                         logger.info('File already exists on RSE. Previous left overs will be overwritten.')
                         delete_existing = True
             elif not is_deterministic and not no_register:
-                if rsemgr.exists(rse_settings, pfn, domain=domain, auth_token=self.auth_token):
+                if rsemgr.exists(rse_settings, pfn, domain=domain, auth_token=self.auth_token, logger=logger):
                     logger.info('File already exists on RSE with given pfn. Skipping upload. Existing replica has to be removed first.')
                     trace['stateReason'] = 'File already exists'
                     continue
-                elif rsemgr.exists(rse_settings, file_did, domain=domain, auth_token=self.auth_token):
+                elif rsemgr.exists(rse_settings, file_did, domain=domain, auth_token=self.auth_token, logger=logger):
                     logger.info('File already exists on RSE with different pfn. Skipping upload.')
                     trace['stateReason'] = 'File already exists'
                     continue
             else:
-                if rsemgr.exists(rse_settings, pfn if pfn else file_did, domain=domain, auth_token=self.auth_token):
+                if rsemgr.exists(rse_settings, pfn if pfn else file_did, domain=domain, auth_token=self.auth_token, logger=logger):
                     logger.info('File already exists on RSE. Skipping upload')
                     trace['stateReason'] = 'File already exists'
                     continue
@@ -241,6 +241,7 @@ class UploadClient:
 
                 trace['protocol'] = cur_scheme
                 trace['transferStart'] = time.time()
+                logger.debug('Processing upload with the domain: {}'.format(domain))
                 try:
                     pfn = self._upload_item(rse_settings=rse_settings,
                                             lfn=lfn,

@@ -162,7 +162,7 @@ def select_protocol(rse_settings, operation, scheme=None, domain='wan'):
     return min(candidates, key=lambda k: k['domains'][domain][operation])
 
 
-def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_token=None, logger=None):
+def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_token=None, logger=_logger):
     """
     Instanciates the protocol defined for the given operation.
 
@@ -190,9 +190,9 @@ def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_tok
     for n in comp[1:]:
         try:
             mod = getattr(mod, n)
-        except AttributeError:
-            print('Protocol implementation not found')
-            raise  # TODO: provide proper rucio exception
+        except AttributeError as e:
+            logger.debug('Protocol implementations not supported.')
+            raise exception.RucioException(str(e))  # TODO: provide proper rucio exception
     protocol_attr['auth_token'] = auth_token
     protocol = mod(protocol_attr, rse_settings, logger=logger)
     return protocol
@@ -254,10 +254,11 @@ def exists(rse_settings, files, domain='wan', auth_token=None, logger=_logger):
 
         :raises RSENotConnected: no connection to a specific storage has been established
     """
+
     ret = {}
     gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
 
-    protocol = create_protocol(rse_settings, 'read', domain=domain, auth_token=auth_token)
+    protocol = create_protocol(rse_settings, 'read', domain=domain, auth_token=auth_token, logger=logger)
     protocol.connect()
     try:
         protocol.exists(None)
@@ -325,12 +326,13 @@ def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, fo
         :raises DestinationNotAccessible: remote destination directory is not accessible
         :raises ServiceUnavailable: for any other reason
     """
+
     ret = {}
     gs = True  # gs represents the global status which indicates if every operation worked in bulk mode
 
-    protocol = create_protocol(rse_settings, 'write', scheme=force_scheme, domain=domain, auth_token=auth_token)
+    protocol = create_protocol(rse_settings, 'write', scheme=force_scheme, domain=domain, auth_token=auth_token, logger=logger)
     protocol.connect()
-    protocol_delete = create_protocol(rse_settings, 'delete', domain=domain, auth_token=auth_token)
+    protocol_delete = create_protocol(rse_settings, 'delete', domain=domain, auth_token=auth_token, logger=logger)
     protocol_delete.connect()
 
     lfns = [lfns] if not type(lfns) is list else lfns
