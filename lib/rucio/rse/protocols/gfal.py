@@ -62,6 +62,8 @@ class Default(protocol.RSEProtocol):
 
         :returns: Fully qualified PFN.
         """
+        lfns = [lfns] if type(lfns) == dict else lfns
+        self.logger.debug('getting pfn for {} lfns'.format(len(list(lfns))))
 
         pfns = {}
         prefix = self.attributes['prefix']
@@ -78,8 +80,8 @@ class Default(protocol.RSEProtocol):
         hostname = self.attributes['hostname']
         if '://' in hostname:
             hostname = hostname.split("://")[1]
+        self.logger.debug('hostname: {} prefix: {}'.format(hostname, prefix))
 
-        lfns = [lfns] if type(lfns) == dict else lfns
         if self.attributes['port'] == 0:
             for lfn in lfns:
                 scope, name = str(lfn['scope']), lfn['name']
@@ -95,6 +97,8 @@ class Default(protocol.RSEProtocol):
                     path = path[1:]
                 pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, ':', str(self.attributes['port']), web_service_path, prefix, path])
 
+        self.logger.debug('count of pfns: {}'.format(len(list(pfns))))
+
         return pfns
 
     def parse_pfns(self, pfns):
@@ -109,6 +113,7 @@ class Default(protocol.RSEProtocol):
         :raises RSEFileNameNotSupported: if the provided PFN doesn't match with the protocol settings
         """
 
+        self.logger.debug('count pfns {}'.format(len(list(pfns))))
         ret = dict()
         pfns = [pfns] if isinstance(pfns, STRING_TYPES) else pfns
         for pfn in pfns:
@@ -154,6 +159,7 @@ class Default(protocol.RSEProtocol):
 
         :returns: Fully qualified PFN.
         """
+        self.logger.debug('path {}'.format(path))
 
         if '://' in path:
             return path
@@ -182,6 +188,9 @@ class Default(protocol.RSEProtocol):
 
         :raises RSEAccessDenied
         """
+        self.logger.debug('connecting')
+
+        gfal2.set_verbose(gfal2.verbose_level.verbose)
 
         self.__ctx = gfal2.creat_context()  # pylint: disable=no-member
         self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
@@ -202,6 +211,7 @@ class Default(protocol.RSEProtocol):
         :raises ServiceUnavailable: if some generic error occured in the library.
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
+        self.logger.debug('path {}'.format(path))
 
         dest = os.path.abspath(dest)
         if ':' not in dest:
@@ -231,9 +241,9 @@ class Default(protocol.RSEProtocol):
         :raises ServiceUnavailable: if some generic error occured in the library.
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
+        self.logger.debug('source {} target {}'.format(source, target))
 
         source_url = '%s/%s' % (source_dir, source) if source_dir else source
-
         source_url = os.path.abspath(source_url)
         if not os.path.exists(source_url):
             raise exception.SourceNotFound()
@@ -264,6 +274,7 @@ class Default(protocol.RSEProtocol):
         :raises ServiceUnavailable: if some generic error occured in the library.
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
+        self.logger.debug('path {}'.format(path))
 
         pfns = [path] if isinstance(path, STRING_TYPES) else path
 
@@ -287,6 +298,7 @@ class Default(protocol.RSEProtocol):
         :raises ServiceUnavailable: if some generic error occured in the library.
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
+        self.logger.debug('path: {} new_path: {}'.format(path, new_path))
 
         try:
             status = self.__gfal2_rename(path, new_path)
@@ -309,6 +321,7 @@ class Default(protocol.RSEProtocol):
 
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
+        self.logger.debug('path {}'.format(path))
 
         try:
             status = self.__gfal2_exist(path)
@@ -324,7 +337,7 @@ class Default(protocol.RSEProtocol):
         """
         Closes the connection to RSE.
         """
-
+        self.logger.debug('closing protocol connection')
         del self.__ctx
         self.__ctx = None
 
@@ -338,6 +351,8 @@ class Default(protocol.RSEProtocol):
 
             :returns: a dict with two keys, filesize and an element of GLOBALLY_SUPPORTED_CHECKSUMS.
         """
+        self.logger.debug('path {}'.format(path))
+
         ret = {}
         ctx = self.__ctx
 
@@ -378,6 +393,7 @@ class Default(protocol.RSEProtocol):
         """
         Cancel all gfal operations in progress.
         """
+        self.logger.debug('cancelling gfal proc.')
 
         ctx = self.__ctx
         if ctx:
@@ -398,6 +414,7 @@ class Default(protocol.RSEProtocol):
         :raises SourceNotFound: if source file cannot be found.
         :raises RucioException: if it failed to copy the file.
         """
+        self.logger.debug('src: {} dest: {}'.format(src, dest))
 
         ctx = self.__ctx
         params = ctx.transfer_parameters()
@@ -445,6 +462,7 @@ class Default(protocol.RSEProtocol):
         :raises SourceNotFound: if the source file was not found.
         :raises RucioException: if it failed to remove the file.
         """
+        self.logger.debug('count: {}'.format(len(list(paths))))
 
         ctx = self.__ctx
 
@@ -469,6 +487,7 @@ class Default(protocol.RSEProtocol):
 
         :raises RucioException: if the error is not source not found.
         """
+        self.logger.debug('path {}'.format(path))
 
         ctx = self.__ctx
         try:
@@ -491,6 +510,7 @@ class Default(protocol.RSEProtocol):
 
         :raises RucioException: if failed.
         """
+        self.logger.debug('path: {} new_path: {}'.format(path, new_path))
 
         ctx = self.__ctx
 
@@ -517,6 +537,8 @@ class Default(protocol.RSEProtocol):
         :raises ServiceUnavailable: if some generic error occured in the library.
         """
         endpoint_basepath = self.path2pfn(self.attributes['prefix'])
+        self.logger.debug('endpoint_basepath {}'.format(endpoint_basepath))
+
         space_token = None
         if self.attributes['extended_attributes'] is not None and 'space_token' in list(self.attributes['extended_attributes'].keys()):
             space_token = self.attributes['extended_attributes']['space_token']
@@ -541,6 +563,7 @@ class Default(protocol.RSEProtocol):
 
         :raises ServiceUnavailable: if failed.
         """
+        self.logger.debug('path: {} space_token: {}'.format(path, space_token))
 
         ctx = self.__ctx
 
