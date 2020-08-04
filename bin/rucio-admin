@@ -245,20 +245,15 @@ def get_client(args):
     return client
 
 
-def extract_scope_old(did):
-    # Try to extract the scope from the DSN
-    if did.find(':') > -1:
-        scope, name = did.split(':')[0], did.split(':')[1]
-        if name.endswith('/'):
-            name = name[:-1]
+def get_scope(did, client):
+    try:
+        scope, name = extract_scope(did)
         return scope, name
-    else:
-        scope = did.split('.')[0]
-        if did.startswith('user') or did.startswith('group'):
-            scope = ".".join(did.split('.')[0:2])
-        if did.endswith('/'):
-            did = did[:-1]
-        return scope, did
+    except TypeError:
+        scopes = client.list_scopes()
+        scope, name = extract_scope(did, scopes)
+        return scope, name
+    return None, did
 
 
 @exception_handler
@@ -924,7 +919,7 @@ def reevaluate_did_for_subscription(args):
     """
     client = get_client(args)
     for did in args.dids.split(','):
-        scope, name = extract_scope(did)
+        scope, name = get_scope(did, client)
         client.set_metadata(scope, name, 'is_new', True)
     return SUCCESS
 
@@ -996,7 +991,7 @@ def declare_bad_file_replicas(args):
     bad_files_pfns = []
     for bad_file in bad_files:
         if bad_file.find('://') == -1:
-            scope, name = extract_scope(bad_file)
+            scope, name = get_scope(bad_file, client)
             did_info = client.get_did(scope, name)
             if did_info['type'].upper() != 'FILE' and not args.allow_collection:
                 print('DID %s:%s is a collection and --allow-collection was not specified.' % (scope, name))
@@ -1081,7 +1076,7 @@ def list_pfns(args):
     rse = args.rse
     protocol = args.protocol
     for input_did in dids:
-        scope, name = extract_scope(input_did)
+        scope, name = get_scope(input_did, client)
         replicas = [rep for rep in client.list_replicas([{'scope': scope, 'name': name}, ], schemes=[protocol, ])]
         if rse in replicas[0]['rses'] and replicas[0]['rses'][rse]:
             print(replicas[0]['rses'][rse][0])
@@ -1400,9 +1395,9 @@ def get_parser():
                                                                          '::\n'
                                                                          '\n'
                                                                          '    $ rucio-admin account list-identities jdoe\n'
-                                                                         '    Identity: /C=DE/O=GermanGrid/OU=Desy/CN=Joe Doe,	type: X509\n'
-                                                                         '    Identity: jdoe@CERN.CH,	type: GSS\n'
-                                                                         '    Identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707654/CN=Joe Doe,	type: X509\n'
+                                                                         '    Identity: /C=DE/O=GermanGrid/OU=Desy/CN=Joe Doe, type: X509\n'
+                                                                         '    Identity: jdoe@CERN.CH,  type: GSS\n'
+                                                                         '    Identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707654/CN=Joe Doe, type: X509\n'
                                                                          '\n')
     list_account_identities_parser.set_defaults(which='list_identities')
     list_account_identities_parser.add_argument('account', action='store', help='Account name')
@@ -1524,7 +1519,7 @@ def get_parser():
                                                                '    Added new identity to account: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe-jdoe\n'
                                                                '    \n'
                                                                '    $ rucio-admin account list-identities jdoe\n'
-                                                               '    Identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe,	type: X509\n'
+                                                               '    Identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe,   type: X509\n'
                                                                '\n'
                                                                'Note: please keep the DN inside quota marks.\n'
                                                                '\n'
@@ -1534,8 +1529,8 @@ def get_parser():
                                                                '    Added new identity to account: jdoe@CERN.CH-jdoe\n'
                                                                '    \n'
                                                                '    $ rucio-admin account list-identities jdoe\n'
-                                                               '    Identity: jdoe@CERN.CH,	type: GSS\n'
-                                                               '    Identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe,	type: X509\n'
+                                                               '    Identity: jdoe@CERN.CH,    type: GSS\n'
+                                                               '    Identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe,   type: X509\n'
                                                                '\n')
     identity_add_parser.set_defaults(which='identity_add')
     identity_add_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
@@ -2207,7 +2202,7 @@ if __name__ == '__main__':
                 'list_pfns': list_pfns,
                 'import': import_data,
                 'export': export_data,
-                'set_tombstone': set_tombstone,
+                'set_tombstone': set_tombstone
                 }
 
     try:
