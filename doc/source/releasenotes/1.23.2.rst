@@ -1,0 +1,45 @@
+======
+1.23.2
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Authentication & Authorisation: Add authentication options for multi-VO `#3855 <https://github.com/rucio/rucio/issues/3855>`_
+- Core & Internals: geoip database: use licence key `#3812 <https://github.com/rucio/rucio/issues/3812>`_
+- Core & Internals: Expose limit parameter to REST API `#3871 <https://github.com/rucio/rucio/issues/3871>`_
+- Deletion: Implement archival of deleted dids `#3879 <https://github.com/rucio/rucio/issues/3879>`_
+- Documentation: generic m-VO documentation `#3897 <https://github.com/rucio/rucio/issues/3897>`_
+- Probes & Alarms: Lost files - make it uniqe `#2104 <https://github.com/rucio/rucio/issues/2104>`_
+- Testing: Change m-VO tests to use postgres `#3865 <https://github.com/rucio/rucio/issues/3865>`_
+
+****
+Bugs
+****
+
+- Core & Internals: Cannot update the account of a rule `#3794 <https://github.com/rucio/rucio/issues/3794>`_
+- Dirac: addfile method broken `#3876 <https://github.com/rucio/rucio/issues/3876>`_
+- Transfers: Conveyor submitter daemons are doing nothing if there are many requests with no sources. (Can reproduce) `#3856 <https://github.com/rucio/rucio/issues/3856>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Gfal logging `#3716 <https://github.com/rucio/rucio/issues/3716>`_
+- Clients: rucio mover is not retrying stageout 3 times as it should `#3805 <https://github.com/rucio/rucio/issues/3805>`_
+- Clients: stateReason not filled in the traces after timeout `#3835 <https://github.com/rucio/rucio/issues/3835>`_
+
+****
+Bugs
+****
+
+- Clients: Client broken when extract_scope is used for user data for belleii schema `#3881 <https://github.com/rucio/rucio/issues/3881>`_
