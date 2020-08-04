@@ -1,4 +1,4 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2017-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,19 +13,18 @@
 # limitations under the License.
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014-2019
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2020
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
 #
 # PY3K COMPATIBLE
 #
 # This product includes GeoLite data created by MaxMind,
-# available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>.
-#
-# PY3K COMPATIBLE
+# available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>
 
 from __future__ import print_function, division
 
@@ -43,6 +42,7 @@ import requests
 import geoip2.database
 
 from rucio.common import utils
+from rucio.common.config import config_get
 from rucio.common.exception import InvalidRSEExpression
 from rucio.core.rse_expression_parser import parse_expression
 
@@ -53,13 +53,13 @@ REGION = make_region(function_key_generator=utils.my_key_generator).configure(
 
 
 def __download_geoip_db(directory, filename):
-    path = 'https://geolite.maxmind.com/download/geoip/database/%s.tar.gz' % (filename)
+    licence_key = config_get('core', 'geoip_licence_key', raise_exception=False, default='NOLICENCE')
+    path = 'https://download.maxmind.com/app/geoip_download?edition_id=%s&license_key=%s&suffix=tar.gz' % (filename, licence_key)
     try:
         os.unlink('%s/%s.tar.gz' % (directory, filename))
     except OSError:
         pass
     result = requests.get(path, stream=True)
-    print(result)
     if result and result.status_code in [200, ]:
         file_object = open('%s/%s.tar.gz' % (directory, filename), 'wb')
         for chunk in result.iter_content(8192):
@@ -73,7 +73,9 @@ def __download_geoip_db(directory, filename):
                     print('Will move %s/%s to %s/%s' % (directory, entry.name, directory, entry.name.split('/')[-1]))
                     os.rename('%s/%s' % (directory, entry.name), '%s/%s' % (directory, entry.name.split('/')[-1]))
     else:
-        raise Exception('Cannot download geoip DB file. Status code %s' % result.status_code)
+        raise Exception('Cannot download GeoIP database: %s, Code: %s, Error: %s' % (filename,
+                                                                                     result.status_code,
+                                                                                     result.text))
 
 
 def __get_geoip_db(directory, filename):
