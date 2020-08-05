@@ -923,26 +923,30 @@ def list_associated_rules_for_file(scope, name, session=None):
 
 
 @transactional_session
-def delete_rule(rule_id, purge_replicas=None, soft=False, delete_parent=False, nowait=False, session=None):
+def delete_rule(rule_id, purge_replicas=None, soft=False, delete_parent=False, nowait=False, session=None,
+                ignore_rule_lock=False):
     """
     Delete a replication rule.
 
-    :param rule_id:         The rule to delete.
-    :param purge_replicas:  Purge the replicas immediately.
-    :param soft:            Only perform a soft deletion.
-    :param delete_parent:   Delete rules even if they have a child_rule_id set.
-    :param nowait:          Nowait parameter for the FOR UPDATE statement.
-    :param session:         The database session in use.
-    :raises:                RuleNotFound if no Rule can be found.
-    :raises:                UnsupportedOperation if the Rule is locked.
+    :param rule_id:           The rule to delete.
+    :param purge_replicas:    Purge the replicas immediately.
+    :param soft:              Only perform a soft deletion.
+    :param delete_parent:     Delete rules even if they have a child_rule_id set.
+    :param nowait:            Nowait parameter for the FOR UPDATE statement.
+    :param session:           The database session in use.
+    :param ignore_rule_lock:  Ignore any locks on the rule
+    :raises:                  RuleNotFound if no Rule can be found.
+    :raises:                  UnsupportedOperation if the Rule is locked.
     """
 
     with record_timer_block('rule.delete_rule'):
         try:
-            rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_for_update(nowait=nowait).one()
+            rule = session.query(models.ReplicationRule)\
+                          .filter(models.ReplicationRule.id == rule_id)\
+                          .with_for_update(nowait=nowait).one()
         except NoResultFound:
-            raise RuleNotFound('No rule with the id %s found' % (rule_id))
-        if rule.locked:
+            raise RuleNotFound('No rule with the id %s found' % rule_id)
+        if rule.locked and not ignore_rule_lock:
             raise UnsupportedOperation('The replication rule is locked and has to be unlocked before it can be deleted.')
 
         if rule.child_rule_id is not None and not delete_parent:
@@ -961,25 +965,31 @@ def delete_rule(rule_id, purge_replicas=None, soft=False, delete_parent=False, n
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
             return
 
-        locks = session.query(models.ReplicaLock).filter(models.ReplicaLock.rule_id == rule_id).with_for_update(nowait=nowait).yield_per(100)
+        locks = session.query(models.ReplicaLock)\
+                       .filter(models.ReplicaLock.rule_id == rule_id)\
+                       .with_for_update(nowait=nowait).yield_per(100)
 
         # Remove locks, set tombstone if applicable
         transfers_to_delete = []  # [{'scope': , 'name':, 'rse_id':}]
         account_counter_decreases = {}  # {'rse_id': [file_size, file_size, file_size]}
 
         for lock in locks:
-            if __delete_lock_and_update_replica(lock=lock, purge_replicas=rule.purge_replicas, nowait=nowait, session=session):
+            if __delete_lock_and_update_replica(lock=lock, purge_replicas=rule.purge_replicas,
+                                                nowait=nowait, session=session):
                 transfers_to_delete.append({'scope': lock.scope, 'name': lock.name, 'rse_id': lock.rse_id})
             if lock.rse_id not in account_counter_decreases:
                 account_counter_decreases[lock.rse_id] = []
             account_counter_decreases[lock.rse_id].append(lock.bytes)
 
         # Delete the DatasetLocks
-        session.query(models.DatasetLock).filter(models.DatasetLock.rule_id == rule_id).delete(synchronize_session=False)
+        session.query(models.DatasetLock)\
+               .filter(models.DatasetLock.rule_id == rule_id)\
+               .delete(synchronize_session=False)
 
         # Decrease account_counters
         for rse_id in account_counter_decreases.keys():
-            account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(account_counter_decreases[rse_id]), bytes=sum(account_counter_decreases[rse_id]), session=session)
+            account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(account_counter_decreases[rse_id]),
+                                     bytes=sum(account_counter_decreases[rse_id]), session=session)
 
         # Try to release potential parent rules
         release_parent_rule(child_rule_id=rule.id, remove_parent_expiration=True, session=session)
@@ -991,7 +1001,8 @@ def delete_rule(rule_id, purge_replicas=None, soft=False, delete_parent=False, n
         rule.delete(session=session)
 
         for transfer in transfers_to_delete:
-            request_core.cancel_request_did(scope=transfer['scope'], name=transfer['name'], dest_rse_id=transfer['rse_id'], session=session)
+            request_core.cancel_request_did(scope=transfer['scope'], name=transfer['name'],
+                                            dest_rse_id=transfer['rse_id'], session=session)
 
 
 @transactional_session
@@ -2027,16 +2038,16 @@ def generate_email_for_rule_ok_notification(rule, session=None):
                 template = Template(templatefile.read())
             email = get_account(account=rule.account, session=session).email
             if email:
-                text = template.safe_substitute({'rule_id': str(rule.id),
-                                                 'created_at': str(rule.created_at),
-                                                 'expires_at': str(rule.expires_at),
-                                                 'rse_expression': rule.rse_expression,
-                                                 'comment': rule.comments,
-                                                 'scope': rule.scope.external,
-                                                 'name': rule.name,
-                                                 'did_type': rule.did_type})
+                email_body = template.safe_substitute({'rule_id': str(rule.id),
+                                                       'created_at': str(rule.created_at),
+                                                       'expires_at': str(rule.expires_at),
+                                                       'rse_expression': rule.rse_expression,
+                                                       'comment': rule.comments,
+                                                       'scope': rule.scope.external,
+                                                       'name': rule.name,
+                                                       'did_type': rule.did_type})
                 add_message(event_type='email',
-                            payload={'body': text,
+                            payload={'body': email_body,
                                      'to': [email],
                                      'subject': '[RUCIO] Replication rule %s has been succesfully transferred' % (str(rule.id))},
                             session=session)
@@ -2159,38 +2170,38 @@ def deny_rule(rule_id, approver=None, reason=None, session=None):
             else:
                 approver = 'AUTOMATIC'
             if email:
-                text = template.safe_substitute({'rule_id': str(rule.id),
-                                                 'rse_expression': rule.rse_expression,
-                                                 'comment': rule.comments,
-                                                 'scope': rule.scope.external,
-                                                 'name': rule.name,
-                                                 'did_type': rule.did_type,
-                                                 'approver': approver,
-                                                 'reason': reason})
+                email_body = template.safe_substitute({'rule_id': str(rule.id),
+                                                       'rse_expression': rule.rse_expression,
+                                                       'comment': rule.comments,
+                                                       'scope': rule.scope.external,
+                                                       'name': rule.name,
+                                                       'did_type': rule.did_type,
+                                                       'approver': approver,
+                                                       'reason': reason})
                 add_message(event_type='email',
-                            payload={'body': text,
+                            payload={'body': email_body,
                                      'to': [email],
                                      'subject': '[RUCIO] Replication rule %s has been denied' % (str(rule.id))},
                             session=session)
-            delete_rule(rule_id=rule_id, session=session)
+            delete_rule(rule_id=rule_id, ignore_rule_lock=True, session=session)
             # Also notify the other approvers
             with open('%s/rule_denied_admin.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
                 template = Template(templatefile.read())
-            text = template.safe_substitute({'rule_id': str(rule.id),
-                                             'approver': approver,
-                                             'reason': reason})
+            email_body = template.safe_substitute({'rule_id': str(rule.id),
+                                                   'approver': approver,
+                                                   'reason': reason})
             vo = rule.account.vo
             recipents = __create_recipents_list(rse_expression=rule.rse_expression, filter={'vo': vo}, session=session)
             for recipent in recipents:
                 add_message(event_type='email',
-                            payload={'body': text,
+                            payload={'body': email_body,
                                      'to': [recipent[0]],
                                      'subject': 'Re: [RUCIO] Request to approve replication rule %s' % (str(rule.id))},
                             session=session)
     except NoResultFound:
-        raise RuleNotFound('No rule with the id %s found' % (rule_id))
+        raise RuleNotFound('No rule with the id %s found' % rule_id)
     except StatementError:
-        raise RucioException('Badly formatted rule id (%s)' % (rule_id))
+        raise RucioException('Badly formatted rule id (%s)' % rule_id)
 
 
 @transactional_session
