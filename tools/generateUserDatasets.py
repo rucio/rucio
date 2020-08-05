@@ -1,13 +1,22 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#                       http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2016
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 import random
 import sys
@@ -36,10 +45,10 @@ def generatePDF():
     cumul = []
     pdf = []
     cumul.append(0)
-    for i in xrange(1, 2000):
+    for i in range(1, 2000):
         cumul.append(cumul[i - 1] + fitfunc(i))
-    print cumul[1999]
-    print pdf
+    print(cumul[1999])
+    print(pdf)
     for i in cumul:
         pdf.append(i / cumul[1999])
     return pdf
@@ -47,20 +56,20 @@ def generatePDF():
 
 def getRandomScope(pdf):
     rnd = random.random()
-    for i in xrange(0, 2001):
+    for i in range(2001):
         if (rnd >= pdf[i]) and (rnd < pdf[i + 1]):
             return i
 
 
 def createScope():
-    for i in xrange(0, 2000):
-        print i
+    for i in range(2000):
+        print(i)
         user = 'user%i' % (i)
         try:
             add_account(user, 'user', 'root')
-            add_scope('user.%s' % (user), user, 'root')
-        except Duplicate, e:
-            print e
+            add_scope('user.%s' % user, user, 'root')
+        except Duplicate as e:
+            print(e)
 
 
 def populateDB(filename=None):
@@ -71,21 +80,21 @@ def populateDB(filename=None):
     pdf = generatePDF()
 
     # Generate 200000 datasets according to the dataset distribution
-    for index in xrange(0, 20000):
+    for index in range(20000):
         scope_nb = getRandomScope(pdf)
         project = 'user.user%i' % (scope_nb)
         scope = 'user.user%i' % (scope_nb)
         account = 'user%i' % (scope_nb)
-        print scope
+        print(scope)
         nbfiles = 53
         filesize = 78000000
         uid = uuid()
         dsn = '%s.%s' % (project, uid)
         rnd_site = random.choice(listrses)
-        print '%i Creating %s with %i files of size %i located at %s' % (index, dsn, nbfiles, filesize, rnd_site)
+        print('%i Creating %s with %i files of size %i located at %s' % (index, dsn, nbfiles, filesize, rnd_site))
         add_identifier(scope=scope, name=dsn, type='dataset', issuer=account, statuses={'monotonic': True})
         monitor.record(timeseries='dbfiller.addnewdataset', delta=1)
-        files = ['file_%s' % uuid() for i in xrange(nbfiles)]
+        files = ['file_%s' % uuid() for i in range(nbfiles)]
         listfiles = []
         for file in files:
             listfiles.append({'scope': scope, 'name': file, 'size': filesize})
@@ -97,8 +106,8 @@ def populateDB(filename=None):
             add_replication_rule(dids=[{'scope': scope, 'name': dsn}], account=account, copies=1, rse_expression=rnd_site,
                                  grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, issuer=account)
             monitor.record(timeseries='dbfiller.addreplicationrules', delta=1)
-        except InvalidReplicationRule, e:
-            print e
+        except InvalidReplicationRule as e:
+            print(e)
 
 
 def main(argv):

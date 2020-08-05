@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,17 +16,18 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
 # - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
-# - Vincent Garonne <vgaronne@gmail.com>, 2012-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Yun-Pin Sun <winter0128@gmail.com>, 2012-2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014
-# - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019-2020
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -300,23 +301,19 @@ class RedirectOIDC(RucioController):
         except AccessDenied:
             render = template.render(join(dirname(__file__), '../auth_templates/'))
             return render.auth_crash('contact')
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot contact the Rucio Authentication Server.')
 
-        except RucioException as error:
+        except RucioException:
             render = template.render(join(dirname(__file__), '../auth_templates/'))
             return render.auth_crash('internal_error')
-            raise generate_http_error(500, error.__class__.__name__, error.args[0])
 
-        except Exception as error:
+        except Exception:
             print(format_exc())
             render = template.render(join(dirname(__file__), '../auth_templates/'))
             return render.auth_crash('internal_error')
-            raise InternalError(error)
 
         if not result:
             render = template.render(join(dirname(__file__), '../auth_templates/'))
             return render.auth_crash('no_token')
-            raise generate_http_error(401, 'CannotAuthenticate', 'Cannot contact the Rucio Authentication Server.')
         if fetchtoken:
             # this is only a case of returning the final token to the Rucio Client polling
             # or requesting token after copy-pasting the Rucio code from the web page page
@@ -387,21 +384,17 @@ class CodeOIDC(RucioController):
         except AccessDenied:
             render = template.render(join(dirname(__file__), '../auth_templates/'))
             return render.auth_crash('contact')
-            raise generate_http_error(401, 'CannotAuthorize', 'Cannot authorize token request.')
-        except RucioException as error:
+        except RucioException:
             render = template.render(join(dirname(__file__), '../auth_templates/'))
             return render.auth_crash('internal_error')
-            raise generate_http_error(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
+        except Exception:
             print(format_exc())
             render = template.render(join(dirname(__file__), '../auth_templates/'))
             return render.auth_crash('internal_error')
-            raise InternalError(error)
 
         render = template.render(join(dirname(__file__), '../auth_templates/'))
         if not result:
             return render.auth_crash('no_result')
-            raise generate_http_error(401, 'CannotAuthorize', 'Cannot authorize token request.')
         if 'fetchcode' in result:
             authcode = result['fetchcode']
             return render.auth_granted(authcode)
@@ -410,7 +403,6 @@ class CodeOIDC(RucioController):
             return render.auth_granted(authcode)
         else:
             return render.auth_crash('bad_request')
-            raise BadRequest()
 
 
 class TokenOIDC(RucioController):

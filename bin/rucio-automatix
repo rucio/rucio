@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2014-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,11 @@
 # limitations under the License.
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
-# - Vincent Garonne, <vgaronne@gmail.com>, 2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 '''
 Automatix (Dataset injector) Daemon
@@ -45,7 +48,7 @@ if __name__ == "__main__":
 
     parser = get_parser()
     args = parser.parse_args()
-    print 'Start Automatix'
+    print('Start Automatix')
     try:
         run(total_workers=args.threads_per_process, once=args.run_once, inputfile=args.input_file)
     except KeyboardInterrupt:

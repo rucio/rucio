@@ -1,4 +1,4 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,8 +15,10 @@
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2018-2019
-# - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -126,12 +128,12 @@ def minos_tu_expiration(bulk=1000, once=False, sleep_time=60):
                             update_replicas_states([replicas[idx], ], nowait=True, session=session)
                             bulk_delete_bad_replicas([bad_replicas[idx], ], session=session)
                             session.commit()  # pylint: disable=no-member
-                        except DataIdentifierNotFound as error:
+                        except DataIdentifierNotFound:
                             session.rollback()  # pylint: disable=no-member
                             logging.warning(prepend_str + 'DID %s:%s does not exist anymore. ' % (bad_replicas[idx]['scope'], bad_replicas[idx]['name']))
                             bulk_delete_bad_replicas([bad_replicas[idx], ], session=session)
                             session.commit()  # pylint: disable=no-member
-                        except ReplicaNotFound as error:
+                        except ReplicaNotFound:
                             session.rollback()  # pylint: disable=no-member
                             logging.warning(prepend_str + '%s:%s on RSEID %s does not exist anymore. ' % (replicas[idx]['scope'], replicas[idx]['name'], replicas[idx]['rse_id']))
                             bulk_delete_bad_replicas([bad_replicas[idx], ], session=session)
@@ -142,7 +144,7 @@ def minos_tu_expiration(bulk=1000, once=False, sleep_time=60):
                     logging.critical(traceback.format_exc())
                     session = get_session()
 
-        except Exception as error:
+        except Exception:
             logging.critical(traceback.format_exc())
 
         tottime = time.time() - start_time

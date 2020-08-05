@@ -1,4 +1,4 @@
-# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2014-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,18 +14,21 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
-# - Vincent Garonne <vgaronne@gmail.com>, 2014-2016
-# - Martin Barisits <martin.barisits@cern.ch>, 2014-2017
-# - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2016
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2020
+# - Wen Guan <wen.guan@cern.ch>, 2014-2016
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2016
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Eric Vaandering <ericvaandering@gmail.com>, 2018
+# - dciangot <diego.ciangottini@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - maatthias <maatthias@gmail.com>, 2019
 # - Gabriele Fronze' <gfronze@cern.ch>, 2019
-# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -460,7 +463,7 @@ def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None):
     if include_rses:
         try:
             parsed_rses = parse_expression(include_rses, session=None)
-        except InvalidRSEExpression as error:
+        except InvalidRSEExpression:
             logging.error("Invalid RSE exception %s to include RSEs", include_rses)
         else:
             for rse in parsed_rses:

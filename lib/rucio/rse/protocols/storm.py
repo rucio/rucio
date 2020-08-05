@@ -1,4 +1,4 @@
-# Copyright 2014-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2019-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,16 +13,16 @@
 # limitations under the License.
 #
 # Authors:
-# - Tomas Javor Javurek <tomas.javurek@cern.ch>, 2019
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2019-2020
+# - Boris Bauermeister <boris.bauermeister@fysik.su.se>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
-
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 import os
 import requests
 
-from exceptions import NotImplementedError
 from xml.dom import minidom
 
 from rucio.common import exception

@@ -1,21 +1,28 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#                       http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
-# - Martin Barisits, <martin.barisits@cern.ch>, 2019
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
+# - Wen Guan <wen.guan@cern.ch>, 2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 import json
 import sys
 import traceback
-
-from uuid import uuid4 as uuid
 
 from rucio.client import Client
 from rucio.common.exception import Duplicate
@@ -55,11 +62,11 @@ if __name__ == '__main__':
             volatile = repo_data[rse].get('volatile', False)
             c.add_rse(rse, deterministic=deterministic, volatile=volatile)
         except Duplicate:
-            print '%(rse)s already added' % locals()
+            print('%(rse)s already added' % locals())
         except:
             errno, errstr = sys.exc_info()[:2]
             trcbck = traceback.format_exc()
-            print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
+            print('Interrupted processing with %s %s %s.' % (errno, errstr, trcbck))
         rses_total -= 1
         for p_id in repo_data[rse]['protocols']['supported']:
             try:
@@ -70,12 +77,13 @@ if __name__ == '__main__':
             except Exception:
                 errno, errstr = sys.exc_info()[:2]
                 trcbck = traceback.format_exc()
-                print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
+                print('Interrupted processing with %s %s %s.' % (errno, errstr, trcbck))
                 sys.exit(CRITICAL)
-    print '1. Importing RSE repository file finished.'
+
+    print('1. Importing RSE repository file finished.')
     # 2. Fill up th DB wo 130 sites with an avg. 6 protocols per site
     protocol = {'impl': 'rucio.rse.protocols.mock.Default',
-                'hostame': 'rucio.cern.ch' % uuid(),
+                'hostame': 'rucio.cern.ch',
                 'port': 42,
                 'domains': {'LAN': {'read': 1, 'write': 1, 'delete': 1},
                             'WAN': {'read': 1, 'write': 1, 'delete': 1}
@@ -91,22 +99,22 @@ if __name__ == '__main__':
         except Exception:
             errno, errstr = sys.exc_info()[:2]
             trcbck = traceback.format_exc()
-            print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
+            print('Interrupted processing with %s %s %s.' % (errno, errstr, trcbck))
             sys.exit(CRITICAL)
         rses_total -= 1
-    print '2. Adding %s artificial RSEs finished.' % tmp
+    print('2. Adding %s artificial RSEs finished.' % tmp)
 
     # 3. Create known users
     tmp = users_total
     for user in known_users:
-        print 'Adding account %s' % user[0]
+        print('Adding account %s' % user[0])
         try:
             c.add_account(user[0], user[1], None)
             c.add_scope(user[0], user[0])  # Adding default scope
         except Duplicate:
-            print 'User %s already exists' % user[0]
+            print('User %s already exists' % user[0])
         users_total -= 1
-    print '3. Adding %s known users finished.' % (tmp - users_total)
+    print('3. Adding %s known users finished.' % (tmp - users_total))
     tmp = users_total
     # 4. Fill up DB to total number of Users
     while users_total:
@@ -114,9 +122,9 @@ if __name__ == '__main__':
             c.add_account('user%s' % users_total, 'user', None)  # Adding user
             c.add_scope('user%s' % users_total, 'user%s' % users_total)  # Adding default scope
         except Duplicate:
-            print 'User user%s already exists' % users_total
+            print('User user%s already exists' % users_total)
         users_total -= 1
-    print '4. Adding %s artificial users (and default scopes) finished.' % tmp
+    print('4. Adding %s artificial users (and default scopes) finished.' % tmp)
 
     # 5. Create known scopes
     tmp = scopes_total
@@ -129,10 +137,10 @@ if __name__ == '__main__':
             except Exception:
                 errno, errstr = sys.exc_info()[:2]
                 trcbck = traceback.format_exc()
-                print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
+                print('Interrupted processing with %s %s %s.' % (errno, errstr, trcbck))
                 sys.exit(CRITICAL)
             scopes_total -= 1
-    print '5. Adding %s known scopes finished.' % (tmp - scopes_total)
+    print('5. Adding %s known scopes finished.' % (tmp - scopes_total))
     tmp = scopes_total
     # 6. Fill up DB to total number of scopes
     while scopes_total:
@@ -143,10 +151,10 @@ if __name__ == '__main__':
         except Exception:
             errno, errstr = sys.exc_info()[:2]
             trcbck = traceback.format_exc()
-            print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
+            print('Interrupted processing with %s %s %s.' % (errno, errstr, trcbck))
             sys.exit(CRITICAL)
         scopes_total -= 1
-    print '6. Adding %s artificial scopes for the user root finished' % tmp
+    print('6. Adding %s artificial scopes for the user root finished' % tmp)
 
     # 7. Define meta data
     for key, key_type, value_regexp, values in meta_keys:
@@ -154,21 +162,21 @@ if __name__ == '__main__':
             try:
                 c.add_key(key=key, key_type=key_type, value_regexp=value_regexp)
             except Duplicate:
-                print '%(key)s already added' % locals()
+                print('%(key)s already added' % locals())
 
             for value in values:
 
                 try:
                     c.add_value(key=key, value=value)
                 except Duplicate:
-                    print '%(key)s:%(value)s already added' % locals()
+                    print('%(key)s:%(value)s already added' % locals())
 
                 if key == 'project':
                     try:
                         c.add_scope('root', value)
                     except Duplicate:
-                        print 'Scope %(value)s already added' % locals()
+                        print('Scope %(value)s already added' % locals())
         except:
             errno, errstr = sys.exc_info()[:2]
             trcbck = traceback.format_exc()
-            print 'Interrupted processing with %s %s %s.' % (errno, errstr, trcbck)
+            print('Interrupted processing with %s %s %s.' % (errno, errstr, trcbck))

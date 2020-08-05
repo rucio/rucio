@@ -1,4 +1,4 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,14 @@
 #
 # Authors:
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2014
-# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
 # - Yun-Pin Sun <winter0128@gmail.com>, 2012
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
-# - Nicolo Magini, <nicolo.magini@cern.ch>, 2018
+# - Nicolo Magini <nicolo.magini@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -121,7 +123,7 @@ class Default(protocol.RSEProtocol):
             sf = source
         try:
             self.__connection.put(sf, self.pfn2path(target))
-        except IOError as e:
+        except IOError:
             try:
                 self.__connection.execute('mkdir -p %s' % '/'.join(self.pfn2path(target).split('/')[0:-1]))
                 self.__connection.put(sf, self.pfn2path(target))

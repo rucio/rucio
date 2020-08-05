@@ -1,4 +1,4 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,8 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 # - Brandon White, <bjwhite@fnal.gov>, 2019
-# - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019 - 2020
+# - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -196,7 +197,7 @@ class DidColumnMeta(DidMetaPlugin):
                     update({key: value}, synchronize_session='fetch')
             except CompileError as error:
                 raise exception.InvalidMetadata(error)
-            except InvalidRequestError as error:
+            except InvalidRequestError:
                 raise exception.InvalidMetadata("Key %s is not accepted" % key)
 
             # propagate metadata updates to child content
@@ -215,7 +216,7 @@ class DidColumnMeta(DidMetaPlugin):
                             update({key: value}, synchronize_session='fetch')
                     except CompileError as error:
                         raise exception.InvalidMetadata(error)
-                    except InvalidRequestError as error:
+                    except InvalidRequestError:
                         raise exception.InvalidMetadata("Key %s is not accepted" % key)
 
         if not rowcount:

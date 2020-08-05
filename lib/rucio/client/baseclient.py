@@ -14,20 +14,26 @@
 #
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2013
-# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
 # - Tobias Wegner <twegner@cern.ch>, 2017
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2017-2018
+# - Robert Illingworth <illingwo@fnal.gov>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
-# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019-2020
+# - Eric Vaandering <ericvaandering@gmail.com>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -213,7 +219,7 @@ class BaseClient(object):
                 elif self.auth_type == 'x509_proxy':
                     try:
                         self.creds['client_proxy'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_x509_proxy'))))
-                    except NoOptionError as error:
+                    except NoOptionError:
                         # Recreate the classic GSI logic for locating the proxy:
                         # - $X509_USER_PROXY, if it is set.
                         # - /tmp/x509up_u`id -u` otherwise.
@@ -557,7 +563,7 @@ class BaseClient(object):
                             get_input = input
                             # if Python version <= 2.7 use raw_input
                             if sys.version_info[:2] <= (2, 7):
-                                get_input = raw_input
+                                get_input = raw_input  # noqa: F821 pylint: disable=undefined-variable
                             fetchcode = get_input()
                             fetch_url = build_url(self.auth_host, path='auth/oidc_redirect', params=fetchcode)
                             result = self.session.get(fetch_url, headers=headers, verify=self.ca_cert)

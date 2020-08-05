@@ -1,4 +1,4 @@
-# Copyright 2014-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2014-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,13 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2019
-# - Vincent Garonne <vgaronne@gmail.com>, 2014-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2017
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2019
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
-# - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -68,7 +69,7 @@ def add_message(event_type, payload, session=None):
 
     try:
         payload = json.dumps(payload, cls=APIEncoder)
-    except TypeError as e:
+    except TypeError as e:  # noqa: F841
         raise InvalidObject('Invalid JSON for payload: %(e)s' % locals())
 
     if len(payload) > 4000:

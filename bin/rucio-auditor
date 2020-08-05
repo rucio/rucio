@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2015-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,26 +14,31 @@
 # limitations under the License.
 #
 # Authors:
-# - Fernando Lopez, <fernando.e.lopez@gmail.com>, 2015
-# - Vincent Garonne, <vgaronne@gmail.com>, 2018
+# - Fernando Lopez <fernando.e.lopez@gmail.com>, 2015
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
-from datetime import datetime
-from functools import partial
-from multiprocessing import Queue, Process, Event, Pipe
 import argparse
 import logging
 import logging.handlers
 import os
-import rucio.client
-import rucio.common.config as config
-import rucio.common.dumper as dumper
-import rucio.daemons.auditor
 import signal
 import sys
 import textwrap
 import time
+from datetime import datetime
+from functools import partial
+from multiprocessing import Queue, Process, Event, Pipe
+
+import rucio.common.config as config
+import rucio.common.dumper as dumper
+import rucio.daemons.auditor
+from rucio.client.rseclient import RSEClient
 
 
 def setup_pipe_logger(pipe, loglevel):
@@ -55,9 +60,9 @@ def main(args):
     nprocs = args.nprocs
     assert nprocs >= 1
     if args.rses is None:
-        rses_gen = rucio.client.RSEClient().list_rses()
+        rses_gen = RSEClient().list_rses()
     else:
-        rses_gen = rucio.client.RSEClient().list_rses(args.rses)
+        rses_gen = RSEClient().list_rses(args.rses)
 
     rses = [entry['rse'] for entry in rses_gen]
     assert len(rses) > 0

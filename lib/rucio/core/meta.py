@@ -13,11 +13,12 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -63,7 +64,7 @@ def add_key(key, key_type, value_type=None, value_regexp=None, session=None):
 
     try:
         key_type = KeyType.from_string(key_type)
-    except ValueError as error:
+    except ValueError:
         raise UnsupportedKeyType('The type \'%s\' is not supported for keys!' % str(key_type))
 
     new_key = models.DIDKey(key=key, value_type=value_type and str(value_type), value_regexp=value_regexp, key_type=key_type)

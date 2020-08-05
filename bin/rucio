@@ -14,27 +14,32 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2019
-# - Vincent Garonne, <vgaronne@gmail.com>, 2012-2018
-# - Martin Barisits, <martin.barisits@cern.ch>, 2012-2019
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2012-2017
-# - Yun-Pin Sun, <winter0128@gmail.com>, 2012-2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2013-2020
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2013
-# - David Cameron, <d.g.cameron@gmail.com>, 2014
-# - Tomas Kouba, <tomas.kouba@cern.ch>, 2014
-# - Wen Guan, <wguan.icedew@gmail.com>, 2014
-# - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2014-2018
-# - Evangelia Liotiri, <evangelia.liotiri@cern.ch>, 2015
-# - Tobias Wegner, <twegner@cern.ch>, 2017-2019
-# - Brian Bockelman, <bbockelm@cse.unl.edu>, 2017-2018
-# - Nicolo Magini, <Nicolo.Magini@cern.ch>, 2018
-# - Frank Berghaus, <frank.berghaus@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2019
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2012-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2017
+# - Yun-Pin Sun <winter0128@gmail.com>, 2012-2013
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
+# - David Cameron <david.cameron@cern.ch>, 2014-2020
+# - Tomas Kouba <tomas.kouba@cern.ch>, 2014
+# - Wen Guan <wen.guan@cern.ch>, 2014
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
+# - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2015
+# - Tobias Wegner <twegner@cern.ch>, 2017-2019
+# - Brian Bockelman <bbockelm@cse.unl.edu>, 2017-2018
+# - Frank Berghaus <frank.berghaus@cern.ch>, 2017-2018
+# - Nicolo Magini <nicolo.magini@cern.ch>, 2018
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2018-2019
+# - asket <asket.agarwal96@gmail.com>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2020
-# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
-# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019-2020
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Boris Bauermeister <boris.bauermeister@fysik.su.se>, 2019
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Jason Nielsen <jnielsen@ucsc.edu>, 2020
+# - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
@@ -51,25 +56,26 @@ import sys
 import time
 import traceback
 import uuid
+from functools import wraps
 
 import argcomplete
 import tabulate
 
-try:
-    from ConfigParser import NoOptionError, NoSectionError
-except ImportError:
-    from configparser import NoOptionError, NoSectionError
-
-from functools import wraps
-
-from rucio.client import Client
+# rucio module has the same name as this executable module, so this rule fails. pylint: disable=no-name-in-module
 from rucio import version
+from rucio.client import Client
 from rucio.common.config import config_get
 from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject,
                                     RSENotFound, InvalidRSEExpression, InputValidationError, DuplicateContent,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation,
                                     RucioException, DuplicateRule, InvalidType)
-from rucio.common.utils import sizefmt, Color, detect_client_location, chunks, parse_did_filter_from_string, extract_scope
+from rucio.common.utils import sizefmt, Color, detect_client_location, chunks, parse_did_filter_from_string, \
+    extract_scope
+
+try:
+    from ConfigParser import NoOptionError, NoSectionError
+except ImportError:
+    from configparser import NoOptionError, NoSectionError
 
 SUCCESS = 0
 FAILURE = 1
@@ -1254,7 +1260,7 @@ def add_rule(args):
                                                           ask_approval=args.ask_approval,
                                                           asynchronous=args.asynchronous)
                     rule_ids.extend(rule_id)
-                except DuplicateRule as error:
+                except DuplicateRule:
                     print('Duplicate rule for %s:%s found; Skipping.' % (did['scope'], did['name']))
         else:
             raise error

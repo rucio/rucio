@@ -1,4 +1,4 @@
-# Copyright 2016-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2016-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2020
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
@@ -21,8 +21,11 @@
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Brandon White <bjwhite@fnal.gov>, 2019
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -531,7 +534,7 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
                         logging.debug('%s delete_replicas successed on %s : %s replicas in %s seconds', prepend_str, rse_name, len(deleted_files), time.time() - del_start)
                         monitor.record_counter(counters='reaper.deletion.done', delta=len(deleted_files))
                         DELETION_COUNTER.inc(len(deleted_files))
-                except Exception as error:
+                except Exception:
                     logging.critical('%s %s', prepend_str, str(traceback.format_exc()))
 
             if once:

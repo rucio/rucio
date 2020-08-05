@@ -1,4 +1,4 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,10 +14,13 @@
 #
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Brandon White <bjwhite@fnal.gov>, 2019-2020
-# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -238,7 +241,7 @@ def minos(bulk=1000, once=False, sleep_time=60):
                                     elif expires_at < datetime.now():
                                         logging.info('%s PFN %s expiration time (%s) is older than now and is not in unavailable state. Removing the PFNs from bad_pfns', prepend_str, str(rep['pfn']), expires_at)
                                         bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
-                                except (DataIdentifierNotFound, ReplicaNotFound) as error:
+                                except (DataIdentifierNotFound, ReplicaNotFound):
                                     logging.error(prepend_str + 'Will remove %s from the list of bad PFNs' % str(rep['pfn']))
                                     bulk_delete_bad_pfns(pfns=[rep['pfn']], session=None)
                             session = get_session()
