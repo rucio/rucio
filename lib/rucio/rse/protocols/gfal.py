@@ -69,7 +69,8 @@ class Default(protocol.RSEProtocol):
         :returns: Fully qualified PFN.
         """
         lfns = [lfns] if type(lfns) == dict else lfns
-        self.logger.debug('getting pfn for {} lfns'.format(len(list(lfns))))
+        # logging is commented out due to the log overload on server, TODO
+        # self.logger.debug('getting pfn for {} lfns'.format(len(list(lfns))))
 
         pfns = {}
         prefix = self.attributes['prefix']
@@ -86,7 +87,7 @@ class Default(protocol.RSEProtocol):
         hostname = self.attributes['hostname']
         if '://' in hostname:
             hostname = hostname.split("://")[1]
-        self.logger.debug('hostname: {} prefix: {}'.format(hostname, prefix))
+        # self.logger.debug('hostname: {} prefix: {}'.format(hostname, prefix))
 
         if self.attributes['port'] == 0:
             for lfn in lfns:
@@ -103,7 +104,7 @@ class Default(protocol.RSEProtocol):
                     path = path[1:]
                 pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, ':', str(self.attributes['port']), web_service_path, prefix, path])
 
-        self.logger.debug('count of pfns: {}'.format(len(list(pfns))))
+        # self.logger.debug('count of pfns: {}'.format(len(list(pfns))))
 
         return pfns
 
