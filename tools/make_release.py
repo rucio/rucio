@@ -1,13 +1,22 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2014-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#                       http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2014
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2015
+# - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 import argparse
 import sys
@@ -37,7 +46,7 @@ def query_yes_no(question, default="yes"):
 
     while True:
         sys.stdout.write(question + prompt)
-        choice = raw_input().lower()
+        choice = raw_input().lower()  # noqa: F821
         if default is not None and choice == '':
             return valid[default]
         elif choice in valid:
@@ -80,23 +89,23 @@ if __name__ == '__main__':
     if answer:
 
         cmd = "git remote set-url --push upstream https://gitlab.cern.ch/rucio01/rucio.git"
-        print cmd
+        print(cmd)
 
         cmd = "git tag -a %(new_version)s -m 'Version %(new_version)s'" % locals()
-        print cmd
+        print(cmd)
         # status, output = getstatusoutput(cmd)
 
         cmd = "git push origin %(new_version)s" % locals()
-        print cmd
+        print(cmd)
         cmd = "git push upstream %(new_version)s" % locals()
-        print cmd
+        print(cmd)
 
         cmd = "git remote set-url --push upstream xxx"
-        print cmd
+        print(cmd)
 
         # status, output = getstatusoutput(cmd)
-        print '\n# To undo the release'
+        print('\n# To undo the release')
         cmd = "git push --delete origin %(new_version)s" % locals()
-        print cmd
+        print(cmd)
         cmd = "git tag -d %(new_version)s" % locals()
-        print cmd
+        print(cmd)

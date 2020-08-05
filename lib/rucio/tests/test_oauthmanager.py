@@ -1,23 +1,34 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2019-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
 
 import datetime
 import json
+import sys
 from time import sleep
 
-from mock import MagicMock, patch
 from nose.tools import assert_true
 from oic import rndstr
+from sqlalchemy import and_, or_
+from sqlalchemy.sql.expression import true
+
 from rucio.api.account import add_account, del_account
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import Duplicate
@@ -25,8 +36,11 @@ from rucio.common.types import InternalAccount
 from rucio.daemons.oauthmanager.oauthmanager import run, stop
 from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
-from sqlalchemy import and_, or_
-from sqlalchemy.sql.expression import true
+
+if sys.version_info >= (3, 3):
+    from unittest.mock import MagicMock, patch
+else:
+    from mock import MagicMock, patch
 
 new_token_dict = {'access_token': '',
                   'expires_in': 3599,

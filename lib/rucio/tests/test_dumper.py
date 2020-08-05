@@ -1,35 +1,34 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#              http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Fernando Lopez, <felopez@cern.ch>, 2015
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+# - Fernando Lopez <fernando.e.lopez@gmail.com>, 2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2017
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
 import json
 import os
+import sys
 import tempfile
-
-import bz2file
-import mock
-import requests
-
-try:
-    # PY2
-    from StringIO import StringIO
-except ImportError:
-    # PY3
-    from io import StringIO
-
 from datetime import datetime
 
+import bz2file
+import requests
 from nose.tools import eq_
 from nose.tools import ok_
 from nose.tools import raises
@@ -39,6 +38,18 @@ from rucio.common import dumper
 from rucio.tests.common import make_temp_file
 from rucio.tests.common import mock_open
 from rucio.tests.mocks import gfal2
+
+try:
+    # PY2
+    from StringIO import StringIO
+except ImportError:
+    # PY3
+    from io import StringIO
+
+if sys.version_info >= (3, 3):
+    from unittest import mock
+else:
+    import mock
 
 
 DATE_SECONDS = "2015-03-10 14:00:35"

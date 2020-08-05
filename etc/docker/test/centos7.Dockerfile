@@ -2,7 +2,7 @@
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at 
+# You may obtain a copy of the License at
 #
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
@@ -44,14 +44,11 @@ RUN curl https://www.sqlite.org/2019/sqlite-autoconf-3290000.tar.gz | tar xzv &&
   make install && \
   cd .. && rm -rf ./sqlite-autoconf-3290000
 
-RUN if [ "$PYTHON" == "2.7" ] ; then ln -sf python2.7 /usr/bin/python ; ln -sf pip2.7 /usr/bin/pip ; fi
-RUN if [ "$PYTHON" == "3.6" ] ; then ln -sf python3.6 /usr/bin/python ; ln -sf pip3.6 /usr/bin/pip ; fi
-# Get the latest setuptools version
-# to fix the setup.py error:
-# install fails with: `install_requires` must be a string or list of strings
-RUN if [ "$PYTHON" == "2.7" ] ; then pip install --no-cache-dir --upgrade pip 'setuptools<45' ; \
-    else pip install --no-cache-dir --upgrade pip setuptools ; fi && \
-    pip install --no-cache-dir -U wheel
+RUN if [ "$PYTHON" == "2.7" ] ; then ln -sf python2.7 /usr/bin/python ; ln -sf pip2.7 /usr/bin/pip ; \
+    elif [ "$PYTHON" == "3.6" ] ; then ln -sf python3.6 /usr/bin/python ; ln -sf pip3.6 /usr/bin/pip ; fi
+
+RUN python -m pip --no-cache-dir install --upgrade pip && \
+    python -m pip --no-cache-dir install --upgrade setuptools wheel
 
 RUN mkdir -p /var/log/rucio/trace && \
   chmod -R 777 /var/log/rucio
@@ -75,14 +72,14 @@ RUN rpm -i etc/docker/test/extra/oic.rpm; \
     ldconfig
 
 # pre-install requirements
-RUN pip install --no-cache-dir -r etc/pip-requires -r etc/pip-requires-client -r etc/pip-requires-test \
+RUN python -m pip --no-cache-dir install --upgrade -r etc/pip-requires -r etc/pip-requires-client -r etc/pip-requires-test \
     'cx_oracle==6.3.1' 'psycopg2-binary>=2.4.2,<2.8' 'PyMySQL' 'kerberos>=1.3.0' 'pykerberos>=1.2.1' 'requests-kerberos>=0.12.0' 'python3-saml>=1.6.0'
 
 # copy everything else (anything above is cache-friendly)
 COPY . .
 
 # Install Rucio + dependencies
-RUN pip install --no-cache-dir .[oracle,postgresql,mysql,kerberos,dev,saml]
+RUN python -m pip --no-cache-dir install --upgrade .[oracle,postgresql,mysql,kerberos,dev,saml]
 
 WORKDIR /opt/rucio
 RUN cp -r /usr/local/src/rucio/{lib,bin,tools,etc} ./

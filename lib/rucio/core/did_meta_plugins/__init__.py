@@ -1,4 +1,4 @@
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,8 @@
 # limitations under the License.
 #
 # Authors:
-# - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019 - 2020
+# - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -23,7 +24,6 @@ from rucio.common import config
 from rucio.common.exception import PolicyPackageNotFound
 from rucio.db.sqla.session import read_session
 
-# from . import hardcoded as hardcoded_handler
 
 try:
     from ConfigParser import NoOptionError, NoSectionError
@@ -36,7 +36,7 @@ FALLBACK_METADATA_HANDLER_MODULE = "rucio.core.did_meta_plugins.json_meta.JSONDi
 if config.config_has_section('metadata'):
     try:
         METADATA_HANDLER_MODULES = config.config_get('metadata', 'plugins')
-    except (NoOptionError, NoSectionError) as error:
+    except (NoOptionError, NoSectionError):
         METADATA_HANDLER_MODULES = FALLBACK_METADATA_HANDLER_MODULE
 else:
     METADATA_HANDLER_MODULES = FALLBACK_METADATA_HANDLER_MODULE
@@ -50,7 +50,7 @@ for meta_module_path in META_MODULE_PATHS:
         base_class = meta_module_path.split(".")[-1]
         meta_handler_module = getattr(importlib.import_module(base_module), base_class)()
         METADATA_HANDLERS.append(meta_handler_module)
-    except (ImportError) as error:
+    except ImportError:
         raise PolicyPackageNotFound('Module ' + meta_module_path + ' not found')
 
 

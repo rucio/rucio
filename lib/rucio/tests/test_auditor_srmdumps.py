@@ -1,4 +1,4 @@
-# Copyright 2015-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,13 +15,20 @@
 # Authors:
 # - Fernando Lopez <fernando.e.lopez@gmail.com>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
-# - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
-# PY3K
+# PY3K COMPATIBLE
 
-import mock
+import sys
+from datetime import datetime
+
+from nose.tools import eq_
+from nose.tools import raises
+
+from rucio.daemons.auditor import srmdumps
 
 try:
     # PY2
@@ -29,10 +36,11 @@ try:
 except ImportError:
     # PY3
     from configparser import ConfigParser
-from datetime import datetime
-from nose.tools import eq_
-from nose.tools import raises
-from rucio.daemons.auditor import srmdumps
+
+if sys.version_info >= (3, 3):
+    from unittest import mock
+else:
+    import mock
 
 
 def test_patterns_on_file_names():

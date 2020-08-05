@@ -1,4 +1,4 @@
-# Copyright 2017-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,12 +15,13 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from nose.tools import assert_equal, assert_in, assert_not_in
 
-from rucio.client import ReplicaClient
+from rucio.client.replicaclient import ReplicaClient
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.replica import add_replicas, delete_replicas

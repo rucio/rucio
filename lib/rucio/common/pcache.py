@@ -1,4 +1,25 @@
 #!/usr/bin/env python
+# Copyright 2019-2020 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2019
+# - Boris Bauermeister <boris.bauermeister@fysik.su.se>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+
 import sys
 import os
 import errno
@@ -820,7 +841,7 @@ class Pcache:
         try:
             os.rename(xfer_file, cache_file)
             # self.log(INFO, "rename %s %s", xfer_file, cache_file)
-        except OSError as e:  # Fatal error if we can't do this
+        except OSError:  # Fatal error if we can't do this
             self.log(ERROR, "rename %s %s", xfer_file, cache_file)
             try:
                 os.unlink(xfer_file)
