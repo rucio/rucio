@@ -35,9 +35,7 @@ fi
 
 if [[ $SUITE == "client" ]]; then
     srchome
-    nosetests -v lib/rucio/tests/test_clients.py
-    nosetests -v lib/rucio/tests/test_bin_rucio.py
-    nosetests -v lib/rucio/tests/test_module_import.py
+    pytest -v --full-trace lib/rucio/tests/test_clients.py lib/rucio/tests/test_bin_rucio.py lib/rucio/tests/test_module_import.py
 fi
 
 if [[ $SUITE == "all" ]]; then

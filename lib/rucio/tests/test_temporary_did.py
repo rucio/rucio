@@ -1,4 +1,4 @@
-# Copyright 2016-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2016-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,21 +13,19 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
-from nose.tools import assert_equal
-
+from rucio.client.didclient import DIDClient
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
+from rucio.core.rse import get_rse_id
 from rucio.core.temporary_did import (add_temporary_dids, compose, delete_temporary_dids,
                                       list_expired_temporary_dids)
-from rucio.core.rse import get_rse_id
-
-from rucio.client.didclient import DIDClient
 
 
 def test_core_temporary_dids():
@@ -60,7 +58,7 @@ def test_core_temporary_dids():
 
     rowcount = delete_temporary_dids(dids=dids)
 
-    assert_equal(rowcount, 10)
+    assert rowcount == 10
 
 
 def test_client_temporary_dids():

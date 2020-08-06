@@ -1,4 +1,4 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2014-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +13,16 @@
 # limitations under the License.
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2019
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2016
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+
+import unittest
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
@@ -35,7 +39,7 @@ from rucio.db.sqla.constants import DIDType
 from rucio.tests.test_rule import create_files, tag_generator
 
 
-class TestJudgeEvaluator():
+class TestJudgeEvaluator(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):

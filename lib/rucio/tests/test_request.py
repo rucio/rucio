@@ -1,4 +1,4 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2019-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,13 +15,18 @@
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019-2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
+import os
+import unittest
 from datetime import datetime
-from nose.tools import assert_equal
+
+import pytest
 from paste.fixture import TestApp
 
 from rucio.common.config import config_get, config_get_bool
@@ -31,7 +36,7 @@ from rucio.core.config import set as config_set
 from rucio.core.did import attach_dids, add_did
 # from rucio.core.distance import add_distance
 from rucio.core.replica import add_replica
-from rucio.core.request import release_all_waiting_requests, queue_requests, get_request_by_did, release_waiting_requests_per_free_volume,\
+from rucio.core.request import release_all_waiting_requests, queue_requests, get_request_by_did, release_waiting_requests_per_free_volume, \
     release_waiting_requests_grouped_fifo, release_waiting_requests_fifo, list_requests, release_waiting_requests_per_deadline
 from rucio.core.rse import get_rse_id, set_rse_transfer_limits, add_rse_attribute
 from rucio.db.sqla import session, models, constants
@@ -39,7 +44,10 @@ from rucio.web.rest.authentication import APP as auth_app
 from rucio.web.rest.request import APP as request_app
 
 
-class TestRequestCoreQueue(object):
+skiplimitedsql = pytest.mark.skipif('RDBMS' in os.environ and (os.environ['RDBMS'] == 'sqlite' or os.environ['RDBMS'] == 'mysql5'), reason="does not work in SQLite or MySQL 5, because of missing features")
+
+
+class TestRequestCoreQueue(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -139,11 +147,11 @@ class TestRequestCoreQueue(object):
         }]
         queue_requests(requests, session=self.db_session)
         request = get_request_by_did(self.scope, name, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
         request = get_request_by_did(self.scope, name2, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
         request = get_request_by_did(self.scope, name3, self.dest_rse_id2, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
 
     # def test_queue_requests_source_rse(self):
     #     """ REQUEST (CORE): queue requests and select correct source RSE. """
@@ -173,10 +181,10 @@ class TestRequestCoreQueue(object):
     #     queue_requests(requests, session=self.db_session)
     #     request = get_request_by_did(self.scope, name, self.dest_rse_id, session=self.db_session)
     #     # select source RSE with smallest distance
-    #     assert_equal(request['source_rse_id'], self.source_rse_id)
-    #     assert_equal(request['name'], name)
-    #     assert_equal(request['scope'], self.scope)
-    #     assert_equal(request['state'], constants.RequestState.QUEUED)
+    #     assert request['source_rse_id'] == self.source_rse_id
+    #     assert request['name'] == name
+    #     assert request['scope'] == self.scope
+    #     assert request['state'] == constants.RequestState.QUEUED
 
     def test_queue_requests_state_1(self):
         """ REQUEST (CORE): queue requests and set correct request state. """
@@ -223,9 +231,9 @@ class TestRequestCoreQueue(object):
         }]
         queue_requests(requests, session=self.db_session)
         request = get_request_by_did(self.scope, name, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.WAITING)
+        assert request['state'] == constants.RequestState.WAITING
         request = get_request_by_did(self.scope, name2, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
 
     def test_queue_requests_state_2(self):
         """ REQUEST (CORE): queue requests and set correct request state. """
@@ -254,10 +262,10 @@ class TestRequestCoreQueue(object):
         }]
         queue_requests(requests, session=self.db_session)
         request = get_request_by_did(self.scope, name, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
 
 
-class TestRequestCoreRelease(object):
+class TestRequestCoreRelease(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -294,6 +302,7 @@ class TestRequestCoreRelease(object):
     def tearDown(self):
         self.db_session.commit()
 
+    @skiplimitedsql
     def test_release_waiting_requests_per_free_volume(self):
         """ REQUEST (CORE): release waiting requests that fit grouped in available volume."""
         # release unattached requests that fit in available volume with respect to already submitted transfers
@@ -360,13 +369,13 @@ class TestRequestCoreRelease(object):
         release_waiting_requests_per_free_volume(self.dest_rse_id, volume=volume, session=self.db_session)
         # released because small enough
         request = get_request_by_did(self.scope, name1, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
         # still waiting because requested later and to big
         request = get_request_by_did(self.scope, name2, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.WAITING)
+        assert request['state'] == constants.RequestState.WAITING
         # still waiting because too big
         request = get_request_by_did(self.scope, name3, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.WAITING)
+        assert request['state'] == constants.RequestState.WAITING
 
         # release attached requests that fit together with the dataset in available volume with respect to already submitted transfers
         self.db_session.query(models.Request).delete()
@@ -458,14 +467,14 @@ class TestRequestCoreRelease(object):
         release_waiting_requests_per_free_volume(self.dest_rse_id, volume=volume, session=self.db_session)
         # released because dataset fits in volume
         request = get_request_by_did(self.scope, name1, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
         request = get_request_by_did(self.scope, name4, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
         # waiting because dataset is too big
         request = get_request_by_did(self.scope, name2, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.WAITING)
+        assert request['state'] == constants.RequestState.WAITING
         request = get_request_by_did(self.scope, name3, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.WAITING)
+        assert request['state'] == constants.RequestState.WAITING
 
         # release requests with no available volume -> release nothing
         self.db_session.query(models.Request).delete()
@@ -495,8 +504,9 @@ class TestRequestCoreRelease(object):
         release_waiting_requests_per_free_volume(self.dest_rse_id, volume=volume, session=self.db_session)
         # waiting because no available volume
         request = get_request_by_did(self.scope, name1, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.WAITING)
+        assert request['state'] == constants.RequestState.WAITING
 
+    @skiplimitedsql
     def test_release_waiting_requests_grouped_fifo(self):
         """ REQUEST (CORE): release waiting requests based on grouped FIFO. """
         # set volume and deadline to 0 to check first without releasing extra requests
@@ -526,7 +536,7 @@ class TestRequestCoreRelease(object):
         queue_requests(requests, session=self.db_session)
         release_waiting_requests_grouped_fifo(self.dest_rse_id, count=1, volume=0, deadline=0, session=self.db_session)
         request = get_request_by_did(self.scope, name, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
 
         # one request with an attached DID -> one request should be released
         self.db_session.query(models.Request).delete()
@@ -555,7 +565,7 @@ class TestRequestCoreRelease(object):
         queue_requests(requests, session=self.db_session)
         release_waiting_requests_grouped_fifo(self.dest_rse_id, count=1, volume=0, deadline=0, session=self.db_session)
         request = get_request_by_did(self.scope, name, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
 
         # five requests with different requested_at and multiple attachments per collection -> release only one request -> two requests of one collection should be released
         self.db_session.query(models.Request).delete()
@@ -661,15 +671,15 @@ class TestRequestCoreRelease(object):
         queue_requests(requests, session=self.db_session)
         release_waiting_requests_grouped_fifo(self.dest_rse_id, count=1, deadline=0, volume=0, session=self.db_session)
         request_1 = get_request_by_did(self.scope, name1, self.dest_rse_id, session=self.db_session)
-        assert_equal(request_1['state'], constants.RequestState.QUEUED)
+        assert request_1['state'] == constants.RequestState.QUEUED
         request_2 = get_request_by_did(self.scope, name2, self.dest_rse_id, session=self.db_session)
-        assert_equal(request_2['state'], constants.RequestState.QUEUED)
+        assert request_2['state'] == constants.RequestState.QUEUED
         request_3 = get_request_by_did(self.scope, name3, self.dest_rse_id, session=self.db_session)
-        assert_equal(request_3['state'], constants.RequestState.WAITING)
+        assert request_3['state'] == constants.RequestState.WAITING
         request_4 = get_request_by_did(self.scope, name4, self.dest_rse_id, session=self.db_session)
-        assert_equal(request_4['state'], constants.RequestState.WAITING)
+        assert request_4['state'] == constants.RequestState.WAITING
         request_5 = get_request_by_did(self.scope, name5, self.dest_rse_id, session=self.db_session)
-        assert_equal(request_5['state'], constants.RequestState.WAITING)
+        assert request_5['state'] == constants.RequestState.WAITING
 
         # with maximal volume check -> release one request -> three requests should be released because of attachments and free volume space
         self.db_session.query(models.Request).delete()
@@ -758,19 +768,19 @@ class TestRequestCoreRelease(object):
 
         queue_requests(requests, session=self.db_session)
         amount_updated_requests = release_waiting_requests_grouped_fifo(self.dest_rse_id, count=1, deadline=0, volume=10, session=self.db_session)
-        assert_equal(amount_updated_requests, 3)
+        assert amount_updated_requests == 3
         # released because it got requested first
         request_1 = get_request_by_did(self.scope, name1, self.dest_rse_id, session=self.db_session)
-        assert_equal(request_1['state'], constants.RequestState.QUEUED)
+        assert request_1['state'] == constants.RequestState.QUEUED
         # released because the DID is attached to the same dataset
         request_2 = get_request_by_did(self.scope, name2, self.dest_rse_id, session=self.db_session)
-        assert_equal(request_2['state'], constants.RequestState.QUEUED)
+        assert request_2['state'] == constants.RequestState.QUEUED
         # released because of available volume
         request_3 = get_request_by_did(self.scope, name3, self.dest_rse_id, session=self.db_session)
-        assert_equal(request_3['state'], constants.RequestState.QUEUED)
+        assert request_3['state'] == constants.RequestState.QUEUED
         # still waiting because there is no free volume
         request_4 = get_request_by_did(self.scope, name4, self.dest_rse_id, session=self.db_session)
-        assert_equal(request_4['state'], constants.RequestState.WAITING)
+        assert request_4['state'] == constants.RequestState.WAITING
 
         # with maximal volume check -> release one request -> two requests should be released because of attachments
         self.db_session.query(models.Request).delete()
@@ -864,15 +874,15 @@ class TestRequestCoreRelease(object):
         release_waiting_requests_grouped_fifo(self.dest_rse_id, count=1, deadline=0, volume=5, session=self.db_session)
         # released because it got requested first
         request_1 = get_request_by_did(self.scope, name1, self.dest_rse_id, session=self.db_session)
-        assert_equal(request_1['state'], constants.RequestState.QUEUED)
+        assert request_1['state'] == constants.RequestState.QUEUED
         # released because the DID is attached to the same dataset
         request_2 = get_request_by_did(self.scope, name2, self.dest_rse_id, session=self.db_session)
-        assert_equal(request_2['state'], constants.RequestState.QUEUED)
+        assert request_2['state'] == constants.RequestState.QUEUED
         # still waiting because there is no free volume after releasing the two requests above
         request_3 = get_request_by_did(self.scope, name3, self.dest_rse_id, session=self.db_session)
-        assert_equal(request_3['state'], constants.RequestState.WAITING)
+        assert request_3['state'] == constants.RequestState.WAITING
         request_4 = get_request_by_did(self.scope, name4, self.dest_rse_id, session=self.db_session)
-        assert_equal(request_4['state'], constants.RequestState.WAITING)
+        assert request_4['state'] == constants.RequestState.WAITING
 
         # with deadline check -> release 0 requests -> 1 request should be released nonetheless
         self.db_session.query(models.Request).delete()
@@ -920,10 +930,10 @@ class TestRequestCoreRelease(object):
         release_waiting_requests_grouped_fifo(self.source_rse_id, count=0, deadline=1, volume=0, session=self.db_session)
         # queued because of deadline
         request = get_request_by_did(self.scope, name1, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
         # waiting because count=0
         request = get_request_by_did(self.scope, name2, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.WAITING)
+        assert request['state'] == constants.RequestState.WAITING
 
     def test_release_waiting_requests_fifo(self):
         """ REQUEST (CORE): release waiting requests based on FIFO. """
@@ -969,9 +979,9 @@ class TestRequestCoreRelease(object):
         queue_requests(requests, session=self.db_session)
         release_waiting_requests_fifo(self.dest_rse_id, count=1, session=self.db_session)
         request = get_request_by_did(self.scope, name1, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
         request2 = get_request_by_did(self.scope, name2, self.dest_rse_id, session=self.db_session)
-        assert_equal(request2['state'], constants.RequestState.WAITING)
+        assert request2['state'] == constants.RequestState.WAITING
 
         # with activity and account check
         # two requests -> release two request -> requests with correct account and activity should be released
@@ -1057,13 +1067,13 @@ class TestRequestCoreRelease(object):
         queue_requests(requests, session=self.db_session)
         release_waiting_requests_fifo(self.dest_rse_id, count=2, account=self.account, activity=self.user_activity, session=self.db_session)
         request = get_request_by_did(self.scope, name1, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
         request = get_request_by_did(self.scope, name2, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.WAITING)
+        assert request['state'] == constants.RequestState.WAITING
         request = get_request_by_did(self.scope, name3, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.WAITING)
+        assert request['state'] == constants.RequestState.WAITING
         request = get_request_by_did(self.scope, name4, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
 
     def test_release_waiting_requests_all(self):
         """ REQUEST (CORE): release all waiting requests. """
@@ -1107,10 +1117,11 @@ class TestRequestCoreRelease(object):
         queue_requests(requests, session=self.db_session)
         release_all_waiting_requests(self.dest_rse_id, session=self.db_session)
         request = get_request_by_did(self.scope, name1, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
         request = get_request_by_did(self.scope, name2, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
 
+    @skiplimitedsql
     def test_release_waiting_requests_per_deadline(self):
         """ REQUEST (CORE): release grouped waiting requests that exceeded waiting time."""
         # a request that exceeded the maximal waiting time to be released (1 hour) -> release one request -> only the exceeded request should be released
@@ -1157,9 +1168,9 @@ class TestRequestCoreRelease(object):
         request = get_request_by_did(self.scope, name1, self.dest_rse_id, session=self.db_session)
         release_waiting_requests_per_deadline(self.source_rse_id, deadline=1, session=self.db_session)
         request = get_request_by_did(self.scope, name1, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
         request = get_request_by_did(self.scope, name2, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.WAITING)
+        assert request['state'] == constants.RequestState.WAITING
 
         # a request that exceeded the maximal waiting time to be released (1 hour) -> release one request -> release all requests of the same dataset
         name1 = generate_uuid()
@@ -1224,14 +1235,14 @@ class TestRequestCoreRelease(object):
         queue_requests(requests, session=self.db_session)
         release_waiting_requests_per_deadline(self.source_rse_id, deadline=1, session=self.db_session)
         request = get_request_by_did(self.scope, name1, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
         request = get_request_by_did(self.scope, name2, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
         request = get_request_by_did(self.scope, name3, self.dest_rse_id, session=self.db_session)
-        assert_equal(request['state'], constants.RequestState.WAITING)
+        assert request['state'] == constants.RequestState.WAITING
 
 
-class TestRequestCoreList(object):
+class TestRequestCoreList(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -1270,16 +1281,16 @@ class TestRequestCoreList(object):
         models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=self.source_rse_id, dest_rse_id=self.dest_rse_id).save(session=self.db_session)
 
         requests = [request for request in list_requests([self.source_rse_id], [self.dest_rse_id], [constants.RequestState.SUBMITTED], session=self.db_session)]
-        assert_equal(len(requests), 2)
+        assert len(requests) == 2
 
         requests = [request for request in list_requests([self.source_rse_id, self.source_rse_id2], [self.dest_rse_id], [constants.RequestState.SUBMITTED], session=self.db_session)]
-        assert_equal(len(requests), 3)
+        assert len(requests) == 3
 
         requests = [request for request in list_requests([self.source_rse_id], [self.dest_rse_id], [constants.RequestState.QUEUED], session=self.db_session)]
-        assert_equal(len(requests), 0)
+        assert len(requests) == 0
 
 
-class TestRequestREST():
+class TestRequestREST(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -1325,21 +1336,21 @@ class TestRequestREST():
         headers = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(self.token)}
         headers.update(self.vo_header)
         r = TestApp(request_app.wsgifunc(*self.mw)).get('/list', params=params, headers=headers, expect_errors=True)
-        assert_equal(r.status, 200)
+        assert r.status == 200
         requests = set()
         for request in r.body.decode().split('\n')[:-1]:
             request = parse_response(request)
             requests.add((request['state'], request['source_rse_id'], request['dest_rse_id'], request['name']))
-        assert_equal(requests, expected_requests)
+        assert requests == expected_requests
 
     def check_error_api(self, params, exception_class, exception_message, code):
         headers = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(self.token)}
         headers.update(self.vo_header)
         r = TestApp(request_app.wsgifunc(*self.mw)).get('/list', params=params, headers=headers, expect_errors=True)
         body = parse_response(r.body.decode())
-        assert_equal(r.status, code)
-        assert_equal(body['ExceptionClass'], exception_class)
-        assert_equal(body['ExceptionMessage'], exception_message)
+        assert r.status == code
+        assert body['ExceptionClass'] == exception_class
+        assert body['ExceptionMessage'] == exception_message
 
     def test_list_requests(self):
         """ REQUEST (REST): list requests """

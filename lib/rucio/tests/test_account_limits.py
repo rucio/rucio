@@ -1,22 +1,29 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2014-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014-2015
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
-# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
-# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2015
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
-import string
 import random
-
-from nose.tools import assert_equal, assert_in
+import string
+import unittest
 
 from rucio.client.accountclient import AccountClient
 from rucio.client.accountlimitclient import AccountLimitClient
@@ -29,7 +36,7 @@ from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import AccountType
 
 
-class TestCoreAccountLimits():
+class TestCoreAccountLimits(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -60,7 +67,7 @@ class TestCoreAccountLimits():
         cls.db_session.commit()
         cls.db_session.close()
 
-    def setup(self):
+    def setUp(self):
         self.db_session.query(models.AccountLimit).delete()
         self.db_session.query(models.AccountGlobalLimit).delete()
         self.db_session.commit()
@@ -68,18 +75,18 @@ class TestCoreAccountLimits():
     def test_local_account_limit(self):
         """ ACCOUNT_LIMIT (CORE): Set, get and delete local account limit """
         account_limit.set_local_account_limit(account=self.account, rse_id=self.rse1_id, bytes=100000, session=self.db_session)
-        assert_equal(account_limit.get_local_account_limit(account=self.account, rse_id=self.rse1_id, session=self.db_session), 100000)
-        assert_equal(account_limit.get_local_account_limit(account=self.account, rse_id=self.rse2_id, session=self.db_session), None)
+        assert account_limit.get_local_account_limit(account=self.account, rse_id=self.rse1_id, session=self.db_session) == 100000
+        assert account_limit.get_local_account_limit(account=self.account, rse_id=self.rse2_id, session=self.db_session) is None
         account_limit.delete_local_account_limit(account=self.account, rse_id=self.rse1_id, session=self.db_session)
-        assert_equal(account_limit.get_local_account_limit(account=self.account, rse_id=self.rse1_id, session=self.db_session), None)
+        assert account_limit.get_local_account_limit(account=self.account, rse_id=self.rse1_id, session=self.db_session) is None
 
     def test_global_account_limit(self):
         """ ACCOUNT_LIMIT (CORE): Set, get and delete global account limit """
         account_limit.set_global_account_limit(self.account, 'MOCK', 200000, session=self.db_session)
-        assert_equal(account_limit.get_global_account_limit(account=self.account, rse_expression='MOCK', session=self.db_session), 200000)
-        assert_equal(account_limit.get_global_account_limit(account=self.account, rse_expression='MOCK2', session=self.db_session), None)
+        assert account_limit.get_global_account_limit(account=self.account, rse_expression='MOCK', session=self.db_session) == 200000
+        assert account_limit.get_global_account_limit(account=self.account, rse_expression='MOCK2', session=self.db_session) is None
         account_limit.delete_global_account_limit(self.account, 'MOCK', session=self.db_session)
-        assert_equal(account_limit.get_global_account_limit(account=self.account, rse_expression='MOCK', session=self.db_session), None)
+        assert account_limit.get_global_account_limit(account=self.account, rse_expression='MOCK', session=self.db_session) is None
 
     def test_global_account_limits(self):
         """ ACCOUNT_LIMIT (CORE): Set, get and delete global account limits """
@@ -88,14 +95,14 @@ class TestCoreAccountLimits():
         limit = 10
         account_limit.set_global_account_limit(self.account, 'MOCK', limit, session=self.db_session)
         results = account_limit.get_global_account_limits(account=self.account, session=self.db_session)
-        assert_equal(len(results), 1)
-        assert_in('MOCK', results)
-        assert_equal(results['MOCK']['resolved_rses'], resolved_rses)
-        assert_equal(results['MOCK']['resolved_rse_ids'], resolved_rse_ids)
-        assert_equal(results['MOCK']['limit'], limit)
+        assert len(results) == 1
+        assert 'MOCK' in results
+        assert results['MOCK']['resolved_rses'] == resolved_rses
+        assert results['MOCK']['resolved_rse_ids'] == resolved_rse_ids
+        assert results['MOCK']['limit'] == limit
         account_limit.delete_global_account_limit(self.account, 'MOCK', session=self.db_session)
         results = account_limit.get_global_account_limits(account=self.account, session=self.db_session)
-        assert_equal(len(results), 0)
+        assert len(results) == 0
 
     def test_get_global_account_usage(self):
         """ ACCOUNT_LIMIT (CORE): Get global account usage. """
@@ -104,10 +111,10 @@ class TestCoreAccountLimits():
         account_limit.set_global_account_limit(self.account, 'MOCK|MOCK2', limit1)
         account_limit.set_global_account_limit(self.account, 'MOCK4|MOCK3', limit2)
         results = account_limit.get_global_account_usage(account=self.account)
-        assert_equal(len(results), 2)
+        assert len(results) == 2
 
         results = account_limit.get_global_account_usage(account=self.account, rse_expression='MOCK|MOCK2')
-        assert_equal(len(results), 1)
+        assert len(results) == 1
 
     def test_local_account_limits(self):
         """ ACCOUNT_LIMIT (CORE): Set, get and delete local account limits """
@@ -116,16 +123,16 @@ class TestCoreAccountLimits():
         account_limit.set_local_account_limit(account=self.account, rse_id=self.rse1_id, bytes=limit1, session=self.db_session)
         account_limit.set_local_account_limit(account=self.account, rse_id=self.rse2_id, bytes=limit2, session=self.db_session)
         results = account_limit.get_local_account_limits(account=self.account, session=self.db_session)
-        assert_equal(len(results), 2)
-        assert_equal(results[self.rse1_id], limit1)
-        assert_equal(results[self.rse2_id], limit2)
+        assert len(results) == 2
+        assert results[self.rse1_id] == limit1
+        assert results[self.rse2_id] == limit2
         account_limit.delete_local_account_limit(account=self.account, rse_id=self.rse1_id, session=self.db_session)
         account_limit.delete_local_account_limit(account=self.account, rse_id=self.rse2_id, session=self.db_session)
         results = account_limit.get_local_account_limits(account=self.account, session=self.db_session)
-        assert_equal(len(results), 0)
+        assert len(results) == 0
 
 
-class TestAccountClient():
+class TestAccountClient(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -156,7 +163,7 @@ class TestAccountClient():
         cls.db_session.commit()
         cls.db_session.close()
 
-    def setup(self):
+    def setUp(self):
         self.client = AccountClient()
         self.alclient = AccountLimitClient()
         self.db_session.query(models.AccountLimit).delete()
@@ -166,8 +173,8 @@ class TestAccountClient():
     def test_set_global_account_limit(self):
         """ ACCOUNT_LIMIT (CLIENTS): Set global account limit """
         self.alclient.set_global_account_limit(self.account.external, 'MOCK', 200000)
-        assert_equal(account_limit.get_global_account_limit(account=self.account, rse_expression='MOCK'), 200000)
-        assert_equal(account_limit.get_global_account_limit(account=self.account, rse_expression='MOCK2'), None)
+        assert account_limit.get_global_account_limit(account=self.account, rse_expression='MOCK') == 200000
+        assert account_limit.get_global_account_limit(account=self.account, rse_expression='MOCK2') is None
 
     def test_get_global_account_limits(self):
         """ ACCOUNT_LIMIT (CLIENTS): Get global account limits """
@@ -177,10 +184,10 @@ class TestAccountClient():
         limit = 10
         account_limit.set_global_account_limit(self.account, expression, limit)
         results = self.client.get_global_account_limits(account=self.account.external)
-        assert_equal(len(results), 1)
-        assert_equal(results[expression]['resolved_rses'], resolved_rses)
-        assert_equal(results[expression]['resolved_rse_ids'], resolved_rse_ids)
-        assert_equal(results[expression]['limit'], limit)
+        assert len(results) == 1
+        assert results[expression]['resolved_rses'] == resolved_rses
+        assert results[expression]['resolved_rse_ids'] == resolved_rse_ids
+        assert results[expression]['limit'] == limit
 
     def test_get_global_account_limit(self):
         """ ACCOUNT_LIMIT (CLIENTS): Get global account limit. """
@@ -188,7 +195,7 @@ class TestAccountClient():
         limit = 10
         account_limit.set_global_account_limit(self.account, expression, limit)
         result = self.client.get_global_account_limit(account=self.account.external, rse_expression=expression)
-        assert_equal(result[expression], limit)
+        assert result[expression] == limit
 
     def test_get_local_account_limits(self):
         """ ACCOUNT_LIMIT (CLIENTS): Get local account limits """
@@ -197,8 +204,8 @@ class TestAccountClient():
 
         limits = self.client.get_local_account_limits(account=self.account.external)
 
-        assert_in((self.rse1, 12345), limits.items())
-        assert_in((self.rse2, 12345), limits.items())
+        assert (self.rse1, 12345) in limits.items()
+        assert (self.rse2, 12345) in limits.items()
 
         account_limit.delete_local_account_limit(account=self.account, rse_id=self.rse1_id)
         account_limit.delete_local_account_limit(account=self.account, rse_id=self.rse2_id)
@@ -210,7 +217,7 @@ class TestAccountClient():
 
         limit = self.client.get_local_account_limit(account=self.account.external, rse=self.rse1)
 
-        assert_equal(limit, {self.rse1: 333})
+        assert limit == {self.rse1: 333}
         account_limit.delete_local_account_limit(account=self.account, rse_id=self.rse1_id)
 
     def test_set_local_account_limit(self):
@@ -219,7 +226,7 @@ class TestAccountClient():
 
         limit = self.client.get_local_account_limit(account=self.account.external, rse=self.rse1)
 
-        assert_equal(limit[self.rse1], 987)
+        assert limit[self.rse1] == 987
         account_limit.delete_local_account_limit(account=self.account, rse_id=self.rse1_id)
 
     def test_delete_local_account_limit(self):
@@ -227,11 +234,11 @@ class TestAccountClient():
         self.alclient.set_local_account_limit(account=self.account.external, rse=self.rse1, bytes=786)
 
         limit = self.client.get_local_account_limit(account=self.account.external, rse=self.rse1)
-        assert_equal(limit, {self.rse1: 786})
+        assert limit == {self.rse1: 786}
 
         self.alclient.delete_local_account_limit(account=self.account.external, rse=self.rse1)
         limit = self.client.get_local_account_limit(account=self.account.external, rse=self.rse1)
-        assert_equal(limit[self.rse1], None)
+        assert limit[self.rse1] is None
         account_limit.delete_local_account_limit(account=self.account, rse_id=self.rse1_id)
 
     def test_delete_global_account_limit(self):
@@ -240,4 +247,4 @@ class TestAccountClient():
         account_limit.set_global_account_limit(account=self.account, rse_expression=rse_exp, bytes=10, session=self.db_session)
         self.alclient.delete_global_account_limit(account=self.account.external, rse_expression=rse_exp)
         result = account_limit.get_global_account_limit(account=self.account, rse_expression=rse_exp)
-        assert_equal(result, None)
+        assert result is None

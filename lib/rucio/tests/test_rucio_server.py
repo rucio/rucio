@@ -1,19 +1,29 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2014-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Joaquin Bogado, <joaquin.bogado@cern.ch>, 2014-2018
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2019
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2015
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
 
-import nose.tools
 import subprocess
+import unittest
 from os import remove
+
 from rucio.common.utils import generate_uuid as uuid
 
 
@@ -66,9 +76,10 @@ def delete_rules(did):
         exitcode, out, err = execute(cmd)
 
 
-class TestRucioClient():
+class TestRucioClient(unittest.TestCase):
+    running_with_unittest = False
 
-    def setup(self):
+    def setUp(self):
         self.marker = '$ > '
         self.scope = 'mock'
         self.rse = 'MOCK-POSIX'
@@ -85,7 +96,10 @@ class TestRucioClient():
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        nose.tools.assert_equal(0, exitcode)
+        if self.running_with_unittest:
+            self.assertEqual(exitcode, 0)
+        else:
+            assert exitcode == 0
 
     def test_whoami(self):
         """CLIENT (USER): rucio whoami"""
@@ -93,7 +107,11 @@ class TestRucioClient():
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        nose.tools.assert_equal(0, exitcode)
+
+        if self.running_with_unittest:
+            self.assertEqual(exitcode, 0)
+        else:
+            assert exitcode == 0
 
     def test_upload_download(self):
         """CLIENT(USER): rucio upload files to dataset/download dataset"""
@@ -111,7 +129,11 @@ class TestRucioClient():
         remove(tmp_file1)
         remove(tmp_file2)
         remove(tmp_file3)
-        nose.tools.assert_equal(0, exitcode)
+
+        if self.running_with_unittest:
+            self.assertEqual(exitcode, 0)
+        else:
+            assert exitcode == 0
 
         # List the files
         cmd = 'rucio list-files {0}:{1}'.format(self.scope, tmp_dsn)
@@ -119,7 +141,11 @@ class TestRucioClient():
         exitcode, out, err = execute(cmd)
         print(out)
         print(err)
-        nose.tools.assert_equal(0, exitcode)
+
+        if self.running_with_unittest:
+            self.assertEqual(exitcode, 0)
+        else:
+            assert exitcode == 0
 
         # List the replicas
         cmd = 'rucio list-file-replicas {0}:{1}'.format(self.scope, tmp_dsn)
@@ -127,7 +153,11 @@ class TestRucioClient():
         exitcode, out, err = execute(cmd)
         print(out)
         print(err)
-        nose.tools.assert_equal(0, exitcode)
+
+        if self.running_with_unittest:
+            self.assertEqual(exitcode, 0)
+        else:
+            assert exitcode == 0
 
         # Downloading dataset
         cmd = 'rucio download --dir /tmp/ {0}:{1}'.format(self.scope, tmp_dsn)
@@ -136,12 +166,16 @@ class TestRucioClient():
         print(out)
         print(err)
         # The files should be there
-        cmd = 'ls /tmp/{0}/rucio_testfile_*'.format(self.scope)
         cmd = 'ls /tmp/{0}/rucio_testfile_*'.format(tmp_dsn)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(err, out)
-        nose.tools.assert_equal(0, exitcode)
+
+        if self.running_with_unittest:
+            self.assertEqual(exitcode, 0)
+        else:
+            assert exitcode == 0
+
         # cleaning
         remove('/tmp/{0}/'.format(tmp_dsn) + tmp_file1[5:])
         remove('/tmp/{0}/'.format(tmp_dsn) + tmp_file2[5:])

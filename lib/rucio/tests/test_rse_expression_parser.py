@@ -1,26 +1,37 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2017
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2014
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
+import unittest
 from random import choice
 from string import ascii_uppercase, digits, ascii_lowercase
 
-from nose.tools import assert_equal, raises, assert_raises
+import pytest
 
+from rucio.client.rseclient import RSEClient
 from rucio.common.config import config_get, config_get_bool
+from rucio.common.exception import InvalidRSEExpression, RSEBlacklisted
 from rucio.core import rse
 from rucio.core import rse_expression_parser
-from rucio.client.rseclient import RSEClient
-from rucio.common.exception import InvalidRSEExpression, RSEBlacklisted
 
 
 def rse_name_generator(size=10):
@@ -35,9 +46,9 @@ def attribute_name_generator(size=10):
     return ''.join(choice(ascii_uppercase)).join(choice(ascii_lowercase) for x in range(size - 1))
 
 
-class TestRSEExpressionParserCore(object):
+class TestRSEExpressionParserCore(unittest.TestCase):
 
-    def __init__(self):
+    def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
             self.filter = {'filter': self.vo}
@@ -84,71 +95,93 @@ class TestRSEExpressionParserCore(object):
         rse.add_rse_attribute(self.rse4_id, self.tag2, True)
         rse.add_rse_attribute(self.rse5_id, self.tag2, True)
 
-    @raises(InvalidRSEExpression)
+    @pytest.mark.xfail(raises=InvalidRSEExpression)
     def test_unconnected_operator(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test invalid rse expression: unconnected operator"""
         rse_expression_parser.parse_expression("TEST_RSE1|", **self.filter)
 
-    @raises(InvalidRSEExpression)
+    @pytest.mark.xfail(raises=InvalidRSEExpression)
     def test_wrong_parantheses(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test invalid rse expression: wrong parantheses """
         rse_expression_parser.parse_expression("TEST_RSE1)", **self.filter)
 
-    @raises(InvalidRSEExpression)
+    @pytest.mark.xfail(raises=InvalidRSEExpression)
     def test_unknown_rse(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test unknown RSE """
         rse_expression_parser.parse_expression("TEST_RSE999", **self.filter)
 
     def test_simple_rse_reference(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test simple RSE reference """
-        assert_equal([t_rse['id'] for t_rse in rse_expression_parser.parse_expression(self.rse1, **self.filter)], [self.rse1_id])
+        value = [t_rse['id'] for t_rse in rse_expression_parser.parse_expression(self.rse1, **self.filter)]
+        assert value == [self.rse1_id]
 
     def test_attribute_reference(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test simple RSE attribute reference """
-        assert_equal([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s=uk" % self.attribute, **self.filter)], [self.rse4_id])
+        value = [t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s=uk" % self.attribute, **self.filter)]
+        assert value == [self.rse4_id]
 
     def test_all_rse(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test reference on all RSE """
         all_rses = rse.list_rses(filters=self.filter['filter'])
-        assert_equal(sorted(rse_expression_parser.parse_expression("*", **self.filter), key=lambda rse: rse['rse']), sorted(all_rses, key=lambda rse: rse['rse']))
+        value = sorted(rse_expression_parser.parse_expression("*", **self.filter), key=lambda rse: rse['rse'])
+        expected = sorted(all_rses, key=lambda rse: rse['rse'])
+        assert value == expected
 
     def test_tag_reference(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test simple RSE tag reference """
-        assert_equal(sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression(self.tag1, **self.filter)]), sorted([self.rse1_id, self.rse2_id, self.rse3_id]))
+        value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression(self.tag1, **self.filter)])
+        expected = sorted([self.rse1_id, self.rse2_id, self.rse3_id])
+        assert value == expected
 
     def test_parantheses(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test parantheses """
-        assert_equal(sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("(%s)" % self.tag1, **self.filter)]), sorted([self.rse1_id, self.rse2_id, self.rse3_id]))
+        value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("(%s)" % self.tag1, **self.filter)])
+        expected = sorted([self.rse1_id, self.rse2_id, self.rse3_id])
+        assert value == expected
 
     def test_union(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test union operator """
-        assert_equal(sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s|%s" % (self.tag1, self.tag2), **self.filter)]), sorted([self.rse1_id, self.rse2_id, self.rse3_id, self.rse4_id, self.rse5_id]))
+        value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s|%s" % (self.tag1, self.tag2), **self.filter)])
+        expected = sorted([self.rse1_id, self.rse2_id, self.rse3_id, self.rse4_id, self.rse5_id])
+        assert value == expected
 
     def test_complement(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test complement operator """
-        assert_equal(sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s\\%s" % (self.tag1, self.rse3), **self.filter)]), sorted([self.rse1_id, self.rse2_id]))
+        value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s\\%s" % (self.tag1, self.rse3), **self.filter)])
+        expected = sorted([self.rse1_id, self.rse2_id])
+        assert value == expected
 
     def test_intersect(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test intersect operator """
-        assert_equal([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s&%s=uk" % (self.tag2, self.attribute), **self.filter)], [self.rse4_id])
+        value = [t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s&%s=uk" % (self.tag2, self.attribute), **self.filter)]
+        assert value == [self.rse4_id]
 
     def test_order_of_operations(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test order of operations """
-        assert_equal(sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s\\%s|%s=fr" % (self.tag1, self.rse3, self.attribute), **self.filter)]), sorted([self.rse1_id, self.rse2_id, self.rse3_id]))
-        assert_equal(sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s\\(%s|%s=fr)" % (self.tag1, self.rse3, self.attribute), **self.filter)]), sorted([self.rse1_id, self.rse2_id]))
+        value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s\\%s|%s=fr" % (self.tag1, self.rse3, self.attribute), **self.filter)])
+        expected = sorted([self.rse1_id, self.rse2_id, self.rse3_id])
+        assert value == expected
+        value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s\\(%s|%s=fr)" % (self.tag1, self.rse3, self.attribute), **self.filter)])
+        expected = sorted([self.rse1_id, self.rse2_id])
+        assert value == expected
 
     def test_complicated_expression_1(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test some complicated expression 1"""
-        assert_equal(sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("(%s|%s)\\%s|%s&%s" % (self.tag1, self.tag2, self.tag2, self.tag2, self.tag1), **self.filter)]), sorted([self.rse1_id, self.rse2_id, self.rse3_id]))
+        value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("(%s|%s)\\%s|%s&%s" % (self.tag1, self.tag2, self.tag2, self.tag2, self.tag1), **self.filter)])
+        expected = sorted([self.rse1_id, self.rse2_id, self.rse3_id])
+        assert value == expected
 
     def test_complicated_expression_2(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test some complicated expression 2"""
-        assert_equal(sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("(((((%s))))|%s=us)&%s|(%s=at|%s=de)" % (self.tag1, self.attribute, self.tag2, self.attribute, self.attribute), **self.filter)]),
-                     sorted([self.rse1_id, self.rse2_id, self.rse5_id]))
+        value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("(((((%s))))|%s=us)&%s|(%s=at|%s=de)" % (self.tag1, self.attribute, self.tag2, self.attribute, self.attribute), **self.filter)])
+        expected = sorted([self.rse1_id, self.rse2_id, self.rse5_id])
+        assert value == expected
 
     def test_complicated_expression_3(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test some complicated expression 3"""
-        assert_equal(sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("(*)&%s=at" % self.attribute, **self.filter)]), sorted([self.rse1_id]))
+        value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("(*)&%s=at" % self.attribute, **self.filter)])
+        expected = sorted([self.rse1_id])
+        assert value == expected
 
     def test_list_on_availability(self):
         """ RSE_EXPRESSION_PARSER (CORE) List rses based on availability filter"""
@@ -166,30 +199,38 @@ class TestRSEExpressionParserCore(object):
         rse.update_rse(rsewrite_id, {'availability_write': True})
         rse.update_rse(rsenowrite_id, {'availability_write': False})
 
-        assert_equal(sorted([item['id'] for item in rse_expression_parser.parse_expression("%s=de" % attribute, **self.filter)]),
-                     sorted([rsewrite_id, rsenowrite_id]))
+        value = sorted([item['id'] for item in rse_expression_parser.parse_expression("%s=de" % attribute, **self.filter)])
+        expected = sorted([rsewrite_id, rsenowrite_id])
+        assert value == expected
 
         filters = self.filter
         filters['availability_write'] = True
-        assert_equal(sorted([item['id'] for item in rse_expression_parser.parse_expression("%s=de" % attribute, filters)]),
-                     sorted([rsewrite_id]))
+        value = sorted([item['id'] for item in rse_expression_parser.parse_expression("%s=de" % attribute, filters)])
+        expected = sorted([rsewrite_id])
+        assert value == expected
 
         filters['availability_write'] = False
-        assert_raises(RSEBlacklisted, rse_expression_parser.parse_expression, "%s=de" % attribute, filters)
+        pytest.raises(RSEBlacklisted, rse_expression_parser.parse_expression, "%s=de" % attribute, filters)
 
     def test_numeric_operators(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test RSE attributes with numeric operations """
-        assert_equal([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s<11" % self.attribute_numeric, **self.filter)], [self.rse1_id])
-        assert_raises(InvalidRSEExpression, rse_expression_parser.parse_expression, "%s<9" % self.attribute_numeric, **self.filter)
-        assert_equal(sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s<21" % self.attribute_numeric, **self.filter)]), sorted([self.rse1_id, self.rse2_id]))
-        assert_equal([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s>49" % self.attribute_numeric, **self.filter)], [self.rse5_id])
-        assert_raises(InvalidRSEExpression, rse_expression_parser.parse_expression, "%s>51" % self.attribute_numeric, **self.filter)
-        assert_equal(sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s>30" % self.attribute_numeric, **self.filter)]), sorted([self.rse4_id, self.rse5_id]))
+        value = [t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s<11" % self.attribute_numeric, **self.filter)]
+        assert value == [self.rse1_id]
+        pytest.raises(InvalidRSEExpression, rse_expression_parser.parse_expression, "%s<9" % self.attribute_numeric, **self.filter)
+        value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s<21" % self.attribute_numeric, **self.filter)])
+        expected = sorted([self.rse1_id, self.rse2_id])
+        assert value == expected
+        value = [t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s>49" % self.attribute_numeric, **self.filter)]
+        assert value == [self.rse5_id]
+        pytest.raises(InvalidRSEExpression, rse_expression_parser.parse_expression, "%s>51" % self.attribute_numeric, **self.filter)
+        value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s>30" % self.attribute_numeric, **self.filter)])
+        expected = sorted([self.rse4_id, self.rse5_id])
+        assert value == expected
 
 
-class TestRSEExpressionParserClient(object):
+class TestRSEExpressionParserClient(unittest.TestCase):
 
-    def __init__(self):
+    def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
@@ -229,10 +270,12 @@ class TestRSEExpressionParserClient(object):
 
     def test_complicated_expression(self):
         """ RSE_EXPRESSION_PARSER (CLIENT) Test some complicated expression"""
-        rses = [item['rse'] for item in self.rse_client.list_rses("(((((%s))))|%s=us)&%s|(%s=at|%s=de)" % (self.tag1, self.attribute, self.tag2, self.attribute, self.attribute))]
-        assert_equal(sorted(rses), sorted([self.rse1, self.rse2, self.rse5]))
+        rses = sorted([item['rse'] for item in self.rse_client.list_rses("(((((%s))))|%s=us)&%s|(%s=at|%s=de)" % (self.tag1, self.attribute, self.tag2, self.attribute, self.attribute))])
+        expected = sorted([self.rse1, self.rse2, self.rse5])
+        assert rses == expected
 
     def test_complicated_expression_1(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test some complicated expression 1"""
-        rses = [item['rse'] for item in self.rse_client.list_rses("(%s|%s)\\%s|%s&%s" % (self.tag1, self.tag2, self.tag2, self.tag2, self.tag1))]
-        assert_equal(sorted(rses), sorted([self.rse1, self.rse2, self.rse3]))
+        rses = sorted([item['rse'] for item in self.rse_client.list_rses("(%s|%s)\\%s|%s&%s" % (self.tag1, self.tag2, self.tag2, self.tag2, self.tag1))])
+        expected = sorted([self.rse1, self.rse2, self.rse3])
+        assert rses == expected

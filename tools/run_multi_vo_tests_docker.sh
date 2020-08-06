@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2017-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2017-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 memcached -u root -d
 
@@ -120,9 +122,10 @@ if test ${init_only}; then
 fi
 
 echo 'Running tests on VO "tst"'
-noseopts="--exclude=test_alembic --exclude=.*test_rse_protocol_.* --exclude=test_rucio_server --exclude=test_objectstore --exclude=test_auditor* --exclude=test_release* --exclude=test_throttler* --exclude=test_dirac*"
+TESTS="lib/rucio/tests/test_"
+pytestignores="--ignore=${TESTS}alembic.py --ignore-glob=${TESTS}rse_protocol_*.py --ignore=${TESTS}rucio_server.py --ignore-glob=${TESTS}auditor*.py --ignore=${TESTS}dirac.py"
 
-nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts
+pytest -v --full-trace $pytestignores
 if [ $? != 0 ]; then
     echo 'Tests on first VO failed, not attempting tests at second VO'
     exit 1
@@ -168,7 +171,8 @@ if test ${activate_rse}; then
 fi
 
 echo 'Running tests on VO "ts2"'
-nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts
+pytest -v --full-trace $pytestignores
+
 if [ $? != 0 ]; then
     echo 'Tests on second VO failed'
     exit 1
