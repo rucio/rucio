@@ -253,7 +253,11 @@ class BaseClient(object):
             try:
                 self.ca_cert = path.expandvars(config_get('client', 'ca_cert'))
             except (NoOptionError, NoSectionError) as error:
-                raise MissingClientParameter('Option \'%s\' cannot be found in config file' % error.args[0])
+                if vo is None:
+                    LOG.debug('no ca_cert in config. VO not specified - assumption: rucio local server.')
+                    self.ca_cert = False
+                else:
+                    raise MissingClientParameter('Option \'%s\' cannot be found in config file' % error.args[0])
 
         self.list_hosts = [self.host]
 
