@@ -253,7 +253,7 @@ class BaseClient(object):
             try:
                 self.ca_cert = path.expandvars(config_get('client', 'ca_cert'))
             except (NoOptionError, NoSectionError) as error:
-                raise MissingClientParameter('Option \'%s\' cannot be found in config file' % error.args[0])
+                self.ca_cert = True
 
         self.list_hosts = [self.host]
 
