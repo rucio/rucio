@@ -1,9 +1,16 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2012
@@ -14,43 +21,44 @@
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2015, 2017
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
-# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
-from json import loads
 import random
 import string
-
+import unittest
 from datetime import datetime
-from nose.tools import assert_equal, assert_in, assert_not_equal, assert_not_in, assert_true
+from json import loads
 
-from rucio.api.account import add_account, get_account_info, list_accounts
 import rucio.api.account_limit as api_acc_lim
+import rucio.api.rse as api_rse
+import rucio.core.account_counter as account_counter
+from rucio.api.account import add_account, get_account_info, list_accounts
 from rucio.api.did import add_did, add_did_to_followed, attach_dids_to_dids, get_users_following_did, scope_list
 from rucio.api.exporter import export_data
 from rucio.api.identity import add_account_identity, list_accounts_for_identity
 from rucio.api.replica import add_replicas, get_did_from_pfns, list_replicas
 from rucio.api.request import get_request_by_did, list_requests, queue_requests
-import rucio.api.rse as api_rse
 from rucio.api.rule import add_replication_rule
 from rucio.api.scope import add_scope, list_scopes, get_scopes
-from rucio.api.subscription import add_subscription, list_subscriptions, list_subscription_rule_states, get_subscription_by_id
+from rucio.api.subscription import add_subscription, list_subscriptions, list_subscription_rule_states, \
+    get_subscription_by_id
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import api_update_return_dict, generate_uuid
-import rucio.core.account_counter as account_counter
 from rucio.core.rse import get_rse_id
 from rucio.core.vo import add_vo, vo_exists
-from rucio.db.sqla import constants
 from rucio.daemons.abacus import rse as abacus_rse
 from rucio.daemons.judge import cleaner
 from rucio.daemons.reaper import reaper
+from rucio.db.sqla import constants
 from rucio.tests.common import rse_name_generator
 
 
-class TestApiExternalRepresentation():
+class TestApiExternalRepresentation(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -97,25 +105,25 @@ class TestApiExternalRepresentation():
                      'source_rse_id': self.rse_id,
                      'dest_rse_id': self.rse_id,
                      'destination_rse_id': self.rse_id}
-        out = api_update_return_dict(test_dict)
-        assert_equal({'account': self.account_name, 'scope': self.scope_name, 'rse_expression': 'MOCK|MOCK2',
-                      'rse_id': self.rse_id, 'rse': self.rse_name,
-                      'src_rse_id': self.rse_id, 'src_rse': self.rse_name,
-                      'source_rse_id': self.rse_id, 'source_rse': self.rse_name,
-                      'dest_rse_id': self.rse_id, 'dest_rse': self.rse_name,
-                      'destination_rse_id': self.rse_id, 'destination_rse': self.rse_name},
-                     out)
+        value = api_update_return_dict(test_dict)
+        expected = {'account': self.account_name, 'scope': self.scope_name, 'rse_expression': 'MOCK|MOCK2',
+                    'rse_id': self.rse_id, 'rse': self.rse_name,
+                    'src_rse_id': self.rse_id, 'src_rse': self.rse_name,
+                    'source_rse_id': self.rse_id, 'source_rse': self.rse_name,
+                    'dest_rse_id': self.rse_id, 'dest_rse': self.rse_name,
+                    'destination_rse_id': self.rse_id, 'destination_rse': self.rse_name}
+        assert value == expected
 
     def test_api_account(self):
         """ ACCOUNT (API): Test external representation of account information """
         out = get_account_info(self.account_name, **self.vo)
-        assert_equal(self.account_name, out['account'])
+        assert self.account_name == out['account']
 
         out = [acc['account'] for acc in list_accounts(**self.vo)]
-        assert_in(self.account_name, out)
+        assert self.account_name in out
         if self.multi_vo:
-            assert_not_in(self.account.internal, out)
-        assert_not_in('@', ' '.join(out))
+            assert self.account.internal not in out
+        assert '@' not in ' '.join(out)
 
     def test_api_account_limit(self):
         """ ACCOUNT_LIMIT (API): Test external representation of account limits """
@@ -125,37 +133,37 @@ class TestApiExternalRepresentation():
         api_acc_lim.set_global_account_limit(self.account_name, rse_expr, 20000, issuer='root', **self.vo)
 
         out = api_acc_lim.get_local_account_limits(self.account_name, **self.vo)
-        assert_in(self.rse_name, out)
-        assert_not_in(self.rse_id, out)
+        assert self.rse_name in out
+        assert self.rse_id not in out
 
         out = api_acc_lim.get_local_account_limit(self.account_name, self.rse_name, **self.vo)
-        assert_in(self.rse_name, out)
-        assert_not_in(self.rse_id, out)
+        assert self.rse_name in out
+        assert self.rse_id not in out
 
         out = api_acc_lim.get_global_account_limits(self.account_name, **self.vo)
-        assert_in(rse_expr, out)
+        assert rse_expr in out
         if self.multi_vo:
-            assert_not_in('vo={}&({})'.format(self.vo['vo'], rse_expr), out)
+            assert 'vo={}&({})'.format(self.vo['vo'], rse_expr) not in out
 
         out = api_acc_lim.get_global_account_limit(self.account_name, rse_expr, **self.vo)
-        assert_in(rse_expr, out)
+        assert rse_expr in out
         if self.multi_vo:
-            assert_not_in('vo={}&({})'.format(self.vo['vo'], rse_expr), out)
+            assert 'vo={}&({})'.format(self.vo['vo'], rse_expr) not in out
 
         out = api_acc_lim.get_local_account_usage(self.account_name, self.rse_name, issuer='root', **self.vo)
         out = list(out)
-        assert_not_equal(0, len(out))
-        assert_in(self.rse_id, [usage['rse_id'] for usage in out if 'rse_id' in usage])
+        assert 0 != len(out)
+        assert self.rse_id in [usage['rse_id'] for usage in out if 'rse_id' in usage]
         for usage in out:
             if 'rse_id' in usage:
-                assert_in('rse', usage)
+                assert 'rse' in usage
                 if usage['rse_id'] == self.rse_id:
-                    assert_equal(self.rse_name, usage["rse"])
+                    assert self.rse_name == usage["rse"]
 
         out = api_acc_lim.get_global_account_usage(self.account_name, rse_expr, issuer='root', **self.vo)
         out = list(out)
-        assert_not_equal(0, len(out))
-        assert_in(rse_expr, [usage['rse_expression'] for usage in out if 'rse_expression' in usage])
+        assert 0 != len(out)
+        assert rse_expr in [usage['rse_expression'] for usage in out if 'rse_expression' in usage]
 
     def test_api_did(self):
         """ DID (API): Test external representation of DIDs """
@@ -169,48 +177,48 @@ class TestApiExternalRepresentation():
         # test scope_list
         out = scope_list(self.scope_name, recursive=True, **self.vo)
         out = list(out)
-        assert_not_equal(0, len(out))
+        assert 0 != len(out)
         parent_found = False
         for did in out:
-            assert_equal(did['scope'], self.scope_name)
+            assert did['scope'] == self.scope_name
             if did['parent'] is not None:
                 parent_found = True
-                assert_equal(did['parent']['scope'], self.scope_name)
-        assert_true(parent_found)
+                assert did['parent']['scope'] == self.scope_name
+        assert parent_found
 
         # test get_did
         add_did_to_followed(self.scope_name, 'ext_parent', self.account_name, **self.vo)
         out = get_users_following_did('ext_parent', self.scope_name, **self.vo)
         out = list(out)
-        assert_not_equal(0, len(out))
+        assert 0 != len(out)
         for user in out:
-            assert_equal(user['user'], self.account_name)
+            assert user['user'] == self.account_name
 
     def test_api_exporter(self):
         """ EXPORTER (API): Test external representation of exported data """
 
         out = export_data('root', **self.new_vo)
         rses = out['rses']
-        assert_in(self.rse3_name, rses)
-        assert_not_in(self.rse3_id, rses)
+        assert self.rse3_name in rses
+        assert self.rse3_id not in rses
 
         distances = out['distances']
-        assert_in(self.rse3_name, distances)
-        assert_not_in(self.rse3_id, distances)
-        assert_in(self.rse4_name, distances[self.rse3_name])
-        assert_not_in(self.rse4_id, distances[self.rse3_name])
+        assert self.rse3_name in distances
+        assert self.rse3_id not in distances
+        assert self.rse4_name in distances[self.rse3_name]
+        assert self.rse4_id not in distances[self.rse3_name]
 
         # check for interference from other VOs
         if self.multi_vo:
-            assert_not_in(self.rse_name, rses)
-            assert_not_in(self.rse_id, rses)
-            assert_not_in(self.rse2_name, rses)
-            assert_not_in(self.rse2_id, rses)
+            assert self.rse_name not in rses
+            assert self.rse_id not in rses
+            assert self.rse2_name not in rses
+            assert self.rse2_id not in rses
 
-            assert_not_in(self.rse_name, distances)
-            assert_not_in(self.rse_id, distances)
-            assert_not_in(self.rse2_name, distances)
-            assert_not_in(self.rse2_id, distances)
+            assert self.rse_name not in distances
+            assert self.rse_id not in distances
+            assert self.rse2_name not in distances
+            assert self.rse2_id not in distances
 
     def test_api_identity(self):
         """ IDENTITY (API): Test external representation of identity accounts """
@@ -220,9 +228,9 @@ class TestApiExternalRepresentation():
         add_account_identity(id_key, 'userpass', self.account_name, 'rucio_test@test.com', 'root', default=True, password='ext_pass', **self.vo)
 
         out = list_accounts_for_identity(id_key, 'userpass')
-        assert_in(self.account_name, out)
+        assert self.account_name in out
         if self.multi_vo:
-            assert_not_in(self.account.internal, out)
+            assert self.account.internal not in out
 
     def test_api_replica(self):
         """ REPLICA (API): Test external representation of replicas """
@@ -238,28 +246,28 @@ class TestApiExternalRepresentation():
 
         out = get_did_from_pfns([pfn], self.rse2_name, **self.vo)
         out = list(out)
-        assert_not_equal(0, len(out))
+        assert 0 != len(out)
         did_found = False
         for p in out:
             for key in p:
                 if p[key]['name'] == did:
                     did_found = True
-                    assert_equal(self.scope_name, p[key]['scope'])
-        assert_true(did_found)
+                    assert self.scope_name == p[key]['scope']
+        assert did_found
 
         out = list_replicas(dids=[{'scope': self.scope_name, 'name': did}], resolve_parents=True, **self.vo)
         out = list(out)
-        assert_not_equal(0, len(out))
+        assert 0 != len(out)
         parents_found = False
         for rep in out:
-            assert_equal(rep['scope'], self.scope_name)
+            assert rep['scope'] == self.scope_name
             if 'parents' in rep:
                 parents_found = True
                 for parent in rep['parents']:
-                    assert_in(self.scope_name, parent)
+                    assert self.scope_name in parent
                     if self.multi_vo:
-                        assert_not_in(self.scope.internal, parent)
-        assert_true(parents_found)
+                        assert self.scope.internal not in parent
+        assert parents_found
 
     def test_api_request(self):
         """ REQUEST (API): Test external representation of requests """
@@ -288,60 +296,60 @@ class TestApiExternalRepresentation():
 
         reqs = queue_requests(requests, issuer='root', **self.vo)  # this does not pass in the source rse
         reqs = list(reqs)
-        assert_not_equal(0, len(reqs))
+        assert 0 != len(reqs)
         for r in reqs:
-            assert_equal(r['scope'], self.scope_name)
-            assert_equal(r['account'], self.account_name)
-            assert_equal(r['source_rse'], self.rse_name)
-            assert_equal(r['dest_rse'], self.rse2_name)
+            assert r['scope'] == self.scope_name
+            assert r['account'] == self.account_name
+            assert r['source_rse'] == self.rse_name
+            assert r['dest_rse'] == self.rse2_name
 
         out = get_request_by_did(self.scope_name, did, self.rse2_name, issuer='root', **self.vo)
-        assert_equal(out['scope'], self.scope_name)
-        assert_equal(out['account'], self.account_name)
-        assert_equal(out['dest_rse'], self.rse2_name)
-        assert_equal(out['source_rse'], self.rse_name)
+        assert out['scope'] == self.scope_name
+        assert out['account'] == self.account_name
+        assert out['dest_rse'] == self.rse2_name
+        assert out['source_rse'] == self.rse_name
 
         out = list_requests([self.rse_name], [self.rse2_name], [constants.RequestState.QUEUED], issuer='root', **self.vo)
         out = list(out)
-        assert_not_equal(0, len(out))
-        assert_in(self.scope_name, [req['scope'] for req in out])
+        assert 0 != len(out)
+        assert self.scope_name in [req['scope'] for req in out]
         for req in out:
             if req['scope'] == self.scope_name:
-                assert_equal(req['scope'], self.scope_name)
-                assert_equal(req['account'], self.account_name)
-                assert_equal(req['dest_rse'], self.rse2_name)
-                assert_equal(req['source_rse'], self.rse_name)
+                assert req['scope'] == self.scope_name
+                assert req['account'] == self.account_name
+                assert req['dest_rse'] == self.rse2_name
+                assert req['source_rse'] == self.rse_name
 
     def test_api_rse(self):
         """ RSE (API): Test external representation of RSEs """
 
         out = api_rse.get_rse(self.rse_name, **self.vo)
-        assert_equal(out['rse'], self.rse_name)
-        assert_equal(out['id'], self.rse_id)
+        assert out['rse'] == self.rse_name
+        assert out['id'] == self.rse_id
 
         out = api_rse.list_rses(**self.new_vo)
         out = list(out)
-        assert_not_equal(0, len(out))
+        assert 0 != len(out)
         rse_ids = [rse['id'] for rse in out]
-        assert_in(self.rse3_id, rse_ids)
-        assert_in(self.rse4_id, rse_ids)
+        assert self.rse3_id in rse_ids
+        assert self.rse4_id in rse_ids
         for rse in out:
-            assert_in('rse', rse)
+            assert 'rse' in rse
             if rse['id'] == self.rse3_id:
-                assert_equal(rse['rse'], self.rse3_name)
+                assert rse['rse'] == self.rse3_name
             elif rse['id'] == self.rse4_id:
-                assert_equal(rse['rse'], self.rse4_name)
+                assert rse['rse'] == self.rse4_name
 
         key = "KEY_" + generate_uuid()
         api_rse.add_rse_attribute(self.rse_name, key, 1, issuer='root', **self.vo)
         out = api_rse.get_rses_with_attribute(key)
         out = list(out)
-        assert_not_equal(0, len(out))
+        assert 0 != len(out)
         for rse in out:
-            assert_equal(rse['rse'], self.rse_name)
+            assert rse['rse'] == self.rse_name
 
         out = api_rse.get_rse_protocols(self.rse_name, issuer='root', **self.vo)
-        assert_equal(out['rse'], self.rse_name)
+        assert out['rse'] == self.rse_name
 
         # add some account and RSE counters
         rse_mock = 'MOCK4'
@@ -355,14 +363,14 @@ class TestApiExternalRepresentation():
         abacus_rse.run(once=True)
 
         out = api_rse.get_rse_usage(rse_mock, per_account=True, issuer='root', **self.vo)
-        assert_in(rse_mock_id, [o['rse_id'] for o in out])
+        assert rse_mock_id in [o['rse_id'] for o in out]
         for usage in out:
             if usage['rse_id'] == rse_mock_id:
-                assert_equal(usage['rse'], rse_mock)
+                assert usage['rse'] == rse_mock
                 accounts = [u['account'] for u in usage['account_usages']]
-                assert_in(self.account_name, accounts)
+                assert self.account_name in accounts
                 if self.multi_vo:
-                    assert_not_in(self.account.internal, accounts)
+                    assert self.account.internal not in accounts
 
         # clean up files
         cleaner.run(once=True)
@@ -373,23 +381,23 @@ class TestApiExternalRepresentation():
         abacus_rse.run(once=True)
 
         out = api_rse.parse_rse_expression('%s|%s' % (self.rse_name, self.rse2_name), **self.vo)
-        assert_in(self.rse_name, out)
-        assert_in(self.rse2_name, out)
-        assert_not_in(self.rse_id, out)
-        assert_not_in(self.rse2_id, out)
+        assert self.rse_name in out
+        assert self.rse2_name in out
+        assert self.rse_id not in out
+        assert self.rse2_id not in out
 
     def test_api_scope(self):
         """ SCOPE (API): Test external representation of scopes """
 
         out = list_scopes()
-        assert_in(self.scope_name, out)
+        assert self.scope_name in out
         if self.multi_vo:
-            assert_not_in(self.scope.internal, out)
+            assert self.scope.internal not in out
 
         out = get_scopes(self.account_name, **self.vo)
-        assert_in(self.scope_name, out)
+        assert self.scope_name in out
         if self.multi_vo:
-            assert_not_in(self.scope.internal, out)
+            assert self.scope.internal not in out
 
     def test_api_subscription(self):
         """ SUBSCRIPTION (API): Test external representation of subscriptions """
@@ -416,29 +424,29 @@ class TestApiExternalRepresentation():
 
         out = list_subscriptions(sub, **self.new_vo)
         out = list(out)
-        assert_not_equal(0, len(out))
-        assert_in(sub_id, [o['id'] for o in out])
+        assert 0 != len(out)
+        assert sub_id in [o['id'] for o in out]
         for o in out:
             if o['id'] == sub_id:
-                assert_equal(o['account'], new_acc_name)
+                assert o['account'] == new_acc_name
                 rules = loads(o['replication_rules'])[0]
-                assert_equal(rules['rse_expression'], self.rse3_name)
-                assert_equal(rules['source_replica_expression'], self.rse4_name)
+                assert rules['rse_expression'] == self.rse3_name
+                assert rules['source_replica_expression'] == self.rse4_name
                 fil = loads(o['filter'])
-                assert_equal(fil['account'], [new_acc_name])
-                assert_equal(fil['scope'], [new_scope_name])
+                assert fil['account'] == [new_acc_name]
+                assert fil['scope'] == [new_scope_name]
 
         out = list_subscription_rule_states(sub, **self.new_vo)
         out = list(out)
-        assert_not_equal(0, len(out))
+        assert 0 != len(out)
         for o in out:
-            assert_equal(o.account, new_acc_name)
+            assert o.account == new_acc_name
 
         out = get_subscription_by_id(sub_id, **self.new_vo)
-        assert_equal(out['account'], new_acc_name)
+        assert out['account'] == new_acc_name
         rules = loads(out['replication_rules'])[0]
-        assert_equal(rules['rse_expression'], self.rse3_name)
-        assert_equal(rules['source_replica_expression'], self.rse4_name)
+        assert rules['rse_expression'] == self.rse3_name
+        assert rules['source_replica_expression'] == self.rse4_name
         fil = loads(out['filter'])
-        assert_equal(fil['account'], [new_acc_name])
-        assert_equal(fil['scope'], [new_scope_name])
+        assert fil['account'] == [new_acc_name]
+        assert fil['scope'] == [new_scope_name]

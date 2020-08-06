@@ -97,7 +97,7 @@ def populateDB(filename=None):
     listrses = map(lambda x: x['rse'], listrses)
     account = 'root'
     nbDatasets = 0
-    list = []
+    datasetList = []
     dictDistrib = {}
 
     if not filename:
@@ -114,7 +114,7 @@ def populateDB(filename=None):
             strsplit = line.split()
             dictDistrib[(nbDatasets, nbDatasets + int(strsplit[0]))] = strsplit[1:]
             nbDatasets += int(strsplit[0])
-            list.append([nbDatasets, ] + strsplit[1:])
+            datasetList.append([nbDatasets, ] + strsplit[1:])
     f.close()
 
     # Generate 200000 datasets according to the dataset distribution

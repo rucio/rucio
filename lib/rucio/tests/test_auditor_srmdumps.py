@@ -25,8 +25,7 @@
 import sys
 from datetime import datetime
 
-from nose.tools import eq_
-from nose.tools import raises
+import pytest
 
 from rucio.daemons.auditor import srmdumps
 
@@ -51,8 +50,8 @@ def test_patterns_on_file_names():
     base_url = '/test'
     pattern = 'filename-with-%Y-weird-%m-date-%d'
     newest, date = srmdumps.get_newest(base_url, pattern, links)
-    eq_(newest, links[0])
-    eq_(date, datetime(2015, 1, 30))
+    assert newest == links[0]
+    assert date == datetime(2015, 1, 30)
 
 
 def test_the_newest_path():
@@ -65,8 +64,8 @@ def test_the_newest_path():
     base_url = '/test'
     pattern = 'filename-with-%Y-weird-%m-date-%d'
     newest, date = srmdumps.get_newest(base_url, pattern, links)
-    eq_(newest, '/test/filename-with-2015-weird-01-date-30')
-    eq_(date, datetime(2015, 1, 30))
+    assert newest == '/test/filename-with-2015-weird-01-date-30'
+    assert date == datetime(2015, 1, 30)
 
 
 def test_be_on_directory():
@@ -77,11 +76,11 @@ def test_be_on_directory():
     base_url = '/test'
     pattern = 'dir-with-%Y-weird-%m-date-%d/dump'
     newest, date = srmdumps.get_newest(base_url, pattern, links)
-    eq_(newest, links[0] + '/dump')
-    eq_(date, datetime(2015, 1, 30))
+    assert newest == links[0] + '/dump'
+    assert date == datetime(2015, 1, 30)
 
 
-@raises(Exception)
+@pytest.mark.xfail(raises=Exception)
 def test_no_matching_links():
     """ test_get_newest_exception_raise_when_no_matching_links """
     links = [
@@ -104,20 +103,20 @@ def test_returns_a_list_of_links():
     </html>
     ''')
 
-    eq_(collector.links, ['x', 'y'])
+    assert collector.links == ['x', 'y']
 
 
 def test_identifies_known_protocols():
     """ test_protocol_identifies_known_protocols """
-    eq_(srmdumps.protocol('davs://some/example'), 'davs')
-    eq_(srmdumps.protocol('gsiftp://some/example'), 'gsiftp')
-    eq_(srmdumps.protocol('http://some/example'), 'http')
-    eq_(srmdumps.protocol('https://some/example'), 'https')
-    eq_(srmdumps.protocol('root://some/example'), 'root')
-    eq_(srmdumps.protocol('srm://some/example'), 'srm')
+    assert srmdumps.protocol('davs://some/example') == 'davs'
+    assert srmdumps.protocol('gsiftp://some/example') == 'gsiftp'
+    assert srmdumps.protocol('http://some/example') == 'http'
+    assert srmdumps.protocol('https://some/example') == 'https'
+    assert srmdumps.protocol('root://some/example') == 'root'
+    assert srmdumps.protocol('srm://some/example') == 'srm'
 
 
-@raises(Exception)
+@pytest.mark.xfail(raises=Exception)
 def test_fails_on_unknown_protocol():
     """ test_protocol_fails_on_unknown_protocol """
     srmdumps.protocol('fake://some/example')
@@ -129,8 +128,8 @@ def test_sites_no_configuration_file(mock_ddmendpoint):
     config = ConfigParser()
     mock_ddmendpoint.return_value = 'srm://example.com/atlasdatadisk/'
     base_url, pattern = srmdumps.generate_url('SITE_DATADISK', config)
-    eq_(base_url, 'srm://example.com/atlasdatadisk/dumps')
-    eq_(pattern, 'dump_%Y%m%d')
+    assert base_url == 'srm://example.com/atlasdatadisk/dumps'
+    assert pattern == 'dump_%Y%m%d'
 
 
 def test_with_configuration_file():
@@ -139,5 +138,5 @@ def test_with_configuration_file():
     config.add_section('SITE')
     config.set('SITE', 'SITE_DATADISK', 'http://example.com/pattern-%%Y-%%m-%%d/dumps')
     base_url, pattern = srmdumps.generate_url('SITE_DATADISK', config)
-    eq_(base_url, 'http://example.com')
-    eq_(pattern, 'pattern-%Y-%m-%d/dumps')
+    assert base_url == 'http://example.com'
+    assert pattern == 'pattern-%Y-%m-%d/dumps'

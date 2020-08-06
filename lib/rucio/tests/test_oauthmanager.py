@@ -22,9 +22,9 @@ from __future__ import print_function
 import datetime
 import json
 import sys
+import unittest
 from time import sleep
 
-from nose.tools import assert_true
 from oic import rndstr
 from sqlalchemy import and_, or_
 from sqlalchemy.sql.expression import true
@@ -185,7 +185,7 @@ def side_effect(token_object, token_type):
     return {'client': MockClientOIDC(), 'state': token_object.refresh_token}
 
 
-class TestOAuthManager():
+class TestOAuthManager(unittest.TestCase):
 
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
@@ -207,7 +207,7 @@ class TestOAuthManager():
         save_oauth_session_params(self.account, 0)
         save_oauth_session_params(self.account, 0)
 
-        assert_true(get_oauth_session_param_count(self.account) == 5)
+        assert get_oauth_session_param_count(self.account) == 5
 
         # assuming daemon looprate of 10 min
         # test cases for access tokens without any refresh token
@@ -236,7 +236,7 @@ class TestOAuthManager():
         save_oidc_token(self.account, 300, 1000, "17_at_val_rt_longval_refresh_True_" + rndstr(), True, "17_to_be_kept_and_refreshed")
         save_oidc_token(self.account, 1000, 300, "18_at_longval_rt_val_refresh_True_" + rndstr(), True, "18_to_be_kept_no_refresh")
 
-        assert_true(get_token_count(self.account) == 21)
+        assert get_token_count(self.account) == 21
 
         sleep(1)
 
@@ -271,13 +271,13 @@ class TestOAuthManager():
             stop()
 
         # Checking the outcome
-        assert_true(get_oauth_session_param_count(self.account) == 2)
-        assert_true(get_token_count(self.account) == 20)
-        assert_true(check_deleted_tokens(self.account) is True)
-        assert_true(count_kept_tokens(self.account) == 16)
-        assert_true(get_token_count_with_refresh_true(self.account) == 8)
-        assert_true(new_tokens_ok(self.account) is True)
-        assert_true(count_expired_tokens(self.account) == 2)
-        assert_true(count_refresh_tokens_expired_or_none(self.account) == 8)
+        assert get_oauth_session_param_count(self.account) == 2
+        assert get_token_count(self.account) == 20
+        assert check_deleted_tokens(self.account) is True
+        assert count_kept_tokens(self.account) == 16
+        assert get_token_count_with_refresh_true(self.account) == 8
+        assert new_tokens_ok(self.account) is True
+        assert count_expired_tokens(self.account) == 2
+        assert count_refresh_tokens_expired_or_none(self.account) == 8
         # = 6 from the original setup + 2 original ones that were set expired after refresh
         del_account(self.accountstring, 'root', **self.vo)

@@ -1,4 +1,4 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,25 +13,28 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
-# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
 
+import unittest
 from datetime import datetime, timedelta
 
-from nose.tools import assert_equal, assert_not_equal, assert_raises, assert_true, assert_in, assert_not_in, raises
+import pytest
 
 from rucio.api import did
 from rucio.api import scope
@@ -51,15 +54,15 @@ from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids, detach_dids,
                             get_metadata, set_metadata, get_did, get_did_access_cnt, add_did_to_followed,
                             get_users_following_did, remove_did_from_followed)
-from rucio.core.rse import get_rse_id
 from rucio.core.replica import add_replica
+from rucio.core.rse import get_rse_id
 from rucio.db.sqla.constants import DIDType
-
 from rucio.tests.common import rse_name_generator, scope_name_generator
 
 
-class TestDIDCore:
-    def setup(self):
+class TestDIDCore(unittest.TestCase):
+
+    def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
@@ -94,12 +97,12 @@ class TestDIDCore:
         now = datetime.utcnow()
 
         now -= timedelta(microseconds=now.microsecond)
-        assert_equal(None, get_did_atime(scope=tmp_scope, name=tmp_dsn1))
-        assert_equal(None, get_did_atime(scope=tmp_scope, name=tmp_dsn2))
+        assert get_did_atime(scope=tmp_scope, name=tmp_dsn1) is None
+        assert get_did_atime(scope=tmp_scope, name=tmp_dsn2) is None
 
         touch_dids(dids=[{'scope': tmp_scope, 'name': tmp_dsn1, 'type': DIDType.DATASET, 'accessed_at': now}])
-        assert_equal(now, get_did_atime(scope=tmp_scope, name=tmp_dsn1))
-        assert_equal(None, get_did_atime(scope=tmp_scope, name=tmp_dsn2))
+        assert now == get_did_atime(scope=tmp_scope, name=tmp_dsn1)
+        assert get_did_atime(scope=tmp_scope, name=tmp_dsn2) is None
 
     def test_touch_dids_access_cnt(self):
         """ DATA IDENTIFIERS (CORE): Increase dids access_cnt"""
@@ -111,13 +114,13 @@ class TestDIDCore:
         add_did(scope=tmp_scope, name=tmp_dsn1, type=DIDType.DATASET, account=root)
         add_did(scope=tmp_scope, name=tmp_dsn2, type=DIDType.DATASET, account=root)
 
-        assert_equal(None, get_did_access_cnt(scope=tmp_scope, name=tmp_dsn1))
-        assert_equal(None, get_did_access_cnt(scope=tmp_scope, name=tmp_dsn2))
+        assert get_did_access_cnt(scope=tmp_scope, name=tmp_dsn1) is None
+        assert get_did_access_cnt(scope=tmp_scope, name=tmp_dsn2) is None
 
         for i in range(100):
             touch_dids(dids=[{'scope': tmp_scope, 'name': tmp_dsn1, 'type': DIDType.DATASET}])
-        assert_equal(100, get_did_access_cnt(scope=tmp_scope, name=tmp_dsn1))
-        assert_equal(None, get_did_access_cnt(scope=tmp_scope, name=tmp_dsn2))
+        assert 100 == get_did_access_cnt(scope=tmp_scope, name=tmp_dsn1)
+        assert get_did_access_cnt(scope=tmp_scope, name=tmp_dsn2) is None
 
     def test_update_dids(self):
         """ DATA IDENTIFIERS (CORE): Update file size and checksum"""
@@ -133,13 +136,13 @@ class TestDIDCore:
         attach_dids(scope=tmp_scope, name=dsn, rse_id=get_rse_id(rse='MOCK', **self.vo), dids=files, account=root)
 
         set_metadata(scope=tmp_scope, name=lfn, key='adler32', value='0cc737ee')
-        assert_equal(get_metadata(scope=tmp_scope, name=lfn)['adler32'], '0cc737ee')
+        assert get_metadata(scope=tmp_scope, name=lfn)['adler32'] == '0cc737ee'
 
-        with assert_raises(DataIdentifierNotFound):
+        with pytest.raises(DataIdentifierNotFound):
             set_metadata(scope=tmp_scope, name='Nimportnawak', key='adler32', value='0cc737ee')
 
         set_metadata(scope=tmp_scope, name=lfn, key='bytes', value=724963577)
-        assert_equal(get_metadata(scope=tmp_scope, name=lfn)['bytes'], 724963577)
+        assert get_metadata(scope=tmp_scope, name=lfn)['bytes'] == 724963577
 
     def test_get_did_with_dynamic(self):
         """ DATA IDENTIFIERS (CORE): Get did with dynamic resolve of size"""
@@ -160,8 +163,8 @@ class TestDIDCore:
         add_did(scope=tmp_scope, name=tmp_dsn4, type=DIDType.CONTAINER, account=root)
         attach_dids(scope=tmp_scope, name=tmp_dsn4, dids=[{'scope': tmp_scope, 'name': tmp_dsn1}], account=root)
 
-        assert_equal(get_did(scope=tmp_scope, name=tmp_dsn1, dynamic=True)['bytes'], 20)
-        assert_equal(get_did(scope=tmp_scope, name=tmp_dsn4, dynamic=True)['bytes'], 20)
+        assert get_did(scope=tmp_scope, name=tmp_dsn1, dynamic=True)['bytes'] == 20
+        assert get_did(scope=tmp_scope, name=tmp_dsn4, dynamic=True)['bytes'] == 20
 
     def test_reattach_dids(self):
         """ DATA IDENTIFIERS (CORE): Repeatedly attach and detach DIDs """
@@ -196,7 +199,7 @@ class TestDIDCore:
         for user in users:
             rows += 1
 
-        assert_equal(rows, 1)
+        assert rows == 1
 
     def test_get_users_following_did(self):
         """ DATA IDENTIFIERS (CORE): Get the list of users following a did """
@@ -212,7 +215,7 @@ class TestDIDCore:
         for user in users:
             rows += 1
 
-        assert_equal(rows, 1)
+        assert rows == 1
 
     def test_remove_did_from_followed(self):
         """ DATA IDENTIFIERS (CORE): Mark a did as not followed """
@@ -228,7 +231,7 @@ class TestDIDCore:
         for user in users:
             rows += 1
 
-        assert_equal(rows, 1)
+        assert rows == 1
 
         remove_did_from_followed(scope=tmp_scope, name=dsn, account=root)
 
@@ -237,11 +240,11 @@ class TestDIDCore:
         for user in users:
             rows += 1
 
-        assert_equal(rows, 0)
+        assert rows == 0
 
 
-class TestDIDApi:
-    def setup(self):
+class TestDIDApi(unittest.TestCase):
+    def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
@@ -255,11 +258,11 @@ class TestDIDApi:
         for i in range(0, 5):
             did.add_did(scope=tmp_scope, name='%s-%i' % (tmp_dsn, i), type='DATASET', issuer='root', **self.vo)
         for i in did.list_new_dids('DATASET', **self.vo):
-            assert_not_equal(i, {})
-            assert_equal(str(i['did_type']), 'DATASET')
+            assert i != {}
+            assert str(i['did_type']) == 'DATASET'
             break
         for i in did.list_new_dids(**self.vo):
-            assert_not_equal(i, {})
+            assert i != {}
             break
 
     def test_update_new_dids(self):
@@ -273,14 +276,14 @@ class TestDIDApi:
             did.add_did(scope=tmp_scope, name='%s-%i' % (tmp_dsn, i), type='DATASET', issuer='root', **self.vo)
             dids.append(d)
         st = did.set_new_dids(dids, None, **self.vo)
-        assert_true(st)
-        with assert_raises(DataIdentifierNotFound):
+        assert st
+        with pytest.raises(DataIdentifierNotFound):
             did.set_new_dids([{'scope': 'dummyscope', 'name': 'dummyname', 'did_type': DIDType.DATASET}], None, **self.vo)
 
 
-class TestDIDClients:
+class TestDIDClients(unittest.TestCase):
 
-    def setup(self):
+    def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
@@ -309,26 +312,26 @@ class TestDIDClients:
         results = []
         for result in self.did_client.list_dids(tmp_scope, {'name': 'file_a_*'}, type='file'):
             results.append(result)
-        assert_equal(len(results), 2)
+        assert len(results) == 2
         results = []
         for result in self.did_client.list_dids(tmp_scope, {'name': 'file_a_1*'}, type='file'):
             results.append(result)
-        assert_equal(len(results), 1)
+        assert len(results) == 1
         results = []
         for result in self.did_client.list_dids(tmp_scope, {'name': 'file_*_1*'}, type='file'):
             results.append(result)
-        assert_equal(len(results), 2)
+        assert len(results) == 2
         results = []
         for result in self.did_client.list_dids(tmp_scope, {'name': 'file*'}, type='file'):
             results.append(result)
-        assert_equal(len(results), 3)
+        assert len(results) == 3
         results = []
 
         filters = {'name': 'file*', 'created_after': datetime.utcnow() - timedelta(hours=1)}
         for result in self.did_client.list_dids(tmp_scope, filters):
             results.append(result)
-        assert_equal(len(results), 0)
-        with assert_raises(UnsupportedOperation):
+        assert len(results) == 0
+        with pytest.raises(UnsupportedOperation):
             self.did_client.list_dids(tmp_scope, {'name': 'file*'}, type='whateverytype')
 
     def test_list_recursive(self):
@@ -357,23 +360,23 @@ class TestDIDClients:
 
         # List DIDs not recursive - only the first container is expected
         dids = [str(did) for did in self.did_client.list_dids(scope=tmp_scope_1, recursive=False, type='all', filters={'name': tmp_container_1})]
-        assert_equal(dids, [tmp_container_1])
+        assert dids == [tmp_container_1]
 
         # List DIDs recursive - first container and all attached collections are expected
         dids = [str(did) for did in self.did_client.list_dids(scope=tmp_scope_1, recursive=True, type='all', filters={'name': tmp_container_1})]
-        assert_true(tmp_container_1 in dids)
-        assert_true(tmp_container_2 in dids)
-        assert_true(tmp_dataset_1 in dids)
-        assert_true(tmp_dataset_2 in dids)
-        assert_equal(len(dids), 4)
+        assert tmp_container_1 in dids
+        assert tmp_container_2 in dids
+        assert tmp_dataset_1 in dids
+        assert tmp_dataset_2 in dids
+        assert len(dids) == 4
 
         # List DIDs recursive - only containers are expected
         dids = [str(did) for did in self.did_client.list_dids(scope=tmp_scope_1, recursive=True, type='container', filters={'name': tmp_container_1})]
-        assert_true(tmp_container_1 in dids)
-        assert_true(tmp_container_2 in dids)
-        assert_true(tmp_dataset_1 not in dids)
-        assert_true(tmp_dataset_2 not in dids)
-        assert_equal(len(dids), 2)
+        assert tmp_container_1 in dids
+        assert tmp_container_2 in dids
+        assert tmp_dataset_1 not in dids
+        assert tmp_dataset_2 not in dids
+        assert len(dids) == 2
 
     def test_list_by_length(self):
         """ DATA IDENTIFIERS (CLIENT): List did with length """
@@ -386,19 +389,19 @@ class TestDIDClients:
         results = []
         for d in dids:
             results.append(d)
-        assert_not_equal(len(results), 0)
+        assert len(results) != 0
 
         dids = self.did_client.list_dids(tmp_scope, {'length.gt': -1, 'length.lt': 1})
         results = []
         for d in dids:
             results.append(d)
-        assert_equal(len(results), 0)
+        assert len(results) == 0
 
         dids = self.did_client.list_dids(tmp_scope, {'length': 0})
         results = []
         for d in dids:
             results.append(d)
-        assert_equal(len(results), 0)
+        assert len(results) == 0
 
     def test_list_by_metadata(self):
         """ DATA IDENTIFIERS (CLIENT): List did with metadata"""
@@ -431,7 +434,7 @@ class TestDIDClients:
         for d in dids:
             results.append(d)
         for dsn in dsns:
-            assert_in(dsn, results)
+            assert dsn in results
         dsns.remove(tmp_dsn1)
 
         dids = self.did_client.list_dids(tmp_scope, {'project': 'data12_8TeV', 'run_number': 400001})
@@ -439,7 +442,7 @@ class TestDIDClients:
         for d in dids:
             results.append(d)
         for dsn in dsns:
-            assert_in(dsn, results)
+            assert dsn in results
         dsns.remove(tmp_dsn2)
 
         dids = self.did_client.list_dids(tmp_scope, {'project': 'data12_8TeV', 'stream_name': 'physics_Egamma', 'datatype': 'NTUP_SMWZ'})
@@ -447,9 +450,9 @@ class TestDIDClients:
         for d in dids:
             results.append(d)
         for dsn in dsns:
-            assert_in(dsn, results)
+            assert dsn in results
 
-        with assert_raises(KeyNotFound):
+        with pytest.raises(KeyNotFound):
             self.did_client.list_dids(tmp_scope, {'NotReallyAKey': 'NotReallyAValue'})
 
     def test_add_did(self):
@@ -471,14 +474,14 @@ class TestDIDClients:
                         }
         rules = [{'copies': 1, 'rse_expression': 'MOCK', 'account': 'root'}]
 
-        with assert_raises(ScopeNotFound):
+        with pytest.raises(ScopeNotFound):
             self.did_client.add_dataset(scope='Nimportnawak', name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules)
 
         files = [{'scope': InternalScope(tmp_scope, **self.vo), 'name': 'lfn.%(tmp_dsn)s.' % locals() + str(generate_uuid()), 'bytes': 724963570, 'adler32': '0cc737eb'}, ]
-        with assert_raises(DataIdentifierNotFound):
+        with pytest.raises(DataIdentifierNotFound):
             self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules, files=files)
 
-        with assert_raises(DataIdentifierNotFound):
+        with pytest.raises(DataIdentifierNotFound):
             self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dsn, files=files)
 
         files = []
@@ -495,13 +498,13 @@ class TestDIDClients:
 
         rules = [{'copies': 1, 'rse_expression': 'CERN-PROD_TZERO', 'lifetime': timedelta(days=2), 'account': 'root'}]
 
-        with assert_raises(InvalidPath):
+        with pytest.raises(InvalidPath):
             self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules, files=files, rse=tmp_rse)
 
         files_without_pfn = [{'scope': i['scope'], 'name': i['name'], 'bytes': i['bytes'], 'adler32': i['adler32'], 'meta': i['meta']} for i in files]
         self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn, statuses={'monotonic': True}, meta=dataset_meta, rules=rules, files=files_without_pfn, rse=tmp_rse)
 
-        with assert_raises(DataIdentifierAlreadyExists):
+        with pytest.raises(DataIdentifierAlreadyExists):
             self.did_client.add_dataset(scope=tmp_scope, name=tmp_dsn, files=files, rse=tmp_rse)
 
         files = []
@@ -517,7 +520,7 @@ class TestDIDClients:
                           'pfn': pfn, 'meta': file_meta})
         rules = [{'copies': 1, 'rse_expression': 'CERN-PROD_TZERO', 'lifetime': timedelta(days=2)}]
 
-        with assert_raises(InvalidPath):
+        with pytest.raises(InvalidPath):
             self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dsn, files=files, rse=tmp_rse)
         files_without_pfn = [{'scope': i['scope'], 'name': i['name'], 'bytes': i['bytes'], 'adler32': i['adler32'], 'meta': i['meta']} for i in files]
         self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dsn, files=files_without_pfn, rse=tmp_rse)
@@ -527,7 +530,7 @@ class TestDIDClients:
         tmp_dsn_output = 'dsn_%s' % generate_uuid()
         self.did_client.create_did_sample(input_scope=tmp_scope, input_name=tmp_dsn, output_scope=tmp_scope, output_name=tmp_dsn_output, nbfiles=2)
         files = [f for f in self.did_client.list_files(scope=tmp_scope, name=tmp_dsn_output)]
-        assert_equal(len(files), 2)
+        assert len(files) == 2
 
     def test_attach_dids_to_dids(self):
         """ DATA IDENTIFIERS (CLIENT): Attach dids to dids"""
@@ -558,11 +561,11 @@ class TestDIDClients:
         self.did_client.attach_dids_to_dids(attachments=attachments)
         dsns_l = [i for i in self.did_client.get_dataset_by_guid(guid_to_query)]
 
-        assert_equal([dsn], dsns_l)
+        assert [dsn] == dsns_l
 
         cnt_name = 'cnt_%s' % generate_uuid()
         self.did_client.add_container(scope='mock', name=cnt_name)
-        with assert_raises(UnsupportedOperation):
+        with pytest.raises(UnsupportedOperation):
             self.did_client.attach_dids_to_dids([{'scope': 'mock', 'name': cnt_name, 'rse': tmp_rse, 'dids': attachment['dids']}])
 
     def test_add_files_to_datasets(self):
@@ -592,9 +595,9 @@ class TestDIDClients:
         self.did_client.add_files_to_datasets(attachments)
 
         files = [f for f in self.did_client.list_files(scope=tmp_scope, name=dsn1)]
-        assert_equal(len(files), 10)
+        assert len(files) == 10
 
-        with assert_raises(FileAlreadyExists):
+        with pytest.raises(FileAlreadyExists):
             self.did_client.add_files_to_datasets(attachments)
 
         for attachment in attachments:
@@ -609,7 +612,7 @@ class TestDIDClients:
         self.did_client.add_files_to_datasets(attachments, ignore_duplicate=True)
 
         files = [f for f in self.did_client.list_files(scope=tmp_scope, name=dsn1)]
-        assert_equal(len(files), 15)
+        assert len(files) == 15
 
         # Corrupt meta-data
         files = []
@@ -618,7 +621,7 @@ class TestDIDClients:
                 file['bytes'] = 1000
                 break
 
-        with assert_raises(FileConsistencyMismatch):
+        with pytest.raises(FileConsistencyMismatch):
             self.did_client.add_files_to_datasets(attachments, ignore_duplicate=True)
 
     def test_add_dataset(self):
@@ -630,10 +633,10 @@ class TestDIDClients:
 
         did = self.did_client.get_did(tmp_scope, tmp_dsn)
 
-        assert_equal(did['scope'], tmp_scope)
-        assert_equal(did['name'], tmp_dsn)
+        assert did['scope'] == tmp_scope
+        assert did['name'] == tmp_dsn
 
-        with assert_raises(DataIdentifierNotFound):
+        with pytest.raises(DataIdentifierNotFound):
             self.did_client.get_did('i_dont_exist', 'neither_do_i')
 
     def test_add_datasets(self):
@@ -655,10 +658,10 @@ class TestDIDClients:
 
         did = self.did_client.get_did(tmp_scope, tmp_file)
 
-        assert_equal(did['scope'], tmp_scope)
-        assert_equal(did['name'], tmp_file)
+        assert did['scope'] == tmp_scope
+        assert did['name'] == tmp_file
 
-        with assert_raises(DataIdentifierNotFound):
+        with pytest.raises(DataIdentifierNotFound):
             self.did_client.get_did('i_dont_exist', 'neither_do_i')
 
     def test_did_hierarchy(self):
@@ -692,12 +695,12 @@ class TestDIDClients:
             pass
             # TODO: fix, fix, fix
             # if r['name'] == cnt[1]:
-            #    assert_equal(r['type'], 'container')
-            #    assert_equal(r['level'], 0)
+            #    assert r['type'] == 'container'
+            #    assert r['level'] == 0
             # if (r['name'] == cnt[0]) or (r['name'] == dst[0]) or (r['name'] == file[8]) or (r['name'] == file[9]):
-            #    assert_equal(r['level'], 0)
+            #    assert r['level'] == 0
             # else:
-            #     assert_equal(r['level'], 1)
+            #     assert r['level'] == 1
 
     def test_detach_did(self):
         """ DATA IDENTIFIERS (CLIENT): Detach dids from a did"""
@@ -724,7 +727,7 @@ class TestDIDClients:
 
         self.did_client.add_containers_to_container(scope, cnt[1], [{'scope': scope, 'name': dst[2]}, {'scope': scope, 'name': dst[3]}])
 
-        with assert_raises(UnsupportedOperation):
+        with pytest.raises(UnsupportedOperation):
             self.did_client.add_datasets_to_container(scope, cnt[0], [{'scope': scope, 'name': dst[1]}, {'scope': scope, 'name': cnt[1]}])
 
         self.did_client.add_datasets_to_container(scope, cnt[0], [{'scope': scope, 'name': dst[1]}, {'scope': scope, 'name': dst[2]}])
@@ -734,14 +737,14 @@ class TestDIDClients:
         result = self.did_client.scope_list(scope, recursive=True)
         for r in result:
             if r['name'] == dst[1]:
-                assert_equal(r['level'], 0)
+                assert r['level'] == 0
             if r['type'] == 'file':
                 if (r['name'] in file[6:9]):
-                    assert_equal(r['level'], 0)
+                    assert r['level'] == 0
                 else:
-                    assert_not_equal(r['level'], 0)
+                    assert r['level'] != 0
 
-        with assert_raises(UnsupportedOperation):
+        with pytest.raises(UnsupportedOperation):
             self.did_client.detach_dids(scope=scope, name=cnt[0], dids=[{'scope': scope, 'name': cnt[0]}])
 
         self.did_client.close(scope, dst[4])
@@ -754,8 +757,8 @@ class TestDIDClients:
         self.did_client.detach_dids(scope, dst[4], [{'scope': scope, 'name': file[8]}, {'scope': scope, 'name': file[9]}])
         metadata = self.did_client.get_metadata(scope, dst[4])
         f_bytes, f_length = metadata['bytes'], metadata['length']
-        assert_equal(i_bytes, f_bytes + file1_bytes + file2_bytes)
-        assert_equal(i_length, f_length + 1 + 1)
+        assert i_bytes == f_bytes + file1_bytes + file2_bytes
+        assert i_length == f_length + 1 + 1
 
     def test_scope_list(self):
         """ DATA IDENTIFIERS (CLIENT): Add, aggregate, and list data identifiers in a scope """
@@ -801,13 +804,13 @@ class TestDIDClients:
                     r_scope.append(r['scope'])
                 if r['scope'] != self.tmp_scopes[i]:
                     r_otherscopedids.append(r['scope'] + ':' + r['name'])
-                    assert_in(r['level'], [1, 2])
+                    assert r['level'] in [1, 2]
 
             for j in range(3):
-                assert_equal(self.tmp_scopes[i], r_scope[j])
+                assert self.tmp_scopes[i] == r_scope[j]
                 if j != i:
-                    assert_in(self.tmp_scopes[j] + ':' + self.tmp_files[j], r_otherscopedids)
-            assert_not_in(self.tmp_scopes[i] + ':' + self.tmp_files[i], r_topdids)
+                    assert self.tmp_scopes[j] + ':' + self.tmp_files[j] in r_otherscopedids
+            assert self.tmp_scopes[i] + ':' + self.tmp_files[i] not in r_topdids
 
     def test_get_did(self):
         """ DATA IDENTIFIERS (CLIENT): add a new data identifier and try to retrieve it back"""
@@ -820,12 +823,12 @@ class TestDIDClients:
 
         did = self.did_client.get_did(scope, file)
 
-        assert_equal(did['scope'], scope)
-        assert_equal(did['name'], file)
+        assert did['scope'] == scope
+        assert did['name'] == file
 
         self.did_client.add_dataset(scope=scope, name=dsn, lifetime=10000000)
         did2 = self.did_client.get_did(scope, dsn)
-        assert_equal(type(did2['expired_at']), datetime)
+        assert type(did2['expired_at']) == datetime
 
     def test_get_meta(self):
         """ DATA IDENTIFIERS (CLIENT): add a new meta data for an identifier and try to retrieve it back"""
@@ -842,7 +845,7 @@ class TestDIDClients:
         meta = self.did_client.get_metadata(scope, file)
 
         for i in range(2):
-            assert_equal(meta[keys[i]], values[i])
+            assert meta[keys[i]] == values[i]
 
     def test_list_content(self):
         """ DATA IDENTIFIERS (CLIENT): test to list contents for an identifier"""
@@ -857,7 +860,7 @@ class TestDIDClients:
 
         self.did_client.add_dataset(scope, dataset1)
 
-        with assert_raises(DataIdentifierAlreadyExists):
+        with pytest.raises(DataIdentifierAlreadyExists):
             self.did_client.add_dataset(scope, dataset1)
 
         self.did_client.add_files_to_dataset(scope, dataset1, files1, rse=rse)
@@ -872,8 +875,8 @@ class TestDIDClients:
         contents = self.did_client.list_content(scope, container)
 
         datasets_s = [d['name'] for d in contents]
-        assert_in(dataset1, datasets_s)
-        assert_in(dataset2, datasets_s)
+        assert dataset1 in datasets_s
+        assert dataset2 in datasets_s
 
     def test_list_files(self):
         """ DATA IDENTIFIERS (CLIENT): List files for a container"""
@@ -903,16 +906,16 @@ class TestDIDClients:
 
         # List file content
         content = self.did_client.list_files(scope, files1[i]['name'])
-        assert_true(content is not None)
+        assert content is not None
         for d in content:
-            assert_true(d['name'] == files1[i]['name'])
+            assert d['name'] == files1[i]['name']
 
         # List container content
         for d in [{'name': x['name'], 'scope': x['scope'], 'bytes': x['bytes'], 'adler32': x['adler32']} for x in self.did_client.list_files(scope, container)]:
-            assert_in(d, files1 + files2)
+            assert d in files1 + files2
 
         # List non-existing data identifier content
-        with assert_raises(DataIdentifierNotFound):
+        with pytest.raises(DataIdentifierNotFound):
             self.did_client.list_files(scope, 'Nimportnawak')
 
     def test_list_replicas(self):
@@ -938,12 +941,12 @@ class TestDIDClients:
         self.did_client.add_datasets_to_container(scope, cnt, [{'scope': scope, 'name': dsn1}, {'scope': scope, 'name': dsn2}])
 
         replicas = self.replica_client.list_replicas(dids=[{'scope': scope, 'name': dsn1}])
-        assert_true(replicas is not None)
+        assert replicas is not None
 
         replicas = self.replica_client.list_replicas(dids=[{'scope': scope, 'name': cnt}])
-        assert_true(replicas is not None)
+        assert replicas is not None
 
-    @raises(UnsupportedOperation)
+    @pytest.mark.xfail(raises=UnsupportedOperation)
     def test_close(self):
         """ DATA IDENTIFIERS (CLIENT): test to close data identifiers"""
 
@@ -972,7 +975,7 @@ class TestDIDClients:
         self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dataset, files=files)
 
         # Close dataset
-        with assert_raises(UnsupportedStatus):
+        with pytest.raises(UnsupportedStatus):
             self.did_client.set_status(scope=tmp_scope, name=tmp_dataset, close=False)
         self.did_client.set_status(scope=tmp_scope, name=tmp_dataset, open=False)
 
@@ -983,7 +986,7 @@ class TestDIDClients:
         files = [{'scope': tmp_scope, 'name': tmp_file, 'bytes': 1, 'adler32': '0cc737eb'}, ]
         self.did_client.attach_dids(scope=tmp_scope, name=tmp_dataset, dids=files)
 
-    @raises
+    @pytest.mark.xfail
     def test_open(self):
         """ DATA IDENTIFIERS (CLIENT): test to re-open data identifiers for priv account"""
 
@@ -1012,7 +1015,7 @@ class TestDIDClients:
         self.did_client.add_files_to_dataset(scope=tmp_scope, name=tmp_dataset, files=files)
 
         # Close dataset
-        with assert_raises(UnsupportedStatus):
+        with pytest.raises(UnsupportedStatus):
             self.did_client.set_status(scope=tmp_scope, name=tmp_dataset, close=False)
         self.did_client.set_status(scope=tmp_scope, name=tmp_dataset, open=False)
 
@@ -1046,18 +1049,18 @@ class TestDIDClients:
         res_list_dids = [{'scope': entry['scope'], 'name': entry['name']} for entry in list_meta]
         res_list_dids.sort(key=lambda item: item['name'])
         list_dids.sort(key=lambda item: item['name'])
-        assert_equal(list_dids, res_list_dids)
+        assert list_dids == res_list_dids
         for meta in list_meta:
             did = '%s:%s' % (meta['scope'], meta['name'])
             met = meta_mapping[did]
-            assert_equal((key, meta[key]), met)
+            assert (key, meta[key]) == met
         cnt = ['cnt_%s' % generate_uuid() for _ in range(4)]
         for idx in range(4):
             list_dids.append({'scope': scope, 'name': cnt[idx]})
         list_meta = [_ for _ in self.did_client.get_metadata_bulk(list_dids)]
-        assert_equal(len(list_meta), 12)
+        assert len(list_meta) == 12
         list_dids = []
         for idx in range(4):
             list_dids.append({'scope': scope, 'name': cnt[idx]})
         list_meta = [_ for _ in self.did_client.get_metadata_bulk(list_dids)]
-        assert_equal(len(list_meta), 0)
+        assert len(list_meta) == 0

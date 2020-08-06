@@ -1,34 +1,41 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2019-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
+
+import unittest
+from datetime import datetime, timedelta
 from os import remove, path
 from time import sleep
-from datetime import datetime, timedelta
 
-from nose.tools import assert_true
-
+from rucio.client.replicaclient import ReplicaClient
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalScope
 from rucio.core.replica import (update_replica_state, list_replicas, list_bad_replicas_status)
 from rucio.core.rse import get_rse_id
-from rucio.client.replicaclient import ReplicaClient
-from rucio.db.sqla.constants import DIDType, BadFilesStatus, ReplicaState
-
-from rucio.tests.common import execute, file_generator
 from rucio.daemons.replicarecoverer.suspicious_replica_recoverer import run, stop
+from rucio.db.sqla.constants import DIDType, BadFilesStatus, ReplicaState
+from rucio.tests.common import execute, file_generator
 
 
-class TestReplicaRecoverer():
+class TestReplicaRecoverer(unittest.TestCase):
 
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
@@ -59,7 +66,7 @@ class TestReplicaRecoverer():
             exitcode, out, err = execute(cmd)
 
             # checking if Rucio upload went OK
-            assert_true(exitcode == 0)
+            assert exitcode == 0
 
         # removing physical files from /tmp location - keeping only their DB info
         remove(self.tmp_file1)
@@ -97,30 +104,30 @@ class TestReplicaRecoverer():
         # Checking if the status changes were effective
         for replica in replicalist:
             if replica['name'] == path.basename(self.tmp_file1):
-                assert_true(replica['states'][self.rse4suspicious_id] == 'AVAILABLE')
-                assert_true(replica['states'][self.rse4recovery_id] == 'AVAILABLE')
+                assert replica['states'][self.rse4suspicious_id] == 'AVAILABLE'
+                assert replica['states'][self.rse4recovery_id] == 'AVAILABLE'
             if replica['name'] == path.basename(self.tmp_file2):
-                assert_true((self.rse4suspicious_id in replica['states']) is False)
-                assert_true(replica['states'][self.rse4recovery_id] == 'AVAILABLE')
+                assert (self.rse4suspicious_id in replica['states']) is False
+                assert replica['states'][self.rse4recovery_id] == 'AVAILABLE'
             if replica['name'] == path.basename(self.tmp_file3):
-                assert_true(replica['states'][self.rse4suspicious_id] == 'AVAILABLE')
-                assert_true((self.rse4recovery_id in replica['states']) is False)
+                assert replica['states'][self.rse4suspicious_id] == 'AVAILABLE'
+                assert (self.rse4recovery_id in replica['states']) is False
 
         # Checking if only self.tmp_file2 is declared as 'BAD'
         self.from_date = datetime.now() - timedelta(days=1)
         bad_replicas_list = list_bad_replicas_status(rse_id=self.rse4suspicious_id, younger_than=self.from_date, **self.vo)
         bad_checklist = [(badf['name'], badf['rse_id'], badf['state']) for badf in bad_replicas_list]
 
-        assert_true((path.basename(self.tmp_file2), self.rse4suspicious_id, BadFilesStatus.BAD) in bad_checklist)
-        assert_true((path.basename(self.tmp_file1), self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist)
-        assert_true((path.basename(self.tmp_file3), self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist)
+        assert (path.basename(self.tmp_file2), self.rse4suspicious_id, BadFilesStatus.BAD) in bad_checklist
+        assert (path.basename(self.tmp_file1), self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist
+        assert (path.basename(self.tmp_file3), self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist
 
         bad_replicas_list = list_bad_replicas_status(rse_id=self.rse4recovery_id, younger_than=self.from_date, **self.vo)
         bad_checklist = [(badf['name'], badf['rse_id'], badf['state']) for badf in bad_replicas_list]
 
-        assert_true((path.basename(self.tmp_file1), self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist)
-        assert_true((path.basename(self.tmp_file2), self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist)
-        assert_true((path.basename(self.tmp_file3), self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist)
+        assert (path.basename(self.tmp_file1), self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
+        assert (path.basename(self.tmp_file2), self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
+        assert (path.basename(self.tmp_file3), self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
 
         # On purpose not checking for status to be declared 'SUSPICIOUS' on MOCK_SUSPICIOUS.
         # The only existing function (to date) gathering info about 'SUSPICIOUS' replicas
@@ -174,23 +181,23 @@ class TestReplicaRecoverer():
 
         for replica in replicalist:
             if replica['name'] == path.basename(self.tmp_file1) or replica['name'] == path.basename(self.tmp_file2):
-                assert_true((self.rse4suspicious_id in replica['states']) is False)
-                assert_true(replica['states'][self.rse4recovery_id] == 'AVAILABLE')
+                assert (self.rse4suspicious_id in replica['states']) is False
+                assert replica['states'][self.rse4recovery_id] == 'AVAILABLE'
             if replica['name'] == path.basename(self.tmp_file3):
-                assert_true(replica['states'][self.rse4suspicious_id] == 'AVAILABLE')
-                assert_true((self.rse4recovery_id in replica['states']) is False)
+                assert replica['states'][self.rse4suspicious_id] == 'AVAILABLE'
+                assert (self.rse4recovery_id in replica['states']) is False
 
         # Checking if replicas declared as 'BAD'
         bad_replicas_list = list_bad_replicas_status(rse_id=self.rse4suspicious_id, younger_than=self.from_date, **self.vo)
         bad_checklist = [(badf['name'], badf['rse_id'], badf['state']) for badf in bad_replicas_list]
 
-        assert_true((path.basename(self.tmp_file1), self.rse4suspicious_id, BadFilesStatus.BAD) in bad_checklist)
-        assert_true((path.basename(self.tmp_file2), self.rse4suspicious_id, BadFilesStatus.BAD) in bad_checklist)
-        assert_true((path.basename(self.tmp_file3), self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist)
+        assert (path.basename(self.tmp_file1), self.rse4suspicious_id, BadFilesStatus.BAD) in bad_checklist
+        assert (path.basename(self.tmp_file2), self.rse4suspicious_id, BadFilesStatus.BAD) in bad_checklist
+        assert (path.basename(self.tmp_file3), self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist
 
         bad_replicas_list = list_bad_replicas_status(rse_id=self.rse4recovery_id, younger_than=self.from_date, **self.vo)
         bad_checklist = [(badf['name'], badf['rse_id'], badf['state']) for badf in bad_replicas_list]
 
-        assert_true((path.basename(self.tmp_file1), self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist)
-        assert_true((path.basename(self.tmp_file2), self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist)
-        assert_true((path.basename(self.tmp_file3), self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist)
+        assert (path.basename(self.tmp_file1), self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
+        assert (path.basename(self.tmp_file2), self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
+        assert (path.basename(self.tmp_file3), self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist

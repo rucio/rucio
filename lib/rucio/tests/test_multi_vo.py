@@ -1,4 +1,4 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,23 +15,20 @@
 # Authors:
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
+import sys
+import unittest
 from json import dumps
 from logging import getLogger
-from mock import patch
-from nose.tools import assert_equal, assert_false, assert_in, assert_is_not_none, assert_not_equal, assert_not_in, assert_raises, assert_true
-from oic import rndstr
 from os import remove
-from paste.fixture import TestApp
 from random import choice
 from re import search
 from string import ascii_uppercase, ascii_lowercase
-try:
-    # Python 2
-    from urlparse import urlparse, parse_qs
-except ImportError:
-    # Python 3
-    from urllib.parse import urlparse, parse_qs
+
+import pytest
+from oic import rndstr
+from paste.fixture import TestApp
 
 from rucio.api import vo as vo_api
 from rucio.api.account import add_account, list_accounts
@@ -49,13 +46,14 @@ from rucio.client.accountclient import AccountClient
 from rucio.client.accountlimitclient import AccountLimitClient
 from rucio.client.client import Client
 from rucio.client.didclient import DIDClient
-from rucio.client.rseclient import RSEClient
 from rucio.client.replicaclient import ReplicaClient
+from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.client.uploadclient import UploadClient
 from rucio.common.config import config_get, config_get_bool, config_remove_option, config_set
-from rucio.common.exception import AccessDenied, Duplicate, InvalidRSEExpression, UnsupportedAccountName, UnsupportedOperation
+from rucio.common.exception import AccessDenied, Duplicate, InvalidRSEExpression, UnsupportedAccountName, \
+    UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, get_tmp_dir, parse_response, ssh_sign
 from rucio.core.replica import add_replica
@@ -72,11 +70,22 @@ from rucio.web.rest.account import APP as account_app
 from rucio.web.rest.authentication import APP as auth_app
 from rucio.web.rest.vo import APP as vo_app
 
+try:
+    # Python 2
+    from urlparse import urlparse, parse_qs
+except ImportError:
+    # Python 3
+    from urllib.parse import urlparse, parse_qs
+
+if sys.version_info >= (3, 3):
+    from unittest.mock import patch
+else:
+    from mock import patch
 
 LOG = getLogger(__name__)
 
 
-class TestVOCoreAPI(object):
+class TestVOCoreAPI(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -94,10 +103,10 @@ class TestVOCoreAPI(object):
         """ MULTI VO (CORE): Test operations fail in single_vo mode """
         try:
             config_set('common', 'multi_vo', 'False')
-            with assert_raises(UnsupportedOperation):
+            with pytest.raises(UnsupportedOperation):
                 vo_api.list_vos(issuer='super_root', vo='def')
             config_remove_option('common', 'multi_vo')
-            with assert_raises(UnsupportedOperation):
+            with pytest.raises(UnsupportedOperation):
                 vo_api.list_vos(issuer='super_root', vo='def')
         finally:
             # Make sure we don't leave the config changed due to a test failure
@@ -118,49 +127,49 @@ class TestVOCoreAPI(object):
         add_replica(rse_id=rse_id, scope=scope, name=dataset, bytes=10, account=account)
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=account, copies=1, rse_expression='MOCK', grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
 
-        with assert_raises(AccessDenied):
+        with pytest.raises(AccessDenied):
             delete_replication_rule(rule_id=rule_id, purge_replicas=False, issuer='root', **self.new_vo)
 
         # check locks are not accessible from other VO
         locks = list(get_replica_locks_for_rule_id(rule_id, **self.vo))
-        assert_equal(len(locks), 1)
+        assert len(locks) == 1
         locks = list(get_replica_locks_for_rule_id(rule_id, **self.new_vo))
-        assert_equal(len(locks), 0)
+        assert len(locks) == 0
 
         delete_replication_rule(rule_id=rule_id, purge_replicas=False, issuer='root', **self.vo)
         rule_dict = get_replication_rule(rule_id=rule_id, issuer='root', **self.vo)
-        assert_is_not_none(rule_dict['expires_at'])
+        assert rule_dict['expires_at'] is not None
 
     def test_add_vo(self):
         """ MULTI VO (CORE): Test creation of VOs """
-        with assert_raises(AccessDenied):
+        with pytest.raises(AccessDenied):
             vo_api.add_vo(self.new_vo['vo'], 'root', 'Add new VO with root', 'rucio@email.com', **self.vo)
-        with assert_raises(Duplicate):
+        with pytest.raises(Duplicate):
             vo_api.add_vo(self.new_vo['vo'], 'super_root', 'Add existing VO', 'rucio@email.com', 'def')
 
     def test_recover_root_identity(self):
         """ MULTI VO (CORE): Test adding a new identity for root using super_root """
         identity_key = ''.join(choice(ascii_lowercase) for x in range(10))
-        with assert_raises(AccessDenied):
+        with pytest.raises(AccessDenied):
             vo_api.recover_vo_root_identity(root_vo=self.new_vo['vo'], identity_key=identity_key, id_type='userpass', email='rucio@email.com', issuer='root', password='password', **self.vo)
         vo_api.recover_vo_root_identity(root_vo=self.new_vo['vo'], identity_key=identity_key, id_type='userpass', email='rucio@email.com', issuer='super_root', password='password', vo='def')
-        assert_in('root', list_accounts_for_identity(identity_key=identity_key, id_type='userpass'))
+        assert 'root' in list_accounts_for_identity(identity_key=identity_key, id_type='userpass')
 
     def test_update_vo(self):
         """ MULTI VO (CORE): Test updating VOs """
         description = generate_uuid()
         email = generate_uuid()
         parameters = {'vo': self.new_vo['vo'], 'description': description, 'email': email}
-        with assert_raises(AccessDenied):
+        with pytest.raises(AccessDenied):
             vo_api.update_vo(self.new_vo['vo'], parameters, 'root', **self.vo)
         vo_api.update_vo(self.new_vo['vo'], parameters, 'super_root', 'def')
         vo_update_success = False
         for v in vo_api.list_vos('super_root', 'def'):
             if v['vo'] == parameters['vo']:
-                assert_equal(email, v['email'])
-                assert_equal(description, v['description'])
+                assert email == v['email']
+                assert description == v['description']
                 vo_update_success = True
-        assert_true(vo_update_success)
+        assert vo_update_success
 
     def test_super_root_permissions(self):
         """ MULTI VO (CORE): Test super_root cannot access root/user functions """
@@ -170,24 +179,24 @@ class TestVOCoreAPI(object):
         scope = 'mock_%s' % scope_uuid
 
         # Test super_root@def with functions at vo='def'
-        with assert_raises(AccessDenied):
+        with pytest.raises(AccessDenied):
             add_rse(rse_name, 'super_root', vo='def')
-        with assert_raises(AccessDenied):
+        with pytest.raises(AccessDenied):
             add_scope(scope, 'root', 'super_root', vo='def')
         add_scope(scope, 'super_root', 'super_root', vo='def')
-        assert_in(scope, [s for s in list_scopes(filter={}, vo='def')])
+        assert scope in [s for s in list_scopes(filter={}, vo='def')]
 
     def test_super_root_naming(self):
         """ MULTI VO (CORE): Test we can only name accounts super_root when appropriate """
-        with assert_raises(Duplicate):  # Ensure we fail from duplication rather than the choice of name
+        with pytest.raises(Duplicate):  # Ensure we fail from duplication rather than the choice of name
             add_account('super_root', 'USER', 'rucio@email.com', 'root', vo='def')
-        with assert_raises(UnsupportedAccountName):
+        with pytest.raises(UnsupportedAccountName):
             add_account('super_root', 'USER', 'rucio@email.com', 'root', **self.vo)
         try:
             config_remove_option('common', 'multi_vo')
-            with assert_raises(UnsupportedAccountName):
+            with pytest.raises(UnsupportedAccountName):
                 add_account('super_root', 'USER', 'rucio@email.com', 'root', **self.vo)
-            with assert_raises(UnsupportedAccountName):
+            with pytest.raises(UnsupportedAccountName):
                 add_account('super_root', 'USER', 'rucio@email.com', 'root', vo='def')
         finally:
             # Make sure we don't leave the config changed due to a test failure
@@ -197,7 +206,7 @@ class TestVOCoreAPI(object):
                 config_remove_option('common', 'multi_vo')
 
 
-class TestVORestAPI(object):
+class TestVORestAPI(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -258,26 +267,26 @@ class TestVORestAPI(object):
                    'X-Rucio-Client-Authorize-Issuer': 'dummy_admin_iss_nickname'}
 
         res = TestApp(auth_app.wsgifunc(*mw)).get('/oidc', headers=headers, expect_errors=True)
-        assert_equal(res.status, 200)
+        assert res.status == 200
         if auto:
             # Get the auth_url without any redirect
             auth_url = res.header('X-Rucio-OIDC-Auth-URL')
         else:
             # Get the redirect_url
             redirect_url = res.header('X-Rucio-OIDC-Auth-URL')
-            assert_in('https://test_redirect_string/auth/oidc_redirect?', redirect_url)
+            assert 'https://test_redirect_string/auth/oidc_redirect?' in redirect_url
             if polling:
-                assert_in('_polling', redirect_url)
+                assert '_polling' in redirect_url
             else:
-                assert_not_in('_polling', redirect_url)
+                assert '_polling' not in redirect_url
             redirect_url_parsed = urlparse(redirect_url)
 
             # Get the auth_url from the redirect_url
             res = TestApp(auth_app.wsgifunc(*mw)).get('/oidc_redirect?%s' % redirect_url_parsed.query, headers=headers, expect_errors=True)
-            assert_equal(res.status, 303)
+            assert res.status == 303
             auth_url = res.header('location')
 
-        assert_in('https://test_auth_url_string?', auth_url)
+        assert 'https://test_auth_url_string?' in auth_url
         auth_url_parsed = urlparse(auth_url)
         auth_url_params = parse_qs(auth_url_parsed.query)
 
@@ -294,37 +303,39 @@ class TestVORestAPI(object):
         else:
             # Get the html response
             res = TestApp(auth_app.wsgifunc(*mw)).get('/oidc_code?state=%s&code=%s' % (auth_url_params['state'][0], code_response), headers=headers, expect_errors=True)
-            assert_equal(res.status, 200)
+            assert res.status == 200
             split_res = res.body.decode().split('\n')
             if polling:
+                ok_code = None
                 # Check the response is OK, then poll the original redirect_url for the token
                 for text in split_res:
                     ok_code = search('Rucio Client should now be able to fetch your token automatically.', text)
                     if ok_code:
                         ok_code = ok_code.group()
                         break
-                assert_is_not_none(ok_code)
+                assert ok_code is not None
                 res = TestApp(auth_app.wsgifunc(*mw)).get('/oidc_redirect?%s' % redirect_url_parsed.query, headers=headers, expect_errors=True)
             else:
+                fetch_code = None
                 # Get the fetch_code from the response, then submit it
                 for text in split_res:
                     fetch_code = search(r'<b>[a-zA-Z0-9]{50}</b>', text)
                     if fetch_code:
                         fetch_code = fetch_code.group()[3:53]
                         break
-                assert_is_not_none(fetch_code)
+                assert fetch_code is not None
                 res = TestApp(auth_app.wsgifunc(*mw)).get('/oidc_redirect?%s' % fetch_code, headers=headers, expect_errors=True)
 
         # Regardless of how we got it, check we have the token and that we only get results from our VO when using it
-        assert_equal(res.status, 200)
+        assert res.status == 200
         token = str(res.header('X-Rucio-Auth-Token'))
         headers = {'X-Rucio-Auth-Token': str(token)}
         res = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers, expect_errors=True)
-        assert_equal(res.status, 200)
+        assert res.status == 200
         accounts = [parse_response(a)['account'] for a in res.body.decode().split('\n')[:-1]]
-        assert_not_equal(len(accounts), 0)
-        assert_in(account_in, accounts)
-        assert_not_in(account_not_in, accounts)
+        assert len(accounts) != 0
+        assert account_in in accounts
+        assert account_not_in not in accounts
 
     @patch('rucio.core.oidc.__get_init_oidc_client')
     def test_auth_oidc(self, mock_oidc_client):
@@ -354,19 +365,19 @@ class TestVORestAPI(object):
 
         headers_tst = {'X-Rucio-Auth-Token': str(token_tst)}
         res_tst = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers_tst, expect_errors=True)
-        assert_equal(res_tst.status, 200)
+        assert res_tst.status == 200
         accounts_tst = [parse_response(a)['account'] for a in res_tst.body.decode().split('\n')[:-1]]
-        assert_not_equal(len(accounts_tst), 0)
-        assert_in(self.account_tst, accounts_tst)
-        assert_not_in(self.account_new, accounts_tst)
+        assert len(accounts_tst) != 0
+        assert self.account_tst in accounts_tst
+        assert self.account_new not in accounts_tst
 
         headers_new = {'X-Rucio-Auth-Token': str(token_new)}
         res_new = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers_new, expect_errors=True)
-        assert_equal(res_new.status, 200)
+        assert res_new.status == 200
         accounts_new = [parse_response(a)['account'] for a in res_new.body.decode().split('\n')[:-1]]
-        assert_not_equal(len(accounts_new), 0)
-        assert_in(self.account_new, accounts_new)
-        assert_not_in(self.account_tst, accounts_new)
+        assert len(accounts_new) != 0
+        assert self.account_new in accounts_new
+        assert self.account_tst not in accounts_new
 
     def test_auth_saml(self):
         """ MULTI VO (REST): Test saml authentication to multiple VOs """
@@ -384,19 +395,19 @@ class TestVORestAPI(object):
 
         headers_tst = {'X-Rucio-Auth-Token': str(token_tst)}
         res_tst = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers_tst, expect_errors=True)
-        assert_equal(res_tst.status, 200)
+        assert res_tst.status == 200
         accounts_tst = [parse_response(a)['account'] for a in res_tst.body.decode().split('\n')[:-1]]
-        assert_not_equal(len(accounts_tst), 0)
-        assert_in(self.account_tst, accounts_tst)
-        assert_not_in(self.account_new, accounts_tst)
+        assert len(accounts_tst) != 0
+        assert self.account_tst in accounts_tst
+        assert self.account_new not in accounts_tst
 
         headers_new = {'X-Rucio-Auth-Token': str(token_new)}
         res_new = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers_new, expect_errors=True)
-        assert_equal(res_new.status, 200)
+        assert res_new.status == 200
         accounts_new = [parse_response(a)['account'] for a in res_new.body.decode().split('\n')[:-1]]
-        assert_not_equal(len(accounts_new), 0)
-        assert_in(self.account_new, accounts_new)
-        assert_not_in(self.account_tst, accounts_new)
+        assert len(accounts_new) != 0
+        assert self.account_new in accounts_new
+        assert self.account_tst not in accounts_new
 
     def test_auth_ssh(self):
         """ MULTI VO (REST): Test ssh authentication to multiple VOs """
@@ -411,38 +422,38 @@ class TestVORestAPI(object):
         headers_tst = {'X-Rucio-Account': 'root'}
         headers_tst.update(self.vo_header)
         res_tst = TestApp(auth_app.wsgifunc(*mw)).get('/ssh_challenge_token', headers=headers_tst, expect_errors=True)
-        assert_equal(res_tst.status, 200)
+        assert res_tst.status == 200
         challenge_tst = str(res_tst.header('X-Rucio-SSH-Challenge-Token'))
         headers_tst.update({'X-Rucio-SSH-Signature': ssh_sign(PRIVATE_KEY, challenge_tst)})
         res_tst = TestApp(auth_app.wsgifunc(*mw)).get('/ssh', headers=headers_tst, expect_errors=True)
-        assert_equal(res_tst.status, 200)
+        assert res_tst.status == 200
         token_tst = str(res_tst.header('X-Rucio-Auth-Token'))
 
         headers_new = {'X-Rucio-Account': 'root'}
         headers_new.update(self.new_header)
         res_new = TestApp(auth_app.wsgifunc(*mw)).get('/ssh_challenge_token', headers=headers_new, expect_errors=True)
-        assert_equal(res_new.status, 200)
+        assert res_new.status == 200
         challenge_tst = str(res_new.header('X-Rucio-SSH-Challenge-Token'))
         headers_new.update({'X-Rucio-SSH-Signature': ssh_sign(PRIVATE_KEY, challenge_tst)})
         res_new = TestApp(auth_app.wsgifunc(*mw)).get('/ssh', headers=headers_new, expect_errors=True)
-        assert_equal(res_new.status, 200)
+        assert res_new.status == 200
         token_new = str(res_new.header('X-Rucio-Auth-Token'))
 
         headers_tst = {'X-Rucio-Auth-Token': str(token_tst)}
         res_tst = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers_tst, expect_errors=True)
-        assert_equal(res_tst.status, 200)
+        assert res_tst.status == 200
         accounts_tst = [parse_response(a)['account'] for a in res_tst.body.decode().split('\n')[:-1]]
-        assert_not_equal(len(accounts_tst), 0)
-        assert_in(self.account_tst, accounts_tst)
-        assert_not_in(self.account_new, accounts_tst)
+        assert len(accounts_tst) != 0
+        assert self.account_tst in accounts_tst
+        assert self.account_new not in accounts_tst
 
         headers_new = {'X-Rucio-Auth-Token': str(token_new)}
         res_new = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers_new, expect_errors=True)
-        assert_equal(res_new.status, 200)
+        assert res_new.status == 200
         accounts_new = [parse_response(a)['account'] for a in res_new.body.decode().split('\n')[:-1]]
-        assert_not_equal(len(accounts_new), 0)
-        assert_in(self.account_new, accounts_new)
-        assert_not_in(self.account_tst, accounts_new)
+        assert len(accounts_new) != 0
+        assert self.account_new in accounts_new
+        assert self.account_tst not in accounts_new
 
     def test_auth_userpass(self):
         """ MULTI VO (REST): Test userpass authentication to multiple VOs """
@@ -451,30 +462,30 @@ class TestVORestAPI(object):
         headers_tst = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
         headers_tst.update(self.vo_header)
         res_tst = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers_tst, expect_errors=True)
-        assert_equal(res_tst.status, 200)
+        assert res_tst.status == 200
         token_tst = str(res_tst.header('X-Rucio-Auth-Token'))
 
         headers_new = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
         headers_new.update(self.new_header)
         res_new = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers_new, expect_errors=True)
-        assert_equal(res_new.status, 200)
+        assert res_new.status == 200
         token_new = str(res_new.header('X-Rucio-Auth-Token'))
 
         headers_tst = {'X-Rucio-Auth-Token': str(token_tst)}
         res_tst = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers_tst, expect_errors=True)
-        assert_equal(res_tst.status, 200)
+        assert res_tst.status == 200
         accounts_tst = [parse_response(a)['account'] for a in res_tst.body.decode().split('\n')[:-1]]
-        assert_not_equal(len(accounts_tst), 0)
-        assert_in(self.account_tst, accounts_tst)
-        assert_not_in(self.account_new, accounts_tst)
+        assert len(accounts_tst) != 0
+        assert self.account_tst in accounts_tst
+        assert self.account_new not in accounts_tst
 
         headers_new = {'X-Rucio-Auth-Token': str(token_new)}
         res_new = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers_new, expect_errors=True)
-        assert_equal(res_new.status, 200)
+        assert res_new.status == 200
         accounts_new = [parse_response(a)['account'] for a in res_new.body.decode().split('\n')[:-1]]
-        assert_not_equal(len(accounts_new), 0)
-        assert_in(self.account_new, accounts_new)
-        assert_not_in(self.account_tst, accounts_new)
+        assert len(accounts_new) != 0
+        assert self.account_new in accounts_new
+        assert self.account_tst not in accounts_new
 
     def test_auth_x509(self):
         """ MULTI VO (REST): Test X509 authentication to multiple VOs """
@@ -486,19 +497,19 @@ class TestVORestAPI(object):
 
         headers_tst = {'X-Rucio-Auth-Token': str(token_tst)}
         res_tst = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers_tst, expect_errors=True)
-        assert_equal(res_tst.status, 200)
+        assert res_tst.status == 200
         accounts_tst = [parse_response(a)['account'] for a in res_tst.body.decode().split('\n')[:-1]]
-        assert_not_equal(len(accounts_tst), 0)
-        assert_in(self.account_tst, accounts_tst)
-        assert_not_in(self.account_new, accounts_tst)
+        assert len(accounts_tst) != 0
+        assert self.account_tst in accounts_tst
+        assert self.account_new not in accounts_tst
 
         headers_new = {'X-Rucio-Auth-Token': str(token_new)}
         res_new = TestApp(account_app.wsgifunc(*mw)).get('/', headers=headers_new, expect_errors=True)
-        assert_equal(res_new.status, 200)
+        assert res_new.status == 200
         accounts_new = [parse_response(a)['account'] for a in res_new.body.decode().split('\n')[:-1]]
-        assert_not_equal(len(accounts_new), 0)
-        assert_in(self.account_new, accounts_new)
-        assert_not_in(self.account_tst, accounts_new)
+        assert len(accounts_new) != 0
+        assert self.account_new in accounts_new
+        assert self.account_tst not in accounts_new
 
     def test_list_vos_success(self):
         """ MULTI VO (REST): Test list VOs through REST layer succeeds """
@@ -508,20 +519,20 @@ class TestVORestAPI(object):
         headers1.update(self.def_header)
         res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
 
-        assert_equal(res1.status, 200)
+        assert res1.status == 200
         token = str(res1.header('X-Rucio-Auth-Token'))
 
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         res2 = TestApp(vo_app.wsgifunc(*mw)).get('/', headers=headers2, expect_errors=True)
-        assert_equal(res2.status, 200)
+        assert res2.status == 200
         vo_dicts = [parse_response(r) for r in res2.body.decode().split('\n')[:-1]]
-        assert_not_equal(len(vo_dicts), 0)
+        assert len(vo_dicts) != 0
         for vo_dict in vo_dicts:
-            assert_is_not_none(vo_dict['vo'])
-            assert_is_not_none(vo_dict['email'])
-            assert_is_not_none(vo_dict['description'])
-            assert_is_not_none(vo_dict['created_at'])
-            assert_is_not_none(vo_dict['updated_at'])
+            assert vo_dict['vo'] is not None
+            assert vo_dict['email'] is not None
+            assert vo_dict['description'] is not None
+            assert vo_dict['created_at'] is not None
+            assert vo_dict['updated_at'] is not None
 
     def test_list_vos_denied(self):
         """ MULTI VO (REST): Test list VOs through REST layer raises AccessDenied """
@@ -531,12 +542,12 @@ class TestVORestAPI(object):
         headers1.update(self.vo_header)
         res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
 
-        assert_equal(res1.status, 200)
+        assert res1.status == 200
         token = str(res1.header('X-Rucio-Auth-Token'))
 
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         res2 = TestApp(vo_app.wsgifunc(*mw)).get('/', headers=headers2, expect_errors=True)
-        assert_equal(res2.status, 401)
+        assert res2.status == 401
 
     def test_list_vos_unsupported(self):
         """ MULTI VO (REST): Test list VOs through REST layer raises UnsupportedOperation """
@@ -546,19 +557,19 @@ class TestVORestAPI(object):
         headers1.update(self.def_header)
         res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
 
-        assert_equal(res1.status, 200)
+        assert res1.status == 200
         token = str(res1.header('X-Rucio-Auth-Token'))
 
         try:
             config_set('common', 'multi_vo', 'False')
             headers2 = {'X-Rucio-Auth-Token': str(token)}
             res2 = TestApp(vo_app.wsgifunc(*mw)).get('/', headers=headers2, expect_errors=True)
-            assert_equal(res2.status, 409)
+            assert res2.status == 409
 
             config_remove_option('common', 'multi_vo')
             headers2 = {'X-Rucio-Auth-Token': str(token)}
             res2 = TestApp(vo_app.wsgifunc(*mw)).get('/', headers=headers2, expect_errors=True)
-            assert_equal(res2.status, 409)
+            assert res2.status == 409
 
         finally:
             # Make sure we don't leave the config changed due to a test failure
@@ -575,13 +586,13 @@ class TestVORestAPI(object):
         headers1.update(self.vo_header)
         res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
 
-        assert_equal(res1.status, 200)
+        assert res1.status == 200
         token = str(res1.header('X-Rucio-Auth-Token'))
 
         params = {'email': 'rucio@email.com', 'decription': 'Try adding with root'}
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         res2 = TestApp(vo_app.wsgifunc(*mw)).post('/' + self.vo['vo'], headers=headers2, expect_errors=True, params=dumps(params))
-        assert_equal(res2.status, 401)
+        assert res2.status == 401
 
     def test_add_vo_unsupported(self):
         """ MULTI VO (REST): Test adding VO through REST layer raises UnsupportedOperation """
@@ -591,7 +602,7 @@ class TestVORestAPI(object):
         headers1.update(self.def_header)
         res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
 
-        assert_equal(res1.status, 200)
+        assert res1.status == 200
         token = str(res1.header('X-Rucio-Auth-Token'))
 
         params = {'email': 'rucio@email.com', 'decription': 'Try adding in single vo mode'}
@@ -599,12 +610,12 @@ class TestVORestAPI(object):
             config_set('common', 'multi_vo', 'False')
             headers2 = {'X-Rucio-Auth-Token': str(token)}
             res2 = TestApp(vo_app.wsgifunc(*mw)).post('/' + self.vo['vo'], headers=headers2, expect_errors=True, params=dumps(params))
-            assert_equal(res2.status, 409)
+            assert res2.status == 409
 
             config_remove_option('common', 'multi_vo')
             headers2 = {'X-Rucio-Auth-Token': str(token)}
             res2 = TestApp(vo_app.wsgifunc(*mw)).post('/' + self.vo['vo'], headers=headers2, expect_errors=True, params=dumps(params))
-            assert_equal(res2.status, 409)
+            assert res2.status == 409
 
         finally:
             # Make sure we don't leave the config changed due to a test failure
@@ -621,13 +632,13 @@ class TestVORestAPI(object):
         headers1.update(self.def_header)
         res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
 
-        assert_equal(res1.status, 200)
+        assert res1.status == 200
         token = str(res1.header('X-Rucio-Auth-Token'))
 
         params = {'email': 'rucio@email.com', 'decription': 'Try adding duplicate'}
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         res2 = TestApp(vo_app.wsgifunc(*mw)).post('/' + self.vo['vo'], headers=headers2, expect_errors=True, params=dumps(params))
-        assert_equal(res2.status, 409)
+        assert res2.status == 409
 
     def test_update_vo_success(self):
         """ MULTI VO (REST): Test updating VO through REST layer succeeds """
@@ -637,21 +648,21 @@ class TestVORestAPI(object):
         headers1.update(self.def_header)
         res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
 
-        assert_equal(res1.status, 200)
+        assert res1.status == 200
         token = str(res1.header('X-Rucio-Auth-Token'))
 
         params = {'email': generate_uuid(), 'description': generate_uuid()}
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         res2 = TestApp(vo_app.wsgifunc(*mw)).put('/' + self.vo['vo'], headers=headers2, expect_errors=True, params=dumps(params))
-        assert_equal(res2.status, 200)
+        assert res2.status == 200
 
         vo_update_success = False
         for v in vo_api.list_vos('super_root', 'def'):
             if v['vo'] == self.vo['vo']:
-                assert_equal(params['email'], v['email'])
-                assert_equal(params['description'], v['description'])
+                assert params['email'] == v['email']
+                assert params['description'] == v['description']
                 vo_update_success = True
-        assert_true(vo_update_success)
+        assert vo_update_success
 
     def test_update_vo_denied(self):
         """ MULTI VO (REST): Test updating VO through REST layer raises AccessDenied """
@@ -661,13 +672,13 @@ class TestVORestAPI(object):
         headers1.update(self.vo_header)
         res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
 
-        assert_equal(res1.status, 200)
+        assert res1.status == 200
         token = str(res1.header('X-Rucio-Auth-Token'))
 
         params = {'email': 'rucio@email.com', 'decription': 'Try updating with root'}
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         res2 = TestApp(vo_app.wsgifunc(*mw)).put('/' + self.vo['vo'], headers=headers2, expect_errors=True, params=dumps(params))
-        assert_equal(res2.status, 401)
+        assert res2.status == 401
 
     def test_update_vo_unsupported(self):
         """ MULTI VO (REST): Test updating VO through REST layer raises UnsupportedOperation """
@@ -677,7 +688,7 @@ class TestVORestAPI(object):
         headers1.update(self.def_header)
         res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
 
-        assert_equal(res1.status, 200)
+        assert res1.status == 200
         token = str(res1.header('X-Rucio-Auth-Token'))
 
         params = {'email': 'rucio@email.com', 'decription': 'Try updating in single vo mode'}
@@ -685,12 +696,12 @@ class TestVORestAPI(object):
             config_set('common', 'multi_vo', 'False')
             headers2 = {'X-Rucio-Auth-Token': str(token)}
             res2 = TestApp(vo_app.wsgifunc(*mw)).put('/' + self.vo['vo'], headers=headers2, expect_errors=True, params=dumps(params))
-            assert_equal(res2.status, 409)
+            assert res2.status == 409
 
             config_remove_option('common', 'multi_vo')
             headers2 = {'X-Rucio-Auth-Token': str(token)}
             res2 = TestApp(vo_app.wsgifunc(*mw)).put('/' + self.vo['vo'], headers=headers2, expect_errors=True, params=dumps(params))
-            assert_equal(res2.status, 409)
+            assert res2.status == 409
 
         finally:
             # Make sure we don't leave the config changed due to a test failure
@@ -707,13 +718,13 @@ class TestVORestAPI(object):
         headers1.update(self.def_header)
         res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
 
-        assert_equal(res1.status, 200)
+        assert res1.status == 200
         token = str(res1.header('X-Rucio-Auth-Token'))
 
         params = {'email': 'rucio@email.com', 'decription': 'Try updating non-existent'}
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         res2 = TestApp(vo_app.wsgifunc(*mw)).put('/000', headers=headers2, expect_errors=True, params=dumps(params))
-        assert_equal(res2.status, 404)
+        assert res2.status == 404
 
     def test_recover_vo_success(self):
         """ MULTI VO (REST): Test recovering VO through REST layer succeeds """
@@ -723,16 +734,16 @@ class TestVORestAPI(object):
         headers1.update(self.def_header)
         res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
 
-        assert_equal(res1.status, 200)
+        assert res1.status == 200
         token = str(res1.header('X-Rucio-Auth-Token'))
 
         identity_key = ''.join(choice(ascii_lowercase) for x in range(10))
         params = {'identity': identity_key, 'authtype': 'userpass', 'email': 'rucio@email.com', 'password': 'password'}
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         res2 = TestApp(vo_app.wsgifunc(*mw)).post('/' + self.vo['vo'] + '/recover', headers=headers2, expect_errors=True, params=dumps(params))
-        assert_equal(res2.status, 201)
+        assert res2.status == 201
 
-        assert_in('root', list_accounts_for_identity(identity_key=identity_key, id_type='userpass'))
+        assert 'root' in list_accounts_for_identity(identity_key=identity_key, id_type='userpass')
 
     def test_recover_vo_denied(self):
         """ MULTI VO (REST): Test recovering VO through REST layer raises AccessDenied """
@@ -742,17 +753,17 @@ class TestVORestAPI(object):
         headers1.update(self.vo_header)
         res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
 
-        assert_equal(res1.status, 200)
+        assert res1.status == 200
         token = str(res1.header('X-Rucio-Auth-Token'))
 
         identity_key = ''.join(choice(ascii_lowercase) for x in range(10))
         params = {'identity': identity_key, 'authtype': 'userpass', 'email': 'rucio@email.com', 'password': 'password'}
         headers2 = {'X-Rucio-Auth-Token': str(token)}
         res2 = TestApp(vo_app.wsgifunc(*mw)).post('/' + self.vo['vo'] + '/recover', headers=headers2, expect_errors=True, params=dumps(params))
-        assert_equal(res2.status, 401)
+        assert res2.status == 401
 
 
-class TestMultiVoClients(object):
+class TestMultiVoClients(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -773,8 +784,8 @@ class TestMultiVoClients(object):
         client = Client(vo=None)
         upload_client = UploadClient(_client=client)
         # Check the vo has been got from the config file
-        assert_equal(replica_client.vo, self.vo['vo'])
-        assert_equal(upload_client.client.vo, self.vo['vo'])
+        assert replica_client.vo == self.vo['vo']
+        assert upload_client.client.vo == self.vo['vo']
 
     def test_accounts_at_different_vos(self):
         """ MULTI VO (CLIENT): Test that accounts from 2nd vo don't interfere """
@@ -789,12 +800,12 @@ class TestMultiVoClients(object):
         add_account(shr, 'USER', 'rucio@email.com', 'root', **self.new_vo)
         account_list_tst = [a['account'] for a in account_client.list_accounts()]
         account_list_new = [a['account'] for a in list_accounts(filter={}, **self.new_vo)]
-        assert_true(tst in account_list_tst)
-        assert_false(new in account_list_tst)
-        assert_true(shr in account_list_tst)
-        assert_false(tst in account_list_new)
-        assert_true(new in account_list_new)
-        assert_true(shr in account_list_new)
+        assert tst in account_list_tst
+        assert new not in account_list_tst
+        assert shr in account_list_tst
+        assert tst not in account_list_new
+        assert new in account_list_new
+        assert shr in account_list_new
 
     def test_dids_at_different_vos(self):
         """ MULTI VO (CLIENT): Test that dids from 2nd vo don't interfere """
@@ -813,12 +824,12 @@ class TestMultiVoClients(object):
         add_did(scope, shr, 'DATASET', 'root', **self.new_vo)
         did_list_tst = list(did_client.list_dids(scope, {}))
         did_list_new = list(list_dids(scope, {}, **self.new_vo))
-        assert_true(tst in did_list_tst)
-        assert_false(new in did_list_tst)
-        assert_true(shr in did_list_tst)
-        assert_false(tst in did_list_new)
-        assert_true(new in did_list_new)
-        assert_true(shr in did_list_new)
+        assert tst in did_list_tst
+        assert new not in did_list_tst
+        assert shr in did_list_tst
+        assert tst not in did_list_new
+        assert new in did_list_new
+        assert shr in did_list_new
 
     def test_rses_at_different_vos(self):
         """ MULTI VO (CLIENT): Test that RSEs from 2nd vo don't interfere """
@@ -836,18 +847,18 @@ class TestMultiVoClients(object):
         # Check the cached rse-id from each VO does not interfere
         shr_id_tst = get_rse_id(shr, **self.vo)
         shr_id_new = get_rse_id(shr, **self.new_vo)
-        assert_equal(shr_id_new, shr_id_new_original)
-        assert_not_equal(shr_id_new, shr_id_tst)
+        assert shr_id_new == shr_id_new_original
+        assert shr_id_new != shr_id_tst
 
         # Check that when listing RSEs we only get RSEs for our VO
         rse_list_tst = [r['rse'] for r in rse_client.list_rses()]
         rse_list_new = [r['rse'] for r in list_rses(filters={}, **self.new_vo)]
-        assert_true(tst in rse_list_tst)
-        assert_false(new in rse_list_tst)
-        assert_true(shr in rse_list_tst)
-        assert_false(tst in rse_list_new)
-        assert_true(new in rse_list_new)
-        assert_true(shr in rse_list_new)
+        assert tst in rse_list_tst
+        assert new not in rse_list_tst
+        assert shr in rse_list_tst
+        assert tst not in rse_list_new
+        assert new in rse_list_new
+        assert shr in rse_list_new
 
         # Check the cached attribute-value results do not interfere and only give results from the appropriate VO
         attribute_value = generate_uuid()
@@ -856,23 +867,23 @@ class TestMultiVoClients(object):
         rses_new_1 = list(get_rses_with_attribute_value('test', attribute_value, 'test', **self.new_vo))
         rses_tst_2 = list(get_rses_with_attribute_value('test', attribute_value, 'test', **self.vo))
         rses_new_2 = list(get_rses_with_attribute_value('test', attribute_value, 'test', **self.new_vo))
-        assert_equal(len(rses_tst_1), 0)
-        assert_not_equal(len(rses_new_1), 0)
-        assert_equal(len(rses_tst_2), 0)
-        assert_not_equal(len(rses_new_2), 0)
+        assert len(rses_tst_1) == 0
+        assert len(rses_new_1) != 0
+        assert len(rses_tst_2) == 0
+        assert len(rses_new_2) != 0
 
         # check parse_expression
         rses_tst_3 = parse_expression(shr, filter={'vo': self.vo['vo']})
         rses_tst_4 = parse_expression(tst, filter={'vo': self.vo['vo']})
         rses_new_3 = parse_expression(shr, filter={'vo': self.new_vo['vo']})
-        with assert_raises(InvalidRSEExpression):
+        with pytest.raises(InvalidRSEExpression):
             parse_expression(tst, filter={'vo': self.new_vo['vo']})
-        assert_equal(len(rses_tst_3), 1)
-        assert_equal(shr_id_tst, rses_tst_3[0]['id'])
-        assert_equal(len(rses_tst_4), 1)
-        assert_equal(tst, rses_tst_4[0]['rse'])
-        assert_equal(len(rses_new_3), 1)
-        assert_equal(shr_id_new, rses_new_3[0]['id'])
+        assert len(rses_tst_3) == 1
+        assert shr_id_tst == rses_tst_3[0]['id']
+        assert len(rses_tst_4) == 1
+        assert tst == rses_tst_4[0]['rse']
+        assert len(rses_new_3) == 1
+        assert shr_id_new == rses_new_3[0]['id']
 
     def test_scopes_at_different_vos(self):
         """ MULTI VO (CLIENT): Test that scopes from 2nd vo don't interfere """
@@ -887,12 +898,12 @@ class TestMultiVoClients(object):
         add_scope(shr, 'root', 'root', **self.new_vo)
         scope_list_tst = list(scope_client.list_scopes())
         scope_list_new = list(list_scopes(filter={}, **self.new_vo))
-        assert_true(tst in scope_list_tst)
-        assert_false(new in scope_list_tst)
-        assert_true(shr in scope_list_tst)
-        assert_false(tst in scope_list_new)
-        assert_true(new in scope_list_new)
-        assert_true(shr in scope_list_new)
+        assert tst in scope_list_tst
+        assert new not in scope_list_tst
+        assert shr in scope_list_tst
+        assert tst not in scope_list_new
+        assert new in scope_list_new
+        assert shr in scope_list_new
 
     def test_subscriptions_at_different_vos(self):
         """ MULTI VO (CLIENT): Test that subscriptions from 2nd vo don't interfere """
@@ -958,36 +969,36 @@ class TestMultiVoClients(object):
                                           '', False, 0, 0, 3, 'root', **self.new_vo)
 
         tst_subs = [s['id'] for s in sub_client.list_subscriptions()]
-        assert_in(tst_sub_id, tst_subs)
-        assert_in(shr_tst_sub_id, tst_subs)
-        assert_not_in(new_sub_id, tst_subs)
-        assert_not_in(shr_new_sub_id, tst_subs)
+        assert tst_sub_id in tst_subs
+        assert shr_tst_sub_id in tst_subs
+        assert new_sub_id not in tst_subs
+        assert shr_new_sub_id not in tst_subs
 
         new_subs = [s['id'] for s in list_subscriptions(**self.new_vo)]
-        assert_in(new_sub_id, new_subs)
-        assert_in(shr_new_sub_id, new_subs)
-        assert_not_in(tst_sub_id, new_subs)
-        assert_not_in(shr_tst_sub_id, new_subs)
+        assert new_sub_id in new_subs
+        assert shr_new_sub_id in new_subs
+        assert tst_sub_id not in new_subs
+        assert shr_tst_sub_id not in new_subs
 
         shr_tst_subs = [s['id'] for s in sub_client.list_subscriptions(name=shr_sub)]
-        assert_in(shr_tst_sub_id, shr_tst_subs)
-        assert_not_in(shr_new_sub_id, shr_tst_subs)
+        assert shr_tst_sub_id in shr_tst_subs
+        assert shr_new_sub_id not in shr_tst_subs
 
         shr_new_subs = [s['id'] for s in list_subscriptions(name=shr_sub, **self.new_vo)]
-        assert_in(shr_new_sub_id, shr_new_subs)
-        assert_not_in(shr_tst_sub_id, shr_new_subs)
+        assert shr_new_sub_id in shr_new_subs
+        assert shr_tst_sub_id not in shr_new_subs
 
         acc_tst_subs = [s['id'] for s in sub_client.list_subscriptions(account=shr_acc)]
-        assert_in(tst_sub_id, acc_tst_subs)
-        assert_in(shr_tst_sub_id, acc_tst_subs)
-        assert_not_in(new_sub_id, acc_tst_subs)
-        assert_not_in(shr_new_sub_id, acc_tst_subs)
+        assert tst_sub_id in acc_tst_subs
+        assert shr_tst_sub_id in acc_tst_subs
+        assert new_sub_id not in acc_tst_subs
+        assert shr_new_sub_id not in acc_tst_subs
 
         acc_new_subs = [s['id'] for s in list_subscriptions(account=shr_acc, **self.new_vo)]
-        assert_in(new_sub_id, acc_new_subs)
-        assert_in(shr_new_sub_id, acc_new_subs)
-        assert_not_in(tst_sub_id, acc_new_subs)
-        assert_not_in(shr_tst_sub_id, acc_new_subs)
+        assert new_sub_id in acc_new_subs
+        assert shr_new_sub_id in acc_new_subs
+        assert tst_sub_id not in acc_new_subs
+        assert shr_tst_sub_id not in acc_new_subs
 
     def test_account_counters_at_different_vos(self):
         """ MULTI VO (CLIENT): Test that account counters from 2nd vo don't interfere """
@@ -1013,11 +1024,11 @@ class TestMultiVoClients(object):
             filter_by(account=new_acc)
         acc_counters = list(query.all())
 
-        assert_not_equal(0, len(acc_counters))
+        assert 0 != len(acc_counters)
         for counter in acc_counters:
             rse_id = counter[1]
             vo = get_rse_vo(rse_id)
-            assert_equal(vo, self.new_vo['vo'])
+            assert vo == self.new_vo['vo']
 
         # add an RSE - should have counters created for accounts on the same VO
         new_rse2 = 'NEW2_' + rse_str
@@ -1028,15 +1039,15 @@ class TestMultiVoClients(object):
             filter_by(rse_id=new_rse2_id)
         rse_counters = list(query.all())
 
-        assert_not_equal(0, len(rse_counters))
+        assert 0 != len(rse_counters)
         for counter in rse_counters:
             account = counter[0]
-            assert_equal(account.vo, self.new_vo['vo'])
+            assert account.vo == self.new_vo['vo']
 
         session.commit()
 
 
-class TestMultiVOBinRucio():
+class TestMultiVOBinRucio(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -1081,29 +1092,29 @@ class TestMultiVOBinRucio():
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, )
-        assert_in(self.rse_tst, out)
-        assert_not_in(self.rse_new, out)
+        assert self.rse_tst in out
+        assert self.rse_new not in out
 
         cmd = 'rucio-admin --vo %s rse list' % self.new_vo['vo']
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, )
-        assert_not_in(self.rse_tst, out)
-        assert_in(self.rse_new, out)
+        assert self.rse_tst not in out
+        assert self.rse_new in out
 
         cmd = 'rucio-admin --vo %s rse list' % self.fake_vo['vo']
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        assert_equal(len(out), 0)
-        assert_in('cannot get auth_token', err)
+        assert len(out) == 0
+        assert 'cannot get auth_token' in err
 
         cmd = 'rucio-admin rse list'
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, )
-        assert_in(self.rse_tst, out)
-        assert_not_in(self.rse_new, out)
+        assert self.rse_tst in out
+        assert self.rse_new not in out
 
     def test_vo_option_cli(self):
         """ MULTI VO (USER): Test authentication to multiple VOs via the CLI """
@@ -1111,32 +1122,32 @@ class TestMultiVOBinRucio():
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, )
-        assert_in(self.rse_tst, out)
-        assert_not_in(self.rse_new, out)
+        assert self.rse_tst in out
+        assert self.rse_new not in out
 
         cmd = 'rucio --vo %s list-rses' % self.new_vo['vo']
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, )
-        assert_not_in(self.rse_tst, out)
-        assert_in(self.rse_new, out)
+        assert self.rse_tst not in out
+        assert self.rse_new in out
 
         cmd = 'rucio --vo %s list-rses' % self.fake_vo['vo']
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        assert_equal(len(out), 0)
-        assert_in('cannot get auth_token', err)
+        assert len(out) == 0
+        assert 'cannot get auth_token' in err
 
         cmd = 'rucio list-rses'
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, )
-        assert_in(self.rse_tst, out)
-        assert_not_in(self.rse_new, out)
+        assert self.rse_tst in out
+        assert self.rse_new not in out
 
 
-class TestMultiVODaemons(object):
+class TestMultiVODaemons(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -1184,11 +1195,11 @@ class TestMultiVODaemons(object):
 
         did_list_tst = list(DIDClient().list_dids(shr_scope, {}))
         did_list_new = list(list_dids(shr_scope, {}, **self.new_vo))
-        assert_not_equal(len(did_list_tst), 0)
-        assert_equal(len(did_list_new), 0)
+        assert len(did_list_tst) != 0
+        assert len(did_list_new) == 0
 
         did_dicts = [{'scope': shr_scope, 'name': n} for n in did_list_tst]
         replicas_tst = list(ReplicaClient().list_replicas(did_dicts, rse_expression=shr_rse))
         replicas_new = list(list_replicas(did_dicts, rse_expression=shr_rse, **self.new_vo))
-        assert_not_equal(len(replicas_tst), 0)
-        assert_equal(len(replicas_new), 0)
+        assert len(replicas_tst) != 0
+        assert len(replicas_new) == 0

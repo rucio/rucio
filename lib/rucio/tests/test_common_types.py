@@ -1,4 +1,4 @@
-# Copyright 2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2019-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,16 +15,18 @@
 # Authors:
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+
+import unittest
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalScope, InternalAccount, InternalType
-import nose.tools
 
 
-class TestInternalType(object):
+class TestInternalType(unittest.TestCase):
     ''' Test the base InternalType class '''
 
-    def setup(self):
+    def setUp(self):
         ''' INTERNAL TYPES: Setup the tests '''
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
@@ -41,24 +43,24 @@ class TestInternalType(object):
     def test_equality(self):
         ''' INTERNAL TYPES: Equality '''
         equal = self.base == self.same
-        nose.tools.assert_true(equal)
+        assert equal
 
         identical = self.base is self.same
-        nose.tools.assert_true(not identical)
+        assert not identical
 
         different = self.base != self.diff
-        nose.tools.assert_true(different)
+        assert different
 
         equal = (self.base.internal == self.same.internal) \
             & (self.base.external == self.same.external)
-        nose.tools.assert_true(equal)
+        assert equal
 
         different = (self.base.internal != self.diff.internal) \
             & (self.base.external != self.diff.external)
-        nose.tools.assert_true(different)
+        assert different
 
         different = self.base_account != self.base_scope
-        nose.tools.assert_true(different)
+        assert different
 
     def test_conversion(self):
         ''' INTERNAL TYPES: Conversion '''
@@ -66,10 +68,10 @@ class TestInternalType(object):
         from_internal = InternalType(internal, fromExternal=False)
 
         equal = self.base == from_internal
-        nose.tools.assert_true(equal)
+        assert equal
 
     def test_str_rep(self):
         ''' INTERNAL TYPES: Representation '''
         base_str = '%s' % self.base
         equal = base_str == self.base.external
-        nose.tools.assert_true(equal)
+        assert equal

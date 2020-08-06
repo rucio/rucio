@@ -1,4 +1,4 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2014-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,10 +16,9 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2014
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
-
-from nose.tools import assert_equal
 
 from rucio.tests.common import execute
 
@@ -33,10 +32,10 @@ class TestAlembicMigration():
         exitcode, out, err = execute(cmd)
         print(cmd)
         print(exitcode, out, err)
-        assert_equal(exitcode, 0)
+        assert exitcode == 0
 
         cmd = 'alembic upgrade head'
         exitcode, out, err = execute(cmd)
         print(cmd)
         print(exitcode, out, err)
-        assert_equal(exitcode, 0)
+        assert exitcode == 0

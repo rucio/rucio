@@ -1,33 +1,46 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Ralph Vigne, <ralph.vigne@cern.ch>, 2012
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2013
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2014
+# - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012
+# - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
-import shutil
-import tempfile
-from uuid import uuid4 as uuid
 import json
 import os
+import shutil
+import tempfile
+import unittest
+from uuid import uuid4 as uuid
+
 import pysftp
+import pytest
 
-
-from nose.tools import raises
 from rucio.common import exception
 from rucio.rse import rsemanager as mgr
 from rucio.tests.rsemgr_api_test import MgrTestCases
 
 
-class TestRseSFTP(object):
+class TestRseSFTP(unittest.TestCase):
     tmpdir = None
     user = None
 
     @classmethod
-    def setupClass(cls):
+    def setUpClass(cls):
         """SFTP (RSE/PROTOCOLS): Creating necessary directories and files """
         # Creating local files
         cls.tmpdir = tempfile.mkdtemp()
@@ -71,7 +84,7 @@ class TestRseSFTP(object):
         lxplus.close()
         shutil.rmtree(cls.tmpdir)
 
-    def setup(self):
+    def setUp(self):
         """SFTP (RSE/PROTOCOLS): Creating Mgr-instance """
         self.tmpdir = TestRseSFTP.tmpdir
         self.static_file = TestRseSFTP.static_file
@@ -90,17 +103,17 @@ class TestRseSFTP(object):
         """SFTP (RSE/PROTOCOLS): Get a single file from storage providing PFN (Success)"""
         self.mtc.test_get_mgr_ok_single_pfn()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_multi(self):
         """SFTP (RSE/PROTOCOLS): Get multiple files from storage providing LFNs and PFNs (SourceNotFound)"""
         self.mtc.test_get_mgr_SourceNotFound_multi()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_single_lfn(self):
         """SFTP (RSE/PROTOCOLS): Get a single file from storage providing LFN (SourceNotFound)"""
         self.mtc.test_get_mgr_SourceNotFound_single_lfn()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_single_pfn(self):
         """SFTP (RSE/PROTOCOLS): Get a single file from storage providing PFN (SourceNotFound)"""
         self.mtc.test_get_mgr_SourceNotFound_single_pfn()
@@ -114,22 +127,22 @@ class TestRseSFTP(object):
         """SFTP (RSE/PROTOCOLS): Put a single file to storage (Success)"""
         self.mtc.test_put_mgr_ok_single()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_put_mgr_SourceNotFound_multi(self):
         """SFTP (RSE/PROTOCOLS): Put multiple files to storage (SourceNotFound)"""
         self.mtc.test_put_mgr_SourceNotFound_multi()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_put_mgr_SourceNotFound_single(self):
         """SFTP (RSE/PROTOCOLS): Put a single file to storage (SourceNotFound)"""
         self.mtc.test_put_mgr_SourceNotFound_single()
 
-    @raises(exception.FileReplicaAlreadyExists)
+    @pytest.mark.xfail(raises=exception.FileReplicaAlreadyExists)
     def test_put_mgr_FileReplicaAlreadyExists_multi(self):
         """SFTP (RSE/PROTOCOLS): Put multiple files to storage (FileReplicaAlreadyExists)"""
         self.mtc.test_put_mgr_FileReplicaAlreadyExists_multi()
 
-    @raises(exception.FileReplicaAlreadyExists)
+    @pytest.mark.xfail(raises=exception.FileReplicaAlreadyExists)
     def test_put_mgr_FileReplicaAlreadyExists_single(self):
         """SFTP (RSE/PROTOCOLS): Put a single file to storage (FileReplicaAlreadyExists)"""
         self.mtc.test_put_mgr_FileReplicaAlreadyExists_single()
@@ -143,12 +156,12 @@ class TestRseSFTP(object):
         """SFTP (RSE/PROTOCOLS): Delete a single file from storage (Success)"""
         self.mtc.test_delete_mgr_ok_single()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_delete_mgr_SourceNotFound_multi(self):
         """SFTP (RSE/PROTOCOLS): Delete multiple files from storage (SourceNotFound)"""
         self.mtc.test_delete_mgr_SourceNotFound_multi()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_delete_mgr_SourceNotFound_single(self):
         """SFTP (RSE/PROTOCOLS): Delete a single file from storage (SourceNotFound)"""
         self.mtc.test_delete_mgr_SourceNotFound_single()
@@ -191,32 +204,32 @@ class TestRseSFTP(object):
         """SFTP (RSE/PROTOCOLS): Rename a single file on storage using PFN (Success)"""
         self.mtc.test_rename_mgr_ok_single_pfn()
 
-    @raises(exception.FileReplicaAlreadyExists)
+    @pytest.mark.xfail(raises=exception.FileReplicaAlreadyExists)
     def test_rename_mgr_FileReplicaAlreadyExists_multi(self):
         """SFTP (RSE/PROTOCOLS): Rename multiple files on storage (FileReplicaAlreadyExists)"""
         self.mtc.test_rename_mgr_FileReplicaAlreadyExists_multi()
 
-    @raises(exception.FileReplicaAlreadyExists)
+    @pytest.mark.xfail(raises=exception.FileReplicaAlreadyExists)
     def test_rename_mgr_FileReplicaAlreadyExists_single_lfn(self):
         """SFTP (RSE/PROTOCOLS): Rename a single file on storage using LFN (FileReplicaAlreadyExists)"""
         self.mtc.test_rename_mgr_FileReplicaAlreadyExists_single_lfn()
 
-    @raises(exception.FileReplicaAlreadyExists)
+    @pytest.mark.xfail(raises=exception.FileReplicaAlreadyExists)
     def test_rename_mgr_FileReplicaAlreadyExists_single_pfn(self):
         """SFTP (RSE/PROTOCOLS): Rename a single file on storage using PFN (FileReplicaAlreadyExists)"""
         self.mtc.test_rename_mgr_FileReplicaAlreadyExists_single_pfn()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_rename_mgr_SourceNotFound_multi(self):
         """SFTP (RSE/PROTOCOLS): Rename multiple files on storage (SourceNotFound)"""
         self.mtc.test_rename_mgr_SourceNotFound_multi()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_rename_mgr_SourceNotFound_single_lfn(self):
         """SFTP (RSE/PROTOCOLS): Rename a single file on storage using LFN (SourceNotFound)"""
         self.mtc.test_rename_mgr_SourceNotFound_single_lfn()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_rename_mgr_SourceNotFound_single_pfn(self):
         """SFTP (RSE/PROTOCOLS): Rename a single file on storage using PFN (SourceNotFound)"""
         self.mtc.test_rename_mgr_SourceNotFound_single_pfn()

@@ -1,58 +1,70 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2015
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2014, 2017
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2019
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2019
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
-# - Robert Illingworth, <illingwo@fnal.gov>, 2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2015-2019
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Robert Illingworth <illingwo@fnal.gov>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
-# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
-from logging import getLogger
-import string
-import random
 import json
+import random
+import string
+import unittest
+from logging import getLogger
 
-from nose.tools import assert_is_instance, assert_in, assert_not_in, assert_raises, assert_equal
+import pytest
 
 import rucio.api.rule
-
 from rucio.api.account import add_account
 from rucio.client.accountclient import AccountClient
-from rucio.client.lockclient import LockClient
 from rucio.client.didclient import DIDClient
+from rucio.client.lockclient import LockClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.utils import generate_uuid as uuid
-from rucio.common.exception import (RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEBlacklisted, RSEOverQuota,
-                                    RuleReplaceFailed, ManualRuleApprovalBlocked, InputValidationError, UnsupportedOperation)
-from rucio.common.types import InternalAccount, InternalScope
-from rucio.daemons.judge.evaluator import re_evaluator
+from rucio.common.exception import (RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEBlacklisted,
+                                    RSEOverQuota,
+                                    RuleReplaceFailed, ManualRuleApprovalBlocked, InputValidationError,
+                                    UnsupportedOperation)
 from rucio.common.policy import get_policy
-from rucio.core.did import add_did, attach_dids, set_status
-from rucio.core.lock import get_replica_locks, get_dataset_locks, successful_transfer
+from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account_attribute, get_usage
 from rucio.core.account_limit import set_local_account_limit, set_global_account_limit
-from rucio.core.request import get_request_by_did
+from rucio.core.did import add_did, attach_dids, set_status
+from rucio.core.lock import get_replica_locks, get_dataset_locks, successful_transfer
 from rucio.core.replica import add_replica, get_replica
+from rucio.core.request import get_request_by_did
 from rucio.core.rse import add_rse_attribute, add_rse, update_rse, get_rse_id, del_rse_attribute, set_rse_limits
 from rucio.core.rse_counter import get_counter as get_rse_counter
 from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_rule, reduce_rule, move_rule, list_rules
 from rucio.core.scope import add_scope
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.abacus.rse import rse_update
+from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.db.sqla import models, session
 from rucio.db.sqla.constants import DIDType, OBSOLETE, RuleState, LockState
 from rucio.db.sqla.session import transactional_session
@@ -124,7 +136,7 @@ def check_rule_progress_callback(scope, name, progress, rule_id, session=None):
     return False
 
 
-class TestReplicationRuleCore():
+class TestReplicationRuleCore(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -188,7 +200,7 @@ class TestReplicationRuleCore():
         for file in files:
             rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'])])
             assert(len(t1.intersection(rse_locks)) > 0)
-            assert_not_in(self.rse4_id, rse_locks)
+            assert self.rse4_id not in rse_locks
 
     def test_add_rule_dataset_none(self):
         """ REPLICATION RULE (CORE): Add a replication rule on a dataset, NONE Grouping"""
@@ -209,7 +221,7 @@ class TestReplicationRuleCore():
         for file in files:
             rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'])])
             assert(len(t1.intersection(rse_locks)) == 2)
-            assert_not_in(self.rse4_id, rse_locks)
+            assert self.rse4_id not in rse_locks
 
     def test_add_rule_duplicate(self):
         """ REPLICATION RULE (CORE): Add a replication rule duplicate"""
@@ -223,7 +235,7 @@ class TestReplicationRuleCore():
         add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         # Add a second rule and check if the right locks are created
-        assert_raises(DuplicateRule, add_rule, dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
+        pytest.raises(DuplicateRule, add_rule, dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
 
     def test_add_rules_datasets_none(self):
         """ REPLICATION RULE (CORE): Add replication rules to multiple datasets, NONE Grouping"""
@@ -283,8 +295,8 @@ class TestReplicationRuleCore():
         add_rule(dids=[{'scope': scope, 'name': container}], account=self.jdoe, copies=1, rse_expression=self.T2, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
         for file in all_files:
             rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'])])
-            assert_in(self.rse4_id, rse_locks)
-            assert_not_in(self.rse5_id, rse_locks)
+            assert self.rse4_id in rse_locks
+            assert self.rse5_id not in rse_locks
 
     def test_add_rule_dataset_all(self):
         """ REPLICATION RULE (CORE): Add a replication rule on a dataset, ALL Grouping"""
@@ -417,7 +429,7 @@ class TestReplicationRuleCore():
         for file in files:
             rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'])])
             assert(len(t1.intersection(rse_locks)) == 2)
-            assert_in(self.rse1_id, rse_locks)
+            assert self.rse1_id in rse_locks
 
     def test_add_rule_container_dataset_with_weights(self):
         """ REPLICATION RULE (CORE): Add a replication rule on a container, DATASET Grouping, WEIGHTS"""
@@ -446,7 +458,7 @@ class TestReplicationRuleCore():
                 rse_locks = set([lock['rse_id'] for lock in get_replica_locks(scope=file['scope'], name=file['name'])])
                 assert(len(t1.intersection(rse_locks)) == 2)
                 assert(len(first_locks.intersection(rse_locks)) == 2)
-                assert_in(self.rse1_id, rse_locks)
+                assert self.rse1_id in rse_locks
 
     def test_get_rule(self):
         """ REPLICATION RULE (CORE): Test to get a previously created rule"""
@@ -458,7 +470,7 @@ class TestReplicationRuleCore():
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
         assert(rule_id == get_rule(rule_id)['id'].replace('-', '').lower())
-        assert_raises(RuleNotFound, get_rule, uuid())
+        pytest.raises(RuleNotFound, get_rule, uuid())
 
     def test_delete_rule(self):
         """ REPLICATION RULE (CORE): Test to delete a previously created rule"""
@@ -473,7 +485,7 @@ class TestReplicationRuleCore():
         for file in files:
             rse_locks = get_replica_locks(scope=file['scope'], name=file['name'])
             assert(len(rse_locks) == 0)
-        assert_raises(RuleNotFound, delete_rule, uuid())
+        pytest.raises(RuleNotFound, delete_rule, uuid())
 
     def test_delete_rule_and_cancel_transfers(self):
         """ REPLICATION RULE (CORE): Test to delete a previously created rule and do not cancel overlapping transfers"""
@@ -493,7 +505,7 @@ class TestReplicationRuleCore():
             rse_locks = get_replica_locks(scope=file['scope'], name=file['name'])
             assert(len(rse_locks) == 5)
             # TODO Need to check transfer queue here, this is actually not the check of this test case
-        assert_raises(RuleNotFound, delete_rule, uuid())
+        pytest.raises(RuleNotFound, delete_rule, uuid())
 
     def test_locked_rule(self):
         """ REPLICATION RULE (CORE): Delete a locked replication rule"""
@@ -505,7 +517,7 @@ class TestReplicationRuleCore():
 
         rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=True, subscription_id=None)[0]
 
-        assert_raises(UnsupportedOperation, delete_rule, rule_id_1)
+        pytest.raises(UnsupportedOperation, delete_rule, rule_id_1)
         update_rule(rule_id=rule_id_1, options={'locked': False})
         delete_rule(rule_id=rule_id_1)
 
@@ -607,7 +619,7 @@ class TestReplicationRuleCore():
 
         set_local_account_limit(account=self.jdoe, rse_id=self.rse3_id, bytes=5)
 
-        assert_raises(InsufficientAccountLimit, add_rule, dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+        pytest.raises(InsufficientAccountLimit, add_rule, dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
         set_local_account_limit(account=self.jdoe, rse_id=self.rse3_id, bytes=-1)
 
     def test_rule_add_fails_account_global_limit(self):
@@ -622,7 +634,7 @@ class TestReplicationRuleCore():
         # check with two global limits - one breaking limit is enough to let the rule fail
         set_global_account_limit(rse_expression='%s|MOCK2' % self.rse3, account=self.jdoe, bytes=400)
         set_global_account_limit(rse_expression='%s|MOCK' % self.rse3, account=self.jdoe, bytes=10)
-        assert_raises(InsufficientAccountLimit, add_rule, dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+        pytest.raises(InsufficientAccountLimit, add_rule, dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         set_local_account_limit(account=self.jdoe, rse_id=self.rse3_id, bytes=-1)
         set_global_account_limit(rse_expression='%s|MOCK' % self.rse3, account=self.jdoe, bytes=-1)
@@ -639,9 +651,9 @@ class TestReplicationRuleCore():
 
         set_rse_limits(self.rse3_id, 'MaxSpaceAvailable', 250)
         try:
-            assert_raises(RSEOverQuota, add_rule, dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
-            assert_raises(RSEOverQuota, add_rule, dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
-            assert_raises(RSEOverQuota, add_rule, dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
+            pytest.raises(RSEOverQuota, add_rule, dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+            pytest.raises(RSEOverQuota, add_rule, dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
+            pytest.raises(RSEOverQuota, add_rule, dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
         finally:
             set_rse_limits(self.rse3_id, 'MaxSpaceAvailable', -1)
 
@@ -815,7 +827,7 @@ class TestReplicationRuleCore():
         add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
-        with assert_raises(RSEBlacklisted):
+        with pytest.raises(RSEBlacklisted):
             add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
         add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=True)[0]
@@ -845,7 +857,7 @@ class TestReplicationRuleCore():
         usr = account_name_generator()
         add_account(usr, 'USER', 'rucio@email.com', 'root', **self.vo)
 
-        with assert_raises(AccessDenied):
+        with pytest.raises(AccessDenied):
             rucio.api.rule.delete_replication_rule(rule_id=rule_id, purge_replicas=None, issuer=usr, **self.vo)
 
         add_account_attribute(InternalAccount(usr, **self.vo), 'country-test', 'admin')
@@ -866,7 +878,7 @@ class TestReplicationRuleCore():
         rule_id2 = reduce_rule(rule_id=rule_id, copies=1, exclude_expression=self.rse1)
 
         assert(get_rule(rule_id2)['state'] == RuleState.OK)
-        assert_raises(RuleNotFound, get_rule, rule_id)
+        pytest.raises(RuleNotFound, get_rule, rule_id)
 
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, [self.rse1_id, self.rse3_id])
@@ -876,7 +888,7 @@ class TestReplicationRuleCore():
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=2, rse_expression=self.rse1 + '|' + self.rse3 + '|' + self.rse5, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
-        with assert_raises(RuleReplaceFailed):
+        with pytest.raises(RuleReplaceFailed):
             reduce_rule(rule_id=rule_id, copies=1, exclude_expression=self.rse1 + '|' + self.rse3)
 
     def test_move_rule(self):
@@ -931,7 +943,7 @@ class TestReplicationRuleCore():
         attach_dids(scope, dataset, files, self.jdoe)
         set_status(scope=scope, name=dataset, open=False)
 
-        with assert_raises(InsufficientAccountLimit):
+        with pytest.raises(InsufficientAccountLimit):
             rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression='%s' % rse, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression='%s' % rse, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, ask_approval=True)[0]
@@ -961,7 +973,7 @@ class TestReplicationRuleCore():
         add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
-        with assert_raises(ManualRuleApprovalBlocked):
+        with pytest.raises(ManualRuleApprovalBlocked):
             add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression='%s' % rse, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, ask_approval=True)[0]
 
     def test_update_rule_child_rule(self):
@@ -979,10 +991,10 @@ class TestReplicationRuleCore():
         rule_id_2 = add_rule(dids=[{'scope': scope, 'name': dataset2}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
         rule_id_3 = add_rule(dids=[{'scope': scope, 'name': dataset1}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
-        with assert_raises(InputValidationError):
+        with pytest.raises(InputValidationError):
             update_rule(rule_id_1, options={'child_rule_id': rule_id_2})
         update_rule(rule_id_1, options={'child_rule_id': rule_id_3})
-        with assert_raises(UnsupportedOperation):
+        with pytest.raises(UnsupportedOperation):
             delete_rule(rule_id_1)
 
     def test_release_rule(self):
@@ -998,14 +1010,14 @@ class TestReplicationRuleCore():
 
         update_rule(rule_id_1, options={'child_rule_id': rule_id_2})
 
-        with assert_raises(UnsupportedOperation):
+        with pytest.raises(UnsupportedOperation):
             delete_rule(rule_id_1)
 
         successful_transfer(scope=scope, name=files[0]['name'], rse_id=self.rse3_id, nowait=False)
-        with assert_raises(UnsupportedOperation):
+        with pytest.raises(UnsupportedOperation):
             delete_rule(rule_id_1)
         successful_transfer(scope=scope, name=files[1]['name'], rse_id=self.rse3_id, nowait=False)
-        with assert_raises(UnsupportedOperation):
+        with pytest.raises(UnsupportedOperation):
             delete_rule(rule_id_1)
         successful_transfer(scope=scope, name=files[2]['name'], rse_id=self.rse3_id, nowait=False)
         delete_rule(rule_id_1)
@@ -1154,7 +1166,7 @@ class TestReplicationRuleCore():
         assert(len(dsl3) == 0)
 
 
-class TestReplicationRuleClient():
+class TestReplicationRuleClient(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -1194,7 +1206,7 @@ class TestReplicationRuleClient():
         set_local_account_limit(cls.jdoe, cls.rse4_id, -1)
         set_local_account_limit(cls.jdoe, cls.rse5_id, -1)
 
-    def setup(self):
+    def setUp(self):
         self.rule_client = RuleClient()
         self.did_client = DIDClient()
         self.subscription_client = SubscriptionClient()
@@ -1210,11 +1222,11 @@ class TestReplicationRuleClient():
         attach_dids(scope, dataset, files, self.jdoe)
 
         ret = self.rule_client.add_replication_rule(dids=[{'scope': scope.external, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE')
-        assert_is_instance(ret, list)
+        assert isinstance(ret, list)
 
         rep_rules = [rep_rule for rep_rule in self.rule_client.list_replication_rule_full_history(scope.external, dataset)]
-        assert_equal(len(rep_rules), 1)
-        assert_equal(ret[0], rep_rules[0]['rule_id'])
+        assert len(rep_rules) == 1
+        assert ret[0] == rep_rules[0]['rule_id']
 
     def test_delete_rule(self):
         """ REPLICATION RULE (CLIENT): Delete a replication rule """
@@ -1246,8 +1258,8 @@ class TestReplicationRuleClient():
         ret = self.did_client.list_did_rules(scope=scope.external, name=dataset)
         ids = [rule['id'] for rule in ret]
 
-        assert_in(rule_id_1, ids)
-        assert_in(rule_id_2, ids)
+        assert rule_id_1 in ids
+        assert rule_id_2 in ids
 
     def test_get_rule(self):
         """ REPLICATION RULE (CLIENT): Get Replication Rule by id """
@@ -1273,7 +1285,7 @@ class TestReplicationRuleClient():
         get = self.account_client.list_account_rules('jdoe')
         rules = [rule['id'] for rule in get]
 
-        assert_in(ret[0], rules)
+        assert ret[0] in rules
 
     def test_locked_rule(self):
         """ REPLICATION RULE (CLIENT): Delete a locked replication rule"""
@@ -1285,7 +1297,7 @@ class TestReplicationRuleClient():
 
         rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=True, subscription_id=None)[0]
 
-        assert_raises(UnsupportedOperation, delete_rule, rule_id_1)
+        pytest.raises(UnsupportedOperation, delete_rule, rule_id_1)
         self.rule_client.update_replication_rule(rule_id=rule_id_1, options={'locked': False})
         delete_rule(rule_id=rule_id_1)
 
@@ -1300,7 +1312,7 @@ class TestReplicationRuleClient():
         rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight='fakeweight', lifetime=None, locked=True, subscription_id=None)[0]
 
         rule_ids = [lock['rule_id'] for lock in self.lock_client.get_dataset_locks(scope=scope.external, name=dataset)]
-        assert_in(rule_id_1, rule_ids)
+        assert rule_id_1 in rule_ids
 
     def test_change_rule_lifetime(self):
         """ REPLICATION RULE (CLIENT): Change rule lifetime"""
@@ -1330,7 +1342,7 @@ class TestReplicationRuleClient():
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight='fakeweight', lifetime=150, locked=True, subscription_id=None, ask_approval=True)[0]
         rule = self.rule_client.get_replication_rule(rule_id)
-        assert_equal(rule['state'], str(RuleState.WAITING_APPROVAL))
+        assert rule['state'] == str(RuleState.WAITING_APPROVAL)
         self.rule_client.approve_replication_rule(rule_id)
         rule = self.rule_client.get_replication_rule(rule_id)
-        assert_equal(rule['state'], str(RuleState.INJECT))
+        assert rule['state'] == str(RuleState.INJECT)

@@ -1,4 +1,4 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,9 +24,8 @@
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2017-2018
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
-import nose.tools
-import re
 import subprocess
 
 
@@ -62,7 +61,7 @@ class TestModuleImport():
         exitcode, out, err = execute(cmd)
         out = out.decode()
         err = err.decode()
-        nose.tools.assert_equal(re.search('ImportError', err), None)
-        nose.tools.assert_equal(re.search('ImportError', out), None)
-        nose.tools.assert_equal(re.search('Exception', err), None)
-        nose.tools.assert_equal(re.search('Exception', out), None)
+        assert 'ImportError' not in err
+        assert 'ImportError' not in out
+        assert 'Exception' not in err
+        assert 'Exception' not in out

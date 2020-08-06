@@ -27,7 +27,7 @@ version_table_schema=rucio
 #sqlalchemy.url=postgresql://rucio:rucio@psql-hostname:5432/rucio
 #version_table_schema=rucio
 
-#sqlalchemy.url=mysql://rucio:rucio@rucio-hostname:3306/rucio
+#sqlalchemy.url=mysql+pymysql://rucio:rucio@rucio-hostname:3306/rucio
 #version_table_schema=rucio
 
 # SQLite doesn't support our migrations

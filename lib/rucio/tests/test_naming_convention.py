@@ -1,20 +1,29 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Martin Barisits, <martin.barisits@cern.ch>, 2019
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
-# pylint: disable=E0611
-from nose.tools import assert_equal, assert_raises
+import unittest
+
+import pytest
 
 from rucio.client.didclient import DIDClient
 from rucio.common.config import config_get, config_get_bool
@@ -28,12 +37,12 @@ from rucio.core.naming_convention import (add_naming_convention,
 from rucio.db.sqla.constants import KeyType
 
 
-class TestNamingConventionCore:
+class TestNamingConventionCore(unittest.TestCase):
     '''
     Class to test naming convention enforcement.
     '''
 
-    def __init__(self):
+    def setUp(self):
         """ Constructor."""
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
@@ -55,26 +64,26 @@ class TestNamingConventionCore:
                                   convention_type=KeyType.DATASET)
 
         meta = validate_name(scope=InternalScope('mck', **self.vo), name='mock.DESD.yipeeee', did_type='D')
-        assert_equal(meta, None)
+        assert meta is None
 
         meta = validate_name(scope=scope, name='mock.DESD.yipeeee', did_type='D')
-        assert_equal(meta, {u'project': 'mock', u'datatype': 'DESD'})
+        assert meta == {u'project': 'mock', u'datatype': 'DESD'}
 
-        with assert_raises(InvalidObject):
+        with pytest.raises(InvalidObject):
             validate_name(scope=scope, name='mockyipeeee', did_type='D')
 
         # Register a dataset
         tmp_dataset = 'mock.AD.' + str(generate_uuid())
-        with assert_raises(InvalidObject):
+        with pytest.raises(InvalidObject):
             self.did_client.add_dataset(scope='mock', name=tmp_dataset, meta={'datatype': 'DESD'})
 
-        with assert_raises(InvalidObject):
+        with pytest.raises(InvalidObject):
             self.did_client.add_dataset(scope='mock', name=tmp_dataset)
 
         tmp_dataset = 'mock.AOD.' + str(generate_uuid())
         self.did_client.add_dataset(scope='mock', name=tmp_dataset)
         observed_datatype = self.did_client.get_metadata(scope='mock', name=tmp_dataset)['datatype']
-        assert_equal(observed_datatype, 'AOD')
+        assert observed_datatype == 'AOD'
 
         delete_naming_convention(scope=scope,
                                  regexp=r'(?P<project>mock)\.(\w+)$',

@@ -18,14 +18,10 @@
 
 from rucio.common.didtype import DIDType
 from rucio.common.exception import DIDTypeError
-import nose.tools
 
 
-class TestDIDType(object):
+class TestDIDType:
     ''' Test the DIDType class '''
-
-    def setup(self):
-        pass
 
     def _test_did(self, did, cmp_str, diff_half_did=DIDType(scope='diff'), diff_full_did=DIDType('sdiff:ndiff'), is_valid=True):
         stat = 0
@@ -101,4 +97,4 @@ class TestDIDType(object):
         except DIDTypeError:
             pass
 
-        nose.tools.assert_true(self.success)
+        assert self.success

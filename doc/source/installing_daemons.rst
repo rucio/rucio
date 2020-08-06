@@ -23,7 +23,7 @@ This image provides the Rucio daemons. Each daemon has to be run in a separate c
 
 This image expects that there is an already initialised Rucio DB. To start a simple `judge-cleaner` daemon using a database on `mysql.db` without an additional parameters just run this:
 
-```docker run --name=rucio-judge-cleaner -e RUCIO_CFG_DATABASE_DEFAULT="mysql://rucio:rucio@mysql.db/rucio" -e RUCIO_DAEMON=judge-cleaner  rucio/rucio-daemons```
+```docker run --name=rucio-judge-cleaner -e RUCIO_CFG_DATABASE_DEFAULT="mysql+pymysql://rucio:rucio@mysql.db/rucio" -e RUCIO_DAEMON=judge-cleaner  rucio/rucio-daemons```
 
 The `RUCIO_DAEMON` environment variable gives the name of the rucio daemon.
 

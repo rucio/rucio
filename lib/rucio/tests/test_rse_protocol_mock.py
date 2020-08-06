@@ -1,51 +1,59 @@
-''' Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013
+# - Ralph Vigne <ralph.vigne@cern.ch>, 2013
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at
- http://www.apache.org/licenses/LICENSE-2.0
+import unittest
 
- Authors:
- - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-'''
-
-from nose.tools import raises
+import pytest
 
 from rucio.common import exception
 from rucio.rse import rsemanager as mgr
-from rsemgr_api_test import MgrTestCases
+from rucio.tests.rsemgr_api_test import MgrTestCases
 
 
-class TestRseMOCK(object):
-    '''
-    class TestRseMOCK
-    '''
+class TestRseMOCK(unittest.TestCase):
     tmpdir = '/tmp/'
     user = None
     static_file = 'mock:///tmp/rucio_rse/file1'
 
-    def setup(self):
+    def setUp(self):
         """MOCK (RSE/PROTOCOLS): Creating Mgr-instance """
         self.tmpdir = TestRseMOCK.tmpdir
         self.rse_id = 'MOCK'
         self.mtc = MgrTestCases(tmpdir=self.tmpdir, rse_tag='MOCK', user=TestRseMOCK.user, static_file=TestRseMOCK.static_file)
 
     # Mgr-Tests: GET
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_multi(self):
         """MOCK (RSE/PROTOCOLS): Get multiple files from storage providing LFNs and PFNs (SourceNotFound)"""
         for fichier in MgrTestCases.files_remote:
             mgr.upload(mgr.get_rse_info(self.rse_id), [{'name': fichier, 'scope': 'user.%s' % self.user}, ])
         self.mtc.test_get_mgr_SourceNotFound_multi()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_single_lfn(self):
         """MOCK (RSE/PROTOCOLS): Get a single file from storage providing LFN (SourceNotFound)"""
         for fichier in MgrTestCases.files_remote:
             mgr.upload(mgr.get_rse_info(self.rse_id), [{'name': fichier, 'scope': 'user.%s' % self.user}, ])
         self.mtc.test_get_mgr_SourceNotFound_single_lfn()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_single_pfn(self):
         """MOCK (RSE/PROTOCOLS): Get a single file from storage providing PFN (SourceNotFound)"""
         for fichier in MgrTestCases.files_remote:
@@ -103,12 +111,12 @@ class TestRseMOCK(object):
 
     # MGR-Tests: RENAME
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_rename_mgr_SourceNotFound_single_lfn(self):
         """MOCK (RSE/PROTOCOLS): Rename a single file on storage using LFN (SourceNotFound)"""
         self.mtc.test_rename_mgr_SourceNotFound_single_lfn()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_rename_mgr_SourceNotFound_single_pfn(self):
         """MOCK (RSE/PROTOCOLS): Rename a single file on storage using PFN (SourceNotFound)"""
         self.mtc.test_rename_mgr_SourceNotFound_single_pfn()
