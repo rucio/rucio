@@ -1,0 +1,13 @@
+============
+1.23.2.post1
+============
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Core & Internals: gfal - quick fix of the logging overloading `#3908 <https://github.com/rucio/rucio/issues/3908>`_
