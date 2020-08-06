@@ -1,22 +1,32 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012, 2017
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2015
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2015
+# - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
+# - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
 Test the Identity abstraction layer
 """
+import unittest
 
-from nose.tools import assert_equal
 from paste.fixture import TestApp
 
 from rucio.common.config import config_get, config_get_bool
@@ -26,16 +36,16 @@ from rucio.core.account import add_account, del_account
 from rucio.core.identity import add_identity, del_identity, add_account_identity, del_account_identity, list_identities
 from rucio.db.sqla.constants import AccountType, IdentityType
 from rucio.tests.common import account_name_generator
-from rucio.web.rest.identity import APP as identity_app
 from rucio.web.rest.authentication import APP as auth_app
+from rucio.web.rest.identity import APP as identity_app
 
 
-class TestIdentity(object):
+class TestIdentity(unittest.TestCase):
     """
     Test the Identity abstraction layer
     """
 
-    def setup(self):
+    def setUp(self):
         """ Setup the Test Case """
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
@@ -94,7 +104,7 @@ class TestIdentityRest(object):
         headers1 = {'X-Rucio-Account': account, 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
         headers1.update(vo_header)
         res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        assert_equal(res1.status, 200)
+        assert res1.status == 200
         token = str(res1.header('X-Rucio-Auth-Token'))
         username = uuid()
         password = 'secret'
@@ -103,4 +113,4 @@ class TestIdentityRest(object):
         headers2 = {'X-Rucio-Auth-Token': str(token), 'X-Rucio-Username': username, 'X-Rucio-Password': password,
                     'X-Rucio-Email': 'email'}
         res2 = TestApp(identity_app.wsgifunc(*mw)).put('/' + account + '/userpass', headers=headers2, expect_errors=True)
-        assert_equal(res2.status, 201)
+        assert res2.status == 201

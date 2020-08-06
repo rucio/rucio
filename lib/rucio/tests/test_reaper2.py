@@ -14,11 +14,12 @@
 #
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from datetime import datetime, timedelta
-from nose.tools import assert_equal
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
@@ -76,4 +77,4 @@ def test_reaper():
         reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=[])
         reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=[])
 
-    assert_equal(len(list(replica_core.list_replicas(dids=[{'scope': InternalScope('data13_hip', **vo), 'name': n} for n in file_names], rse_expression=rse_name))), nb_files - 5)
+    assert len(list(replica_core.list_replicas(dids=[{'scope': InternalScope('data13_hip', **vo), 'name': n} for n in file_names], rse_expression=rse_name))) == nb_files - 5

@@ -1,4 +1,4 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,22 +13,22 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2013-2019
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from datetime import datetime, timedelta
-from nose.tools import assert_equal
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
-from rucio.core import rse as rse_core
 from rucio.core import replica as replica_core
+from rucio.core import rse as rse_core
 from rucio.daemons.reaper.reaper import reaper
 from rucio.tests.common import rse_name_generator
 
@@ -76,4 +76,4 @@ def test_reaper():
     rses = [rse_core.get_rse(rse_id), ]
     reaper(once=True, rses=rses)
     reaper(once=True, rses=rses)
-    assert_equal(len(list(replica_core.list_replicas(dids=[{'scope': InternalScope('data13_hip', **vo), 'name': n} for n in file_names], rse_expression=rse_name))), nb_files - 10)
+    assert len(list(replica_core.list_replicas(dids=[{'scope': InternalScope('data13_hip', **vo), 'name': n} for n in file_names], rse_expression=rse_name))) == nb_files - 10

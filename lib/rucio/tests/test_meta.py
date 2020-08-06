@@ -1,17 +1,29 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2013
+# - Shreyansh Khajanchi <shreyansh_k@live.com>, 2018
+# - asket <asket.agarwal96@gmail.com>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
-from nose.tools import assert_in, assert_is_instance, assert_true, raises, assert_raises
+import unittest
+
+import pytest
 
 from rucio.client.metaclient import MetaClient
 from rucio.common.exception import InvalidValueForKey, KeyNotFound, UnsupportedValueType, UnsupportedKeyType
@@ -21,19 +33,19 @@ from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import DIDType, KeyType
 
 
-class TestMetaClient():
+class TestMetaClient(unittest.TestCase):
 
-    def setup(self):
+    def setUp(self):
         self.meta_client = MetaClient()
 
     def xtest_add_and_list_keys(self):
         """ META (CLIENTS): Add a key and List all keys."""
         key = 'key_' + str(uuid())[:20]
         ret = self.meta_client.add_key(key=key, key_type='ALL')
-        assert_true(ret)
+        assert ret
         keys = self.meta_client.list_keys()
-        assert_is_instance(keys, list)
-        assert_in(key, keys)
+        assert isinstance(keys, list)
+        assert key in keys
 
     def xtest_add_and_list_values(self):
         """ META (CLIENTS): Add a value and List all values."""
@@ -41,15 +53,15 @@ class TestMetaClient():
         value = 'value_' + str(uuid())
 
         ret = self.meta_client.add_key(key=key, key_type='ALL')
-        assert_true(ret)
+        assert ret
 
         ret = self.meta_client.add_value(key=key, value=value)
 
         values = self.meta_client.list_values(key=key)
-        assert_is_instance(values, list)
-        assert_in(value, values)
+        assert isinstance(values, list)
+        assert value in values
 
-    @raises(InvalidValueForKey)
+    @pytest.mark.xfail(raises=InvalidValueForKey)
     def xtest_add_value_with_type(self):
         """ META (CLIENTS):  Add a new value to a key with a type constraint"""
         key = 'key_' + str(uuid())[:20]
@@ -57,10 +69,10 @@ class TestMetaClient():
         self.meta_client.add_key(key=key, key_type='ALL', value_type=str)
         self.meta_client.add_value(key=key, value=value)
         values = self.meta_client.list_values(key=key)
-        assert_in(value, values)
+        assert value in values
         self.meta_client.add_value(key=key, value=1234)
 
-    @raises(InvalidValueForKey)
+    @pytest.mark.xfail(raises=InvalidValueForKey)
     def xtest_add_value_with_regexp(self):
         """ META (CLIENTS):  Add a new value to a key with a regexp constraint"""
         key = 'guid' + str(uuid())[:20]
@@ -70,16 +82,16 @@ class TestMetaClient():
         self.meta_client.add_key(key=key, key_type='ALL', value_regexp=regexp)
         self.meta_client.add_value(key=key, value=value)
         values = self.meta_client.list_values(key=key)
-        assert_in(value, values)
+        assert value in values
         self.meta_client.add_value(key=key, value='Nimportnawak')
 
-    @raises(UnsupportedValueType)
+    @pytest.mark.xfail(raises=UnsupportedValueType)
     def xtest_add_unsupported_type(self):
         """ META (CLIENTS):  Add an unsupported value for type """
         key = 'key_' + str(uuid())[:20]
         self.meta_client.add_key(key=key, key_type='ALL', value_type=str)
 
-    @raises(KeyNotFound)
+    @pytest.mark.xfail(raises=KeyNotFound)
     def xtest_add_value_to_bad_key(self):
         """ META (CLIENTS):  Add a new value to a non existing key """
         value = 'value_' + str(uuid())
@@ -101,9 +113,9 @@ class TestMetaClient():
             key_name = 'datatype%s' % str(uuid())
             self.meta_client.add_key(key_name, key_type['type'])
             stored_key_type = session.get_session().query(models.DIDKey).filter_by(key=key_name).one()['key_type']
-            assert_true(stored_key_type, key_type['expected'])
+            assert stored_key_type, key_type['expected']
 
-        with assert_raises(UnsupportedKeyType):
+        with pytest.raises(UnsupportedKeyType):
             self.meta_client.add_key('datatype', 'A')
 
 
@@ -133,10 +145,10 @@ class TestMetaCore():
             key_name = 'datatype%s' % str(uuid())
             add_key(key_name, key_type['type'])
             stored_key_type = session.get_session().query(models.DIDKey).filter_by(key=key_name).one()['key_type']
-            assert_true(stored_key_type, key_type['expected'])
+            assert stored_key_type, key_type['expected']
 
-        with assert_raises(UnsupportedKeyType):
+        with pytest.raises(UnsupportedKeyType):
             add_key('datatype', DIDType.ARCHIVE)
 
-        with assert_raises(UnsupportedKeyType):
+        with pytest.raises(UnsupportedKeyType):
             add_key('datatype', 'A')

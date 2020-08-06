@@ -1,4 +1,4 @@
-# Copyright 2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2019-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,14 +18,14 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
 import logging
-import shutil
-
-import nose.tools
 import os.path
+import shutil
+import unittest
 
 from rucio.client.client import Client
 from rucio.client.downloadclient import DownloadClient
@@ -35,9 +35,9 @@ from rucio.common.utils import generate_uuid
 from rucio.tests.common import file_generator
 
 
-class TestDownloadClient(object):
+class TestDownloadClient(unittest.TestCase):
 
-    def setup(self):
+    def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
@@ -61,9 +61,9 @@ class TestDownloadClient(object):
                 'did_scope': self.scope,
                 'did_name': self.name,
                 'guid': self.guid}
-        nose.tools.assert_equal(self.upload_client.upload([item]), 0)
+        assert self.upload_client.upload([item]) == 0
 
-    def teardown(self):
+    def tearDown(self):
         shutil.rmtree('mock')
 
     def test_download_item(self):
@@ -71,16 +71,16 @@ class TestDownloadClient(object):
 
         # Download specific DID
         result = self.download_client.download_dids([{'did': '%s:%s' % (self.scope, self.name)}])
-        nose.tools.assert_true(result)
+        assert result
 
         # Download with wildcard
         result = self.download_client.download_dids([{'did': '%s:%s' % (self.scope, self.name[:-2] + '*')}])
-        nose.tools.assert_true(result)
+        assert result
 
         # Download with filter
         result = self.download_client.download_dids([{'filters': {'guid': self.guid, 'scope': self.scope}}])
-        nose.tools.assert_true(result)
+        assert result
 
         # Download with wildcard and name
         result = self.download_client.download_dids([{'did': '%s:%s' % (self.scope, '*'), 'filters': {'guid': self.guid}}])
-        nose.tools.assert_true(result)
+        assert result

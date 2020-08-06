@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2017-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2017-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,11 +15,15 @@
 #
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2018
-# - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 memcached -u root -d
 
@@ -146,13 +150,14 @@ if test ${init_only}; then
     exit
 fi
 
+TESTS="lib/rucio/tests/test_"
 if test ${special}; then
     echo 'Using the special config'
-    nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient lib/rucio/tests/test_dirac.py
+    pytest -v --full-trace ${TESTS}dirac.py
 else
     echo 'Running tests'
-    noseopts="--exclude=test_alembic --exclude=.*test_rse_protocol_.* --exclude=test_rucio_server --exclude=test_objectstore --exclude=test_auditor* --exclude=test_release* --exclude=test_throttler --exclude=test_dirac --exclude=test_multi_vo"
-    nosetests -v --logging-filter=-sqlalchemy,-requests,-rucio.client.baseclient $noseopts
+    pytestignores="--ignore=${TESTS}alembic.py --ignore-glob=${TESTS}rse_protocol_*.py --ignore=${TESTS}rucio_server.py --ignore-glob=${TESTS}auditor*.py --ignore=${TESTS}dirac.py --ignore=${TESTS}multi_vo.py"
+    pytest -v --full-trace $pytestignores
 fi
 
 exit $?

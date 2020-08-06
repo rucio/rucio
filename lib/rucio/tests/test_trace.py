@@ -1,4 +1,4 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,15 +14,15 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2014
-# - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2017-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 import datetime
 import json
 import time
 import uuid
 
-from nose.tools import assert_equal
 from paste.fixture import TestApp
 
 from rucio.web.rest.trace import APP as trace_app
@@ -47,4 +47,4 @@ class TestTrace(object):
                               'boolean': True})
 
         ret = TestApp(trace_app.wsgifunc(*mwl)).post('/', params=payload, headers={'Content-Type': 'application/octet-stream'})
-        assert_equal(ret.status, 201)
+        assert ret.status == 201

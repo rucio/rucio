@@ -21,11 +21,14 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2013-2020
 # - Wen Guan, <wen.guan@cern.ch>, 2015
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2019
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
-# - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019
+# - asket <asket.agarwal96@gmail.com>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -281,7 +284,7 @@ class SoftModelBase(ModelBase):
                                   CheckConstraint('DELETED IS NOT NULL', name=cls.__tablename__.upper() + '_DELETED_NN'),
                                   {'mysql_engine': 'InnoDB', 'info': {'soft_delete': True}})
 
-    def delete(self, session=None):
+    def delete(self, flush=True, session=None):
         """Delete this object"""
         self.deleted = True
         self.deleted_at = datetime.datetime.utcnow()

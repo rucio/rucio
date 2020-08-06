@@ -20,7 +20,7 @@
 
 from __future__ import print_function
 
-from nose.tools import assert_equal
+import unittest
 
 from rucio.client.accountclient import AccountClient
 from rucio.client.rseclient import RSEClient
@@ -28,9 +28,9 @@ from rucio.common.utils import generate_uuid
 from rucio.tests.common import rse_name_generator
 
 
-class TestBoolean:
+class TestBoolean(unittest.TestCase):
 
-    def setup(self):
+    def setUp(self):
         self.account_client = AccountClient()
         self.rse_client = RSEClient()
 
@@ -56,10 +56,10 @@ class TestBoolean:
             for res in account:
                 result[res['key']] = res['value']
 
-        assert_equal(result['teststringtrue'], True)
-        assert_equal(result['testinttrue'], '1')
-        assert_equal(result['teststringfalse'], False)
-        assert_equal(result['testintfalse'], '0')
+        assert result['teststringtrue'] is True
+        assert result['testinttrue'] == '1'
+        assert result['teststringfalse'] is False
+        assert result['testintfalse'] == '0'
 
     def test_booleanstring_rse_attribute(self):
         self.rse_client.add_rse_attribute(self.rse, 'teststringtrue', 'true')
@@ -70,7 +70,7 @@ class TestBoolean:
 
         result = self.rse_client.list_rse_attributes(self.rse)
 
-        assert_equal(result['teststringtrue'], True)
-        assert_equal(result['testinttrue'], '1')
-        assert_equal(result['teststringfalse'], False)
-        assert_equal(result['testintfalse'], '0')
+        assert result['teststringtrue'] is True
+        assert result['testinttrue'] == '1'
+        assert result['teststringfalse'] is False
+        assert result['testintfalse'] == '0'

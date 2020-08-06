@@ -1,4 +1,4 @@
-# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,35 +14,37 @@
 #
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
-from nose.tools import assert_equal
-
 import os
+import unittest
 
-from rucio.db.sqla import models
-from rucio.db.sqla.session import get_session
 from rucio.client.accountclient import AccountClient
 from rucio.client.uploadclient import UploadClient
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.utils import generate_uuid
 from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.utils import generate_uuid
 from rucio.core.account import get_usage_history
 from rucio.core.account_counter import update_account_counter_history
 from rucio.core.account_limit import get_local_account_usage, set_local_account_limit
 from rucio.core.rse import get_rse_id
-from rucio.daemons.undertaker import undertaker
 from rucio.daemons.abacus import account
 from rucio.daemons.judge import cleaner
 from rucio.daemons.reaper import reaper
+from rucio.daemons.undertaker import undertaker
+from rucio.db.sqla import models
+from rucio.db.sqla.session import get_session
 from rucio.tests.common import file_generator
 
 
-class TestAbacusAccount():
+class TestAbacusAccount(unittest.TestCase):
 
     def setUp(self):
         self.rse = 'MOCK4'
@@ -80,19 +82,19 @@ class TestAbacusAccount():
         [os.remove(file['path']) for file in self.files]
         account.run(once=True)
         account_usage = get_local_account_usage(account=self.account, rse_id=self.rse_id)[0]
-        assert_equal(account_usage['bytes'], len(self.files) * self.file_sizes)
-        assert_equal(account_usage['files'], len(self.files))
+        assert account_usage['bytes'] == len(self.files) * self.file_sizes
+        assert account_usage['files'] == len(self.files)
 
         # Update and check the account history with the core method
         update_account_counter_history(account=self.account, rse_id=self.rse_id)
         usage_history = get_usage_history(rse_id=self.rse_id, account=self.account)
-        assert_equal(usage_history[-1]['bytes'], len(self.files) * self.file_sizes)
-        assert_equal(usage_history[-1]['files'], len(self.files))
+        assert usage_history[-1]['bytes'] == len(self.files) * self.file_sizes
+        assert usage_history[-1]['files'] == len(self.files)
 
         # Check the account history with the client
         usage_history = self.account_client.get_account_usage_history(rse=self.rse, account=self.account.external)
-        assert_equal(usage_history[-1]['bytes'], len(self.files) * self.file_sizes)
-        assert_equal(usage_history[-1]['files'], len(self.files))
+        assert usage_history[-1]['bytes'] == len(self.files) * self.file_sizes
+        assert usage_history[-1]['files'] == len(self.files)
 
         # Delete rules -> account usage should decrease
         cleaner.run(once=True)
@@ -100,5 +102,5 @@ class TestAbacusAccount():
         # set account limit because return value of get_local_account_usage differs if a limit is set or not
         set_local_account_limit(account=self.account, rse_id=self.rse_id, bytes=10)
         account_usages = get_local_account_usage(account=self.account, rse_id=self.rse_id)[0]
-        assert_equal(account_usages['bytes'], 0)
-        assert_equal(account_usages['files'], 0)
+        assert account_usages['bytes'] == 0
+        assert account_usages['files'] == 0

@@ -25,9 +25,8 @@ import shutil
 import string
 import sys
 import tempfile
+import unittest
 from datetime import datetime
-
-from nose.tools import eq_
 
 from rucio.daemons.auditor import hdfs
 
@@ -57,20 +56,14 @@ class FakeHDFSGet(object):
                 fichier.write(str(content) + '\n')
 
 
-class TestReplicaFromHDFS(object):
+class TestReplicaFromHDFS(unittest.TestCase):
     '''
     TestReplicaFromHDFS
     '''
-    def setup(self):
-        '''
-        setup
-        '''
+    def setUp(self):
         self.work_dir = tempfile.mkdtemp()
 
-    def teardown(self):
-        '''
-        teardown
-        '''
+    def tearDown(self):
         shutil.rmtree(self.work_dir)
 
     @mock.patch('rucio.daemons.auditor.hdfs._hdfs_get')
@@ -85,7 +78,7 @@ class TestReplicaFromHDFS(object):
         )
 
         with open(merged_file_path) as f:
-            eq_('01234', f.read().replace('\n', ''))
+            assert '01234' == f.read().replace('\n', '')
 
     @mock.patch('rucio.daemons.auditor.hdfs._hdfs_get')
     def test_replica_from_hdfs_download_reads_files_bigger_than_buffer_size(self, mock_hdfs_get):
@@ -103,4 +96,4 @@ class TestReplicaFromHDFS(object):
         )
 
         with open(merged_file_path) as fichier:
-            eq_('0123456789', fichier.read().replace('\n', ''))
+            assert '0123456789' == fichier.read().replace('\n', '')

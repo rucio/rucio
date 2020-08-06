@@ -28,7 +28,7 @@ This should return the Rucio version used in the container. Any other curl reque
 
 If you want to set the connection string for the database it can be done using the `RUCIO_CFG_DATABASE_DEFAULT` environment variable, e.g., to start a container connecting to a MySQL DB running at `mysql.db` you could use something like this:
 
-``docker run --name=rucio-server -e RUCIO_CFG_DATABASE_DEFAULT="mysql://rucio:rucio@mysql.db/rucio" -p 80:80 -d rucio/rucio-server``
+``docker run --name=rucio-server -e RUCIO_CFG_DATABASE_DEFAULT="mysql+pymysql://rucio:rucio@mysql.db/rucio" -p 80:80 -d rucio/rucio-server``
 
 The are much more configuration parameters available that will be listed at the end of this readme.
 
