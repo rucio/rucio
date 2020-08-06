@@ -126,17 +126,17 @@ class BaseClient(object):
     def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None):
         """
         Constructor of the BaseClient.
-        :param rucio_host: the address of the rucio server, if None it is read from the config file.
-        :param rucio_port: the port of the rucio server, if None it is read from the config file.
-        :param auth_host: the address of the rucio authentication server, if None it is read from the config file.
-        :param auth_port: the port of the rucio authentication server, if None it is read from the config file.
-        :param account: the account to authenticate to rucio.
-        :param use_ssl: enable or disable ssl for commucation. Default is enabled.
-        :param ca_cert: the path to the rucio server certificate.
-        :param auth_type: the type of authentication (e.g.: 'userpass', 'kerberos' ...)
-        :param creds: a dictionary with credentials needed for authentication.
-        :param user_agent: indicates the client
-        :param vo: the vo to authenticate into.
+        :param rucio_host: The address of the rucio server, if None it is read from the config file.
+        :param rucio_port: The port of the rucio server, if None it is read from the config file.
+        :param auth_host: The address of the rucio authentication server, if None it is read from the config file.
+        :param auth_port: The port of the rucio authentication server, if None it is read from the config file.
+        :param account: The account to authenticate to rucio.
+        :param use_ssl: Enable or disable ssl for commucation. Default is enabled.
+        :param ca_cert: The path to the rucio server certificate.
+        :param auth_type: The type of authentication (e.g.: 'userpass', 'kerberos' ...)
+        :param creds: Dictionary with credentials needed for authentication.
+        :param user_agent: Indicates the client.
+        :param vo: The VO to authenticate into.
         """
 
         self.host = rucio_host
@@ -173,7 +173,7 @@ class BaseClient(object):
         self.auth_oidc_refresh_before_exp = config_get_int('client', 'auth_oidc_refresh_before_exp', False, 20)
 
         if auth_type is None:
-            LOG.debug('no auth_type passed. Trying to get it from the environment variable RUCIO_AUTH_TYPE and config file.')
+            LOG.debug('No auth_type passed. Trying to get it from the environment variable RUCIO_AUTH_TYPE and config file.')
             if 'RUCIO_AUTH_TYPE' in environ:
                 if environ['RUCIO_AUTH_TYPE'] not in ['userpass', 'x509', 'x509_proxy', 'gss', 'ssh', 'saml', 'oidc']:
                     raise MissingClientParameter('Possible RUCIO_AUTH_TYPE values: userpass, x509, x509_proxy, gss, ssh, saml, oidc, vs. ' + environ['RUCIO_AUTH_TYPE'])
@@ -207,7 +207,7 @@ class BaseClient(object):
                 self.creds['oidc_polling'] = config_get_bool('client', 'oidc_polling', False, False)
 
         if not self.creds:
-            LOG.debug('no creds passed. Trying to get it from the config file.')
+            LOG.debug('No creds passed. Trying to get it from the config file.')
             self.creds = {}
             try:
                 if self.auth_type in ['userpass', 'saml']:
@@ -249,16 +249,17 @@ class BaseClient(object):
             raise ClientProtocolNotSupported('\'%s\' not supported' % auth_scheme)
 
         if (rucio_scheme == 'https' or auth_scheme == 'https') and ca_cert is None:
-            LOG.debug('no ca_cert passed. Trying to get it from the config file.')
+            LOG.debug('HTTPS is required, but no ca_cert was passed. Trying to get it from the config file.')
             try:
                 self.ca_cert = path.expandvars(config_get('client', 'ca_cert'))
-            except (NoOptionError, NoSectionError):
+            except (NoOptionError, NoSectionError) as error:
+                LOG.debug('No ca_cert found in configuration. Falling back to Mozilla default CA bundle (certifi).')
                 self.ca_cert = True
 
         self.list_hosts = [self.host]
 
         if account is None:
-            LOG.debug('no account passed. Trying to get it from the config file.')
+            LOG.debug('No account passed. Trying to get it from the config file.')
             try:
                 self.account = environ['RUCIO_ACCOUNT']
             except KeyError:
@@ -268,13 +269,15 @@ class BaseClient(object):
                     raise MissingClientParameter('Option \'account\' cannot be found in config file and RUCIO_ACCOUNT is not set.')
 
         if vo is None:
-            LOG.debug('no vo passed. Trying to get it from the config file.')
+            LOG.debug('No VO passed. Trying to get it from environment variable RUCIO_VO.')
             try:
                 self.vo = environ['RUCIO_VO']
             except KeyError:
+                LOG.debug('No VO found. Trying to get it from the config file.')
                 try:
                     self.vo = config_get('client', 'vo')
                 except (NoOptionError, NoSectionError):
+                    LOG.debug('No VO found. Using default VO.')
                     self.vo = 'def'
 
         # if token file path is defined in the rucio.cfg file, use that file. Currently this prevents authenticating as another user or VO.
@@ -410,12 +413,11 @@ class BaseClient(object):
                 break
             except ConnectionError as error:
                 LOG.warning('ConnectionError: ' + str(error))
-                self.ca_cert = False
                 if retry > self.request_retries:
                     raise
 
         if not result or 'result' not in locals():
-            LOG.error('cannot get auth_token')
+            LOG.error('Cannot retrieve authentication token.')
             return False
 
         if result.status_code != codes.ok:  # pylint: disable-msg=E1101
@@ -425,7 +427,6 @@ class BaseClient(object):
             raise exc_cls(exc_msg)
 
         self.auth_token = result.headers['x-rucio-auth-token']
-        LOG.debug('got new token')
         return True
 
     def __refresh_token_OIDC(self):
@@ -492,7 +493,6 @@ class BaseClient(object):
                 break
             except RequestException:
                 LOG.warning('RequestException: %s', str(traceback.format_exc()))
-                self.ca_cert = False
                 if retry > self.request_retries:
                     raise
 
@@ -608,7 +608,6 @@ class BaseClient(object):
                 break
             except RequestException:
                 LOG.warning('RequestException: %s', str(traceback.format_exc()))
-                self.ca_cert = False
                 if retry > self.request_retries:
                     raise
 
@@ -669,14 +668,12 @@ class BaseClient(object):
         result = None
         for retry in range(self.AUTH_RETRIES + 1):
             try:
-                result = self.session.get(url, headers=headers, cert=cert,
-                                          verify=self.ca_cert)
+                result = self.session.get(url, headers=headers, cert=cert, verify=self.ca_cert)
                 break
             except ConnectionError as error:
                 if 'alert certificate expired' in str(error):
                     raise CannotAuthenticate(str(error))
                 LOG.warning('ConnectionError: ' + str(error))
-                self.ca_cert = False
                 if retry > self.request_retries:
                     raise
 
@@ -723,7 +720,6 @@ class BaseClient(object):
                 if 'alert certificate expired' in str(error):
                     raise CannotAuthenticate(str(error))
                 LOG.warning('ConnectionError: ' + str(error))
-                self.ca_cert = False
                 if retry > self.request_retries:
                     raise
 
@@ -757,7 +753,6 @@ class BaseClient(object):
                 if 'alert certificate expired' in str(error):
                     raise CannotAuthenticate(str(error))
                 LOG.warning('ConnectionError: ' + str(error))
-                self.ca_cert = False
                 if retry > self.request_retries:
                     raise
 
@@ -795,7 +790,6 @@ class BaseClient(object):
                 break
             except ConnectionError as error:
                 LOG.warning('ConnectionError: ' + str(error))
-                self.ca_cert = False
                 if retry > self.request_retries:
                     raise
 
@@ -838,7 +832,6 @@ class BaseClient(object):
                 break
             except ConnectionError as error:
                 LOG.warning('ConnectionError: ' + str(error))
-                self.ca_cert = False
                 if retry > self.request_retries:
                     raise
 
