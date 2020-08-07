@@ -1,4 +1,4 @@
-# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,29 +14,32 @@
 #
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
-from nose.tools import assert_equal
-
 import os
+import unittest
 
-from rucio.db.sqla import models
-from rucio.db.sqla.session import get_session
 from rucio.client.uploadclient import UploadClient
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.utils import generate_uuid
 from rucio.core.rse import get_rse_id, get_rse_usage
-from rucio.daemons.undertaker import undertaker
 from rucio.daemons.abacus import rse
 from rucio.daemons.judge import cleaner
 from rucio.daemons.reaper import reaper
+from rucio.daemons.undertaker import undertaker
+from rucio.db.sqla import models
+from rucio.db.sqla.session import get_session
 from rucio.tests.common import file_generator
 
 
-class TestAbacusRSE():
+class TestAbacusRSE(unittest.TestCase):
+
     def setUp(self):
         self.account = 'root'
         self.scope = 'mock'
@@ -73,11 +76,11 @@ class TestAbacusRSE():
         [os.remove(file['path']) for file in self.files]
         rse.run(once=True)
         rse_usage = get_rse_usage(rse_id=self.rse_id)[0]
-        assert_equal(rse_usage['used'], len(self.files) * self.file_sizes)
+        assert rse_usage['used'] == len(self.files) * self.file_sizes
         rse_usage_from_rucio = get_rse_usage(rse_id=self.rse_id, source='rucio')[0]
-        assert_equal(rse_usage_from_rucio['used'], len(self.files) * self.file_sizes)
+        assert rse_usage_from_rucio['used'] == len(self.files) * self.file_sizes
         rse_usage_from_unavailable = get_rse_usage(rse_id=self.rse_id, source='unavailable')
-        assert_equal(len(rse_usage_from_unavailable), 0)
+        assert len(rse_usage_from_unavailable) == 0
 
         # Delete files -> rse usage should decrease
         cleaner.run(once=True)
@@ -87,8 +90,8 @@ class TestAbacusRSE():
             reaper.run(once=True, include_rses=self.rse, greedy=True)
         rse.run(once=True)
         rse_usage = get_rse_usage(rse_id=self.rse_id)[0]
-        assert_equal(rse_usage['used'], 0)
+        assert rse_usage['used'] == 0
         rse_usage_from_rucio = get_rse_usage(rse_id=self.rse_id, source='rucio')[0]
-        assert_equal(rse_usage_from_rucio['used'], 0)
+        assert rse_usage_from_rucio['used'] == 0
         rse_usage_from_unavailable = get_rse_usage(rse_id=self.rse_id, source='unavailable')
-        assert_equal(len(rse_usage_from_unavailable), 0)
+        assert len(rse_usage_from_unavailable) == 0

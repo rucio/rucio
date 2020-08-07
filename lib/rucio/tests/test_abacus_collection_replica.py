@@ -1,4 +1,4 @@
-# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,16 +14,16 @@
 #
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
-from nose.tools import assert_equal
-
 import os
+import unittest
 
-from rucio.db.sqla.constants import DIDType
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
@@ -33,14 +33,15 @@ from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.replica import delete_replicas
 from rucio.core.rse import get_rse_id
-from rucio.daemons.undertaker import undertaker
 from rucio.daemons.abacus import collection_replica
 from rucio.daemons.judge import cleaner
 from rucio.daemons.reaper import reaper
+from rucio.daemons.undertaker import undertaker
+from rucio.db.sqla.constants import DIDType
 from rucio.tests.common import file_generator
 
 
-class TestAbacusCollectionReplica():
+class TestAbacusCollectionReplica(unittest.TestCase):
 
     def setUp(self):
         self.account = 'root'
@@ -80,22 +81,22 @@ class TestAbacusCollectionReplica():
 
         # Check dataset replica after rule creation - initial data
         dataset_replica = [replica for replica in self.replica_client.list_dataset_replicas(self.scope, self.dataset)][0]
-        assert_equal(dataset_replica['bytes'], 0)
-        assert_equal(dataset_replica['length'], 0)
-        assert_equal(dataset_replica['available_bytes'], 0)
-        assert_equal(dataset_replica['available_length'], 0)
-        assert_equal(str(dataset_replica['state']), 'UNAVAILABLE')
+        assert dataset_replica['bytes'] == 0
+        assert dataset_replica['length'] == 0
+        assert dataset_replica['available_bytes'] == 0
+        assert dataset_replica['available_length'] == 0
+        assert str(dataset_replica['state']) == 'UNAVAILABLE'
 
         # Run Abacus
         collection_replica.run(once=True)
 
         # Check dataset replica after abacus - abacus should update the collection_replica table from updated_col_rep
         dataset_replica = [replica for replica in self.replica_client.list_dataset_replicas(self.scope, self.dataset)][0]
-        assert_equal(dataset_replica['bytes'], len(self.files) * self.file_sizes)
-        assert_equal(dataset_replica['length'], len(self.files))
-        assert_equal(dataset_replica['available_bytes'], len(self.files) * self.file_sizes)
-        assert_equal(dataset_replica['available_length'], len(self.files))
-        assert_equal(str(dataset_replica['state']), 'AVAILABLE')
+        assert dataset_replica['bytes'] == len(self.files) * self.file_sizes
+        assert dataset_replica['length'] == len(self.files)
+        assert dataset_replica['available_bytes'] == len(self.files) * self.file_sizes
+        assert dataset_replica['available_length'] == len(self.files)
+        assert str(dataset_replica['state']) == 'AVAILABLE'
 
         # Delete one file -> collection replica should be unavailable
         cleaner.run(once=True)
@@ -103,11 +104,11 @@ class TestAbacusCollectionReplica():
         self.rule_client.add_replication_rule([{'scope': self.scope, 'name': self.dataset}], 1, self.rse, lifetime=-1)
         collection_replica.run(once=True)
         dataset_replica = [replica for replica in self.replica_client.list_dataset_replicas(self.scope, self.dataset)][0]
-        assert_equal(dataset_replica['length'], len(self.files))
-        assert_equal(dataset_replica['bytes'], len(self.files) * self.file_sizes)
-        assert_equal(dataset_replica['available_length'], len(self.files) - 1)
-        assert_equal(dataset_replica['available_bytes'], (len(self.files) - 1) * self.file_sizes)
-        assert_equal(str(dataset_replica['state']), 'UNAVAILABLE')
+        assert dataset_replica['length'] == len(self.files)
+        assert dataset_replica['bytes'] == len(self.files) * self.file_sizes
+        assert dataset_replica['available_length'] == len(self.files) - 1
+        assert dataset_replica['available_bytes'] == (len(self.files) - 1) * self.file_sizes
+        assert str(dataset_replica['state']) == 'UNAVAILABLE'
 
         # Delete all files -> collection replica should be deleted
         cleaner.run(once=True)
@@ -118,4 +119,4 @@ class TestAbacusCollectionReplica():
         self.rule_client.add_replication_rule([{'scope': self.scope, 'name': self.dataset}], 1, self.rse, lifetime=-1)
         collection_replica.run(once=True)
         dataset_replica = [replica for replica in self.replica_client.list_dataset_replicas(self.scope, self.dataset)]
-        assert_equal(len(dataset_replica), 0)
+        assert len(dataset_replica) == 0

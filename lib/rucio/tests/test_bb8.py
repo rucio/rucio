@@ -1,36 +1,46 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2016-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2016
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2016
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
+import unittest
 from datetime import datetime
 
-from nose.tools import assert_raises
+import pytest
 
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.utils import generate_uuid as uuid
+from rucio.common.exception import RuleNotFound, UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_did, attach_dids
+from rucio.core.lock import successful_transfer
 from rucio.core.rse import add_rse_attribute, get_rse_id
 from rucio.core.rule import add_rule, get_rule, delete_rule
-from rucio.core.lock import successful_transfer
-from rucio.daemons.judge.cleaner import rule_cleaner
 from rucio.daemons.bb8.common import rebalance_rule
+from rucio.daemons.judge.cleaner import rule_cleaner
 from rucio.db.sqla.constants import DIDType, RuleState
 from rucio.tests.test_rule import create_files, tag_generator
-from rucio.common.exception import RuleNotFound, UnsupportedOperation
 
 
-class TestJudgeCleaner():
+class TestJudgeCleaner(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -91,7 +101,7 @@ class TestJudgeCleaner():
         try:
             rule = get_rule(rule_id)
         except:
-            assert_raises(RuleNotFound, get_rule, rule_id)
+            pytest.raises(RuleNotFound, get_rule, rule_id)
         child_rule = rebalance_rule(rule, 'Rebalance', self.rse3, priority=3)
 
         rule_cleaner(once=True)
@@ -105,7 +115,7 @@ class TestJudgeCleaner():
 
         successful_transfer(scope=scope, name=files[0]['name'], rse_id=self.rse3_id, nowait=False)
         successful_transfer(scope=scope, name=files[1]['name'], rse_id=self.rse3_id, nowait=False)
-        with assert_raises(UnsupportedOperation):
+        with pytest.raises(UnsupportedOperation):
             delete_rule(rule_id)
         successful_transfer(scope=scope, name=files[2]['name'], rse_id=self.rse3_id, nowait=False)
 

@@ -1,23 +1,32 @@
-''' Copyright European Organization for Nuclear Research (CERN)
-
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at
- http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Frank Berghaus, <frank.berghaus@cern.ch>, 2018
- - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
-
- PY3K COMPATIBLE
-'''
+# Copyright 2017-2020 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Frank Berghaus <frank.berghaus@cern.ch>, 2017-2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+#
+# PY3K COMPATIBLE
 
 import datetime
-import unittest
 import tempfile
-
-from nose.tools import assert_raises, assert_equal, assert_is_instance, assert_is_not_none
+import unittest
 from re import match
+
+import pytest
+
 from rucio.common.exception import InvalidType
 from rucio.common.utils import md5, adler32, parse_did_filter_from_string
 
@@ -35,34 +44,25 @@ class TestUtils(unittest.TestCase):
         """tear down test fixtures"""
         self.temp_file_1.close()
 
-    def check_exception_message(self, exptected_message, exception_object):
-        try:
-            assert_equal(exception_object.exception.message, exptected_message)
-        except AttributeError:
-            assert_equal(str(exception_object.exception), exptected_message)
-
     def test_utils_md5(self):
         """(COMMON/UTILS): test calculating MD5 of a file"""
         ret = md5(self.temp_file_1.name)
-        assert_is_instance(ret, str, msg="Object returned by utils.md5 is not a string")
-        assert_is_not_none(match('[a-fA-F0-9]{32}', ret), msg="String returned by utils.md5 is not a md5 hex digest")
-        assert_equal(ret, '31d50dd6285b9ff9f8611d0762265d04',
-                     msg="Hex digest returned by utils.md5 is the MD5 checksum")
+        assert isinstance(ret, str), "Object returned by utils.md5 is not a string"
+        assert match('[a-fA-F0-9]{32}', ret) is not None, "String returned by utils.md5 is not a md5 hex digest"
+        assert ret == '31d50dd6285b9ff9f8611d0762265d04', "Hex digest returned by utils.md5 is the MD5 checksum"
 
-        with assert_raises(Exception) as e:
+        with pytest.raises(Exception, match='FATAL - could not get MD5 checksum of file no_file - \\[Errno 2\\] No such file or directory: \'no_file\''):
             md5('no_file')
-        self.check_exception_message('FATAL - could not get MD5 checksum of file no_file - [Errno 2] No such file or directory: \'no_file\'', e)
 
     def test_utils_adler32(self):
         """(COMMON/UTILS): test calculating Adler32 of a file"""
         ret = adler32(self.temp_file_1.name)
-        assert_is_instance(ret, str)
-        assert_is_not_none(match('[a-fA-F0-9]', ret))
-        assert_equal(ret, '198d03ff')
+        assert isinstance(ret, str)
+        assert match('[a-fA-F0-9]', ret) is not None
+        assert ret == '198d03ff'
 
-        with assert_raises(Exception) as e:
+        with pytest.raises(Exception, match='FATAL - could not get Adler32 checksum of file no_file - \\[Errno 2\\] No such file or directory: \'no_file\''):
             adler32('no_file')
-        self.check_exception_message('FATAL - could not get Adler32 checksum of file no_file - [Errno 2] No such file or directory: \'no_file\'', e)
 
     def test_parse_did_filter_string(self):
         """(COMMON/UTILS): test parsing of did filter string"""
@@ -82,9 +82,9 @@ class TestUtils(unittest.TestCase):
 
         for test_case in test_cases:
             filters, type = parse_did_filter_from_string(test_case['input'])
-            assert_equal(test_case['expected_filter'], filters)
-            assert_equal(test_case['expected_type'], type)
+            assert test_case['expected_filter'] == filters
+            assert test_case['expected_type'] == type
 
-        with assert_raises(InvalidType):
+        with pytest.raises(InvalidType):
             input = 'type=g'
             parse_did_filter_from_string(input)

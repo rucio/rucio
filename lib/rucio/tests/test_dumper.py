@@ -28,10 +28,8 @@ import tempfile
 from datetime import datetime
 
 import bz2file
+import pytest
 import requests
-from nose.tools import eq_
-from nose.tools import ok_
-from nose.tools import raises
 
 from rucio.common import config
 from rucio.common import dumper
@@ -78,29 +76,29 @@ class MockResponse:
         return self.json_data
 
 
-@raises(dumper.HTTPDownloadFailed)
+@pytest.mark.xfail(raises=dumper.HTTPDownloadFailed)
 def test_http_download_failed_exception_with_no_semantic_errors():
     raise dumper.HTTPDownloadFailed('some message', 500)
 
 
-@raises(SystemExit)
+@pytest.mark.xfail(raises=SystemExit)
 def test_error_ends_the_program():
     dumper.error('message', 2)
 
 
 def test_cacert_config_returns_a_string():
-    ok_(isinstance(dumper.cacert_config(config, '.'), str))
+    assert isinstance(dumper.cacert_config(config, '.'), str)
 
 
 @mock.patch('rucio.common.config.config_get')
 def test_cacert_config_returns_false_if_no_cert_configured(mock_get):
     mock_get.return_value = ''
-    eq_(dumper.cacert_config(config, '.'), False)
+    assert not dumper.cacert_config(config, '.')
 
 
 def test_smart_open_for_text_file():
     tmp = make_temp_file('/tmp', 'abcdef')
-    ok_(hasattr(dumper.smart_open(tmp), 'read'))  # check if object is file - python2/3 compatibility
+    assert hasattr(dumper.smart_open(tmp), 'read')  # check if object is file - python2/3 compatibility
     os.unlink(tmp)
 
 
@@ -110,7 +108,7 @@ def test_smart_open_for_bz2_file():
     with os.fdopen(fd, 'wb') as f:
         f.write(comp.compress('abcdef'.encode()))
         f.write(comp.flush())
-    ok_(not isinstance(dumper.smart_open(path), bz2file.BZ2File))
+    assert not isinstance(dumper.smart_open(path), bz2file.BZ2File)
     os.unlink(path)
 
 
@@ -118,20 +116,20 @@ def test_temp_file_with_final_name_creates_a_tmp_file_and_then_removes_it():
     final_name = tempfile.mktemp()
     with dumper.temp_file('/tmp', final_name) as (_, tmp_path):
         tmp_path = os.path.join('/tmp', tmp_path)
-        ok_(os.path.exists(tmp_path), tmp_path)
-        ok_(not os.path.exists(final_name), tmp_path)
+        assert os.path.exists(tmp_path)
+        assert not os.path.exists(final_name)
 
-    ok_(os.path.exists(final_name), final_name)
-    ok_(not os.path.exists(tmp_path), tmp_path)
+    assert os.path.exists(final_name)
+    assert not os.path.exists(tmp_path)
     os.unlink(final_name)
 
 
 def test_temp_file_with_final_name_creates_a_tmp_file_and_keeps_it():
     with dumper.temp_file('/tmp') as (_, tmp_path):
         tmp_path = os.path.join('/tmp', tmp_path)
-        ok_(os.path.exists(tmp_path), tmp_path)
+        assert os.path.exists(tmp_path)
 
-    ok_(os.path.exists(tmp_path), tmp_path)
+    assert os.path.exists(tmp_path)
     os.unlink(tmp_path)
 
 
@@ -143,7 +141,7 @@ def test_temp_file_cleanup_on_exception():
     except:
         pass
     finally:
-        ok_(not os.path.exists(tmp_path), tmp_path)
+        assert not os.path.exists(tmp_path)
 
 
 def test_temp_file_cleanup_on_exception_with_final_name():
@@ -155,30 +153,30 @@ def test_temp_file_cleanup_on_exception_with_final_name():
     except:
         pass
     finally:
-        ok_(not os.path.exists(tmp_path), tmp_path)
-        ok_(not os.path.exists(final_name), final_name)
+        assert not os.path.exists(tmp_path)
+        assert not os.path.exists(final_name)
 
 
 def test_to_date_format():
-    ok_(isinstance(dumper.to_datetime(DATE_SECONDS), datetime))
-    ok_(isinstance(dumper.to_datetime(DATE_TENTHS), datetime))
-    ok_(isinstance(dumper.to_datetime(DATE_MILLISECONDS), datetime))
+    assert isinstance(dumper.to_datetime(DATE_SECONDS), datetime)
+    assert isinstance(dumper.to_datetime(DATE_TENTHS), datetime)
+    assert isinstance(dumper.to_datetime(DATE_MILLISECONDS), datetime)
 
 
 @mock.patch('requests.get')
 def test_agis_endpoints_data_parses_proper_json(mock_get):
     mock_get.return_value = MockResponse(AGISDATA, 200)
-    eq_(dumper.agis_endpoints_data(cache=False), AGISDATA)
+    assert dumper.agis_endpoints_data(cache=False) == AGISDATA
 
 
 @mock.patch('rucio.common.dumper.agis_endpoints_data')
 def test_ddmendpoint_url_builds_url_from_agis_records(mock_get):
     mock_get.return_value = AGISDATA
-    eq_(dumper.ddmendpoint_url('SOMEENDPOINT'), 'srm://example.com/atlasdatadisk/')
+    assert dumper.ddmendpoint_url('SOMEENDPOINT') == 'srm://example.com/atlasdatadisk/'
 
 
 @mock.patch('rucio.common.dumper.agis_endpoints_data')
-@raises(StopIteration)
+@pytest.mark.xfail(raises=StopIteration)
 def test_ddmendpoint_url_fails_on_unexistent_entry(mock_get):
     mock_get.return_value = []
     dumper.ddmendpoint_url('SOMEENDPOINT')
@@ -195,7 +193,7 @@ def test_http_download_to_file_without_session_uses_requests_get(mock_get):
     dumper.http_download_to_file('http://example.com', stringio)
 
     stringio.seek(0)
-    eq_(stringio.read(), 'content')
+    assert stringio.read() == 'content'
 
 
 def test_http_download_to_file_with_session():
@@ -209,10 +207,10 @@ def test_http_download_to_file_with_session():
 
     dumper.http_download_to_file('http://example.com', stringio, session)
     stringio.seek(0)
-    eq_(stringio.read(), 'content')
+    assert stringio.read() == 'content'
 
 
-@raises(dumper.HTTPDownloadFailed)
+@pytest.mark.xfail(raises=dumper.HTTPDownloadFailed)
 def test_http_download_to_file_throws_exception_on_error():
     response = requests.Response()
     response.status_code = 404
@@ -237,7 +235,7 @@ def test_http_download_creates_file_with_content(mock_get):
         dumper.http_download('http://example.com', 'filename')
 
     stringio.seek(0)
-    eq_(stringio.read(), 'abc')
+    assert stringio.read() == 'abc'
 
 
 def test_gfal_download_to_file():
@@ -250,7 +248,7 @@ def test_gfal_download_to_file():
         dumper.gfal_download_to_file('srm://example.com/file', local_file)
 
     local_file.seek(0)
-    eq_(local_file.read(), 'content')
+    assert local_file.read() == 'content'
 
 
 def test_gfal_download_creates_file_with_content():
@@ -264,4 +262,4 @@ def test_gfal_download_creates_file_with_content():
             dumper.gfal_download('srm://example.com/file', 'filename')
 
     local_file.seek(0)
-    eq_(local_file.read(), 'content')
+    assert local_file.read() == 'content'

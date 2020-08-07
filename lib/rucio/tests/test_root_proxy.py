@@ -25,14 +25,8 @@
 #
 # PY3K COMPATIBLE
 
-try:
-    # PY3
-    from urllib import urlencode
-except ImportError:
-    # PY3
-    from urllib.parse import urlencode
+import unittest
 
-from nose.tools import assert_equal, assert_in, assert_not_in
 from paste.fixture import TestApp
 
 from rucio.client.replicaclient import ReplicaClient
@@ -44,11 +38,18 @@ from rucio.core.rse import add_rse, add_rse_attribute, del_rse, add_protocol
 from rucio.tests.common import rse_name_generator
 from rucio.web.rest.redirect import APP as redirect_app
 
+try:
+    # PY3
+    from urllib import urlencode
+except ImportError:
+    # PY3
+    from urllib.parse import urlencode
 
-class TestROOTProxy(object):
+
+class TestROOTProxy(unittest.TestCase):
 
     @classmethod
-    def setupClass(self):
+    def setUpClass(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
             self.vo_header = {'X-Rucio-VO': self.vo['vo']}
@@ -117,11 +118,11 @@ class TestROOTProxy(object):
                                                           'delete': 1}}})
 
     @classmethod
-    def tearDownClass(self):
-        for rse_id in [self.rse_with_proxy_id, self.rse_without_proxy_id]:
-            delete_replicas(rse_id=rse_id, files=self.files)
-        del_rse(self.rse_with_proxy_id)
-        del_rse(self.rse_without_proxy_id)
+    def tearDownClass(cls):
+        for rse_id in [cls.rse_with_proxy_id, cls.rse_without_proxy_id]:
+            delete_replicas(rse_id=rse_id, files=cls.files)
+        del_rse(cls.rse_with_proxy_id)
+        del_rse(cls.rse_without_proxy_id)
 
     def test_client_list_replicas1(self):
         """ ROOT (CLIENT): No proxy involved """
@@ -136,7 +137,7 @@ class TestROOTProxy(object):
                          'root://root.blackmesa.com:1409//training/facility/mock/c1/8d/half-life_2',
                          'root://root.blackmesa.com:1409//training/facility/mock/16/30/half-life_3']
         found_pfns = [list(replica['pfns'].keys())[0] for replica in replicas]
-        assert_equal(sorted(found_pfns), sorted(expected_pfns))
+        assert sorted(found_pfns) == sorted(expected_pfns)
 
     def test_client_list_replicas2(self):
         """ ROOT (CLIENT): Outgoing proxy needs to be prepended"""
@@ -151,7 +152,7 @@ class TestROOTProxy(object):
                          'root://proxy.aperture.com:1094//root://root.blackmesa.com:1409//training/facility/mock/c1/8d/half-life_2',
                          'root://proxy.aperture.com:1094//root://root.blackmesa.com:1409//training/facility/mock/16/30/half-life_3']
         found_pfns = [list(replica['pfns'].keys())[0] for replica in replicas]
-        assert_equal(sorted(found_pfns), sorted(expected_pfns))
+        assert sorted(found_pfns) == sorted(expected_pfns)
 
     def test_client_list_replicas3(self):
         """ ROOT (CLIENT): Outgoing proxy at destination does not matter"""
@@ -166,7 +167,7 @@ class TestROOTProxy(object):
                          'root://root.aperture.com:1409//test/chamber/mock/c1/8d/half-life_2',
                          'root://root.aperture.com:1409//test/chamber/mock/16/30/half-life_3']
         found_pfns = [list(replica['pfns'].keys())[0] for replica in replicas]
-        assert_equal(sorted(found_pfns), sorted(expected_pfns))
+        assert sorted(found_pfns) == sorted(expected_pfns)
 
     def test_client_list_replicas4(self):
         """ ROOT (CLIENT): Outgoing proxy does not matter when staying at site"""
@@ -180,7 +181,7 @@ class TestROOTProxy(object):
                          'root://root.aperture.com:1409//test/chamber/mock/c1/8d/half-life_2',
                          'root://root.aperture.com:1409//test/chamber/mock/16/30/half-life_3']
         found_pfns = [list(replica['pfns'].keys())[0] for replica in replicas]
-        assert_equal(sorted(found_pfns), sorted(expected_pfns))
+        assert sorted(found_pfns) == sorted(expected_pfns)
 
     def test_redirect_metalink_list_replicas(self):
         """ ROOT (REDIRECT REST): Test internal proxy prepend with metalink"""
@@ -189,61 +190,59 @@ class TestROOTProxy(object):
         # default behaviour - no location -> no proxy
         res = TestApp(redirect_app.wsgifunc(*mw)).get('/mock/half-life_1/metalink', headers=self.vo_header, expect_errors=True)
         body = res.body.decode()
-        assert_in('root://root.blackmesa.com:1409//training/facility/mock/c9/df/half-life_1', body)
-        assert_in('root://root.aperture.com:1409//test/chamber/mock/c9/df/half-life_1', body)
-        assert_not_in('proxy', body)
+        assert 'root://root.blackmesa.com:1409//training/facility/mock/c9/df/half-life_1' in body
+        assert 'root://root.aperture.com:1409//test/chamber/mock/c9/df/half-life_1' in body
+        assert 'proxy' not in body
         res = TestApp(redirect_app.wsgifunc(*mw)).get('/mock/half-life_2/metalink', headers=self.vo_header, expect_errors=True)
         body = res.body.decode()
-        assert_in('root://root.blackmesa.com:1409//training/facility/mock/c1/8d/half-life_2', body)
-        assert_in('root://root.aperture.com:1409//test/chamber/mock/c1/8d/half-life_2', body)
-        assert_not_in('proxy', body)
+        assert 'root://root.blackmesa.com:1409//training/facility/mock/c1/8d/half-life_2' in body
+        assert 'root://root.aperture.com:1409//test/chamber/mock/c1/8d/half-life_2' in body
+        assert 'proxy' not in body
         res = TestApp(redirect_app.wsgifunc(*mw)).get('/mock/half-life_3/metalink', headers=self.vo_header, expect_errors=True)
         body = res.body.decode()
-        assert_in('root://root.blackmesa.com:1409//training/facility/mock/16/30/half-life_3', body)
-        assert_in('root://root.aperture.com:1409//test/chamber/mock/16/30/half-life_3', body)
-        assert_not_in('proxy', body)
+        assert 'root://root.blackmesa.com:1409//training/facility/mock/16/30/half-life_3' in body
+        assert 'root://root.aperture.com:1409//test/chamber/mock/16/30/half-life_3' in body
+        assert 'proxy' not in body
 
         # site without proxy
         res = TestApp(redirect_app.wsgifunc(*mw)).get('/mock/half-life_1/metalink?%s' % urlencode(self.client_location_without_proxy),
                                                       headers=self.vo_header,
                                                       expect_errors=True)
         body = res.body.decode()
-        assert_in('root://root.blackmesa.com:1409//training/facility/mock/c9/df/half-life_1', body)
-        assert_in('root://root.aperture.com:1409//test/chamber/mock/c9/df/half-life_1', body)
-        assert_not_in('proxy', body)
+        assert 'root://root.blackmesa.com:1409//training/facility/mock/c9/df/half-life_1' in body
+        assert 'root://root.aperture.com:1409//test/chamber/mock/c9/df/half-life_1' in body
+        assert 'proxy' not in body
         res = TestApp(redirect_app.wsgifunc(*mw)).get('/mock/half-life_2/metalink?%s' % urlencode(self.client_location_without_proxy),
                                                       headers=self.vo_header,
                                                       expect_errors=True)
         body = res.body.decode()
-        assert_in('root://root.blackmesa.com:1409//training/facility/mock/c1/8d/half-life_2', body)
-        assert_in('root://root.aperture.com:1409//test/chamber/mock/c1/8d/half-life_2', body)
-        assert_not_in('proxy', body)
+        assert 'root://root.blackmesa.com:1409//training/facility/mock/c1/8d/half-life_2' in body
+        assert 'root://root.aperture.com:1409//test/chamber/mock/c1/8d/half-life_2' in body
+        assert 'proxy' not in body
         res = TestApp(redirect_app.wsgifunc(*mw)).get('/mock/half-life_3/metalink?%s' % urlencode(self.client_location_without_proxy),
                                                       headers=self.vo_header,
                                                       expect_errors=True)
         body = res.body.decode()
-        assert_in('root://root.blackmesa.com:1409//training/facility/mock/16/30/half-life_3', res)
-        assert_in('root://root.aperture.com:1409//test/chamber/mock/16/30/half-life_3', res)
-        assert_not_in('proxy', res)
+        assert 'root://root.blackmesa.com:1409//training/facility/mock/16/30/half-life_3' in res
+        assert 'root://root.aperture.com:1409//test/chamber/mock/16/30/half-life_3' in res
+        assert 'proxy' not in res
 
         # at location with outgoing proxy, prepend for wan replica
         res = TestApp(redirect_app.wsgifunc(*mw)).get('/mock/half-life_1/metalink?%s' % urlencode(self.client_location_with_proxy),
                                                       headers=self.vo_header,
                                                       expect_errors=True)
         body = res.body.decode()
-        assert_in('root://proxy.aperture.com:1094//root://root.blackmesa.com:1409//training/facility/mock/c9/df/half-life_1', body)
-        assert_in('root://root.aperture.com:1409//test/chamber/mock/c9/df/half-life_1', body)
-
+        assert 'root://proxy.aperture.com:1094//root://root.blackmesa.com:1409//training/facility/mock/c9/df/half-life_1' in body
+        assert 'root://root.aperture.com:1409//test/chamber/mock/c9/df/half-life_1' in body
         res = TestApp(redirect_app.wsgifunc(*mw)).get('/mock/half-life_2/metalink?%s' % urlencode(self.client_location_with_proxy),
                                                       headers=self.vo_header,
                                                       expect_errors=True)
         body = res.body.decode()
-        assert_in('root://proxy.aperture.com:1094//root://root.blackmesa.com:1409//training/facility/mock/c1/8d/half-life_2', body)
-        assert_in('root://root.aperture.com:1409//test/chamber/mock/c1/8d/half-life_2', body)
-
+        assert 'root://proxy.aperture.com:1094//root://root.blackmesa.com:1409//training/facility/mock/c1/8d/half-life_2' in body
+        assert 'root://root.aperture.com:1409//test/chamber/mock/c1/8d/half-life_2' in body
         res = TestApp(redirect_app.wsgifunc(*mw)).get('/mock/half-life_3/metalink?%s' % urlencode(self.client_location_with_proxy),
                                                       headers=self.vo_header,
                                                       expect_errors=True)
         body = res.body.decode()
-        assert_in('root://proxy.aperture.com:1094//root://root.blackmesa.com:1409//training/facility/mock/16/30/half-life_3', body)
-        assert_in('root://root.aperture.com:1409//test/chamber/mock/16/30/half-life_3', body)
+        assert 'root://proxy.aperture.com:1094//root://root.blackmesa.com:1409//training/facility/mock/16/30/half-life_3' in body
+        assert 'root://root.aperture.com:1409//test/chamber/mock/16/30/half-life_3' in body

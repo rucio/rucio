@@ -1,24 +1,31 @@
-'''
-  Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2016
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+#
+# PY3K COMPATIBLE
 
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-  http://www.apache.org/licenses/LICENSE-2.0
+import pytest
 
-  Authors:
-  - Vincent Garonne, <vincent.garonne@cern.ch>, 2013 - 2017
-  - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
-  - Martin Barisits, <martin.barisits@cern.ch>, 2014
-  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
-
-  PY3K COMPATIBLE
-'''
-
-from nose.tools import assert_equal, assert_in, assert_is_instance, assert_raises
-
-from rucio.core.message import add_message, retrieve_messages, delete_messages, truncate_messages
 from rucio.common.exception import InvalidObject
+from rucio.core.message import add_message, retrieve_messages, delete_messages, truncate_messages
 
 
 class TestMessagesCore():
@@ -32,7 +39,7 @@ class TestMessagesCore():
                                                    'name_Y': 'scope_X',
                                                    'type': 'file'})
 
-        with assert_raises(InvalidObject):
+        with pytest.raises(InvalidObject):
             add_message(event_type='NEW_DID', payload={'name': 'name',
                                                        'name_Y': 'scope_X',
                                                        'type': int})
@@ -49,10 +56,10 @@ class TestMessagesCore():
         tmp = retrieve_messages(10)
         to_delete = []
         for i in tmp:
-            assert_is_instance(i['payload'], dict)
-            assert_equal(i['payload']['foo'], True)
-            assert_equal(i['payload']['monty'], 'python')
-            assert_in(i['payload']['number'], list(range(100)))
+            assert isinstance(i['payload'], dict)
+            assert i['payload']['foo'] is True
+            assert i['payload']['monty'] == 'python'
+            assert i['payload']['number'] in list(range(100))
             to_delete.append({'id': i['id'],
                               'created_at': i['created_at'],
                               'updated_at': i['created_at'],
@@ -61,4 +68,4 @@ class TestMessagesCore():
 
         delete_messages(to_delete)
 
-        assert_equal(retrieve_messages(), [])
+        assert retrieve_messages() == []

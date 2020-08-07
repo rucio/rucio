@@ -63,3 +63,6 @@ pylint.out
 # Conveyor test files
 tools/test.file.1G
 
+# autotest logs/data
+/.autotest
+

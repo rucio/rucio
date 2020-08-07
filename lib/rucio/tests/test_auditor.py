@@ -29,11 +29,9 @@ import multiprocessing
 import os
 import sys
 import tempfile
+import unittest
 from datetime import datetime
 from datetime import timedelta
-
-from nose.tools import eq_
-from nose.tools import ok_
 
 from rucio.daemons import auditor
 
@@ -56,16 +54,16 @@ def test_auditor_guess_replica_info():
         'group/foo/bar': ('group.foo', 'bar'),
     }
     for input_, output in tests.items():
-        eq_(auditor.guess_replica_info(input_), output)
+        assert auditor.guess_replica_info(input_) == output
 
 
-class TestBz2CompressFile(object):
+class TestBz2CompressFile(unittest.TestCase):
 
-    def setup(self):
+    def setUp(self):
         self.source = tempfile.mktemp()
         self.destination = self.source + '.bz2'
 
-    def teardown(self):
+    def tearDown(self):
         for path in [self.source, self.destination]:
             try:
                 os.remove(path)
@@ -79,11 +77,11 @@ class TestBz2CompressFile(object):
 
         destination = auditor.bz2_compress_file(self.source)
 
-        eq_(destination, self.destination)
-        ok_(os.path.exists(self.destination))
-        ok_(not os.path.exists(self.source))
+        assert destination == self.destination
+        assert os.path.exists(self.destination)
+        assert not os.path.exists(self.source)
         with bz2.BZ2File(self.destination) as f:
-            eq_(f.read().decode(), test_data)
+            assert f.read().decode() == test_data
 
 
 def mock_fn_wrapper(return_value):
@@ -113,15 +111,8 @@ def test_auditor_download_dumps_with_expected_dates(mocked_srmdumps, mocked_hdfs
 
     auditor.consistency('RSENAME', timedelta(days=3), None, cache_dir=tmp_dir, results_dir=tmp_dir)
 
-    eq_(
-        fake_rrd_download_calls[0]['args'][1],
-        date.strptime('29-12-2014', '%d-%m-%Y')
-    )
-
-    eq_(
-        fake_rrd_download_calls[1]['args'][1],
-        date.strptime('04-01-2015', '%d-%m-%Y')
-    )
+    assert fake_rrd_download_calls[0]['args'][1] == date.strptime('29-12-2014', '%d-%m-%Y')
+    assert fake_rrd_download_calls[1]['args'][1] == date.strptime('04-01-2015', '%d-%m-%Y')
 
 
 def mocked_auditor_consistency(rse, delta, configuration, cache_dir, results_dir):
@@ -151,7 +142,7 @@ def test_auditor_check_survives_failures_and_queues_failed_rses(mock_auditor):
     terminate = MockMultiProcessing()
     auditor.check(queue, retry, terminate, wr_pipe, None, None, 3, False)
 
-    ok_(queue.empty())
-    eq_(retry.get(), ('RSE_WITH_EXCEPTION', 0))
-    eq_(retry.get(), ('RSE_WITH_ERROR', 0))
-    ok_(retry.empty())
+    assert queue.empty()
+    assert retry.get() == ('RSE_WITH_EXCEPTION', 0)
+    assert retry.get() == ('RSE_WITH_ERROR', 0)
+    assert retry.empty()

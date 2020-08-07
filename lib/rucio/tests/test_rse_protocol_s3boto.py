@@ -1,14 +1,23 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2014-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2014
-# - Joaquin Bogado, <jbogado@linti.unlp.edu.ar>, 2018
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Wen Guan <wen.guan@cern.ch>, 2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2016
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -17,22 +26,24 @@ from __future__ import print_function
 import json
 import os
 import tempfile
+import unittest
+from uuid import uuid4 as uuid
+
+import boto
+import boto.s3.connection
+import pytest
+from boto.s3.key import Key
+
+from rucio.common import exception
+from rucio.rse import rsemanager as mgr
+from rucio.tests.rsemgr_api_test import MgrTestCases
+
 try:
     # PY2
     import urlparse
 except ImportError:
     # PY3
     import urllib.parse as urlparse
-import boto
-import boto.s3.connection
-from boto.s3.key import Key
-
-from nose.tools import raises
-from uuid import uuid4 as uuid
-
-from rucio.common import exception
-from rucio.rse import rsemanager as mgr
-from rsemgr_api_test import MgrTestCases
 
 
 def get_bucket_key_name(pfn):
@@ -57,12 +68,12 @@ def get_bucket_key(pfn, conn, create=False):
     return key
 
 
-class TestRseS3():
+class TestRseS3(unittest.TestCase):
     tmpdir = None
     user = None
 
     @classmethod
-    def setupClass(cls):
+    def setUpClass(cls):
         """S3 (RSE/PROTOCOLS): Creating necessary directories and files """
         # Creating local files
         cls.tmpdir = tempfile.mkdtemp()
@@ -104,7 +115,7 @@ class TestRseS3():
             bucket_name, key_name = get_bucket_key_name(pfn)
             key.copy(bucket_name, key_name)
 
-    def setup(self):
+    def setUp(self):
         """S3 (RSE/PROTOCOLS): Creating Mgr-instance """
         self.tmpdir = TestRseS3.tmpdir
         self.mtc = MgrTestCases(self.tmpdir, 'BNL-BOTO', TestRseS3.user, TestRseS3.static_file)
@@ -157,17 +168,17 @@ class TestRseS3():
         """S3 (RSE/PROTOCOLS): Get a single file from storage providing PFN (Success)"""
         self.mtc.test_get_mgr_ok_single_pfn()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_multi(self):
         """S3 (RSE/PROTOCOLS): Get multiple files from storage providing LFNs and PFNs (SourceNotFound)"""
         self.mtc.test_get_mgr_SourceNotFound_multi()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_single_lfn(self):
         """S3 (RSE/PROTOCOLS): Get a single file from storage providing LFN (SourceNotFound)"""
         self.mtc.test_get_mgr_SourceNotFound_single_lfn()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_single_pfn(self):
         """S3 (RSE/PROTOCOLS): Get a single file from storage providing PFN (SourceNotFound)"""
         self.mtc.test_get_mgr_SourceNotFound_single_pfn()
@@ -181,22 +192,22 @@ class TestRseS3():
         """S3 (RSE/PROTOCOLS): Put a single file to storage (Success)"""
         self.mtc.test_put_mgr_ok_single()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_put_mgr_SourceNotFound_multi(self):
         """S3 (RSE/PROTOCOLS): Put multiple files to storage (SourceNotFound)"""
         self.mtc.test_put_mgr_SourceNotFound_multi()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_put_mgr_SourceNotFound_single(self):
         """S3 (RSE/PROTOCOLS): Put a single file to storage (SourceNotFound)"""
         self.mtc.test_put_mgr_SourceNotFound_single()
 
-    @raises(exception.FileReplicaAlreadyExists)
+    @pytest.mark.xfail(raises=exception.FileReplicaAlreadyExists)
     def test_put_mgr_FileReplicaAlreadyExists_multi(self):
         """S3 (RSE/PROTOCOLS): Put multiple files to storage (FileReplicaAlreadyExists)"""
         self.mtc.test_put_mgr_FileReplicaAlreadyExists_multi()
 
-    @raises(exception.FileReplicaAlreadyExists)
+    @pytest.mark.xfail(raises=exception.FileReplicaAlreadyExists)
     def test_put_mgr_FileReplicaAlreadyExists_single(self):
         """S3 (RSE/PROTOCOLS): Put a single file to storage (FileReplicaAlreadyExists)"""
         self.mtc.test_put_mgr_FileReplicaAlreadyExists_single()
@@ -210,12 +221,12 @@ class TestRseS3():
         """S3 (RSE/PROTOCOLS): Delete a single file from storage (Success)"""
         self.mtc.test_delete_mgr_ok_single()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_delete_mgr_SourceNotFound_multi(self):
         """S3 (RSE/PROTOCOLS): Delete multiple files from storage (SourceNotFound)"""
         self.mtc.test_delete_mgr_SourceNotFound_multi()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_delete_mgr_SourceNotFound_single(self):
         """S3 (RSE/PROTOCOLS): Delete a single file from storage (SourceNotFound)"""
         self.mtc.test_delete_mgr_SourceNotFound_single()
@@ -258,32 +269,32 @@ class TestRseS3():
         """S3 (RSE/PROTOCOLS): Rename a single file on storage using PFN (Success)"""
         self.mtc.test_rename_mgr_ok_single_pfn()
 
-    @raises(exception.FileReplicaAlreadyExists)
+    @pytest.mark.xfail(raises=exception.FileReplicaAlreadyExists)
     def test_rename_mgr_FileReplicaAlreadyExists_multi(self):
         """S3 (RSE/PROTOCOLS): Rename multiple files on storage (FileReplicaAlreadyExists)"""
         self.mtc.test_rename_mgr_FileReplicaAlreadyExists_multi()
 
-    @raises(exception.FileReplicaAlreadyExists)
+    @pytest.mark.xfail(raises=exception.FileReplicaAlreadyExists)
     def test_rename_mgr_FileReplicaAlreadyExists_single_lfn(self):
         """S3 (RSE/PROTOCOLS): Rename a single file on storage using LFN (FileReplicaAlreadyExists)"""
         self.mtc.test_rename_mgr_FileReplicaAlreadyExists_single_lfn()
 
-    @raises(exception.FileReplicaAlreadyExists)
+    @pytest.mark.xfail(raises=exception.FileReplicaAlreadyExists)
     def test_rename_mgr_FileReplicaAlreadyExists_single_pfn(self):
         """S3 (RSE/PROTOCOLS): Rename a single file on storage using PFN (FileReplicaAlreadyExists)"""
         self.mtc.test_rename_mgr_FileReplicaAlreadyExists_single_pfn()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_rename_mgr_SourceNotFound_multi(self):
         """S3 (RSE/PROTOCOLS): Rename multiple files on storage (SourceNotFound)"""
         self.mtc.test_rename_mgr_SourceNotFound_multi()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_rename_mgr_SourceNotFound_single_lfn(self):
         """S3 (RSE/PROTOCOLS): Rename a single file on storage using LFN (SourceNotFound)"""
         self.mtc.test_rename_mgr_SourceNotFound_single_lfn()
 
-    @raises(exception.SourceNotFound)
+    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_rename_mgr_SourceNotFound_single_pfn(self):
         """S3 (RSE/PROTOCOLS): Rename a single file on storage using PFN (SourceNotFound)"""
         self.mtc.test_rename_mgr_SourceNotFound_single_pfn()

@@ -1,4 +1,4 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,23 +14,24 @@
 #
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
 from __future__ import print_function
 
+import unittest
 from copy import deepcopy
-from nose.tools import assert_equal, assert_true, assert_raises, assert_in
+
+import pytest
 from paste.fixture import TestApp
 
-from rucio.db.sqla import session, models
-from rucio.db.sqla.constants import RSEType, AccountType, IdentityType, AccountStatus
-from rucio.client.importclient import ImportClient
 from rucio.client.exportclient import ExportClient
+from rucio.client.importclient import ImportClient
 from rucio.common.config import config_set, config_add_section, config_has_section, config_get, config_get_bool
 from rucio.common.exception import RSENotFound
 from rucio.common.types import InternalAccount
@@ -40,42 +41,46 @@ from rucio.core.distance import add_distance, get_distances
 from rucio.core.exporter import export_data, export_rses
 from rucio.core.identity import add_identity, list_identities, add_account_identity, list_accounts_for_identity
 from rucio.core.importer import import_data, import_rses
-from rucio.core.rse import get_rse_id, get_rse_name, add_rse, get_rse, add_protocol, get_rse_protocols, list_rse_attributes, get_rse_limits, set_rse_limits, add_rse_attribute, list_rses, export_rse, get_rse_attribute, del_rse
+from rucio.core.rse import get_rse_id, get_rse_name, add_rse, get_rse, add_protocol, get_rse_protocols, \
+    list_rse_attributes, get_rse_limits, set_rse_limits, add_rse_attribute, list_rses, export_rse, get_rse_attribute, \
+    del_rse
+from rucio.db.sqla import session, models
+from rucio.db.sqla.constants import RSEType, AccountType, IdentityType, AccountStatus
 from rucio.tests.common import rse_name_generator
-from rucio.web.rest.importer import APP as import_app
-from rucio.web.rest.exporter import APP as export_app
 from rucio.web.rest.authentication import APP as auth_app
+from rucio.web.rest.exporter import APP as export_app
+from rucio.web.rest.importer import APP as import_app
 
 
 def check_rse(rse_name, test_data, vo='def'):
     rse_id = get_rse_id(rse=rse_name, vo=vo)
     rse = get_rse(rse_id=rse_id)
-    assert_equal(rse['rse'], rse_name)
-    assert_equal(rse['vo'], vo)
-    assert_equal(rse['rse_type'], test_data[rse_name]['rse_type'])
-    assert_equal(rse['region_code'], test_data[rse_name]['region_code'])
-    assert_equal(rse['country_name'], test_data[rse_name]['country_name'])
-    assert_equal(rse['time_zone'], test_data[rse_name]['time_zone'])
-    assert_equal(rse['volatile'], test_data[rse_name]['volatile'])
-    assert_equal(rse['deterministic'], test_data[rse_name]['deterministic'])
-    assert_equal(rse['city'], test_data[rse_name]['city'])
-    assert_equal(rse['staging_area'], test_data[rse_name]['staging_area'])
-    assert_equal(rse['longitude'], test_data[rse_name]['longitude'])
-    assert_equal(rse['latitude'], test_data[rse_name]['latitude'])
-    assert_equal(rse['availability'], test_data[rse_name]['availability'])
+    assert rse['rse'] == rse_name
+    assert rse['vo'] == vo
+    assert rse['rse_type'] == test_data[rse_name]['rse_type']
+    assert rse['region_code'] == test_data[rse_name]['region_code']
+    assert rse['country_name'] == test_data[rse_name]['country_name']
+    assert rse['time_zone'] == test_data[rse_name]['time_zone']
+    assert rse['volatile'] == test_data[rse_name]['volatile']
+    assert rse['deterministic'] == test_data[rse_name]['deterministic']
+    assert rse['city'] == test_data[rse_name]['city']
+    assert rse['staging_area'] == test_data[rse_name]['staging_area']
+    assert rse['longitude'] == test_data[rse_name]['longitude']
+    assert rse['latitude'] == test_data[rse_name]['latitude']
+    assert rse['availability'] == test_data[rse_name]['availability']
 
 
 def check_protocols(rse, test_data, vo='def'):
     rse_id = get_rse_id(rse=rse, vo=vo)
     protocols = get_rse_protocols(rse_id)
-    assert_equal(test_data[rse]['lfn2pfn_algorithm'], get_rse_attribute('lfn2pfn_algorithm', rse_id=rse_id, use_cache=False)[0])
-    assert_equal(test_data[rse]['verify_checksum'], get_rse_attribute('verify_checksum', rse_id=rse_id, use_cache=False)[0])
-    assert_equal(test_data[rse]['availability_write'], protocols['availability_write'])
-    assert_equal(test_data[rse]['availability_read'], protocols['availability_read'])
-    assert_equal(test_data[rse]['availability_delete'], protocols['availability_delete'])
+    assert test_data[rse]['lfn2pfn_algorithm'] == get_rse_attribute('lfn2pfn_algorithm', rse_id=rse_id, use_cache=False)[0]
+    assert test_data[rse]['verify_checksum'] == get_rse_attribute('verify_checksum', rse_id=rse_id, use_cache=False)[0]
+    assert test_data[rse]['availability_write'] == protocols['availability_write']
+    assert test_data[rse]['availability_read'] == protocols['availability_read']
+    assert test_data[rse]['availability_delete'] == protocols['availability_delete']
     protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl'], 'prefix': protocol['prefix']} for protocol in protocols['protocols']]
     for protocol in test_data[rse]['protocols']:
-        assert_true({'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol.get('impl', ''), 'prefix': protocol.get('prefix', '')} in protocols)
+        assert {'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol.get('impl', ''), 'prefix': protocol.get('prefix', '')} in protocols
 
 
 def reset_rses():
@@ -95,10 +100,10 @@ def test_active():
     return True
 
 
-class TestImporter(object):
+class TestImporter(unittest.TestCase):
     """ Tests the initial import method (hard-sync everything) """
 
-    def setup(self):
+    def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
             self.vo_header = {'X-Rucio-VO': self.vo['vo']}
@@ -276,12 +281,12 @@ class TestImporter(object):
         for account in test_accounts:
             # check existence
             db_account = get_account(account=account['account'])
-            assert_equal(db_account['account'], account['account'])
+            assert db_account['account'] == account['account']
 
             # check properties
             email = account.get('email')
             if email:
-                assert_equal(db_account['email'], account['email'])
+                assert db_account['email'] == account['email']
 
             # check identities
             identities = account.get('identities')
@@ -290,17 +295,17 @@ class TestImporter(object):
                     # check identity creation and identity-account association
                     identity_type = IdentityType.from_sym(identity['type'])
                     identity = identity['identity']
-                    assert_in((identity, identity_type), db_identities)
+                    assert (identity, identity_type) in db_identities
                     accounts_for_identity = list_accounts_for_identity(identity, identity_type)
-                    assert_in(account['account'], accounts_for_identity)
+                    assert account['account'] in accounts_for_identity
 
         # check removal of account
         account = get_account(self.old_account_1)
-        assert_equal(account['status'], AccountStatus.DELETED)
+        assert account['status'] == AccountStatus.DELETED
 
         # check removal of identities
         accounts_for_identity = list_accounts_for_identity(self.identity_to_be_removed, IdentityType.X509)
-        assert_true(account['account'] not in accounts_for_identity)
+        assert account['account'] not in accounts_for_identity
 
     def test_importer_core(self):
         """ IMPORTER (CORE): test import. """
@@ -313,9 +318,9 @@ class TestImporter(object):
         new_rse_id = get_rse_id(rse=self.new_rse, **self.vo)
 
         attributes = list_rse_attributes(rse_id=new_rse_id)
-        assert_equal(attributes['attr1'], 'test')
+        assert attributes['attr1'] == 'test'
         limits = get_rse_limits(rse_id=new_rse_id)
-        assert_equal(limits['MinFreeSpace'], 20000)
+        assert limits['MinFreeSpace'] == 20000
 
         # RSE 1 that already exists
         check_rse(self.old_rse_1, self.data1['rses'], **self.vo)
@@ -326,26 +331,26 @@ class TestImporter(object):
         # one protocol should be removed as it is not specified in the import data
         protocols = get_rse_protocols(self.old_rse_id_1)
         protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port']} for protocol in protocols['protocols']]
-        assert_true({'hostename': 'hostname3', 'port': 1000, 'scheme': 'scheme3'} not in protocols)
+        assert {'hostename': 'hostname3', 'port': 1000, 'scheme': 'scheme3'} not in protocols
 
         attributes = list_rse_attributes(rse_id=self.old_rse_id_1)
-        assert_equal(attributes['attr1'], 'test1')
-        assert_equal(attributes['attr2'], 'test2')
+        assert attributes['attr1'] == 'test1'
+        assert attributes['attr2'] == 'test2'
 
         limits = get_rse_limits(rse_id=self.old_rse_id_1)
-        assert_equal(limits['MaxBeingDeletedFiles'], 1000)
-        assert_equal(limits['MinFreeSpace'], 10000)
+        assert limits['MaxBeingDeletedFiles'] == 1000
+        assert limits['MinFreeSpace'] == 10000
 
         distance = get_distances(self.old_rse_id_1, self.old_rse_id_2)[0]
-        assert_equal(distance['ranking'], 10)
+        assert distance['ranking'] == 10
 
         distance = get_distances(self.old_rse_id_1, self.old_rse_id_3)[0]
-        assert_equal(distance['ranking'], 4)
+        assert distance['ranking'] == 4
 
         self.check_accounts(self.data1['accounts'])
 
         # RSE 4 should be flagged as deleted as it is missing in the import data
-        with assert_raises(RSENotFound):
+        with pytest.raises(RSENotFound):
             get_rse(rse_id=self.old_rse_id_4)
 
         import_data(data=self.data2, **self.vo)
@@ -364,36 +369,36 @@ class TestImporter(object):
 
         protocols = get_rse_protocols(self.old_rse_id_1)
         protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port']} for protocol in protocols['protocols']]
-        assert_true({'hostename': 'hostname3', 'port': 1000, 'scheme': 'scheme3'} not in protocols)
+        assert {'hostename': 'hostname3', 'port': 1000, 'scheme': 'scheme3'} not in protocols
 
         attributes = list_rse_attributes(rse_id=new_rse_id)
-        assert_equal(attributes['attr1'], 'test')
+        assert attributes['attr1'] == 'test'
 
         limits = get_rse_limits(rse_id=new_rse_id)
-        assert_equal(limits['MinFreeSpace'], 20000)
+        assert limits['MinFreeSpace'] == 20000
 
         # RSE 1 that already exists
         check_rse(self.old_rse_1, self.data1['rses'], **self.vo)
         check_protocols(self.old_rse_1, self.data1['rses'], **self.vo)
 
         attributes = list_rse_attributes(rse_id=self.old_rse_id_1)
-        assert_equal(attributes['attr1'], 'test1')
-        assert_equal(attributes['attr2'], 'test2')
+        assert attributes['attr1'] == 'test1'
+        assert attributes['attr2'] == 'test2'
 
         limits = get_rse_limits(rse_id=self.old_rse_id_1)
-        assert_equal(limits['MaxBeingDeletedFiles'], 1000)
-        assert_equal(limits['MinFreeSpace'], 10000)
+        assert limits['MaxBeingDeletedFiles'] == 1000
+        assert limits['MinFreeSpace'] == 10000
 
         distance = get_distances(self.old_rse_id_1, self.old_rse_id_2)[0]
-        assert_equal(distance['ranking'], 10)
+        assert distance['ranking'] == 10
 
         distance = get_distances(self.old_rse_id_1, self.old_rse_id_3)[0]
-        assert_equal(distance['ranking'], 4)
+        assert distance['ranking'] == 4
 
         self.check_accounts(self.data1['accounts'])
 
         # If the default sync method is not 'hard', RSE old_rse_id_4 should still be there
-        # with assert_raises(RSENotFound):
+        # with pytest.raises(RSENotFound):
         #     get_rse(rse_id=self.old_rse_id_4)
 
         import_client.import_data(data=self.data2)
@@ -409,7 +414,8 @@ class TestImporter(object):
         headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
 
         r2 = TestApp(import_app.wsgifunc(*mw)).post('/', headers=headers2, expect_errors=True, params=render_json(**self.data1))
-        assert_equal(r2.status, 201, r2.body)
+        print(r2.body)
+        assert r2.status == 201
 
         # RSE that not existed before
         check_rse(self.new_rse, self.data1['rses'], **self.vo)
@@ -419,47 +425,47 @@ class TestImporter(object):
 
         protocols = get_rse_protocols(self.old_rse_id_1)
         protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port']} for protocol in protocols['protocols']]
-        assert_true({'hostename': 'hostname3', 'port': 1000, 'scheme': 'scheme3'} not in protocols)
+        assert {'hostename': 'hostname3', 'port': 1000, 'scheme': 'scheme3'} not in protocols
 
         attributes = list_rse_attributes(rse_id=new_rse_id)
-        assert_equal(attributes['attr1'], 'test')
+        assert attributes['attr1'] == 'test'
 
         limits = get_rse_limits(rse_id=new_rse_id)
-        assert_equal(limits['MinFreeSpace'], 20000)
+        assert limits['MinFreeSpace'] == 20000
 
         # RSE 1 that already existed before
         check_rse(self.old_rse_1, self.data1['rses'], **self.vo)
         check_protocols(self.old_rse_1, self.data1['rses'], **self.vo)
 
         attributes = list_rse_attributes(rse_id=self.old_rse_id_1)
-        assert_equal(attributes['attr1'], 'test1')
-        assert_equal(attributes['attr2'], 'test2')
+        assert attributes['attr1'] == 'test1'
+        assert attributes['attr2'] == 'test2'
 
         limits = get_rse_limits(rse_id=self.old_rse_id_1)
-        assert_equal(limits['MaxBeingDeletedFiles'], 1000)
-        assert_equal(limits['MinFreeSpace'], 10000)
+        assert limits['MaxBeingDeletedFiles'] == 1000
+        assert limits['MinFreeSpace'] == 10000
 
         distance = get_distances(self.old_rse_id_1, self.old_rse_id_2)[0]
-        assert_equal(distance['ranking'], 10)
+        assert distance['ranking'] == 10
 
         distance = get_distances(self.old_rse_id_1, self.old_rse_id_3)[0]
-        assert_equal(distance['ranking'], 4)
+        assert distance['ranking'] == 4
 
         self.check_accounts(self.data1['accounts'])
 
-        with assert_raises(RSENotFound):
+        with pytest.raises(RSENotFound):
             get_rse(rse_id=self.old_rse_id_4)
 
         r2 = TestApp(import_app.wsgifunc(*mw)).post('/', headers=headers2, expect_errors=True, params=render_json(**self.data2))
-        assert_equal(r2.status, 201)
+        assert r2.status == 201
 
         r2 = TestApp(import_app.wsgifunc(*mw)).post('/', headers=headers2, expect_errors=True, params=render_json(**self.data3))
-        assert_equal(r2.status, 201)
+        assert r2.status == 201
 
 
-class TestImporterSyncModes(object):
+class TestImporterSyncModes(unittest.TestCase):
 
-    def setup(self):
+    def setUp(self):
         # Since test config scenarios are complicated moved the setup inside the individual tests
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
@@ -564,10 +570,10 @@ class TestImporterSyncModes(object):
         check_rse(new_rse, data['rses'], **self.vo)
 
         # Check that old_rse was not disabled after import
-        assert_equal(get_rse_id(old_rse, include_deleted=False, **self.vo), old_rse_id)
+        assert get_rse_id(old_rse, include_deleted=False, **self.vo) == old_rse_id
 
         # Check that disabled_rse dit not get enabled
-        with assert_raises(RSENotFound):
+        with pytest.raises(RSENotFound):
             get_rse(rse_id=disabled_rse_id)
 
     def test_import_rses_edit(self):
@@ -666,10 +672,10 @@ class TestImporterSyncModes(object):
         check_rse(new_rse, data['rses'], **self.vo)
 
         # Check that old_rse was not disabled after import
-        assert_equal(get_rse_id(old_rse, include_deleted=False, **self.vo), old_rse_id)
+        assert get_rse_id(old_rse, include_deleted=False, **self.vo) == old_rse_id
 
         # Check that disabled_rse got enabled
-        assert_equal(get_rse_id(disabled_rse, include_deleted=False, **self.vo), disabled_rse_id)
+        assert get_rse_id(disabled_rse, include_deleted=False, **self.vo) == disabled_rse_id
 
     def test_import_attributes_append(self):
         """ IMPORTER (CORE): test import attributes (APPEND mode). """
@@ -720,13 +726,13 @@ class TestImporterSyncModes(object):
         import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', attr_sync_method='append', **self.vo)
 
         # Check that attributes were added for less_attr_rse
-        assert_equal(get_rse_attribute('attr2', rse_id=less_attr_rse_id, use_cache=False), ['test_new'])
+        assert get_rse_attribute('attr2', rse_id=less_attr_rse_id, use_cache=False) == ['test_new']
 
         # Check that attributes were not modified for diff_attr_rse
-        assert_equal(get_rse_attribute('attr2', rse_id=diff_attr_rse_id, use_cache=False), ['test_original'])
+        assert get_rse_attribute('attr2', rse_id=diff_attr_rse_id, use_cache=False) == ['test_original']
 
         # Check that attributes were missing from the json are not deleted
-        assert_equal(get_rse_attribute('attr3', rse_id=more_attr_rse_id, use_cache=False), ['test_original'])
+        assert get_rse_attribute('attr3', rse_id=more_attr_rse_id, use_cache=False) == ['test_original']
 
     def test_import_attributes_edit(self):
         """ IMPORTER (CORE): test import attributes (EDIT mode). """
@@ -777,13 +783,13 @@ class TestImporterSyncModes(object):
         import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', attr_sync_method='edit', **self.vo)
 
         # Check that attributes were added for less_attr_rse
-        assert_equal(get_rse_attribute('attr2', rse_id=less_attr_rse_id, use_cache=False), ['test_new'])
+        assert get_rse_attribute('attr2', rse_id=less_attr_rse_id, use_cache=False) == ['test_new']
 
         # Check that attributes were modified for diff_attr_rse
-        assert_equal(get_rse_attribute('attr2', rse_id=diff_attr_rse_id, use_cache=False), ['test_different'])
+        assert get_rse_attribute('attr2', rse_id=diff_attr_rse_id, use_cache=False) == ['test_different']
 
         # Check that attributes that were missing from the json are not deleted
-        assert_equal(get_rse_attribute('attr3', rse_id=more_attr_rse_id, use_cache=False), ['test_original'])
+        assert get_rse_attribute('attr3', rse_id=more_attr_rse_id, use_cache=False) == ['test_original']
 
     def test_import_attributes_hard(self):
         """ IMPORTER (CORE): test import attributes (HARD mode). """
@@ -834,13 +840,13 @@ class TestImporterSyncModes(object):
         import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', attr_sync_method='hard', **self.vo)
 
         # Check that attributes were added for less_attr_rse
-        assert_equal(get_rse_attribute('attr2', rse_id=less_attr_rse_id, use_cache=False), ['test_new'])
+        assert get_rse_attribute('attr2', rse_id=less_attr_rse_id, use_cache=False) == ['test_new']
 
         # Check that attributes were modified for diff_attr_rse
-        assert_equal(get_rse_attribute('attr2', rse_id=diff_attr_rse_id, use_cache=False), ['test_different'])
+        assert get_rse_attribute('attr2', rse_id=diff_attr_rse_id, use_cache=False) == ['test_different']
 
         # Check that attributes that were missing from the json are deleted
-        assert_equal(get_rse_attribute('attr3', rse_id=more_attr_rse_id, use_cache=False), [])
+        assert get_rse_attribute('attr3', rse_id=more_attr_rse_id, use_cache=False) == []
 
     def test_import_protocols_append(self):
         """ IMPORTER (CORE): test import protocols (APPEND mode). """
@@ -945,19 +951,19 @@ class TestImporterSyncModes(object):
         protocols_formated = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl'], 'prefix': protocol['prefix']} for protocol in protocols['protocols']]
         dp = data['rses'][less_prot_rse]['protocols'][0]
         data_protocol_formated = {'hostname': dp['hostname'], 'scheme': dp['scheme'], 'port': dp['port'], 'impl': dp.get('impl', ''), 'prefix': dp.get('prefix', '')}
-        assert_in(data_protocol_formated, protocols_formated)
+        assert data_protocol_formated in protocols_formated
 
         # Check that protocol was not modified
         protocols = get_rse_protocols(diff_prot_rse_id)
         protocols_formated = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl']} for protocol in protocols['protocols']]
         data_protocol_formated = {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'}
-        assert_in(data_protocol_formated, protocols_formated)
+        assert data_protocol_formated in protocols_formated
 
         # Check that missing protocol was not deleted
         protocols = get_rse_protocols(more_prot_rse_id)
         protocols_formated = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl']} for protocol in protocols['protocols']]
         data_protocol_formated = {'scheme': 'scheme3', 'hostname': 'hostname3', 'port': 1000, 'impl': 'TODO'}
-        assert_in(data_protocol_formated, protocols_formated)
+        assert data_protocol_formated in protocols_formated
 
     def test_import_protocols_edit(self):
         """ IMPORTER (CORE): test import protocols (EDIT mode). """
@@ -1062,19 +1068,19 @@ class TestImporterSyncModes(object):
         protocols_formated = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl'], 'prefix': protocol['prefix']} for protocol in protocols['protocols']]
         dp = data['rses'][less_prot_rse]['protocols'][0]
         data_protocol_formated = {'hostname': dp['hostname'], 'scheme': dp['scheme'], 'port': dp['port'], 'impl': dp.get('impl', ''), 'prefix': dp.get('prefix', '')}
-        assert_in(data_protocol_formated, protocols_formated)
+        assert data_protocol_formated in protocols_formated
 
         # Check that protocol was added
         protocols = get_rse_protocols(diff_prot_rse_id)
         protocols_formated = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl']} for protocol in protocols['protocols']]
         data_protocol_formated = {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'impl_new'}
-        assert_in(data_protocol_formated, protocols_formated)
+        assert data_protocol_formated in protocols_formated
 
         # Check that missing protocol was not deleted
         protocols = get_rse_protocols(more_prot_rse_id)
         protocols_formated = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl']} for protocol in protocols['protocols']]
         data_protocol_formated = {'scheme': 'scheme3', 'hostname': 'hostname3', 'port': 1000, 'impl': 'TODO'}
-        assert_in(data_protocol_formated, protocols_formated)
+        assert data_protocol_formated in protocols_formated
 
     def test_import_protocols_hard(self):
         """ IMPORTER (CORE): test import protocols (HARD mode). """
@@ -1179,13 +1185,13 @@ class TestImporterSyncModes(object):
         protocols_formated = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl'], 'prefix': protocol['prefix']} for protocol in protocols['protocols']]
         dp = data['rses'][less_prot_rse]['protocols'][0]
         data_protocol_formated = {'hostname': dp['hostname'], 'scheme': dp['scheme'], 'port': dp['port'], 'impl': dp.get('impl', ''), 'prefix': dp.get('prefix', '')}
-        assert_in(data_protocol_formated, protocols_formated)
+        assert data_protocol_formated in protocols_formated
 
         # Check that protocol was modified
         protocols = get_rse_protocols(diff_prot_rse_id)
         protocols_formated = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl']} for protocol in protocols['protocols']]
         data_protocol_formated = {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'impl_new'}
-        assert_in(data_protocol_formated, protocols_formated)
+        assert data_protocol_formated in protocols_formated
 
         # Check that missing protocol was deleted
         protocols = get_rse_protocols(more_prot_rse_id)
@@ -1194,8 +1200,9 @@ class TestImporterSyncModes(object):
         assert(data_protocol_formated not in protocols_formated)
 
 
-class TestExporter(object):
-    def setup(self):
+class TestExporter(unittest.TestCase):
+
+    def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
             self.vo_header = {'X-Rucio-VO': self.vo['vo']}
@@ -1226,8 +1233,8 @@ class TestExporter(object):
     def test_export_core(self):
         """ EXPORT (CORE): Test the export of data."""
         data = export_data(**self.vo)
-        assert_equal(data['rses'], export_rses(**self.vo))
-        assert_equal(data['distances'], self.distances_core)
+        assert data['rses'] == export_rses(**self.vo)
+        assert data['distances'] == self.distances_core
 
     def test_export_client(self):
         """ EXPORT (CLIENT): Test the export of data."""
@@ -1238,8 +1245,8 @@ class TestExporter(object):
             rse_name = rse['rse']
             rse_id = rse['id']
             rses[rse_name] = export_rse(rse_id=rse_id)
-        assert_equal(data['rses'], parse_response(render_json(**rses)))
-        assert_equal(data['distances'], parse_response(render_json(**self.distances)))
+        assert data['rses'] == parse_response(render_json(**rses))
+        assert data['distances'] == parse_response(render_json(**self.distances))
 
     def test_export_rest(self):
         """ EXPORT (REST): Test the export of data."""
@@ -1257,12 +1264,12 @@ class TestExporter(object):
             sanitised[get_rse_name(rse_id=rse_id)] = rses[rse_id]
         rses = sanitised
 
-        assert_equal(r2.status, 200)
-        assert_equal(parse_response(r2.body), parse_response(render_json(**{'rses': rses, 'distances': self.distances})))
+        assert r2.status == 200
+        assert parse_response(r2.body) == parse_response(render_json(**{'rses': rses, 'distances': self.distances}))
 
 
-class TestExportImport(object):
-    def setup(self):
+class TestExportImport(unittest.TestCase):
+    def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
             self.vo_header = {'X-Rucio-VO': self.vo['vo']}
@@ -1299,4 +1306,4 @@ class TestExportImport(object):
 
         # Import data
         r3 = TestApp(import_app.wsgifunc(*mw)).post('/', headers=headers2, expect_errors=True, params=render_json(**exported_data))
-        assert_equal(r3.status, 201)
+        assert r3.status == 201
