@@ -1,4 +1,4 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2019-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,10 +15,12 @@
 # Authors:
 # - Matt Snyder <msnyder@rcf.rhic.bnl.gov>, 2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+
+import logging
 
 from rucio.transfertool.transfertool import Transfertool
-from globusLibrary import bulk_submit_xfer, submit_xfer, bulk_check_xfers
-import logging
+from .globusLibrary import bulk_submit_xfer, submit_xfer, bulk_check_xfers
 
 
 class GlobusTransferTool(Transfertool):
