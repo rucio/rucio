@@ -252,7 +252,7 @@ class BaseClient(object):
             LOG.debug('no ca_cert passed. Trying to get it from the config file.')
             try:
                 self.ca_cert = path.expandvars(config_get('client', 'ca_cert'))
-            except (NoOptionError, NoSectionError) as error:
+            except (NoOptionError, NoSectionError):
                 self.ca_cert = True
 
         self.list_hosts = [self.host]
