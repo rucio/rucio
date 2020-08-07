@@ -26,7 +26,7 @@
 # PY3K COMPATIBLE
 
 '''
-   Hernes2 is a daemon that get the messages and sends them to external services (influxDB, ES, ActiveMQ).
+   Hermes2 is a daemon that get the messages and sends them to external services (influxDB, ES, ActiveMQ).
 '''
 
 import copy
