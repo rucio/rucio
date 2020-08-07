@@ -19,9 +19,15 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-if [[ -x /usr/bin/podman && ! -x /usr/bin/docker ]] || grep -q /usr/bin/podman /usr/bin/docker; then
+if [ -x /usr/bin/podman -a ! -x /usr/bin/docker ] || grep -q /usr/bin/podman /usr/bin/docker; then
     echo "Detected podman environment"
     export USE_PODMAN=1
+fi
+
+PARALLEL_AUTOTESTS=${PARALLEL_AUTOTESTS-}
+if [ "x$PARALLEL_AUTOTESTS" != "xfalse" -a "x$PARALLEL_AUTOTESTS" != "x0" ]; then
+    echo "Tests will run in parallel"
+    export PARALLEL_AUTOTESTS=1
 fi
 
 # change directory to main repository directory
@@ -29,14 +35,15 @@ cd `dirname $0`/..
 
 BASE_BRANCH=master INCLUDE_UNSTAGED=true INCLUDE_STAGED=true ./tools/test/create_changelist.sh
 MATRIX=`./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml`
-if [[ -z "$MATRIX" ]]; then
+if [ -z "$MATRIX" ]; then
     echo "Matrix could not be determined"
     exit 1
 fi
-IMAGES=`echo $MATRIX | ./tools/test/build_images.py ./etc/docker/test`
-if [[ -z "$IMAGES" ]]; then
+
+IMAGES=`echo $MATRIX | nice ./tools/test/build_images.py ./etc/docker/test`
+if [ -z "$IMAGES" ]; then
     echo "Images could not be built"
     exit 1
 fi
 
-echo "{\"matrix\": $MATRIX, \"images\": $IMAGES}" | ./tools/test/run_tests.py
+echo "{\"matrix\": $MATRIX, \"images\": $IMAGES}" | nice ./tools/test/run_tests.py

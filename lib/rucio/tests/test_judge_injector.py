@@ -1,17 +1,29 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2015-2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015
+# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
-from nose.tools import assert_raises
+import unittest
+
+import pytest
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import RuleNotFound
@@ -27,7 +39,7 @@ from rucio.db.sqla.constants import DIDType, RuleState
 from rucio.tests.test_rule import create_files, tag_generator
 
 
-class TestJudgeEvaluator():
+class TestJudgeEvaluator(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -133,7 +145,7 @@ class TestJudgeEvaluator():
 
         deny_rule(rule_id=rule_id, approver=self.jdoe)
 
-        assert_raises(RuleNotFound, get_rule, rule_id)
+        pytest.raises(RuleNotFound, get_rule, rule_id)
 
     def test_add_rule_with_r2d2_container_treating(self):
         """ JUDGE INJECTOR (CORE): Add a replication rule with an r2d2 container treatment"""
@@ -153,7 +165,7 @@ class TestJudgeEvaluator():
         assert(get_rule(rule_id)['state'] == RuleState.INJECT)
         rule_injector(once=True)
         # Check if there is a rule for each file
-        with assert_raises(RuleNotFound):
+        with pytest.raises(RuleNotFound):
             get_rule(rule_id)
         for dataset in datasets:
             assert(len([r for r in list_rules({'scope': scope, 'name': dataset})]) > 0)
@@ -177,7 +189,7 @@ class TestJudgeEvaluator():
         assert(get_rule(rule_id)['state'] == RuleState.INJECT)
         rule_injector(once=True)
         # Check if there is a rule for each file
-        with assert_raises(RuleNotFound):
+        with pytest.raises(RuleNotFound):
             get_rule(rule_id)
         for dataset in datasets:
             assert(len([r for r in list_rules({'scope': scope, 'name': dataset})]) > 0)

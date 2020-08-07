@@ -55,6 +55,7 @@ import subprocess
 import sys
 import time
 import traceback
+import unittest
 import uuid
 from functools import wraps
 
@@ -71,6 +72,7 @@ from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, D
                                     RucioException, DuplicateRule, InvalidType)
 from rucio.common.utils import sizefmt, Color, detect_client_location, chunks, parse_did_filter_from_string, \
     extract_scope
+from rucio.tests.test_rucio_server import TestRucioClient
 
 try:
     from ConfigParser import NoOptionError, NoSectionError
@@ -1684,10 +1686,9 @@ def test_server(args):
     %(prog)s test-server [options] <field1=value1 field2=value2 ...>
     Test the client against a server.
     """
-    import nose
-    config = nose.config.Config()
-    config.verbosity = 2
-    nose.run(argv=sys.argv[1:], defaultTest='rucio.tests.test_rucio_server', config=config)
+    TestRucioClient.running_with_unittest = True
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestRucioClient)
+    unittest.TextTestRunner(verbosity=2).run(suite)
     return SUCCESS
 
 
@@ -2330,7 +2331,7 @@ can be found in ' + Color.BOLD + 'http://rucio.cern.ch/client_tutorial.html#addi
     list_datasets_rse_parser.add_argument('--long', dest='long', action='store_true', default=False, help='The long option')
 
     # The test-server command
-    test_server_parser = subparsers.add_parser('test-server', help='Test Server', description='Run a battery of nosetests against the Rucio Servers.')
+    test_server_parser = subparsers.add_parser('test-server', help='Test Server', description='Run a bunch of tests against the Rucio Servers.')
     test_server_parser.set_defaults(function=test_server)
 
     # The get-metadata subparser

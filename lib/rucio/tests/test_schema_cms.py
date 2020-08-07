@@ -1,16 +1,26 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Eric Vaandering, <ewv@fnal.gov>, 2018
+# - Eric Vaandering <ewv@fnal.gov>, 2018-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2018
+# - Sartirana Andrea <sartiran@llr.in2p3.fr>, 2018
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import absolute_import, division, print_function
 
-from nose.tools import assert_raises
+import pytest
 
 from rucio.common.exception import InvalidObject
 from rucio.common.schema.cms import validate_schema
@@ -18,23 +28,20 @@ from rucio.common.schema.cms import validate_schema
 
 # Some tests adapted from https://github.com/dmwm/WMCore/blob/master/test/python/WMCore_t/Lexicon_t.py
 
-class TestSchemaCMS(object):
-
-    def __init__(self):
-        pass
+class TestSchemaCMS:
 
     def test_site_names(self):
         """ CMS SCHEMA (COMMON): Test site/RSE names """
         validate_schema('rse', 'T2_US_Nebraska')
         validate_schema('rse', 'T1_US_FNAL_Disk')
 
-        with assert_raises(InvalidObject):
+        with pytest.raises(InvalidObject):
             validate_schema('rse', 'T1_US')
-        with assert_raises(InvalidObject):
+        with pytest.raises(InvalidObject):
             validate_schema('rse', 'T1_US_')
-        with assert_raises(InvalidObject):
+        with pytest.raises(InvalidObject):
             validate_schema('rse', 'T1_US_FNAL__Disk')
-        with assert_raises(InvalidObject):
+        with pytest.raises(InvalidObject):
             validate_schema('rse', 'T2_US_Nebraska-Subpart')
 
     def test_dids(self):
@@ -114,14 +121,14 @@ class TestSchemaCMS(object):
 
         # Bad datasets, good blocks, and good files all fail as containers
         for ds in bad_ds:
-            with assert_raises(InvalidObject):
+            with pytest.raises(InvalidObject):
                 validate_schema('did', {'name': ds, 'scope': 'cms', 'type': 'CONTAINER'})
         for block in good_blocks:
-            with assert_raises(InvalidObject):
+            with pytest.raises(InvalidObject):
                 print("BLock as container: %s" % block)
                 validate_schema('did', {'name': block, 'scope': 'cms', 'type': 'CONTAINER'})
         for lfn in good_lfns:
-            with assert_raises(InvalidObject):
+            with pytest.raises(InvalidObject):
                 validate_schema('did', {'name': lfn, 'scope': 'cms', 'type': 'CONTAINER'})
 
         # Good blocks pass
@@ -131,13 +138,13 @@ class TestSchemaCMS(object):
 
         # Bad blocks, good datasets, and good files all fail as blocks/datasets
         for block in bad_blocks:
-            with assert_raises(InvalidObject):
+            with pytest.raises(InvalidObject):
                 validate_schema('did', {'name': block, 'scope': 'cms', 'type': 'DATASET'})
         for ds in good_ds:
-            with assert_raises(InvalidObject):
+            with pytest.raises(InvalidObject):
                 validate_schema('did', {'name': ds, 'scope': 'cms', 'type': 'DATASET'})
         for lfn in good_lfns:
-            with assert_raises(InvalidObject):
+            with pytest.raises(InvalidObject):
                 validate_schema('did', {'name': lfn, 'scope': 'cms', 'type': 'DATASET'})
 
         # Good files pass
@@ -146,14 +153,14 @@ class TestSchemaCMS(object):
 
         # Bad files, blocks, and datasets all fail as files
         for lfn in bad_lfns:
-            with assert_raises(InvalidObject):
+            with pytest.raises(InvalidObject):
                 print("Checking %s" % lfn)
                 validate_schema('did', {'name': lfn, 'scope': 'cms', 'type': 'FILE'})
         for ds in good_ds:
-            with assert_raises(InvalidObject):
+            with pytest.raises(InvalidObject):
                 validate_schema('did', {'name': ds, 'scope': 'cms', 'type': 'FILE'})
         for block in good_blocks:
-            with assert_raises(InvalidObject):
+            with pytest.raises(InvalidObject):
                 validate_schema('did', {'name': block, 'scope': 'cms', 'type': 'FILE'})
 
     def test_scopes(self):
@@ -162,13 +169,13 @@ class TestSchemaCMS(object):
         validate_schema('scope', 'user.ewv')
         validate_schema('scope', 'user.ewv2')
         # validate_schema('scope', 'user.e.vaandering')
-        # with assert_raises(InvalidObject):
+        # with pytest.raises(InvalidObject):
         #     validate_schema('scope', 'user.e-vaandering')  # Has '-'
-        with assert_raises(InvalidObject):
+        with pytest.raises(InvalidObject):
             validate_schema('scope', 'user.e01234567890123456789')  # Too long
-        with assert_raises(InvalidObject):
+        with pytest.raises(InvalidObject):
             validate_schema('scope', 'higgs')  # Not user.higgs
-        with assert_raises(InvalidObject):
+        with pytest.raises(InvalidObject):
             validate_schema('scope', 'csm')  # Anagram
 
     def test_scope_with_lfn(self):
@@ -187,11 +194,11 @@ class TestSchemaCMS(object):
 
         validate_schema('did', good_1)
         validate_schema('did', good_2)
-        with assert_raises(InvalidObject):
+        with pytest.raises(InvalidObject):
             validate_schema('did', bad_1)  # User scope for CMS file
-        with assert_raises(InvalidObject):
+        with pytest.raises(InvalidObject):
             validate_schema('did', bad_2)  # CMS scope for user file
-        with assert_raises(InvalidObject):
+        with pytest.raises(InvalidObject):
             validate_schema('did', bad_3)  # User with wrong scope
 
     def test_attachment(self):
@@ -211,7 +218,7 @@ class TestSchemaCMS(object):
         good_rses = [None, 'T2_FR_GRIF_LLR', 'T1_IT_CNAF_Disk']
         bad_rses = ['T2_FR_GRIF-LLR', 'T4_FR_GRIF_LLR']
 
-        with assert_raises(InvalidObject):   # missing dids
+        with pytest.raises(InvalidObject):   # missing dids
             validate_schema('attachment', {'rse': 'T1_FR_CCIN2P3'})
 
         args = {'dids': dids}
@@ -227,5 +234,5 @@ class TestSchemaCMS(object):
 
         for rse in bad_rses:
             args['rse'] = rse
-            with assert_raises(InvalidObject):
+            with pytest.raises(InvalidObject):
                 validate_schema('attachment', args)

@@ -15,14 +15,21 @@
 #
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2020
 
 import io
 import itertools
 import json
+import multiprocessing
 import os
+import pathlib
 import subprocess
 import sys
+import time
+import traceback
 import typing
+import uuid
+from datetime import datetime
 
 
 def matches(small: typing.Dict, group: typing.Dict):
@@ -37,7 +44,7 @@ def run(*args, check=True, return_stdout=False, env=None) -> typing.Union[typing
     if env is not None:
         kwargs['env'] = env
     if return_stdout:
-        del kwargs['stderr']
+        kwargs['stderr'] = sys.stderr
         kwargs['stdout'] = subprocess.PIPE
     print("** Running", " ".join(args), kwargs, file=sys.stderr, flush=True)
     proc = subprocess.run(args, **kwargs)
@@ -45,55 +52,149 @@ def run(*args, check=True, return_stdout=False, env=None) -> typing.Union[typing
         return proc.stdout
 
 
+def stringify_dict(inp: typing.Dict):
+    return {str(k): str(v) for k, v in inp.items()}
+
+
+def find_image(images: typing.Dict, case: typing.Dict):
+    for image, idgroup in images.items():
+        if matches(idgroup, case):
+            return image
+    raise RuntimeError("Could not find image for case " + str(case))
+
+
+def case_id(case: typing.Dict) -> str:
+    return f'{case["DIST"]}-py{case["PYTHON"]}-{case["SUITE"]}{"-" + case["RDBMS"] if "RDBMS" in case else ""}'
+
+
+def case_log(caseid, msg):
+    print(caseid, msg, file=sys.stderr, flush=True)
+
+
+def case_errorcb(caseid):
+    return lambda error: case_log(caseid, f'errored with {error}!')
+
+
 def main():
     obj = json.load(sys.stdin)
-    cases = (obj["matrix"], ) if isinstance(obj["matrix"], dict) else obj["matrix"]
+    cases = (obj["matrix"],) if isinstance(obj["matrix"], dict) else obj["matrix"]
+    use_podman = 'USE_PODMAN' in os.environ and os.environ['USE_PODMAN'] == '1'
+    parallel = 'PARALLEL_AUTOTESTS' in os.environ and os.environ['PARALLEL_AUTOTESTS'] == '1'
 
-    for case in cases:
-        for image, idgroup in obj["images"].items():
-            if matches(idgroup, case):
-                case = {str(k): str(v) for k, v in case.items()}
-                pod = ""
-                cid = "rucio"
-                if 'USE_PODMAN' in os.environ and os.environ['USE_PODMAN'] == '1':
-                    print("*** Starting with pod for", {**case, "IMAGE": image}, file=sys.stderr, flush=True)
-                    stdout = run('podman', 'pod', 'create', return_stdout=True, check=True)
-                    pod = stdout.decode().strip()
-                    if not pod:
-                        raise RuntimeError("Could not determine pod id after " + ' '.join(args))
-                    os.environ['POD'] = pod
-                else:
-                    print("*** Starting", {**case, "IMAGE": image}, file=sys.stderr, flush=True)
-                docker_env_args = list(itertools.chain(*map(lambda x: ('--env', f'{x[0]}={x[1]}'), case.items())))
-                try:
-                    pod_net_args = ('--pod', pod) if pod else ('--hostname', 'rucio')
-                    # Running rucio container from given image
-                    stdout = run('docker', 'run', '--detach', '--name', 'rucio', *pod_net_args,
-                                 *docker_env_args, image, return_stdout=True, check=True)
-                    cid = stdout.decode().strip()
-                    if not cid:
-                        raise RuntimeError("Could not determine container id after docker run")
+    def gen_case_kwargs(case: typing.Dict):
+        return {'caseenv': stringify_dict(case),
+                'image': find_image(images=obj["images"], case=case),
+                'use_podman': use_podman,
+                'use_namespace': parallel}
 
-                    # Running before_script.sh
-                    run('./tools/test/before_script.sh', env={**os.environ, **case, "IMAGE": image})
+    if parallel:
+        with multiprocessing.Pool(processes=min(int(os.environ.get('PARALLEL_AUTOTESTS_PROCNUM', 3)), len(cases))) as prpool:
+            tasks = [(_case, prpool.apply_async(run_case_logger, (),
+                                                {'run_case_kwargs': gen_case_kwargs(_case),
+                                                 'stdlog': pathlib.Path(f'.autotest/log-{case_id(_case)}.txt')},
+                                                error_callback=case_errorcb(caseid=case_id(_case)))) for _case in cases]
+            start_time = time.time()
+            for _case, task in tasks:
+                timeleft = start_time + 21600 - time.time()  # 6 hour overall timeout
+                if timeleft <= 0:
+                    print("Timeout exceeded, still running:",
+                          list(map(lambda t: case_id(t[0]), filter(lambda t: not t[1].ready(), tasks))),
+                          file=sys.stderr, flush=True)
+                    prpool.terminate()
+                    prpool.join()
+                    sys.exit(1)
 
-                    # output registered hostnames
-                    run('docker', 'exec', cid, 'cat', '/etc/hosts')
+                task.get(timeout=timeleft)
+    else:
+        for _case in cases:
+            run_case(**gen_case_kwargs(_case))
 
-                    # Running install_script.sh
-                    run('docker', 'exec', cid, './tools/test/install_script.sh')
 
-                    # Running test.sh
-                    run('docker', 'exec', cid, './tools/test/test.sh')
-                finally:
-                    print("*** Finalizing", {**case, "IMAGE": image}, file=sys.stderr, flush=True)
+def run_case_logger(run_case_kwargs: typing.Dict, stdlog=sys.stderr):
+    caseid = case_id(run_case_kwargs['caseenv'])
+    case_log(caseid, 'started task.')
+    defaultstderr = sys.stderr
+    startmsg = f'{("=" * 80)}\nStarting test case {caseid}\n  at {datetime.now().isoformat()}\n{"=" * 80}\n'
+    if isinstance(stdlog, pathlib.PurePath):
+        pathlib.Path(stdlog.parent).mkdir(parents=True, exist_ok=True)
+        with open(str(stdlog), 'a') as logfile:
+            logfile.write(startmsg)
+            logfile.flush()
+            sys.stderr = logfile
+            try:
+                run_case(**run_case_kwargs)
+            except Exception:
+                traceback.print_exc(file=sys.stderr)
+            finally:
+                sys.stderr = defaultstderr
+    else:
+        sys.stderr = stdlog
+        try:
+            print(startmsg, file=sys.stderr)
+            run_case(**run_case_kwargs)
+        except Exception:
+            traceback.print_exc(file=sys.stderr)
+        finally:
+            sys.stderr = defaultstderr
+    case_log(caseid, 'completed successfully!')
 
-                    if cid:
-                        run('docker', 'stop', cid, check=False)
-                        run('docker', 'rm', '-v', cid, check=False)
-                    if pod:
-                        run('podman', 'pod', 'stop', '-t', '10', pod, check=False)
-                        run('podman', 'pod', 'rm', '--force', pod, check=False)
+
+def run_case(caseenv, image, use_podman, use_namespace):
+    if use_namespace:
+        namespace = str(uuid.uuid4())
+        namespace_args = ('--namespace', namespace)
+        namespace_env = {"NAMESPACE": namespace}
+    else:
+        namespace_args = ()
+        namespace_env = {}
+
+    pod = ""
+    cid = "rucio"
+    if use_podman:
+        print("*** Starting with pod for", {**caseenv, "IMAGE": image}, file=sys.stderr, flush=True)
+        stdout = run('podman', *namespace_args, 'pod', 'create', return_stdout=True, check=True)
+        pod = stdout.decode().strip()
+        if not pod:
+            raise RuntimeError("Could not determine pod id")
+    else:
+        print("*** Starting", {**caseenv, "IMAGE": image}, file=sys.stderr, flush=True)
+    try:
+        docker_env_args = list(itertools.chain(*map(lambda x: ('--env', f'{x[0]}={x[1]}'), caseenv.items())))
+        pod_net_arg = ('--pod', pod) if use_podman else ()
+        # Running rucio container from given image
+        stdout = run('docker', *namespace_args, 'run', '--detach', *pod_net_arg,
+                     *docker_env_args, image, return_stdout=True, check=True)
+        cid = stdout.decode().strip()
+        if not cid:
+            raise RuntimeError("Could not determine container id after docker run")
+
+        network_arg = ('--network', 'container:' + cid)
+        container_run_args = ' '.join(pod_net_arg if use_podman else network_arg)
+        container_runtime_args = ' '.join(namespace_args)
+
+        # Running before_script.sh
+        run('./tools/test/before_script.sh', env={**os.environ, **caseenv, **namespace_env,
+                                                  "CONTAINER_RUNTIME_ARGS": container_runtime_args,
+                                                  "CONTAINER_RUN_ARGS": container_run_args,
+                                                  "CON_RUCIO": cid})
+
+        # output registered hostnames
+        run('docker', *namespace_args, 'exec', cid, 'cat', '/etc/hosts')
+
+        # Running install_script.sh
+        run('docker', *namespace_args, 'exec', cid, './tools/test/install_script.sh')
+
+        # Running test.sh
+        run('docker', *namespace_args, 'exec', cid, './tools/test/test.sh')
+    finally:
+        print("*** Finalizing", {**caseenv, "IMAGE": image}, file=sys.stderr, flush=True)
+
+        if cid:
+            run('docker', *namespace_args, 'stop', cid, check=False)
+            run('docker', *namespace_args, 'rm', '-v', cid, check=False)
+        if pod:
+            run('podman', *namespace_args, 'pod', 'stop', '-t', '10', pod, check=False)
+            run('podman', *namespace_args, 'pod', 'rm', '--force', pod, check=False)
 
 
 if __name__ == "__main__":

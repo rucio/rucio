@@ -1,4 +1,4 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2019-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,10 +16,13 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
-from nose.tools import assert_equal, assert_raises
+import unittest
+
+import pytest
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import InsufficientAccountLimit, InsufficientTargetRSEs
@@ -31,7 +34,7 @@ from rucio.core.rse_selector import RSESelector
 from rucio.db.sqla import session, models
 
 
-class TestRSESelectorInit(object):
+class TestRSESelectorInit(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -49,7 +52,7 @@ class TestRSESelectorInit(object):
         cls.rse_1 = {'id': cls.mock1_id, 'staging_area': False}
         cls.rse_2 = {'id': cls.mock2_id, 'staging_area': False}
 
-    def setup(self):
+    def setUp(self):
         self.db_session.query(models.AccountUsage).delete()
         self.db_session.query(models.AccountLimit).delete()
         self.db_session.query(models.AccountGlobalLimit).delete()
@@ -69,7 +72,7 @@ class TestRSESelectorInit(object):
         # more copies than RSEs -> error
         rses = [self.rse_1]
         copies = 2
-        with assert_raises(InsufficientTargetRSEs):
+        with pytest.raises(InsufficientTargetRSEs):
             RSESelector(self.account, rses, None, copies)
 
     def test_2(self):
@@ -79,7 +82,7 @@ class TestRSESelectorInit(object):
         set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes=10)
         increase(self.mock1_id, self.account, 10, 10)
         update_account_counter(account=self.account, rse_id=self.mock1_id)
-        with assert_raises(InsufficientAccountLimit):
+        with pytest.raises(InsufficientAccountLimit):
             RSESelector(self.account, rses, None, copies)
 
     def test_3(self):
@@ -90,7 +93,7 @@ class TestRSESelectorInit(object):
         set_global_account_limit(account=self.account, rse_expression=self.rse_1_name, bytes=10)
         increase(self.mock1_id, self.account, 10, 10)
         update_account_counter(account=self.account, rse_id=self.mock1_id)
-        with assert_raises(InsufficientAccountLimit):
+        with pytest.raises(InsufficientAccountLimit):
             RSESelector(self.account, rses, None, copies)
 
     def test_4(self):
@@ -102,7 +105,7 @@ class TestRSESelectorInit(object):
         copies = 2
         rses = [self.rse_1, self.rse_2]
         rse_selector = RSESelector(self.account, rses, None, copies)
-        assert_equal(len(rse_selector.rses), 2)
+        assert len(rse_selector.rses) == 2
 
     def test_5(self):
         # enough RSEs and local quota, but global quota missing -> 1 RSE
@@ -114,7 +117,7 @@ class TestRSESelectorInit(object):
         set_local_account_limit(account=self.account, rse_id=self.mock2_id, bytes=20)
         set_local_account_limit(account=self.account, rse_id=self.mock1_id, bytes=20)
         rse_selector = RSESelector(self.account, rses, None, copies)
-        assert_equal(len(rse_selector.rses), 1)
+        assert len(rse_selector.rses) == 1
 
     def test_6(self):
         # enough RSEs and global quota, but local quota missing -> 1 RSE
@@ -127,10 +130,10 @@ class TestRSESelectorInit(object):
         set_local_account_limit(account=self.account, rse_id=self.mock2_id, bytes=10)
         set_global_account_limit(account=self.account, rse_expression=self.rse_2_name, bytes=10)
         rse_selector = RSESelector(self.account, rses, None, copies)
-        assert_equal(len(rse_selector.rses), 1)
+        assert len(rse_selector.rses) == 1
 
 
-class TestRSESelectorDynamic(object):
+class TestRSESelectorDynamic(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -148,7 +151,7 @@ class TestRSESelectorDynamic(object):
         cls.rse_1 = {'id': cls.mock1_id, 'staging_area': False}
         cls.rse_2 = {'id': cls.mock2_id, 'staging_area': False}
 
-    def setup(self):
+    def setUp(self):
         self.db_session.query(models.AccountUsage).delete()
         self.db_session.query(models.AccountLimit).delete()
         self.db_session.query(models.AccountGlobalLimit).delete()
@@ -173,11 +176,11 @@ class TestRSESelectorDynamic(object):
         copies = 2
         rses = [self.rse_1, self.rse_2]
         rse_selector = RSESelector(self.account, rses, None, copies)
-        assert_equal(len(rse_selector.rses), 2)
+        assert len(rse_selector.rses) == 2
         rse_selector.select_rse(9, [self.mock1_id], copies=1)
         rses = rse_selector.select_rse(5, [], copies=1)
-        assert_equal(len(rses), 1)
-        assert_equal(rses[0][0], self.mock2_id)
+        assert len(rses) == 1
+        assert rses[0][0] == self.mock2_id
 
     def test_2(self):
         # enough RSEs and global quota, but not enough global quota after change -> 1 RSE
@@ -188,11 +191,11 @@ class TestRSESelectorDynamic(object):
         copies = 2
         rses = [self.rse_1, self.rse_2]
         rse_selector = RSESelector(self.account, rses, None, copies)
-        assert_equal(len(rse_selector.rses), 2)
+        assert len(rse_selector.rses) == 2
         rse_selector.select_rse(10, [self.mock1_id], copies=1)
         rses = rse_selector.select_rse(5, [], copies=1)
-        assert_equal(len(rses), 1)
-        assert_equal(rses[0][0], self.mock2_id)
+        assert len(rses) == 1
+        assert rses[0][0] == self.mock2_id
 
     def test_3(self):
         # enough RSEs and global quota, also after after change -> 2 RSE
@@ -203,8 +206,8 @@ class TestRSESelectorDynamic(object):
         copies = 2
         rses = [self.rse_1, self.rse_2]
         rse_selector = RSESelector(self.account, rses, None, copies)
-        assert_equal(len(rse_selector.rses), 2)
+        assert len(rse_selector.rses) == 2
         rse_selector.select_rse(10, [self.mock1_id], copies=1)
         rse_selector.select_rse(10, [self.mock2_id], copies=1)
         rses = rse_selector.select_rse(5, [], copies=2)
-        assert_equal(len(rses), 2)
+        assert len(rses) == 2

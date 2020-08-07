@@ -1,4 +1,4 @@
-# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2019-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +17,12 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
+import unittest
 from datetime import datetime
-from nose.tools import assert_equal
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
@@ -33,10 +34,13 @@ from rucio.core.request import queue_requests, get_request_by_did
 from rucio.core.rse import get_rse_id, set_rse_transfer_limits
 from rucio.daemons.conveyor import throttler
 from rucio.db.sqla import session, models, constants
+from rucio.tests.test_request import skiplimitedsql
 
 
-# Throttler per destination RSE and on all activites per grouped FIFO
-class TestThrottlerGroupedFIFO(object):
+class TestThrottlerGroupedFIFO(unittest.TestCase):
+    """Throttler per destination RSE and on all activites per grouped FIFO
+    """
+
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
@@ -159,23 +163,23 @@ class TestThrottlerGroupedFIFO(object):
         self.db_session.query(models.RSETransferLimit).delete()
         self.db_session.commit()
         request_1 = get_request_by_did(self.scope, name1, self.dest_rse_id)
-        assert_equal(request_1['state'], constants.RequestState.WAITING)
+        assert request_1['state'] == constants.RequestState.WAITING
         request_2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
-        assert_equal(request_2['state'], constants.RequestState.WAITING)
+        assert request_2['state'] == constants.RequestState.WAITING
         request_3 = get_request_by_did(self.scope, name3, self.dest_rse_id)
-        assert_equal(request_3['state'], constants.RequestState.WAITING)
+        assert request_3['state'] == constants.RequestState.WAITING
         request_4 = get_request_by_did(self.scope, name4, self.dest_rse_id)
-        assert_equal(request_4['state'], constants.RequestState.WAITING)
+        assert request_4['state'] == constants.RequestState.WAITING
 
         throttler.run(once=True, sleep_time=1)
         request_1 = get_request_by_did(self.scope, name1, self.dest_rse_id)
-        assert_equal(request_1['state'], constants.RequestState.QUEUED)
+        assert request_1['state'] == constants.RequestState.QUEUED
         request_2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
-        assert_equal(request_2['state'], constants.RequestState.QUEUED)
+        assert request_2['state'] == constants.RequestState.QUEUED
         request_3 = get_request_by_did(self.scope, name3, self.dest_rse_id)
-        assert_equal(request_3['state'], constants.RequestState.QUEUED)
+        assert request_3['state'] == constants.RequestState.QUEUED
         request_4 = get_request_by_did(self.scope, name4, self.dest_rse_id)
-        assert_equal(request_4['state'], constants.RequestState.QUEUED)
+        assert request_4['state'] == constants.RequestState.QUEUED
 
     def test_throttler_grouped_fifo_nothing(self):
         """ THROTTLER (CLIENTS): throttler release nothing (DEST - ALL ACT - GFIFO). """
@@ -271,14 +275,15 @@ class TestThrottlerGroupedFIFO(object):
         self.db_session.commit()
         throttler.run(once=True, sleep_time=1)
         request_1 = get_request_by_did(self.scope, name1, self.dest_rse_id)
-        assert_equal(request_1['state'], constants.RequestState.WAITING)
+        assert request_1['state'] == constants.RequestState.WAITING
         request_2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
-        assert_equal(request_2['state'], constants.RequestState.WAITING)
+        assert request_2['state'] == constants.RequestState.WAITING
         request_3 = get_request_by_did(self.scope, name3, self.dest_rse_id)
-        assert_equal(request_3['state'], constants.RequestState.WAITING)
+        assert request_3['state'] == constants.RequestState.WAITING
         request_4 = get_request_by_did(self.scope, name4, self.dest_rse_id)
-        assert_equal(request_4['state'], constants.RequestState.WAITING)
+        assert request_4['state'] == constants.RequestState.WAITING
 
+    @skiplimitedsql
     def test_throttler_grouped_fifo_subset(self):
         """ THROTTLER (CLIENTS): throttler release subset of waiting requests (DEST - ALL ACT - GFIFO). """
         set_rse_transfer_limits(self.dest_rse_id, self.all_activities, volume=10, max_transfers=1, deadline=1, strategy='grouped_fifo', session=self.db_session)
@@ -369,21 +374,22 @@ class TestThrottlerGroupedFIFO(object):
         throttler.run(once=True, sleep_time=1)
         # released because it got requested first
         request_1 = get_request_by_did(self.scope, name1, self.dest_rse_id)
-        assert_equal(request_1['state'], constants.RequestState.QUEUED)
+        assert request_1['state'] == constants.RequestState.QUEUED
         # released because the DID is attached to the same dataset
         request_2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
-        assert_equal(request_2['state'], constants.RequestState.QUEUED)
+        assert request_2['state'] == constants.RequestState.QUEUED
         # released because of available volume
         request_3 = get_request_by_did(self.scope, name3, self.dest_rse_id)
-        assert_equal(request_3['state'], constants.RequestState.QUEUED)
+        assert request_3['state'] == constants.RequestState.QUEUED
         # still waiting because there is no free volume
         request_4 = get_request_by_did(self.scope, name4, self.dest_rse_id)
-        assert_equal(request_4['state'], constants.RequestState.WAITING)
+        assert request_4['state'] == constants.RequestState.WAITING
         # deadline check should not work for destination RSEs - only for reading
 
 
 # Throttler per destination RSE and on each activites per FIFO
-class TestThrottlerFIFO(object):
+class TestThrottlerFIFO(unittest.TestCase):
+
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
@@ -464,9 +470,9 @@ class TestThrottlerFIFO(object):
         self.db_session.commit()
         throttler.run(once=True, sleep_time=1)
         request = get_request_by_did(self.scope, name1, self.dest_rse_id)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
         request2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
-        assert_equal(request2['state'], constants.RequestState.QUEUED)
+        assert request2['state'] == constants.RequestState.QUEUED
 
         # active transfers + waiting requests are less than the threshold -> release all waiting requests
         self.db_session.query(models.Request).delete()
@@ -498,7 +504,7 @@ class TestThrottlerFIFO(object):
         self.db_session.commit()
         throttler.run(once=True, sleep_time=1)
         request = get_request_by_did(self.scope, name1, self.dest_rse_id)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
 
     def test_throttler_fifo_release_nothing(self):
         """ THROTTLER (CLIENTS): throttler release nothing (DEST - ACT - FIFO). """
@@ -553,9 +559,9 @@ class TestThrottlerFIFO(object):
         self.db_session.commit()
         throttler.run(once=True, sleep_time=1)
         request = get_request_by_did(self.scope, name1, self.dest_rse_id)
-        assert_equal(request['state'], constants.RequestState.WAITING)
+        assert request['state'] == constants.RequestState.WAITING
         request2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
-        assert_equal(request2['state'], constants.RequestState.WAITING)
+        assert request2['state'] == constants.RequestState.WAITING
 
     def test_throttler_fifo_release_subset(self):
         """ THROTTLER (CLIENTS): throttler release subset of waiting requests (DEST - ACT - FIFO). """
@@ -607,13 +613,14 @@ class TestThrottlerFIFO(object):
         self.db_session.commit()
         throttler.run(once=True, sleep_time=1)
         request = get_request_by_did(self.scope, name1, self.dest_rse_id)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
         request2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
-        assert_equal(request2['state'], constants.RequestState.WAITING)
+        assert request2['state'] == constants.RequestState.WAITING
 
 
 # Throttler per source RSE and on each activites per FIFO
-class TestThrottlerFIFOSRCACT(object):
+class TestThrottlerFIFOSRCACT(unittest.TestCase):
+
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
@@ -720,15 +727,16 @@ class TestThrottlerFIFOSRCACT(object):
         self.db_session.commit()
         throttler.run(once=True, sleep_time=1)
         request = get_request_by_did(self.scope, name1, self.dest_rse_id)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
         request2 = get_request_by_did(self.scope, name2, self.dest_rse_id2)
-        assert_equal(request2['state'], constants.RequestState.WAITING)
+        assert request2['state'] == constants.RequestState.WAITING
         request3 = get_request_by_did(self.scope, name3, self.dest_rse_id3)
-        assert_equal(request3['state'], constants.RequestState.WAITING)
+        assert request3['state'] == constants.RequestState.WAITING
 
 
 # Throttler per source RSE and on all activites per FIFO
-class TestThrottlerFIFOSRCALLACT(object):
+class TestThrottlerFIFOSRCALLACT(unittest.TestCase):
+
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
@@ -809,13 +817,14 @@ class TestThrottlerFIFOSRCALLACT(object):
         self.db_session.commit()
         throttler.run(once=True, sleep_time=1)
         request = get_request_by_did(self.scope, name1, self.dest_rse_id)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
         request2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
-        assert_equal(request2['state'], constants.RequestState.WAITING)
+        assert request2['state'] == constants.RequestState.WAITING
 
 
 # Throttler per destination RSE and on all activites per FIFO
-class TestThrottlerFIFODESTALLACT(object):
+class TestThrottlerFIFODESTALLACT(unittest.TestCase):
+
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
@@ -923,16 +932,17 @@ class TestThrottlerFIFODESTALLACT(object):
         throttler.run(once=True, sleep_time=1)
         # release because max_transfers=1
         request = get_request_by_did(self.scope, name1, self.dest_rse_id)
-        assert_equal(request['state'], constants.RequestState.QUEUED)
+        assert request['state'] == constants.RequestState.QUEUED
         # waiting because limit already exceeded
         request2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
-        assert_equal(request2['state'], constants.RequestState.WAITING)
+        assert request2['state'] == constants.RequestState.WAITING
         request3 = get_request_by_did(self.scope, name3, self.dest_rse_id2)
-        assert_equal(request3['state'], constants.RequestState.WAITING)
+        assert request3['state'] == constants.RequestState.WAITING
 
 
 # Throttler per source RSE and on all activites per grouped FIFO
-class TestThrottlerGroupedFIFOSRCALLACT(object):
+class TestThrottlerGroupedFIFOSRCALLACT(unittest.TestCase):
+
     @classmethod
     def setUpClass(cls):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
@@ -965,6 +975,7 @@ class TestThrottlerGroupedFIFOSRCALLACT(object):
         cls.db_session.commit()
         cls.db_session.close()
 
+    @skiplimitedsql
     def test_throttler_grouped_fifo_subset(self):
         """ THROTTLER (CLIENTS): throttler release subset of waiting requests (SRC - ALL ACT - GFIFO). """
         if self.dialect == 'mysql':
@@ -1055,25 +1066,25 @@ class TestThrottlerGroupedFIFOSRCALLACT(object):
 
         queue_requests(requests, session=self.db_session)
         request_1 = get_request_by_did(self.scope, name1, self.dest_rse_id, session=self.db_session)
-        assert_equal(request_1['state'], constants.RequestState.WAITING)
+        assert request_1['state'] == constants.RequestState.WAITING
         request_2 = get_request_by_did(self.scope, name2, self.dest_rse_id_2, session=self.db_session)
-        assert_equal(request_2['state'], constants.RequestState.WAITING)
+        assert request_2['state'] == constants.RequestState.WAITING
         request_3 = get_request_by_did(self.scope, name3, self.dest_rse_id, session=self.db_session)
-        assert_equal(request_3['state'], constants.RequestState.WAITING)
+        assert request_3['state'] == constants.RequestState.WAITING
         request_4 = get_request_by_did(self.scope, name4, self.dest_rse_id_2, session=self.db_session)
-        assert_equal(request_4['state'], constants.RequestState.WAITING)
+        assert request_4['state'] == constants.RequestState.WAITING
 
         self.db_session.commit()
         throttler.run(once=True, sleep_time=1)
 
         # released because it got requested first
         request_1 = get_request_by_did(self.scope, name1, self.dest_rse_id)
-        assert_equal(request_1['state'], constants.RequestState.QUEUED)
+        assert request_1['state'] == constants.RequestState.QUEUED
         # released because the DID is attached to the same dataset
         request_2 = get_request_by_did(self.scope, name2, self.dest_rse_id_2)
-        assert_equal(request_2['state'], constants.RequestState.QUEUED)
+        assert request_2['state'] == constants.RequestState.QUEUED
         # still waiting, volume check is only working for destination RSEs (writing)
         request_3 = get_request_by_did(self.scope, name3, self.dest_rse_id)
-        assert_equal(request_3['state'], constants.RequestState.WAITING)
+        assert request_3['state'] == constants.RequestState.WAITING
         request_4 = get_request_by_did(self.scope, name4, self.dest_rse_id_2)
-        assert_equal(request_4['state'], constants.RequestState.WAITING)
+        assert request_4['state'] == constants.RequestState.WAITING

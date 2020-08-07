@@ -1,15 +1,28 @@
-''' Copyright European Organization for Nuclear Research (CERN)
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at
- http://www.apache.org/licenses/LICENSE-2.0
+# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+#
+# PY3K COMPATIBLE
 
- Authors:
- - Brian Bockelman, <bbockelm@cse.unl.edu>, 2018
- - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+import unittest
 
- PY3K COMPATIBLE
-'''
+from rucio.common import config
+from rucio.rse.protocols.protocol import RSEDeterministicTranslation
 
 try:
     # PY2
@@ -17,25 +30,14 @@ try:
 except ImportError:
     # PY3
     from configparser import NoOptionError, NoSectionError
-from nose.tools import assert_equal
-
-from rucio.rse.protocols.protocol import RSEDeterministicTranslation
-from rucio.common import config
 
 
-class TestDeterministicTranslation(object):
+class TestDeterministicTranslation(unittest.TestCase):
     """
     Verify the deterministic translator.
     """
 
-    def __init__(self):
-        """Setup dummy instance"""
-        self.rse = None
-        self.rse_attributes = None
-        self.protocol_attributes = None
-        self.translator = None
-
-    def setup(self):
+    def setUp(self):
         """LFN2PFN: Creating RSEDeterministicTranslation instance"""
         self.rse = 'Mock'
         self.rse_attributes = {"rse": "Mock"}
@@ -50,21 +52,21 @@ class TestDeterministicTranslation(object):
         """LFN2PFN: Translate to path using a hash (Success)"""
         self.rse_attributes['lfn2pfn_algorithm'] = 'hash'
         self.create_translator()
-        assert_equal(self.translator.path("foo", "bar"), "foo/4e/99/bar")
+        assert self.translator.path("foo", "bar") == "foo/4e/99/bar"
 
     def test_default_hash(self):
         """LFN2PFN: Translate to path using default algorithm (Success)"""
-        assert_equal(self.translator.path("foo", "bar"), "foo/4e/99/bar")
+        assert self.translator.path("foo", "bar") == "foo/4e/99/bar"
 
     def test_identity(self):
         """LFN2PFN: Translate to path using identity (Success)"""
         self.rse_attributes['lfn2pfn_algorithm'] = 'identity'
         self.create_translator()
-        assert_equal(self.translator.path("foo", "bar"), "foo/bar")
+        assert self.translator.path("foo", "bar") == "foo/bar"
 
     def test_user_scope(self):
         """LFN2PFN: Test special user scope rules (Success)"""
-        assert_equal(self.translator.path("user.foo", "bar"), "user/foo/13/7f/bar")
+        assert self.translator.path("user.foo", "bar") == "user/foo/13/7f/bar"
 
     def test_register_func(self):
         """LFN2PFN: Verify we can register a custom function (Success)"""
@@ -90,10 +92,10 @@ class TestDeterministicTranslation(object):
         RSEDeterministicTranslation.register(static_register_test2, name="static_register_custom_name")
         self.rse_attributes['lfn2pfn_algorithm'] = 'static_register_test1'
         self.create_translator()
-        assert_equal(self.translator.path("foo", "bar"), "static_register_value1")
+        assert self.translator.path("foo", "bar") == "static_register_value1"
         self.rse_attributes['lfn2pfn_algorithm'] = 'static_register_custom_name'
         self.create_translator()
-        assert_equal(self.translator.path("foo", "bar"), "static_register_value2")
+        assert self.translator.path("foo", "bar") == "static_register_value2"
 
     def test_attr_mapping(self):
         """LFN2PFN: Verify we can map using rse and attrs (Successs)"""
@@ -105,16 +107,16 @@ class TestDeterministicTranslation(object):
         RSEDeterministicTranslation.register(rse_algorithm)
         self.rse_attributes['lfn2pfn_algorithm'] = 'rse_algorithm'
         self.create_translator()
-        assert_equal(self.translator.path("foo", "bar"), "http://T1_Mock/foo/bar")
+        assert self.translator.path("foo", "bar") == "http://T1_Mock/foo/bar"
         self.rse_attributes['tier'] = 'T2'
         self.create_translator()
-        assert_equal(self.translator.path("foo", "bar"), "http://T2_Mock/foo/bar")
+        assert self.translator.path("foo", "bar") == "http://T2_Mock/foo/bar"
         self.protocol_attributes['scheme'] = 'https'
         self.create_translator()
-        assert_equal(self.translator.path("foo", "bar"), "https://T2_Mock/foo/bar")
+        assert self.translator.path("foo", "bar") == "https://T2_Mock/foo/bar"
         self.protocol_attributes['scheme'] = 'srm'
         self.create_translator()
-        assert_equal(self.translator.path("foo", "bar"), "srm://T2_Mock/foo/bar")
+        assert self.translator.path("foo", "bar") == "srm://T2_Mock/foo/bar"
 
     def test_module_load(self):
         """LFN2PFN: Test ability to provide LFN2PFN functions via module (Success)"""
@@ -124,7 +126,7 @@ class TestDeterministicTranslation(object):
         RSEDeterministicTranslation._module_init_()  # pylint: disable=protected-access
         self.rse_attributes['lfn2pfn_algorithm'] = 'lfn2pfn_module_algorithm'
         self.create_translator()
-        assert_equal(self.translator.path("foo", "bar"), "lfn2pfn_module_algorithm_value")
+        assert self.translator.path("foo", "bar") == "lfn2pfn_module_algorithm_value"
 
     def test_config_default_override(self):
         """LFN2PFN: Test override of default LFN2PFN algorithm via config (Success)"""
@@ -148,7 +150,7 @@ class TestDeterministicTranslation(object):
         try:
             config.config_set('policy', 'lfn2pfn_algorithm_default', 'static_test')
             RSEDeterministicTranslation._module_init_()  # pylint: disable=protected-access
-            assert_equal(self.translator.path("foo", "bar"), "static_test_value")
+            assert self.translator.path("foo", "bar") == "static_test_value"
         finally:
             if orig_value is None:
                 config.config_remove_option('policy', 'lfn2pfn_algorithm_default')

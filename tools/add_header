@@ -28,6 +28,7 @@ import argparse
 import collections
 import datetime
 import sys
+import traceback
 
 try:
     import commands
@@ -45,6 +46,7 @@ author_map = {
     ("Wen Guan", "<wguan.icedew@gmail.com>"): ("Wen Guan", "<wen.guan@cern.ch>"),
     ("Alessandro Di Girolamo", "<digirola@lxplus030.cern.ch>"): ("Ale Di Girolamo", "<alessandro.di.girolamo@cern.ch>"),
     ("elichad", "<eli.chadwick.256@gmail.com>"): ("Eli Chadwick", "<eli.chadwick@stfc.ac.uk>"),
+    ("Eli Chadwick", "<eli.chadwick.256@gmail.com>"): ("Eli Chadwick", "<eli.chadwick@stfc.ac.uk>"),
     ("efajardo", "<efajardo@physics.ucsd.edu>"): ("Edgar Fajardo", "<emfajard@ucsd.edu>"),
     ("patrick-austin", "<patrick.austin@stfc.ac.uk>"): ("Patrick Austin", "<patrick.austin@stfc.ac.uk>"),
     ("patrick-austin", "<61705287+patrick-austin@users.noreply.github.com>"): ("Patrick Austin", "<patrick.austin@stfc.ac.uk>"),
@@ -55,6 +57,8 @@ author_map = {
     ("Boris", "<Boris.Bauermeister@fysik.su.se>"): ("Boris Bauermeister", "<boris.bauermeister@fysik.su.se>"),
     ("Nicolo Magini", "<Nicolo.Magini@cern.ch>"): ("Nicolo Magini", "<nicolo.magini@cern.ch>"),
     ("jamesp-epcc", "<j.perry@epcc.ed.ac.uk>"): ("James Perry", "<j.perry@epcc.ed.ac.uk>"),
+    ("David Cameron", "<d.g.cameron@gmail.com>"): ("David Cameron", "<david.cameron@cern.ch>"),
+    ("Eric Vaandering", "<ericvaandering@gmail.com>"): ("Eric Vaandering", "<ewv@fnal.gov>"),
 }
 
 
@@ -89,7 +93,12 @@ def main(arguments):
                 continue
 
             # split the line into words
-            author, mail, date = line.split(',')
+            try:
+                author, mail, date = line.split(',')
+            except ValueError:
+                traceback.print_exc(limit=20, file=sys.stderr)
+                print("Offending line:", line)
+                sys.exit(1)
             author, mail = map_authors(author, mail)
             year = int(date.split('-')[0])
 
