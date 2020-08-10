@@ -417,7 +417,7 @@ class BaseClient(object):
                     raise
 
         if not result or 'result' not in locals():
-            LOG.error('Cannot retrieve authentication token.')
+            LOG.error('Cannot retrieve authentication token!')
             return False
 
         if result.status_code != codes.ok:  # pylint: disable-msg=E1101
@@ -612,7 +612,7 @@ class BaseClient(object):
                     raise
 
         if not result or 'result' not in locals():
-            LOG.error('cannot get auth_token')
+            LOG.error('Cannot retrieve authentication token!')
             return False
 
         if result.status_code != codes.ok:  # pylint: disable-msg=E1101
@@ -690,7 +690,6 @@ class BaseClient(object):
             raise exc_cls(exc_msg)
 
         self.auth_token = result.headers['x-rucio-auth-token']
-        LOG.debug('got new token')
         return True
 
     def __get_token_ssh(self):
@@ -757,7 +756,7 @@ class BaseClient(object):
                     raise
 
         if not result:
-            LOG.error('cannot get auth_token')
+            LOG.error('Cannot retrieve authentication token!')
             return False
 
         if result.status_code != codes.ok:   # pylint: disable-msg=E1101
@@ -767,7 +766,6 @@ class BaseClient(object):
             raise exc_cls(exc_msg)
 
         self.auth_token = result.headers['x-rucio-auth-token']
-        LOG.debug('got new token')
         return True
 
     def __get_token_gss(self):
@@ -794,7 +792,7 @@ class BaseClient(object):
                     raise
 
         if not result:
-            LOG.error('cannot get auth_token')
+            LOG.error('Cannot retrieve authentication token!')
             return False
 
         if result.status_code != codes.ok:   # pylint: disable-msg=E1101
@@ -804,7 +802,6 @@ class BaseClient(object):
             raise exc_cls(exc_msg)
 
         self.auth_token = result.headers['x-rucio-auth-token']
-        LOG.debug('got new token')
         return True
 
     def __get_token_saml(self):
@@ -836,7 +833,7 @@ class BaseClient(object):
                     raise
 
         if not result or 'result' not in locals():
-            LOG.error('cannot get auth_token')
+            LOG.error('Cannot retrieve authentication token!')
             return False
 
         if result.status_code != codes.ok:  # pylint: disable-msg=E1101
@@ -846,7 +843,6 @@ class BaseClient(object):
             raise exc_cls(exc_msg)
 
         self.auth_token = result.headers['X-Rucio-Auth-Token']
-        LOG.debug('got new token')
         return True
 
     def __get_token(self):
