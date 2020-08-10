@@ -412,7 +412,6 @@ def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, fo
                         for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
                             if (checksum_name in stats) and (checksum_name in lfn):
                                 verified_checksums.append(stats[checksum_name] == lfn[checksum_name])
-
                         # Upload is successful if at least one checksum was found
                         valid = any(verified_checksums)
                         if not valid and ('filesize' in stats) and ('filesize' in lfn):
