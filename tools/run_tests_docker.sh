@@ -150,14 +150,12 @@ if test ${init_only}; then
     exit
 fi
 
-TESTS="lib/rucio/tests/test_"
 if test ${special}; then
-    echo 'Using the special config'
-    pytest -v --full-trace ${TESTS}dirac.py
+    echo 'Using the special config and only running test_dirac'
+    pytest -v --full-trace lib/rucio/tests/test_dirac.py
 else
     echo 'Running tests'
-    pytestignores="--ignore=${TESTS}alembic.py --ignore-glob=${TESTS}rse_protocol_*.py --ignore=${TESTS}rucio_server.py --ignore-glob=${TESTS}auditor*.py --ignore=${TESTS}dirac.py --ignore=${TESTS}multi_vo.py"
-    pytest -v --full-trace $pytestignores
+    pytest -v --full-trace
 fi
 
 exit $?

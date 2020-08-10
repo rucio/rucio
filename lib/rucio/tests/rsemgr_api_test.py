@@ -1,4 +1,5 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +15,13 @@
 #
 # Authors:
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2014
-# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
-# - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
+# - Wen Guan <wen.guan@cern.ch>, 2014-2016
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
 
@@ -27,16 +29,19 @@ import json
 import os
 import os.path
 import tempfile
+
+from rucio.common.utils import adler32
+from rucio.rse import rsemanager as mgr
+from rucio.tests.common import skip_rse_tests_with_accounts
+
 try:
     from exceptions import NotImplementedError
 except ImportError:
     pass
 
-from rucio.common.utils import adler32
-from rucio.rse import rsemanager as mgr
 
-
-class MgrTestCases():
+@skip_rse_tests_with_accounts
+class MgrTestCases:
     files_local = ["1_rse_local_put.raw", "2_rse_local_put.raw", "3_rse_local_put.raw", "4_rse_local_put.raw"]
     files_remote = ['1_rse_remote_get.raw', '2_rse_remote_get.raw', '3_rse_remote_get.raw', '4_rse_remote_get.raw',
                     '1_rse_remote_delete.raw', '2_rse_remote_delete.raw', '3_rse_remote_delete.raw', '4_rse_remote_delete.raw',

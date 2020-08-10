@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +18,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
+import os
 import sys
 import unittest
 from json import dumps
@@ -83,6 +85,10 @@ else:
     from mock import patch
 
 LOG = getLogger(__name__)
+
+# module-level skip, see https://docs.pytest.org/en/latest/skipping.html#skip-all-test-functions-of-a-class-or-module
+pytestmark = pytest.mark.skipif('SUITE' in os.environ and os.environ['SUITE'] != 'multi_vo',
+                                reason='No execution of the multi_vo tests in a suite other than the multi_vo suite')
 
 
 class TestVOCoreAPI(unittest.TestCase):

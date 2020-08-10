@@ -18,16 +18,13 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2015
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2016
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014
 # - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2015
 # - Tobias Wegner <twegner@cern.ch>, 2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-
-TESTS="lib/rucio/tests/test_"
-pytestignores="--ignore=${TESTS}alembic.py --ignore-glob=${TESTS}rse_protocol_*.py --ignore=${TESTS}rucio_server.py --ignore-glob=${TESTS}auditor*.py --ignore=${TESTS}dirac.py --ignore=${TESTS}multi_vo.py"
 
 function usage {
   echo "Usage: $0 [OPTION]..."
@@ -36,7 +33,6 @@ function usage {
   echo ''
   echo '  -h    Show usage'
   echo '  -2    Run tests twice'
-  echo '  -r    Run all tests'
   echo '  -c    Add pytest options'
   echo '  -i    Do only the initialization'
   echo '  -p    Also run pylint tests'
@@ -55,8 +51,7 @@ do
     case "$opt" in
 	h) usage;;
 	2) iterations=2;;
-	r) pytestignores="";;
-	c) pytestignores="$OPTARG";;
+	c) pytestextra="$OPTARG";;
 	i) init_only="true";;
 	p) pylint="true";;
 	k) keep_db="true";;
@@ -150,7 +145,7 @@ fi
 for i in $iterations
 do
     echo 'Running test iteration' $i
-        echo pytest -v --full-trace $pytestignores $stop_on_failure
-        pytest -v --full-trace $pytestignores $stop_on_failure
+        echo pytest -v --full-trace $pytestextra $stop_on_failure
+        pytest -v --full-trace $pytestextra $stop_on_failure
     fi
 done

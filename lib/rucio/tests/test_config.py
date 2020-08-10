@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2014-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -64,7 +65,7 @@ class TestConfigCore:
         assert value == expected_value
 
 
-@pytest.mark.xfail(reason='ClientConfig bug')
+@pytest.mark.xfail(reason='ConfigClient bug https://github.com/rucio/rucio/issues/3916')
 def test_config_section_contextless():
     config = ConfigClient()
     test_section_1 = generate_uuid()
@@ -100,7 +101,7 @@ class TestConfigClients(unittest.TestCase):
     def tearDown(self):
         self.c = None
 
-    @pytest.mark.xfail(reason='ClientConfig bug')
+    @pytest.mark.xfail(reason='ConfigClient bug https://github.com/rucio/rucio/issues/3916')
     def test_get_config_all(self):
         """ CONFIG (CLIENT): Retrieve configuration values and check for correctness """
         tmp = self.c.get_config(None, None)

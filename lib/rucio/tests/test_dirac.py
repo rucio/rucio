@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # Copyright 2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,6 +23,8 @@
 from __future__ import print_function
 
 import unittest
+
+import pytest
 
 from rucio.client import Client
 from rucio.common.exception import DataIdentifierAlreadyExists
@@ -48,6 +51,7 @@ class TestDiracClients(unittest.TestCase):
         if 'ANY' not in self.client.list_rse_attributes(self.rse):
             self.client.add_rse_attribute(self.rse, key='ANY', value=True)
 
+    @pytest.mark.xfail(reason='fails with: RSE does not exist')
     def test_add_files(self):
         """ DIRAC (CLIENT): Add a list of files."""
         lfn = '/belle/MC/bnl/release-06-00-08/DB00000000/MC13/prod00000002/s00/e0000/4S/r00000/1310040140/mdst/sub00/myfile.root'

@@ -1,4 +1,5 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,27 +16,32 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012
 # - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
-# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
-# - Fernando Lopez <fernando.e.lopez@gmail.com>, 2015
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
+# - Fernando López <felopez@cern.ch>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-
-from paste.fixture import TestApp
-from random import choice
-from six import PY3
-from string import ascii_uppercase
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 import contextlib
 import os
 import subprocess
 import tempfile
+from random import choice
+from string import ascii_uppercase
+
+import pytest
+from paste.fixture import TestApp
+from six import PY3
 
 from rucio.client.accountclient import AccountClient
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.utils import generate_uuid as uuid
+
+skip_rse_tests_with_accounts = pytest.mark.skipif(not os.path.exists('etc/rse-accounts.cfg'), reason='fails if no rse-accounts.cfg found')
 
 
 def execute(cmd):

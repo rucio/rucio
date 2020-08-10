@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -61,7 +62,6 @@ class TestMetaClient(unittest.TestCase):
         assert isinstance(values, list)
         assert value in values
 
-    @pytest.mark.xfail(raises=InvalidValueForKey)
     def xtest_add_value_with_type(self):
         """ META (CLIENTS):  Add a new value to a key with a type constraint"""
         key = 'key_' + str(uuid())[:20]
@@ -72,7 +72,6 @@ class TestMetaClient(unittest.TestCase):
         assert value in values
         self.meta_client.add_value(key=key, value=1234)
 
-    @pytest.mark.xfail(raises=InvalidValueForKey)
     def xtest_add_value_with_regexp(self):
         """ META (CLIENTS):  Add a new value to a key with a regexp constraint"""
         key = 'guid' + str(uuid())[:20]
@@ -83,19 +82,20 @@ class TestMetaClient(unittest.TestCase):
         self.meta_client.add_value(key=key, value=value)
         values = self.meta_client.list_values(key=key)
         assert value in values
-        self.meta_client.add_value(key=key, value='Nimportnawak')
+        with pytest.raises(InvalidValueForKey):
+            self.meta_client.add_value(key=key, value='Nimportnawak')
 
-    @pytest.mark.xfail(raises=UnsupportedValueType)
     def xtest_add_unsupported_type(self):
         """ META (CLIENTS):  Add an unsupported value for type """
         key = 'key_' + str(uuid())[:20]
-        self.meta_client.add_key(key=key, key_type='ALL', value_type=str)
+        with pytest.raises(UnsupportedValueType):
+            self.meta_client.add_key(key=key, key_type='ALL', value_type=str)
 
-    @pytest.mark.xfail(raises=KeyNotFound)
     def xtest_add_value_to_bad_key(self):
         """ META (CLIENTS):  Add a new value to a non existing key """
         value = 'value_' + str(uuid())
-        self.meta_client.add_value(key="Nimportnawak", value=value)
+        with pytest.raises(KeyNotFound):
+            self.meta_client.add_value(key="Nimportnawak", value=value)
 
     def test_add_key(self):
         """ META (CLIENTS): Add a new key """

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,7 +18,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2013
 # - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015-2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
@@ -421,11 +422,11 @@ class TestAccountClient(unittest.TestCase):
         acc_info = self.client.get_account(account)
         assert acc_info['account'] == account
 
-    @pytest.mark.xfail(raises=AccountNotFound)
     def test_get_account_notfound(self):
         """ ACCOUNT (CLIENTS): try to get information about not existing account."""
         account = str(uuid())
-        self.client.get_account(account)
+        with pytest.raises(AccountNotFound):
+            self.client.get_account(account)
 
     def test_list_accounts(self):
         """ ACCOUNT (CLIENTS): get list of all accounts."""
