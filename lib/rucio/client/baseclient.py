@@ -252,7 +252,7 @@ class BaseClient(object):
             LOG.debug('HTTPS is required, but no ca_cert was passed. Trying to get it from the config file.')
             try:
                 self.ca_cert = path.expandvars(config_get('client', 'ca_cert'))
-            except (NoOptionError, NoSectionError) as error:
+            except (NoOptionError, NoSectionError):
                 LOG.debug('No ca_cert found in configuration. Falling back to Mozilla default CA bundle (certifi).')
                 self.ca_cert = True
 
