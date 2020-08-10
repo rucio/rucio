@@ -16,6 +16,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 
 import sys
 import unittest
@@ -1107,7 +1108,7 @@ class TestMultiVOBinRucio(unittest.TestCase):
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert len(out) == 0
-        assert 'cannot get auth_token' in err
+        assert 'Cannot retrieve authentication token!' in err
 
         cmd = 'rucio-admin rse list'
         print(self.marker + cmd)
@@ -1137,7 +1138,7 @@ class TestMultiVOBinRucio(unittest.TestCase):
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert len(out) == 0
-        assert 'cannot get auth_token' in err
+        assert 'Cannot retrieve authentication token!' in err
 
         cmd = 'rucio list-rses'
         print(self.marker + cmd)
