@@ -1369,7 +1369,7 @@ class retry:
         :param logger: preferred logger
         '''
         attempt = mtries
-        while mtries > 1:
+        while attempt > 1:
             try:
                 if logger:
                     logger.debug('{}: Attempt {}'.format(self.func.__name__, mtries - attempt + 1))
