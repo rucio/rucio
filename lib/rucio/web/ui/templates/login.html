@@ -1,4 +1,4 @@
-$def with (account)
+$def with (account, vo, possible_vos)
 <!DOCTYPE html>
 <!--
  Copyright European Organization for Nuclear Research (CERN)
@@ -16,6 +16,7 @@ $def with (account)
  - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
  - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
  - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+ - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 -->
 
 <html>
@@ -70,7 +71,7 @@ $def with (account)
           <div class="row">
             <div class="large-6 columns center">
               <label>Password
-                <input type="password" name="password" placeholder="Enter password here..." id="password" />
+                <input type="password" name="password" placeholder="Enter password here..." id="password"/>
               </label>
             </div>
           </div>
@@ -78,10 +79,30 @@ $def with (account)
               <div class="row">
                 <div class="large-6 columns center">
                   <label>Rucio account name (optional)
-                    <input type="text" name="account" placeholder="account name ..." id="account" />
+                    <input type="text" name="account" placeholder="account name ..." id="account"/>
                   </label>
                 </div>
               </div>
+          $else:
+              <div class="row">
+                <div class="large-6 columns center">
+                  <label>Rucio account name: $account</label>
+                  <input type="hidden" name="account" value=$account id="account"/>
+                </div>
+              </div>
+          $if possible_vos:
+              <div class="row">
+                <div class="large-6 columns center">
+                  <label style="color:red">Unable to login, multiple VOs found for given identity. Please select a VO and try again:</label>
+                    <select name="vo" id="vo">
+                      <option selected></option>
+                      $for possible_vo in possible_vos:
+                          <option value=$possible_vo[0]>$possible_vo[1] - $possible_vo[0]</option>
+                    </select>
+                </div>
+              </div>
+          $else:
+              <input type="hidden" name="vo" id="vo"/>
           <br>
           <div class="row">
             <div class="large-6 columns center">

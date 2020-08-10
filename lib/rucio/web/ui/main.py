@@ -23,6 +23,7 @@
 # - Stefan Prenner <stefan.prenner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -37,7 +38,7 @@ from web import application, header, input as param_input, seeother, template
 from web import cookies
 
 from rucio.api.authentication import get_auth_token_x509
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.utils import generate_http_error
 from rucio.web.ui.common.utils import get_token, authenticate, userpass_auth, x509token_auth, saml_auth, oidc_auth, finalize_auth, AUTH_ISSUERS, SAML_SUPPORT
 
@@ -83,6 +84,7 @@ COMMON_URLS = (
 
 )
 
+MULTI_VO = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
 POLICY = config_get('policy', 'permission')
 
 ATLAS_URLS = ()
@@ -191,7 +193,7 @@ class Auth(object):
                 raise generate_http_error(401, 'CannotAuthenticate', 'Cannot get token')
         else:
             render = template.render(join(dirname(__file__), 'templates/'))
-            return render.select_login_method(AUTH_ISSUERS, SAML_SUPPORT)
+            return render.select_login_method(AUTH_ISSUERS, SAML_SUPPORT, None)
 
 
 class X509(object):
@@ -208,7 +210,13 @@ class OIDC(object):
         """ GET """
         data = param_input()
         try:
-            return oidc_auth(data.account, data.issuer)
+            if not MULTI_VO:
+                ui_vo = 'def'
+            elif hasattr(data, 'vo') and data.vo:
+                ui_vo = data.vo
+            else:
+                ui_vo = None
+            return oidc_auth(data.account, data.issuer, ui_vo)
         except:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot get token OIDC auth url from the server.')
 
@@ -354,7 +362,11 @@ class Login(object):
             account = data.account
         else:
             account = None
-        return render.login(account)
+        if hasattr(data, 'vo') and data.vo:
+            vo = data.vo
+        else:
+            vo = None
+        return render.login(account, vo, None)
 
     def POST(self):
         """ POST """
