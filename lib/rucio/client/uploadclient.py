@@ -579,7 +579,7 @@ class UploadClient:
             raise FileReplicaAlreadyExists('File %s in scope %s already exists on storage as PFN %s' % (name, scope, pfn))  # wrong exception ?
 
         # Removing tmp from earlier attempts
-        if protocol_read.exists('%s.rucio.upload' % readpfn):
+        if protocol_read.exists(readpfn_tmp):
             logger.debug('Removing remains of previous upload attemtps.')
             try:
                 # Construct protocol for delete operation.
