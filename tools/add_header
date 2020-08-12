@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# coding=utf-8
+# -*- coding: utf-8 -*-
 # Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,7 +35,6 @@ try:
 except ImportError:
     import subprocess as commands
 
-
 author_map = {
     ("Vincent Garonne", "<vgaronne@gmail.com>"): ("Vincent Garonne", "<vincent.garonne@cern.ch>"),
     ("Mario Lassnig", "<mario@lassnig.net>"): ("Mario Lassnig", "<mario.lassnig@cern.ch>"),
@@ -59,6 +58,7 @@ author_map = {
     ("jamesp-epcc", "<j.perry@epcc.ed.ac.uk>"): ("James Perry", "<j.perry@epcc.ed.ac.uk>"),
     ("David Cameron", "<d.g.cameron@gmail.com>"): ("David Cameron", "<david.cameron@cern.ch>"),
     ("Eric Vaandering", "<ericvaandering@gmail.com>"): ("Eric Vaandering", "<ewv@fnal.gov>"),
+    ("Fernando López", "<fernando.e.lopez@gmail.com>"): ("Fernando López", "<felopez@cern.ch>"),
 }
 
 
@@ -138,13 +138,13 @@ def main(arguments):
 
         http://www.apache.org/licenses/LICENSE-2.0
 
-     Unless required by applicable law or agreed to in writing, software
-     distributed under the License is distributed on an "AS IS" BASIS,
-     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-     See the License for the specific language governing permissions and
-     limitations under the License.
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
 
-     Authors:\n'''
+    Authors:\n'''
             for author in authors:
                 if int(authors[author]['min']) == int(authors[author]['max']):
                     header += '   - %(name)s %(mail)s, %(min)s\n' % authors[author]
@@ -162,8 +162,10 @@ def main(arguments):
 
             sys.exit(0)
 
-        if arguments.script:
-            header = '#!/usr/bin/env python\n'
+        if str(MyFile).endswith('.py'):
+            if arguments.script:
+                header += '#!/usr/bin/env python\n'
+            header += '# -*- coding: utf-8 -*-\n'
 
         if int(min) == int(max):
             header += '# Copyright %s CERN for the benefit of the ATLAS collaboration.\n' % max
@@ -191,14 +193,6 @@ def main(arguments):
             else:
                 header += '# - %(name)s %(mail)s, %(min)s-%(max)s\n' % authors[author]
 
-        # Remove non ascii characters
-        special_characters = (('í', 'i'),
-                              ('ó', 'o'),
-                              ('á', 'a'),
-                              ('š', 's'))
-        for old, new in special_characters:
-            header = header.replace(old, new)
-
         if not arguments.dry_run:
             if not arguments.in_place:
                 with open(MyFile, 'r') as original:
@@ -207,15 +201,14 @@ def main(arguments):
                 with open(MyFile, 'w') as modified:
                     modified.write(header + data)
             else:
-                with open(MyFile, 'r') as original:
-                    lines = original.readlines()
+                try:
+                    with open(MyFile, 'r') as original:
+                        lines = original.readlines()
+                except UnicodeDecodeError as e:
+                    raise RuntimeError('Cannot read file ' + str(MyFile)) from e
 
                 with open(MyFile, 'w') as modified:
                     if not arguments.script and lines[0].rstrip() == '#!/usr/bin/env python':
-                        modified.write(lines[0])
-                        if lines[1].rstrip() == '# coding=utf-8':
-                            modified.write(lines[1])
-                    elif lines[0].rstrip() == '# coding=utf-8':
                         modified.write(lines[0])
                     elif lines[0].rstrip() == '#!/bin/bash':
                         modified.write(lines[0])

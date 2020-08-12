@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,9 +31,11 @@ from S3.Exceptions import S3Error
 
 from rucio.common import exception
 from rucio.rse import rsemanager as mgr
+from rucio.tests.common import skip_rse_tests_with_accounts
 from rucio.tests.rsemgr_api_test import MgrTestCases
 
 
+@skip_rse_tests_with_accounts
 class TestRseS3(unittest.TestCase):
     tmpdir = None
     user = None
@@ -47,7 +50,7 @@ class TestRseS3(unittest.TestCase):
 
         with open("%s/data.raw" % cls.tmpdir, "wb") as out:
             out.seek((1024 * 1024) - 1)  # 1 MB
-            out.write('\0')
+            out.write(b'\0')
         for f in MgrTestCases.files_local:
             os.symlink('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
 
@@ -94,20 +97,20 @@ class TestRseS3(unittest.TestCase):
         """S3 (RSE/PROTOCOLS): Get a single file from storage providing PFN (Success)"""
         self.mtc.test_get_mgr_ok_single_pfn()
 
-    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_multi(self):
         """S3 (RSE/PROTOCOLS): Get multiple files from storage providing LFNs and PFNs (SourceNotFound)"""
-        self.mtc.test_get_mgr_SourceNotFound_multi()
+        with pytest.raises(exception.SourceNotFound):
+            self.mtc.test_get_mgr_SourceNotFound_multi()
 
-    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_single_lfn(self):
         """S3 (RSE/PROTOCOLS): Get a single file from storage providing LFN (SourceNotFound)"""
-        self.mtc.test_get_mgr_SourceNotFound_single_lfn()
+        with pytest.raises(exception.SourceNotFound):
+            self.mtc.test_get_mgr_SourceNotFound_single_lfn()
 
-    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_single_pfn(self):
         """S3 (RSE/PROTOCOLS): Get a single file from storage providing PFN (SourceNotFound)"""
-        self.mtc.test_get_mgr_SourceNotFound_single_pfn()
+        with pytest.raises(exception.SourceNotFound):
+            self.mtc.test_get_mgr_SourceNotFound_single_pfn()
 
     # Mgr-Tests: PUT
     def test_put_mgr_ok_multi(self):
@@ -118,25 +121,25 @@ class TestRseS3(unittest.TestCase):
         """S3 (RSE/PROTOCOLS): Put a single file to storage (Success)"""
         self.mtc.test_put_mgr_ok_single()
 
-    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_put_mgr_SourceNotFound_multi(self):
         """S3 (RSE/PROTOCOLS): Put multiple files to storage (SourceNotFound)"""
-        self.mtc.test_put_mgr_SourceNotFound_multi()
+        with pytest.raises(exception.SourceNotFound):
+            self.mtc.test_put_mgr_SourceNotFound_multi()
 
-    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_put_mgr_SourceNotFound_single(self):
         """S3 (RSE/PROTOCOLS): Put a single file to storage (SourceNotFound)"""
-        self.mtc.test_put_mgr_SourceNotFound_single()
+        with pytest.raises(exception.SourceNotFound):
+            self.mtc.test_put_mgr_SourceNotFound_single()
 
-    @pytest.mark.xfail(raises=exception.FileReplicaAlreadyExists)
     def test_put_mgr_FileReplicaAlreadyExists_multi(self):
         """S3 (RSE/PROTOCOLS): Put multiple files to storage (FileReplicaAlreadyExists)"""
-        self.mtc.test_put_mgr_FileReplicaAlreadyExists_multi()
+        with pytest.raises(exception.FileReplicaAlreadyExists):
+            self.mtc.test_put_mgr_FileReplicaAlreadyExists_multi()
 
-    @pytest.mark.xfail(raises=exception.FileReplicaAlreadyExists)
     def test_put_mgr_FileReplicaAlreadyExists_single(self):
         """S3 (RSE/PROTOCOLS): Put a single file to storage (FileReplicaAlreadyExists)"""
-        self.mtc.test_put_mgr_FileReplicaAlreadyExists_single()
+        with pytest.raises(exception.FileReplicaAlreadyExists):
+            self.mtc.test_put_mgr_FileReplicaAlreadyExists_single()
 
     # MGR-Tests: DELETE
     def test_delete_mgr_ok_multi(self):
@@ -147,15 +150,15 @@ class TestRseS3(unittest.TestCase):
         """S3 (RSE/PROTOCOLS): Delete a single file from storage (Success)"""
         self.mtc.test_delete_mgr_ok_single()
 
-    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_delete_mgr_SourceNotFound_multi(self):
         """S3 (RSE/PROTOCOLS): Delete multiple files from storage (SourceNotFound)"""
-        self.mtc.test_delete_mgr_SourceNotFound_multi()
+        with pytest.raises(exception.SourceNotFound):
+            self.mtc.test_delete_mgr_SourceNotFound_multi()
 
-    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_delete_mgr_SourceNotFound_single(self):
         """S3 (RSE/PROTOCOLS): Delete a single file from storage (SourceNotFound)"""
-        self.mtc.test_delete_mgr_SourceNotFound_single()
+        with pytest.raises(exception.SourceNotFound):
+            self.mtc.test_delete_mgr_SourceNotFound_single()
 
     # MGR-Tests: EXISTS
     def test_exists_mgr_ok_multi(self):
@@ -195,35 +198,35 @@ class TestRseS3(unittest.TestCase):
         """S3 (RSE/PROTOCOLS): Rename a single file on storage using PFN (Success)"""
         self.mtc.test_rename_mgr_ok_single_pfn()
 
-    @pytest.mark.xfail(raises=exception.FileReplicaAlreadyExists)
     def test_rename_mgr_FileReplicaAlreadyExists_multi(self):
         """S3 (RSE/PROTOCOLS): Rename multiple files on storage (FileReplicaAlreadyExists)"""
-        self.mtc.test_rename_mgr_FileReplicaAlreadyExists_multi()
+        with pytest.raises(exception.FileReplicaAlreadyExists):
+            self.mtc.test_rename_mgr_FileReplicaAlreadyExists_multi()
 
-    @pytest.mark.xfail(raises=exception.FileReplicaAlreadyExists)
     def test_rename_mgr_FileReplicaAlreadyExists_single_lfn(self):
         """S3 (RSE/PROTOCOLS): Rename a single file on storage using LFN (FileReplicaAlreadyExists)"""
-        self.mtc.test_rename_mgr_FileReplicaAlreadyExists_single_lfn()
+        with pytest.raises(exception.FileReplicaAlreadyExists):
+            self.mtc.test_rename_mgr_FileReplicaAlreadyExists_single_lfn()
 
-    @pytest.mark.xfail(raises=exception.FileReplicaAlreadyExists)
     def test_rename_mgr_FileReplicaAlreadyExists_single_pfn(self):
         """S3 (RSE/PROTOCOLS): Rename a single file on storage using PFN (FileReplicaAlreadyExists)"""
-        self.mtc.test_rename_mgr_FileReplicaAlreadyExists_single_pfn()
+        with pytest.raises(exception.FileReplicaAlreadyExists):
+            self.mtc.test_rename_mgr_FileReplicaAlreadyExists_single_pfn()
 
-    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_rename_mgr_SourceNotFound_multi(self):
         """S3 (RSE/PROTOCOLS): Rename multiple files on storage (SourceNotFound)"""
-        self.mtc.test_rename_mgr_SourceNotFound_multi()
+        with pytest.raises(exception.SourceNotFound):
+            self.mtc.test_rename_mgr_SourceNotFound_multi()
 
-    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_rename_mgr_SourceNotFound_single_lfn(self):
         """S3 (RSE/PROTOCOLS): Rename a single file on storage using LFN (SourceNotFound)"""
-        self.mtc.test_rename_mgr_SourceNotFound_single_lfn()
+        with pytest.raises(exception.SourceNotFound):
+            self.mtc.test_rename_mgr_SourceNotFound_single_lfn()
 
-    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_rename_mgr_SourceNotFound_single_pfn(self):
         """S3 (RSE/PROTOCOLS): Rename a single file on storage using PFN (SourceNotFound)"""
-        self.mtc.test_rename_mgr_SourceNotFound_single_pfn()
+        with pytest.raises(exception.SourceNotFound):
+            self.mtc.test_rename_mgr_SourceNotFound_single_pfn()
 
     def test_change_scope_mgr_ok_single_lfn(self):
         """S3 (RSE/PROTOCOLS): Change the scope of a single file on storage using LFN (Success)"""

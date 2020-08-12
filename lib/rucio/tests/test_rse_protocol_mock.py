@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,9 +25,11 @@ import pytest
 
 from rucio.common import exception
 from rucio.rse import rsemanager as mgr
+from rucio.tests.common import skip_rse_tests_with_accounts
 from rucio.tests.rsemgr_api_test import MgrTestCases
 
 
+@skip_rse_tests_with_accounts
 class TestRseMOCK(unittest.TestCase):
     tmpdir = '/tmp/'
     user = None
@@ -39,26 +42,26 @@ class TestRseMOCK(unittest.TestCase):
         self.mtc = MgrTestCases(tmpdir=self.tmpdir, rse_tag='MOCK', user=TestRseMOCK.user, static_file=TestRseMOCK.static_file)
 
     # Mgr-Tests: GET
-    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_multi(self):
         """MOCK (RSE/PROTOCOLS): Get multiple files from storage providing LFNs and PFNs (SourceNotFound)"""
         for fichier in MgrTestCases.files_remote:
             mgr.upload(mgr.get_rse_info(self.rse_id), [{'name': fichier, 'scope': 'user.%s' % self.user}, ])
-        self.mtc.test_get_mgr_SourceNotFound_multi()
+        with pytest.raises(exception.SourceNotFound):
+            self.mtc.test_get_mgr_SourceNotFound_multi()
 
-    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_single_lfn(self):
         """MOCK (RSE/PROTOCOLS): Get a single file from storage providing LFN (SourceNotFound)"""
         for fichier in MgrTestCases.files_remote:
             mgr.upload(mgr.get_rse_info(self.rse_id), [{'name': fichier, 'scope': 'user.%s' % self.user}, ])
-        self.mtc.test_get_mgr_SourceNotFound_single_lfn()
+        with pytest.raises(exception.SourceNotFound):
+            self.mtc.test_get_mgr_SourceNotFound_single_lfn()
 
-    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_get_mgr_SourceNotFound_single_pfn(self):
         """MOCK (RSE/PROTOCOLS): Get a single file from storage providing PFN (SourceNotFound)"""
         for fichier in MgrTestCases.files_remote:
             mgr.upload(mgr.get_rse_info(self.rse_id), [{'name': fichier, 'scope': 'user.%s' % self.user}, ])
-        self.mtc.test_get_mgr_SourceNotFound_single_pfn()
+        with pytest.raises(exception.SourceNotFound):
+            self.mtc.test_get_mgr_SourceNotFound_single_pfn()
 
     # Mgr-Tests: PUT
     def test_put_mgr_ok_single(self):
@@ -111,12 +114,12 @@ class TestRseMOCK(unittest.TestCase):
 
     # MGR-Tests: RENAME
 
-    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_rename_mgr_SourceNotFound_single_lfn(self):
         """MOCK (RSE/PROTOCOLS): Rename a single file on storage using LFN (SourceNotFound)"""
-        self.mtc.test_rename_mgr_SourceNotFound_single_lfn()
+        with pytest.raises(exception.SourceNotFound):
+            self.mtc.test_rename_mgr_SourceNotFound_single_lfn()
 
-    @pytest.mark.xfail(raises=exception.SourceNotFound)
     def test_rename_mgr_SourceNotFound_single_pfn(self):
         """MOCK (RSE/PROTOCOLS): Rename a single file on storage using PFN (SourceNotFound)"""
-        self.mtc.test_rename_mgr_SourceNotFound_single_pfn()
+        with pytest.raises(exception.SourceNotFound):
+            self.mtc.test_rename_mgr_SourceNotFound_single_pfn()

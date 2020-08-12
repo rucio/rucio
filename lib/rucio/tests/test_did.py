@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +21,7 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
@@ -44,6 +45,7 @@ from rucio.client.metaclient import MetaClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.scopeclient import ScopeClient
+from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (DataIdentifierNotFound, DataIdentifierAlreadyExists,
                                     InvalidPath, KeyNotFound, UnsupportedOperation,
@@ -946,7 +948,6 @@ class TestDIDClients(unittest.TestCase):
         replicas = self.replica_client.list_replicas(dids=[{'scope': scope, 'name': cnt}])
         assert replicas is not None
 
-    @pytest.mark.xfail(raises=UnsupportedOperation)
     def test_close(self):
         """ DATA IDENTIFIERS (CLIENT): test to close data identifiers"""
 
@@ -984,9 +985,9 @@ class TestDIDClients(unittest.TestCase):
         self.replica_client.add_replica(tmp_rse, tmp_scope, tmp_file, 1, '0cc737eb')
         # Add files to dataset
         files = [{'scope': tmp_scope, 'name': tmp_file, 'bytes': 1, 'adler32': '0cc737eb'}, ]
-        self.did_client.attach_dids(scope=tmp_scope, name=tmp_dataset, dids=files)
+        with pytest.raises(exception.UnsupportedOperation):
+            self.did_client.attach_dids(scope=tmp_scope, name=tmp_dataset, dids=files)
 
-    @pytest.mark.xfail
     def test_open(self):
         """ DATA IDENTIFIERS (CLIENT): test to re-open data identifiers for priv account"""
 
