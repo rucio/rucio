@@ -93,6 +93,24 @@ Automatic Testing
 
 Every submitted pull request will automatically be run through automated testing through continuous integration. You should see the status of these tests on your pull request.
 
+**Local automatic testing**
+
+There is also a local shell script to run the same autotests: :code:`tools/run_autotests.sh`. For manual local testing within containers, please see `the docker README <etc/docker/dev/README.rst>`_.
+
+**WARNING:** Because of the nature of using the same scripts as continuous integration, some containers may be left running after a test run or when aborting the test run. This is especially the case for running this script without podman.
+
+By default the tool uses 3 worker processes to run all tests that are defined in :code:`etc/docker/test/matrix.yml`. Feel free to modify the matrix to your needs, but be sure to not unintentionally commit your changes to it. The tests run at most 6 hours - after that a TimeoutError will be raised, causing the script to fail. Running the autotests like this can be parameterized with environment variables as follows:
+
+* :code:`PARALLEL_AUTOTESTS` 0/1 (default: 1)
+   1 enables multiple processes to run autotests and 0 disables it.
+   When enabled, logs of the running autotests will be written to the .autotest directory created in the working directory. Otherwise the log output will be written to the console (stderr).
+
+   *Note that when tests are not running in parallel mode, the test run will always fail fast.*
+* :code:`PARALLEL_AUTOTESTS_PROCNUM` (1,) (default: 3)
+   Specifies the number of processes to run and therefor the concurrently run autotests. 3 will usually result in more than 8 GB RAM usage and a fair amount of load on the PC.
+* :code:`PARALLEL_AUTOTESTS_FAILFAST` 0/1 (default: 0)
+   Will abort the parallel run of autotests as soon as possible after at least one autotest failed. Enabling this will leave containers running in case of a failure even on podman.
+
 
 Human Review
 ------------
