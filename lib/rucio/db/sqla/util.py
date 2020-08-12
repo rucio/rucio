@@ -1,4 +1,4 @@
-# Copyright 2015-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -36,6 +37,7 @@ from six import PY3
 
 from sqlalchemy import func
 from sqlalchemy.engine import reflection
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.schema import CreateSchema, MetaData, Table, DropTable, ForeignKeyConstraint, DropConstraint
 from sqlalchemy.sql.expression import select, text
 
@@ -46,7 +48,7 @@ from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import AccountStatus, AccountType, IdentityType
 
 
-def build_database(echo=True, tests=False):
+def build_database(echo=True):
     """ Applies the schema to the database. Run this command once to build the database. """
     engine = session.get_engine(echo=echo)
 
@@ -141,8 +143,12 @@ def create_base_vo():
     s.commit()
 
 
-def create_root_account():
-    """ Inserts the default root account to an existing database. Make sure to change the default password later. """
+def create_root_account(create_counters=True):
+    """
+    Inserts the default root account to an existing database. Make sure to change the default password later.
+
+    :param create_counters: If True, create counters for the new account at existing RSEs.
+    """
 
     multi_vo = bool(config_get('common', 'multi_vo', False, False))
 
@@ -206,10 +212,18 @@ def create_root_account():
     iaa4 = models.IdentityAccountAssociation(identity=identity4.identity, identity_type=identity4.identity_type, account=account.account, is_default=True)
 
     # Account counters
-    create_counters_for_new_account(account=account.account, session=s)
+    if create_counters:
+        create_counters_for_new_account(account=account.account, session=s)
 
     # Apply
-    s.add_all([account, identity1, identity2, identity3, identity4])
+    for identity in [identity1, identity2, identity3, identity4]:
+        try:
+            s.add(identity)
+            s.commit()
+        except IntegrityError:
+            # Identities may already be in the DB when running multi-VO conversion
+            s.rollback()
+    s.add(account)
     s.commit()
     s.add_all([iaa1, iaa2, iaa3, iaa4])
     s.commit()
