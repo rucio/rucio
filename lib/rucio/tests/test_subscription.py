@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,7 +18,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2016
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
@@ -123,37 +124,35 @@ class TestSubscriptionCoreApi(unittest.TestCase):
         subscription_info = get_subscription_by_id(subscription_id, **self.vo)
         assert loads(subscription_info['filter'])['project'] == self.projects
 
-    @pytest.mark.xfail(raises=SubscriptionDuplicate)
     def test_create_existing_subscription(self):
         """ SUBSCRIPTION (API): Test the creation of a existing subscription """
         subscription_name = uuid()
-        add_subscription(name=subscription_name,
-                         account='root',
-                         filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                         replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}],
-                         lifetime=100000,
-                         retroactive=0,
-                         dry_run=0,
-                         comments='This is a comment',
-                         issuer='root',
-                         **self.vo)
 
-        add_subscription(name=subscription_name,
-                         account='root',
-                         filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                         replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}],
-                         lifetime=100000,
-                         retroactive=0,
-                         dry_run=0,
-                         comments='This is a comment',
-                         issuer='root',
-                         **self.vo)
+        def genkwargs():
+            kwargs = {
+                'name': subscription_name,
+                'account': 'root',
+                'filter': {'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+                'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}],
+                'lifetime': 100000,
+                'retroactive': 0,
+                'dry_run': 0,
+                'comments': 'This is a comment',
+                'issuer': 'root'
+            }
+            kwargs.update(self.vo)
+            return kwargs
 
-    @pytest.mark.xfail(raises=SubscriptionNotFound)
+        add_subscription(**genkwargs())
+
+        with pytest.raises(SubscriptionDuplicate):
+            add_subscription(**genkwargs())
+
     def test_update_nonexisting_subscription(self):
         """ SUBSCRIPTION (API): Test the update of a non-existing subscription """
         subscription_name = uuid()
-        update_subscription(name=subscription_name, account='root', metadata={'filter': {'project': ['toto', ]}}, issuer='root', **self.vo)
+        with pytest.raises(SubscriptionNotFound):
+            update_subscription(name=subscription_name, account='root', metadata={'filter': {'project': ['toto', ]}}, issuer='root', **self.vo)
 
     def test_list_rules_states(self):
         """ SUBSCRIPTION (API): Test listing of rule states for subscription """
@@ -394,21 +393,21 @@ class TestSubscriptionClient(unittest.TestCase):
         assert len(sub) == 1
         assert loads(sub[0]['filter'])['project'][0] == 'toto'
 
-    @pytest.mark.xfail(raises=SubscriptionDuplicate)
     def test_create_existing_subscription(self):
         """ SUBSCRIPTION (CLIENT): Test the creation of a existing subscription """
         subscription_name = uuid()
         result = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
                                                   replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
         assert result
-        result = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
+        with pytest.raises(SubscriptionDuplicate):
+            self.sub_client.add_subscription(name=subscription_name, account='root', filter={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+                                             replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}], lifetime=100000, retroactive=0, dry_run=0, comments='Ni ! Ni!')
 
-    @pytest.mark.xfail(raises=SubscriptionNotFound)
     def test_update_nonexisting_subscription(self):
         """ SUBSCRIPTION (CLIENT): Test the update of a non-existing subscription """
         subscription_name = uuid()
-        self.sub_client.update_subscription(name=subscription_name, filter={'project': ['toto', ]})
+        with pytest.raises(SubscriptionNotFound):
+            self.sub_client.update_subscription(name=subscription_name, filter={'project': ['toto', ]})
 
     def test_create_and_list_subscription_by_account(self):
         """ SUBSCRIPTION (CLIENT): Test retrieval of subscriptions for an account """

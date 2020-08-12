@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,7 +20,7 @@
 # - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
 # - Martin Barisits <martin.barisits@cern.ch>, 2014
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
@@ -67,17 +68,17 @@ class TestBaseClient(unittest.TestCase):
         creds = {'username': 'ddmlab', 'password': 'secret'}
         BaseClient(account='root', ca_cert=self.cacert, auth_type='userpass', creds=creds, **self.vo)
 
-    @pytest.mark.xfail(raises=CannotAuthenticate)
     def testUserpassWrongCreds(self):
         """ CLIENTS (BASECLIENT): try to authenticate with wrong username."""
         creds = {'username': 'wrong', 'password': 'secret'}
-        BaseClient(account='root', ca_cert=self.cacert, auth_type='userpass', creds=creds, **self.vo)
+        with pytest.raises(CannotAuthenticate):
+            BaseClient(account='root', ca_cert=self.cacert, auth_type='userpass', creds=creds, **self.vo)
 
-    @pytest.mark.xfail(raises=CannotAuthenticate)
     def testUserpassNoCACert(self):
         """ CLIENTS (BASECLIENT): authenticate with userpass without ca cert."""
         creds = {'username': 'wrong', 'password': 'secret'}
-        BaseClient(account='root', auth_type='userpass', creds=creds, **self.vo)
+        with pytest.raises(CannotAuthenticate):
+            BaseClient(account='root', auth_type='userpass', creds=creds, **self.vo)
 
     def testx509(self):
         """ CLIENTS (BASECLIENT): authenticate with x509."""
@@ -85,17 +86,17 @@ class TestBaseClient(unittest.TestCase):
                  'client_key': self.userkey}
         BaseClient(account='root', ca_cert=self.cacert, auth_type='x509', creds=creds, **self.vo)
 
-    @pytest.mark.xfail(raises=CannotAuthenticate)
     def testx509NonExistingCert(self):
         """ CLIENTS (BASECLIENT): authenticate with x509 with missing certificate."""
         creds = {'client_cert': '/opt/rucio/etc/web/notthere.crt'}
-        BaseClient(account='root', ca_cert=self.cacert, auth_type='x509', creds=creds, **self.vo)
+        with pytest.raises(CannotAuthenticate):
+            BaseClient(account='root', ca_cert=self.cacert, auth_type='x509', creds=creds, **self.vo)
 
-    @pytest.mark.xfail(raises=ClientProtocolNotSupported)
     def testClientProtocolNotSupported(self):
         """ CLIENTS (BASECLIENT): try to pass an host with a not supported protocol."""
         creds = {'username': 'ddmlab', 'password': 'secret'}
-        BaseClient(rucio_host='localhost', auth_host='junk://localhost', account='root', auth_type='userpass', creds=creds, **self.vo)
+        with pytest.raises(ClientProtocolNotSupported):
+            BaseClient(rucio_host='localhost', auth_host='junk://localhost', account='root', auth_type='userpass', creds=creds, **self.vo)
 
 
 class TestRucioClients(unittest.TestCase):

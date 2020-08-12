@@ -33,6 +33,8 @@ import unittest
 from datetime import datetime
 from datetime import timedelta
 
+import pytest
+
 from rucio.daemons import auditor
 
 if sys.version_info >= (3, 3):
@@ -124,6 +126,7 @@ def mocked_auditor_consistency(rse, delta, configuration, cache_dir, results_dir
         return 1 / 0
 
 
+@pytest.mark.xfail(run=False, reason='loops endlessly sometimes')
 @mock.patch('rucio.daemons.auditor.consistency', side_effect=mocked_auditor_consistency)
 def test_auditor_check_survives_failures_and_queues_failed_rses(mock_auditor):
     queue = multiprocessing.Queue()

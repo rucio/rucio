@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +19,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
@@ -230,20 +231,20 @@ class TestScopeClient(unittest.TestCase):
         with pytest.raises(InvalidObject):
             self.scope_client.add_scope(account, '$?!')
 
-    @pytest.mark.xfail(raises=AccountNotFound)
     def test_create_scope_no_account(self):
         """ SCOPE (CLIENTS): try to create scope for not existing account."""
         account = str(uuid()).lower()[:30]
         scope = scope_name_generator()
-        self.scope_client.add_scope(account, scope)
+        with pytest.raises(AccountNotFound):
+            self.scope_client.add_scope(account, scope)
 
-    @pytest.mark.xfail(raises=Duplicate)
     def test_create_scope_duplicate(self):
         """ SCOPE (CLIENTS): try to create a duplicate scope."""
         account = 'jdoe'
         scope = scope_name_generator()
         self.scope_client.add_scope(account, scope)
-        self.scope_client.add_scope(account, scope)
+        with pytest.raises(Duplicate):
+            self.scope_client.add_scope(account, scope)
 
     def test_list_scopes(self):
         """ SCOPE (CLIENTS): try to list scopes for an account."""
@@ -258,15 +259,15 @@ class TestScopeClient(unittest.TestCase):
             if scope not in svr_list:
                 assert False
 
-    @pytest.mark.xfail(raises=AccountNotFound)
     def test_list_scopes_account_not_found(self):
         """ SCOPE (CLIENTS): try to list scopes for a non existing account."""
         account = account_name_generator()
-        self.scope_client.list_scopes_for_account(account)
+        with pytest.raises(AccountNotFound):
+            self.scope_client.list_scopes_for_account(account)
 
-    @pytest.mark.xfail(raises=ScopeNotFound)
     def test_list_scopes_no_scopes(self):
         """ SCOPE (CLIENTS): try to list scopes for an account without scopes."""
         account = account_name_generator()
         self.account_client.add_account(account, 'USER', 'rucio@email.com')
-        self.scope_client.list_scopes_for_account(account)
+        with pytest.raises(ScopeNotFound):
+            self.scope_client.list_scopes_for_account(account)

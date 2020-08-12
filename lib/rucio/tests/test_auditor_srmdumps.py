@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Fernando Lopez <fernando.e.lopez@gmail.com>, 2015
+# - Fernando López <felopez@cern.ch>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
@@ -80,7 +81,6 @@ def test_be_on_directory():
     assert date == datetime(2015, 1, 30)
 
 
-@pytest.mark.xfail(raises=Exception)
 def test_no_matching_links():
     """ test_get_newest_exception_raise_when_no_matching_links """
     links = [
@@ -88,7 +88,8 @@ def test_no_matching_links():
     ]
     base_url = '/test'
     pattern = 'dir-with-%Y-weird-%m-date-%d/dump'
-    srmdumps.get_newest(base_url, pattern, links)
+    with pytest.raises(RuntimeError):
+        srmdumps.get_newest(base_url, pattern, links)
 
 
 def test_returns_a_list_of_links():
@@ -116,10 +117,10 @@ def test_identifies_known_protocols():
     assert srmdumps.protocol('srm://some/example') == 'srm'
 
 
-@pytest.mark.xfail(raises=Exception)
 def test_fails_on_unknown_protocol():
     """ test_protocol_fails_on_unknown_protocol """
-    srmdumps.protocol('fake://some/example')
+    with pytest.raises(RuntimeError):
+        srmdumps.protocol('fake://some/example')
 
 
 @mock.patch('rucio.daemons.auditor.srmdumps.ddmendpoint_url')
@@ -132,6 +133,7 @@ def test_sites_no_configuration_file(mock_ddmendpoint):
     assert pattern == 'dump_%Y%m%d'
 
 
+@pytest.mark.xfail
 def test_with_configuration_file():
     """ test_generate_url_returns_custom_url_for_sites_with_configuration_file"""
     config = ConfigParser()
