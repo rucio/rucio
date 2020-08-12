@@ -613,7 +613,7 @@ class UploadClient:
         # Checksum verification, obsolete, see Gabriele changes.
         if not skip_upload_stat:
             try:
-                stats = self._retry_protocol_stat(protocol_read, readpfn_tmp)
+                stats = self._retry_protocol_stat(protocol_write, pfn_tmp)
                 if not isinstance(stats, dict):
                     raise RucioException('Could not get protocol.stats for given PFN: %s' % pfn)
 
