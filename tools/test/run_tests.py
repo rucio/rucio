@@ -67,12 +67,8 @@ def case_id(case: typing.Dict) -> str:
     return f'{case["DIST"]}-py{case["PYTHON"]}-{case["SUITE"]}{"-" + case["RDBMS"] if "RDBMS" in case else ""}'
 
 
-def case_log(caseid, msg):
-    print(caseid, msg, file=sys.stderr, flush=True)
-
-
-def case_errorcb(caseid):
-    return lambda error: case_log(caseid, f'errored with {error}!')
+def case_log(caseid, msg, file=sys.stderr):
+    print(caseid, msg, file=file, flush=True)
 
 
 def main():
@@ -80,19 +76,19 @@ def main():
     cases = (obj["matrix"],) if isinstance(obj["matrix"], dict) else obj["matrix"]
     use_podman = 'USE_PODMAN' in os.environ and os.environ['USE_PODMAN'] == '1'
     parallel = 'PARALLEL_AUTOTESTS' in os.environ and os.environ['PARALLEL_AUTOTESTS'] == '1'
+    failfast = 'PARALLEL_AUTOTESTS_FAILFAST' in os.environ and os.environ['PARALLEL_AUTOTESTS_FAILFAST'] == '1'
 
     def gen_case_kwargs(case: typing.Dict):
         return {'caseenv': stringify_dict(case),
                 'image': find_image(images=obj["images"], case=case),
                 'use_podman': use_podman,
-                'use_namespace': parallel}
+                'use_namespace': use_podman and parallel}
 
     if parallel:
-        with multiprocessing.Pool(processes=min(int(os.environ.get('PARALLEL_AUTOTESTS_PROCNUM', 3)), len(cases))) as prpool:
+        with multiprocessing.Pool(processes=min(int(os.environ.get('PARALLEL_AUTOTESTS_PROCNUM', 3)), len(cases)), maxtasksperchild=1) as prpool:
             tasks = [(_case, prpool.apply_async(run_case_logger, (),
                                                 {'run_case_kwargs': gen_case_kwargs(_case),
-                                                 'stdlog': pathlib.Path(f'.autotest/log-{case_id(_case)}.txt')},
-                                                error_callback=case_errorcb(caseid=case_id(_case)))) for _case in cases]
+                                                 'stdlog': pathlib.Path(f'.autotest/log-{case_id(_case)}.txt')})) for _case in cases]
             start_time = time.time()
             for _case, task in tasks:
                 timeleft = start_time + 21600 - time.time()  # 6 hour overall timeout
@@ -100,11 +96,14 @@ def main():
                     print("Timeout exceeded, still running:",
                           list(map(lambda t: case_id(t[0]), filter(lambda t: not t[1].ready(), tasks))),
                           file=sys.stderr, flush=True)
-                    prpool.terminate()
-                    prpool.join()
+                    prpool.close()
                     sys.exit(1)
 
-                task.get(timeout=timeleft)
+                # throwing an exception in the task will not exit task.get immediately, so a success variable is used
+                success = task.get(timeout=timeleft)
+                if not success and failfast:
+                    prpool.close()
+                    sys.exit(1)
     else:
         for _case in cases:
             run_case(**gen_case_kwargs(_case))
@@ -123,8 +122,10 @@ def run_case_logger(run_case_kwargs: typing.Dict, stdlog=sys.stderr):
             sys.stderr = logfile
             try:
                 run_case(**run_case_kwargs)
-            except Exception:
+            except:
                 traceback.print_exc(file=sys.stderr)
+                case_log(caseid, f'errored with {sys.exc_info()[0].__name__}: {sys.exc_info()[1]}', file=defaultstderr)
+                return False
             finally:
                 sys.stderr = defaultstderr
     else:
@@ -132,11 +133,14 @@ def run_case_logger(run_case_kwargs: typing.Dict, stdlog=sys.stderr):
         try:
             print(startmsg, file=sys.stderr)
             run_case(**run_case_kwargs)
-        except Exception:
+        except:
             traceback.print_exc(file=sys.stderr)
+            case_log(caseid, f'errored with {sys.exc_info()[0].__name__}: {sys.exc_info()[1]}', file=defaultstderr)
+            return False
         finally:
             sys.stderr = defaultstderr
     case_log(caseid, 'completed successfully!')
+    return True
 
 
 def run_case(caseenv, image, use_podman, use_namespace):
@@ -158,6 +162,8 @@ def run_case(caseenv, image, use_podman, use_namespace):
             raise RuntimeError("Could not determine pod id")
     else:
         print("*** Starting", {**caseenv, "IMAGE": image}, file=sys.stderr, flush=True)
+
+    success = False
     try:
         docker_env_args = list(itertools.chain(*map(lambda x: ('--env', f'{x[0]}={x[1]}'), caseenv.items())))
         pod_net_arg = ('--pod', pod) if use_podman else ()
@@ -186,6 +192,11 @@ def run_case(caseenv, image, use_podman, use_namespace):
 
         # Running test.sh
         run('docker', *namespace_args, 'exec', cid, './tools/test/test.sh')
+
+        # if everything went through without an exception, mark this case as a success
+        success = True
+    except subprocess.CalledProcessError as error:
+        print(f"** Process '{error.cmd}' exited with code {error.returncode}", {**caseenv, "IMAGE": image}, file=sys.stderr, flush=True)
     finally:
         print("*** Finalizing", {**caseenv, "IMAGE": image}, file=sys.stderr, flush=True)
 
@@ -195,6 +206,9 @@ def run_case(caseenv, image, use_podman, use_namespace):
         if pod:
             run('podman', *namespace_args, 'pod', 'stop', '-t', '10', pod, check=False)
             run('podman', *namespace_args, 'pod', 'rm', '--force', pod, check=False)
+
+    if not success:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
