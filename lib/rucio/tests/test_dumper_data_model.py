@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Fernando Lopez <fernando.e.lopez@gmail.com>, 2015
+# - Fernando López <felopez@cern.ch>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
@@ -154,15 +155,15 @@ CERN-PROD_DATADISK	data12_8TeV	ESD.04972924._000218.pool.root.1	a6152bbc	2498690
         for line in self.VALID_DUMP.splitlines(True):
             self._DataConcrete.parse_line(line)
 
-    @pytest.mark.xfail(raises=TypeError)
     def test_wrong_number_of_fields(self):
         """ test wrong number of fields """
-        self._DataConcrete.parse_line('asdasd\taasdsa\n')
+        with pytest.raises(TypeError):
+            self._DataConcrete.parse_line('asdasd\taasdsa\n')
 
-    @pytest.mark.xfail(raises=ValueError)
     def test_wrong_format_of_fields(self):
         """ test wrong format of fields """
-        self._DataConcrete.parse_line('a\ta\ta\ta\ta\ta\ta\ta\n')
+        with pytest.raises(ValueError):
+            self._DataConcrete.parse_line('a\ta\ta\ta\ta\ta\ta\ta\n')
 
     @mock.patch('requests.Session.get')
     @mock.patch('requests.Session.head')
@@ -219,7 +220,6 @@ CERN-PROD_DATADISK	data12_8TeV	ESD.04972924._000218.pool.root.1	a6152bbc	2498690
 
     @mock.patch('requests.Session.get')
     @mock.patch('requests.Session.head')
-    @pytest.mark.xfail(raises=dumper.HTTPDownloadFailed)
     def test_raises_exception(self, mock_session_head, mock_session_get):
         """ test raise exception """
         response = requests.Response()
@@ -227,11 +227,12 @@ CERN-PROD_DATADISK	data12_8TeV	ESD.04972924._000218.pool.root.1	a6152bbc	2498690
         mock_session_get.return_value = response
         mock_session_head.return_value = response
 
-        self._DataConcrete.download(
-            'SOMEENDPOINT',
-            date=datetime.strptime('01-01-2015', '%d-%m-%Y'),
-            cache_dir=self.tmp_dir,
-        )
+        with pytest.raises(dumper.HTTPDownloadFailed):
+            self._DataConcrete.download(
+                'SOMEENDPOINT',
+                date=datetime.strptime('01-01-2015', '%d-%m-%Y'),
+                cache_dir=self.tmp_dir,
+            )
 
 
 class TestCompleteDataset(object):

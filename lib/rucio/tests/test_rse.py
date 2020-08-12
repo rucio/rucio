@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +21,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
 # - Wen Guan <wen.guan@cern.ch>, 2014-2015
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
@@ -33,6 +34,7 @@
 
 from __future__ import print_function
 
+import os
 import unittest
 from json import dumps
 
@@ -41,10 +43,10 @@ from paste.fixture import TestApp
 
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.rseclient import RSEClient
+from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSupported,
-                                    InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError,
-                                    ResourceTemporaryUnavailable, RSEAttributeNotFound, RSEOperationNotSupported)
+                                    InvalidObject, ResourceTemporaryUnavailable, RSEAttributeNotFound, RSEOperationNotSupported)
 from rucio.common.utils import generate_uuid
 from rucio.core.rse import (add_rse, get_rse_id, del_rse, restore_rse, list_rses, rse_exists, add_rse_attribute,
                             list_rse_attributes,
@@ -572,131 +574,131 @@ class TestRSEClient(unittest.TestCase):
         self.client.delete_protocols(protocol_rse, scheme='MOCK')
         self.client.delete_rse(protocol_rse)
 
-    @pytest.mark.xfail(raises=RSENotFound)
     def test_add_protocol_rse_not_found(self):
         """ RSE (CLIENTS): add a protocol to an rse that does not exist (RSENotFound)."""
-        self.client.add_protocol('The One that shouldn\'t be here',
-                                 {'hostname': 'localhost',
-                                  'scheme': 'MOCK_Fail',
-                                  'port': 17,
-                                  'prefix': '/the/one/with/all/the/files',
-                                  'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                                  'domains': {
-                                      'lan': {'read': 1,
-                                              'write': 1,
-                                              'delete': 1}},
-                                  'extended_attributes': 'TheOneWithAllTheRest'})
+        attributes = {'hostname': 'localhost',
+                      'scheme': 'MOCK_Fail',
+                      'port': 17,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'lan': {'read': 1,
+                                  'write': 1,
+                                  'delete': 1}},
+                      'extended_attributes': 'TheOneWithAllTheRest'}
+        with pytest.raises(RSENotFound):
+            self.client.add_protocol('The One that shouldn\'t be here', attributes)
 
-    @pytest.mark.xfail(raises=InvalidObject)
     def test_add_protocol_missing_values(self):
         """ RSE (CLIENTS): add a protocol with insufficient parameters (InvalidObject)."""
         protocol_rse = rse_name_generator()
         self.client.add_rse(protocol_rse)
+        attributes = {'hostname': 'localhost',
+                      'scheme': 'MOCK_Fail',
+                      'port': 17,
+                      'prefix': '/the/one/with/all/the/files',
+                      # 'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'lan': {'read': 1,
+                                  'write': 1,
+                                  'delete': 1}},
+                      'extended_attributes': 'TheOneWithAllTheRest'}
         try:
-            self.client.add_protocol(protocol_rse,
-                                     {'hostname': 'localhost',
-                                      'scheme': 'MOCK_Fail',
-                                      'port': 17,
-                                      'prefix': '/the/one/with/all/the/files',
-                                      # 'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                                      'domains': {
-                                          'lan': {'read': 1,
-                                                  'write': 1,
-                                                  'delete': 1}},
-                                      'extended_attributes': 'TheOneWithAllTheRest'})
-
-            self.client.delete_protocols(protocol_rse, 'Mock_Insuff_Params')
+            with pytest.raises(exception.InvalidObject):
+                self.client.add_protocol(protocol_rse, attributes)
+        except exception.DatabaseException:
+            if 'RDBMS' in os.environ:
+                if os.environ['RDBMS'].startswith('mysql'):
+                    pytest.xfail("Uncaught MySQL exception on server-side, bug https://github.com/rucio/rucio/issues/3921")
+                elif os.environ['RDBMS'].startswith('postgres'):
+                    pytest.xfail("Uncaught Postgres exception on server-side, bug https://github.com/rucio/rucio/issues/3921")
+                else:
+                    raise
+            else:
+                raise
+        finally:
             self.client.delete_rse(protocol_rse)
-        except Exception:  # explicity raise the correct Exception for MySQL
-            raise InvalidObject
 
-    @pytest.mark.xfail(raises=Duplicate)
     def test_add_protocol_duplicate(self):
         """ RSE (CLIENTS): add duplicate protocol to rse (Duplicate)."""
         protocol_rse = rse_name_generator()
         self.client.add_rse(protocol_rse)
-        for i in range(2):
-            try:
-                self.client.add_protocol(protocol_rse,
-                                         {'hostname': 'localhost',
-                                          'scheme': 'MOCK_Duplicate',
-                                          'port': 17,
-                                          'prefix': '/the/one/with/all/the/files',
-                                          'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                                          'domains': {
-                                              'lan': {'read': 1,
-                                                      'write': 1,
-                                                      'delete': 1}},
-                                          'extended_attributes': 'TheOneWithAllTheRest'})
-            except Exception as e:
-                self.client.delete_protocols(protocol_rse, 'MOCK_Duplicate')
-                self.client.delete_rse(protocol_rse)
-                raise e
-        self.client.delete_protocols(protocol_rse, 'MOCK_Duplicate')
-        self.client.delete_rse(protocol_rse)
+        attributes = {'hostname': 'localhost',
+                      'scheme': 'MOCK_Duplicate',
+                      'port': 17,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'lan': {'read': 1,
+                                  'write': 1,
+                                  'delete': 1}},
+                      'extended_attributes': 'TheOneWithAllTheRest'}
+        try:
+            self.client.add_protocol(protocol_rse, attributes)
+            with pytest.raises(exception.Duplicate):
+                self.client.add_protocol(protocol_rse, attributes)
+        finally:
+            self.client.delete_rse(protocol_rse)
 
-    @pytest.mark.xfail(raises=RSEProtocolDomainNotSupported)
     def test_add_protocol_not_suppotred_domain(self):
         """ RSE (CLIENTS): add a protocol with unsupported domain parameters (RSEProtocolDomainNotSupported)."""
         protocol_rse = rse_name_generator()
         self.client.add_rse(protocol_rse)
-        self.client.add_protocol(protocol_rse,
-                                 {'hostname': 'localhost',
-                                  'scheme': 'Mock_Insuff_Params',
-                                  'port': 17,
-                                  'prefix': '/the/one/with/all/the/files',
-                                  # 'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                                  'domains': {
-                                      'FIRENDS': {'read': 1,
-                                                  'write': 1,
-                                                  'delete': 1}},
-                                  'extended_attributes': 'TheOneWithAllTheRest'})
-        self.client.delete_protocols(protocol_rse, 'Mock_Insuff_Params')
-        self.client.delete_rse(protocol_rse)
+        attributes = {'hostname': 'localhost',
+                      'scheme': 'Mock_Insuff_Params',
+                      'port': 17,
+                      'prefix': '/the/one/with/all/the/files',
+                      # 'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'FIRENDS': {'read': 1,
+                                      'write': 1,
+                                      'delete': 1}},
+                      'extended_attributes': 'TheOneWithAllTheRest'}
+        try:
+            with pytest.raises(exception.RSEProtocolDomainNotSupported):
+                self.client.add_protocol(protocol_rse, attributes)
+        finally:
+            self.client.delete_rse(protocol_rse)
 
-    @pytest.mark.xfail(raises=RSEProtocolPriorityError)
     def test_add_protocol_wrong_priority(self):
         """ RSE (CLIENTS): Add a protocol with an invalid priority for ranking. """
         protocol_rse = rse_name_generator()
         self.client.add_rse(protocol_rse)
         protocol_ports = [17, 29, 42]
         for i in range(3):
-            self.client.add_protocol(protocol_rse,
-                                     {'hostname': 'localhost',
-                                      'scheme': 'MOCK',
-                                      'port': protocol_ports[i],
-                                      'prefix': '/the/one/with/all/the/files',
-                                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                                      'domains': {
-                                          'lan': {'read': 1,
-                                                  'write': 1,
-                                                  'delete': 1}},
-                                      'extended_attributes': 'TheOneWithAllTheRest'})
+            attributes = {'hostname': 'localhost',
+                          'scheme': 'MOCK',
+                          'port': protocol_ports[i],
+                          'prefix': '/the/one/with/all/the/files',
+                          'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                          'domains': {
+                              'lan': {'read': 1,
+                                      'write': 1,
+                                      'delete': 1}},
+                          'extended_attributes': 'TheOneWithAllTheRest'}
+            self.client.add_protocol(protocol_rse, attributes)
         try:
-            self.client.add_protocol(protocol_rse,
-                                     {'hostname': 'localhost',
-                                      'scheme': 'MOCK',
-                                      'port': 815,
-                                      'prefix': '/the/one/with/all/the/files',
-                                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                                      'domains': {
-                                          'lan': {'read': 4,
-                                                  'write': 99,
-                                                  'delete': -1}},
-                                      'extended_attributes': 'TheOneWithAllTheRest'})
-        except RSEProtocolPriorityError:
-            self.client.delete_protocols(protocol_rse, scheme='MOCK')
+            attributes = {'hostname': 'localhost',
+                          'scheme': 'MOCK',
+                          'port': 815,
+                          'prefix': '/the/one/with/all/the/files',
+                          'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                          'domains': {
+                              'lan': {'read': 4,
+                                      'write': 99,
+                                      'delete': -1}},
+                          'extended_attributes': 'TheOneWithAllTheRest'}
+            with pytest.raises(exception.RSEProtocolPriorityError):
+                self.client.add_protocol(protocol_rse, attributes)
+        finally:
             self.client.delete_rse(protocol_rse)
-            raise
-        self.client.delete_protocols(protocol_rse, scheme='MOCK')
-        self.client.delete_rse(protocol_rse)
 
     # DELETE PROTOCOLS
 
-    @pytest.mark.xfail(raises=RSENotFound)
     def test_del_protocol_rse_not_found(self):
         """ RSE (CLIENTS): delete a protocol from an rse that does not exist (RSENotFound)."""
-        self.client.delete_protocols('The One that shouldn\'t be here', 'MOCK_Fail')
+        with pytest.raises(RSENotFound):
+            self.client.delete_protocols('The One that shouldn\'t be here', 'MOCK_Fail')
 
     def test_del_protocol_id(self):
         """ RSE (CLIENTS): delete multiple protocols with the same identifier from an rse."""
@@ -705,42 +707,36 @@ class TestRSEClient(unittest.TestCase):
         protocol_id = 'MOCK_DEL_ID_SUCCESS'
         protocol_ports = [17, 29, 42]
         for i in range(3):
-            self.client.add_protocol(protocol_rse,
-                                     {'hostname': 'localhost',
-                                      'scheme': protocol_id,
-                                      'port': protocol_ports[i],
-                                      'prefix': '/the/one/with/all/the/files',
-                                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                                      'domains': {
-                                          'lan': {'read': 1,
-                                                  'write': 1,
-                                                  'delete': 1}}})
-        self.client.delete_protocols(protocol_rse, protocol_id)
+            attributes = {'hostname': 'localhost',
+                          'scheme': protocol_id,
+                          'port': protocol_ports[i],
+                          'prefix': '/the/one/with/all/the/files',
+                          'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                          'domains': {
+                              'lan': {'read': 1,
+                                      'write': 1,
+                                      'delete': 1}}}
+            self.client.add_protocol(protocol_rse, attributes)
 
-        # check if empty
-        resp = None
         try:
+            self.client.delete_protocols(protocol_rse, protocol_id)
+
+            # check if empty
             resp = mgr.get_rse_info(rse=protocol_rse, **self.vo)
-            mgr.select_protocol(resp, 'read', scheme=protocol_id)
-        except RSEProtocolNotSupported:
+            with pytest.raises(RSEProtocolNotSupported):
+                mgr.select_protocol(resp, 'read', scheme=protocol_id)
+        finally:
             self.client.delete_rse(protocol_rse)
-            return
 
-        self.client.delete_protocols(protocol_rse, protocol_id)
-        self.client.delete_rse(protocol_rse)
-        raise Exception('Protocols not deleted. Remaining: %s' % resp)
-
-    @pytest.mark.xfail(raises=RSEProtocolNotSupported)
     def test_del_protocol_id_protocol_not_supported(self):
         """ RSE (CLIENTS): delete a none-existing protocol from an rse (RSEProtocolNotSupported)."""
         protocol_rse = rse_name_generator()
         self.client.add_rse(protocol_rse)
         try:
-            self.client.delete_protocols(protocol_rse, 'MOCK_Fail')
-        except Exception as e:
+            with pytest.raises(exception.RSEProtocolNotSupported):
+                self.client.delete_protocols(protocol_rse, 'MOCK_Fail')
+        finally:
             self.client.delete_rse(protocol_rse)
-            raise e
-        self.client.delete_rse(protocol_rse)
 
     def test_del_protocol_hostname(self):
         """ RSE (CLIENTS): delete multiple protocols with the same identifier, and the same hostname from an rse."""
@@ -750,17 +746,17 @@ class TestRSEClient(unittest.TestCase):
         protocol_hostname = ['localhost', 'an_other_host', 'localhost']
         protocol_ports = [17, 29, 42]
         for i in range(3):
-            self.client.add_protocol(protocol_rse,
-                                     {'hostname': protocol_hostname[i],
-                                      'scheme': protocol_id,
-                                      'port': protocol_ports[i],
-                                      'prefix': '/the/one/with/all/the/files',
-                                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                                      'domains': {
-                                          'lan': {'read': 1,
-                                                  'write': 1,
-                                                  'delete': 1}},
-                                      'extended_attributes': 'TheOneWithAllTheRest'})
+            attributes = {'hostname': protocol_hostname[i],
+                          'scheme': protocol_id,
+                          'port': protocol_ports[i],
+                          'prefix': '/the/one/with/all/the/files',
+                          'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                          'domains': {
+                              'lan': {'read': 1,
+                                      'write': 1,
+                                      'delete': 1}},
+                          'extended_attributes': 'TheOneWithAllTheRest'}
+            self.client.add_protocol(protocol_rse, attributes)
         self.client.delete_protocols(protocol_rse, scheme=protocol_id, hostname='localhost')
 
         # check if protocol for 'other_host' are still there
@@ -773,30 +769,29 @@ class TestRSEClient(unittest.TestCase):
         self.client.delete_protocols(protocol_rse, scheme=protocol_id, hostname='an_other_host')
         self.client.delete_rse(protocol_rse)
 
-    @pytest.mark.xfail(raises=RSEProtocolNotSupported)
     def test_del_protocol_hostname_protocol_not_supported(self):
-        """ RSE (CLIENTS): delete a none-existing protocol from an rse with given hostname (RSEProtocolNotSupported)."""
+        """ RSE (CLIENTS): delete a non-existing protocol from an rse with given hostname (RSEProtocolNotSupported)."""
         protocol_rse = rse_name_generator()
-        protocol_id = 'MOCK_PROTOCOL_DEL_HOST_FAIL'
         self.client.add_rse(protocol_rse)
-        self.client.add_protocol(protocol_rse,
-                                 {'hostname': 'localhost',
-                                  'scheme': protocol_id,
-                                  'port': 42,
-                                  'prefix': '/the/one/with/all/the/files',
-                                  'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                                  'domains': {
-                                      'lan': {'read': 1,
-                                              'write': 1,
-                                              'delete': 1}},
-                                  'extended_attributes': 'TheOneWithAllTheRest'})
         try:
-            self.client.delete_protocols(protocol_rse, 'MOCK_Fail', hostname='an_other_host')
-        except Exception as e:
+            attributes = {'hostname': 'localhost',
+                          'scheme': 'MOCK_PROTOCOL_DEL_HOST_FAIL',
+                          'port': 42,
+                          'prefix': '/the/one/with/all/the/files',
+                          'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                          'domains': {
+                              'lan': {'read': 1,
+                                      'write': 1,
+                                      'delete': 1}},
+                          'extended_attributes': 'TheOneWithAllTheRest'}
+            self.client.add_protocol(protocol_rse, attributes)
+
+            with pytest.raises(exception.RSEProtocolNotSupported):
+                self.client.delete_protocols(protocol_rse, attributes['scheme'], hostname='an_other_host')
+
+            self.client.delete_protocols(protocol_rse, attributes['scheme'], hostname=attributes['hostname'])
+        finally:
             self.client.delete_rse(protocol_rse)
-            raise e
-        self.client.delete_protocols(protocol_rse, 'MOCK_Fail', hostname='localhost')
-        self.client.delete_rse(protocol_rse)
 
     def test_del_protocol_port(self):
         """ RSE (CLIENTS): delete a specific protocol from an rse."""
@@ -806,17 +801,17 @@ class TestRSEClient(unittest.TestCase):
         protocol_hostname = ['localhost', 'an_other_host', 'localhost']
         protocol_ports = [17, 29, 42]
         for i in range(3):
-            self.client.add_protocol(protocol_rse,
-                                     {'hostname': protocol_hostname[i],
-                                      'scheme': protocol_id,
-                                      'port': protocol_ports[i],
-                                      'prefix': '/the/one/with/all/the/files',
-                                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                                      'domains': {
-                                          'lan': {'read': 1,
-                                                  'write': 1,
-                                                  'delete': 1}},
-                                      'extended_attributes': 'TheOneWithAllTheRest'})
+            attributes = {'hostname': protocol_hostname[i],
+                          'scheme': protocol_id,
+                          'port': protocol_ports[i],
+                          'prefix': '/the/one/with/all/the/files',
+                          'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                          'domains': {
+                              'lan': {'read': 1,
+                                      'write': 1,
+                                      'delete': 1}},
+                          'extended_attributes': 'TheOneWithAllTheRest'}
+            self.client.add_protocol(protocol_rse, attributes)
         self.client.delete_protocols(protocol_rse, scheme=protocol_id, hostname='localhost', port=17)
 
         # check remaining protocols
@@ -829,31 +824,26 @@ class TestRSEClient(unittest.TestCase):
         self.client.delete_protocols(protocol_rse, protocol_id)
         self.client.delete_rse(protocol_rse)
 
-    @pytest.mark.xfail(raises=RSEProtocolNotSupported)
     def test_del_protocol_port_protocol_not_supported(self):
         """ RSE (CLIENTS): delete a specific protocol from an rse. (RSEProtocolNotSupported)."""
         protocol_rse = rse_name_generator()
-        protocol_id = 'MOCK_PROTOCOL_DEL_PORT_FAIL'
         self.client.add_rse(protocol_rse)
-        self.client.add_protocol(protocol_rse,
-                                 {'hostname': 'localhost',
-                                  'scheme': protocol_id,
-                                  'port': 42,
-                                  'prefix': '/the/one/with/all/the/files',
-                                  'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                                  'domains': {
-                                      'lan': {'read': 1,
-                                              'write': 1,
-                                              'delete': 1}},
-                                  'extended_attributes': 'TheOneWithAllTheRest'})
+        attributes = {'hostname': 'localhost',
+                      'scheme': 'MOCK_PROTOCOL_DEL_PORT_FAIL',
+                      'port': 42,
+                      'prefix': '/the/one/with/all/the/files',
+                      'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
+                      'domains': {
+                          'lan': {'read': 1,
+                                  'write': 1,
+                                  'delete': 1}},
+                      'extended_attributes': 'TheOneWithAllTheRest'}
+        self.client.add_protocol(protocol_rse, attributes)
         try:
-            self.client.delete_protocols(protocol_rse, 'MOCK_Fail', hostname='localhost', port=17)
-        except Exception as e:
-            self.client.delete_protocols(protocol_rse, protocol_id)
+            with pytest.raises(exception.RSEProtocolNotSupported):
+                self.client.delete_protocols(protocol_rse, 'MOCK_Fail', hostname='localhost', port=17)
+        finally:
             self.client.delete_rse(protocol_rse)
-            raise e
-        self.client.delete_protocols(protocol_rse, protocol_id)
-        self.client.delete_rse(protocol_rse)
 
     # GET PROTOCOLS
 
@@ -913,10 +903,10 @@ class TestRSEClient(unittest.TestCase):
             self.client.delete_protocols(protocol_rse, p['scheme'])
         self.client.delete_rse(protocol_rse)
 
-    @pytest.mark.xfail(raises=RSENotFound)
     def test_get_protocols_rse_not_found(self):
         """ RSE (CLIENTS): get all protocols of rse (RSENotFound)."""
-        mgr.get_rse_info(rse="TheOnethatshouldnotbehere", **self.vo)
+        with pytest.raises(RSENotFound):
+            mgr.get_rse_info(rse="TheOnethatshouldnotbehere", **self.vo)
 
     def test_get_protocols_operations(self):
         """ RSE (CLIENTS): get protocols for operations of rse."""
@@ -1049,7 +1039,6 @@ class TestRSEClient(unittest.TestCase):
         resp = mgr.get_rse_info(rse=protocol_rse, **self.vo)['protocols']
         assert((not resp[0]['extended_attributes']['more']['value2']) and resp[0]['extended_attributes']['more']['value1'])
 
-    @pytest.mark.xfail(raises=RSEProtocolNotSupported)
     def test_get_protocols_operations_not_supported(self):
         """ RSE (CLIENTS): get protocols for operations of rse (RSEOperationNotSupported)."""
         protocol_rse = rse_name_generator()
@@ -1091,22 +1080,16 @@ class TestRSEClient(unittest.TestCase):
         try:
             rse_attr = mgr.get_rse_info(rse=protocol_rse, **self.vo)
             rse_attr['domain'] = ['lan']
-            mgr.select_protocol(rse_attr, 'read')
-        except Exception as e:
-            self.client.delete_protocols(protocol_rse, 'MOCK_WRITE_DELETE')
-            self.client.delete_protocols(protocol_rse, 'MOCK_DELETE')
+            with pytest.raises(exception.RSEProtocolNotSupported):
+                mgr.select_protocol(rse_attr, 'read')
+        finally:
             self.client.delete_rse(protocol_rse)
-            raise e
-        self.client.delete_protocols(protocol_rse, 'MOCK_WRITE_DELETE')
-        self.client.delete_protocols(protocol_rse, 'MOCK_DELETE')
-        self.client.delete_rse(protocol_rse)
 
-    @pytest.mark.xfail(raises=RSEProtocolDomainNotSupported)
     def test_get_protocols_domain_not_exist(self):
         """ RSE (CLIENTS): get protocols for operations of rse in not existing domain (RSEProtocolDomainNotSupported)."""
         protocol_rse = rse_name_generator()
         self.client.add_rse(protocol_rse)
-        protocols = [{'scheme': 'MOCK',
+        attributes = {'scheme': 'MOCK',
                       'hostname': 'localhost',
                       'port': 17,
                       'prefix': '/the/one/with/all/the/files',
@@ -1115,22 +1098,17 @@ class TestRSEClient(unittest.TestCase):
                           'lan': {'read': 0,
                                   'write': 1,
                                   'delete': 1}},
-                      'extended_attributes': 'TheOneWithAllTheRest'}, ]
+                      'extended_attributes': 'TheOneWithAllTheRest'}
         # Protocol for read is undefined
-        for p in protocols:
-            self.client.add_protocol(protocol_rse, p)
+        self.client.add_protocol(protocol_rse, attributes)
 
         try:
             rse_attr = mgr.get_rse_info(rse=protocol_rse, **self.vo)
-            mgr.select_protocol(rse_attr, 'write', domain='FRIENDS')
-        except Exception as e:
-            self.client.delete_protocols(protocol_rse, 'MOCK')
+            with pytest.raises(exception.RSEProtocolDomainNotSupported):
+                mgr.select_protocol(rse_attr, 'write', domain='FRIENDS')
+        finally:
             self.client.delete_rse(protocol_rse)
-            raise e
-        self.client.delete_protocols(protocol_rse, 'MOCK')
-        self.client.delete_rse(protocol_rse)
 
-    @pytest.mark.xfail(raises=RSEProtocolNotSupported)
     def test_get_protocols_domain_not_supported(self):
         """ RSE (CLIENTS): get protocols for operations of rse in unsupported domain (RSEOperationNotSupported)."""
         protocol_rse = rse_name_generator()
@@ -1152,15 +1130,11 @@ class TestRSEClient(unittest.TestCase):
         try:
             rse_attr = mgr.get_rse_info(rse=protocol_rse, **self.vo)
             rse_attr['domain'] = ['wan']
-            mgr.select_protocol(rse_attr, 'write')
-        except Exception as e:
-            self.client.delete_protocols(protocol_rse, 'MOCK')
+            with pytest.raises(exception.RSEProtocolNotSupported):
+                mgr.select_protocol(rse_attr, 'write')
+        finally:
             self.client.delete_rse(protocol_rse)
-            raise e
-        self.client.delete_protocols(protocol_rse, 'MOCK')
-        self.client.delete_rse(protocol_rse)
 
-    @pytest.mark.xfail(raises=RSEProtocolNotSupported)
     def test_get_protocols_defaults_not_supported(self):
         """ RSE (CLIENTS): get default protocols for operations of rse (RSEOperationNotSupported)."""
         protocol_rse = rse_name_generator()
@@ -1202,19 +1176,13 @@ class TestRSEClient(unittest.TestCase):
         try:
             rse_attr = mgr.get_rse_info(rse=protocol_rse, **self.vo)
             rse_attr['domain'] = ['lan']
-            mgr.select_protocol(rse_attr, 'read')
-        except Exception as e:
-            self.client.delete_protocols(protocol_rse, 'MOCK_WRITE_DELETE')
-            self.client.delete_protocols(protocol_rse, 'MOCK_DELETE')
+            with pytest.raises(exception.RSEProtocolNotSupported):
+                mgr.select_protocol(rse_attr, 'read')
+        finally:
             self.client.delete_rse(protocol_rse)
-            raise e
-        self.client.delete_protocols(protocol_rse, 'MOCK_WRITE_DELETE')
-        self.client.delete_protocols(protocol_rse, 'MOCK_DELETE')
-        self.client.delete_rse(protocol_rse)
 
     # UPDATE PROTOCOLS
 
-    @pytest.mark.xfail(raises=Duplicate)
     def test_update_protocols_port_exist(self):
         """ RSE (CLIENTS): set new values for various protocol attributes."""
         protocol_rse = rse_name_generator()
@@ -1243,13 +1211,10 @@ class TestRSEClient(unittest.TestCase):
             self.client.add_protocol(protocol_rse, p)
 
         try:
-            self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=17, data={'prefix': 'where/the/files/are', 'extended_attributes': 'Something else', 'port': '11'})
-        except Exception as e:
-            self.client.delete_protocols(protocol_rse, 'MOCK')
+            with pytest.raises(exception.Duplicate):
+                self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=17, data={'prefix': 'where/the/files/are', 'extended_attributes': 'Something else', 'port': '11'})
+        finally:
             self.client.delete_rse(protocol_rse)
-            raise e
-        self.client.delete_protocols(protocol_rse, 'MOCK')
-        self.client.delete_rse(protocol_rse)
 
     def test_update_protocols_various_attributes(self):
         """ RSE (CLIENTS): set new values for various protocol attributes."""
@@ -1328,12 +1293,11 @@ class TestRSEClient(unittest.TestCase):
                     assert(False)
         assert(True)
 
-    @pytest.mark.xfail(raises=RSENotFound)
     def test_update_protocols_rse_not_found(self):
         """ RSE (CLIENTS): update all protocols with specific identifier of rse (RSENotFound)."""
-        self.client.update_protocols('The One that shouldn\'t be here', scheme='MOCK_Fail', hostname='localhost', port=17, data={'prefix': 'where/the/files/are'})
+        with pytest.raises(RSENotFound):
+            self.client.update_protocols('The One that shouldn\'t be here', scheme='MOCK_Fail', hostname='localhost', port=17, data={'prefix': 'where/the/files/are'})
 
-    @pytest.mark.xfail(raises=RSEProtocolNotSupported)
     def test_update_protocols_not_supported(self):
         """ RSE (CLIENTS): update all protocols with specific identifier of rse (RSEProtocolNotSupported)."""
         protocol_rse = rse_name_generator()
@@ -1372,22 +1336,16 @@ class TestRSEClient(unittest.TestCase):
             self.client.add_protocol(protocol_rse, p)
 
         try:
-            self.client.update_protocols(protocol_rse, scheme='MOCK_UNDEFINED', hostname='localhost', port=17, data={'delete_lan': 1})
-        except Exception as e:
-            for p in protocols:
-                self.client.delete_protocols(protocol_rse, p['scheme'])
+            with pytest.raises(exception.RSEProtocolNotSupported):
+                self.client.update_protocols(protocol_rse, scheme='MOCK_UNDEFINED', hostname='localhost', port=17, data={'delete_lan': 1})
+        finally:
             self.client.delete_rse(protocol_rse)
-            raise e
-        for p in protocols:
-            self.client.delete_protocols(protocol_rse, p['scheme'])
-        self.client.delete_rse(protocol_rse)
 
-    @pytest.mark.xfail(raises=InvalidObject)
     def test_update_protocols_invalid_value(self):
         """ RSE (CLIENTS): update all protocol with invalid value (InvalidObject)."""
         protocol_rse = rse_name_generator()
         self.client.add_rse(protocol_rse)
-        protocols = [{'scheme': 'MOCK',
+        attributes = {'scheme': 'MOCK',
                       'hostname': 'localhost',
                       'port': 17,
                       'prefix': '/the/one/with/all/the/files',
@@ -1395,23 +1353,27 @@ class TestRSEClient(unittest.TestCase):
                       'domains': {'lan': {'read': 1,
                                           'write': 1,
                                           'delete': 0}},
-                      'extended_attributes': 'TheOneWithAllTheRest'}]
+                      'extended_attributes': 'TheOneWithAllTheRest'}
 
         try:
-            for p in protocols:
-                self.client.add_protocol(protocol_rse, p)
-                self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=17, data={'impl': None})
-        except Exception:
-            raise InvalidObject  # explicity raise the correct Exception for MySQL
-        finally:
-            try:
-                self.client.delete_protocols(protocol_rse, 'MOCK')
-            except Exception:
-                pass  # for MySQL
-            finally:
-                self.client.delete_rse(protocol_rse)
+            with pytest.raises(exception.InvalidObject):
+                self.client.add_protocol(protocol_rse, attributes)
 
-    @pytest.mark.xfail(raises=RSEProtocolPriorityError)
+            with pytest.raises(exception.RSEProtocolNotSupported):
+                self.client.update_protocols(protocol_rse, scheme=attributes['scheme'], hostname=attributes['hostname'], port=attributes['port'], data={'impl': None})
+        except exception.DatabaseException:
+            if 'RDBMS' in os.environ:
+                if os.environ['RDBMS'].startswith('mysql'):
+                    pytest.xfail("Uncaught MySQL exception on server-side, bug https://github.com/rucio/rucio/issues/3921")
+                elif os.environ['RDBMS'].startswith('postgres'):
+                    pytest.xfail("Uncaught Postgres exception on server-side, bug https://github.com/rucio/rucio/issues/3921")
+                else:
+                    raise
+            else:
+                raise
+        finally:
+            self.client.delete_rse(protocol_rse)
+
     def test_update_protocol_wrong_priority(self):
         """  RSE (CLIENTS): Add a protocol with an invalid priority for ranking. """
         protocol_rse = rse_name_generator()
@@ -1430,13 +1392,10 @@ class TestRSEClient(unittest.TestCase):
                                                   'delete': 1}},
                                       'extended_attributes': 'TheOneWithAllTheRest'})
         try:
-            self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=42, data={'domains': {'lan': {'read': 4}}})
-        except RSEProtocolPriorityError:
-            self.client.delete_protocols(protocol_rse, scheme='MOCK')
+            with pytest.raises(exception.RSEProtocolPriorityError):
+                self.client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=42, data={'domains': {'lan': {'read': 4}}})
+        finally:
             self.client.delete_rse(protocol_rse)
-            raise
-        self.client.delete_protocols(protocol_rse, scheme='MOCK')
-        self.client.delete_rse(protocol_rse)
 
     def test_get_rse_usage(self):
         """ RSE (CLIENTS): Test getting the RSE usage. """

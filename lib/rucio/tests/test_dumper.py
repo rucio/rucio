@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Fernando Lopez <fernando.e.lopez@gmail.com>, 2015
+# - Fernando López <felopez@cern.ch>, 2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
@@ -76,14 +77,14 @@ class MockResponse:
         return self.json_data
 
 
-@pytest.mark.xfail(raises=dumper.HTTPDownloadFailed)
 def test_http_download_failed_exception_with_no_semantic_errors():
-    raise dumper.HTTPDownloadFailed('some message', 500)
+    with pytest.raises(dumper.HTTPDownloadFailed):
+        raise dumper.HTTPDownloadFailed('some message', 500)
 
 
-@pytest.mark.xfail(raises=SystemExit)
 def test_error_ends_the_program():
-    dumper.error('message', 2)
+    with pytest.raises(SystemExit):
+        dumper.error('message', 2)
 
 
 def test_cacert_config_returns_a_string():
@@ -176,10 +177,10 @@ def test_ddmendpoint_url_builds_url_from_agis_records(mock_get):
 
 
 @mock.patch('rucio.common.dumper.agis_endpoints_data')
-@pytest.mark.xfail(raises=StopIteration)
 def test_ddmendpoint_url_fails_on_unexistent_entry(mock_get):
     mock_get.return_value = []
-    dumper.ddmendpoint_url('SOMEENDPOINT')
+    with pytest.raises(StopIteration):
+        dumper.ddmendpoint_url('SOMEENDPOINT')
 
 
 @mock.patch('requests.get')
@@ -210,7 +211,6 @@ def test_http_download_to_file_with_session():
     assert stringio.read() == 'content'
 
 
-@pytest.mark.xfail(raises=dumper.HTTPDownloadFailed)
 def test_http_download_to_file_throws_exception_on_error():
     response = requests.Response()
     response.status_code = 404
@@ -220,7 +220,8 @@ def test_http_download_to_file_throws_exception_on_error():
     session = requests.Session()
     session.get = lambda _: response
 
-    dumper.http_download_to_file('http://example.com', stringio, session)
+    with pytest.raises(dumper.HTTPDownloadFailed):
+        dumper.http_download_to_file('http://example.com', stringio, session)
 
 
 @mock.patch('requests.get')

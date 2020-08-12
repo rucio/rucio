@@ -122,10 +122,7 @@ if test ${init_only}; then
 fi
 
 echo 'Running tests on VO "tst"'
-TESTS="lib/rucio/tests/test_"
-pytestignores="--ignore=${TESTS}alembic.py --ignore-glob=${TESTS}rse_protocol_*.py --ignore=${TESTS}rucio_server.py --ignore-glob=${TESTS}auditor*.py --ignore=${TESTS}dirac.py"
-
-pytest -v --full-trace $pytestignores
+pytest -v --full-trace
 if [ $? != 0 ]; then
     echo 'Tests on first VO failed, not attempting tests at second VO'
     exit 1
@@ -171,7 +168,7 @@ if test ${activate_rse}; then
 fi
 
 echo 'Running tests on VO "ts2"'
-pytest -v --full-trace $pytestignores
+pytest -v --full-trace
 
 if [ $? != 0 ]; then
     echo 'Tests on second VO failed'

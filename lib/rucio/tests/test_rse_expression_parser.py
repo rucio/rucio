@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +16,7 @@
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2014
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
@@ -95,20 +96,20 @@ class TestRSEExpressionParserCore(unittest.TestCase):
         rse.add_rse_attribute(self.rse4_id, self.tag2, True)
         rse.add_rse_attribute(self.rse5_id, self.tag2, True)
 
-    @pytest.mark.xfail(raises=InvalidRSEExpression)
     def test_unconnected_operator(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test invalid rse expression: unconnected operator"""
-        rse_expression_parser.parse_expression("TEST_RSE1|", **self.filter)
+        with pytest.raises(InvalidRSEExpression):
+            rse_expression_parser.parse_expression("TEST_RSE1|", **self.filter)
 
-    @pytest.mark.xfail(raises=InvalidRSEExpression)
     def test_wrong_parantheses(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test invalid rse expression: wrong parantheses """
-        rse_expression_parser.parse_expression("TEST_RSE1)", **self.filter)
+        with pytest.raises(InvalidRSEExpression):
+            rse_expression_parser.parse_expression("TEST_RSE1)", **self.filter)
 
-    @pytest.mark.xfail(raises=InvalidRSEExpression)
     def test_unknown_rse(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test unknown RSE """
-        rse_expression_parser.parse_expression("TEST_RSE999", **self.filter)
+        with pytest.raises(InvalidRSEExpression):
+            rse_expression_parser.parse_expression("TEST_RSE999", **self.filter)
 
     def test_simple_rse_reference(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test simple RSE reference """
