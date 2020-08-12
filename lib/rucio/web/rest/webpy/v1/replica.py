@@ -18,7 +18,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
@@ -995,4 +995,5 @@ class Tombstone(RucioController):
 APP = application(URLS, globals())
 APP.add_processor(loadhook(rucio_loadhook))
 APP.add_processor(unloadhook(rucio_unloadhook))
-application = APP.wsgifunc()
+if __name__ != "rucio.web.rest.replica":
+    application = APP.wsgifunc()

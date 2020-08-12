@@ -20,6 +20,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -149,4 +150,5 @@ class RequestsGet(RucioController):
 
 APP = application(URLS, globals())
 APP.add_processor(loadhook(rucio_loadhook))
-application = APP.wsgifunc()
+if __name__ != "rucio.web.rest.request":
+    application = APP.wsgifunc()

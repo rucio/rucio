@@ -16,7 +16,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2017
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
@@ -535,4 +535,5 @@ class RuleAnalysis:
 
 APP = application(URLS, globals())
 APP.add_processor(loadhook(rucio_loadhook))
-application = APP.wsgifunc()
+if __name__ != "rucio.web.rest.rule":
+    application = APP.wsgifunc()
