@@ -33,6 +33,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -255,6 +256,7 @@ class UploadClient:
                 logger.debug('Processing upload with the domain: {}'.format(domain))
                 try:
                     pfn = self._upload_item(rse_settings=rse_settings,
+                                            rse_attributes=rse_attributes,
                                             lfn=lfn,
                                             source_dir=file['dirname'],
                                             force_scheme=cur_scheme,
@@ -520,10 +522,12 @@ class UploadClient:
             replica['pfn'] = pfn
         return replica
 
-    def _upload_item(self, rse_settings, lfn, source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False, sign_service=None):
+    def _upload_item(self, rse_settings, rse_attributes, lfn, source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False, sign_service=None):
         """
             Uploads a file to the connected storage.
 
+            :param rse_settings: dictionary containing the RSE settings
+            :param rse_attributes: dictionary containing the RSE attribute key value pairs
             :param lfn:         a single dict containing 'scope' and 'name'.
                                 Example:
                              {'name': '1_rse_local_put.raw', 'scope': 'user.jdoe', 'filesize': 42, 'adler32': '87HS3J968JSNWID'}
@@ -579,7 +583,7 @@ class UploadClient:
             raise FileReplicaAlreadyExists('File %s in scope %s already exists on storage as PFN %s' % (name, scope, pfn))  # wrong exception ?
 
         # Removing tmp from earlier attempts
-        if protocol_read.exists('%s.rucio.upload' % readpfn):
+        if protocol_read.exists(readpfn_tmp):
             logger.debug('Removing remains of previous upload attemtps.')
             try:
                 # Construct protocol for delete operation.
@@ -608,21 +612,24 @@ class UploadClient:
             raise RSEOperationNotSupported(str(error))
 
         # Is stat after that upload allowed?
-        skip_upload_stat = rse_settings.get('skip_upload_stat', False)
+        skip_upload_stat = rse_attributes.get('skip_upload_stat', False)
+        self.logger.debug('skip_upload_stat=%s', skip_upload_stat)
 
         # Checksum verification, obsolete, see Gabriele changes.
         if not skip_upload_stat:
             try:
-                stats = self._retry_protocol_stat(protocol_read, readpfn_tmp)
+                stats = self._retry_protocol_stat(protocol_write, pfn_tmp)
                 if not isinstance(stats, dict):
                     raise RucioException('Could not get protocol.stats for given PFN: %s' % pfn)
 
                 # The checksum and filesize check
                 if ('filesize' in stats) and ('filesize' in lfn):
+                    self.logger.debug('Filesize: Expected=%s Found=%s' % (lfn['filesize'], stats['filesize']))
                     if int(stats['filesize']) != int(lfn['filesize']):
                         raise RucioException('Filesize mismatch. Source: %s Destination: %s' % (lfn['filesize'], stats['filesize']))
                 if rse_settings['verify_checksum'] is not False:
                     if ('adler32' in stats) and ('adler32' in lfn):
+                        self.logger.debug('Checksum: Expected=%s Found=%s' % (lfn['adler32'], stats['adler32']))
                         if stats['adler32'] != lfn['adler32']:
                             raise RucioException('Checksum mismatch. Source: %s Destination: %s' % (lfn['adler32'], stats['adler32']))
 
@@ -644,19 +651,29 @@ class UploadClient:
 
     def _retry_protocol_stat(self, protocol, pfn):
         """
-        try to stat file, on fail try again 1s, 2s, 4s, 8s, 16s, 32s later. Fail is all fail
+        Try to stat file, on fail try again 1s, 2s, 4s, 8s, 16s, 32s later. Fail is all fail
         :param protocol     The protocol to use to reach this file
         :param pfn          Physical file name of the target for the protocol stat
         """
         retries = config_get_int('client', 'protocol_stat_retries', raise_exception=False, default=6)
         for attempt in range(retries):
             try:
+                self.logger.debug('stat: pfn=%s' % pfn)
                 stats = protocol.stat(pfn)
+
+                if int(stats['filesize']) == 0:
+                    raise Exception('Filesize came back as 0. Potential storage race condition, need to retry.')
+
                 return stats
             except RSEChecksumUnavailable as error:
                 # The stat succeeded here, but the checksum failed
                 raise error
-            except Exception:
+            except Exception as error:
+                self.logger.debug('stat: unexpected error=%s' % error)
+                fail_str = ['The requested service is not available at the moment', 'Permission refused']
+                if any(x in str(error) for x in fail_str):
+                    raise error
+                self.logger.debug('stat: unknown edge case, retrying in %ss' % 2**attempt)
                 time.sleep(2**attempt)
         return protocol.stat(pfn)
 
