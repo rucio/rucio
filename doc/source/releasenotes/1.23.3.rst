@@ -1,0 +1,23 @@
+=====================
+1.23.3 (clients only)
+=====================
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: ca_cert should not be mandatory `#3744 <https://github.com/rucio/rucio/issues/3744>`_
+- RSE Manager: GFAL implementation with CLI instead of API `#3537 <https://github.com/rucio/rucio/issues/3537>`_
+
+****
+Bugs
+****
+
+- Clients: do not skip CA check on retry `#3702 <https://github.com/rucio/rucio/issues/3702>`_
+- Clients: Infinte loop in retries `#3923 <https://github.com/rucio/rucio/issues/3923>`_
+- Clients: Upload fails on some sites due to wrong Filesize mismatch `#3927 <https://github.com/rucio/rucio/issues/3927>`_
+- Clients: Upload fails on Google storage `#3928 <https://github.com/rucio/rucio/issues/3928>`_
