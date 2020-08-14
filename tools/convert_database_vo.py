@@ -105,8 +105,8 @@ def rename_vo(old_vo, new_vo, insert_new_vo=False, description=None, email=None,
                         'split_character': '@',
                         'int_1': 1,
                         'int_2': 2,
-                        'description': description,
-                        'email': email,
+                        'new_description': description,
+                        'new_email': email,
                         'datetime': datetime.utcnow()}
 
         bound_params_text = {}
@@ -119,8 +119,8 @@ def rename_vo(old_vo, new_vo, insert_new_vo=False, description=None, email=None,
         if insert_new_vo:
             table = Table('vos', metadata)
             insert_command = table.insert().values(vo=bindparam('new_vo'),
-                                                   description=bindparam('description'),
-                                                   email=bindparam('email'),
+                                                   description=bindparam('new_description'),
+                                                   email=bindparam('new_email'),
                                                    updated_at=bindparam('datetime'),
                                                    created_at=bindparam('datetime'))
             print(str(insert_command) % bound_params_text + ';')
@@ -165,6 +165,7 @@ def rename_vo(old_vo, new_vo, insert_new_vo=False, description=None, email=None,
     if commit_changes and success:
         trans.commit()
     trans.close()
+    return success
 
 
 def remove_vo(vo, commit_changes=False, skip_history=False, echo=True):
@@ -264,18 +265,20 @@ def remove_vo(vo, commit_changes=False, skip_history=False, echo=True):
     if commit_changes and success:
         trans.commit()
     trans.close()
+    return success
 
 
-def convert_to_mvo(new_vo, description, email, commit_changes=False, skip_history=False, echo=True):
+def convert_to_mvo(new_vo, description, email, create_super_root=False, commit_changes=False, skip_history=False, echo=True):
     """
     Converts a single-VO database to a multi-VO one with the specified VO details.
 
-    :param new_vo:         The 3 character string for the new VO.
-    :param description:    Full description of the new VO.
-    :param email:          Admin email for the new VO.
-    :param commit_changes: If True then changes are made against the database directly, and a super_root account is created.
-                           If False, then nothing is commited and the commands needed are dumped to be run later.
-    :param skip_history:   If True then tables without FKC containing historical data will not be converted to save time.
+    :param new_vo:            The 3 character string for the new VO.
+    :param description:       Full description of the new VO.
+    :param email:             Admin email for the new VO.
+    :param create_super_root: If True and the renaming was successful, then create a super_root account at VO def.
+    :param commit_changes:    If True then changes are made against the database directly.
+                              If False, then nothing is commited and the commands needed are dumped to be run later.
+    :param skip_history:      If True then tables without FKC containing historical data will not be converted to save time.
     """
     if not config_get_bool('common', 'multi_vo', False, False):
         print('Multi-VO mode is not enabled in the config file, aborting conversion.')
@@ -288,9 +291,9 @@ def convert_to_mvo(new_vo, description, email, commit_changes=False, skip_histor
     else:
         insert_new_vo = False
 
-    rename_vo('def', new_vo, insert_new_vo=insert_new_vo, description=description, email=email,
-              commit_changes=commit_changes, skip_history=skip_history, echo=echo)
-    if commit_changes:
+    success = rename_vo('def', new_vo, insert_new_vo=insert_new_vo, description=description, email=email,
+                        commit_changes=commit_changes, skip_history=skip_history, echo=echo)
+    if create_super_root and success:
         create_root_account(create_counters=False)
     s.close()
 
@@ -313,10 +316,12 @@ def convert_to_svo(old_vo, delete_vos=False, commit_changes=False, skip_history=
     rename_vo(old_vo, 'def', commit_changes=commit_changes, skip_history=skip_history, echo=echo)
     s = session.get_session()
     if delete_vos:
+        success_all = True
         for vo in list_vos(session=s):
             if vo['vo'] != 'def':
-                remove_vo(vo['vo'], commit_changes=commit_changes, skip_history=skip_history, echo=echo)
-        if commit_changes:
+                success = remove_vo(vo['vo'], commit_changes=commit_changes, skip_history=skip_history, echo=echo)
+                success_all = success_all and success
+        if commit_changes and success_all:
             del_account(InternalAccount('super_root', vo='def'), session=s)
     s.close()
 
@@ -335,6 +340,7 @@ def main():
     parser_mvo.add_argument('new_vo', help='Three character string to identify the new VO. Will be added to the database if it doesn\'t already exist.')
     parser_mvo.add_argument('description', help='Full description of the VO to be used.')
     parser_mvo.add_argument('email', help='Admin email for the new VO.')
+    parser_mvo.add_argument('--create_super_root', '-csr', action='store_true', help='If specified a super_root account is added to VO def.')
 
     parser_svo = subparsers.add_parser('convert_to_svo', help='Entries associated with the VO provided have this association removed, making the database s-VO compatible.')
     parser_svo.add_argument('old_vo', help='Three character string to identify the old VO. Data associated with this VO will be converted.')
