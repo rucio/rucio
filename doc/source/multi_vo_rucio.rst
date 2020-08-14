@@ -122,12 +122,12 @@ adding more VOs::
 
 Alternatively by specifying ``--commit_changes`` the script will attempt to
 modify the database as it runs, however this requires the account used by the
-Rucio instance to access the database to have sufficient permissions to alter
-the tables. In this case, the ``super_root`` account is added as part of the
-script. If there is an error during the conversion, then none of the changes
-will be committed.
+Rucio instance to access the database to be the owner of the the tables. In
+this case, the ``super_root`` account can be added as part of the script by
+passing the argument ``--create_super_root``. If there is an error during the
+conversion, then none of the changes will be committed.
 
-  $ tools/convert_database_vo.py --commit_changes convert_to_mvo new "New VO for existing data" rucio@email.com
+  $ tools/convert_database_vo.py --commit_changes convert_to_mvo new "New VO for existing data" rucio@email.com --create_super_root
 
 Finally, there is the option to skip the (potentially very large) tables of
 historical data using ``--skip_history``. In this case the commands to alter
