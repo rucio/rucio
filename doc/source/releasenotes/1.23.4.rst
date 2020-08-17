@@ -1,0 +1,38 @@
+======
+1.23.4
+======
+
+-------
+General
+-------
+
+********
+Features
+********
+
+- Core & Internals: unify REST endpoints to single WSGI application `#3708 <https://github.com/rucio/rucio/issues/3708>`_
+- Core & Internals: Script to convert DB between VOs `#3914 <https://github.com/rucio/rucio/issues/3914>`_
+- Deletion: VO handling for daemons `#3887 <https://github.com/rucio/rucio/issues/3887>`_
+
+************
+Enhancements
+************
+
+- Release management: Further cleanup of tools `#3917 <https://github.com/rucio/rucio/issues/3917>`_
+
+****
+Bugs
+****
+
+- Core & Internals: add_replicas needs to clean signed URLs from cloud service `#3939 <https://github.com/rucio/rucio/issues/3939>`_
+- Rules: Cannot deny rule which is made with a lock `#3843 <https://github.com/rucio/rucio/issues/3843>`_
+
+-------
+WebUI
+-------
+
+************
+Enhancements
+************
+
+- WebUI: Make m-VO compatible with WebUI `#3885 <https://github.com/rucio/rucio/issues/3885>`_
