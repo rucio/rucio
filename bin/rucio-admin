@@ -1082,7 +1082,7 @@ def list_pfns(args):
             print(replicas[0]['rses'][rse][0])
         else:
             logger.warning('The file has no replica on the specified RSE')
-            rse_info = rsemgr.get_rse_info(rse)
+            rse_info = rsemgr.get_rse_info(rse, vo=client.vo)
             proto = rsemgr.create_protocol(rse_info, 'read', scheme=protocol)
             try:
                 pfn = proto.lfns2pfns(lfns={'scope': scope, 'name': name})
