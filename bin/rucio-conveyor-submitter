@@ -20,6 +20,7 @@
 # - Vincent Garonne, <vgaronne@gmail.com>, 2016-2018
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -67,6 +68,26 @@ Check again the transfer requests for the DID::
     # {'request_type': TRANSFER, 'state': SUBMITTED', ...}
 
 A tranfer request got created by executing the transfer. Depending on the transfer submission, the request state can be different. In this example the transfer got submitted successfully.
+
+When run in multi-VO mode, by default the daemon will run on RSEs from all VOs::
+
+  $ rucio-conveyor-submitter --run-once
+  2020-07-29 13:51:09,436 5784    INFO    This instance will work on VOs: def, abc, xyz, 123
+  2020-07-29 13:51:13,315 5784    INFO    RSE selection: automatic for relevant VOs
+  2020-07-29 13:51:13,316 5784    INFO    starting submitter threads
+
+By using the ``--vos`` argument only the VO or VOs specified will be affected::
+
+  $ rucio-conveyor-submitter --run-once --vos abc xyz
+  2020-07-29 13:51:09,436 5784    INFO    This instance will work on VOs: abc, xyz
+  2020-07-29 13:51:13,315 5784    INFO    RSE selection: automatic for relevant VOs
+  2020-07-29 13:51:13,316 5784    INFO    starting submitter threads
+
+Note that attempting the use the ``--vos`` argument when in single-VO mode will have no affect::
+
+  $ rucio-conveyor-submitter --run-once --vos abc xyz
+  2020-07-29 13:39:37,263 5752    INFO    RSE selection: automatic
+  2020-07-29 13:39:37,264 5752    INFO    starting submitter threads
     ''')
     parser.add_argument("--run-once", action="store_true", default=False,
                         help='One iteration only')
@@ -87,7 +108,9 @@ A tranfer request got created by executing the transfer. Depending on the transf
     parser.add_argument('--include-rses', action="store", default=None, type=str,
                         help='RSE expression to include')
     parser.add_argument('--rses', nargs='+', type=str,
-                        help='Explicit list of RSEs to include (Single-VO only)')
+                        help='Explicit list of RSEs to include')
+    parser.add_argument('--vos', nargs='+', type=str,
+                        help='Optional list of VOs to consider. Only used in multi-VO mode.')
     parser.add_argument('--activities', nargs='+', type=str,
                         help='Explicit list of activities to include')
     parser.add_argument('--exclude-activities', nargs='+', type=str,
@@ -115,6 +138,7 @@ if __name__ == "__main__":
             include_rses=args.include_rses,
             exclude_rses=args.exclude_rses,
             rses=args.rses,
+            vos=args.vos,
             source_strategy=args.source_strategy,
             activities=args.activities,
             exclude_activities=args.exclude_activities,
