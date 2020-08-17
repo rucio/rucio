@@ -1,4 +1,4 @@
-# Copyright 2012-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
@@ -732,6 +732,8 @@ def clean_surls(surls):
             surl = re.sub('/srm/managerv1\?SFN=', '', surl)  # NOQA: W605
             surl = re.sub('/srm/v2/server\?SFN=', '', surl)  # NOQA: W605
             surl = re.sub('/srm/managerv2\?SFN=', '', surl)  # NOQA: W605
+        if surl.startswith('https://storage.googleapis.com'):
+            surl = surl.split('?GoogleAccessId')[0]
         res.append(surl)
     res.sort()
     return res

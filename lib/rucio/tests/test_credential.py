@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
@@ -101,7 +101,7 @@ class TestCredential(unittest.TestCase):
         pytest.raises(UnsupportedOperation, get_signed_url, self.rse1_id, 'gcs', 'read', '')
 
         value = get_signed_url(self.rse1_id, 'gcs', 'read', 'http://storage/directory/file', lifetime=None)
-        expected = ('https://storage.googleapis.com/directory/file?GoogleAccessId=rucio-test@rucio-test'
+        expected = ('https://storage.googleapis.com:443/directory/file?GoogleAccessId=rucio-test@rucio-test'
                     '.iam.gserviceaccount.com&Expires=0&Signature=u9cBWowYX22sAyApH5YySD9h0m%2FbIPLHLgY'
                     '0Db%2BQ4a0wICQ2PZzUfTuHXQF8dUbMJG04VH90U5EMzYg3qSUGyfnp6Jptnvgivf7iSHepJsYhyAYSBGs'
                     'bvTOqf%2BXMQHR5VTh06G8WriZPV2OgSJ61c8qY7k8h0ju4bwcdDMFD2CT933KsnYSVatLN3EfORonLLZv'
@@ -110,7 +110,7 @@ class TestCredential(unittest.TestCase):
         assert value == expected
 
         value = get_signed_url(self.rse1_id, 'gcs', 'write', 'http://storage/directory/file', lifetime=None)
-        expected = ('https://storage.googleapis.com/directory/file?GoogleAccessId=rucio-test@rucio-test'
+        expected = ('https://storage.googleapis.com:443/directory/file?GoogleAccessId=rucio-test@rucio-test'
                     '.iam.gserviceaccount.com&Expires=0&Signature=Gn%2FL0%2FjGkBIdpHZ9bKw7tvqRCdslC11gt'
                     'jbLk5AG2jA4Ywd6mTvOinUB%2BZxHY2I3XzEuMfyMnFj0vfXSemN6XmmcQkiQBhl6P3zr0GrOuO4y0xjKT'
                     'am1MijMKLKFS9pZ6BBYrFgwKcYUcGJmVpq0Fo%2Bl5pLovBKhJbi3RE0YbGTCDA5UEM6WuWLMcQiY8smfK'
@@ -119,7 +119,7 @@ class TestCredential(unittest.TestCase):
         assert value == expected
 
         value = get_signed_url(self.rse1_id, 'gcs', 'delete', 'http://storage/directory/file', lifetime=None)
-        expected = ('https://storage.googleapis.com/directory/file?GoogleAccessId=rucio-test@rucio-test'
+        expected = ('https://storage.googleapis.com:443/directory/file?GoogleAccessId=rucio-test@rucio-test'
                     '.iam.gserviceaccount.com&Expires=0&Signature=FVDNroX1epdTCv%2BC74o%2B8uWyvJXrqiIWg'
                     'kdcedaOoryhRMjuv%2FVdKecnhViY%2BGOP%2B0CoI1uFOHBz%2B%2Bm10U9A3i%2B1v7AZRN5L6nbbS%2'
                     'BJTk4oiSBMJ3FpNT9knbOVd4aSPdiBwfTybwpkWSzEb8cKQsqzrGZk4hVffipMOKkxj7UgMe%2F0DiwqyF'
