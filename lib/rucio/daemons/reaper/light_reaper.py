@@ -175,7 +175,7 @@ def stop(signum=None, frame=None):
     GRACEFUL_STOP.set()
 
 
-def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None, all_rses=False,
+def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
         exclude_rses=None, include_rses=None, vos=None, delay_seconds=0):
     """
     Starts up the reaper threads.
@@ -197,11 +197,6 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None, all_r
         if vos:
             logging.warning('Ignoring argument vos, this is only applicable in a multi-VO setup.')
         vos = ['def']
-
-        # Preserve the old behaviour until a feature release
-        all_rses = rse_core.list_rses()
-        if all_rses:
-            rses = all_rses
     else:
         if vos:
             invalid = set(vos) - set([v['vo'] for v in list_vos()])
@@ -212,32 +207,31 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None, all_r
             vos = [v['vo'] for v in list_vos()]
         logging.info('Light Reaper: This instance will work on VO%s: %s' % ('s' if len(vos) > 1 else '', ', '.join([v for v in vos])))
 
-        # Only use the include/exclude RSE options for m-VO until a feature release
-        all_rses = []
-        for vo in vos:
-            all_rses.extend(rse_core.list_rses(filters={'vo': vo}))
+    all_rses = []
+    for vo in vos:
+        all_rses.extend(rse_core.list_rses(filters={'vo': vo}))
 
-        if rses:
-            invalid = set(rses) - set([rse['rse'] for rse in all_rses])
-            if invalid:
-                msg = 'RSE{} {} cannot be found'.format('s' if len(invalid) > 1 else '',
-                                                        ', '.join([repr(rse) for rse in invalid]))
-                raise RSENotFound(msg)
-            rses = [rse for rse in all_rses if rse['rse'] in rses]
-        else:
-            rses = all_rses
+    if rses:
+        invalid = set(rses) - set([rse['rse'] for rse in all_rses])
+        if invalid:
+            msg = 'RSE{} {} cannot be found'.format('s' if len(invalid) > 1 else '',
+                                                    ', '.join([repr(rse) for rse in invalid]))
+            raise RSENotFound(msg)
+        rses = [rse for rse in all_rses if rse['rse'] in rses]
+    else:
+        rses = all_rses
 
-        if exclude_rses:
-            excluded_rses = parse_expression(exclude_rses)
-            rses = [rse for rse in rses if rse not in excluded_rses]
+    if exclude_rses:
+        excluded_rses = parse_expression(exclude_rses)
+        rses = [rse for rse in rses if rse not in excluded_rses]
 
-        if include_rses:
-            included_rses = parse_expression(include_rses)
-            rses = [rse for rse in rses if rse in included_rses]
+    if include_rses:
+        included_rses = parse_expression(include_rses)
+        rses = [rse for rse in rses if rse in included_rses]
 
-        if not rses:
-            logging.error('Light Reaper: No RSEs found. Exiting.')
-            return
+    if not rses:
+        logging.error('Light Reaper: No RSEs found. Exiting.')
+        return
 
     threads = []
     for worker in range(total_workers):
