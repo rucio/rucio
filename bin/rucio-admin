@@ -64,7 +64,7 @@ from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists
                                     DataIdentifierNotFound, InvalidObject, ReplicaNotFound,
                                     RSENotFound, RSEOperationNotSupported, InvalidRSEExpression,
                                     DuplicateContent, RuleNotFound, CannotAuthenticate,
-                                    Duplicate, ReplicaIsLocked, ConfigNotFound)
+                                    Duplicate, ReplicaIsLocked, ConfigNotFound, ScopeNotFound)
 from rucio.common.utils import chunks, construct_surl, sizefmt, get_bytes_value_from_string, render_json, parse_response, extract_scope
 from rucio import version
 from rucio.rse import rsemanager as rsemgr
@@ -189,6 +189,10 @@ def exception_handler(function):
         except ConfigNotFound as error:
             logger.error(error)
             logger.error('This means that the configuration section you are looking for does not exist.')
+            return FAILURE
+        except ScopeNotFound as error:
+            logger.error(error)
+            logger.error('This means that no scopes were found for the specified account ID.')
             return FAILURE
         except Exception as error:
             logger.error(error)
