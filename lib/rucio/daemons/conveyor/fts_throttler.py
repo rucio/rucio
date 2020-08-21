@@ -1,4 +1,5 @@
-# Copyright 2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2019-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +14,11 @@
 # limitations under the License.
 #
 # Authors:
-# - Dilaksun Bavarajan <dilaksun@hotmail.com>, 2019
+# - Dilaksun Bavarajan <dilaksun.bavarajan@cern.ch>, 2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
-# - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
 Conveyor FTS Throttler is a daemon that will configure a fts storage's transfer settings
@@ -28,18 +28,20 @@ alleviated by limiting the transfer settings of FTS transfers on the particular 
 """
 from __future__ import division
 
+import datetime
+import json
 import logging
-import sys
-import threading
 import os
 import socket
+import sys
+import threading
 import time
 import traceback
-import json
-import datetime
+
 import requests
 
-
+import rucio.db.sqla.util
+from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.core import heartbeat
 from rucio.transfertool.fts3 import FTS3Transfertool
@@ -437,6 +439,8 @@ def run(once=False, cycle_interval=3600):
     """
     Starts up the conveyer fts throttler thread.
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     logging.info('starting throttler thread')
     fts_throttler_thread = threading.Thread(target=fts_throttler, kwargs={'once': once, 'cycle_interval': cycle_interval})

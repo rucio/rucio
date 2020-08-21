@@ -1,4 +1,5 @@
-# Copyright 2015-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,19 +14,18 @@
 # limitations under the License.
 #
 # Authors:
-# - Wen Guan <wguan.icedew@gmail.com>, 2015-2016
+# - Wen Guan <wen.guan@cern.ch>, 2015-2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015-2019
-# - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Brandon White <bjwhite@fnal.gov>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
 Conveyor finisher is a daemon to update replicas and rules based on requests.
@@ -43,19 +43,15 @@ import threading
 import time
 import traceback
 
-try:
-    from urlparse import urlparse  # py2
-except ImportError:
-    from urllib.parse import urlparse  # py3
-
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 from sqlalchemy.exc import DatabaseError
 
+import rucio.db.sqla.util
 from rucio.common.config import config_get
+from rucio.common.exception import DatabaseException, ConfigNotFound, UnsupportedOperation, ReplicaNotFound, RequestNotFound
 from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks
-from rucio.common.exception import DatabaseException, ConfigNotFound, UnsupportedOperation, ReplicaNotFound, RequestNotFound
 from rucio.core import request as request_core, heartbeat, replica as replica_core
 from rucio.core.config import items
 from rucio.core.monitor import record_timer, record_counter
@@ -63,6 +59,11 @@ from rucio.core.rse import list_rses
 from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState, BadFilesStatus
 from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager
+
+try:
+    from urlparse import urlparse  # py2
+except ImportError:
+    from urllib.parse import urlparse  # py3
 
 
 logging.basicConfig(stream=sys.stdout,
@@ -187,6 +188,8 @@ def run(once=False, total_threads=1, sleep_time=60, activities=None, bulk=100, d
     """
     Starts up the conveyer threads.
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise DatabaseException('Database was not updated, daemon won\'t start')
 
     if once:
         logging.info('executing one finisher iteration only')

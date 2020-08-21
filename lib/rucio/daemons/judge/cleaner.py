@@ -1,4 +1,5 @@
-# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,8 +22,6 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 """
 Judge-Cleaner is a daemon to clean expired replication rules.
@@ -35,20 +34,20 @@ import sys
 import threading
 import time
 import traceback
-
-
 from copy import deepcopy
 from datetime import datetime, timedelta
-from re import match
 from random import randint
+from re import match
 
 from sqlalchemy.exc import DatabaseError
 
+import rucio.db.sqla.util
+from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, UnsupportedOperation, RuleNotFound
 from rucio.core.heartbeat import live, die, sanity_check
-from rucio.core.rule import delete_rule, get_expired_rules
 from rucio.core.monitor import record_counter
+from rucio.core.rule import delete_rule, get_expired_rules
 from rucio.db.sqla.util import get_db_time
 
 graceful_stop = threading.Event()
@@ -156,6 +155,9 @@ def run(once=False, threads=1):
     """
     Starts up the Judge-Clean threads.
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise exception.DatabaseException('Database was not updated, daemon won\'t start')
+
     client_time, db_time = datetime.utcnow(), get_db_time()
     max_offset = timedelta(hours=1, seconds=10)
     if type(db_time) is datetime:

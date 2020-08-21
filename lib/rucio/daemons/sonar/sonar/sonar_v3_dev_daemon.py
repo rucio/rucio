@@ -1,4 +1,5 @@
-# Copyright 2017-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2017-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,10 +16,10 @@
 # Authors:
 # - Vitjan Zavrtanik <vitjan.zavrtanik@cern.ch>, 2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Eric Vaandering <ewv@fnal.gov>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
 Daemon for sending Sonar tests to available RSE's.
@@ -34,9 +35,11 @@ import threading
 import time
 
 from requests import ConnectionError
+
+import rucio.db.sqla.util
 from rucio.client.client import Client
 from rucio.common.config import config_get
-from rucio.common.exception import (AccessDenied, DuplicateRule, RSEBlacklisted, RSEWriteBlocked,
+from rucio.common.exception import (AccessDenied, DatabaseException, DuplicateRule, RSEBlacklisted, RSEWriteBlocked,
                                     ReplicationRuleCreationTemporaryFailed, RuleNotFound)
 from rucio.daemons.sonar.sonar.get_current_traffic import get_link_traffic
 
@@ -417,6 +420,9 @@ def run():
     """
     Starts the Sonar thread.
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise DatabaseException('Database was not updated, daemon won\'t start')
+
     threads = []
     threads.append(threading.Thread(target=sonar_tests, kwargs={}, name='Sonar_test_v3'))
     for thread in threads:

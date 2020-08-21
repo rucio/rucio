@@ -1,4 +1,5 @@
-# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2014-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +15,11 @@
 #
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2016
-# - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
 Abacus-RSE is a daemon to update RSE counters.
@@ -33,6 +33,8 @@ import threading
 import time
 import traceback
 
+import rucio.db.sqla.util
+from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.utils import get_thread_with_periodic_running_function
 from rucio.core.heartbeat import live, die, sanity_check
@@ -108,6 +110,9 @@ def run(once=False, threads=1, fill_history_table=False):
     """
     Starts up the Abacus-RSE threads.
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise exception.DatabaseException('Database was not updated, daemon won\'t start')
+
     executable = 'abacus-rse'
     hostname = socket.gethostname()
     sanity_check(executable=executable, hostname=hostname)

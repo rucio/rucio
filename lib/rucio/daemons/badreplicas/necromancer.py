@@ -1,4 +1,5 @@
-# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,10 +19,10 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015
 # - Wen Guan <wguan.icedew@gmail.com>, 2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import division
 
@@ -30,19 +31,19 @@ import os
 import socket
 import threading
 import time
-
 from math import ceil
 from sys import exc_info, stdout
 from traceback import format_exception
 
-from rucio.db.sqla.constants import ReplicaState
+import rucio.db.sqla.util
+from rucio.common import exception
 from rucio.common.config import config_get
-from rucio.common.utils import chunks
 from rucio.common.exception import DatabaseException
+from rucio.common.utils import chunks
 from rucio.core import monitor, heartbeat
 from rucio.core.replica import list_bad_replicas, get_replicas_state, list_bad_replicas_history, update_bad_replicas_history
 from rucio.core.rule import update_rules_for_lost_replica, update_rules_for_bad_replica
-
+from rucio.db.sqla.constants import ReplicaState
 
 logging.basicConfig(stream=stdout,
                     level=getattr(logging,
@@ -150,6 +151,8 @@ def run(threads=1, bulk=100, once=False):
     """
     Starts up the necromancer threads.
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     if once:
         logging.info('Will run only one iteration in a single threaded mode')
