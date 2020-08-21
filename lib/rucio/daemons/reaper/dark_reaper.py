@@ -118,15 +118,18 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
                             prot.delete(pfn)
                             duration = time.time() - start
                             logging.info('Dark Reaper %s-%s: Deletion SUCCESS of %s:%s as %s on %s in %s seconds', worker_number, total_workers, scope, replica['name'], pfn, rse, duration)
-                            add_message('deletion-done', {'scope': scope,
-                                                          'name': replica['name'],
-                                                          'rse': rse,
-                                                          'rse_id': rse_id,
-                                                          'file-size': replica.get('bytes') or 0,
-                                                          'bytes': replica.get('bytes') or 0,
-                                                          'url': pfn,
-                                                          'duration': duration,
-                                                          'protocol': prot.attributes['scheme']})
+                            payload = {'scope': scope,
+                                       'name': replica['name'],
+                                       'rse': rse,
+                                       'rse_id': rse_id,
+                                       'file-size': replica.get('bytes') or 0,
+                                       'bytes': replica.get('bytes') or 0,
+                                       'url': pfn,
+                                       'duration': duration,
+                                       'protocol': prot.attributes['scheme']}
+                            if replica['scope'].vo != 'def':
+                                payload['vo'] = replica['scope'].vo
+                            add_message('deletion-done', payload)
                             deleted_replicas.append(replica)
                         except SourceNotFound:
                             err_msg = 'Dark Reaper %s-%s: Deletion NOTFOUND of %s:%s as %s on %s' % (worker_number, total_workers, scope, replica['name'], pfn, rse)
@@ -135,15 +138,18 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
                         except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
                             err_msg = 'Dark Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s' % (worker_number, total_workers, scope, replica['name'], pfn, rse, str(error))
                             logging.warning(err_msg)
-                            add_message('deletion-failed', {'scope': scope,
-                                                            'name': replica['name'],
-                                                            'rse': rse,
-                                                            'rse_id': rse_id,
-                                                            'file-size': replica['bytes'] or 0,
-                                                            'bytes': replica['bytes'] or 0,
-                                                            'url': pfn,
-                                                            'reason': str(error),
-                                                            'protocol': prot.attributes['scheme']})
+                            payload = {'scope': scope,
+                                       'name': replica['name'],
+                                       'rse': rse,
+                                       'rse_id': rse_id,
+                                       'file-size': replica['bytes'] or 0,
+                                       'bytes': replica['bytes'] or 0,
+                                       'url': pfn,
+                                       'reason': str(error),
+                                       'protocol': prot.attributes['scheme']}
+                            if replica['scope'].vo != 'def':
+                                payload['vo'] = replica['scope'].vo
+                            add_message('deletion-failed', payload)
 
                         except Exception:
                             logging.critical(traceback.format_exc())

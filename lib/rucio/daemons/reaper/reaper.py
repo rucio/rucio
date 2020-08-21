@@ -241,6 +241,16 @@ def reaper(rses, worker_number=0, child_number=0, total_children=1, chunk_size=1
                                 prot.connect()
                                 for replica in files:
                                     try:
+                                        deletion_dict = {'scope': replica['scope'].external,
+                                                         'name': replica['name'],
+                                                         'rse': rse_info['rse'],
+                                                         'rse_id': rse_info['id'],
+                                                         'file-size': replica['bytes'],
+                                                         'bytes': replica['bytes'],
+                                                         'url': replica['pfn'],
+                                                         'protocol': prot.attributes['scheme']}
+                                        if replica['scope'].vo != 'def':
+                                            deletion_dict['vo'] = replica['scope'].vo
                                         logging.info('Reaper %s-%s: Deletion ATTEMPT of %s:%s as %s on %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'])
                                         start = time.time()
                                         if rse['staging_area'] or rse['rse'].endswith("STAGING"):
@@ -260,66 +270,41 @@ def reaper(rses, worker_number=0, child_number=0, total_children=1, chunk_size=1
 
                                         deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
 
-                                        add_message('deletion-done', {'scope': replica['scope'].external,
-                                                                      'name': replica['name'],
-                                                                      'rse': rse_info['rse'],
-                                                                      'rse_id': rse_info['id'],
-                                                                      'file-size': replica['bytes'],
-                                                                      'bytes': replica['bytes'],
-                                                                      'url': replica['pfn'],
-                                                                      'duration': duration,
-                                                                      'protocol': prot.attributes['scheme']})
+                                        deletion_dict['duration'] = duration
+                                        add_message('deletion-done', deletion_dict)
                                         logging.info('Reaper %s-%s: Deletion SUCCESS of %s:%s as %s on %s in %s seconds', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], duration)
                                     except SourceNotFound:
                                         err_msg = 'Deletion NOTFOUND of %s:%s as %s on %s' % (replica['scope'], replica['name'], replica['pfn'], rse['rse'])
                                         logging.warning(err_msg)
                                         deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
                                         if replica['state'] == ReplicaState.AVAILABLE:
-                                            add_message('deletion-failed', {'scope': replica['scope'].external,
-                                                                            'name': replica['name'],
-                                                                            'rse': rse_info['rse'],
-                                                                            'rse_id': rse_info['id'],
-                                                                            'file-size': replica['bytes'],
-                                                                            'bytes': replica['bytes'],
-                                                                            'url': replica['pfn'],
-                                                                            'reason': str(err_msg),
-                                                                            'protocol': prot.attributes['scheme']})
+                                            deletion_dict['reason'] = str(err_msg)
+                                            add_message('deletion-failed', deletion_dict)
                                     except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
                                         logging.warning('Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(error))
-                                        add_message('deletion-failed', {'scope': replica['scope'].external,
-                                                                        'name': replica['name'],
-                                                                        'rse': rse_info['rse'],
-                                                                        'rse_id': rse_info['id'],
-                                                                        'file-size': replica['bytes'],
-                                                                        'bytes': replica['bytes'],
-                                                                        'url': replica['pfn'],
-                                                                        'reason': str(error),
-                                                                        'protocol': prot.attributes['scheme']})
+                                        deletion_dict['reason'] = str(error)
+                                        add_message('deletion-failed', deletion_dict)
                                     except Exception as error:
                                         logging.critical('Reaper %s-%s: Deletion CRITICAL of %s:%s as %s on %s: %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(traceback.format_exc()))
-                                        add_message('deletion-failed', {'scope': replica['scope'].external,
-                                                                        'name': replica['name'],
-                                                                        'rse': rse_info['rse'],
-                                                                        'rse_id': rse_info['id'],
-                                                                        'file-size': replica['bytes'],
-                                                                        'bytes': replica['bytes'],
-                                                                        'url': replica['pfn'],
-                                                                        'reason': str(error),
-                                                                        'protocol': prot.attributes['scheme']})
+                                        deletion_dict['reason'] = str(error)
+                                        add_message('deletion-failed', deletion_dict)
                                     except:
                                         logging.critical('Reaper %s-%s: Deletion CRITICAL of %s:%s as %s on %s: %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(traceback.format_exc()))
                             except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
                                 for replica in files:
                                     logging.warning('Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s', worker_number, child_number, replica['scope'], replica['name'], replica['pfn'], rse['rse'], str(error))
-                                    add_message('deletion-failed', {'scope': replica['scope'].external,
-                                                                    'name': replica['name'],
-                                                                    'rse': rse_info['rse'],
-                                                                    'rse_id': rse_info['id'],
-                                                                    'file-size': replica['bytes'],
-                                                                    'bytes': replica['bytes'],
-                                                                    'url': replica['pfn'],
-                                                                    'reason': str(error),
-                                                                    'protocol': prot.attributes['scheme']})
+                                    payload = {'scope': replica['scope'].external,
+                                               'name': replica['name'],
+                                               'rse': rse_info['rse'],
+                                               'rse_id': rse_info['id'],
+                                               'file-size': replica['bytes'],
+                                               'bytes': replica['bytes'],
+                                               'url': replica['pfn'],
+                                               'reason': str(error),
+                                               'protocol': prot.attributes['scheme']}
+                                    if replica['scope'].vo != 'def':
+                                        deletion_dict['vo'] = replica['scope'].vo
+                                    add_message('deletion-failed', payload)
                                     break
                             finally:
                                 prot.close()
