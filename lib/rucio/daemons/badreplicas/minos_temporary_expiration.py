@@ -1,4 +1,5 @@
-# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,37 +14,33 @@
 # limitations under the License.
 #
 # Authors:
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2018-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 import logging
 import math
 import os
 import socket
 import threading
-import traceback
 import time
-
+import traceback
 from sys import stdout
 
-from rucio.db.sqla.constants import BadFilesStatus, ReplicaState
-
-from rucio.db.sqla.session import get_session
+import rucio.db.sqla.util
+from rucio.common import exception
 from rucio.common.config import config_get
-from rucio.common.utils import chunks
 from rucio.common.exception import DataIdentifierNotFound, ReplicaNotFound
+from rucio.common.utils import chunks
+from rucio.core import heartbeat
 from rucio.core.did import get_metadata
 from rucio.core.replica import (update_replicas_states,
                                 bulk_delete_bad_replicas, list_expired_temporary_unavailable_replicas)
-
-from rucio.core import heartbeat
-
+from rucio.db.sqla.constants import BadFilesStatus, ReplicaState
+from rucio.db.sqla.session import get_session
 
 logging.basicConfig(stream=stdout,
                     level=getattr(logging,
@@ -163,6 +160,8 @@ def run(threads=1, bulk=100, once=False, sleep_time=60):
     """
     Starts up the minos threads.
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     if once:
         logging.info('Will run only one iteration in a single threaded mode')

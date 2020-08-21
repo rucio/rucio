@@ -1,4 +1,5 @@
-# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2014-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,36 +14,35 @@
 # limitations under the License.
 #
 # Authors:
-# - Wen Guan <wguan.icedew@gmail.com>, 2014
-# - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
+# - Wen Guan <wen.guan@cern.ch>, 2014
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
 Fax consumer is a daemon to retrieve rucio cache operation information to synchronize rucio catalog.
 """
 
-from traceback import format_exc
-
+import json
 import logging
+import socket
 import sys
 import threading
 import time
+from traceback import format_exc
 
-import socket
-import json
 import stomp
 
+import rucio.db.sqla.util
+from rucio.common import exception
 from rucio.common.config import config_get, config_get_int
 from rucio.common.types import InternalScope
 from rucio.core.monitor import record_counter
-from rucio.core.volatile_replica import add_volatile_replicas, delete_volatile_replicas
 from rucio.core.rse import get_rse_id
-
+from rucio.core.volatile_replica import add_volatile_replicas, delete_volatile_replicas
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
@@ -179,6 +179,8 @@ def run(num_thread=1):
     """
     Starts up the rucio cache consumer thread
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     logging.info('starting consumer thread')
     threads = [threading.Thread(target=consumer, kwargs={'id': i, 'num_thread': num_thread}) for i in range(0, num_thread)]

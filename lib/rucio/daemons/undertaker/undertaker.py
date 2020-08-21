@@ -1,4 +1,5 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,12 +17,13 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 '''
 Undertaker is a daemon to manage expired did.
@@ -29,26 +31,26 @@ Undertaker is a daemon to manage expired did.
 
 import logging
 import os
-import sys
 import socket
+import sys
 import threading
 import time
 import traceback
-
 from copy import deepcopy
 from datetime import datetime, timedelta
-from re import match
 from random import randint
+from re import match
 
 from sqlalchemy.exc import DatabaseError
 
+import rucio.db.sqla.util
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, UnsupportedOperation, RuleNotFound
 from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks
+from rucio.core.did import list_expired_dids, delete_dids
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
-from rucio.core.did import list_expired_dids, delete_dids
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 
@@ -135,6 +137,9 @@ def run(once=False, total_workers=1, chunk_size=10):
     """
     Starts up the undertaker threads.
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise DatabaseException('Database was not updated, daemon won\'t start')
+
     logging.info('main: starting threads')
     threads = [threading.Thread(target=undertaker, kwargs={'worker_number': i, 'total_workers': total_workers, 'once': once, 'chunk_size': chunk_size}) for i in range(0, total_workers)]
     [t.start() for t in threads]

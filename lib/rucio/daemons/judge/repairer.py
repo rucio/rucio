@@ -1,4 +1,5 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,13 +15,12 @@
 #
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2016
-# - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
 Judge-Repairer is a daemon to repair stuck replication rules.
@@ -33,19 +33,20 @@ import sys
 import threading
 import time
 import traceback
-
 from copy import deepcopy
 from datetime import datetime, timedelta
-from re import match
 from random import randint
+from re import match
 
 from sqlalchemy.exc import DatabaseError
 
+import rucio.db.sqla.util
+from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException
 from rucio.core.heartbeat import live, die, sanity_check
-from rucio.core.rule import repair_rule, get_stuck_rules
 from rucio.core.monitor import record_counter
+from rucio.core.rule import repair_rule, get_stuck_rules
 
 graceful_stop = threading.Event()
 
@@ -153,6 +154,8 @@ def run(once=False, threads=1):
     """
     Starts up the Judge-Repairer threads.
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     executable = 'judge-repairer'
     hostname = socket.gethostname()

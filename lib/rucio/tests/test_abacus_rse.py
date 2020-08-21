@@ -1,4 +1,5 @@
-# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,8 +20,6 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 import os
 import unittest
@@ -39,29 +38,30 @@ from rucio.tests.common import file_generator
 
 
 class TestAbacusRSE(unittest.TestCase):
+    account = 'root'
+    scope = 'mock'
+    rse = 'MOCK4'
+    file_sizes = 2
+    vo = {}
 
-    def setUp(self):
-        self.account = 'root'
-        self.scope = 'mock'
-        self.rse = 'MOCK4'
-        self.file_sizes = 2
-        self.upload_client = UploadClient()
-        self.session = get_session()
+    @classmethod
+    def setUpClass(cls):
+        cls.upload_client = UploadClient()
+        cls.session = get_session()
 
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
-        else:
-            self.vo = {}
+            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
 
-        self.rse_id = get_rse_id(self.rse, session=self.session, **self.vo)
+        cls.rse_id = get_rse_id(cls.rse, session=cls.session, **cls.vo)
 
-    def tearDown(self):
+    @classmethod
+    def tearDownClass(cls):
         undertaker.run(once=True)
         cleaner.run(once=True)
-        if self.vo:
-            reaper.run(once=True, include_rses='vo=%s&(%s)' % (self.vo['vo'], self.rse), greedy=True)
+        if cls.vo:
+            reaper.run(once=True, include_rses='vo=%s&(%s)' % (cls.vo['vo'], cls.rse), greedy=True)
         else:
-            reaper.run(once=True, include_rses=self.rse, greedy=True)
+            reaper.run(once=True, include_rses=cls.rse, greedy=True)
 
     def test_abacus_rse(self):
         """ ABACUS (RSE): Test update of RSE usage. """

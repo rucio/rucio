@@ -24,8 +24,6 @@
 # - Eric Vaandering <ewv@fnal.gov>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -42,11 +40,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.schema import CreateSchema, MetaData, Table, DropTable, ForeignKeyConstraint, DropConstraint
 from sqlalchemy.sql.expression import select, text
 
+from rucio import alembicrevision
 from rucio.common.config import config_get
 from rucio.common.types import InternalAccount
 from rucio.core.account_counter import create_counters_for_new_account
 from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import AccountStatus, AccountType, IdentityType
+from rucio.db.sqla.session import get_engine
 
 
 def build_database(echo=True):
@@ -260,3 +260,19 @@ def get_count(q):
     count_q = q.statement.with_only_columns([func.count()]).order_by(None)
     count = q.session.execute(count_q).scalar()
     return count
+
+
+def is_old_db():
+    """
+    Returns true, if alembic is used and the database is not on the
+    same revision as the code base.
+    """
+    schema = config_get('database', 'schema', raise_exception=False)
+
+    # checks if alembic is being used by looking up the AlembicVersion table
+    if not get_engine().has_table(models.AlembicVersion.__tablename__, schema):
+        return False
+
+    s = session.get_session()
+    query = s.query(models.AlembicVersion.version_num)
+    return query.count() != 0 and str(query.first()[0]) != alembicrevision.ALEMBIC_REVISION
