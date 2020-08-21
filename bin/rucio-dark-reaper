@@ -34,7 +34,6 @@ def get_parser():
     """
     parser = argparse.ArgumentParser(description="The Dark-Reaper daemon is responsible for the deletion of quarantined replicas.")
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
-    parser.add_argument("--all-rses", action="store_true", default=False, help='Select RSEs from the quarantined queues')
     parser.add_argument("--total-workers", action="store", default=1, type=int, help='Total number of workers per process')
     parser.add_argument("--chunk-size", action="store", default=10, type=int, help='Chunk size')
     parser.add_argument("--scheme", action="store", default=None, type=str, help='Force the reaper to use a particular protocol, e.g., mock.')
@@ -51,7 +50,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     try:
         run(total_workers=args.total_workers, chunk_size=args.chunk_size,
-            once=args.run_once, scheme=args.scheme, rses=args.rses, all_rses=args.all_rses,
+            once=args.run_once, scheme=args.scheme, rses=args.rses,
             exclude_rses=args.exclude_rses, include_rses=args.include_rses, vos=args.vos)
     except KeyboardInterrupt:
         stop()
