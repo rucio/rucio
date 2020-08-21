@@ -170,6 +170,8 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, prepend_str):
                                  'bytes': replica['bytes'],
                                  'url': replica['pfn'],
                                  'protocol': prot.attributes['scheme']}
+                if replica['scope'].vo != 'def':
+                    deletion_dict['vo'] = replica['scope'].vo
                 logging.info('%s Deletion ATTEMPT of %s:%s as %s on %s', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name)
                 start = time.time()
                 # For STAGING RSEs, no physical deletion
@@ -214,14 +216,17 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, prepend_str):
     except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
         for replica in replicas:
             logging.warning('%s Deletion NOACCESS of %s:%s as %s on %s: %s', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name, str(error))
-            add_message('deletion-failed', {'scope': replica['scope'].external,
-                                            'name': replica['name'],
-                                            'rse': rse_name,
-                                            'file-size': replica['bytes'],
-                                            'bytes': replica['bytes'],
-                                            'url': replica['pfn'],
-                                            'reason': str(error),
-                                            'protocol': prot.attributes['scheme']})
+            payload = {'scope': replica['scope'].external,
+                       'name': replica['name'],
+                       'rse': rse_name,
+                       'file-size': replica['bytes'],
+                       'bytes': replica['bytes'],
+                       'url': replica['pfn'],
+                       'reason': str(error),
+                       'protocol': prot.attributes['scheme']}
+            if replica['scope'].vo != 'def':
+                payload['vo'] = replica['scope'].vo
+            add_message('deletion-failed', payload)
 
     finally:
         prot.close()
