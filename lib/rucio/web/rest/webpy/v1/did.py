@@ -151,7 +151,7 @@ class Search(RucioController):
                 elif k == 'limit':
                     limit = v[0]
                 elif k == 'long':
-                    long = v[0] == '1'
+                    long = v[0] == 'True'
                 elif k == 'recursive':
                     recursive = v[0] == 'True'
                 else:
@@ -201,7 +201,7 @@ class SearchExtended(RucioController):
                 elif k == 'limit':
                     limit = v[0]
                 elif k == 'long':
-                    long = v[0] == '1'
+                    long = v[0] == 'True'
                 elif k == 'recursive':
                     recursive = v[0] == 'True'
                 else:

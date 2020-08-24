@@ -68,14 +68,13 @@ class DIDClient(BaseClient):
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), 'dids', 'search'])
         payload = {}
-        if long:
-            payload['long'] = 1
 
         for k, v in list(filters.items()):
             if k in ('created_before', 'created_after'):
                 payload[k] = date_to_str(v)
             else:
                 payload[k] = v
+        payload['long'] = long
         payload['type'] = type
         payload['recursive'] = recursive
 
@@ -101,14 +100,13 @@ class DIDClient(BaseClient):
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), 'dids', 'search_extended'])
         payload = {}
-        if long:
-            payload['long'] = 1
 
         for k, v in list(filters.items()):
             if k in ('created_before', 'created_after'):
                 payload[k] = date_to_str(v)
             else:
                 payload[k] = v
+        payload['long'] = long
         payload['type'] = type
         payload['recursive'] = recursive
 
