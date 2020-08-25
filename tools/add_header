@@ -59,6 +59,7 @@ author_map = {
     ("David Cameron", "<d.g.cameron@gmail.com>"): ("David Cameron", "<david.cameron@cern.ch>"),
     ("Eric Vaandering", "<ericvaandering@gmail.com>"): ("Eric Vaandering", "<ewv@fnal.gov>"),
     ("Fernando López", "<fernando.e.lopez@gmail.com>"): ("Fernando López", "<felopez@cern.ch>"),
+    ("Lister", "<andrew.lister@stfc.ac.uk>"): ("Andrew Lister", "<andrew.lister@stfc.ac.uk>"),
 }
 
 

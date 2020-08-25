@@ -226,6 +226,39 @@ class TestBinRucio(unittest.TestCase):
         print(out, )
         assert tmp_val in out
 
+    def test_rse_add_distance(self):
+        """CLIENT (ADMIN): Add distance to RSE"""
+        # add RSEs
+        temprse1 = rse_name_generator()
+        cmd = 'rucio-admin rse add %s' % temprse1
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        temprse2 = rse_name_generator()
+        cmd = 'rucio-admin rse add %s' % temprse2
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+
+        # add distance between the RSEs
+        cmd = 'rucio-admin rse add-distance --distance 1 --ranking 1 %s %s' % (temprse1, temprse2)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        cmd = 'rucio-admin rse add-distance --distance 1 --ranking 1 %s %s' % (temprse2, temprse1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+
+        # add duplicate distance
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err, exitcode)
+        assert exitcode != 0
+        assert 'Distance from %s to %s already exists!' % (temprse2, temprse1) in err
+
     def test_upload(self):
         """CLIENT(USER): Upload"""
         tmp_val = rse_name_generator()

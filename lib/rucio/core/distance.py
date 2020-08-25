@@ -1,24 +1,32 @@
-"""
- Copyright European Organization for Nuclear Research (CERN)
-
- Licensed under the Apache License, Version 2.0 (the "License");
- You may not use this file except in compliance with the License.
- You may obtain a copy of the License at
- http://www.apache.org/licenses/LICENSE-2.0
-
- Authors:
- - Wen Guan, <wen.guan@cern.ch>, 2015-2016
- - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
- - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-
- PY3K COMPATIBLE
-"""
+# -*- coding: utf-8 -*-
+# Copyright 2015-2020 CERN
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Wen Guan <wen.guan@cern.ch>, 2015-2016
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2017
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+#
+# PY3K COMPATIBLE
 
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 
 from rucio.common import exception
-from rucio.core.rse import get_rse_name
 from rucio.db.sqla.models import Distance, RSE
 from rucio.db.sqla.session import transactional_session, read_session
 
@@ -47,7 +55,7 @@ def add_distance(src_rse_id, dest_rse_id, ranking=None, agis_distance=None, geoi
                                 active=active, submitted=submitted, finished=finished, failed=failed, transfer_speed=transfer_speed)
         new_distance.save(session=session)
     except IntegrityError:
-        raise exception.Duplicate('Distance from %s to %s already exists!' % (get_rse_name(rse_id=src_rse_id, session=session), get_rse_name(rse_id=dest_rse_id, session=session)))
+        raise exception.Duplicate()
     except DatabaseError as error:
         raise exception.RucioException(error.args)
 
