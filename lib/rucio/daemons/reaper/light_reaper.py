@@ -200,8 +200,6 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None, all_r
 
         # Preserve the old behaviour until a feature release
         all_rses = rse_core.list_rses()
-        if all_rses:
-            rses = all_rses
     else:
         if vos:
             invalid = set(vos) - set([v['vo'] for v in list_vos()])
@@ -215,8 +213,13 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None, all_r
         # Only use the include/exclude RSE options for m-VO until a feature release
         all_rses = []
         for vo in vos:
-            all_rses.extend(rse_core.list_rses(filters={'vo': vo}))
+            vo_rses = rse_core.list_rses(filters={'vo': vo})
+            if vo_rses:
+                all_rses.extend(vo_rses)
 
+    if all_rses:
+        rses = all_rses
+    else:
         if rses:
             invalid = set(rses) - set([rse['rse'] for rse in all_rses])
             if invalid:
