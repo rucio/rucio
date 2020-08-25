@@ -581,6 +581,43 @@ class TestBinRucio(unittest.TestCase):
         except Exception:
             pass
 
+    def test_download_no_subdir(self):
+        """CLIENT(USER): Rucio download files with --no-subdir and check that files already found locally are not replaced"""
+        tmp_file = file_generator()
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        # download files with --no-subdir
+        cmd = 'rucio -v download --no-subdir --dir /tmp {0}:{1}'.format(self.user, tmp_file[5:])  # triming '/tmp/' from filename
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        # search for the files with ls
+        cmd = 'ls /tmp/'    # search in /tmp/
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert tmp_file[5:] in out
+        # download again with --no-subdir
+        cmd = 'rucio -v download --no-subdir --dir /tmp {0}:{1}'.format(self.user, tmp_file[5:])  # triming '/tmp/' from filename
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        assert re.search(r'Downloaded files:\s+0', out) is not None
+        assert re.search(r'Files already found locally:\s+1', out) is not None
+
+        try:
+            for i in listdir('data13_hip'):
+                unlink('data13_hip/%s' % i)
+            rmdir('data13_hip')
+        except Exception:
+            pass
+
     def test_download_filter(self):
         """CLIENT(USER): Rucio download with filter options"""
         # Use filter option to download file with wildcarded name
