@@ -23,6 +23,7 @@ import json
 import multiprocessing
 import os
 import pathlib
+import shutil
 import subprocess
 import sys
 import time
@@ -77,18 +78,24 @@ def main():
     use_podman = 'USE_PODMAN' in os.environ and os.environ['USE_PODMAN'] == '1'
     parallel = 'PARALLEL_AUTOTESTS' in os.environ and os.environ['PARALLEL_AUTOTESTS'] == '1'
     failfast = 'PARALLEL_AUTOTESTS_FAILFAST' in os.environ and os.environ['PARALLEL_AUTOTESTS_FAILFAST'] == '1'
+    copy_rucio_logs = 'COPY_AUTOTEST_LOGS' in os.environ and os.environ['COPY_AUTOTEST_LOGS'] == '1'
+    logs_dir = pathlib.Path('.autotest')
+    if parallel or copy_rucio_logs:
+        logs_dir.mkdir(exist_ok=True)
 
     def gen_case_kwargs(case: typing.Dict):
         return {'caseenv': stringify_dict(case),
                 'image': find_image(images=obj["images"], case=case),
                 'use_podman': use_podman,
-                'use_namespace': use_podman and parallel}
+                'use_namespace': use_podman and parallel,
+                'copy_rucio_logs': copy_rucio_logs,
+                'logs_dir': logs_dir / f'log-{case_id(case)}'}
 
     if parallel:
         with multiprocessing.Pool(processes=min(int(os.environ.get('PARALLEL_AUTOTESTS_PROCNUM', 3)), len(cases)), maxtasksperchild=1) as prpool:
             tasks = [(_case, prpool.apply_async(run_case_logger, (),
                                                 {'run_case_kwargs': gen_case_kwargs(_case),
-                                                 'stdlog': pathlib.Path(f'.autotest/log-{case_id(_case)}.txt')})) for _case in cases]
+                                                 'stdlog': logs_dir / f'log-{case_id(_case)}.txt'})) for _case in cases]
             start_time = time.time()
             for _case, task in tasks:
                 timeleft = start_time + 21600 - time.time()  # 6 hour overall timeout
@@ -115,7 +122,6 @@ def run_case_logger(run_case_kwargs: typing.Dict, stdlog=sys.stderr):
     defaultstderr = sys.stderr
     startmsg = f'{("=" * 80)}\nStarting test case {caseid}\n  at {datetime.now().isoformat()}\n{"=" * 80}\n'
     if isinstance(stdlog, pathlib.PurePath):
-        pathlib.Path(stdlog.parent).mkdir(parents=True, exist_ok=True)
         with open(str(stdlog), 'a') as logfile:
             logfile.write(startmsg)
             logfile.flush()
@@ -143,7 +149,7 @@ def run_case_logger(run_case_kwargs: typing.Dict, stdlog=sys.stderr):
     return True
 
 
-def run_case(caseenv, image, use_podman, use_namespace):
+def run_case(caseenv, image, use_podman, use_namespace, copy_rucio_logs, logs_dir: pathlib.Path):
     if use_namespace:
         namespace = str(uuid.uuid4())
         namespace_args = ('--namespace', namespace)
@@ -153,7 +159,7 @@ def run_case(caseenv, image, use_podman, use_namespace):
         namespace_env = {}
 
     pod = ""
-    cid = "rucio"
+    cid = ""
     if use_podman:
         print("*** Starting with pod for", {**caseenv, "IMAGE": image}, file=sys.stderr, flush=True)
         stdout = run('podman', *namespace_args, 'pod', 'create', return_stdout=True, check=True)
@@ -202,6 +208,13 @@ def run_case(caseenv, image, use_podman, use_namespace):
 
         if cid:
             run('docker', *namespace_args, 'stop', cid, check=False)
+            if copy_rucio_logs:
+                try:
+                    if logs_dir.exists():
+                        shutil.rmtree(logs_dir)
+                    run('docker', *namespace_args, 'cp', f'{cid}:/var/log', str(logs_dir))
+                except Exception:
+                    print("** Error on retrieving logs for", {**caseenv, "IMAGE": image}, '\n', traceback.format_exc(), '\n**', file=sys.stderr, flush=True)
             run('docker', *namespace_args, 'rm', '-v', cid, check=False)
         if pod:
             run('podman', *namespace_args, 'pod', 'stop', '-t', '10', pod, check=False)
