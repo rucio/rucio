@@ -1355,7 +1355,7 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
     if rses:
         result = []
         for item in query.all():
-            dest_rse_id = item[9]
+            dest_rse_id = item[10]
             if dest_rse_id in rses:
                 result.append(item)
         return result
