@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2014-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@
    Hermes2 is a daemon that get the messages and sends them to external services (influxDB, ES, ActiveMQ).
 '''
 
+import calendar
 import copy
 import datetime
 import json
@@ -343,7 +344,7 @@ def aggregate_to_influx(messages, bin_size, endpoint, prepend_str):
         if event_type in ['transfer-failed', 'transfer-done']:
             transferred_at = time.strptime(payload['transferred_at'], '%Y-%m-%d %H:%M:%S')
             if bin_size == '1m':
-                transferred_at = int(datetime.datetime(*transferred_at[:5]).strftime('%s')) * 1000000000
+                transferred_at = int(calendar.timegm(transferred_at)) * 1000000000
                 transferred_at += microsecond
             if transferred_at not in bins:
                 bins[transferred_at] = {}
