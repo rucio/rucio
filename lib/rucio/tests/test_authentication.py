@@ -1,4 +1,5 @@
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -135,6 +136,7 @@ class TestAuthCoreApi(unittest.TestCase):
 
         del_account_identity(PUBLIC_KEY, IdentityType.SSH, root)
 
+    @pytest.mark.xfail(reason='The WebUI isn\'t linked to CERN SSO yet so this needs to be fixed once it is linked')
     def test_get_auth_token_saml_success(self):
         """AUTHENTICATION (CORE): SAML NameID (correct credentials)."""
         root = InternalAccount('root', **self.vo)
@@ -143,12 +145,8 @@ class TestAuthCoreApi(unittest.TestCase):
         except Duplicate:
             pass  # might already exist, can skip
 
-        try:
-            result = get_auth_token_saml(account='root', saml_nameid='ddmlab', appid='test', ip='127.0.0.1', **self.vo)
-            assert result is not None
-        except:
-            # FIXME: The WebUI isn't linked to CERN SSO yet so this needs to be fixed once it is linked
-            pass
+        result = get_auth_token_saml(account='root', saml_nameid='ddmlab', appid='test', ip='127.0.0.1', **self.vo)
+        assert result is not None
 
         del_account_identity('ddmlab', IdentityType.SAML, root)
 
