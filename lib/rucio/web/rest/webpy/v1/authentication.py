@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,19 +15,15 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
-# - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
-# - Yun-Pin Sun <winter0128@gmail.com>, 2012-2013
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014
-# - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019-2020
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
@@ -34,11 +31,11 @@
 from __future__ import print_function
 
 import base64
+import imp
 import time
 from os.path import dirname, join
 from re import search
 from traceback import format_exc
-import imp
 
 from web import OK, BadRequest, InternalError, application, ctx, header
 from web import input as param_input
@@ -628,12 +625,10 @@ class GSS(RucioController):
 
         if result is None:
             raise generate_http_error(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
-        else:
-            header('X-Rucio-Auth-Token', result.token)
-            header('X-Rucio-Auth-Token-Expires', date_to_str(result.expired_at))
-            return str()
 
-        raise BadRequest()
+        header('X-Rucio-Auth-Token', result.token)
+        header('X-Rucio-Auth-Token-Expires', date_to_str(result.expired_at))
+        return str()
 
 
 class x509(RucioController):
