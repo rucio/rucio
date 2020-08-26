@@ -27,6 +27,7 @@
 # - Gabriele <sucre.91@hotmail.it>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -1355,7 +1356,7 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
     if rses:
         result = []
         for item in query.all():
-            dest_rse_id = item[9]
+            dest_rse_id = item[10]
             if dest_rse_id in rses:
                 result.append(item)
         return result
