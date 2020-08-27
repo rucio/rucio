@@ -94,19 +94,24 @@ pytestmark = pytest.mark.skipif('SUITE' in os.environ and os.environ['SUITE'] !=
                                 reason='No execution of the multi_vo tests in a suite other than the multi_vo suite')
 
 
+def setup_vo():
+    """ Setup method for the vo environment. """
+    if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+        vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+        new_vo = {'vo': 'new'}
+        if not vo_exists(**new_vo):
+            add_vo(description='Test', email='rucio@email.com', **new_vo)
+        return vo, new_vo
+    else:
+        pytest.xfail(reason='multi_vo mode is not enabled. Running multi_vo tests in single_vo mode would result in failures.')
+        return {}, {}
+
+
 class TestVOCoreAPI(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
-            cls.new_vo = {'vo': 'new'}
-            if not vo_exists(**cls.new_vo):
-                add_vo(description='Test', email='rucio@email.com', **cls.new_vo)
-        else:
-            LOG.warning('multi_vo mode is not enabled. Running multi_vo tests in single_vo mode will result in failures.')
-            cls.vo = {}
-            cls.new_vo = {}
+        cls.vo, cls.new_vo = setup_vo()
 
     def test_multi_vo_flag(self):
         """ MULTI VO (CORE): Test operations fail in single_vo mode """
@@ -219,14 +224,11 @@ class TestVORestAPI(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
-            cls.new_vo = {'vo': 'new'}
+        cls.vo, cls.new_vo = setup_vo()
+        if cls.vo:
             cls.def_header = {'X-Rucio-VO': 'def'}
             cls.vo_header = {'X-Rucio-VO': cls.vo['vo']}
             cls.new_header = {'X-Rucio-VO': 'new'}
-            if not vo_exists(**cls.new_vo):
-                add_vo(description='Test', email='rucio@email.com', **cls.new_vo)
 
             # Setup accounts at two VOs so we can determine which VO we authenticated against
             usr_uuid = str(generate_uuid()).lower()[:16]
@@ -236,9 +238,6 @@ class TestVORestAPI(unittest.TestCase):
             add_account(cls.account_new, 'USER', 'rucio@email.com', 'root', **cls.new_vo)
 
         else:
-            LOG.warning('multi_vo mode is not enabled. Running multi_vo tests in single_vo mode will result in failures.')
-            cls.vo = {}
-            cls.new_vo = {}
             cls.def_header = {}
             cls.vo_header = {}
             cls.new_header = {}
@@ -776,15 +775,7 @@ class TestMultiVoClients(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
-            cls.new_vo = {'vo': 'new'}
-            if not vo_exists(**cls.new_vo):
-                add_vo(description='Test', email='rucio@email.com', **cls.new_vo)
-        else:
-            LOG.warning('multi_vo mode is not enabled. Running multi_vo tests in single_vo mode will result in failures.')
-            cls.vo = {}
-            cls.new_vo = {}
+        cls.vo, cls.new_vo = setup_vo()
 
     def test_get_vo_from_config(self):
         """ MULTI VO (CLIENT): Get vo from config file when starting clients """
@@ -1060,12 +1051,9 @@ class TestMultiVOBinRucio(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
-            cls.new_vo = {'vo': 'new'}
+        cls.vo, cls.new_vo = setup_vo()
+        if cls.vo:
             cls.fake_vo = {'vo': 'fke'}
-            if not vo_exists(**cls.new_vo):
-                add_vo(description='Test', email='rucio@email.com', **cls.new_vo)
 
             # Setup RSEs at two VOs so we can determine which VO we authenticated against
             rse_str = ''.join(choice(ascii_uppercase) for x in range(10))
@@ -1086,9 +1074,6 @@ class TestMultiVOBinRucio(unittest.TestCase):
                     raise e
 
         else:
-            LOG.warning('multi_vo mode is not enabled. Running multi_vo tests in single_vo mode will result in failures.')
-            cls.vo = {}
-            cls.new_vo = {}
             cls.fake_vo = {}
             cls.rse_tst = ''
             cls.rse_new = ''
@@ -1160,15 +1145,7 @@ class TestMultiVODaemons(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
-            cls.new_vo = {'vo': 'new'}
-            if not vo_exists(**cls.new_vo):
-                add_vo(description='Test', email='rucio@email.com', **cls.new_vo)
-        else:
-            LOG.warning('multi_vo mode is not enabled. Running multi_vo tests in single_vo mode will result in failures.')
-            cls.vo = {}
-            cls.new_vo = {}
+        cls.vo, cls.new_vo = setup_vo()
 
     def test_automatix(self):
         """ MULTI VO (DAEMON): Test that automatix runs on a single VO """
