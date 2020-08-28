@@ -21,6 +21,7 @@
 # - Brandon White, <bjwhite@fnal.gov>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
+# - Eric Vaandering <ewv@fnal.gov>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -116,7 +117,7 @@ def parse_expression(expression, filter=None, session=None):
                 if rse.get('availability') & 2:
                     final_result.append(rse)
         if not final_result:
-            raise RSEBlacklisted('RSE excluded due to write blacklisting.')
+            raise RSEBlacklisted('RSE excluded; not available for writing.')
     else:
         final_result = vo_result
 
