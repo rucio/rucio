@@ -27,6 +27,7 @@
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
 # - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Eric Vaandering <ewv@fnal.gov>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -67,7 +68,7 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     DataIdentifierNotFound, RuleNotFound, InputValidationError, RSEOverQuota,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
                                     InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
-                                    InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound,
+                                    InvalidObject, RSEWriteBlocked, RuleReplaceFailed, RequestNotFound,
                                     ManualRuleApprovalBlocked, UnsupportedOperation, UndefinedPolicy)
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalScope, InternalAccount
@@ -141,7 +142,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param session:                    The database session in use.
     :returns:                          A list of created replication rule ids.
     :raises:                           InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
-                                       StagingAreaRuleRequiresLifetime, DuplicateRule, RSEBlacklisted, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked, RSEOverQuota
+                                       StagingAreaRuleRequiresLifetime, DuplicateRule, RSEWriteBlocked, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked, RSEOverQuota
     """
     rule_ids = []
 
@@ -397,7 +398,7 @@ def add_rules(dids, rules, session=None):
     :param session:  The database session in use.
     :returns:        Dictionary (scope, name) with list of created rule ids
     :raises:         InvalidReplicationRule, InsufficientAccountLimit, InvalidRSEExpression, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
-                     StagingAreaRuleRequiresLifetime, DuplicateRule, RSEBlacklisted, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked
+                     StagingAreaRuleRequiresLifetime, DuplicateRule, RSEWriteBlocked, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked
     """
 
     with record_timer_block('rule.add_rules'):
@@ -1016,7 +1017,7 @@ def repair_rule(rule_id, session=None):
 
     # Rule error cases:
     # (A) A rule get's an exception on rule-creation. This can only be the MissingSourceReplica exception.
-    # (B) A rule get's an error when re-evaluated: InvalidRSEExpression, InvalidRuleWeight, InsufficientTargetRSEs, RSEBlacklisted
+    # (B) A rule get's an error when re-evaluated: InvalidRSEExpression, InvalidRuleWeight, InsufficientTargetRSEs, RSEWriteBlocked
     #     InsufficientAccountLimit. The re-evaluation has to be done again and potential missing locks have to be
     #     created.
     # (C) Transfers fail and mark locks (and the rule) as STUCK. All STUCK locks have to be repaired.
@@ -1048,7 +1049,7 @@ def repair_rule(rule_id, session=None):
                 source_rses = parse_expression(rule.source_replica_expression, filter={'vo': vo}, session=session)
             else:
                 source_rses = []
-        except (InvalidRSEExpression, RSEBlacklisted) as error:
+        except (InvalidRSEExpression, RSEWriteBlocked) as error:
             rule.state = RuleState.STUCK
             rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
             rule.save(session=session)
@@ -2590,7 +2591,7 @@ def __evaluate_did_attach(eval_did, session=None):
                             possible_rses.extend(parse_expression(rule.rse_expression, filter={'vo': vo}, session=session))
                             # else:
                             #     possible_rses.extend(parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session))
-                        except (InvalidRSEExpression, RSEBlacklisted):
+                        except (InvalidRSEExpression, RSEWriteBlocked):
                             possible_rses = []
                             break
 
@@ -2618,7 +2619,7 @@ def __evaluate_did_attach(eval_did, session=None):
                             source_rses = []
                             if rule.source_replica_expression:
                                 source_rses = parse_expression(rule.source_replica_expression, filter={'vo': vo}, session=session)
-                        except (InvalidRSEExpression, RSEBlacklisted) as error:
+                        except (InvalidRSEExpression, RSEWriteBlocked) as error:
                             rule.state = RuleState.STUCK
                             rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
                             rule.save(session=session)

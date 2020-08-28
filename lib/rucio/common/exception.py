@@ -567,12 +567,12 @@ class RSEAccessDenied(RucioException):
         self.error_code = 49
 
 
-class RSEBlacklisted(RucioException):
+class RSEWriteBlocked(RucioException):
     """
     RucioException
     """
     def __init__(self, *args, **kwargs):
-        super(RSEBlacklisted, self).__init__(*args, **kwargs)
+        super(RSEWriteBlocked, self).__init__(*args, **kwargs)
         self._message = "RSE excluded; not available for writing."
         self.error_code = 50
 

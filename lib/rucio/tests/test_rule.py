@@ -26,6 +26,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Eric Vaandering <ewv@fnal.gov>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -45,7 +46,7 @@ from rucio.client.lockclient import LockClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.exception import (RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEBlacklisted,
+from rucio.common.exception import (RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEWriteBlocked,
                                     RSEOverQuota,
                                     RuleReplaceFailed, ManualRuleApprovalBlocked, InputValidationError,
                                     UnsupportedOperation)
@@ -827,7 +828,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
-        with pytest.raises(RSEBlacklisted):
+        with pytest.raises(RSEWriteBlocked):
             add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
         add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=True)[0]

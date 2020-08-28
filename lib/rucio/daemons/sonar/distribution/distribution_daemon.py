@@ -15,6 +15,7 @@
 # Authors:
 # - Vitjan Zavrtanik <vitjan.zavrtanik@cern.ch>, 2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
+# - Eric Vaandering <ewv@fnal.gov>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -23,20 +24,17 @@ Daemon for distributing sonar test files to available RSE's
 """
 
 import glob
+import logging
 import os
 import subprocess
 import sys
 import threading
-import logging
 import time
 
 from rucio.client.client import Client
 from rucio.common.config import config_get
-from rucio.common.exception import DuplicateRule
-from rucio.common.exception import ReplicationRuleCreationTemporaryFailed
-from rucio.common.exception import RSEBlacklisted
-from rucio.common.exception import InsufficientAccountLimit
-
+from rucio.common.exception import (DuplicateRule, InsufficientAccountLimit, ReplicationRuleCreationTemporaryFailed,
+                                    RSEWriteBlocked)
 
 GRACEFUL_STOP = threading.Event()
 logging.basicConfig(stream=sys.stdout,
@@ -104,7 +102,7 @@ def distribute_files(client, data_dir='small_sonar_dataset', dataset_prefix='son
             logging.info('Adding rule for dataset')
             try:
                 client.add_replication_rule([{'scope': scope, 'name': dataset_prefix + site}], 1, site)
-            except (DuplicateRule, RSEBlacklisted, ReplicationRuleCreationTemporaryFailed, InsufficientAccountLimit) as exception:
+            except (DuplicateRule, RSEWriteBlocked, ReplicationRuleCreationTemporaryFailed, InsufficientAccountLimit) as exception:
                 msg = 'Error adding replication rule: %s' % (str(exception))
                 logging.warning(msg)
         else:

@@ -27,6 +27,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Eric Vaandering <ewv@fnal.gov>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -45,7 +46,7 @@ from traceback import format_exception
 
 
 from rucio.db.sqla.constants import DIDType, SubscriptionState
-from rucio.common.exception import (DatabaseException, DataIdentifierNotFound, InvalidReplicationRule, DuplicateRule, RSEBlacklisted,
+from rucio.common.exception import (DatabaseException, DataIdentifierNotFound, InvalidReplicationRule, DuplicateRule, RSEWriteBlocked,
                                     InvalidRSEExpression, InsufficientTargetRSEs, InsufficientAccountLimit, InputValidationError, RSEOverQuota,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime,
                                     SubscriptionWrongParameter, SubscriptionNotFound)
@@ -404,7 +405,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                             logging.error(prepend_str + '%s' % (str(error)))
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error.__class__.__name__)), delta=1)
                                             break
-                                        except (ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, InsufficientAccountLimit, DatabaseException, RSEBlacklisted) as error:
+                                        except (ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, InsufficientAccountLimit, DatabaseException, RSEWriteBlocked) as error:
                                             # Errors to be retried
                                             logging.error(prepend_str + '%s Will perform an other attempt %i/%i' % (str(error), attempt + 1, nattempt))
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error.__class__.__name__)), delta=1)

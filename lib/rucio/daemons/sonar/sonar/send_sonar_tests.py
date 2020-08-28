@@ -8,6 +8,7 @@
 
  Authors:
  - Vitjan Zavrtanik, <vitjan.zavrtanik@gmail.com>, 2017
+ - Eric Vaandering <ewv@fnal.gov>, 2020
 
 Sends on demand sonar tests on the link that
 is defined by the provided source and destination
@@ -19,9 +20,7 @@ from __future__ import print_function
 import sys
 
 from rucio.client.client import Client
-from rucio.common.exception import DuplicateRule
-from rucio.common.exception import RSEBlacklisted
-from rucio.common.exception import ReplicationRuleCreationTemporaryFailed
+from rucio.common.exception import (DuplicateRule, RSEWriteBlocked, ReplicationRuleCreationTemporaryFailed)
 
 
 def main():
@@ -83,7 +82,7 @@ def main():
         print(msg)
         msg = "Set rule with rule_id %s." % (rule_id[0])
         print(msg)
-    except (DuplicateRule, RSEBlacklisted, ReplicationRuleCreationTemporaryFailed) as exception:
+    except (DuplicateRule, RSEWriteBlocked, ReplicationRuleCreationTemporaryFailed) as exception:
         print(str(exception))
 
 
