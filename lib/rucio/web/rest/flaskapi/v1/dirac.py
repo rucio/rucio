@@ -30,7 +30,7 @@ from rucio.api.dirac import add_files
 from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, InvalidType,
                                     DatabaseException, Duplicate, InvalidPath,
                                     ResourceTemporaryUnavailable, RucioException,
-                                    RSENotFound)
+                                    RSENotFound, UnsupportedOperation)
 from rucio.common.utils import generate_http_error_flask
 
 
@@ -46,8 +46,10 @@ class AddFiles(MethodView):
 
         HTTP Error:
             401 Unauthorized
+            405 Method Not Allowed
             409 Conflict
             500 Internal Error
+            503 Service Unavailable
         """
         try:
             json_data = loads(request.data)
@@ -62,6 +64,8 @@ class AddFiles(MethodView):
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
+        except UnsupportedOperation as error:
+            return generate_http_error_flask(405, 'UnsupportedOperation', error.args[0])
         except DataIdentifierAlreadyExists as error:
             return generate_http_error_flask(409, 'DataIdentifierAlreadyExists', error.args[0])
         except Duplicate as error:
