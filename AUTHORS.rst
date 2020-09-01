@@ -47,6 +47,7 @@ Individual contributors to the source code
 - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 - Rob Barnsley <R.Barnsley@skatelescope.org>, 2020
+- Alan Malta Rodrigues <alan.malta@cern.ch>, 2020
 
 Organisations employing contributors
 ------------------------------------
