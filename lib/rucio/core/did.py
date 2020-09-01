@@ -30,6 +30,7 @@
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019 - 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Vivek Nigam <viveknigam.nigam3@gmail.com>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -1108,10 +1109,13 @@ def scope_list(scope, name=None, recursive=False, session=None):
 
     def __topdids(scope):
         c = session.query(models.DataIdentifierAssociation.child_name).filter_by(scope=scope, child_scope=scope)
-        q = session.query(models.DataIdentifier.name, models.DataIdentifier.did_type).filter_by(scope=scope)  # add type
+        q = session.query(models.DataIdentifier.name, models.DataIdentifier.did_type, models.DataIdentifier.bytes).filter_by(scope=scope)  # add type
         s = q.filter(not_(models.DataIdentifier.name.in_(c))).order_by(models.DataIdentifier.name)
         for row in s.yield_per(5):
-            yield {'scope': scope, 'name': row.name, 'type': row.did_type, 'parent': None, 'level': 0}
+            if row.did_type == DIDType.FILE:
+                yield {'scope': scope, 'name': row.name, 'type': row.did_type, 'parent': None, 'level': 0, 'bytes': row.bytes}
+            else:
+                yield {'scope': scope, 'name': row.name, 'type': row.did_type, 'parent': None, 'level': 0, 'bytes': None}
 
     def __diddriller(pdid):
         query_associ = session.query(models.DataIdentifierAssociation).filter_by(scope=pdid['scope'], name=pdid['name'])
