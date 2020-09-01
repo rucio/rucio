@@ -19,9 +19,12 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-if [ -x /usr/bin/podman -a ! -x /usr/bin/docker ] || grep -q /usr/bin/podman /usr/bin/docker; then
-    echo "Detected podman environment"
-    export USE_PODMAN=1
+USE_PODMAN=${USE_PODMAN-}
+if [ -z "$USE_PODMAN" ]; then
+    if [ -x /usr/bin/podman -a ! -x /usr/bin/docker ] || grep -q /usr/bin/podman /usr/bin/docker; then
+        echo "Detected podman environment"
+        export USE_PODMAN=1
+    fi
 fi
 
 PARALLEL_AUTOTESTS=${PARALLEL_AUTOTESTS-}
