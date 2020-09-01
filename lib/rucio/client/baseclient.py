@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
@@ -44,6 +44,7 @@
 from __future__ import print_function
 
 import imp
+import os
 import random
 import sys
 import traceback
@@ -249,12 +250,15 @@ class BaseClient(object):
             raise ClientProtocolNotSupported('\'%s\' not supported' % auth_scheme)
 
         if (rucio_scheme == 'https' or auth_scheme == 'https') and ca_cert is None:
-            LOG.debug('HTTPS is required, but no ca_cert was passed. Trying to get it from the config file.')
-            try:
-                self.ca_cert = path.expandvars(config_get('client', 'ca_cert'))
-            except (NoOptionError, NoSectionError):
-                LOG.debug('No ca_cert found in configuration. Falling back to Mozilla default CA bundle (certifi).')
-                self.ca_cert = True
+            LOG.debug('HTTPS is required, but no ca_cert was passed. Trying to get it from X509_CERT_DIR.')
+            self.ca_cert = os.environ.get('X509_CERT_DIR', None)
+            if self.ca_cert is None:
+                LOG.debug('HTTPS is required, but no ca_cert was passed and X509_CERT_DIR is not defined. Trying to get it from the config file.')
+                try:
+                    self.ca_cert = path.expandvars(config_get('client', 'ca_cert'))
+                except (NoOptionError, NoSectionError):
+                    LOG.debug('No ca_cert found in configuration. Falling back to Mozilla default CA bundle (certifi).')
+                    self.ca_cert = True
 
         self.list_hosts = [self.host]
 
