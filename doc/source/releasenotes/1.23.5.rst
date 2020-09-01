@@ -1,0 +1,48 @@
+======
+1.23.5
+======
+
+-------
+General
+-------
+
+********
+Features
+********
+
+- Return files size when listing scope DIDs `#3775 <https://github.com/rucio/rucio/issues/3775>`_
+
+************
+Enhancements
+************
+
+- Core & Internals: M-VO database conversion improvements `#3938 <https://github.com/rucio/rucio/issues/3938>`_
+- Messaging: Implement support of ActiveMQ in Hermes 2 `#3880 <https://github.com/rucio/rucio/issues/3880>`_
+
+****
+Bugs
+****
+
+- Consistency checks: Dark Reaper isn’t exiting early if there are no quarantined replicas `#3952 <https://github.com/rucio/rucio/issues/3952>`_
+- Core & Internals: long=True query string does not work for /dids/{scope}/dids/search REST API `#3762 <https://github.com/rucio/rucio/issues/3762>`_
+- Core & Internals: Adding distance fails wiht 500 if already exists `#3767 <https://github.com/rucio/rucio/issues/3767>`_
+- DIRAC: addfile method fails with internal error is a file is attached to a container `#3922 <https://github.com/rucio/rucio/issues/3922>`_
+- Messaging: VO missing from reaper messages `#3948 <https://github.com/rucio/rucio/issues/3948>`_
+- Transfers: Off by one error in core/transfer.py `#3954 <https://github.com/rucio/rucio/issues/3954>`_
+  
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Use X509_CERT_DIR if defined `#3970 <https://github.com/rucio/rucio/issues/3970>`_
+
+****
+Bugs
+****
+
+- Clients: rucio-admin scope list --account traceback `#3561 <https://github.com/rucio/rucio/issues/3561>`_
+- Clients: rucio-admin rse info does not return protocols and/or RSE usages `#3854 <https://github.com/rucio/rucio/issues/3854>`_
