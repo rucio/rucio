@@ -416,12 +416,16 @@ def add_distance(source, destination, issuer, vo='def', ranking=None, distance=N
     kwargs = {'source': source, 'destination': destination}
     if not permission.has_permission(issuer=issuer, vo=vo, action='add_distance', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not add RSE distances' % (issuer))
-    return distance_module.add_distance(src_rse_id=rse_module.get_rse_id(source, vo=vo),
-                                        dest_rse_id=rse_module.get_rse_id(destination, vo=vo),
-                                        ranking=ranking, agis_distance=distance,
-                                        geoip_distance=geoip_distance, active=active,
-                                        submitted=submitted, finished=finished,
-                                        failed=failed, transfer_speed=transfer_speed)
+    try:
+        return distance_module.add_distance(src_rse_id=rse_module.get_rse_id(source, vo=vo),
+                                            dest_rse_id=rse_module.get_rse_id(destination, vo=vo),
+                                            ranking=ranking, agis_distance=distance,
+                                            geoip_distance=geoip_distance, active=active,
+                                            submitted=submitted, finished=finished,
+                                            failed=failed, transfer_speed=transfer_speed)
+    except exception.Duplicate:
+        # use source and destination RSE names
+        raise exception.Duplicate('Distance from %s to %s already exists!' % (source, destination))
 
 
 def update_distance(source, destination, parameters, issuer, vo='def'):
