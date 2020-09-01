@@ -1,4 +1,5 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,16 +14,17 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario@lassnig.net>, 2012-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2012-2019
-# - Vincent Garonne <vgaronne@gmail.com>, 2012-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
-# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019, 2020
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -37,6 +39,8 @@ import paramiko
 import six
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
+from sqlalchemy import and_, or_
+
 from rucio.common.exception import CannotAuthenticate, RucioException
 from rucio.common.utils import generate_uuid, query_bunches
 from rucio.core.account import account_exists
@@ -45,7 +49,6 @@ from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
-from sqlalchemy import and_, or_
 
 
 def token_key_generator(namespace, fni, **kwargs):
@@ -78,9 +81,7 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
     :param ip: IP address of the client a a string.
     :param session: The database session in use.
 
-    :returns: Authentication token as a Python struct
-              .token string
-              .expired_at datetime
+    :returns: A models.Token object as saved to the database.
     """
 
     # Make sure the account exists
@@ -135,9 +136,7 @@ def get_auth_token_x509(account, dn, appid, ip=None, session=None):
     :param ipaddr: IP address of the client as a string.
     :param session: The database session in use.
 
-    :returns: Authentication token as a Python struct
-              .token string
-              .expired_at datetime
+    :returns: A models.Token object as saved to the database.
     """
 
     # Make sure the account exists
@@ -171,9 +170,7 @@ def get_auth_token_gss(account, gsstoken, appid, ip=None, session=None):
     :param ip: IP address of the client as a string.
     :param session: The database session in use.
 
-    :returns: Authentication token as a Python struct
-              .token string
-              .expired_at datetime
+    :returns: A models.Token object as saved to the database.
     """
 
     # Make sure the account exists
@@ -207,9 +204,7 @@ def get_auth_token_ssh(account, signature, appid, ip=None, session=None):
     :param ip: IP address of the client as a string.
     :param session: The database session in use.
 
-    :returns: Authentication token as a Python struct
-              .token string
-              .expired_at datetime
+    :returns: A models.Token object as saved to the database.
     """
     if not isinstance(signature, bytes):
         signature = signature.encode()
@@ -271,9 +266,7 @@ def get_ssh_challenge_token(account, appid, ip=None, session=None):
     :param appid: The application identifier as a string.
     :param ip: IP address of the client as a string.
 
-    :returns: Challenge token token as a Python struct
-              .token string
-              .expired_at datetime
+    :returns: A models.Token object as saved to the database.
     """
 
     # Make sure the account exists
@@ -312,9 +305,7 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None, session=None):
     :param ip: IP address of the client a a string.
     :param session: The database session in use.
 
-    :returns: Authentication token as a Python struct
-              .token string
-              .expired_at datetime
+    :returns: A models.Token object as saved to the database.
     """
 
     # Make sure the account exists
