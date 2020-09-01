@@ -561,13 +561,13 @@ def info_rse(args):
         print('  ' + attribute + ': ' + str(attributes[attribute]))
     print('Protocols:')
     print('==========')
-    for protocol in sorted(rseinfo['protocols']):
+    for protocol in sorted(rseinfo['protocols'], key=lambda x: x['scheme']):
         print('  ' + protocol['scheme'])
         for item in sorted(protocol):
             print('    ' + item + ': ' + str(protocol[item]))
     print('Usage:')
     print('======')
-    for elem in sorted(usage):
+    for elem in sorted(usage, key=lambda x: x['source']):
         print('  ' + elem['source'])
         for item in sorted(elem):
             print('    ' + item + ': ' + str(elem[item]))
