@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,28 +15,28 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2014
-# - Yun-Pin Sun <yun-pin.sun@cern.ch>, 2012
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
 from __future__ import print_function
+
 import base64
 from re import search
 from traceback import format_exc
 
-from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gss, get_auth_token_x509, get_auth_token_ssh, get_ssh_challenge_token, validate_auth_token
-from rucio.common.exception import AccessDenied, IdentityError, RucioException
-from rucio.common.utils import generate_http_error_flask
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask
-
 from flask import Flask, Blueprint, request, Response
 from flask.views import MethodView
+
+from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gss, get_auth_token_x509, get_auth_token_ssh, get_ssh_challenge_token, validate_auth_token
+from rucio.common.exception import AccessDenied, IdentityError, RucioException
+from rucio.common.utils import generate_http_error_flask, date_to_str
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask
 
 
 class UserPass(MethodView):
@@ -122,7 +123,8 @@ class UserPass(MethodView):
         if not result:
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
 
-        response.headers['X-Rucio-Auth-Token'] = result
+        response.headers['X-Rucio-Auth-Token'] = result.token
+        response.headers['X-Rucio-Auth-Token-Expires'] = date_to_str(result.expired_at)
         return response
 
 
@@ -197,11 +199,10 @@ class GSS(MethodView):
 
         if result is None:
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
-        else:
-            response.headers('X-Rucio-Auth-Token', result)
-            return str()
 
-        return 'BadRequest', 400
+        response.headers['X-Rucio-Auth-Token'] = result.token
+        response.headers['X-Rucio-Auth-Token-Expires'] = date_to_str(result.expired_at)
+        return response
 
 
 class x509(MethodView):
@@ -301,8 +302,8 @@ class x509(MethodView):
             print('Cannot Authenticate', account, dn, appid, ip, vo)
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
 
-        response.headers['X-Rucio-Auth-Token'] = result
-        response.set_data(str())
+        response.headers['X-Rucio-Auth-Token'] = result.token
+        response.headers['X-Rucio-Auth-Token-Expires'] = date_to_str(result.expired_at)
         return response
 
 
@@ -389,8 +390,8 @@ class SSH(MethodView):
         if not result:
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
 
-        response.headers['X-Rucio-Auth-Token'] = result
-        response.set_data(str())
+        response.headers['X-Rucio-Auth-Token'] = result.token
+        response.headers['X-Rucio-Auth-Token-Expires'] = date_to_str(result.expired_at)
         return response
 
 
@@ -467,8 +468,8 @@ class SSHChallengeToken(MethodView):
         if not result:
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot generate challenge for account %(account)s' % locals())
 
-        response.headers['X-Rucio-SSH-Challenge-Token'] = result
-        response.set_data(str())
+        response.headers['X-Rucio-Auth-Token'] = result.token
+        response.headers['X-Rucio-Auth-Token-Expires'] = date_to_str(result.expired_at)
         return response
 
 
