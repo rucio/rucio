@@ -170,7 +170,7 @@ class Search(MethodView):
             elif k == 'limit':
                 limit = v[0]
             elif k == 'long':
-                long = v == '1'
+                long = v == 'True'
             elif k == 'recursive':
                 recursive = v == 'True'
             else:
@@ -252,7 +252,7 @@ class SearchExtended(MethodView):
             elif k == 'limit':
                 limit = v[0]
             elif k == 'long':
-                long = v == '1'
+                long = v == 'True'
             elif k == 'recursive':
                 recursive = v == 'True'
             else:
