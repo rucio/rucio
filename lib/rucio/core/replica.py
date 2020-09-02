@@ -19,7 +19,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2020
 # - David Cameron <d.g.cameron@gmail.com>, 2014
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2020
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
@@ -1550,7 +1550,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
             update({'complete': False}, synchronize_session=False)
 
     # delete empty dids
-    messages, deleted_dids, deleted_rules = [], [], []
+    messages, deleted_dids, deleted_rules, deleted_did_meta = [], [], [], []
     for chunk in chunks(did_condition, 100):
         query = session.query(models.DataIdentifier.scope,
                               models.DataIdentifier.name,
@@ -1590,6 +1590,12 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
             filter(or_(*chunk)).\
             filter(models.ReplicationRule.state.in_((RuleState.SUSPENDED,
                                                      RuleState.WAITING_APPROVAL))).\
+            delete(synchronize_session=False)
+
+    # Remove DID Metadata
+    for chunk in chunks(deleted_did_meta, 100):
+        session.query(models.DidMeta).\
+            filter(or_(*chunk)).\
             delete(synchronize_session=False)
 
     for chunk in chunks(messages, 100):
