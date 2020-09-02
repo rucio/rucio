@@ -1568,7 +1568,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
             deleted_dids.append(and_(models.DataIdentifier.scope == scope,
                                      models.DataIdentifier.name == name))
             deleted_did_meta.append(and_(models.DidMeta.scope == scope,
-                                     models.DidMeta.name == name))
+                                         models.DidMeta.name == name))
 
     # Remove Archive Constituents
     for chunk in chunks(archive_contents_condition, 30):
