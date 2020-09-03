@@ -1,0 +1,13 @@
+============
+1.23.5.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Core & Internals: Fixing backwards compatibility issue with list-dids `#3978 <https://github.com/rucio/rucio/issues/3978>`_
