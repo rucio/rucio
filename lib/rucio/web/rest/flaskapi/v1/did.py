@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,16 +15,16 @@
 # limitations under the License.
 #
 # Authors:
-# - Angelos Molfetas <angelos.molfetas@cern.ch>, 2012
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2016
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
-# - Yun-Pin Sun <yun-pin.sun@cern.ch>, 2013
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
-# - Martin Baristis <martin.barisits@cern.ch>, 2014-2015
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2020
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Muhammad Aditya Hilmy <mhilmy@hey.com>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
+# - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
+# - Alan Malta Rodrigues <alan.malta@cern.ch>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -170,7 +171,7 @@ class Search(MethodView):
             elif k == 'limit':
                 limit = v[0]
             elif k == 'long':
-                long = v == 'True'
+                long = v in ['True', '1']
             elif k == 'recursive':
                 recursive = v == 'True'
             else:
@@ -252,7 +253,7 @@ class SearchExtended(MethodView):
             elif k == 'limit':
                 limit = v[0]
             elif k == 'long':
-                long = v == 'True'
+                long = v in ['True', '1']
             elif k == 'recursive':
                 recursive = v == 'True'
             else:
