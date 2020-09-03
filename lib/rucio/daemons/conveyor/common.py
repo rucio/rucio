@@ -336,6 +336,8 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                       'overwrite': transfer['overwrite'],
                       'priority': 3,
                       's3alternate': True}
+        if transfer.get('archive_timeout', None):
+            job_params['archive_timeout'] = transfer['archive_timeout']
         if multihop:
             job_params['multihop'] = True
         if strict_copy:
