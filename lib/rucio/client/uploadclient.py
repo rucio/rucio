@@ -52,14 +52,14 @@ from rucio.common.exception import (RucioException, RSEBlacklisted, DataIdentifi
                                     DataIdentifierNotFound, NoFilesUploaded, NotAllFilesUploaded, FileReplicaAlreadyExists,
                                     ResourceTemporaryUnavailable, ServiceUnavailable, InputValidationError, RSEChecksumUnavailable)
 from rucio.common.utils import (adler32, detect_client_location, execute, generate_uuid, make_valid_did, md5, send_trace,
-                                retry, GLOBALLY_SUPPORTED_CHECKSUMS)
+                                retry, GLOBALLY_SUPPORTED_CHECKSUMS, setup_logger)
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
 
 
 class UploadClient:
 
-    def __init__(self, _client=None, logger=None, tracing=True):
+    def __init__(self, _client=None, logger=None, tracing=True, logger_level=None):
         """
         Initialises the basic settings for an UploadClient object
 
@@ -71,6 +71,7 @@ class UploadClient:
             logger.disabled = True
 
         self.logger = logger
+        setup_logger(logger, logger_level=logger_level)
 
         self.client = _client if _client else Client()
         self.client_location = detect_client_location()

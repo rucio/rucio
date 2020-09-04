@@ -32,13 +32,14 @@ try:
     from urllib import quote_plus
 except ImportError:
     from urllib.parse import quote_plus
+import logging
 
 from json import dumps
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
-from rucio.common.utils import build_url
+from rucio.common.utils import build_url, setup_logger
 
 
 class AccountClient(BaseClient):
@@ -47,8 +48,11 @@ class AccountClient(BaseClient):
 
     ACCOUNTS_BASEURL = 'accounts'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None):
-        super(AccountClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent, vo=vo)
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None, logger_level=None):
+        super(AccountClient, self).__init__(rucio_host, auth_host, account, ca_cert, auth_type, creds, timeout, user_agent, vo=vo, logger_level=logger_level)
+        self.logger_level = logger_level
+        self.logger = logging.getLogger(__name__)
+        setup_logger(self.logger, logger_level=self.logger_level)
 
     def add_account(self, account, type, email):
         """
@@ -167,6 +171,7 @@ class AccountClient(BaseClient):
         :return: a list of attributes for the account. None if failure.
         :raises AccountNotFound: if account doesn't exist.
         """
+        self.logger.debug('Account base url: {}'.format(self.ACCOUNTS_BASEURL))
         return self.get_account('whoami')
 
     def add_identity(self, account, identity, authtype, email, default=False, password=None):

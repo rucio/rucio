@@ -45,7 +45,7 @@ from rucio.common.exception import (InputValidationError, NoFilesDownloaded, Not
 from rucio.common.didtype import DIDType
 from rucio.common.pcache import Pcache
 from rucio.common.utils import adler32, detect_client_location, generate_uuid, parse_replicas_from_string, \
-    send_trace, sizefmt, execute, parse_replicas_from_file
+    send_trace, sizefmt, execute, parse_replicas_from_file, setup_logger
 from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, CHECKSUM_ALGO_DICT, PREFERRED_CHECKSUM
 from rucio.rse import rsemanager as rsemgr
 from rucio import version
@@ -118,7 +118,7 @@ class BaseExtractionTool:
 
 class DownloadClient:
 
-    def __init__(self, client=None, logger=None, tracing=True, check_admin=False, check_pcache=False):
+    def __init__(self, client=None, logger=None, tracing=True, check_admin=False, check_pcache=False, logger_level=None):
         """
         Initialises the basic settings for an DownloadClient object
 
@@ -132,6 +132,7 @@ class DownloadClient:
 
         self.check_pcache = check_pcache
         self.logger = logger
+        setup_logger(self.logger, logger_level=logger_level)
         self.tracing = tracing
         if not self.tracing:
             logger.debug('Tracing is turned off.')

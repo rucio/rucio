@@ -72,7 +72,7 @@ from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, D
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation,
                                     RucioException, DuplicateRule, InvalidType)
 from rucio.common.utils import sizefmt, Color, detect_client_location, chunks, parse_did_filter_from_string, \
-    extract_scope
+    extract_scope, setup_logger, server_client_mode
 from rucio.tests.test_rucio_server import TestRucioClient
 
 try:
@@ -91,44 +91,11 @@ gfal2_logger = logging.getLogger("gfal2")
 tablefmt = 'psql'
 
 
-def setup_logger(logger):
-    logger.setLevel(logging.INFO)
-    hdlr = logging.StreamHandler()
-
-    def emit_decorator(fnc):
-        def func(*args):
-            if 'RUCIO_LOGGING_FORMAT' not in os.environ:
-                levelno = args[0].levelno
-                format_str = '%(asctime)s\t%(levelname)s\t%(message)s\033[0m'
-                if levelno >= logging.CRITICAL:
-                    color = '\033[31;1m'
-                elif levelno >= logging.ERROR:
-                    color = '\033[31;1m'
-                elif levelno >= logging.WARNING:
-                    color = '\033[33;1m'
-                elif levelno >= logging.INFO:
-                    color = '\033[32;1m'
-                elif levelno >= logging.DEBUG:
-                    color = '\033[36;1m'
-                    format_str = '%(asctime)s\t%(levelname)s\t%(filename)s\t%(funcName)s\t%(message)s\033[0m'
-                else:
-                    color = '\033[0m'
-                formatter = logging.Formatter('{0}{1}'.format(color, format_str))
-            else:
-                formatter = logging.Formatter(os.environ['RUCIO_LOGGING_FORMAT'])
-            hdlr.setFormatter(formatter)
-            return fnc(*args)
-        return func
-    hdlr.emit = emit_decorator(hdlr.emit)
-    logger.addHandler(hdlr)
-
-
 def setup_gfal2_logger(logger):
     logger.setLevel(logging.CRITICAL)
     logger.addHandler(logging.StreamHandler())
 
 
-setup_logger(logger)
 setup_gfal2_logger(gfal2_logger)
 
 
@@ -280,7 +247,7 @@ def get_client(args):
                         account=args.account,
                         auth_type=auth_type, creds=creds,
                         ca_cert=args.ca_certificate, timeout=args.timeout,
-                        user_agent=args.user_agent, vo=args.vo)
+                        user_agent=args.user_agent, vo=args.vo, logger_level=downstream_logger_level)
     except CannotAuthenticate as error:
         logger.error(error)
         if 'alert certificate expired' in str(error):
@@ -975,7 +942,7 @@ def upload(args):
 
     client = get_client(args)
     from rucio.client.uploadclient import UploadClient
-    upload_client = UploadClient(client, logger)
+    upload_client = UploadClient(client, logger, logger_level=downstream_logger_level)
     summary_file_path = 'rucio_upload.json' if args.summary else None
     upload_client.upload(items, summary_file_path)
     return SUCCESS
@@ -1023,7 +990,7 @@ def download(args):
 
     client = get_client(args)
     from rucio.client.downloadclient import DownloadClient
-    download_client = DownloadClient(client=client, logger=logger, check_admin=args.allow_tape)
+    download_client = DownloadClient(client=client, logger=logger, check_admin=args.allow_tape, logger_level=downstream_logger_level)
 
     result = None
     item_defaults = {}
@@ -2344,10 +2311,21 @@ if __name__ == '__main__':
         sys.exit(FAILURE)
 
     args = oparser.parse_args(arguments)
-
+    SERVER_MODE, CLIENT_MODE = server_client_mode()
     try:
-        if args.verbose:
-            logger.setLevel(logging.DEBUG)
+        if args.verbose and SERVER_MODE:
+            downstream_logger_level = logging.WARNING
+            this_logger_level = logging.DEBUG
+        elif args.verbose and CLIENT_MODE:
+            downstream_logger_level = logging.DEBUG
+            this_logger_level = logging.DEBUG
+        elif SERVER_MODE:
+            downstream_logger_level = logging.WARNING
+            this_logger_level = logging.INFO
+        else:
+            downstream_logger_level = logging.INFO
+            this_logger_level = logging.INFO
+        setup_logger(logger, logger_level=this_logger_level)
         start_time = time.time()
         result = args.function(args)
         end_time = time.time()
@@ -2355,5 +2333,5 @@ if __name__ == '__main__':
             print("Completed in %-0.4f sec." % (end_time - start_time))
         sys.exit(result)
     except Exception as error:
-        logger.error("Strange error: {0}".format(error))
+        print("Strange error: {0}".format(error))
         sys.exit(FAILURE)

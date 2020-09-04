@@ -50,7 +50,7 @@ import sys
 import traceback
 import time
 
-from logging import getLogger, StreamHandler, ERROR
+from logging import getLogger
 from os import environ, fdopen, path, makedirs, geteuid
 from shutil import move
 from tempfile import mkstemp
@@ -60,7 +60,7 @@ from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import (CannotAuthenticate, ClientProtocolNotSupported,
                                     NoAuthInformation, MissingClientParameter,
                                     MissingModuleException, ServerConnectionException)
-from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, ssh_sign
+from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, ssh_sign, setup_logger
 from rucio import version
 
 try:
@@ -93,10 +93,6 @@ if EXTRA_MODULES['requests_kerberos']:
 
 
 LOG = getLogger(__name__)
-SH = StreamHandler()
-SH.setLevel(ERROR)
-LOG.addHandler(SH)
-
 
 REGION = make_region(function_key_generator=my_key_generator).configure(
     'dogpile.cache.memory',
@@ -124,7 +120,7 @@ class BaseClient(object):
     TOKEN_PREFIX = 'auth_token_'
     TOKEN_EXP_PREFIX = 'auth_token_exp_'
 
-    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None):
+    def __init__(self, rucio_host=None, auth_host=None, account=None, ca_cert=None, auth_type=None, creds=None, timeout=600, user_agent='rucio-clients', vo=None, logger_level=None):
         """
         Constructor of the BaseClient.
         :param rucio_host: The address of the rucio server, if None it is read from the config file.
@@ -139,7 +135,9 @@ class BaseClient(object):
         :param user_agent: Indicates the client.
         :param vo: The VO to authenticate into.
         """
-
+        self.logger = LOG
+        self.logger_level = logger_level
+        setup_logger(self.logger, logger_level=self.logger_level)
         self.host = rucio_host
         self.list_hosts = []
         self.auth_host = auth_host

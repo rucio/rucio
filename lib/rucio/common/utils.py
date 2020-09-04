@@ -53,7 +53,7 @@ import threading
 import time
 import zlib
 
-from logging import getLogger, Formatter
+from logging import getLogger, Formatter, CRITICAL, ERROR, WARNING, INFO, DEBUG, StreamHandler
 from logging.handlers import RotatingFileHandler
 from uuid import uuid4 as uuid
 from six import string_types, text_type, PY3
@@ -84,7 +84,7 @@ except ImportError:
     # Python 3
     import urllib.parse as urlparse
 
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_has_section
 from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError, RucioException
 from rucio.common.types import InternalAccount, InternalScope
 # delay import until function to avoid circular dependancy (note here for reference)
@@ -1352,6 +1352,75 @@ def query_bunches(query, bunch_by):
     if item_bunch:
         filtered_bunches.append(item_bunch)
     return filtered_bunches
+
+
+def server_client_mode():
+    '''
+    Method to distinguish between server and client mode.
+    '''
+    SERVER_MODE = True
+    CLIENT_MODE = False
+    if config_has_section('database'):
+        CLIENT_MODE = False
+        SERVER_MODE = True
+    elif config_has_section('client'):
+        CLIENT_MODE = True
+        SERVER_MODE = False
+
+    return SERVER_MODE, CLIENT_MODE
+
+
+def setup_logger(logger, logger_level=None, verbose=False):
+    '''
+    Method to set logger level and formatter.
+    :param logger: logger to be set.
+    '''
+
+    # log level
+    SERVER_MODE, CLIENT_MODE = server_client_mode()
+    if not logger_level:
+        if CLIENT_MODE and verbose:
+            logger_level = DEBUG
+        elif SERVER_MODE:
+            logger_level = WARNING
+        else:
+            logger_level = INFO
+    logger.setLevel(logger_level)
+
+    # preferred logger handling
+    def add_handler(logger):
+        hdlr = StreamHandler()
+
+        def emit_decorator(fnc):
+            def func(*args):
+                if 'RUCIO_LOGGING_FORMAT' not in os.environ:
+                    levelno = args[0].levelno
+                    format_str = '%(asctime)s\t%(levelname)s\t%(message)s\033[0m'
+                    if levelno >= CRITICAL:
+                        color = '\033[31;1m'
+                    elif levelno >= ERROR:
+                        color = '\033[31;1m'
+                    elif levelno >= WARNING:
+                        color = '\033[33;1m'
+                    elif levelno >= INFO:
+                        color = '\033[32;1m'
+                    elif levelno >= DEBUG:
+                        color = '\033[36;1m'
+                        format_str = '%(asctime)s\t%(levelname)s\t%(filename)s\t%(message)s\033[0m'
+                    else:
+                        color = '\033[0m'
+                    formatter = Formatter('{0}{1}'.format(color, format_str))
+                else:
+                    formatter = Formatter(os.environ['RUCIO_LOGGING_FORMAT'])
+                hdlr.setFormatter(formatter)
+                return fnc(*args)
+            return func
+        hdlr.emit = emit_decorator(hdlr.emit)
+        logger.addHandler(hdlr)
+
+    # setting handler and formatter
+    if not logger.handlers:
+        add_handler(logger)
 
 
 class retry:
