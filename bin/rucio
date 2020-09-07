@@ -2314,7 +2314,7 @@ if __name__ == '__main__':
     SERVER_MODE, CLIENT_MODE = server_client_mode()
     try:
         if args.verbose and SERVER_MODE:
-            downstream_logger_level = logging.INFO
+            downstream_logger_level = logging.DEBUG
             this_logger_level = logging.DEBUG
         elif args.verbose and CLIENT_MODE:
             downstream_logger_level = logging.DEBUG
