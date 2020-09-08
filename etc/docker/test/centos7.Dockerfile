@@ -27,14 +27,25 @@ ARG PYTHON
 
 RUN yum install -y epel-release.noarch && \
   yum -y update && \
-  yum install -y gcc httpd python-pip gmp-devel krb5-devel httpd mod_ssl mod_auth_kerb git python-devel.x86_64 openssl-devel.x86_64 gridsite which libaio memcached MySQL-python ffi-devel nmap-ncat && \
+  yum install -y gcc httpd gmp-devel krb5-devel httpd mod_ssl mod_auth_kerb git openssl-devel bzip2-devel gridsite which libaio memcached ffi-devel nmap-ncat && \
   yum -y install https://repo.ius.io/ius-release-el7.rpm && \
-  if [ "$PYTHON" == "3.6" ] ; then yum -y install python36u python36u-devel python36u-pip ; fi && \
   yum -y install libxml2-devel xmlsec1-devel xmlsec1-openssl-devel libtool-ltdl-devel && \
-  if [ "$PYTHON" == "3.6" ] ; then yum -y install python36u-mod_wsgi ; else yum -y install mod_wsgi ; fi && \
+  if [ "$PYTHON" == "2.7" ] ; then yum -y install python python-devel python-pip mod_wsgi ; fi && \
+  if [ "$PYTHON" == "3.6" ] ; then yum -y install python36u python36u-devel python36u-pip python36u-mod_wsgi ; fi && \
   yum clean all
 
-RUN rm -rf /usr/lib/python2.7/site-packages/ipaddress*
+WORKDIR /usr/local/src
+RUN if [ "$PYTHON" == "2.7" ] ; then ln -sf python2.7 /usr/bin/python && ln -sf pip2.7 /usr/bin/pip ; \
+    elif [ "$PYTHON" == "3.6" ] ; then ln -sf python3.6 /usr/bin/python && ln -sf pip3.6 /usr/bin/pip ; \
+    elif [ "$PYTHON" == "3.7" ] ; then \
+      curl -sSL https://www.python.org/ftp/python/3.7.9/Python-3.7.9.tar.xz | tar xJv && \
+      cd Python-3.7.9 && \
+      ./configure --enable-optimizations && \
+      make -j && \
+      make install && \
+      ln -sf /usr/local/bin/python3.7 /usr/bin/python && python -m ensurepip --default-pip && \
+      cd .. && rm -rf Python-3.7.9 ; \
+    fi
 
 # Install sqlite3 because CentOS ships with an old version without window functions
 RUN curl https://www.sqlite.org/2019/sqlite-autoconf-3290000.tar.gz | tar xzv && \
@@ -43,9 +54,6 @@ RUN curl https://www.sqlite.org/2019/sqlite-autoconf-3290000.tar.gz | tar xzv &&
   make -j && \
   make install && \
   cd .. && rm -rf ./sqlite-autoconf-3290000
-
-RUN if [ "$PYTHON" == "2.7" ] ; then ln -sf python2.7 /usr/bin/python ; ln -sf pip2.7 /usr/bin/pip ; \
-    elif [ "$PYTHON" == "3.6" ] ; then ln -sf python3.6 /usr/bin/python ; ln -sf pip3.6 /usr/bin/pip ; fi
 
 RUN python -m pip --no-cache-dir install --upgrade pip && \
     python -m pip --no-cache-dir install --upgrade setuptools wheel
