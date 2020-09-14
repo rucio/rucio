@@ -1,4 +1,5 @@
-# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +16,7 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
-# - Vincent Garonne <vgaronne@gmail.com>, 2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Igor Mandrichenko <rucio@fermicloud055.fnal.gov>, 2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2020
 # - dciangot <diego.ciangottini@cern.ch>, 2018
@@ -24,9 +25,12 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - maatthias <maatthias@gmail.com>, 2019
-# - Gabriele <sucre.91@hotmail.it>, 2019
+# - Gabriele Fronze' <gfronze@cern.ch>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
+# - Matt Snyder <msnyder@bnl.gov>, 2020
+# - Eric Vaandering <ewv@fnal.gov>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Nick Smith <nick.smith@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
@@ -1244,7 +1248,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                              'src_spacetoken': None,
                                              'dest_spacetoken': dest_spacetoken,
                                              'overwrite': transfers[req_id]['overwrite'],
-                                             'bring_online': transfers[req_id]['bring_online'],
+                                             'bring_online': bring_online,
                                              'copy_pin_lifetime': transfers[req_id]['copy_pin_lifetime'],
                                              'external_host': transfers[req_id]['external_host'],
                                              'selection_strategy': 'auto',
