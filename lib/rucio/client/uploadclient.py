@@ -49,7 +49,7 @@ import time
 
 from rucio.client.client import Client
 from rucio.common.config import config_get_int
-from rucio.common.exception import (RucioException, RSEWriteBlocked, DataIdentifierAlreadyExists, RSEOperationNotSupported,
+from rucio.common.exception import (RucioException, RSEBlacklisted, DataIdentifierAlreadyExists, RSEOperationNotSupported,
                                     DataIdentifierNotFound, NoFilesUploaded, NotAllFilesUploaded, FileReplicaAlreadyExists,
                                     ResourceTemporaryUnavailable, ServiceUnavailable, InputValidationError, RSEChecksumUnavailable)
 from rucio.common.utils import (adler32, detect_client_location, execute, generate_uuid, make_valid_did, md5, send_trace,
@@ -113,7 +113,7 @@ class UploadClient:
         :returns: 0 on success
 
         :raises InputValidationError: if any input arguments are in a wrong format
-        :raises RSEWriteBlocked: if a given RSE is not available for writing
+        :raises RSEBlacklisted: if a given RSE is not available for writing
         :raises NoFilesUploaded: if no files were successfully uploaded
         :raises NotAllFilesUploaded: if not all files were successfully uploaded
         """
@@ -133,7 +133,7 @@ class UploadClient:
             if not self.rses.get(rse):
                 rse_settings = self.rses.setdefault(rse, rsemgr.get_rse_info(rse, vo=self.client.vo))
                 if rse_settings['availability_write'] != 1:
-                    raise RSEWriteBlocked('%s is not available for writing. No actions have been taken' % rse)
+                    raise RSEBlacklisted('%s is not available for writing. No actions have been taken' % rse)
 
             dataset_scope = file.get('dataset_scope')
             dataset_name = file.get('dataset_name')

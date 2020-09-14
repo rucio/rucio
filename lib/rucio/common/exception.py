@@ -577,6 +577,16 @@ class RSEWriteBlocked(RucioException):
         self.error_code = 50
 
 
+class RSEBlacklisted(RucioException):
+    """
+    RucioException: To be deprecated at a later time, replaced by RSEWriteBlocked
+    """
+    def __init__(self, *args, **kwargs):
+        super(RSEBlacklisted, self).__init__(*args, **kwargs)
+        self._message = "RSE excluded; not available for writing."
+        self.error_code = 50
+
+
 class RSENotConnected(RucioException):
     """
     RucioException

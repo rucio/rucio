@@ -46,10 +46,11 @@ from traceback import format_exception
 
 
 from rucio.db.sqla.constants import DIDType, SubscriptionState
-from rucio.common.exception import (DatabaseException, DataIdentifierNotFound, InvalidReplicationRule, DuplicateRule, RSEWriteBlocked,
-                                    InvalidRSEExpression, InsufficientTargetRSEs, InsufficientAccountLimit, InputValidationError, RSEOverQuota,
-                                    ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime,
-                                    SubscriptionWrongParameter, SubscriptionNotFound)
+from rucio.common.exception import (DatabaseException, DataIdentifierNotFound, InvalidReplicationRule, DuplicateRule,
+                                    RSEBlacklisted, RSEWriteBlocked, InvalidRSEExpression, InsufficientTargetRSEs,
+                                    InsufficientAccountLimit, InputValidationError, RSEOverQuota,
+                                    ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
+                                    StagingAreaRuleRequiresLifetime, SubscriptionWrongParameter, SubscriptionNotFound)
 from rucio.common.config import config_get
 from rucio.common.schema import validate_schema
 from rucio.common.utils import chunks
@@ -405,7 +406,9 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                             logging.error(prepend_str + '%s' % (str(error)))
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error.__class__.__name__)), delta=1)
                                             break
-                                        except (ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, InsufficientAccountLimit, DatabaseException, RSEWriteBlocked) as error:
+                                        except (ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs,
+                                                InsufficientAccountLimit, DatabaseException, RSEBlacklisted,
+                                                RSEWriteBlocked) as error:
                                             # Errors to be retried
                                             logging.error(prepend_str + '%s Will perform an other attempt %i/%i' % (str(error), attempt + 1, nattempt))
                                             monitor.record_counter(counters='transmogrifier.addnewrule.errortype.%s' % (str(error.__class__.__name__)), delta=1)

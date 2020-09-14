@@ -36,8 +36,8 @@ import time
 from requests import ConnectionError
 from rucio.client.client import Client
 from rucio.common.config import config_get
-from rucio.common.exception import (AccessDenied, DuplicateRule, RSEWriteBlocked, ReplicationRuleCreationTemporaryFailed,
-                                    RuleNotFound)
+from rucio.common.exception import (AccessDenied, DuplicateRule, RSEBlacklisted, RSEWriteBlocked,
+                                    ReplicationRuleCreationTemporaryFailed, RuleNotFound)
 from rucio.daemons.sonar.sonar.get_current_traffic import get_link_traffic
 
 logging.basicConfig(stream=sys.stdout,
@@ -322,7 +322,7 @@ class SonarTest(object):
                                                        source_replica_expression=src_rse,
                                                        activity='Debug')
             return rule_id[0]
-        except (DuplicateRule, RSEWriteBlocked, ReplicationRuleCreationTemporaryFailed) as exception:
+        except (DuplicateRule, RSEBlacklisted, RSEWriteBlocked, ReplicationRuleCreationTemporaryFailed) as exception:
             logging.warning(str(exception))
             return None
 
