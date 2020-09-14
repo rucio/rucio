@@ -1,0 +1,14 @@
+======
+1.23.6
+======
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Messaging: Duplicate prometheus metrics when testing/importing hermes, hermes2 `#3977 <https://github.com/rucio/rucio/issues/3977>`_
+- Transfers: Multihop problems with multiple sources `#3989 <https://github.com/rucio/rucio/issues/3989>`_
