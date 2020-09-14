@@ -73,7 +73,7 @@ RUN rpm -i etc/docker/test/extra/oic.rpm; \
 
 # pre-install requirements
 RUN python -m pip --no-cache-dir install --upgrade -r etc/pip-requires -r etc/pip-requires-client -r etc/pip-requires-test \
-    'cx_oracle==6.3.1' 'psycopg2-binary>=2.4.2,<2.8' 'PyMySQL' 'kerberos>=1.3.0' 'pykerberos>=1.2.1' 'requests-kerberos>=0.12.0' 'python3-saml>=1.6.0'
+    'cx_oracle==7.3' 'psycopg2-binary>=2.4.2,<2.8' 'PyMySQL' 'kerberos>=1.3.0' 'pykerberos>=1.2.1' 'requests-kerberos>=0.12.0' 'python3-saml>=1.6.0'
 
 # copy everything else (anything above is cache-friendly)
 COPY . .
