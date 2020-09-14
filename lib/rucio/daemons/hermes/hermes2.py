@@ -70,7 +70,7 @@ logging.basicConfig(stream=sys.stdout,
 
 GRACEFUL_STOP = threading.Event()
 
-RECONNECT_COUNTER = Counter('rucio_daemons_hermes_reconnect', 'Counts Hermes reconnects to different ActiveMQ brokers', labelnames=('host',))
+RECONNECT_COUNTER = Counter('rucio_daemons_hermes2_reconnect', 'Counts Hermes2 reconnects to different ActiveMQ brokers', labelnames=('host',))
 
 
 def default(datetype):
