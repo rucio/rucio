@@ -1,31 +1,38 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2012-2015, 2017
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2015
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
-# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Eric Vaandering <ewv@fnal.gov>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
 import hashlib
 import os
-
-import six
-
-from base64 import b64encode
 from re import match
 
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy import asc
+from sqlalchemy.exc import IntegrityError
 
 from rucio.common import exception
 from rucio.core.account import account_exists
@@ -52,13 +59,9 @@ def add_identity(identity, type, email, password=None, session=None):
     new_id = models.Identity()
     new_id.update({'identity': identity, 'identity_type': type, 'email': email})
 
-    if type == IdentityType.USERPASS and password is not None:
+    if type == IdentityType.USERPASS:
         salt = os.urandom(255)  # make sure the salt has the length of the hash
-        if six.PY3:
-            decoded_salt = b64encode(salt).decode()
-            salted_password = ('%s%s' % (decoded_salt, password)).encode()
-        else:
-            salted_password = '%s%s' % (salt, str(password))
+        salted_password = salt + password.encode()
         password = hashlib.sha256(salted_password).hexdigest()  # hash it
         new_id.update({'salt': salt, 'password': password, 'email': email})
     try:
