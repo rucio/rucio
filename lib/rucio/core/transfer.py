@@ -1448,10 +1448,13 @@ def __load_distance_edges_node(rse_id, session=None):
         for distance in session.query(models.Distance).join(models.RSE, models.RSE.id == models.Distance.dest_rse_id)\
                                .filter(models.Distance.src_rse_id == rse_id)\
                                .filter(models.RSE.deleted == false()).all():
+            if distance.ranking is None:
+                continue
+            ranking = distance.ranking if distance.ranking >= 0 else 0
             if distance.src_rse_id in distance_graph:
-                distance_graph[distance.src_rse_id][distance.dest_rse_id] = distance.ranking
+                distance_graph[distance.src_rse_id][distance.dest_rse_id] = ranking
             else:
-                distance_graph[distance.src_rse_id] = {distance.dest_rse_id: distance.ranking}
+                distance_graph[distance.src_rse_id] = {distance.dest_rse_id: ranking}
         REGION_SHORT.set('distance_graph_%s' % str(rse_id), distance_graph)
         result = distance_graph
     return result
