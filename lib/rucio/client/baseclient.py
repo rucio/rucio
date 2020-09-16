@@ -346,7 +346,8 @@ class BaseClient(object):
         elif 'content-type' in response.headers and response.headers['content-type'] == 'application/json':
             yield parse_response(response.text)
         else:  # Exception ?
-            yield response.text
+            if response.text:
+                yield response.text
 
     def _send_request(self, url, headers=None, type='GET', data=None, params=None, stream=False):
         """
