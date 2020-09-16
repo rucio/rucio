@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-# coding=utf-8
-# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +14,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2020
 
 '''
 Utility script to generate header file
@@ -45,6 +46,41 @@ if __name__ == '__main__':
 
     arguments = parser.parse_args()
     format = '%aN,<%aE>,%ad'
+author_map = {
+    ("Vincent Garonne", "<vgaronne@gmail.com>"): ("Vincent Garonne", "<vincent.garonne@cern.ch>"),
+    ("Mario Lassnig", "<mario@lassnig.net>"): ("Mario Lassnig", "<mario.lassnig@cern.ch>"),
+    ("Jaroslav Guenther", "<jaroslav.guenther@gmail.com>"): ("Jaroslav Guenther", "<jaroslav.guenther@cern.ch>"),
+    ("Jaroslav Guenther", "<Jaroslav.Guenther@cern.ch>"): ("Jaroslav Guenther", "<jaroslav.guenther@cern.ch>"),
+    ("Tomas Javurek", "<tomasjavurek09@gmail.com>"): ("Tomas Javurek", "<tomas.javurek@cern.ch>"),
+    ("Tomas", "<tomasjavurek09@gmail.com>"): ("Tomas Javurek", "<tomas.javurek@cern.ch>"),
+    ("Wen Guan", "<wguan.icedew@gmail.com>"): ("Wen Guan", "<wen.guan@cern.ch>"),
+    ("Alessandro Di Girolamo", "<digirola@lxplus030.cern.ch>"): ("Ale Di Girolamo", "<alessandro.di.girolamo@cern.ch>"),
+    ("elichad", "<eli.chadwick.256@gmail.com>"): ("Eli Chadwick", "<eli.chadwick@stfc.ac.uk>"),
+    ("Eli Chadwick", "<eli.chadwick.256@gmail.com>"): ("Eli Chadwick", "<eli.chadwick@stfc.ac.uk>"),
+    ("efajardo", "<efajardo@physics.ucsd.edu>"): ("Edgar Fajardo", "<emfajard@ucsd.edu>"),
+    ("patrick-austin", "<patrick.austin@stfc.ac.uk>"): ("Patrick Austin", "<patrick.austin@stfc.ac.uk>"),
+    ("patrick-austin", "<61705287+patrick-austin@users.noreply.github.com>"): ("Patrick Austin", "<patrick.austin@stfc.ac.uk>"),
+    ("gabrielefronze", "<sucre.91@hotmail.it>"): ("Gabriele Fronze'", "<gfronze@cern.ch>"),
+    ("Gabriele", "<sucre.91@hotmail.it>"): ("Gabriele Fronze'", "<gfronze@cern.ch>"),
+    ("Ruturaj", "<ruturaj2305@gmail.com>"): ("Ruturaj Gujar", "<ruturaj.gujar23@gmail.com>"),
+    ("Ruturaj123", "<ruturaj2305@gmail.com>"): ("Ruturaj Gujar", "<ruturaj.gujar23@gmail.com>"),
+    ("Boris", "<Boris.Bauermeister@fysik.su.se>"): ("Boris Bauermeister", "<boris.bauermeister@fysik.su.se>"),
+    ("Nicolo Magini", "<Nicolo.Magini@cern.ch>"): ("Nicolo Magini", "<nicolo.magini@cern.ch>"),
+    ("jamesp-epcc", "<j.perry@epcc.ed.ac.uk>"): ("James Perry", "<j.perry@epcc.ed.ac.uk>"),
+    ("David Cameron", "<d.g.cameron@gmail.com>"): ("David Cameron", "<david.cameron@cern.ch>"),
+    ("Eric Vaandering", "<ericvaandering@gmail.com>"): ("Eric Vaandering", "<ewv@fnal.gov>"),
+    ("Fernando López", "<fernando.e.lopez@gmail.com>"): ("Fernando López", "<felopez@cern.ch>"),
+    ("Lister", "<andrew.lister@stfc.ac.uk>"): ("Andrew Lister", "<andrew.lister@stfc.ac.uk>"),
+    ("javor", "<33832672+TomasJavurek@users.noreply.github.com>"): ("Tomas Javurek", "<tomas.javurek@cern.ch>"),
+}
+
+
+def map_authors(author, mail):
+    return author_map.get((author, mail), (author, mail))
+
+
+def main(arguments):
+>>>>>>> 68676600c... Core: Fix caching collision for rse_info and rse_attributes; Fix #3998
     now = datetime.datetime.now()
 
     # Get username and mail from git

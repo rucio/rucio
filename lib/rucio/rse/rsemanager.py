@@ -1,4 +1,5 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,16 +15,16 @@
 #
 # Authors:
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
-# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2019
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Wen Guan <wguan.icedew@gmail.com>, 2014-2017
 # - Martin Barisits <martin.barisits@cern.ch>, 2017-2018
 # - Tobias Wegner <twegner@cern.ch>, 2017-2018
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018-2019
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 #
@@ -74,10 +75,11 @@ def get_rse_info(rse, session=None):
     """
     # __request_rse_info will be assigned when the module is loaded as it depends on the rucio environment (server or client)
     # __request_rse_info, rse_region are defined in /rucio/rse/__init__.py
-    rse_info = RSE_REGION.get(str(rse))   # NOQA pylint: disable=undefined-variable
+    key = 'rse_info_%s' % (str(rse))
+    rse_info = RSE_REGION.get(key)   # NOQA pylint: disable=undefined-variable
     if not rse_info:  # no cached entry found
         rse_info = __request_rse_info(str(rse), session=session)  # NOQA pylint: disable=undefined-variable
-        RSE_REGION.set(str(rse), rse_info)  # NOQA pylint: disable=undefined-variable
+        RSE_REGION.set(key, rse_info)  # NOQA pylint: disable=undefined-variable
     return rse_info
 
 
