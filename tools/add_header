@@ -228,10 +228,6 @@ def main(arguments):
                                 first = False
                                 modified.write('\n')
                             modified.write(line)
-                        else:  # still in the comments section..
-                            if 'PY3K COMPATIBLE' in line:
-                                modified.write('#\n# PY3K COMPATIBLE\n')
-                            count -= 1
 
         else:
             print(header)
