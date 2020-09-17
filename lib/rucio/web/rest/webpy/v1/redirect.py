@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2014-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,21 +18,21 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
 from __future__ import print_function
-from traceback import format_exc
-try:
-    from urlparse import parse_qs
-except ImportError:
-    from urllib.parse import parse_qs
-from web import application, ctx, header, seeother, InternalError
 
 from logging import getLogger, StreamHandler, DEBUG
+from traceback import format_exc
+
+from web import application, ctx, header, seeother, InternalError
 
 from rucio.api.replica import list_replicas
 from rucio.common.exception import RucioException, DataIdentifierNotFound, ReplicaNotFound
@@ -39,6 +40,11 @@ from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness,
 from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_http_error
 from rucio.web.rest.common import RucioController, check_accept_header_wrapper
+
+try:
+    from urlparse import parse_qs
+except ImportError:
+    from urllib.parse import parse_qs
 
 
 LOGGER = getLogger("rucio.rucio")
@@ -115,51 +121,53 @@ class MetaLinkRedirector(RucioController):
             header('Content-Type', 'application/metalink4+xml')
             yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
 
-            # iteratively stream the XML per file
-            for rfile in tmp_replicas:
-                replicas = []
-                dictreplica = {}
-                for rse in rfile['rses']:
-                    for replica in rfile['rses'][rse]:
-                        replicas.append(replica)
-                        dictreplica[replica] = rse
+            try:
+                # iteratively stream the XML per file
+                for rfile in tmp_replicas:
+                    replicas = []
+                    dictreplica = {}
+                    for rse in rfile['rses']:
+                        for replica in rfile['rses'][rse]:
+                            replicas.append(replica)
+                            dictreplica[replica] = rse
 
-                # stream metadata
-                yield ' <file name="' + rfile['name'] + '">\n'
-                yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
+                    # stream metadata
+                    yield ' <file name="' + rfile['name'] + '">\n'
+                    yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
 
-                if rfile['adler32'] is not None:
-                    yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
-                if rfile['md5'] is not None:
-                    yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
+                    if rfile['adler32'] is not None:
+                        yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
+                    if rfile['md5'] is not None:
+                        yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
 
-                yield '  <size>' + str(rfile['bytes']) + '</size>\n'
+                    yield '  <size>' + str(rfile['bytes']) + '</size>\n'
 
-                yield '  <glfn name="/atlas/rucio/%s:%s">' % (rfile['scope'], rfile['name'])
-                yield '</glfn>\n'
+                    yield '  <glfn name="/atlas/rucio/%s:%s">' % (rfile['scope'], rfile['name'])
+                    yield '</glfn>\n'
 
-                # sort the actual replicas if necessary
-                if select == 'geoip':
-                    replicas = sort_geoip(dictreplica, client_location['ip'], ignore_error=True)
-                elif select == 'closeness':
-                    replicas = sort_closeness(dictreplica, client_location)
-                elif select == 'dynamic':
-                    replicas = sort_dynamic(dictreplica, client_location)
-                elif select == 'ranking':
-                    replicas = sort_ranking(dictreplica, client_location)
-                else:
-                    replicas = sort_random(dictreplica)
+                    # sort the actual replicas if necessary
+                    if select == 'geoip':
+                        replicas = sort_geoip(dictreplica, client_location['ip'], ignore_error=True)
+                    elif select == 'closeness':
+                        replicas = sort_closeness(dictreplica, client_location)
+                    elif select == 'dynamic':
+                        replicas = sort_dynamic(dictreplica, client_location)
+                    elif select == 'ranking':
+                        replicas = sort_ranking(dictreplica, client_location)
+                    else:
+                        replicas = sort_random(dictreplica)
 
-                # stream URLs
-                idx = 1
-                for replica in replicas:
-                    yield '  <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx) + '">' + replica + '</url>\n'
-                    idx += 1
+                    # stream URLs
+                    idx = 1
+                    for replica in replicas:
+                        yield '  <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx) + '">' + replica + '</url>\n'
+                        idx += 1
 
-                yield ' </file>\n'
+                    yield ' </file>\n'
 
-            # don't forget to send the metalink footer
-            yield '</metalink>\n'
+            finally:
+                # don't forget to send the metalink footer
+                yield '</metalink>\n'
 
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
