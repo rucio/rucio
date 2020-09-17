@@ -33,10 +33,9 @@ import hashlib
 import random
 import sys
 import traceback
-from base64 import b64decode, b64encode
+from base64 import b64decode
 
 import paramiko
-import six
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 from sqlalchemy import and_, or_
@@ -94,12 +93,7 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
     db_salt = result['salt']
     db_password = result['password']
 
-    if six.PY3:
-        db_salt = b64encode(db_salt).decode()
-        salted_password = ('%s%s' % (db_salt, password)).encode()
-    else:
-        salted_password = '%s%s' % (db_salt, password)
-
+    salted_password = db_salt + password.encode()
     if db_password != hashlib.sha256(salted_password).hexdigest():
         return None
 
