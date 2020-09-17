@@ -1,4 +1,5 @@
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,24 +14,26 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
-# - Frank Berghaus, <frank.berghaus@cern.ch>, 2017
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
-# - Tobias Wegner <twegner@cern.ch>, 2018
+# - Tobias Wegner <twegner@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2019-2020
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Gabriele Fronze' <gfronze@cern.ch>, 2019
-# - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
-
 
 from __future__ import print_function
 
@@ -45,19 +48,20 @@ import json
 import os
 import os.path
 import re
-import requests
 import socket
 import subprocess
 import tempfile
 import threading
 import time
 import zlib
-
 from logging import getLogger, Formatter
 from logging.handlers import RotatingFileHandler
 from uuid import uuid4 as uuid
-from six import string_types, text_type, PY3
 from xml.etree import ElementTree
+
+import requests
+import six
+from six import string_types, text_type, PY3
 
 try:
     # Python 2
@@ -262,13 +266,6 @@ def generate_uuid_bytes():
     return uuid().bytes
 
 
-def clean_headers(msg):
-    invalid_characters = ['\n', '\r']
-    for c in invalid_characters:
-        msg = str(msg).replace(c, ' ')
-    return msg
-
-
 # GLOBALLY_SUPPORTED_CHECKSUMS = ['adler32', 'md5', 'sha256', 'crc32']
 GLOBALLY_SUPPORTED_CHECKSUMS = ['adler32', 'md5']
 CHECKSUM_ALGO_DICT = {}
@@ -466,6 +463,31 @@ def parse_response(data):
     return json.loads(ret_obj, object_hook=datetime_parser)
 
 
+def _error_response(exc_cls, exc_msg):
+    def strip_newlines(msg):
+        if msg is None:
+            return None
+        elif isinstance(msg, six.binary_type):
+            msg = six.ensure_text(msg, errors='replace')
+        elif not isinstance(msg, six.string_types):
+            # any objects will be converted to their string representation in unicode
+            msg = six.ensure_text(str(msg), errors='replace')
+        return msg.replace('\n', ' ').replace('\r', ' ')
+
+    data = {'ExceptionClass': exc_cls,
+            'ExceptionMessage': exc_msg}
+
+    exc_msg = strip_newlines(exc_msg)
+    if exc_msg:
+        # Truncate too long exc_msg
+        exc_msg = exc_msg[:min(len(exc_msg), 15000)]
+    headers = {'Content-Type': 'application/octet-stream',
+               'ExceptionClass': strip_newlines(exc_cls),
+               'ExceptionMessage': exc_msg}
+
+    return data, headers
+
+
 def generate_http_error(status_code, exc_cls, exc_msg):
     """
     utitily function to generate a complete HTTP error response.
@@ -474,19 +496,11 @@ def generate_http_error(status_code, exc_cls, exc_msg):
     :param exc_msg: The error message.
     :returns: a web.py HTTP response object.
     """
-    status = codes[status_code]
-    data = {'ExceptionClass': exc_cls,
-            'ExceptionMessage': exc_msg}
-    # Truncate too long exc_msg
-    if len(str(exc_msg)) > 15000:
-        exc_msg = str(exc_msg)[:15000]
-    headers = {'Content-Type': 'application/octet-stream',
-               'ExceptionClass': exc_cls,
-               'ExceptionMessage': clean_headers(exc_msg)}
+    data, headers = _error_response(exc_cls, exc_msg)
     try:
-        return HTTPError(status, headers=headers, data=render_json(**data))
+        return HTTPError(status=codes[status_code], headers=headers, data=render_json(**data))
     except Exception:
-        print({'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()})
+        print(data)
         raise
 
 
@@ -496,21 +510,13 @@ def generate_http_error_flask(status_code, exc_cls, exc_msg):
     :param status_code: The HTTP status code to generate a response for.
     :param exc_cls: The name of the exception class to send with the response.
     :param exc_msg: The error message.
-    :returns: a web.py HTTP response object.
+    :returns: a Flask HTTP response object.
     """
-    data = {'ExceptionClass': exc_cls,
-            'ExceptionMessage': exc_msg}
-    # Truncate too long exc_msg
-    if len(str(exc_msg)) > 15000:
-        exc_msg = str(exc_msg)[:15000]
-    resp = Response(response=render_json(**data), status=status_code, content_type='application/octet-stream')
-    resp.headers['ExceptionClass'] = exc_cls
-    resp.headers['ExceptionMessage'] = clean_headers(exc_msg)
-
+    data, headers = _error_response(exc_cls, exc_msg)
     try:
-        return resp
+        return Response(status=status_code, headers=headers, response=render_json(**data))
     except Exception:
-        print({'Content-Type': 'application/octet-stream', 'ExceptionClass': exc_cls, 'ExceptionMessage': str(exc_msg).strip()})
+        print(data)
         raise
 
 
