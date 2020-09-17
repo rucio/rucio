@@ -480,7 +480,10 @@ def _error_response(exc_cls, exc_msg):
     exc_msg = strip_newlines(exc_msg)
     if exc_msg:
         # Truncate too long exc_msg
-        exc_msg = exc_msg[:min(len(exc_msg), 15000)]
+        oldlen = len(exc_msg)
+        exc_msg = exc_msg[:min(oldlen, 125)]
+        if len(exc_msg) != oldlen:
+            exc_msg = exc_msg + '...'
     headers = {'Content-Type': 'application/octet-stream',
                'ExceptionClass': strip_newlines(exc_cls),
                'ExceptionMessage': exc_msg}
