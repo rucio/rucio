@@ -1,4 +1,5 @@
-# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,14 +18,12 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2016-2020
-# - Nicolo Magini <Nicolo.Magini@cern.ch>, 2018
+# - Nicolo Magini <nicolo.magini@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Tomas Javurek <tomasjavurek09@gmail.com>, 2020
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
-#  - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 
 import os
 import logging
@@ -115,14 +114,16 @@ class Default(protocol.RSEProtocol):
             self.logger.info('xrootd.stat: filesize cmd: {}'.format(cmd))
             status_stat, out, err = execute(cmd)
             if status_stat == 0:
-                ret['filesize'] = out.split('\n')[2].split()[-1]
+                ret['filesize'] = out.split(b'\n')[2].split()[-1].decode()
 
             # xrdfs query checksum for getting checksum
             cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s query checksum %s' % (self.hostname, self.port, path)
             self.logger.info('xrootd.stat: checksum cmd: {}'.format(cmd))
             status_query, out, err = execute(cmd)
             if status_query == 0:
-                chsum, value = out.strip('\n').split()
+                chsum, value = out.strip(b'\n').split()
+                chsum = chsum.decode()
+                value = value.decode()
                 ret[chsum] = value
 
         except Exception as e:
