@@ -1,4 +1,5 @@
-# Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,10 +27,13 @@
 
 import unittest
 
+import pytest
+
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
 from rucio.common.config import config_get, config_get_bool
+from rucio.common.exception import InvalidObject
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.did import attach_dids, add_did, add_dids
@@ -77,6 +81,10 @@ class TestDatasetReplicaClient(unittest.TestCase):
         rule_client.add_replication_rule(dids=dids,
                                          account='root', copies=1, rse_expression='MOCK',
                                          grouping='DATASET')
+
+        with pytest.raises(InvalidObject):
+            replica_client.list_dataset_replicas_bulk(dids=[{'type': "I'm Different"}])
+
         replicas = list(replica_client.list_dataset_replicas_bulk(dids=dids))
 
         assert len(replicas) == 2
