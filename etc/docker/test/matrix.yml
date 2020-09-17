@@ -1,16 +1,18 @@
 dists:
   - id: centos7
     allow:
-      python: ["2.7", "3.6"]
+      python:
+        - "2.7"
+        - "3.6"
+        - "3.7"
 python:
-  - id: "2.7"
-    deny:
-      suites: python3
+  - "2.7"
   - "3.6"
+  - "3.7"
+  - "3.8"
 suites:
   - id: syntax
     SYNTAX_REPORT: 1
-  - python3
   - id: all
     RDBMS:
       - oracle

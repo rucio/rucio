@@ -28,11 +28,6 @@ if [[ $SUITE == "syntax" ]]; then
     tools/test/check_syntax.sh
 fi
 
-if [[ $SUITE == "python3" ]]; then
-    srchome
-    tools/test/check_python_3.sh
-fi
-
 if [[ $SUITE == "client" ]]; then
     srchome
     pytest -v --full-trace lib/rucio/tests/test_clients.py lib/rucio/tests/test_bin_rucio.py lib/rucio/tests/test_module_import.py

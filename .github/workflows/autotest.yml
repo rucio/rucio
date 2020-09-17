@@ -56,8 +56,6 @@ jobs:
             "target_remote": "${{ github.event.pull_request.base.repo.full_name }}",
             "target_branch": "${{ needs.pr_setup.outputs.release_branch }}"
           }' | ./tools/github/workflow/mergetest.py
-      - name: Create changed_files.txt
-        run: BASE_BRANCH="${{ needs.pr_setup.outputs.release_branch }}" ./tools/test/create_changelist.sh
       - name: Build images
         id: images
         shell: bash
@@ -86,8 +84,6 @@ jobs:
         cfg: ${{ fromJson(needs.setup.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v2
-      - name: Create changed_files.txt
-        run: 'BASE_BRANCH=`if [[ -z "$GITHUB_BASE_REF" ]]; then echo "${{ github.event.repository.default_branch }}"; else echo "$GITHUB_BASE_REF"; fi` ./tools/test/create_changelist.sh'
       - name: Build images
         id: images
         shell: bash
