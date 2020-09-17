@@ -271,7 +271,7 @@ DID = {"description": "Data Identifier(DID)",
            ], },
                "then": {"properties": {"name": {"pattern": "^/store/user/rucio/"}}}},
            {"if": {"properties": {"scope": {"const": "cms"}}},
-            "then": {"not": {"properties": {"name": {"pattern": "^/store/user/"}}}}},
+            "then": {"properties": {"name": {"not": {"pattern": "^/store/user/"}}}}},
        ],
        "required": ["scope", "name", "type"],
        "additionalProperties": False}
