@@ -1567,6 +1567,14 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
                                       models.ReplicationRule.name == name))
             deleted_dids.append(and_(models.DataIdentifier.scope == scope,
                                      models.DataIdentifier.name == name))
+            if session.bind.dialect.name == 'oracle':
+                oracle_version = int(session.connection().connection.version.split('.')[0])
+                if oracle_version >= 12:
+                    deleted_did_meta.append(and_(models.DidMeta.scope == scope,
+                                                 models.DidMeta.name == name))
+            else:
+                deleted_did_meta.append(and_(models.DidMeta.scope == scope,
+                                             models.DidMeta.name == name))
 
     # Remove Archive Constituents
     for chunk in chunks(archive_contents_condition, 30):
