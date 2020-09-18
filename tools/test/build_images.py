@@ -60,9 +60,9 @@ def main():
                                           buildargs._asdict().items()))
             if buildargs_tags:
                 buildargs_tags = '-' + buildargs_tags
-            imagetag = f'rucio-autotest:{dist}{buildargs_tags}'
+            imagetag = f'rucio-autotest:{dist.lower()}{buildargs_tags}'
             if script_args.cache_repo:
-                imagetag = script_args.cache_repo + '/' + imagetag
+                imagetag = script_args.cache_repo.lower() + '/' + imagetag
 
             cache_args = ()
             if script_args.build_no_cache:
