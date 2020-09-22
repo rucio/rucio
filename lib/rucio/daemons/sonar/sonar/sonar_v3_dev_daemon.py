@@ -16,6 +16,7 @@
 # - Vitjan Zavrtanik <vitjan.zavrtanik@cern.ch>, 2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Eric Vaandering <ewv@fnal.gov>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -33,14 +34,11 @@ import threading
 import time
 
 from requests import ConnectionError
-
-from rucio.common.config import config_get
-from rucio.common.exception import AccessDenied, DuplicateRule
-from rucio.common.exception import ReplicationRuleCreationTemporaryFailed
-from rucio.common.exception import RSEBlacklisted, RuleNotFound
 from rucio.client.client import Client
+from rucio.common.config import config_get
+from rucio.common.exception import (AccessDenied, DuplicateRule, RSEBlacklisted, RSEWriteBlocked,
+                                    ReplicationRuleCreationTemporaryFailed, RuleNotFound)
 from rucio.daemons.sonar.sonar.get_current_traffic import get_link_traffic
-
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging,
@@ -324,7 +322,7 @@ class SonarTest(object):
                                                        source_replica_expression=src_rse,
                                                        activity='Debug')
             return rule_id[0]
-        except (DuplicateRule, RSEBlacklisted, ReplicationRuleCreationTemporaryFailed) as exception:
+        except (DuplicateRule, RSEBlacklisted, RSEWriteBlocked, ReplicationRuleCreationTemporaryFailed) as exception:
             logging.warning(str(exception))
             return None
 

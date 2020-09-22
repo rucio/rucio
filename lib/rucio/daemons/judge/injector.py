@@ -19,6 +19,7 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Eric Vaandering <ewv@fnal.gov>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -42,7 +43,7 @@ from random import randint
 from sqlalchemy.exc import DatabaseError
 
 from rucio.common.config import config_get
-from rucio.common.exception import (DatabaseException, RuleNotFound, RSEBlacklisted,
+from rucio.common.exception import (DatabaseException, RuleNotFound, RSEBlacklisted, RSEWriteBlocked,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientAccountLimit)
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.rule import inject_rule, get_injected_rules, update_rule
@@ -120,7 +121,7 @@ def rule_injector(once=False):
                         else:
                             logging.error(traceback.format_exc())
                             record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
-                    except RSEBlacklisted as e:
+                    except (RSEBlacklisted, RSEWriteBlocked) as e:
                         paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
                         logging.warning('rule_injector[%s/%s]: RSEBlacklisted for rule %s' % (heartbeat['assign_thread'], heartbeat['nr_threads'], rule_id))
                         record_counter('rule.judge.exceptions.%s' % e.__class__.__name__)
