@@ -62,6 +62,11 @@ from xml.etree import ElementTree
 import requests
 import six
 from six import string_types, text_type, PY3
+from werkzeug.datastructures import Headers
+
+from rucio.common.config import config_get
+from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError, RucioException
+from rucio.common.types import InternalAccount, InternalScope
 
 try:
     # Python 2
@@ -87,12 +92,6 @@ try:
 except ImportError:
     # Python 3
     import urllib.parse as urlparse
-
-from rucio.common.config import config_get
-from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError, RucioException
-from rucio.common.types import InternalAccount, InternalScope
-# delay import until function to avoid circular dependancy (note here for reference)
-# from rucio.core.rse import get_rse_name
 
 # Extra modules: Only imported if available
 EXTRA_MODULES = {'web': False,
@@ -507,17 +506,20 @@ def generate_http_error(status_code, exc_cls, exc_msg):
         raise
 
 
-def generate_http_error_flask(status_code, exc_cls, exc_msg):
+def generate_http_error_flask(status_code, exc_cls, exc_msg, headers=None):
     """
     utitily function to generate a complete HTTP error response.
     :param status_code: The HTTP status code to generate a response for.
     :param exc_cls: The name of the exception class to send with the response.
     :param exc_msg: The error message.
     :returns: a Flask HTTP response object.
+    :param headers: any default headers to send along.
     """
-    data, headers = _error_response(exc_cls, exc_msg)
+    data, prioheaders = _error_response(exc_cls, exc_msg)
+    headers = Headers(headers)
+    headers.extend(prioheaders)
     try:
-        return Response(status=status_code, headers=headers, response=render_json(**data))
+        return Response(status=status_code, headers=headers, content_type=prioheaders['Content-Type'], response=render_json(**data))
     except Exception:
         print(data)
         raise

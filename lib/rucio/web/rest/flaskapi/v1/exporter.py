@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,11 +17,13 @@
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
-
-from flask import Flask, Blueprint, request
+from flask import Flask, Blueprint, request, Response
 from flask.views import MethodView
 
 from rucio.api.exporter import export_data
@@ -62,7 +65,7 @@ class Export(MethodView):
         """
 
         try:
-            return render_json(**export_data(issuer=request.environ.get('issuer'), vo=request.environ.get('vo')))
+            return Response(render_json(**export_data(issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))), content_type='application/json')
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
 
@@ -71,6 +74,7 @@ bp = Blueprint('export', __name__)
 
 export_view = Export.as_view('scope')
 bp.add_url_rule('/', view_func=export_view, methods=['get', ])
+# FIXME: Add '' rule
 
 application = Flask(__name__)
 application.register_blueprint(bp)
