@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # Copyright 2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,28 +16,28 @@
 #
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
 from __future__ import print_function
+
 from traceback import format_exc
-from json import loads
 
 from flask import Flask, Blueprint, request
 from flask.views import MethodView
 
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 from rucio.api.dirac import add_files
 from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, InvalidType,
                                     DatabaseException, Duplicate, InvalidPath,
                                     ResourceTemporaryUnavailable, RucioException,
                                     RSENotFound, UnsupportedOperation)
-from rucio.common.utils import generate_http_error_flask
+from rucio.common.utils import generate_http_error_flask, parse_response
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request
 
 
 class AddFiles(MethodView):
 
-    @check_accept_header_wrapper_flask(['application/json'])
     def post(self):
         """
         Create file replicas at a given RSE.
@@ -52,34 +53,35 @@ class AddFiles(MethodView):
             503 Service Unavailable
         """
         try:
-            json_data = loads(request.data)
+            parameters = parse_response(request.data)
         except (ValueError, InvalidType):
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            add_files(lfns=json_data['lfns'], issuer=request.environ.get('issuer'), ignore_availability=json_data.get('ignore_availability', False))
+            add_files(lfns=parameters['lfns'], issuer=request.environ.get('issuer'), ignore_availability=parameters.get('ignore_availability', False))
         except InvalidPath as error:
             return generate_http_error_flask(400, 'InvalidPath', error.args[0])
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
         except UnsupportedOperation as error:
             return generate_http_error_flask(405, 'UnsupportedOperation', error.args[0])
-        except DataIdentifierAlreadyExists as error:
-            return generate_http_error_flask(409, 'DataIdentifierAlreadyExists', error.args[0])
         except Duplicate as error:
             return generate_http_error_flask(409, 'Duplicate', error.args[0])
+        except DataIdentifierAlreadyExists as error:
+            return generate_http_error_flask(409, 'DataIdentifierAlreadyExists', error.args[0])
+        except RSENotFound as error:
+            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
         except DatabaseException as error:
-            return generate_http_error_flask(500, 'DatabaseException', error.args[0])
+            return generate_http_error_flask(503, 'DatabaseException', error.args[0])
         except ResourceTemporaryUnavailable as error:
             return generate_http_error_flask(503, 'ResourceTemporaryUnavailable', error.args[0])
         except RucioException as error:
+            print(format_exc())
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
-        return "Created", 201
+            return str(error), 500
+        return 'Created', 201
 
 
 """----------------------
@@ -88,10 +90,10 @@ class AddFiles(MethodView):
 
 
 bp = Blueprint('dirac', __name__)
-URLS = ('/addfiles/?$', 'AddFiles')
 
 add_file_view = AddFiles.as_view('addfiles')
 bp.add_url_rule('/addfiles', view_func=add_file_view, methods=['post', ])
+bp.add_url_rule('/addfiles/', view_func=add_file_view, methods=['post', ])
 
 application = Flask(__name__)
 application.register_blueprint(bp)

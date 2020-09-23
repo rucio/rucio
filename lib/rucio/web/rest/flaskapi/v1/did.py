@@ -25,10 +25,12 @@
 # - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
 # - Alan Malta Rodrigues <alan.malta@cern.ch>, 2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
 from __future__ import print_function
+
 from json import dumps, loads
 from traceback import format_exc
 
@@ -39,7 +41,7 @@ from rucio.api.did import (add_did, add_dids, list_content, list_content_history
                            list_dids, list_dids_extended, list_files, scope_list, get_did,
                            set_metadata, get_metadata, get_metadata_bulk, set_status, attach_dids, detach_dids,
                            attach_dids_to_dids, get_dataset_by_guid, list_parent_dids,
-                           create_did_sample, list_new_dids, resurrect)
+                           create_did_sample, list_new_dids, resurrect, get_users_following_did, remove_did_from_followed, add_did_to_followed, delete_metadata)
 from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
@@ -48,8 +50,13 @@ from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     UnsupportedStatus, UnsupportedOperation,
                                     RSENotFound, RucioException, RuleNotFound,
                                     InvalidMetadata)
-from rucio.common.utils import generate_http_error_flask, render_json, APIEncoder
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
+from rucio.common.utils import generate_http_error_flask, render_json, APIEncoder, parse_response
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, parse_scope_name, try_stream
+
+try:
+    from urlparse import parse_qs
+except ImportError:
+    from urllib.parse import parse_qs
 
 
 class Scope(MethodView):
@@ -92,22 +99,17 @@ class Scope(MethodView):
         :status 406: Not Acceptable
         :returns: Line separated dictionaries of DIDs
         """
-
-        name = request.args.get('name', None)
-        recursive = False
-        if 'recursive' in request.args:
-            recursive = True
-
         try:
-            data = ""
-            for did in scope_list(scope=scope, name=name, recursive=recursive, vo=request.environ.get('vo')):
-                data += render_json(**did) + '\n'
-            return Response(data, content_type='application/x-json-stream')
+            def generate(name, recursive, vo):
+                for did in scope_list(scope=scope, name=name, recursive=recursive, vo=vo):
+                    yield render_json(**did) + '\n'
+
+            return try_stream(generate(name=request.args.get('name', None), recursive=('recursive' in request.args), vo=request.environ.get('vo')))
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
 
 class Search(MethodView):
@@ -164,31 +166,33 @@ class Search(MethodView):
         limit = None
         long = False
         recursive = False
-        type = 'collection'
-        for k, v in request.args.items():
+        query_string = request.query_string.decode()
+        params = parse_qs(query_string)
+        for k, v in params.items():
             if k == 'type':
-                type = v
+                type = v[0]
             elif k == 'limit':
                 limit = v[0]
             elif k == 'long':
-                long = v in ['True', '1']
+                long = v[0] in ['True', '1']
             elif k == 'recursive':
-                recursive = v == 'True'
+                recursive = v[0] == 'True'
             else:
-                filters[k] = v
+                filters[k] = v[0]
 
         try:
-            data = ""
-            for did in list_dids(scope=scope, filters=filters, type=type, limit=limit, long=long, recursive=recursive, vo=request.environ.get('vo')):
-                data += dumps(did) + '\n'
-            return Response(data, content_type='application/x-json-stream')
+            def generate(vo):
+                for did in list_dids(scope=scope, filters=filters, type=type, limit=limit, long=long, recursive=recursive, vo=vo):
+                    yield dumps(did) + '\n'
+
+            return try_stream(generate(vo=request.environ.get('vo')))
         except UnsupportedOperation as error:
             return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0])
         except KeyNotFound as error:
             return generate_http_error_flask(404, 'KeyNotFound', error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
 
 class SearchExtended(MethodView):
@@ -246,31 +250,33 @@ class SearchExtended(MethodView):
         limit = None
         long = False
         recursive = False
-        type = 'collection'
-        for k, v in request.args.items():
+        query_string = request.query_string.decode()
+        params = parse_qs(query_string)
+        for k, v in params.items():
             if k == 'type':
-                type = v
+                type = v[0]
             elif k == 'limit':
                 limit = v[0]
             elif k == 'long':
-                long = v in ['True', '1']
+                long = v[0] in ['True', '1']
             elif k == 'recursive':
-                recursive = v == 'True'
+                recursive = v[0] == 'True'
             else:
-                filters[k] = v
+                filters[k] = v[0]
 
         try:
-            data = ""
-            for did in list_dids_extended(scope=scope, filters=filters, type=type, limit=limit, long=long, recursive=recursive, vo=request.environ.get('vo')):
-                data += dumps(did) + '\n'
-            return Response(data, content_type='application/x-json-stream')
+            def generate(vo):
+                for did in list_dids_extended(scope=scope, filters=filters, type=type, limit=limit, long=long, recursive=recursive, vo=vo):
+                    yield dumps(did) + '\n'
+
+            return try_stream(generate(vo=request.environ.get('vo')))
         except UnsupportedOperation as error:
             return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0])
         except KeyNotFound as error:
             return generate_http_error_flask(404, 'KeyNotFound', error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
 
 class BulkDIDS(MethodView):
@@ -322,7 +328,6 @@ class BulkDIDS(MethodView):
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            print(json_data)
             add_dids(json_data, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
@@ -340,8 +345,8 @@ class BulkDIDS(MethodView):
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
-        return "Created", 201
+            return str(error), 500
+        return 'Created', 201
 
 
 class Attachments(MethodView):
@@ -382,15 +387,15 @@ class Attachments(MethodView):
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
-        return "Created", 201
+        return 'Created', 201
 
 
 class DIDs(MethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
-    def get(self, scope, name):
+    def get(self, scope_name):
         """
         Retrieve a single data identifier.
 
@@ -424,11 +429,12 @@ class DIDs(MethodView):
         :returns: Dictionary with DID metadata
         """
         try:
-            dynamic = False
-            if 'dynamic' in request.args:
-                dynamic = True
+            scope, name = parse_scope_name(scope_name)
+            dynamic = 'dynamic' in request.args
             did = get_did(scope=scope, name=name, dynamic=dynamic, vo=request.environ.get('vo'))
             return Response(render_json(**did), content_type='application/json')
+        except ValueError as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
         except ScopeNotFound as error:
             return generate_http_error_flask(404, 'ScopeNotFound', error.args[0])
         except DataIdentifierNotFound as error:
@@ -437,9 +443,9 @@ class DIDs(MethodView):
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
-    def post(self, scope, name):
+    def post(self, scope_name):
         """
         Create a new data identifier.
 
@@ -460,8 +466,7 @@ class DIDs(MethodView):
             Vary: Accept
 
         :reqheader Accept: application/json
-        :param scope: data identifier scope.
-        :param name: data identifier name.
+        :param scope_name: data identifier (scope)/(name).
         :<json string type: the new DID type
         :<json dict statuses: Dictionary with statuses, e.g. {'monotonic':True}
         :<json dict meta: Dictionary with metadata, e.g. {'length':1234}
@@ -474,6 +479,14 @@ class DIDs(MethodView):
         :status 409: DID already exists
         :status 500: Database Exception
         """
+        try:
+            scope, name = parse_scope_name(scope_name)
+        except ValueError as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
+
         statuses, meta, rules, lifetime, dids, rse = {}, {}, [], None, [], None
         try:
             json_data = loads(request.data)
@@ -493,7 +506,7 @@ class DIDs(MethodView):
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
         except KeyError as error:
-            return generate_http_error_flask(400, 'ValueError', str(error))
+            return generate_http_error_flask(400, 'KeyError', str(error))
 
         try:
             add_did(scope=scope, name=name, type=type, statuses=statuses, meta=meta, rules=rules, lifetime=lifetime, dids=dids, rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
@@ -513,10 +526,10 @@ class DIDs(MethodView):
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
-        return "Created", 201
+            return str(error), 500
+        return 'Created', 201
 
-    def put(self, scope, name):
+    def put(self, scope_name):
         """
         Update data identifier status.
 
@@ -536,8 +549,7 @@ class DIDs(MethodView):
             HTTP/1.1 200 OK
             Vary: Accept
 
-        :param scope: data identifier scope.
-        :param name: data identifier name.
+        :param scope_name: data identifier (scope)/(name).
         :<json bool open: open or close did
         :status 200: DIDs successfully updated
         :status 401: Invalid Auth Token
@@ -545,6 +557,13 @@ class DIDs(MethodView):
         :status 409: Wrong status
         :status 500: Database Exception
         """
+        try:
+            scope, name = parse_scope_name(scope_name)
+        except ValueError as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
 
         json_data = request.data
         try:
@@ -566,15 +585,15 @@ class DIDs(MethodView):
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
-        return "Ok", 200
+        return '', 200
 
 
 class Attachment(MethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
-    def get(self, scope, name):
+    def get(self, scope_name):
         """
         Returns the contents of a data identifier.
 
@@ -608,19 +627,24 @@ class Attachment(MethodView):
         :returns: Dictionary with DID metadata
         """
         try:
-            data = ""
-            for did in list_content(scope=scope, name=name, vo=request.environ.get('vo')):
-                data += render_json(**did) + '\n'
-            return Response(data, content_type="application/x-json-stream")
+            scope, name = parse_scope_name(scope_name)
+
+            def generate(vo):
+                for did in list_content(scope=scope, name=name, vo=vo):
+                    yield render_json(**did) + '\n'
+
+            return try_stream(generate(vo=request.environ.get('vo')))
+        except ValueError as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
-    def post(self, scope, name):
+    def post(self, scope_name):
         """
         Append data identifiers to data identifiers.
 
@@ -644,8 +668,7 @@ class Attachment(MethodView):
             HTTP/1.1 201 Created
             Vary: Accept
 
-        :param scope: The scope of the DID to attach to.
-        :param name: The name of the DID to attach to.
+        :param scope_name: data identifier (scope)/(name).
         :<json list attachments: List of dicts of DIDs to attach.
         :status 201: DIDs successfully attached
         :status 401: Invalid Auth Token
@@ -653,6 +676,13 @@ class Attachment(MethodView):
         :status 409: DIDs already attached
         :status 500: Database Exception
         """
+        try:
+            scope, name = parse_scope_name(scope_name)
+        except ValueError as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
 
         try:
             json_data = loads(request.data)
@@ -675,24 +705,30 @@ class Attachment(MethodView):
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
-        return "Created", 201
+        return 'Created', 201
 
-    def delete(self, scope, name):
+    def delete(self, scope_name):
         """
         Detach data identifiers from data identifiers.
 
         .. :quickref: DIDs; Detach DID from DID.
 
-        :param scope: Scope of the DID to detach from.
-        :param name: Name of the DID to detach from.
+        :param scope_name: data identifier (scope)/(name).
         :<json dicts data: Must contain key 'dids' with list of dids to detach.
         :status 200: DIDs successfully detached
         :status 401: Invalid Auth Token
         :status 404: DID not found
         :status 500: Database Exception
         """
+        try:
+            scope, name = parse_scope_name(scope_name)
+        except ValueError as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
 
         try:
             json_data = loads(request.data)
@@ -711,23 +747,22 @@ class Attachment(MethodView):
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
-        return "OK", 200
+        return '', 200
 
 
 class AttachmentHistory(MethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
-    def get(self, scope, name):
+    def get(self, scope_name):
         """
         Returns the contents history of a data identifier.
 
         .. :quickref: AttachementHistory; List the content history of a DID.
 
         :resheader Content-Type: application/x-json-stream
-        :param scope: The scope of the data identifier.
-        :param name: The name of the data identifier.
+        :param scope_name: data identifier (scope)/(name).
         :status 200: DID found
         :status 401: Invalid Auth Token
         :status 404: DID not found
@@ -736,30 +771,34 @@ class AttachmentHistory(MethodView):
         :returns: Stream of dictionarys with DIDs
         """
         try:
-            data = ""
-            for did in list_content_history(scope=scope, name=name, vo=request.environ.get('vo')):
-                data += render_json(**did) + '\n'
-            return Response(data, content_type="application/x-json-stream")
+            scope, name = parse_scope_name(scope_name)
+
+            def generate(vo):
+                for did in list_content_history(scope=scope, name=name, vo=vo):
+                    yield render_json(**did) + '\n'
+
+            return try_stream(generate(vo=request.environ.get('vo')))
+        except ValueError as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
 
 class Files(MethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
-    def get(self, scope, name):
+    def get(self, scope_name):
         """ List all replicas of a data identifier.
 
         .. :quickref: Files; List replicas of DID.
 
         :resheader Content-Type: application/x-json-stream
-        :param scope: The scope of the data identifier.
-        :param name: The name of the data identifier.
+        :param scope_name: data identifier (scope)/(name).
         :query long: Flag to trigger long output
         :status 200: DID found
         :status 401: Invalid Auth Token
@@ -768,35 +807,37 @@ class Files(MethodView):
         :status 500: Database Exception
         :returns: A dictionary containing all replicas information.
         """
-        long = False
+        long = 'long' in request.args
 
-        if "long" in request.args:
-            long = True
         try:
-            data = ""
-            for file in list_files(scope=scope, name=name, long=long, vo=request.environ.get('vo')):
-                data += dumps(file) + "\n"
-            return Response(data, content_type="application/x-json-stream")
+            scope, name = parse_scope_name(scope_name)
+
+            def generate(vo):
+                for file in list_files(scope=scope, name=name, long=long, vo=vo):
+                    yield dumps(file) + '\n'
+
+            return try_stream(generate(vo=request.environ.get('vo')))
+        except ValueError as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
 
 class Parents(MethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
-    def get(self, scope, name):
+    def get(self, scope_name):
         """ List all parents of a data identifier.
 
         .. :quickref: Parents; List parents of DID.
 
         :resheader Content-Type: application/x-json-stream
-        :param scope: The scope of the data identifier.
-        :param name: The name of the data identifier.
+        :param scope_name: data identifier (scope)/(name).
         :status 200: DID found
         :status 401: Invalid Auth Token
         :status 404: DID not found
@@ -805,31 +846,35 @@ class Parents(MethodView):
         :returns: A list of dictionary containing all dataset information.
         """
         try:
-            data = ""
-            for dataset in list_parent_dids(scope=scope, name=name, vo=request.environ.get('vo')):
-                data += render_json(**dataset) + "\n"
-            return Response(data, content_type="application/x-json-stream")
+            scope, name = parse_scope_name(scope_name)
+
+            def generate(vo):
+                for dataset in list_parent_dids(scope=scope, name=name, vo=vo):
+                    yield render_json(**dataset) + "\n"
+
+            return try_stream(generate(vo=request.environ.get('vo')))
+        except ValueError as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
 
 class Meta(MethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
-    def get(self, scope, name):
+    def get(self, scope_name):
         """
         List all meta of a data identifier.
 
         .. :quickref: Meta; List DID metadata.
 
         :resheader Content-Type: application/json
-        :param scope: The scope of the data identifier.
-        :param name: The name of the data identifier.
+        :param scope_name: data identifier (scope)/(name).
         :status 200: DID found
         :status 401: Invalid Auth Token
         :status 404: DID not found
@@ -838,9 +883,15 @@ class Meta(MethodView):
         :returns: A dictionary containing all meta.
         """
         try:
-            plugin = 'DID_COLUMN'
-            if 'plugin' in request.args:
-                plugin = request.args.plugin
+            scope, name = parse_scope_name(scope_name)
+        except ValueError as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
+
+        try:
+            plugin = request.args.get('plugin', 'DID_COLUMN')
             meta = get_metadata(scope=scope, name=name, plugin=plugin, vo=request.environ.get('vo'))
             return Response(render_json(**meta), content_type='application/json')
         except DataIdentifierNotFound as error:
@@ -849,9 +900,9 @@ class Meta(MethodView):
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
-    def post(self, scope, name, key):
+    def post(self, scope_name, key):
         """
         Add metadata to a data identifier.
 
@@ -867,11 +918,18 @@ class Meta(MethodView):
             409 Conflict
             500 Internal Error
 
-        :param scope: The scope name.
-        :param name: The data identifier name.
+        :param scope_name: data identifier (scope)/(name).
         :param key: the key.
 
         """
+        try:
+            scope, name = parse_scope_name(scope_name)
+        except ValueError as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
+
         json_data = request.data
         try:
             params = loads(json_data)
@@ -896,9 +954,87 @@ class Meta(MethodView):
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
-        return "Created", 201
+        return 'Created', 201
+
+    def delete(self, scope_name):
+        """
+        Deletes the specified metadata from the DID
+
+        .. :quickref: Meta; Delete DID metadata.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 KeyNotFound
+        """
+        try:
+            scope, name = parse_scope_name(scope_name)
+        except ValueError as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
+
+        if 'key' in request.args:
+            key = request.args['key']
+        else:
+            return generate_http_error_flask(404, 'KeyNotFound', 'No key provided to remove')
+
+        try:
+            delete_metadata(scope=scope, name=name, key=key, vo=request.environ.get('vo'))
+        except KeyNotFound as error:
+            return generate_http_error_flask(404, 'KeyNotFound', error.args[0])
+        except DataIdentifierNotFound as error:
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
+        except NotImplementedError:
+            return generate_http_error_flask(409, 'NotImplementedError', 'Feature not in current database')
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
+        return '', 200
+
+
+class Rules(MethodView):
+
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
+    def get(self, scope_name):
+        """
+        Return all rules of a given DID.
+
+        .. :quickref: Rules; List rules of DID.
+
+        :resheader Content-Type: application/x-json-stream
+        :param scope_name: data identifier (scope)/(name).
+        :status 200: DID found
+        :status 401: Invalid Auth Token
+        :status 404: DID not found
+        :status 406: Not Acceptable
+        :status 500: Database Exception
+        :returns: List of replication rules.
+        """
+        try:
+            scope, name = parse_scope_name(scope_name)
+
+            def generate(vo):
+                for rule in list_replication_rules({'scope': scope, 'name': name}, vo=vo):
+                    yield dumps(rule, cls=APIEncoder) + '\n'
+
+            return try_stream(generate(vo=request.environ.get('vo')))
+        except ValueError as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
+        except RuleNotFound as error:
+            return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
 
 
 class BulkMeta(MethodView):
@@ -907,28 +1043,32 @@ class BulkMeta(MethodView):
     def post(self):
         """
         List all meta of a list of data identifiers.
-        HTTP Success:
-            200 OK
-        HTTP Error:
-            400 Bad Request
-            401 Unauthorized
-            404 DataIdentifierNotFound
-            500 InternalError
+
+        .. :quickref: Meta; List metadata of multiple DIDs
+
+        :resheader Content-Type: application/x-json-stream
+        :param scope_name: data identifier (scope)/(name).
+        :status 200: OK
+        :status 400: Bad Request
+        :status 401: Unauthorized
+        :status 404: DataIdentifierNotFound
+        :status 500: InternalError
         :returns: A list of dictionaries containing all meta.
         """
-        json_data = request.data
         try:
-            params = loads(json_data)
+            params = parse_response(request.data)
             dids = params['dids']
         except KeyError as error:
             return generate_http_error_flask(400, 'ValueError', 'Cannot find mandatory parameter : %s' % str(error))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+
         try:
-            data = ""
-            for meta in get_metadata_bulk(dids, vo=request.environ.get('vo')):
-                data += render_json(**meta) + '\n'
-            return Response(data, content_type='application/x-json-stream')
+            def generate(vo):
+                for meta in get_metadata_bulk(dids, vo=vo):
+                    yield render_json(**meta) + '\n'
+
+            return try_stream(generate(vo=request.environ.get('vo')))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
         except DataIdentifierNotFound as error:
@@ -937,54 +1077,20 @@ class BulkMeta(MethodView):
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
-
-
-class Rules(MethodView):
-
-    @check_accept_header_wrapper_flask(['application/x-json-stream'])
-    def get(self, scope, name):
-        """
-        Return all rules of a given DID.
-
-        .. :quickref: Rules; List rules of DID.
-
-        :resheader Content-Type: application/x-json-stream
-        :param scope: The scope of the data identifier.
-        :param name: The name of the data identifier.
-        :status 200: DID found
-        :status 401: Invalid Auth Token
-        :status 404: DID not found
-        :status 406: Not Acceptable
-        :status 500: Database Exception
-        :returns: List of replication rules.
-        """
-
-        try:
-            data = ""
-            for rule in list_replication_rules({'scope': scope, 'name': name}, vo=request.environ.get('vo')):
-                data += dumps(rule, cls=APIEncoder) + '\n'
-            return Response(data, content_type="application/x-json-stream")
-        except RuleNotFound as error:
-            return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            return error, 500
+            return str(error), 500
 
 
 class AssociatedRules(MethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
-    def get(self, scope, name):
+    def get(self, scope_name):
         """
         Return all associated rules of a file.
 
         .. :quickref: AssociatedRules; List associated rules of DID.
 
         :resheader Content-Type: application/x-json-stream
-        :param scope: The scope of the data identifier.
-        :param name: The name of the data identifier.
+        :param scope_name: data identifier (scope)/(name).
         :status 200: DID found
         :status 401: Invalid Auth Token
         :status 404: DID not found
@@ -993,14 +1099,22 @@ class AssociatedRules(MethodView):
         :returns: List of associated rules.
         """
         try:
-            data = ""
-            for rule in list_associated_replication_rules_for_file(scope=scope, name=name, vo=request.environ.get('vo')):
-                data += dumps(rule, cls=APIEncoder) + '\n'
-            return Response(data, content_type="application/x-json-stream")
+            scope, name = parse_scope_name(scope_name)
+
+            def generate(vo):
+                for rule in list_associated_replication_rules_for_file(scope=scope, name=name, vo=vo):
+                    yield dumps(rule, cls=APIEncoder) + '\n'
+
+            return try_stream(generate(vo=request.environ.get('vo')))
+        except ValueError as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
+        except DataIdentifierNotFound as error:
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            return error, 500
+            print(format_exc())
+            return str(error), 500
 
 
 class GUIDLookup(MethodView):
@@ -1022,16 +1136,18 @@ class GUIDLookup(MethodView):
         :returns: List of files for given GUID
         """
         try:
-            data = ""
-            for dataset in get_dataset_by_guid(guid, vo=request.environ.get('vo')):
-                data += dumps(dataset, cls=APIEncoder) + '\n'
-            return Response(data, content_type="application/x-json-stream")
+            def generate(vo):
+                for dataset in get_dataset_by_guid(guid, vo=vo):
+                    yield dumps(dataset, cls=APIEncoder) + '\n'
+
+            return try_stream(generate(vo=request.environ.get('vo')))
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            return error, 500
+            print(format_exc())
+            return str(error), 500
 
 
 class Sample(MethodView):
@@ -1076,8 +1192,8 @@ class Sample(MethodView):
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
-        return "Created", 201
+            return str(error), 500
+        return 'Created', 201
 
 
 class NewDIDs(MethodView):
@@ -1097,19 +1213,17 @@ class NewDIDs(MethodView):
         :status 500: Database Exception
         :returns: List recently created DIDs.
         """
-
-        type = None
-        if 'type' in request.args:
-            type = request.args.get('type')
         try:
-            data = ""
-            for did in list_new_dids(type, vo=request.environ.get('vo')):
-                data += dumps(did, cls=APIEncoder) + '\n'
-            return Response(data, content_type="application/x-json-stream")
+            def generate(_type, vo):
+                for did in list_new_dids(type=_type, vo=vo):
+                    yield dumps(did, cls=APIEncoder) + '\n'
+
+            return try_stream(generate(_type=request.args.get('type', None), vo=request.environ.get('vo')))
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            return error, 500
+            print(format_exc())
+            return str(error), 500
 
 
 class Resurrect(MethodView):
@@ -1155,8 +1269,125 @@ class Resurrect(MethodView):
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
-        return "Created", 201
+            return str(error), 500
+        return 'Created', 201
+
+
+class Follow(MethodView):
+
+    @check_accept_header_wrapper_flask(['application/json'])
+    def get(self, scope_name):
+        """
+        Return all users following a specific DID.
+
+        .. :quickref: Follow; List users following DID.
+
+        :status 200: OK
+        :status 400: ValueError
+        :status 401: Unauthorized
+        :status 404: DataIdentifierNotFound
+        :status 406: Not Acceptable
+        """
+        try:
+            scope, name = parse_scope_name(scope_name)
+
+            def generate(vo):
+                for user in get_users_following_did(scope=scope, name=name, vo=vo):
+                    yield render_json(**user) + '\n'
+
+            return try_stream(generate(vo=request.environ.get('vo')), content_type='application/json')
+        except ValueError as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
+        except DataIdentifierNotFound as error:
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
+
+    def post(self, scope_name):
+        """
+        Mark the input DID as being followed by the given account.
+
+        .. :quickref: Follow; Follow DID.
+
+        HTTP Success:
+            201 Created
+
+        HTTP Error:
+            401 Unauthorized
+            404 Not Found
+            500 Internal Error
+
+        :param scope_name: data identifier (scope)/(name).
+        """
+        try:
+            scope, name = parse_scope_name(scope_name)
+        except ValueError as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
+
+        try:
+            json_data = loads(request.data)
+        except ValueError:
+            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            add_did_to_followed(scope=scope, name=name, account=json_data['account'], vo=request.environ.get('vo'))
+        except DataIdentifierNotFound as error:
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except DatabaseException as error:
+            return generate_http_error_flask(500, 'DatabaseException', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
+
+    def delete(self, scope_name):
+        """
+        Mark the input DID as not followed
+
+        .. :quickref: Follow; Unfollow DID.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            500 InternalError
+
+        :param scope_name: data identifier (scope)/(name).
+        """
+        try:
+            scope, name = parse_scope_name(scope_name)
+        except ValueError as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
+
+        try:
+            json_data = loads(request.data)
+        except ValueError:
+            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+
+        try:
+            remove_did_from_followed(scope=scope, name=name, account=json_data['account'], issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+        except DataIdentifierNotFound as error:
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
+
+        return '', 200
 
 
 bp = Blueprint('did', __name__)
@@ -1169,30 +1400,33 @@ search_view = Search.as_view('search')
 bp.add_url_rule('/<scope>/dids/search', view_func=search_view, methods=['get', ])
 search_extended_view = SearchExtended.as_view('search_extended')
 bp.add_url_rule('/<scope>/dids/search_extended', view_func=search_extended_view, methods=['get', ])
-bulkdids_view = BulkDIDS.as_view('bulkdids')
-bp.add_url_rule('/', view_func=bulkdids_view, methods=['post', ])
-attachements_view = Attachments.as_view('attachments')
-bp.add_url_rule('/attachments', view_func=attachements_view, methods=['post', ])
 dids_view = DIDs.as_view('dids')
-bp.add_url_rule('/<scope>/<name>', view_func=dids_view, methods=['get', 'post'])
-bp.add_url_rule('/<scope>/<name>/status', view_func=dids_view, methods=['put', ])
+bp.add_url_rule('/<path:scope_name>/status', view_func=dids_view, methods=['put', ])
 files_view = Files.as_view('files')
-bp.add_url_rule('/<scope>/<name>/files', view_func=files_view, methods=['get', ])
+bp.add_url_rule('/<path:scope_name>/files', view_func=files_view, methods=['get', ])
 attachment_history_view = AttachmentHistory.as_view('attachment_history')
-bp.add_url_rule('/<scope>/<name>/dids/history', view_func=attachment_history_view, methods=['get', ])
+bp.add_url_rule('/<path:scope_name>/dids/history', view_func=attachment_history_view, methods=['get', ])
 attachment_view = Attachment.as_view('attachment')
-bp.add_url_rule('/<scope>/<name>/dids', view_func=attachment_view, methods=['get', 'post', 'delete'])
+bp.add_url_rule('/<path:scope_name>/dids', view_func=attachment_view, methods=['get', 'post', 'delete'])
 meta_view = Meta.as_view('meta')
-bp.add_url_rule('/<scope>/<name>/meta', view_func=meta_view, methods=['get', ])
-bp.add_url_rule('/<scope>/<name>/meta/<key>', view_func=meta_view, methods=['post', ])
+bp.add_url_rule('/<path:scope_name>/meta/<key>', view_func=meta_view, methods=['post', ])
+bp.add_url_rule('/<path:scope_name>/meta', view_func=meta_view, methods=['get', 'delete'])
 rules_view = Rules.as_view('rules')
-bp.add_url_rule('/<scope>/<name>/rules', view_func=rules_view, methods=['get', ])
+bp.add_url_rule('/<path:scope_name>/rules', view_func=rules_view, methods=['get', ])
 parents_view = Parents.as_view('parents')
-bp.add_url_rule('/<scope>/<name>/parents', view_func=parents_view, methods=['get', ])
+bp.add_url_rule('/<path:scope_name>/parents', view_func=parents_view, methods=['get', ])
 associated_rules_view = AssociatedRules.as_view('associated_rules')
-bp.add_url_rule('/<scope>/<name>/associated_rules', view_func=associated_rules_view, methods=['get', ])
+bp.add_url_rule('/<path:scope_name>/associated_rules', view_func=associated_rules_view, methods=['get', ])
+follow_view = Follow.as_view('follow')
+bp.add_url_rule('/<path:scope_name>/follow', view_func=follow_view, methods=['get', 'post', 'delete'])
+bp.add_url_rule('/<path:scope_name>', view_func=dids_view, methods=['get', 'post'])
+bulkdids_view = BulkDIDS.as_view('bulkdids')
+# FIXME: should be ''
+bp.add_url_rule('/', view_func=bulkdids_view, methods=['post', ])
 sample_view = Sample.as_view('sample')
 bp.add_url_rule('/<input_scope>/<input_name>/<output_scope>/<output_name>/<nbfiles>/sample', view_func=sample_view, methods=['post', ])
+attachements_view = Attachments.as_view('attachments')
+bp.add_url_rule('/attachments', view_func=attachements_view, methods=['post', ])
 new_dids_view = NewDIDs.as_view('new_dids')
 bp.add_url_rule('/new', view_func=new_dids_view, methods=['get', ])
 resurrect_view = Resurrect.as_view('resurrect')
