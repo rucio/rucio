@@ -207,6 +207,7 @@ def run_case(caseenv, image, use_podman, use_namespace, copy_rucio_logs, logs_di
         print("*** Finalizing", {**caseenv, "IMAGE": image}, file=sys.stderr, flush=True)
 
         if cid:
+            run('docker', *namespace_args, 'logs', cid, check=False)
             run('docker', *namespace_args, 'stop', cid, check=False)
             if copy_rucio_logs:
                 try:

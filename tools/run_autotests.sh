@@ -36,7 +36,6 @@ fi
 # change directory to main repository directory
 cd `dirname $0`/..
 
-BASE_BRANCH=master INCLUDE_UNSTAGED=true INCLUDE_STAGED=true ./tools/test/create_changelist.sh
 MATRIX=`./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml`
 if [ -z "$MATRIX" ]; then
     echo "Matrix could not be determined"
