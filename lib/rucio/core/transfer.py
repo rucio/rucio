@@ -1265,6 +1265,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     # We make the assumption that the hop is never made through TAPE
                     transfers[req_id]['file_metadata']['src_type'] = 'DISK'
                     transfers[req_id]['sources'] = [(source_rse_name, source_url, source_rse_id, 0, 0)]
+                    transfers[req_id]['bring_online'] = bring_online
         if req_id in reqs_no_source:
             reqs_no_source.remove(req_id)
         if req_id in reqs_only_tape_source:
