@@ -10,4 +10,4 @@ General
 Bugs
 ****
 
-- Transfers: No proper source evaluation for multi-hop `#4016 <https://github.com/rucio/rucio/issues/4016>`_
+- Transfers: Multihop problems with multiple sources `#3989 <https://github.com/rucio/rucio/issues/3989>`_
