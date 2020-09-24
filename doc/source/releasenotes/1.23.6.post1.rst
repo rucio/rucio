@@ -1,0 +1,13 @@
+============
+1.23.6.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Transfers: No proper source evaluation for multi-hop `#4016 <https://github.com/rucio/rucio/issues/4016>`_
