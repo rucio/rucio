@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +17,9 @@
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -53,10 +57,8 @@ class Import(MethodView):
 
             HTTP/1.1 201 OK
             Vary: Accept
-            Content-Type: application/x-json-stream
 
             Created
-        :resheader Content-Type: application/json
         :status 200: DIDs found
         :status 401: Invalid Auth Token
         :returns: dictionary with rucio data
@@ -79,6 +81,7 @@ bp = Blueprint('import', __name__)
 
 import_view = Import.as_view('scope')
 bp.add_url_rule('/', view_func=import_view, methods=['post', ])
+# FIXME: Add '' rule
 
 application = Flask(__name__)
 application.register_blueprint(bp)

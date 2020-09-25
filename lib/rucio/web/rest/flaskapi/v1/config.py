@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2014-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,32 +18,29 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
-import json
 from logging import getLogger, StreamHandler, DEBUG
-from flask import Flask, Blueprint, Response, request as request
-from flask.views import MethodView
 from traceback import format_exc
 
+from flask import Flask, Blueprint, request as request, jsonify
+from flask.views import MethodView
+
 from rucio.api import config
-from rucio.common.exception import ConfigurationError
+from rucio.common.exception import ConfigurationError, RucioException, AccessDenied, ConfigNotFound
 from rucio.common.utils import generate_http_error_flask
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
-
 
 LOGGER = getLogger("rucio.config")
 SH = StreamHandler()
 SH.setLevel(DEBUG)
 LOGGER.addHandler(SH)
-
-URLS = ('/(.+)/(.+)/(.*)', 'OptionSet',
-        '/(.+)/(.+)', 'OptionGetDel',
-        '/(.+)', 'Section',
-        '', 'Config')
 
 
 class Config(MethodView):
@@ -61,14 +59,19 @@ class Config(MethodView):
         :status 406: Not Acceptable.
         :status 500: Internal Error.
         """
+        try:
+            res = {}
+            for section in config.sections(issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
+                res[section] = {}
+                for item in config.items(section, issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
+                    res[section][item[0]] = item[1]
 
-        res = {}
-        for section in config.sections(issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
-            res[section] = {}
-            for item in config.items(section, issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
-                res[section][item[0]] = item[1]
-
-        return Response(json.dumps(res), content_type="application/json")
+            return jsonify(res)
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
 
 
 class Section(MethodView):
@@ -89,15 +92,20 @@ class Section(MethodView):
         :status 406: Not Acceptable.
         :status 500: Internal Error.
         """
+        try:
+            res = {}
+            for item in config.items(section, issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
+                res[item[0]] = item[1]
 
-        res = {}
-        for item in config.items(section, issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
-            res[item[0]] = item[1]
+            if res == {}:
+                return generate_http_error_flask(404, 'ConfigNotFound', 'No configuration found for section \'%s\'' % section)
 
-        if res == {}:
-            return generate_http_error_flask(404, 'ConfigNotFound', 'No configuration found for section \'%s\'' % section)
-
-        return Response(json.dumps(res), content_type="application/json")
+            return jsonify(res)
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
 
 
 class OptionGetDel(MethodView):
@@ -118,11 +126,18 @@ class OptionGetDel(MethodView):
         :status 406: Not Acceptable.
         :status 500: Internal Error.
         """
-
         try:
-            return Response(json.dumps(config.get(section=section, option=option, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))), content_type="application/json")
-        except Exception:
+            result = config.get(section=section, option=option, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            return jsonify(result)
+        except AccessDenied:
+            return generate_http_error_flask(401, 'AccessDenied', 'Access to \'%s\' option \'%s\' denied' % (section, option))
+        except ConfigNotFound:
             return generate_http_error_flask(404, 'ConfigNotFound', 'No configuration found for section \'%s\' option \'%s\'' % (section, option))
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
 
     def delete(self, section, option):
         """
@@ -134,8 +149,13 @@ class OptionGetDel(MethodView):
         :status 401: Invalid Auth Token.
         :status 500: Internal Error.
         """
-
-        config.remove_option(section=section, option=option, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+        try:
+            config.remove_option(section=section, option=option, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
 
 
 class OptionSet(MethodView):
@@ -152,15 +172,16 @@ class OptionSet(MethodView):
         :status 401: Invalid Auth Token.
         :status 500: Configuration Error.
         """
-
         try:
             config.set(section=section, option=option, value=value, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            return 'Created', 201
         except ConfigurationError:
             return generate_http_error_flask(500, 'ConfigurationError', 'Could not set value \'%s\' for section \'%s\' option \'%s\'' % (value, section, option))
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
-        return "Created", 201
+            return str(error), 500
 
 
 """----------------------
@@ -175,7 +196,8 @@ bp.add_url_rule('/<section>/<option>', view_func=option_get_del_view, methods=['
 section_view = Section.as_view('section')
 bp.add_url_rule('/<section>', view_func=section_view, methods=['get', ])
 config_view = Config.as_view('config')
-bp.add_url_rule('/<section>', view_func=config_view, methods=['get', ])
+# FIXME: should be '' instead
+bp.add_url_rule('/', view_func=config_view, methods=['get', ])
 
 application = Flask(__name__)
 application.register_blueprint(bp)

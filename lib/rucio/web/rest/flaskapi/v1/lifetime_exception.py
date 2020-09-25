@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2016-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,14 +17,16 @@
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Thomas Beermann, <thomas.beermann@cern.ch> 2018
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
 from json import loads, dumps
+from traceback import format_exc
 
 from flask import Flask, Blueprint, Response, request
 from flask.views import MethodView
@@ -31,7 +34,7 @@ from flask.views import MethodView
 from rucio.api.lifetime_exception import list_exceptions, add_exception, update_exception
 from rucio.common.exception import LifetimeExceptionNotFound, UnsupportedOperation, InvalidObject, RucioException, AccessDenied, LifetimeExceptionDuplicate
 from rucio.common.utils import generate_http_error_flask, APIEncoder
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, try_stream
 
 
 class LifetimeException(MethodView):
@@ -52,16 +55,18 @@ class LifetimeException(MethodView):
         :status 500: Internal Error.
         """
         try:
-            data = ""
-            for exception in list_exceptions(vo=request.environ.get('vo')):
-                data += dumps(exception, cls=APIEncoder) + '\n'
-            return Response(data, content_type="application/x-json-stream")
+            def generate(vo):
+                for exception in list_exceptions(vo=vo):
+                    yield dumps(exception, cls=APIEncoder) + '\n'
+
+            return try_stream(generate(vo=request.environ.get('vo')))
         except LifetimeExceptionNotFound as error:
             return generate_http_error_flask(404, 'LifetimeExceptionNotFound', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            return error, 500
+            print(format_exc())
+            return str(error), 500
 
     def post(self):
         """
@@ -108,7 +113,8 @@ class LifetimeException(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            return error, 500
+            print(format_exc())
+            return str(error), 500
         return Response(dumps(exception_id), status=201, content_type="application/json")
 
 
@@ -132,17 +138,18 @@ class LifetimeExceptionId(MethodView):
         :returns: List of exceptions.
         """
         try:
-            data = ""
-            for exception in list_exceptions(exception_id, vo=request.environ.get('vo')):
-                data += dumps(exception, cls=APIEncoder) + '\n'
+            def generate(vo):
+                for exception in list_exceptions(exception_id, vo=vo):
+                    yield dumps(exception, cls=APIEncoder) + '\n'
 
-            return Response(data, content_type="application/x-json-stream")
+            return try_stream(generate(vo=request.environ.get('vo')))
         except LifetimeExceptionNotFound as error:
             return generate_http_error_flask(404, 'LifetimeExceptionNotFound', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            return error, 500
+            print(format_exc())
+            return str(error), 500
 
     def put(self, exception_id):
         """
@@ -178,8 +185,9 @@ class LifetimeExceptionId(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            return error, 500
-        return "Created", 201
+            print(format_exc())
+            return str(error), 500
+        return 'Created', 201
 
 # ---------------------
 #   Web service startup
