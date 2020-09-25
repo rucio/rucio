@@ -53,6 +53,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import warnings
 import zlib
 from logging import getLogger, Formatter
 from logging.handlers import RotatingFileHandler
@@ -117,7 +118,9 @@ if EXTRA_MODULES['web']:
 
 if EXTRA_MODULES['paramiko']:
     try:
-        from paramiko import RSAKey
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            from paramiko import RSAKey
     except Exception:
         EXTRA_MODULES['paramiko'] = False
 
