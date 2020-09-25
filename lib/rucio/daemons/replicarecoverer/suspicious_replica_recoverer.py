@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,13 +15,13 @@
 # limitations under the License.
 #
 # Authors:
-#  - Cedric Serfon, <cedric.serfon@cern.ch>, 2018
-#  - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019
-#  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-#  - Martin Barisits, <martin.barisits@cern.ch>, 2019
-#  - Brandon White, <bjwhite@fnal.gov>, 2019
-#  - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# PY3K COMPATIBLE
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
 Suspicious-Replica-Recoverer is a daemon that declares suspicious replicas as bad if they are found available on other RSE.
@@ -29,30 +30,29 @@ Consequently, automatic replica recovery is triggered via necromancer daemon, wh
 
 from __future__ import print_function
 
-import os
-import threading
-import traceback
-import time
 import logging
+import os
 import socket
-from sys import stdout, argv
-from re import match
+import threading
+import time
+import traceback
 from datetime import datetime, timedelta
+from re import match
+from sys import stdout, argv
 
 from sqlalchemy.exc import DatabaseError
 
+import rucio.db.sqla.util
+from rucio.common.config import config_get, config_get_bool
+from rucio.common.exception import DatabaseException, VONotFound, InvalidRSEExpression
+from rucio.common.types import InternalAccount
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
 from rucio.core.replica import list_replicas, declare_bad_file_replicas, get_suspicious_files
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.vo import list_vos
-
 from rucio.db.sqla.constants import BadFilesStatus
 from rucio.db.sqla.util import get_db_time
-from rucio.common.config import config_get, config_get_bool
-from rucio.common.exception import DatabaseException, VONotFound, InvalidRSEExpression
-from rucio.common.types import InternalAccount
-
 
 logging.basicConfig(stream=stdout,
                     level=getattr(logging,
@@ -239,10 +239,11 @@ def declare_suspicious_replicas_bad(once=False, younger_than=3, nattempts=10, rs
 
 
 def run(once=False, younger_than=3, nattempts=10, rse_expression='MOCK', vos=None, max_replicas_per_rse=100):
-
     """
     Starts up the Suspicious-Replica-Recoverer threads.
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise DatabaseException('Database was not updated, daemon won\'t start')
 
     client_time, db_time = datetime.utcnow(), get_db_time()
     max_offset = timedelta(hours=1, seconds=10)

@@ -1,4 +1,5 @@
-# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,14 +16,15 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
-# - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
-# - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2018
+# - Wen Guan <wen.guan@cern.ch>, 2014-2016
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
-# - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - maatthias <maatthias@gmail.com>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
+# - Nick Smith <nick.smith@cern.ch>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -40,21 +42,23 @@ import sys
 import threading
 import time
 import traceback
-
 from collections import defaultdict
-try:
-    from ConfigParser import NoOptionError  # py2
-except Exception:
-    from configparser import NoOptionError  # py3
+
 from requests.exceptions import RequestException
 from sqlalchemy.exc import DatabaseError
 
+import rucio.db.sqla.util
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, TransferToolTimeout, TransferToolWrongAnswer
 from rucio.common.utils import chunks
 from rucio.core import heartbeat, transfer as transfer_core, request as request_core
 from rucio.core.monitor import record_timer, record_counter
 from rucio.db.sqla.constants import RequestState, RequestType
+
+try:
+    from ConfigParser import NoOptionError  # py2
+except Exception:
+    from configparser import NoOptionError  # py3
 
 
 logging.basicConfig(stream=sys.stdout,
@@ -179,6 +183,8 @@ def run(once=False, sleep_time=60, activities=None,
     """
     Starts up the conveyer threads.
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise DatabaseException('Database was not updated, daemon won\'t start')
 
     if activity_shares:
 

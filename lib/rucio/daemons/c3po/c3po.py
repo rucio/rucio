@@ -1,4 +1,5 @@
-# Copyright 2015-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +15,11 @@
 #
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2015-2017
-# - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2017-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 '''
 Dynamic data placement daemon.
@@ -28,27 +29,29 @@ import logging
 from datetime import datetime
 from hashlib import md5
 from json import dumps
-try:
-    from Queue import Queue
-except ImportError:
-    from queue import Queue
-from six import string_types
 from sys import stdout
-from time import sleep
 from threading import Event, Thread
+from time import sleep
 from uuid import uuid4
 
 from requests import post
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import RequestException
+from six import string_types
 
+import rucio.db.sqla.util
 from rucio.client import Client
+from rucio.common import exception
 from rucio.common.config import config_get, config_get_options
-from rucio.common.exception import RucioException
 from rucio.common.types import InternalScope
 from rucio.daemons.c3po.collectors.free_space import FreeSpaceCollector
 from rucio.daemons.c3po.collectors.jedi_did import JediDIDCollector
 from rucio.daemons.c3po.collectors.workload import WorkloadCollector
+
+try:
+    from Queue import Queue
+except ImportError:
+    from queue import Queue
 
 logging.basicConfig(stream=stdout,
                     level=getattr(logging,
@@ -256,7 +259,7 @@ def place_replica(once=False,
                         # DO IT!
                         try:
                             add_rule(client, {'scope': did[0].external, 'name': did[1]}, decision.get('source_rse'), decision.get('destination_rse'))
-                        except RucioException as e:
+                        except exception.RucioException as e:
                             logging.debug(e)
 
             w = 0
@@ -289,6 +292,9 @@ def run(once=False,
     """
     Starts up the main thread
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise exception.DatabaseException('Database was not updated, daemon won\'t start')
+
     logging.info('activating C-3PO')
 
     thread_list = []
@@ -327,5 +333,5 @@ def run(once=False,
 
         while len(thread_list) > 0:
             [t.join(timeout=3) for t in thread_list if t and t.isAlive()]
-    except Exception as exception:
-        logging.critical(exception)
+    except Exception as error:
+        logging.critical(error)

@@ -1,4 +1,5 @@
-# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2014-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,14 +16,15 @@
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2014
-# - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015
-# - Wen Guan <wguan.icedew@gmail.com>, 2015
-# - Cedric Serfon <cedric.serfon@cern,ch>, 2018
+# - Wen Guan <wen.guan@cern.ch>, 2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-#
-# PY3K COMPATIBLE
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
 This daemon consumes tracer messages from ActiveMQ and updates the atime for replicas.
@@ -31,14 +33,9 @@ This daemon consumes tracer messages from ActiveMQ and updates the atime for rep
 import logging
 import re
 import socket
-
 from datetime import datetime
 from json import loads as jloads, dumps as jdumps
 from os import getpid
-try:
-    from Queue import Queue  # py2
-except ImportError:
-    from queue import Queue  # py3
 from sys import stdout
 from threading import Event, Thread, current_thread
 from time import sleep, time
@@ -46,17 +43,24 @@ from traceback import format_exc
 
 from stomp import Connection
 
+import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_bool, config_get_int
-from rucio.common.exception import ConfigNotFound, RSENotFound
+from rucio.common.exception import ConfigNotFound, RSENotFound, DatabaseException
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.core.monitor import record_counter, record_timer
 from rucio.core.config import get
 from rucio.core.did import touch_dids, list_parent_dids
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.lock import touch_dataset_locks
+from rucio.core.monitor import record_counter, record_timer
 from rucio.core.replica import touch_replica, touch_collection_replicas, declare_bad_file_replicas
 from rucio.core.rse import get_rse_id
 from rucio.db.sqla.constants import DIDType, BadFilesStatus
+
+try:
+    from Queue import Queue  # py2
+except ImportError:
+    from queue import Queue  # py3
+
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
@@ -503,6 +507,9 @@ def run(once=False, threads=1, sleep_time_datasets=60, sleep_time_files=60):
     """
     Starts up the consumer threads
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise DatabaseException('Database was not updated, daemon won\'t start')
+
     logging.info('resolving brokers')
 
     brokers_alias = []

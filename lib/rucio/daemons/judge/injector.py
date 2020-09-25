@@ -1,4 +1,5 @@
-# Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,8 +21,6 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020
-#
-# PY3K COMPATIBLE
 
 """
 Judge-Injector is a daemon to asynchronously create replication rules
@@ -34,20 +33,20 @@ import sys
 import threading
 import time
 import traceback
-
 from copy import deepcopy
 from datetime import datetime, timedelta
-from re import match
 from random import randint
+from re import match
 
 from sqlalchemy.exc import DatabaseError
 
+import rucio.db.sqla.util
 from rucio.common.config import config_get
 from rucio.common.exception import (DatabaseException, RuleNotFound, RSEBlacklisted, RSEWriteBlocked,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientAccountLimit)
 from rucio.core.heartbeat import live, die, sanity_check
-from rucio.core.rule import inject_rule, get_injected_rules, update_rule
 from rucio.core.monitor import record_counter
+from rucio.core.rule import inject_rule, get_injected_rules, update_rule
 
 graceful_stop = threading.Event()
 
@@ -168,6 +167,8 @@ def run(once=False, threads=1):
     """
     Starts up the Judge-Injector threads.
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise DatabaseException('Database was not updated, daemon won\'t start')
 
     executable = 'judge-injector'
     hostname = socket.gethostname()

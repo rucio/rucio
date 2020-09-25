@@ -1,4 +1,5 @@
-# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2019-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,21 +14,22 @@
 # limitations under the License.
 #
 # Authors:
-# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
-#
-# PY3K COMPATIBLE
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 import logging
 import os
 import socket
+import sys
 import threading
 import time
-import sys
 
-from rucio.common.utils import get_thread_with_periodic_running_function
-from rucio.core.heartbeat import live, die, sanity_check
-from rucio.core.did import create_reports
+import rucio.db.sqla.util
+from rucio.common import exception
 from rucio.common.config import config_get
+from rucio.common.utils import get_thread_with_periodic_running_function
+from rucio.core.did import create_reports
+from rucio.core.heartbeat import live, die, sanity_check
 
 graceful_stop = threading.Event()
 
@@ -78,6 +80,9 @@ def run(once=False, threads=1):
     """
     Starts up the follower threads
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise exception.DatabaseException('Database was not updated, daemon won\'t start')
+
     hostname = socket.gethostname()
     sanity_check(executable='rucio-follower', hostname=hostname)
 
