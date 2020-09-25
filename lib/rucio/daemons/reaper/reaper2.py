@@ -1,4 +1,5 @@
-# Copyright 2016-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2016-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,8 +28,6 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
 
 '''
 Reaper is a daemon to manage file deletion.
@@ -38,23 +37,23 @@ from __future__ import print_function, division
 
 import logging
 import os
-import socket
 import random
+import socket
 import sys
 import threading
 import time
 import traceback
-
+from collections import OrderedDict
 from datetime import datetime, timedelta
 from math import ceil
 from operator import itemgetter
-from collections import OrderedDict
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 from prometheus_client import Counter
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
+import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (DatabaseException, RSENotFound, ConfigNotFound,
                                     ReplicaUnAvailable, ReplicaNotFound, ServiceUnavailable,
@@ -72,7 +71,6 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_evaluation_backlog
 from rucio.core.vo import list_vos
 from rucio.rse import rsemanager as rsemgr
-
 
 logging.getLogger("reaper").setLevel(logging.CRITICAL)
 
@@ -616,6 +614,9 @@ def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=N
     :param delay_seconds:      The delay to query replicas in BEING_DELETED state.
     :param sleep_time:         Time between two cycles.
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise DatabaseException('Database was not updated, daemon won\'t start')
+
     logging.info('main: starting processes')
 
     rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses, vos)

@@ -1,4 +1,5 @@
-# Copyright 2015-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,17 +14,16 @@
 # limitations under the License.
 #
 # Authors:
-# - Wen Guan <wguan.icedew@gmail.com>, 2015-2016
+# - Wen Guan <wen.guan@cern.ch>, 2015-2016
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2018
-# - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -43,13 +43,14 @@ import traceback
 
 import stomp
 
+import rucio.db.sqla.util
+from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.policy import get_policy
 from rucio.core import heartbeat, request
 from rucio.core.monitor import record_counter
 from rucio.core.transfer import set_transfer_update_time
 from rucio.db.sqla.constants import RequestState, FTSCompleteState
-
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
@@ -291,6 +292,8 @@ def run(once=False, total_threads=1, full_mode=False):
     """
     Starts up the receiver thread
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     logging.info('starting receiver thread')
     threads = [threading.Thread(target=receiver, kwargs={'id': i,

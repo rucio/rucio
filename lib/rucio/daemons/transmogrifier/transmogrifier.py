@@ -1,4 +1,5 @@
-# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,8 +29,6 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020
-#
-# PY3K COMPATIBLE
 
 import logging
 import os
@@ -37,21 +36,19 @@ import re
 import socket
 import threading
 import time
-
 from datetime import datetime
 from json import loads
 from math import exp
 from sys import exc_info, stdout
 from traceback import format_exception
 
-
-from rucio.db.sqla.constants import DIDType, SubscriptionState
+import rucio.db.sqla.util
+from rucio.common.config import config_get
 from rucio.common.exception import (DatabaseException, DataIdentifierNotFound, InvalidReplicationRule, DuplicateRule,
                                     RSEBlacklisted, RSEWriteBlocked, InvalidRSEExpression, InsufficientTargetRSEs,
                                     InsufficientAccountLimit, InputValidationError, RSEOverQuota,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
                                     StagingAreaRuleRequiresLifetime, SubscriptionWrongParameter, SubscriptionNotFound)
-from rucio.common.config import config_get
 from rucio.common.schema import validate_schema
 from rucio.common.utils import chunks
 from rucio.core import monitor, heartbeat
@@ -61,7 +58,7 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rse_selector import RSESelector
 from rucio.core.rule import add_rule, list_rules, get_rule
 from rucio.core.subscription import list_subscriptions, update_subscription
-
+from rucio.db.sqla.constants import DIDType, SubscriptionState
 
 logging.basicConfig(stream=stdout,
                     level=getattr(logging,
@@ -469,6 +466,8 @@ def run(threads=1, bulk=100, once=False, sleep_time=60):
     """
     Starts up the transmogrifier threads.
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise DatabaseException('Database was not updated, daemon won\'t start')
 
     if once:
         logging.info('Will run only one iteration in a single threaded mode')

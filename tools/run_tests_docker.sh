@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2017-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2017-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -92,15 +92,10 @@ if [ -f /tmp/rucio.db ]; then
     chmod 777 /tmp/rucio.db
 fi
 
-echo 'Running full alembic migration'
-alembic -c /opt/rucio/etc/alembic.ini downgrade base
+echo "Running full alembic migration"
+ALEMBIC_CONFIG="/opt/rucio/etc/alembic.ini" tools/alembic_migration.sh
 if [ $? != 0 ]; then
-    echo 'Failed to downgrade the database!'
-    exit 1
-fi
-alembic -c /opt/rucio/etc/alembic.ini upgrade head
-if [ $? != 0 ]; then
-    echo 'Failed to upgrade the database!'
+    echo 'Failed to run alembic migration!'
     exit 1
 fi
 

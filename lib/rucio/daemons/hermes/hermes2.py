@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # Copyright 2014-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,8 +23,6 @@
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 '''
    Hermes2 is a daemon that get the messages and sends them to external services (influxDB, ES, ActiveMQ).
@@ -43,21 +42,20 @@ import sys
 import threading
 import time
 import traceback
-
 from email.mime.text import MIMEText
-from six import PY2
-from prometheus_client import Counter
 
 import requests
 import stomp
+from prometheus_client import Counter
+from six import PY2
 
+import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_int, config_get_bool
+from rucio.common.exception import ConfigNotFound, DatabaseException
 from rucio.core import heartbeat
 from rucio.core.config import get
 from rucio.core.message import retrieve_messages, delete_messages, update_messages_services
 from rucio.core.monitor import record_counter
-from rucio.common.exception import ConfigNotFound
-
 
 logging.getLogger('requests').setLevel(logging.CRITICAL)
 
@@ -571,6 +569,8 @@ def run(once=False, threads=1, bulk=1000, sleep_time=10, broker_timeout=3):
     '''
     Starts up the hermes2 threads.
     '''
+    if rucio.db.sqla.util.is_old_db():
+        raise DatabaseException('Database was not updated, daemon won\'t start')
 
     logging.info('starting hermes2 threads')
     thread_list = [threading.Thread(target=hermes2, kwargs={'thread': cnt,
