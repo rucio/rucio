@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2013
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2020
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
@@ -380,7 +380,7 @@ class BaseClient(object):
                 else:
                     return
             except ConnectionError as error:
-                LOG.warning('ConnectionError: ' + str(error))
+                LOG.error('ConnectionError: ' + str(error))
                 if retry > self.request_retries:
                     raise
                 continue
@@ -416,7 +416,7 @@ class BaseClient(object):
                 result = self.session.get(url, headers=headers, verify=self.ca_cert)
                 break
             except ConnectionError as error:
-                LOG.warning('ConnectionError: ' + str(error))
+                LOG.error('ConnectionError: ' + str(error))
                 if retry > self.request_retries:
                     raise
 
@@ -496,7 +496,7 @@ class BaseClient(object):
 
                 break
             except RequestException:
-                LOG.warning('RequestException: %s', str(traceback.format_exc()))
+                LOG.error('RequestException: %s', str(traceback.format_exc()))
                 if retry > self.request_retries:
                     raise
 
@@ -611,7 +611,7 @@ class BaseClient(object):
 
                 break
             except RequestException:
-                LOG.warning('RequestException: %s', str(traceback.format_exc()))
+                LOG.error('RequestException: %s', str(traceback.format_exc()))
                 if retry > self.request_retries:
                     raise
 
@@ -677,7 +677,7 @@ class BaseClient(object):
             except ConnectionError as error:
                 if 'alert certificate expired' in str(error):
                     raise CannotAuthenticate(str(error))
-                LOG.warning('ConnectionError: ' + str(error))
+                LOG.error('ConnectionError: ' + str(error))
                 if retry > self.request_retries:
                     raise
 
@@ -722,7 +722,7 @@ class BaseClient(object):
             except ConnectionError as error:
                 if 'alert certificate expired' in str(error):
                     raise CannotAuthenticate(str(error))
-                LOG.warning('ConnectionError: ' + str(error))
+                LOG.error('ConnectionError: ' + str(error))
                 if retry > self.request_retries:
                     raise
 
@@ -755,7 +755,7 @@ class BaseClient(object):
             except ConnectionError as error:
                 if 'alert certificate expired' in str(error):
                     raise CannotAuthenticate(str(error))
-                LOG.warning('ConnectionError: ' + str(error))
+                LOG.error('ConnectionError: ' + str(error))
                 if retry > self.request_retries:
                     raise
 
@@ -791,7 +791,7 @@ class BaseClient(object):
                                           verify=self.ca_cert, auth=HTTPKerberosAuth())
                 break
             except ConnectionError as error:
-                LOG.warning('ConnectionError: ' + str(error))
+                LOG.error('ConnectionError: ' + str(error))
                 if retry > self.request_retries:
                     raise
 
@@ -832,7 +832,7 @@ class BaseClient(object):
                 result = self.session.get(url, headers=headers)
                 break
             except ConnectionError as error:
-                LOG.warning('ConnectionError: ' + str(error))
+                LOG.error('ConnectionError: ' + str(error))
                 if retry > self.request_retries:
                     raise
 
