@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,12 +24,16 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
 from __future__ import print_function
-from logging import getLogger, StreamHandler, DEBUG
+
 from json import dumps, loads
+from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
 
 from flask import Flask, Blueprint, request, Response
@@ -44,7 +49,7 @@ from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, Acce
                                     DuplicateRule, InvalidObject, AccountNotFound, RuleReplaceFailed, ScratchDiskLifetimeConflict,
                                     ManualRuleApprovalBlocked, UnsupportedOperation)
 from rucio.common.utils import generate_http_error_flask, render_json, APIEncoder
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, parse_scope_name, try_stream
 
 LOGGER = getLogger("rucio.rule")
 SH = StreamHandler()
@@ -69,8 +74,7 @@ class Rule(MethodView):
         """
         try:
             estimate_ttc = False
-            json_data = request.data
-            params = loads(json_data)
+            params = loads(request.data)
             if 'estimate_ttc' in params:
                 estimate_ttc = params['estimate_ttc']
         except ValueError:
@@ -82,7 +86,8 @@ class Rule(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            return error, 500
+            print(format_exc())
+            return str(error), 500
 
         return Response(render_json(**rule), content_type="application/json")
 
@@ -115,7 +120,7 @@ class Rule(MethodView):
             return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        return "OK", 200
+        return '', 200
 
     def delete(self, rule_id):
         """
@@ -145,8 +150,9 @@ class Rule(MethodView):
         except RuleNotFound as error:
             return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
         except Exception as error:
-            return error, 500
-        return "OK", 200
+            print(format_exc())
+            return str(error), 500
+        return '', 200
 
 
 class AllRule(MethodView):
@@ -166,21 +172,17 @@ class AllRule(MethodView):
         :status 406: Not Acceptable
         :query scope: The scope name.
         """
-        filters = {}
-        if request.args:
-            params = dict(request.args)
-            filters.update(params)
-
         try:
-            data = ""
-            for rule in list_replication_rules(filters=filters, vo=request.environ.get('vo')):
-                data += dumps(rule, cls=APIEncoder) + '\n'
-            return Response(data, content_type="application/x-json-stream")
+            def generate(filters, vo):
+                for rule in list_replication_rules(filters=filters, vo=vo):
+                    yield dumps(rule, cls=APIEncoder) + '\n'
+
+            return try_stream(generate(filters=dict(request.args.items(multi=False)), vo=request.environ.get('vo')))
         except RuleNotFound as error:
             return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
     def post(self):
         """
@@ -325,9 +327,8 @@ class AllRule(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(error)
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
         return Response(dumps(rule_ids), status=201)
 
@@ -347,17 +348,16 @@ class ReplicaLocks(MethodView):
         :returns: JSON dict containing informations about the requested user.
         """
         try:
-            locks = get_replica_locks_for_rule_id(rule_id)
+            def generate(vo):
+                for lock in get_replica_locks_for_rule_id(rule_id, vo=vo):
+                    yield render_json(**lock) + '\n'
+
+            return try_stream(generate(vo=request.environ.get('vo')))
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            return error, 500
-
-        data = ""
-        for lock in locks:
-            data += dumps(lock, cls=APIEncoder) + '\n'
-
-        return Response(data, content_type="application/x-json-stream")
+            print(format_exc())
+            return str(error), 500
 
 
 class ReduceRule(MethodView):
@@ -400,9 +400,8 @@ class ReduceRule(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(error)
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
         return Response(dumps(rule_ids), status=201)
 
@@ -442,9 +441,8 @@ class MoveRule(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(error)
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
         return Response(dumps(rule_ids), status=201)
 
@@ -465,56 +463,61 @@ class RuleHistory(MethodView):
         :returns: JSON dict containing informations about the requested user.
         """
         try:
-            history = list_replication_rule_history(rule_id, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            def generate(issuer, vo):
+                for history in list_replication_rule_history(rule_id, issuer=issuer, vo=vo):
+                    yield render_json(**history) + '\n'
+
+            return try_stream(generate(issuer=request.environ.get('issuer'), vo=request.environ.get('vo')))
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            return error, 500
-
-        data = ""
-        for hist in history:
-            data += dumps(hist, cls=APIEncoder) + '\n'
-        return Response(data, content_type="application/x-json-stream")
+            print(format_exc())
+            return str(error), 500
 
 
 class RuleHistoryFull(MethodView):
     """ REST APIs for rule history for DIDs. """
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
-    def get(self, scope, name):
+    def get(self, scope_name):
         """ get history for a given DID.
 
         .. :quickref: RuleHistoryFull; get rule history for DID
 
         :resheader Content-Type: application/x-json-stream
+        :param scope_name: data identifier (scope)/(name).
         :status 200: Rule found
         :status 406: Not Acceptable
         :status 500: Database Exception
         :returns: JSON dict containing informations about the requested user.
         """
         try:
-            history = list_replication_rule_full_history(scope, name, vo=request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name)
+
+            def generate(vo):
+                for history in list_replication_rule_full_history(scope, name, vo=vo):
+                    yield render_json(**history) + '\n'
+
+            return try_stream(generate(vo=request.environ.get('vo')))
+        except ValueError as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            return error, 500
-
-        data = ""
-        for hist in history:
-            data += dumps(hist, cls=APIEncoder) + '\n'
-        return Response(data, content_type="application/x-json-stream")
+            print(format_exc())
+            return str(error), 500
 
 
 class RuleAnalysis(MethodView):
     """ REST APIs for rule analysis. """
 
-    @check_accept_header_wrapper_flask(['application/x-json-stream'])
+    @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rule_id):
         """ get analysis for given rule.
 
         .. :quickref: RuleAnalysis; analyse rule,
 
-        :resheader Content-Type: application/x-json-stream
+        :resheader Content-Type: application/json
         :status 200: Rule found
         :status 406: Not Acceptable
         :status 500: Database Exception
@@ -522,12 +525,12 @@ class RuleAnalysis(MethodView):
         """
         try:
             analysis = examine_replication_rule(rule_id, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            return Response(render_json(**analysis), content_type='application/json')
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            return error, 500
-
-        return Response(render_json(**analysis), content_type="application/x-json-stream")
+            print(format_exc())
+            return str(error), 500
 
 
 """----------------------
@@ -545,11 +548,11 @@ bp.add_url_rule('/<rule_id>/locks', view_func=replica_locks_view, methods=['get'
 reduce_rule_view = ReduceRule.as_view('reduce_rule')
 bp.add_url_rule('/<rule_id>/reduce', view_func=reduce_rule_view, methods=['post', ])
 move_rule_view = MoveRule.as_view('move_rule')
-bp.add_url_rule('/<rule_id>/mode', view_func=move_rule_view, methods=['post', ])
+bp.add_url_rule('/<rule_id>/move', view_func=move_rule_view, methods=['post', ])
 rule_history_view = RuleHistory.as_view('rule_history')
 bp.add_url_rule('/<rule_id>/history', view_func=rule_history_view, methods=['get', ])
 rule_history_full_view = RuleHistoryFull.as_view('rule_history_full')
-bp.add_url_rule('/<scope>/<name>/history', view_func=rule_history_full_view, methods=['get', ])
+bp.add_url_rule('/<path:scope_name>/history', view_func=rule_history_full_view, methods=['get', ])
 rule_analysis_view = RuleAnalysis.as_view('rule_analysis')
 bp.add_url_rule('/<rule_id>/analysis', view_func=rule_analysis_view, methods=['get', ])
 

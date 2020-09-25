@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,10 +21,12 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
-from json import dumps, loads
+from json import loads, dumps
+from traceback import format_exc
 
 from flask import Flask, Blueprint, Response, request
 from flask.views import MethodView
@@ -31,8 +34,8 @@ from flask.views import MethodView
 from rucio.api.rule import list_replication_rules
 from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription, list_subscription_rule_states, get_subscription_by_id
 from rucio.common.exception import InvalidObject, RucioException, SubscriptionDuplicate, SubscriptionNotFound, RuleNotFound, AccessDenied
-from rucio.common.utils import generate_http_error_flask, APIEncoder, render_json
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
+from rucio.common.utils import generate_http_error_flask, render_json, APIEncoder
+from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, try_stream
 
 
 class Subscription(MethodView):
@@ -56,14 +59,16 @@ class Subscription(MethodView):
         :returns: Line separated list of dictionaries with subscription information.
         """
         try:
-            data = ""
-            for subscription in list_subscriptions(name=name, account=account, vo=request.environ.get('vo')):
-                data += dumps(subscription, cls=APIEncoder) + '\n'
-            return Response(data, content_type="application/x-json-stream")
+            def generate(vo):
+                for subscription in list_subscriptions(name=name, account=account, vo=vo):
+                    yield render_json(**subscription) + '\n'
+
+            return try_stream(generate(vo=request.environ.get('vo')))
         except SubscriptionNotFound as error:
             return generate_http_error_flask(404, 'SubscriptionNotFound', error.args[0])
         except Exception as error:
-            return error, 500
+            print(format_exc())
+            return str(error), 500
 
     def put(self, account, name):
         """
@@ -79,7 +84,7 @@ class Subscription(MethodView):
         :status 404: Subscription Not Found.
         :status 500: Internal Error.
         """
-        json_data = request.data
+        json_data = request.data.decode()
         try:
             params = loads(json_data)
             params = params['options']
@@ -104,8 +109,9 @@ class Subscription(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            return error, 500
-        return "Created", 201
+            print(format_exc())
+            return str(error), 500
+        return 'Created', 201
 
     def post(self, account, name):
         """
@@ -158,7 +164,8 @@ class Subscription(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            return error, 500
+            print(format_exc())
+            return str(error), 500
 
         return Response(subscription_id, status=201)
 
@@ -182,14 +189,16 @@ class SubscriptionName(MethodView):
         :returns: Line separated list of dictionaries with subscription information.
         """
         try:
-            data = ""
-            for subscription in list_subscriptions(name=name, vo=request.environ.get('vo')):
-                data += dumps(subscription, cls=APIEncoder) + '\n'
-            return Response(data, content_type="application/x-json-stream")
+            def generate(vo):
+                for subscription in list_subscriptions(name=name, vo=vo):
+                    yield render_json(**subscription) + '\n'
+
+            return try_stream(generate(vo=request.environ.get('vo')))
         except SubscriptionNotFound as error:
             return generate_http_error_flask(404, 'SubscriptionNotFound', error.args[0])
         except Exception as error:
-            return error, 500
+            print(format_exc())
+            return str(error), 500
 
 
 class Rules(MethodView):
@@ -215,15 +224,17 @@ class Rules(MethodView):
         state = request.args.get('state', None)
         try:
             subscriptions = [subscription['id'] for subscription in list_subscriptions(name=name, account=account, vo=request.environ.get('vo'))]
-            data = ""
-            if len(subscriptions) > 0:
-                if state:
-                    for rule in list_replication_rules({'subscription_id': subscriptions[0], 'state': state}, vo=request.environ.get('vo')):
-                        data += dumps(rule, cls=APIEncoder) + '\n'
-                else:
-                    for rule in list_replication_rules({'subscription_id': subscriptions[0]}, vo=request.environ.get('vo')):
-                        data += dumps(rule, cls=APIEncoder) + '\n'
-            return Response(data, content_type='application/x-json-stream')
+
+            def generate(vo):
+                if len(subscriptions) > 0:
+                    if state:
+                        for rule in list_replication_rules({'subscription_id': subscriptions[0], 'state': state}, vo=vo):
+                            yield render_json(**rule) + '\n'
+                    else:
+                        for rule in list_replication_rules({'subscription_id': subscriptions[0]}, vo=vo):
+                            yield render_json(**rule) + '\n'
+
+            return try_stream(generate(vo=request.environ.get('vo')))
         except RuleNotFound as error:
             return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
         except SubscriptionNotFound as error:
@@ -231,7 +242,8 @@ class Rules(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            return error, 500
+            print(format_exc())
+            return str(error), 500
 
 
 class States(MethodView):
@@ -253,14 +265,16 @@ class States(MethodView):
         :returns: Line separated list of dictionaries with rule information.
         """
         try:
-            data = ""
-            for row in list_subscription_rule_states(account=account, vo=request.environ.get('vo')):
-                data += dumps(row, cls=APIEncoder) + '\n'
-            return Response(data, content_type='application/x-json-stream')
+            def generate(vo):
+                for row in list_subscription_rule_states(account=account, vo=vo):
+                    yield dumps(row, cls=APIEncoder) + '\n'
+
+            return try_stream(generate(vo=request.environ.get('vo')))
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            return error, 500
+            print(format_exc())
+            return str(error), 500
 
 
 class SubscriptionId(MethodView):
@@ -288,7 +302,8 @@ class SubscriptionId(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            return error, 500
+            print(format_exc())
+            return str(error), 500
 
         return Response(render_json(**subscription), content_type="application/json")
 

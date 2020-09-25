@@ -1,29 +1,38 @@
 #!/usr/bin/env python
-# Copyright European Organization for Nuclear Research (CERN)
+# -*- coding: utf-8 -*-
+# Copyright 2014-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2020
-# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
-# - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019-2020
-# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 #
 # PY3K COMPATIBLE
-#
-# TO-DO !!! Remove passing data with account and other params to the functions
-# catch these from the webpy input() storage object
-# will allow to remove also lines around each use of select_account_name
 
 import re
 import sys
 from json import dumps, load
 from os.path import dirname, join
 from time import time
+
 from web import cookies, ctx, input, setcookie, template, seeother
 
 from rucio import version
@@ -32,7 +41,6 @@ from rucio.api.account import account_exists, get_account_info, list_account_att
 from rucio.common.config import config_get, config_get_bool
 from rucio.core import identity as identity_core, vo as vo_core
 from rucio.db.sqla.constants import AccountType, IdentityType
-
 
 if sys.version_info > (3, 0):
     long = int
@@ -45,7 +53,6 @@ try:
 except ImportError:
     import cgi
     escapefunc = cgi.escape
-
 
 try:
     from onelogin.saml2.auth import OneLogin_Saml2_Auth
@@ -80,12 +87,16 @@ MULTI_VO = config_get_bool('common', 'multi_vo', raise_exception=False, default=
 # excluded characters for injected JavaScript variables
 VARIABLE_VALUE_REGEX = re.compile(r"^[\w\- /=,.+*#()\[\]]*$", re.UNICODE)
 
+# TO-DO !!! Remove passing data with account and other params to the functions
+# catch these from the webpy input() storage object
+# will allow to remove also lines around each use of select_account_name
+
 
 def html_escape(s, quote=True):
     return escapefunc(s, quote)
 
 
-def prepare_webpy_request(request, data):
+def prepare_saml_request(request, data):
     """
     Prepare a webpy request for SAML
     :param request: webpy request object
@@ -443,7 +454,7 @@ def saml_auth(method, data=None):
     :returns: rendered final page or a page with error message
     """
     SAML_PATH = join(dirname(__file__), 'saml/')
-    req = prepare_webpy_request(ctx.env, dict(input()))
+    req = prepare_saml_request(ctx.env, dict(input()))
     samlauth = OneLogin_Saml2_Auth(req, custom_base_path=SAML_PATH)
     saml_user_data = cookies().get('saml-user-data')
     if not MULTI_VO:

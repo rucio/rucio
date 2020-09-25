@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2016-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,16 +16,21 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
 from __future__ import print_function
+
 from json import loads
 from traceback import format_exc
+
 from flask import Flask, Blueprint, request
 from flask.views import MethodView
 
@@ -61,14 +67,8 @@ class BulkDIDS(MethodView):
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
-        return "Created", 201
-
-
-class Compose(MethodView):
-
-    def POST(self):
-        return "Created", 201
+            return str(error), 500
+        return 'Created', 201
 
 
 """----------------------
@@ -78,6 +78,7 @@ bp = Blueprint('temporary_did', __name__)
 
 bulk_dids_view = BulkDIDS.as_view('bulk_dids')
 bp.add_url_rule('/', view_func=bulk_dids_view, methods=['post', ])
+# FIXME: replace with '' rule
 
 application = Flask(__name__)
 application.register_blueprint(bp)

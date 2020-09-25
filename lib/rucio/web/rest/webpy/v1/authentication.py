@@ -65,7 +65,7 @@ for extra_module in EXTRA_MODULES:
 if EXTRA_MODULES['onelogin']:
     from onelogin.saml2.auth import OneLogin_Saml2_Auth
     from web import cookies
-    from rucio.web.ui.common.utils import prepare_webpy_request
+    from rucio.web.ui.common.utils import prepare_saml_request
 
 URLS = (
     '/userpass', 'UserPass',
@@ -963,7 +963,7 @@ class SAML(RucioController):
 
         request = ctx.env
         data = dict(param_input())
-        req = prepare_webpy_request(request, data)
+        req = prepare_saml_request(request, data)
         auth = OneLogin_Saml2_Auth(req, custom_base_path=SAML_PATH)
 
         header('X-Rucio-SAML-Auth-URL', auth.login())
@@ -976,9 +976,7 @@ class SAML(RucioController):
             return "SAML not configured on the server side."
 
         SAML_PATH = config_get('saml', 'config_path')
-        request = ctx.env
-        data = dict(param_input())
-        req = prepare_webpy_request(request, data)
+        req = prepare_saml_request(ctx.env, dict(param_input()))
         auth = OneLogin_Saml2_Auth(req, custom_base_path=SAML_PATH)
 
         auth.process_response()
