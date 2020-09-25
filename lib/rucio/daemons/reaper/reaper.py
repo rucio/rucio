@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2019
 # - Wen Guan <wen.guan@cern.ch>, 2016
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -370,6 +370,7 @@ def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, gr
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 
+    logging.info('Reaper1 daemon will be deprecated and replaced by reaper2 with Rucio release 1.25 (~March 2021)!')
     logging.info('main: starting processes')
 
     multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
