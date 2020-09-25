@@ -13,8 +13,8 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2019
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -366,6 +366,10 @@ def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, gr
     :param vos: VOs on which to look for RSEs. Only used in multi-VO mode.
                 If None, we either use all VOs if run from "def", or the current VO otherwise.
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise DatabaseException('Database was not updated, daemon won\'t start')
+
+    logging.info('Reaper1 daemon will be deprecated and replaced by reaper2 with Rucio release 1.25 (~March 2021)!')
     logging.info('main: starting processes')
 
     multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
