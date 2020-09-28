@@ -686,12 +686,25 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
         dict_attributes = get_attributes(attributes)
 
-        # Check if the source and destination are blacklisted
+        # Check if the source and destination are blocked
         if source_rse_id in unavailable_read_rse_ids:
             continue
         if dest_rse_id in unavailable_write_rse_ids:
-            logging.warning('RSE %s is blacklisted for write. Will skip the submission of new jobs', dest_rse_name)
+            logging.warning('RSE %s is blocked for write. Will skip the submission of new jobs', dest_rse_name)
             continue
+
+        # parse source expression
+        source_replica_expression = dict_attributes.get('source_replica_expression', None)
+        if source_replica_expression:
+            try:
+                parsed_rses = parse_expression(source_replica_expression, session=session)
+            except InvalidRSEExpression as error:
+                logging.error("Invalid RSE exception %s: %s", source_replica_expression, str(error))
+                continue
+            else:
+                allowed_rses = [x['id'] for x in parsed_rses]
+                if source_rse_id not in allowed_rses:
+                    continue
 
         # Call the get_hops function to create a list of RSEs used for the transfer
         # In case the source_rse and the dest_rse are connected, the list contains only the destination RSE
@@ -740,19 +753,6 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         try:
             if rses and dest_rse_id not in rses:
                 continue
-
-            # parse source expression
-            source_replica_expression = dict_attributes.get('source_replica_expression', None)
-            if source_replica_expression:
-                try:
-                    parsed_rses = parse_expression(source_replica_expression, session=session)
-                except InvalidRSEExpression as error:
-                    logging.error("Invalid RSE exception %s: %s", source_replica_expression, str(error))
-                    continue
-                else:
-                    allowed_rses = [x['id'] for x in parsed_rses]
-                    if source_rse_id not in allowed_rses:
-                        continue
 
             # Get the source rse information
             if source_rse_id not in rses_info:
