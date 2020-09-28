@@ -21,7 +21,16 @@ suites:
       - postgres9
       - postgres12
       - sqlite
+    REST_BACKEND:
+      - webpy
+      - flask
   - id: client
     RDBMS: sqlite
+    REST_BACKEND:
+      - webpy
+      - flask
   - id: multi_vo
     RDBMS: postgres12
+    REST_BACKEND:
+      - webpy
+      - flask

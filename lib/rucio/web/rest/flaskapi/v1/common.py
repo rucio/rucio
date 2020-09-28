@@ -39,7 +39,7 @@ from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_http_error_flask, generate_uuid
 
 
-def before_request():
+def request_auth_env():
     if request.environ.get('REQUEST_METHOD') == 'OPTIONS':
         return '', 200
 
@@ -63,7 +63,7 @@ def before_request():
     request.environ['start_time'] = time()
 
 
-def after_request(response):
+def response_headers(response):
     response.headers['Access-Control-Allow-Origin'] = request.environ.get('HTTP_ORIGIN')
     response.headers['Access-Control-Allow-Headers'] = request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS')
     response.headers['Access-Control-Allow-Methods'] = '*'

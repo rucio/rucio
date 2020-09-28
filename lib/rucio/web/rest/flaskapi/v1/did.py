@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2018-2020 CERN
 #
@@ -51,7 +50,7 @@ from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     RSENotFound, RucioException, RuleNotFound,
                                     InvalidMetadata)
 from rucio.common.utils import generate_http_error_flask, render_json, APIEncoder, parse_response
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, parse_scope_name, try_stream
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, parse_scope_name, try_stream
 
 try:
     from urlparse import parse_qs
@@ -1390,62 +1389,57 @@ class Follow(MethodView):
         return '', 200
 
 
-bp = Blueprint('did', __name__)
+def blueprint():
+    bp = Blueprint('did', __name__, url_prefix='/dids')
 
-scope_view = Scope.as_view('scope')
-bp.add_url_rule('/<scope>/', view_func=scope_view, methods=['get', ])
-guid_lookup_view = GUIDLookup.as_view('guid_lookup')
-bp.add_url_rule('/<guid>/guid', view_func=guid_lookup_view, methods=['get', ])
-search_view = Search.as_view('search')
-bp.add_url_rule('/<scope>/dids/search', view_func=search_view, methods=['get', ])
-search_extended_view = SearchExtended.as_view('search_extended')
-bp.add_url_rule('/<scope>/dids/search_extended', view_func=search_extended_view, methods=['get', ])
-dids_view = DIDs.as_view('dids')
-bp.add_url_rule('/<path:scope_name>/status', view_func=dids_view, methods=['put', ])
-files_view = Files.as_view('files')
-bp.add_url_rule('/<path:scope_name>/files', view_func=files_view, methods=['get', ])
-attachment_history_view = AttachmentHistory.as_view('attachment_history')
-bp.add_url_rule('/<path:scope_name>/dids/history', view_func=attachment_history_view, methods=['get', ])
-attachment_view = Attachment.as_view('attachment')
-bp.add_url_rule('/<path:scope_name>/dids', view_func=attachment_view, methods=['get', 'post', 'delete'])
-meta_view = Meta.as_view('meta')
-bp.add_url_rule('/<path:scope_name>/meta/<key>', view_func=meta_view, methods=['post', ])
-bp.add_url_rule('/<path:scope_name>/meta', view_func=meta_view, methods=['get', 'delete'])
-rules_view = Rules.as_view('rules')
-bp.add_url_rule('/<path:scope_name>/rules', view_func=rules_view, methods=['get', ])
-parents_view = Parents.as_view('parents')
-bp.add_url_rule('/<path:scope_name>/parents', view_func=parents_view, methods=['get', ])
-associated_rules_view = AssociatedRules.as_view('associated_rules')
-bp.add_url_rule('/<path:scope_name>/associated_rules', view_func=associated_rules_view, methods=['get', ])
-follow_view = Follow.as_view('follow')
-bp.add_url_rule('/<path:scope_name>/follow', view_func=follow_view, methods=['get', 'post', 'delete'])
-bp.add_url_rule('/<path:scope_name>', view_func=dids_view, methods=['get', 'post'])
-bulkdids_view = BulkDIDS.as_view('bulkdids')
-# FIXME: should be ''
-bp.add_url_rule('/', view_func=bulkdids_view, methods=['post', ])
-sample_view = Sample.as_view('sample')
-bp.add_url_rule('/<input_scope>/<input_name>/<output_scope>/<output_name>/<nbfiles>/sample', view_func=sample_view, methods=['post', ])
-attachements_view = Attachments.as_view('attachments')
-bp.add_url_rule('/attachments', view_func=attachements_view, methods=['post', ])
-new_dids_view = NewDIDs.as_view('new_dids')
-bp.add_url_rule('/new', view_func=new_dids_view, methods=['get', ])
-resurrect_view = Resurrect.as_view('resurrect')
-bp.add_url_rule('/resurrect', view_func=resurrect_view, methods=['post', ])
-bulkmeta_view = BulkMeta.as_view('bulkmeta')
-bp.add_url_rule('/bulkmeta', view_func=bulkmeta_view, methods=['post', ])
+    scope_view = Scope.as_view('scope')
+    bp.add_url_rule('/<scope>/', view_func=scope_view, methods=['get', ])
+    guid_lookup_view = GUIDLookup.as_view('guid_lookup')
+    bp.add_url_rule('/<guid>/guid', view_func=guid_lookup_view, methods=['get', ])
+    search_view = Search.as_view('search')
+    bp.add_url_rule('/<scope>/dids/search', view_func=search_view, methods=['get', ])
+    search_extended_view = SearchExtended.as_view('search_extended')
+    bp.add_url_rule('/<scope>/dids/search_extended', view_func=search_extended_view, methods=['get', ])
+    dids_view = DIDs.as_view('dids')
+    bp.add_url_rule('/<path:scope_name>/status', view_func=dids_view, methods=['put', ])
+    files_view = Files.as_view('files')
+    bp.add_url_rule('/<path:scope_name>/files', view_func=files_view, methods=['get', ])
+    attachment_history_view = AttachmentHistory.as_view('attachment_history')
+    bp.add_url_rule('/<path:scope_name>/dids/history', view_func=attachment_history_view, methods=['get', ])
+    attachment_view = Attachment.as_view('attachment')
+    bp.add_url_rule('/<path:scope_name>/dids', view_func=attachment_view, methods=['get', 'post', 'delete'])
+    meta_view = Meta.as_view('meta')
+    bp.add_url_rule('/<path:scope_name>/meta/<key>', view_func=meta_view, methods=['post', ])
+    bp.add_url_rule('/<path:scope_name>/meta', view_func=meta_view, methods=['get', 'delete'])
+    rules_view = Rules.as_view('rules')
+    bp.add_url_rule('/<path:scope_name>/rules', view_func=rules_view, methods=['get', ])
+    parents_view = Parents.as_view('parents')
+    bp.add_url_rule('/<path:scope_name>/parents', view_func=parents_view, methods=['get', ])
+    associated_rules_view = AssociatedRules.as_view('associated_rules')
+    bp.add_url_rule('/<path:scope_name>/associated_rules', view_func=associated_rules_view, methods=['get', ])
+    follow_view = Follow.as_view('follow')
+    bp.add_url_rule('/<path:scope_name>/follow', view_func=follow_view, methods=['get', 'post', 'delete'])
+    bp.add_url_rule('/<path:scope_name>', view_func=dids_view, methods=['get', 'post'])
+    bulkdids_view = BulkDIDS.as_view('bulkdids')
+    bp.add_url_rule('', view_func=bulkdids_view, methods=['post', ])
+    sample_view = Sample.as_view('sample')
+    bp.add_url_rule('/<input_scope>/<input_name>/<output_scope>/<output_name>/<nbfiles>/sample', view_func=sample_view, methods=['post', ])
+    attachements_view = Attachments.as_view('attachments')
+    bp.add_url_rule('/attachments', view_func=attachements_view, methods=['post', ])
+    new_dids_view = NewDIDs.as_view('new_dids')
+    bp.add_url_rule('/new', view_func=new_dids_view, methods=['get', ])
+    resurrect_view = Resurrect.as_view('resurrect')
+    bp.add_url_rule('/resurrect', view_func=resurrect_view, methods=['post', ])
+    bulkmeta_view = BulkMeta.as_view('bulkmeta')
+    bp.add_url_rule('/bulkmeta', view_func=bulkmeta_view, methods=['post', ])
 
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/dids')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2014-2020 CERN
 #
@@ -30,7 +29,6 @@
 from __future__ import print_function
 
 from json import loads
-from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
 
 from flask import Flask, Blueprint, request
@@ -39,12 +37,7 @@ from flask.views import MethodView
 from rucio.api.account_limit import set_local_account_limit, delete_local_account_limit, set_global_account_limit, delete_global_account_limit
 from rucio.common.exception import RSENotFound, AccessDenied, AccountNotFound
 from rucio.common.utils import generate_http_error_flask
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
-
-LOGGER = getLogger("rucio.account_limit")
-SH = StreamHandler()
-SH.setLevel(DEBUG)
-LOGGER.addHandler(SH)
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers
 
 
 class LocalAccountLimit(MethodView):
@@ -181,26 +174,22 @@ class GlobalAccountLimit(MethodView):
         return '', 200
 
 
-bp = Blueprint('account_limit', __name__)
+def blueprint():
+    bp = Blueprint('account_limit', __name__, url_prefix='/accountlimits')
 
-local_account_limit_view = LocalAccountLimit.as_view('local_account_limit')
-bp.add_url_rule('/local/<account>/<rse>', view_func=local_account_limit_view, methods=['post', 'delete'])
-# removed for doc: bp.add_url_rule('/<account>/<rse>', view_func=local_account_limit_view, methods=['post', 'delete'])
-global_account_limit_view = GlobalAccountLimit.as_view('global_account_limit')
-bp.add_url_rule('/global/<account>/<rse_expression>', view_func=global_account_limit_view, methods=['post', 'delete'])
+    local_account_limit_view = LocalAccountLimit.as_view('local_account_limit')
+    bp.add_url_rule('/local/<account>/<rse>', view_func=local_account_limit_view, methods=['post', 'delete'])
+    # removed for doc:bp.add_url_rule('/<account>/<rse>', view_func=local_account_limit_view, methods=['post', 'delete'])
+    global_account_limit_view = GlobalAccountLimit.as_view('global_account_limit')
+    bp.add_url_rule('/global/<account>/<rse_expression>', view_func=global_account_limit_view, methods=['post', 'delete'])
 
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/accountlimits')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

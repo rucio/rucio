@@ -138,6 +138,9 @@ elif [ $RDBMS == "postgres12" ]; then
         docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/rucio_multi_vo_tst_postgres12.cfg /opt/rucio/etc/multi_vo/tst/etc/rucio.cfg
         docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/rucio_multi_vo_ts2_postgres12.cfg /opt/rucio/etc/multi_vo/ts2/etc/rucio.cfg
     fi
+    if [ "$REST_BACKEND" == "webpy" ]; then
+      docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO sed -i 's/WSGIScriptAlias \/  \/opt\/rucio\/lib\/rucio\/web\/rest\/flaskapi\/v1\/main\.py/Include \/opt\/rucio\/etc\/web\/aliases.conf/' /etc/httpd/conf.d/rucio.conf
+    fi
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/rucio_postgres12.cfg /opt/rucio/etc/rucio.cfg
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/alembic_postgres12.ini /opt/rucio/etc/alembic.ini
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO httpd -k restart

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2016-2020 CERN
 #
@@ -37,7 +36,7 @@ from flask.views import MethodView
 from rucio.api.temporary_did import (add_temporary_dids)
 from rucio.common.exception import RucioException
 from rucio.common.utils import generate_http_error_flask
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers
 
 
 class BulkDIDS(MethodView):
@@ -71,27 +70,19 @@ class BulkDIDS(MethodView):
         return 'Created', 201
 
 
-"""----------------------
-   Web service startup
-----------------------"""
-bp = Blueprint('temporary_did', __name__)
+def blueprint():
+    bp = Blueprint('temporary_did', __name__, url_prefix='/tmp_dids')
 
-bulk_dids_view = BulkDIDS.as_view('bulk_dids')
-bp.add_url_rule('/', view_func=bulk_dids_view, methods=['post', ])
-# FIXME: replace with '' rule
+    bulk_dids_view = BulkDIDS.as_view('bulk_dids')
+    bp.add_url_rule('', view_func=bulk_dids_view, methods=['post', ])
 
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/tmp_dids')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

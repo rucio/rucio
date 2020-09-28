@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2012-2020 CERN
 #
@@ -33,7 +32,6 @@
 from __future__ import print_function
 
 from json import dumps, loads
-from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
 
 from flask import Flask, Blueprint, request, Response
@@ -49,12 +47,7 @@ from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, Acce
                                     DuplicateRule, InvalidObject, AccountNotFound, RuleReplaceFailed, ScratchDiskLifetimeConflict,
                                     ManualRuleApprovalBlocked, UnsupportedOperation)
 from rucio.common.utils import generate_http_error_flask, render_json, APIEncoder
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, parse_scope_name, try_stream
-
-LOGGER = getLogger("rucio.rule")
-SH = StreamHandler()
-SH.setLevel(DEBUG)
-LOGGER.addHandler(SH)
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, parse_scope_name, try_stream
 
 
 class Rule(MethodView):
@@ -533,41 +526,33 @@ class RuleAnalysis(MethodView):
             return str(error), 500
 
 
-"""----------------------
-   Web service startup
-----------------------"""
+def blueprint():
+    bp = Blueprint('rule', __name__, url_prefix='/rules')
 
-bp = Blueprint('rule', __name__)
+    rule_view = Rule.as_view('rule')
+    bp.add_url_rule('/<rule_id>', view_func=rule_view, methods=['get', 'put', 'delete'])
+    all_rule_view = AllRule.as_view('all_rule')
+    bp.add_url_rule('/', view_func=all_rule_view, methods=['get', 'post'])
+    replica_locks_view = ReplicaLocks.as_view('replica_locks')
+    bp.add_url_rule('/<rule_id>/locks', view_func=replica_locks_view, methods=['get', ])
+    reduce_rule_view = ReduceRule.as_view('reduce_rule')
+    bp.add_url_rule('/<rule_id>/reduce', view_func=reduce_rule_view, methods=['post', ])
+    move_rule_view = MoveRule.as_view('move_rule')
+    bp.add_url_rule('/<rule_id>/move', view_func=move_rule_view, methods=['post', ])
+    rule_history_view = RuleHistory.as_view('rule_history')
+    bp.add_url_rule('/<rule_id>/history', view_func=rule_history_view, methods=['get', ])
+    rule_history_full_view = RuleHistoryFull.as_view('rule_history_full')
+    bp.add_url_rule('/<path:scope_name>/history', view_func=rule_history_full_view, methods=['get', ])
+    rule_analysis_view = RuleAnalysis.as_view('rule_analysis')
+    bp.add_url_rule('/<rule_id>/analysis', view_func=rule_analysis_view, methods=['get', ])
 
-rule_view = Rule.as_view('rule')
-bp.add_url_rule('/<rule_id>', view_func=rule_view, methods=['get', 'put', 'delete'])
-all_rule_view = AllRule.as_view('all_rule')
-bp.add_url_rule('/', view_func=all_rule_view, methods=['get', 'post'])
-replica_locks_view = ReplicaLocks.as_view('replica_locks')
-bp.add_url_rule('/<rule_id>/locks', view_func=replica_locks_view, methods=['get', ])
-reduce_rule_view = ReduceRule.as_view('reduce_rule')
-bp.add_url_rule('/<rule_id>/reduce', view_func=reduce_rule_view, methods=['post', ])
-move_rule_view = MoveRule.as_view('move_rule')
-bp.add_url_rule('/<rule_id>/move', view_func=move_rule_view, methods=['post', ])
-rule_history_view = RuleHistory.as_view('rule_history')
-bp.add_url_rule('/<rule_id>/history', view_func=rule_history_view, methods=['get', ])
-rule_history_full_view = RuleHistoryFull.as_view('rule_history_full')
-bp.add_url_rule('/<path:scope_name>/history', view_func=rule_history_full_view, methods=['get', ])
-rule_analysis_view = RuleAnalysis.as_view('rule_analysis')
-bp.add_url_rule('/<rule_id>/analysis', view_func=rule_analysis_view, methods=['get', ])
-
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/rules')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

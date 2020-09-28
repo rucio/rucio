@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2014-2020 CERN
 #
@@ -27,7 +26,6 @@
 # PY3K COMPATIBLE
 
 import json
-from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
 
 from flask import Flask, Blueprint, Response, request as f_request
@@ -38,17 +36,12 @@ from rucio.common.exception import RucioException
 from rucio.common.utils import generate_http_error_flask, APIEncoder, render_json
 from rucio.core.rse import get_rses_with_attribute_value, get_rse_name
 from rucio.db.sqla.constants import RequestState
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, parse_scope_name, try_stream
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, parse_scope_name, try_stream
 
 try:
     from urlparse import parse_qs
 except ImportError:
     from urllib.parse import parse_qs
-
-LOGGER = getLogger("rucio.request")
-SH = StreamHandler()
-SH.setLevel(DEBUG)
-LOGGER.addHandler(SH)
 
 
 class RequestGet(MethodView):
@@ -151,28 +144,21 @@ class RequestList(MethodView):
             return str(error), 500
 
 
-"""----------------------
-   Web service startup
-----------------------"""
+def blueprint():
+    bp = Blueprint('request', __name__, url_prefix='/requests')
 
-bp = Blueprint('request', __name__)
-request_get_view = RequestGet.as_view('request_get')
-bp.add_url_rule('/<path:scope_name>/<rse>', view_func=request_get_view, methods=['get', ])
-request_list_view = RequestList.as_view('request_list')
-bp.add_url_rule('/list', view_func=request_list_view, methods=['get', ])
+    request_get_view = RequestGet.as_view('request_get')
+    bp.add_url_rule('/<path:scope_name>/<rse>', view_func=request_get_view, methods=['get', ])
+    request_list_view = RequestList.as_view('request_list')
+    bp.add_url_rule('/list', view_func=request_list_view, methods=['get', ])
 
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/requests')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2012-2020 CERN
 #
@@ -33,7 +32,7 @@ from flask.views import MethodView
 
 from rucio.api.identity import (add_identity, add_account_identity,
                                 list_accounts_for_identity)
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask
 
 
 class UserPass(MethodView):
@@ -178,32 +177,25 @@ class Accounts(MethodView):
             return str(error), 500
 
 
-# ----------------------
-#   Web service startup
-# ----------------------
-bp = Blueprint('identity', __name__)
+def blueprint():
+    bp = Blueprint('identity', __name__, url_prefix='/identities')
 
-userpass_view = UserPass.as_view('userpass')
-bp.add_url_rule('/<account>/userpass', view_func=userpass_view, methods=['put', ])
-x509_view = X509.as_view('x509')
-bp.add_url_rule('/<account>/x509', view_func=x509_view, methods=['put', ])
-gss_view = GSS.as_view('gss')
-bp.add_url_rule('/<account>/gss', view_func=gss_view, methods=['put', ])
-accounts_view = Accounts.as_view('accounts')
-bp.add_url_rule('/<identity_key>/<type>/accounts', view_func=accounts_view, methods=['get', ])
+    userpass_view = UserPass.as_view('userpass')
+    bp.add_url_rule('/<account>/userpass', view_func=userpass_view, methods=['put', ])
+    x509_view = X509.as_view('x509')
+    bp.add_url_rule('/<account>/x509', view_func=x509_view, methods=['put', ])
+    gss_view = GSS.as_view('gss')
+    bp.add_url_rule('/<account>/gss', view_func=gss_view, methods=['put', ])
+    accounts_view = Accounts.as_view('accounts')
+    bp.add_url_rule('/<identity_key>/<type>/accounts', view_func=accounts_view, methods=['get', ])
 
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/identities')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

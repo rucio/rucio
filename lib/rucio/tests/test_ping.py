@@ -1,4 +1,5 @@
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,33 +22,21 @@
 
 import json
 
-from paste.fixture import TestApp
-
 from rucio.client.pingclient import PingClient
-from rucio.web.rest.ping import APP as ping_app
 
 
-class TestPing(object):
-    '''
-        class TestPing
-    '''
-    def test_rucio_ping(self):
-        """ RUCIO (REST): test a rucio ping """
-        options = []
-        result = TestApp(ping_app.wsgifunc(*options)).get('/', expect_errors=True)
-        assert result.status == 200
-        ret = json.loads(result.body.decode())
-        assert 'version' in ret
-        assert isinstance(ret, dict)
+def test_rucio_ping_rest(rest_client):
+    """ RUCIO (REST): test a rucio ping """
+    response = rest_client.get('/ping')
+    assert response.status_code == 200
+    ret = json.loads(response.get_data(as_text=True))
+    assert 'version' in ret
+    assert isinstance(ret, dict)
 
 
-class TestPingClient(object):
-    '''
-        class TestPingClient
-    '''
-    def test_rucio_ping(self):
-        """ RUCIO(CLIENTS): test a rucio ping """
-        client = PingClient()
-        ret = client.ping()
-        assert 'version' in ret
-        assert isinstance(ret, dict)
+def test_rucio_ping():
+    """ RUCIO (CLIENTS): test a rucio ping """
+    client = PingClient()
+    ret = client.ping()
+    assert 'version' in ret
+    assert isinstance(ret, dict)

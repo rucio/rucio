@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2017-2020 CERN
 #
@@ -27,7 +26,6 @@
 from __future__ import print_function
 
 from json import dumps
-from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
 
 from flask import Flask, Blueprint, request
@@ -35,11 +33,7 @@ from flask.views import MethodView
 
 from rucio.api.did import list_archive_content
 from rucio.common.utils import generate_http_error_flask
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, parse_scope_name, try_stream
-
-LOGGER, SH = getLogger("rucio.meta"), StreamHandler()
-SH.setLevel(DEBUG)
-LOGGER.addHandler(SH)
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, parse_scope_name, try_stream
 
 
 class Archive(MethodView):
@@ -74,26 +68,19 @@ class Archive(MethodView):
             return str(error), 500
 
 
-"""----------------------
-   Web service startup
-----------------------"""
+def blueprint():
+    bp = Blueprint('archive', __name__, url_prefix='/archives')
 
-bp = Blueprint('archive', __name__)
-archive_view = Archive.as_view('archive')
-bp.add_url_rule('/<path:scope_name>/files', view_func=archive_view, methods=['get', ])
+    archive_view = Archive.as_view('archive')
+    bp.add_url_rule('/<path:scope_name>/files', view_func=archive_view, methods=['get', ])
 
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/archives')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

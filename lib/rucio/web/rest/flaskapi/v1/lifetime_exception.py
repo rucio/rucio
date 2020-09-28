@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2016-2020 CERN
 #
@@ -34,7 +33,7 @@ from flask.views import MethodView
 from rucio.api.lifetime_exception import list_exceptions, add_exception, update_exception
 from rucio.common.exception import LifetimeExceptionNotFound, UnsupportedOperation, InvalidObject, RucioException, AccessDenied, LifetimeExceptionDuplicate
 from rucio.common.utils import generate_http_error_flask, APIEncoder
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, try_stream
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, try_stream
 
 
 class LifetimeException(MethodView):
@@ -189,30 +188,22 @@ class LifetimeExceptionId(MethodView):
             return str(error), 500
         return 'Created', 201
 
-# ---------------------
-#   Web service startup
-# ---------------------
 
+def blueprint():
+    bp = Blueprint('lifetime_exception', __name__, url_prefix='/lifetime_exceptions')
 
-bp = Blueprint('lifetime_exception', __name__)
+    lifetime_exception_view = LifetimeException.as_view('lifetime_exception')
+    bp.add_url_rule('/', view_func=lifetime_exception_view, methods=['get', 'post'])
+    lifetime_exception_id_view = LifetimeExceptionId.as_view('lifetime_exception_id')
+    bp.add_url_rule('/<exception_id>', view_func=lifetime_exception_id_view, methods=['get', 'put'])
 
-lifetime_exception_view = LifetimeException.as_view('lifetime_exception')
-bp.add_url_rule('/', view_func=lifetime_exception_view, methods=['get', 'post'])
-lifetime_exception_id_view = LifetimeExceptionId.as_view('lifetime_exception_id')
-bp.add_url_rule('/<exception_id>', view_func=lifetime_exception_id_view, methods=['get', 'put'])
-
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/lifetime_exceptions')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

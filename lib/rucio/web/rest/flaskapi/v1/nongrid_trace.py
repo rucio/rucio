@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2015-2020 CERN
 #
@@ -34,7 +33,7 @@ from werkzeug.datastructures import Headers
 
 from rucio.common.utils import generate_http_error_flask
 from rucio.core.nongrid_trace import trace
-from rucio.web.rest.flaskapi.v1.common import after_request
+from rucio.web.rest.flaskapi.v1.common import response_headers
 
 
 class XAODTrace(MethodView):
@@ -77,25 +76,18 @@ class XAODTrace(MethodView):
         return 'Created', 201, headers
 
 
-"""----------------------
-   Web service startup
-----------------------"""
-bp = Blueprint('nongrid_trace', __name__)
+def blueprint():
+    bp = Blueprint('nongrid_trace', __name__, url_prefix='/nongrid_traces')
 
-xaod_trace_view = XAODTrace.as_view('xaod_trace')
-bp.add_url_rule('/', view_func=xaod_trace_view, methods=['post', ])
+    xaod_trace_view = XAODTrace.as_view('xaod_trace')
+    bp.add_url_rule('/', view_func=xaod_trace_view, methods=['post', ])
 
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.after_request(after_request)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/nongrid_traces')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

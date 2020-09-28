@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2014-2020 CERN
 #
@@ -30,7 +29,6 @@
 from __future__ import print_function
 
 import itertools
-from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
 
 from flask import Flask, Blueprint, request, redirect
@@ -47,11 +45,6 @@ try:
     from urlparse import parse_qs
 except ImportError:
     from urllib.parse import parse_qs
-
-LOGGER = getLogger("rucio.rucio")
-SH = StreamHandler()
-SH.setLevel(DEBUG)
-LOGGER.addHandler(SH)
 
 
 class MetaLinkRedirector(MethodView):
@@ -322,27 +315,20 @@ class HeaderRedirector(MethodView):
             return str(error), 500, headers
 
 
-"""----------------------
-   Web service startup
-----------------------"""
-bp = Blueprint('redirect', __name__)
+def blueprint():
+    bp = Blueprint('redirect', __name__, url_prefix='/redirect')
 
-metalink_redirector_view = MetaLinkRedirector.as_view('metalink_redirector')
-bp.add_url_rule('/<path:scope_name>/metalink', view_func=metalink_redirector_view, methods=['get', ])
-header_redirector_view = HeaderRedirector.as_view('header_redirector')
-bp.add_url_rule('/<path:scope_name>', view_func=header_redirector_view, methods=['get', ])
-# removed for doc: bp.add_url_rule('/<path:scope_name>/', view_func=header_redirector_view, methods=['get', ])
+    metalink_redirector_view = MetaLinkRedirector.as_view('metalink_redirector')
+    bp.add_url_rule('/<path:scope_name>/metalink', view_func=metalink_redirector_view, methods=['get', ])
+    header_redirector_view = HeaderRedirector.as_view('header_redirector')
+    bp.add_url_rule('/<path:scope_name>', view_func=header_redirector_view, methods=['get', ])
+    # removed for doc: bp.add_url_rule('/<path:scope_name>/', view_func=header_redirector_view, methods=['get', ])
 
-application = Flask(__name__)
-application.register_blueprint(bp)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/redirect')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

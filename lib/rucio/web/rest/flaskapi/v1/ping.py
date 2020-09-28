@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2012-2020 CERN
 #
@@ -23,25 +22,15 @@
 #
 # PY3K COMPATIBLE
 
-from logging import getLogger, StreamHandler, DEBUG
-
 from flask import Flask, Blueprint, jsonify, request
 from flask.views import MethodView
 from werkzeug.datastructures import Headers
 
 from rucio import version
-from rucio.web.rest.flaskapi.v1.common import after_request, check_accept_header_wrapper_flask
-
-LOGGER = getLogger("rucio.rucio")
-SH = StreamHandler()
-SH.setLevel(DEBUG)
-LOGGER.addHandler(SH)
+from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask
 
 
 class Ping(MethodView):
-    '''
-    Ping class
-    '''
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
@@ -88,26 +77,19 @@ class Ping(MethodView):
         return response
 
 
-# ----------------------
-#   Web service startup
-# ----------------------
-bp = Blueprint('ping', __name__)
+def blueprint():
+    bp = Blueprint('ping', __name__, url_prefix='/ping')
 
-ping_view = Ping.as_view('ping')
-bp.add_url_rule('/', view_func=ping_view, methods=['get', ])
-# FIXME: Add '' rule
+    ping_view = Ping.as_view('ping')
+    bp.add_url_rule('', view_func=ping_view, methods=['get', ])
+    bp.add_url_rule('/', view_func=ping_view, methods=['get', ])
 
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.after_request(after_request)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
     """ Only used for sphinx documentation to add the prefix """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/ping')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

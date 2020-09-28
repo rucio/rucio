@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2013-2020 CERN
 #
@@ -55,7 +54,7 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
 from rucio.common.utils import generate_http_error_flask, parse_response, APIEncoder, render_json_list
 from rucio.db.sqla.constants import BadFilesStatus
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, try_stream, parse_scope_name
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, try_stream, parse_scope_name
 
 try:
     from urllib import unquote
@@ -1032,60 +1031,56 @@ class Tombstone(MethodView):
         return 'Created', 201
 
 
-bp = Blueprint('replica', __name__)
+def blueprint():
+    bp = Blueprint('replica', __name__, url_prefix='/replicas')
 
-list_replicas_view = ListReplicas.as_view('list_replicas')
-bp.add_url_rule('/list', view_func=list_replicas_view, methods=['post', ])
-# removed for doc: bp.add_url_rule('/list/', view_func=list_replicas_view, methods=['post', ])
-replicas_view = Replicas.as_view('replicas')
-bp.add_url_rule('/', view_func=replicas_view, methods=['post', 'put', 'delete'])
-# FIXME: Add '' rule
-suspicious_replicas_view = SuspiciousReplicas.as_view('suspicious_replicas')
-bp.add_url_rule('/suspicious', view_func=suspicious_replicas_view, methods=['post', ])
-# removed for doc: bp.add_url_rule('/suspicious/', view_func=suspicious_replicas_view, methods=['post', ])
-bad_replicas_states_view = BadReplicasStates.as_view('bad_replicas_states')
-bp.add_url_rule('/bad/states', view_func=bad_replicas_states_view, methods=['get', ])
-# removed for doc: bp.add_url_rule('/bad/states/', view_func=bad_replicas_states_view, methods=['get', ])
-bad_replicas_summary_view = BadReplicasSummary.as_view('bad_replicas_summary')
-bp.add_url_rule('/bad/summary', view_func=bad_replicas_summary_view, methods=['get', ])
-# removed for doc: bp.add_url_rule('/bad/summary/', view_func=bad_replicas_summary_view, methods=['get', ])
-bad_replicas_pfn_view = BadPFNs.as_view('add_bad_pfns')
-bp.add_url_rule('/bad/pfns', view_func=bad_replicas_pfn_view, methods=['post', ])
-# removed for doc: bp.add_url_rule('/bad/pfns/', view_func=bad_replicas_pfn_view, methods=['post', ])
-replicas_rse_view = ReplicasRSE.as_view('replicas_rse')
-bp.add_url_rule('/rse/<rse>', view_func=replicas_rse_view, methods=['get', ])
-# removed for doc: bp.add_url_rule('/rse/<rse>/', view_func=replicas_rse_view, methods=['get', ])
-bad_replicas_view = BadReplicas.as_view('bad_replicas')
-bp.add_url_rule('/bad', view_func=bad_replicas_view, methods=['post', ])
-# removed for doc: bp.add_url_rule('/bad/', view_func=bad_replicas_view, methods=['post', ])
-replicas_dids_view = ReplicasDIDs.as_view('replicas_dids')
-bp.add_url_rule('/dids', view_func=replicas_dids_view, methods=['post', ])
-# removed for doc: bp.add_url_rule('/dids/', view_func=replicas_dids_view, methods=['post', ])
-dataset_replicas_view = DatasetReplicas.as_view('dataset_replicas')
-bp.add_url_rule('/<path:scope_name>/datasets', view_func=dataset_replicas_view, methods=['get', ])
-dataset_replicas_bulk_view = DatasetReplicasBulk.as_view('dataset_replicas_bulk')
-bp.add_url_rule('/datasets_bulk', view_func=dataset_replicas_bulk_view, methods=['post', ])
-# removed for doc: bp.add_url_rule('/datasets_bulk/', view_func=dataset_replicas_bulk_view, methods=['post', ])
-dataset_replicas_vp_view = DatasetReplicasVP.as_view('dataset_replicas_vp')
-# removed for doc: bp.add_url_rule('/<path:scope_name>/datasets_vp', view_func=dataset_replicas_vp_view, methods=['get', ])
-bp.add_url_rule('/<path:scope_name>', view_func=replicas_view, methods=['get', ])
-# removed for doc: bp.add_url_rule('/<path:scope_name>/', view_func=replicas_view, methods=['get', ])
-set_tombstone_view = Tombstone.as_view('set_tombstone')
-bp.add_url_rule('/tombstone', view_func=set_tombstone_view, methods=['post', ])
-# removed for doc: bp.add_url_rule('/tombstone/', view_func=set_tombstone_view, methods=['post', ])
+    list_replicas_view = ListReplicas.as_view('list_replicas')
+    bp.add_url_rule('/list', view_func=list_replicas_view, methods=['post', ])
+    # removed for doc:bp.add_url_rule('/list/', view_func=list_replicas_view, methods=['post', ])
+    replicas_view = Replicas.as_view('replicas')
+    bp.add_url_rule('', view_func=replicas_view, methods=['post', 'put', 'delete'])
+    bp.add_url_rule('/', view_func=replicas_view, methods=['post', 'put', 'delete'])
+    suspicious_replicas_view = SuspiciousReplicas.as_view('suspicious_replicas')
+    bp.add_url_rule('/suspicious', view_func=suspicious_replicas_view, methods=['post', ])
+    # removed for doc:bp.add_url_rule('/suspicious/', view_func=suspicious_replicas_view, methods=['post', ])
+    bad_replicas_states_view = BadReplicasStates.as_view('bad_replicas_states')
+    bp.add_url_rule('/bad/states', view_func=bad_replicas_states_view, methods=['get', ])
+    # removed for doc:bp.add_url_rule('/bad/states/', view_func=bad_replicas_states_view, methods=['get', ])
+    bad_replicas_summary_view = BadReplicasSummary.as_view('bad_replicas_summary')
+    bp.add_url_rule('/bad/summary', view_func=bad_replicas_summary_view, methods=['get', ])
+    # removed for doc:bp.add_url_rule('/bad/summary/', view_func=bad_replicas_summary_view, methods=['get', ])
+    bad_replicas_pfn_view = BadPFNs.as_view('add_bad_pfns')
+    bp.add_url_rule('/bad/pfns', view_func=bad_replicas_pfn_view, methods=['post', ])
+    # removed for doc:bp.add_url_rule('/bad/pfns/', view_func=bad_replicas_pfn_view, methods=['post', ])
+    replicas_rse_view = ReplicasRSE.as_view('replicas_rse')
+    bp.add_url_rule('/rse/<rse>', view_func=replicas_rse_view, methods=['get', ])
+    # removed for doc:bp.add_url_rule('/rse/<rse>/', view_func=replicas_rse_view, methods=['get', ])
+    bad_replicas_view = BadReplicas.as_view('bad_replicas')
+    bp.add_url_rule('/bad', view_func=bad_replicas_view, methods=['post', ])
+    # removed for doc:bp.add_url_rule('/bad/', view_func=bad_replicas_view, methods=['post', ])
+    replicas_dids_view = ReplicasDIDs.as_view('replicas_dids')
+    bp.add_url_rule('/dids', view_func=replicas_dids_view, methods=['post', ])
+    # removed for doc:bp.add_url_rule('/dids/', view_func=replicas_dids_view, methods=['post', ])
+    dataset_replicas_view = DatasetReplicas.as_view('dataset_replicas')
+    bp.add_url_rule('/<path:scope_name>/datasets', view_func=dataset_replicas_view, methods=['get', ])
+    dataset_replicas_bulk_view = DatasetReplicasBulk.as_view('dataset_replicas_bulk')
+    bp.add_url_rule('/datasets_bulk', view_func=dataset_replicas_bulk_view, methods=['post', ])
+    # removed for doc:bp.add_url_rule('/datasets_bulk/', view_func=dataset_replicas_bulk_view, methods=['post', ])
+    # dataset_replicas_vp_view = DatasetReplicasVP.as_view('dataset_replicas_vp')
+    # removed for doc:bp.add_url_rule('/<path:scope_name>/datasets_vp', view_func=dataset_replicas_vp_view, methods=['get', ])
+    bp.add_url_rule('/<path:scope_name>', view_func=replicas_view, methods=['get', ])
+    # removed for doc:bp.add_url_rule('/<path:scope_name>/', view_func=replicas_view, methods=['get', ])
+    set_tombstone_view = Tombstone.as_view('set_tombstone')
+    bp.add_url_rule('/tombstone', view_func=set_tombstone_view, methods=['post', ])
+    # removed for doc: bp.add_url_rule('/tombstone/', view_func=set_tombstone_view, methods=['post', ])
 
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/replicas')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,10 +30,9 @@
 # PY3K COMPATIBLE
 
 import unittest
-from json import dumps, loads
+from json import loads
 
 import pytest
-from paste.fixture import TestApp
 
 from rucio.api.account import add_account, account_exists, del_account, update_account, get_account_info
 from rucio.client.accountclient import AccountClient
@@ -44,9 +43,7 @@ from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import list_identities, add_account_attribute, list_account_attributes
 from rucio.core.identity import add_account_identity, add_identity
 from rucio.db.sqla.constants import AccountStatus, IdentityType
-from rucio.tests.common import account_name_generator
-from rucio.web.rest.account import APP as account_app
-from rucio.web.rest.authentication import APP as auth_app
+from rucio.tests.common import account_name_generator, headers, auth, vohdr, loginhdr
 
 
 class TestAccountCoreApi(unittest.TestCase):
@@ -100,302 +97,177 @@ class TestAccountCoreApi(unittest.TestCase):
             add_account_attribute(account, key, value)
 
 
-class TestAccountRestApi(unittest.TestCase):
-    def setUp(self):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
-            self.vo_header = {'X-Rucio-VO': self.vo['vo']}
-        else:
-            self.vo = {}
-            self.vo_header = {}
+def test_create_user_success(rest_client, auth_token):
+    """ ACCOUNT (REST): send a POST to create a new user """
+    acntusr = account_name_generator()
+    data = {'type': 'USER', 'email': 'rucio@email.com'}
+    response = rest_client.post('/accounts/' + acntusr, headers=headers(auth(auth_token)), json=data)
+    assert response.status_code == 201
 
-    def test_create_user_success(self):
-        """ ACCOUNT (REST): send a POST to create a new user """
-        mw = []
 
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+def test_create_user_failure(rest_client, auth_token):
+    """ ACCOUNT (REST): send a POST with an existing user to test the error case """
+    data = {'type': 'USER', 'email': 'rucio@email.com'}
+    response = rest_client.post('/accounts/jdoe', headers=headers(auth(auth_token)), json=data)
+    assert response.status_code in (201, 409)
+    response = rest_client.post('/accounts/jdoe', headers=headers(auth(auth_token)), json=data)
+    assert response.status_code == 409
 
-        assert res1.status == 200
-        token = str(res1.header('X-Rucio-Auth-Token'))
 
-        acntusr = account_name_generator()
-        headers2 = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'type': 'USER', 'email': 'rucio@email.com'})
-        res2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
-        assert res2.status == 201
+def test_create_user_non_json_body(rest_client, auth_token):
+    """ ACCOUNT (REST): send a POST with a non json body"""
+    response = rest_client.post('/accounts/testuser', headers=headers(auth(auth_token)), data="unfug")
+    assert response.status_code == 400
+    assert response.headers.get('ExceptionClass') == 'ValueError'
+    assert loads(response.get_data(as_text=True)) == {"ExceptionMessage": "cannot decode json parameter dictionary", "ExceptionClass": "ValueError"}
 
-    def test_create_user_failure(self):
-        """ ACCOUNT (REST): send a POST with an existing user to test the error case """
-        mw = []
 
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+def test_create_user_missing_parameter(rest_client, auth_token):
+    """ ACCOUNT (REST): send a POST with a missing parameter"""
+    response = rest_client.post('/accounts/account', headers=headers(auth(auth_token)), json={})
+    assert response.status_code == 400
+    assert response.headers.get('ExceptionClass') == 'KeyError'
+    assert loads(response.get_data(as_text=True)) == {"ExceptionMessage": "\'type\' not defined", "ExceptionClass": "KeyError"}
 
-        assert res1.status == 200
-        token = str(res1.header('X-Rucio-Auth-Token'))
 
-        headers = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'type': 'USER', 'email': 'rucio@email.com'})
-        res1 = TestApp(account_app.wsgifunc(*mw)).post('/jdoe', headers=headers, params=data, expect_errors=True)
-        res1 = TestApp(account_app.wsgifunc(*mw)).post('/jdoe', headers=headers, params=data, expect_errors=True)
+def test_create_user_not_json_dict(rest_client, auth_token):
+    """ ACCOUNT (REST): send a POST with a non dictionary json body"""
+    data = ('account', 'account')
+    response = rest_client.post('/accounts/testaccount', headers=headers(auth(auth_token)), json=data)
+    assert response.status_code == 400
+    assert response.headers.get('ExceptionClass') == 'TypeError'
+    assert loads(response.get_data(as_text=True)) == {"ExceptionMessage": "body must be a json dictionary", "ExceptionClass": "TypeError"}
 
-        assert res1.status == 409
 
-    def test_create_user_non_json_body(self):
-        """ ACCOUNT (REST): send a POST with a non json body"""
-        mw = []
-        headers = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers.update(self.vo_header)
-        res = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
-        assert res.status == 200
-        token = str(res.header('X-Rucio-Auth-Token'))
+def test_get_user_success(rest_client, auth_token):
+    """ ACCOUNT (REST): send a GET to retrieve the infos of the new user """
+    acntusr = account_name_generator()
+    data = {'type': 'USER', 'email': 'rucio@email.com'}
+    response = rest_client.post('/accounts/' + acntusr, headers=headers(auth(auth_token)), json=data)
+    assert response.status_code == 201
 
-        headers = {'X-Rucio-Auth-Token': str(token)}
-        data = {'type': 'USER'}
-        ret = TestApp(account_app.wsgifunc(*mw)).post('/testuser', headers=headers, params=data, expect_errors=True)
+    response = rest_client.get('/accounts/' + acntusr, headers=headers(auth(auth_token)))
+    assert response.status_code == 200
+    body = loads(response.get_data(as_text=True))
+    assert body['account'] == acntusr
 
-        assert ret.header('ExceptionClass') == 'ValueError'
-        assert loads(ret.normal_body.decode()) == {"ExceptionMessage": "cannot decode json parameter dictionary", "ExceptionClass": "ValueError"}
-        assert ret.status == 400
 
-    def test_create_user_missing_parameter(self):
-        """ ACCOUNT (REST): send a POST with a missing parameter"""
-        mw = []
-        headers = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers.update(self.vo_header)
-        res = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
-        assert res.status == 200
-        token = str(res.header('X-Rucio-Auth-Token'))
+def test_get_user_failure(rest_client, auth_token):
+    """ ACCOUNT (REST): send a GET with a wrong user test the error """
+    reponse = rest_client.get('/accounts/wronguser', headers=headers(auth(auth_token)))
+    assert reponse.status_code == 404
 
-        headers = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({})
-        ret = TestApp(account_app.wsgifunc(*mw)).post('/account', headers=headers, params=data, expect_errors=True)
 
-        assert ret.header('ExceptionClass') == 'KeyError'
-        assert loads(ret.normal_body.decode()) == {"ExceptionMessage": "\'type\' not defined", "ExceptionClass": "KeyError"}
-        assert ret.status == 400
+def test_del_user_success(rest_client, auth_token):
+    """ ACCOUNT (REST): send a DELETE to disable the new user """
+    acntusr = account_name_generator()
+    data = {'type': 'USER', 'email': 'rucio@email.com'}
+    response = rest_client.post('/accounts/' + acntusr, headers=headers(auth(auth_token)), json=data)
+    assert response.status_code == 201
 
-    def test_create_user_not_json_dict(self):
-        """ ACCOUNT (REST): send a POST with a non dictionary json body"""
-        mw = []
-        headers = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers.update(self.vo_header)
-        res = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers, expect_errors=True)
-        assert res.status == 200
-        token = str(res.header('X-Rucio-Auth-Token'))
+    response = rest_client.delete('/accounts/' + acntusr, headers=headers(auth(auth_token)))
+    assert response.status_code == 200
 
-        headers = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps(('account', 'account'))
-        res = TestApp(account_app.wsgifunc(*mw)).post('/testaccount', headers=headers, params=data, expect_errors=True)
+    response = rest_client.get('/accounts/' + acntusr, headers=headers(auth(auth_token)))
+    assert response.status_code == 200
+    body = loads(response.get_data(as_text=True))
+    assert body['status'] == AccountStatus.DELETED.description  # pylint: disable=no-member
 
-        assert res.header('ExceptionClass') == 'TypeError'
-        assert loads(res.normal_body.decode()) == {"ExceptionMessage": "body must be a json dictionary", "ExceptionClass": "TypeError"}
-        assert res.status == 400
 
-    def test_get_user_success(self):
-        """ ACCOUNT (REST): send a GET to retrieve the infos of the new user """
-        mw = []
+def test_del_user_failure(rest_client, auth_token):
+    """ ACCOUNT (REST): send a DELETE with a wrong user to test the error """
+    response = rest_client.delete('/accounts/wronguser', headers=headers(auth(auth_token)))
+    assert response.status_code == 404
 
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        assert res1.status == 200
-        token = str(res1.header('X-Rucio-Auth-Token'))
 
-        acntusr = account_name_generator()
-        headers2 = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'type': 'USER', 'email': 'rucio@email.com'})
-        res2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
-        assert res2.status == 201
+def test_whoami_account(rest_client, auth_token):
+    """ ACCOUNT (REST): Test the whoami method."""
+    response = rest_client.get('/accounts/whoami', headers=headers(auth(auth_token)))
+    assert response.status_code == 303
 
-        headers3 = {'X-Rucio-Auth-Token': str(token)}
-        res3 = TestApp(account_app.wsgifunc(*mw)).get('/' + acntusr, headers=headers3, expect_errors=True)
-        body = loads(res3.body.decode())
-        assert body['account'] == acntusr
-        assert res3.status == 200
 
-    def test_get_user_failure(self):
-        """ ACCOUNT (REST): send a GET with a wrong user test the error """
-        mw = []
+def test_add_attribute(rest_client, auth_token):
+    """ ACCOUNT (REST): add/get/delete attribute."""
+    acntusr = account_name_generator()
+    data = {'type': 'USER', 'email': 'rucio@email.com'}
+    response = rest_client.post('/accounts/' + acntusr, headers=headers(auth(auth_token)), json=data)
+    assert response.status_code == 201
 
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        assert res1.status == 200
-        token = str(res1.header('X-Rucio-Auth-Token'))
+    key = account_name_generator()
+    value = "true"
+    data = {'key': key, 'value': value}
+    response = rest_client.post('/accounts/{0}/attr/{1}'.format(acntusr, key), headers=headers(auth(auth_token)), json=data)
+    assert response.status_code == 201
 
-        headers2 = {'X-Rucio-Auth-Token': token}
-        res2 = TestApp(account_app.wsgifunc(*mw)).get('/wronguser', headers=headers2, expect_errors=True)
-        assert res2.status == 404
+    response = rest_client.get('/accounts/' + acntusr + '/attr/', headers=headers(auth(auth_token)))
+    assert response.status_code == 200
 
-    def test_del_user_success(self):
-        """ ACCOUNT (REST): send a DELETE to disable the new user """
-        mw = []
+    response = rest_client.delete('/accounts/{0}/attr/{1}'.format(acntusr, key), headers=headers(auth(auth_token)), json=data)
+    assert response.status_code == 200
 
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        assert res1.status == 200
-        token = str(res1.header('X-Rucio-Auth-Token'))
 
-        acntusr = account_name_generator()
-        headers2 = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'type': 'USER', 'email': 'rucio@email.com'})
-        res2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
-        assert res2.status == 201
+def test_update_account(rest_client, auth_token):
+    """ ACCOUNT (REST): send a PUT to update an account."""
+    acntusr = account_name_generator()
+    data = {'type': 'USER', 'email': 'rucio@email.com'}
+    response = rest_client.post('/accounts/' + acntusr, headers=headers(auth(auth_token)), json=data)
+    assert response.status_code == 201
 
-        headers3 = {'X-Rucio-Auth-Token': str(token)}
-        res3 = TestApp(account_app.wsgifunc(*mw)).delete('/' + acntusr, headers=headers3, expect_errors=True)
-        assert res3.status == 200
+    data = {'status': 'SUSPENDED', 'email': 'test'}
+    response = rest_client.put('/accounts/' + acntusr, headers=headers(auth(auth_token)), json=data)
+    assert response.status_code == 200
 
-        headers4 = {'X-Rucio-Auth-Token': str(token)}
-        res4 = TestApp(account_app.wsgifunc(*mw)).get('/' + acntusr, headers=headers4, expect_errors=True)
-        body = loads(res4.body.decode())
-        assert body['status'] == AccountStatus.DELETED.description  # pylint: disable=no-member
-        assert res3.status == 200
+    response = rest_client.get('/accounts/' + acntusr, headers=headers(auth(auth_token)))
+    assert response.status_code == 200
+    body = loads(response.get_data(as_text=True))
+    assert body['status'] == 'SUSPENDED'
+    assert body['email'] == 'test'
 
-    def test_del_user_failure(self):
-        """ ACCOUNT (REST): send a DELETE with a wrong user to test the error """
-        mw = []
 
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        assert res1.status == 200
-        token = str(res1.header('X-Rucio-Auth-Token'))
+def test_delete_identity_of_account(vo, rest_client):
+    """ ACCOUNT (REST): send a DELETE to remove an identity of an account."""
+    account = account_name_generator()
+    identity = uuid()
+    password = 'secret'
+    add_account(account, 'USER', 'rucio@email.com', 'root', vo=vo)
+    add_identity(identity, IdentityType.USERPASS, 'email@email.com', password)
+    add_account_identity(identity, IdentityType.USERPASS, InternalAccount(account, vo=vo), 'email@email.com')
+    auth_response = rest_client.get('/auth/userpass', headers=headers(loginhdr(account, identity, password), vohdr(vo)))
+    assert auth_response.status_code == 200
+    assert 'X-Rucio-Auth-Token' in auth_response.headers
+    token = str(auth_response.headers.get('X-Rucio-Auth-Token'))
+    assert len(token) != 0
 
-        headers2 = {'X-Rucio-Auth-Token': str(token)}
-        res2 = TestApp(account_app.wsgifunc(*mw)).delete('/wronguser', headers=headers2, expect_errors=True)
-        assert res2.status == 404
+    # normal deletion
+    data = {'authtype': 'USERPASS', 'identity': identity}
+    response = rest_client.delete('/accounts/' + account + '/identities', headers=headers(auth(token)), json=data)
+    assert response.status_code == 200
 
-    def test_whoami_account(self):
-        """ ACCOUNT (REST): Test the whoami method."""
-        mw = []
+    # unauthorized deletion
+    other_account = account_name_generator()
+    data = {'authtype': 'USERPASS', 'identity': identity}
+    response = rest_client.delete('/accounts/' + other_account + '/identities', headers=headers(auth(token)), json=data)
+    assert response.status_code == 401
 
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
 
-        assert res1.status == 200
-        token = str(res1.header('X-Rucio-Auth-Token'))
+def test_add_identity_to_account(rest_client, auth_token):
+    """ ACCOUNT (REST): send a POST to add an identity to an account."""
+    identity = uuid()
 
-        headers2 = {'X-Rucio-Auth-Token': str(token)}
-        res2 = TestApp(account_app.wsgifunc(*mw)).get('/whoami', headers=headers2, expect_errors=True)
-        assert res2.status == 303
+    # normal addition
+    data = {'authtype': 'USERPASS', 'email': 'rucio@email.com', 'password': 'password', 'identity': identity}
+    response = rest_client.post('/accounts/root/identities', headers=headers(auth(auth_token)), json=data)
+    assert response.status_code == 201
 
-    def test_add_attribute(self):
-        """ ACCOUNT (REST): add/get/delete attribute."""
-        mw = []
+    # duplicate identity
+    response = rest_client.post('/accounts/root/identities', headers=headers(auth(auth_token)), json=data)
+    assert response.status_code == 409
 
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-
-        assert res1.status == 200
-        token = str(res1.header('X-Rucio-Auth-Token'))
-
-        acntusr = account_name_generator()
-        headers2 = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'type': 'USER', 'email': 'rucio@email.com'})
-        res2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
-        assert res2.status == 201
-
-        key = account_name_generator()
-        value = "true"
-        data = dumps({'key': key, 'value': value})
-        res3 = TestApp(account_app.wsgifunc(*mw)).post('/{0}/attr/{1}'.format(acntusr, key), headers=headers2, params=data, expect_errors=True)
-        assert res3.status == 201
-
-        res4 = TestApp(account_app.wsgifunc(*mw)).get('/' + acntusr + '/attr/', headers=headers2, expect_errors=True)
-        assert res4.status == 200
-
-        res5 = TestApp(account_app.wsgifunc(*mw)).delete('/{0}/attr/{1}'.format(acntusr, key), headers=headers2, params=data, expect_errors=True)
-        assert res5.status == 200
-
-    def test_update_account(self):
-        """ ACCOUNT (REST): send a PUT to update an account."""
-        mw = []
-
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        assert res1.status == 200
-        token = str(res1.header('X-Rucio-Auth-Token'))
-
-        acntusr = account_name_generator()
-        headers2 = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'type': 'USER', 'email': 'rucio@email.com'})
-        res2 = TestApp(account_app.wsgifunc(*mw)).post('/' + acntusr, headers=headers2, params=data, expect_errors=True)
-        assert res2.status == 201
-
-        data = dumps({'status': 'SUSPENDED', 'email': 'test'})
-        headers3 = {'X-Rucio-Auth-Token': str(token)}
-        res3 = TestApp(account_app.wsgifunc(*mw)).put('/' + acntusr, headers=headers3, params=data, expect_errors=True)
-        assert res3.status == 200
-
-        headers4 = {'X-Rucio-Auth-Token': str(token)}
-        res4 = TestApp(account_app.wsgifunc(*mw)).get('/' + acntusr, headers=headers4, expect_errors=True)
-        body = loads(res4.body.decode())
-        assert body['status'] == 'SUSPENDED'
-        assert body['email'] == 'test'
-        assert res4.status == 200
-
-    def test_delete_identity_of_account(self):
-        """ ACCOUNT (REST): send a DELETE to remove an identity of an account."""
-        mw = []
-        account = account_name_generator()
-        identity = uuid()
-        password = 'secret'
-        add_account(account, 'USER', 'rucio@email.com', 'root', **self.vo)
-        add_identity(identity, IdentityType.USERPASS, 'email@email.com', password)
-        add_account_identity(identity, IdentityType.USERPASS, InternalAccount(account, **self.vo), 'email@email.com')
-        headers1 = {'X-Rucio-Account': account, 'X-Rucio-Username': identity, 'X-Rucio-Password': password}
-        headers1.update(self.vo_header)
-        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        token = str(res1.header('X-Rucio-Auth-Token'))
-
-        # normal deletion
-        headers2 = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'authtype': 'USERPASS', 'identity': identity})
-        res2 = TestApp(account_app.wsgifunc(*mw)).delete('/' + account + '/identities', headers=headers2, params=data, expect_errors=True)
-        assert res2.status == 200
-
-        # unauthorized deletion
-        other_account = account_name_generator()
-        headers2 = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'authtype': 'USERPASS', 'identity': identity})
-        res2 = TestApp(account_app.wsgifunc(*mw)).delete('/' + other_account + '/identities', headers=headers2, params=data, expect_errors=True)
-        assert res2.status == 401
-
-    def test_add_identity_to_account(self):
-        """ ACCOUNT (REST): send a POST to add an identity to an account."""
-        mw = []
-        account = 'root'
-        headers1 = {'X-Rucio-Account': account, 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        assert res1.status == 200
-        token = str(res1.header('X-Rucio-Auth-Token'))
-        identity = uuid()
-
-        # normal addition
-        headers2 = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'authtype': 'USERPASS', 'email': 'rucio@email.com', 'password': 'password', 'identity': identity})
-        res2 = TestApp(account_app.wsgifunc(*mw)).post('/' + account + '/identities', headers=headers2, params=data, expect_errors=True)
-        assert res2.status == 201
-
-        # duplicate identity
-        res4 = TestApp(account_app.wsgifunc(*mw)).post('/' + account + '/identities', headers=headers2, params=data, expect_errors=True)
-        assert res4.status == 409
-
-        # missing password
-        identity = uuid()
-        data = dumps({'authtype': 'USERPASS', 'email': 'rucio@email.com', 'identity': identity})
-        res3 = TestApp(account_app.wsgifunc(*mw)).post('/' + account + '/identities', headers=headers2, params=data, expect_errors=True)
-        assert res3.status == 400
+    # missing password
+    identity = uuid()
+    data = {'authtype': 'USERPASS', 'email': 'rucio@email.com', 'identity': identity}
+    response = rest_client.post('/accounts/root/identities', headers=headers(auth(auth_token)), json=data)
+    assert response.status_code == 400
 
 
 class TestAccountClient(unittest.TestCase):

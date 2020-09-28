@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2020 CERN
 #
@@ -24,7 +23,7 @@ from __future__ import print_function
 
 from traceback import format_exc
 
-from flask import Flask, Blueprint, request
+from flask import Blueprint, request
 from flask.views import MethodView
 
 from rucio.api.dirac import add_files
@@ -33,7 +32,7 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
                                     ResourceTemporaryUnavailable, RucioException,
                                     RSENotFound, UnsupportedOperation)
 from rucio.common.utils import generate_http_error_flask, parse_response
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers
 
 
 class AddFiles(MethodView):
@@ -84,18 +83,13 @@ class AddFiles(MethodView):
         return 'Created', 201
 
 
-"""----------------------
-   Web service startup
-----------------------"""
+def blueprint():
+    bp = Blueprint('dirac', __name__, url_prefix='/dirac')
 
+    add_file_view = AddFiles.as_view('addfiles')
+    bp.add_url_rule('/addfiles', view_func=add_file_view, methods=['post', ])
+    bp.add_url_rule('/addfiles/', view_func=add_file_view, methods=['post', ])
 
-bp = Blueprint('dirac', __name__)
-
-add_file_view = AddFiles.as_view('addfiles')
-bp.add_url_rule('/addfiles', view_func=add_file_view, methods=['post', ])
-bp.add_url_rule('/addfiles/', view_func=add_file_view, methods=['post', ])
-
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp

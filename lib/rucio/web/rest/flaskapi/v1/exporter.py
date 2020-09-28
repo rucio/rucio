@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2018-2020 CERN
 #
@@ -29,7 +28,7 @@ from flask.views import MethodView
 from rucio.api.exporter import export_data
 from rucio.common.exception import RucioException
 from rucio.common.utils import generate_http_error_flask, render_json
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask
 
 
 class Export(MethodView):
@@ -70,24 +69,20 @@ class Export(MethodView):
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
 
 
-bp = Blueprint('export', __name__)
+def blueprint():
+    bp = Blueprint('export', __name__, url_prefix='/export')
 
-export_view = Export.as_view('scope')
-bp.add_url_rule('/', view_func=export_view, methods=['get', ])
-# FIXME: Add '' rule
+    export_view = Export.as_view('scope')
+    bp.add_url_rule('', view_func=export_view, methods=['get', ])
+    bp.add_url_rule('/', view_func=export_view, methods=['get', ])
 
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
     """ Only used for sphinx documentation to add the prefix """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/export')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

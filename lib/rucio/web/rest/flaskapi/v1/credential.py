@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2012-2020 CERN
 #
@@ -124,22 +123,19 @@ class SignURL(MethodView):
         return str(result), 200
 
 
-bp = Blueprint('credential', __name__)
+def blueprint():
+    bp = Blueprint('credential', __name__, url_prefix='/credential')
 
-signurl_view = SignURL.as_view('signurl')
-bp.add_url_rule('/signurl', view_func=signurl_view, methods=['get', 'options'])
-# yes, /signur ~= '/signurl?$'
-bp.add_url_rule('/signur', view_func=signurl_view, methods=['get', 'options'])
-application = Flask(__name__)
-application.register_blueprint(bp)
+    signurl_view = SignURL.as_view('signurl')
+    bp.add_url_rule('/signurl', view_func=signurl_view, methods=['get', 'options'])
+    # yes, /signur ~= '/signurl?$'
+    bp.add_url_rule('/signur', view_func=signurl_view, methods=['get', 'options'])
+
+    return bp
 
 
 def make_doc():
     """ Only used for sphinx documentation to add the prefix """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/credential')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

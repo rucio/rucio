@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2018-2020 CERN
 #
@@ -989,44 +988,40 @@ class Validate(MethodView):
         return str(result), 200, headers
 
 
-bp = Blueprint('authentication', __name__)
+def blueprint():
+    bp = Blueprint('authentication', __name__, url_prefix='/auth')
 
-user_pass_view = UserPass.as_view('user_pass')
-bp.add_url_rule('/userpass', view_func=user_pass_view, methods=['get', 'options'])
-gss_view = GSS.as_view('gss')
-bp.add_url_rule('/gss', view_func=gss_view, methods=['get', 'options'])
-x509_view = x509.as_view('x509')
-bp.add_url_rule('/x509', view_func=x509_view, methods=['get', 'options'])
-bp.add_url_rule('/x509_proxy', view_func=x509_view, methods=['get', 'options'])
-ssh_view = SSH.as_view('ssh')
-bp.add_url_rule('/ssh', view_func=ssh_view, methods=['get', 'options'])
-ssh_challenge_token_view = SSHChallengeToken.as_view('ssh_challenge_token')
-bp.add_url_rule('/ssh_challenge_token', view_func=ssh_challenge_token_view, methods=['get', 'options'])
-saml_view = SAML.as_view('saml')
-bp.add_url_rule('/saml', view_func=saml_view, methods=['get', 'post', 'options'])
-validate_view = Validate.as_view('validate')
-bp.add_url_rule('/validate', view_func=validate_view, methods=['get', 'options'])
-oidc_view = OIDC.as_view('oidc_view')
-bp.add_url_rule('/oidc', view_func=oidc_view, methods=['get', 'options'])
-token_oidc_view = TokenOIDC.as_view('token_oidc_view')
-bp.add_url_rule('/oidc_token', view_func=token_oidc_view, methods=['get', 'options'])
-code_oidc_view = CodeOIDC.as_view('code_oidc_view')
-bp.add_url_rule('/oidc_code', view_func=code_oidc_view, methods=['get', 'options'])
-redirect_oidc_view = RedirectOIDC.as_view('redirect_oidc_view')
-bp.add_url_rule('/oidc_redirect', view_func=redirect_oidc_view, methods=['get', 'options'])
-refresh_oidc_view = RefreshOIDC.as_view('refresh_oidc_view')
-bp.add_url_rule('/oidc_refresh', view_func=refresh_oidc_view, methods=['get', 'options'])
+    user_pass_view = UserPass.as_view('user_pass')
+    bp.add_url_rule('/userpass', view_func=user_pass_view, methods=['get', 'options'])
+    gss_view = GSS.as_view('gss')
+    bp.add_url_rule('/gss', view_func=gss_view, methods=['get', 'options'])
+    x509_view = x509.as_view('x509')
+    bp.add_url_rule('/x509', view_func=x509_view, methods=['get', 'options'])
+    bp.add_url_rule('/x509_proxy', view_func=x509_view, methods=['get', 'options'])
+    ssh_view = SSH.as_view('ssh')
+    bp.add_url_rule('/ssh', view_func=ssh_view, methods=['get', 'options'])
+    ssh_challenge_token_view = SSHChallengeToken.as_view('ssh_challenge_token')
+    bp.add_url_rule('/ssh_challenge_token', view_func=ssh_challenge_token_view, methods=['get', 'options'])
+    saml_view = SAML.as_view('saml')
+    bp.add_url_rule('/saml', view_func=saml_view, methods=['get', 'post', 'options'])
+    validate_view = Validate.as_view('validate')
+    bp.add_url_rule('/validate', view_func=validate_view, methods=['get', 'options'])
+    oidc_view = OIDC.as_view('oidc_view')
+    bp.add_url_rule('/oidc', view_func=oidc_view, methods=['get', 'options'])
+    token_oidc_view = TokenOIDC.as_view('token_oidc_view')
+    bp.add_url_rule('/oidc_token', view_func=token_oidc_view, methods=['get', 'options'])
+    code_oidc_view = CodeOIDC.as_view('code_oidc_view')
+    bp.add_url_rule('/oidc_code', view_func=code_oidc_view, methods=['get', 'options'])
+    redirect_oidc_view = RedirectOIDC.as_view('redirect_oidc_view')
+    bp.add_url_rule('/oidc_redirect', view_func=redirect_oidc_view, methods=['get', 'options'])
+    refresh_oidc_view = RefreshOIDC.as_view('refresh_oidc_view')
+    bp.add_url_rule('/oidc_refresh', view_func=refresh_oidc_view, methods=['get', 'options'])
 
-application = Flask(__name__)
-application.register_blueprint(bp)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/auth')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()
