@@ -1,0 +1,41 @@
+======
+1.23.7
+======
+
+-------
+General
+-------
+
+********
+Features
+********
+
+- Core & Internals: Add functional Flask endpoints `#1817 <https://github.com/rucio/rucio/issues/1817>`_
+
+************
+Enhancements
+************
+
+- Core & Internals: Provide a better error description for list_dataset_replicas_bulk client API `#3981 <https://github.com/rucio/rucio/issues/3981>`_
+- Transfers: Protection for negative ranking needed in multihop resolve algorithm `#3997 <https://github.com/rucio/rucio/issues/3997>`_
+
+****
+Bugs
+****
+
+- Core & Internals: Incomplete XML returned when calling list_replicas with metalink option `#2029 <https://github.com/rucio/rucio/issues/2029>`_
+- Core & Internals: Problem handling unicode characters `#2915 <https://github.com/rucio/rucio/issues/2915>`_
+- Core & Internals: Caching collisions with rse_attributes and rse_info `#3998 <https://github.com/rucio/rucio/issues/3998>`_
+- Deletion: Integrity error when deleting last replica `#3965 <https://github.com/rucio/rucio/issues/3965>`_
+- Release management: Using the new pip resolver ends in an endless-loop `#4006 <https://github.com/rucio/rucio/issues/4006>`_
+- Transfers: source replica expression ignored for multi-hop transfers `#4029 <https://github.com/rucio/rucio/issues/4029>`_
+
+-------
+Clients
+-------
+
+****
+Bugs
+****
+
+- Clients: xrootd: stat broken on py3 `#4004 <https://github.com/rucio/rucio/issues/4004>`_
