@@ -366,9 +366,6 @@ def run(total_workers=1, chunk_size=100, threads_per_worker=None, once=False, gr
     :param vos: VOs on which to look for RSEs. Only used in multi-VO mode.
                 If None, we either use all VOs if run from "def", or the current VO otherwise.
     """
-    if rucio.db.sqla.util.is_old_db():
-        raise DatabaseException('Database was not updated, daemon won\'t start')
-
     logging.info('Reaper1 daemon will be deprecated and replaced by reaper2 with Rucio release 1.25 (~March 2021)!')
     logging.info('main: starting processes')
 
