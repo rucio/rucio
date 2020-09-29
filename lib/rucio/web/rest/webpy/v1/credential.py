@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,23 +17,27 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - Martin Barisits <martin.barisits@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
+
 from traceback import format_exc
-try:
-    from urlparse import parse_qs
-except ImportError:
-    from urllib.parse import parse_qs
+
 from web import application, ctx, OK, header, InternalError, loadhook, unloadhook
 
 from rucio.api.credential import get_signed_url
 from rucio.common.exception import RucioException
-from rucio.common.utils import generate_http_error
 from rucio.web.rest.common import RucioController, check_accept_header_wrapper, rucio_loadhook, rucio_unloadhook
+from rucio.web.rest.utils import generate_http_error
+
+try:
+    from urlparse import parse_qs
+except ImportError:
+    from urllib.parse import parse_qs
 
 URLS = (
     '/signurl?$', 'SignURL',

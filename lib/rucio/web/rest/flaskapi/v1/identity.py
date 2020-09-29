@@ -21,8 +21,6 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -31,8 +29,7 @@ from traceback import format_exc
 from flask import Flask, Blueprint, request, jsonify
 from flask.views import MethodView
 
-from rucio.api.identity import (add_identity, add_account_identity,
-                                list_accounts_for_identity)
+from rucio.api.identity import add_identity, add_account_identity, list_accounts_for_identity
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 
 

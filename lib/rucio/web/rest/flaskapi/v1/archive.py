@@ -16,13 +16,11 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -34,8 +32,8 @@ from flask import Flask, Blueprint, request
 from flask.views import MethodView
 
 from rucio.api.did import list_archive_content
-from rucio.common.utils import generate_http_error_flask
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, parse_scope_name, try_stream
+from rucio.web.rest.utils import generate_http_error_flask
 
 LOGGER, SH = getLogger("rucio.meta"), StreamHandler()
 SH.setLevel(DEBUG)

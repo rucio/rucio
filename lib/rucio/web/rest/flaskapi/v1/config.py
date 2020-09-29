@@ -23,8 +23,6 @@
 # - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
@@ -34,8 +32,8 @@ from flask.views import MethodView
 
 from rucio.api import config
 from rucio.common.exception import ConfigurationError, RucioException, AccessDenied, ConfigNotFound
-from rucio.common.utils import generate_http_error_flask
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
+from rucio.web.rest.utils import generate_http_error_flask
 
 LOGGER = getLogger("rucio.config")
 SH = StreamHandler()

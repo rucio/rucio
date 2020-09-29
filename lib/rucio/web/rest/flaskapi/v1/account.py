@@ -27,8 +27,6 @@
 # - Eric Vaandering <ewv@fnal.gov>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -46,8 +44,9 @@ from rucio.api.identity import add_account_identity, del_account_identity
 from rucio.api.rule import list_replication_rules
 from rucio.api.scope import add_scope, get_scopes
 from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound, RSENotFound, IdentityError, CounterNotFound
-from rucio.common.utils import generate_http_error_flask, APIEncoder, render_json
+from rucio.common.utils import APIEncoder, render_json
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, try_stream
+from rucio.web.rest.utils import generate_http_error_flask
 
 LOGGER = getLogger("rucio.account")
 SH = StreamHandler()

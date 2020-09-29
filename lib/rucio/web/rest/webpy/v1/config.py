@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,23 +17,21 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2020
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 import json
-
 from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
+
 from web import application, ctx, Created, loadhook, header, InternalError
 
 from rucio.api import config
 from rucio.common.exception import ConfigurationError
-from rucio.common.utils import generate_http_error
 from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrapper, check_accept_header_wrapper
-
+from rucio.web.rest.utils import generate_http_error
 
 LOGGER = getLogger("rucio.config")
 SH = StreamHandler()

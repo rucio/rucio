@@ -17,8 +17,6 @@
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -32,8 +30,9 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
                                     DatabaseException, Duplicate, InvalidPath,
                                     ResourceTemporaryUnavailable, RucioException,
                                     RSENotFound, UnsupportedOperation)
-from rucio.common.utils import generate_http_error_flask, parse_response
+from rucio.common.utils import parse_response
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.utils import generate_http_error_flask
 
 
 class AddFiles(MethodView):

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,21 +18,20 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2020
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from json import dumps
 from logging import getLogger, StreamHandler, DEBUG
+
 from web import application, ctx, header, Created, InternalError, loadhook
 
 from rucio.api.scope import add_scope, get_scopes, list_scopes
 from rucio.common.exception import AccountNotFound, Duplicate, RucioException
-from rucio.common.utils import generate_http_error
 from rucio.web.rest.common import rucio_loadhook, RucioController, check_accept_header_wrapper
-
+from rucio.web.rest.utils import generate_http_error
 
 LOGGER = getLogger("rucio.scope")
 SH = StreamHandler()

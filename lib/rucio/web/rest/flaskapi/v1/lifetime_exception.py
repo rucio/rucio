@@ -16,14 +16,12 @@
 #
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2017
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from json import loads, dumps
 from traceback import format_exc
@@ -33,8 +31,9 @@ from flask.views import MethodView
 
 from rucio.api.lifetime_exception import list_exceptions, add_exception, update_exception
 from rucio.common.exception import LifetimeExceptionNotFound, UnsupportedOperation, InvalidObject, RucioException, AccessDenied, LifetimeExceptionDuplicate
-from rucio.common.utils import generate_http_error_flask, APIEncoder
+from rucio.common.utils import APIEncoder
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, try_stream
+from rucio.web.rest.utils import generate_http_error_flask
 
 
 class LifetimeException(MethodView):

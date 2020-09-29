@@ -21,8 +21,6 @@
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -40,10 +38,11 @@ from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gs
     get_auth_token_saml
 from rucio.common.config import config_get
 from rucio.common.exception import AccessDenied, IdentityError, RucioException
-from rucio.common.utils import generate_http_error_flask, date_to_str, urlparse
+from rucio.common.utils import date_to_str, urlparse
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask
-
 # Extra modules: Only imported if available
+from rucio.web.rest.utils import generate_http_error_flask
+
 EXTRA_MODULES = {'onelogin': False}
 
 for extra_module in EXTRA_MODULES:

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2014-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,25 +17,25 @@
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2019
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
+
 from json import loads
 from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
+
 from web import application, loadhook, ctx, data, Created, InternalError, OK
 
 from rucio.api.account_limit import set_local_account_limit, delete_local_account_limit, set_global_account_limit, delete_global_account_limit
 from rucio.common.exception import RSENotFound, AccessDenied, AccountNotFound
-from rucio.common.utils import generate_http_error
 from rucio.web.rest.common import rucio_loadhook, RucioController
-
+from rucio.web.rest.utils import generate_http_error
 
 LOGGER = getLogger("rucio.account_limit")
 SH = StreamHandler()

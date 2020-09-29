@@ -23,8 +23,6 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 import json
 from logging import getLogger, StreamHandler, DEBUG
@@ -35,10 +33,11 @@ from flask.views import MethodView
 
 from rucio.api import request
 from rucio.common.exception import RucioException
-from rucio.common.utils import generate_http_error_flask, APIEncoder, render_json
+from rucio.common.utils import APIEncoder, render_json
 from rucio.core.rse import get_rses_with_attribute_value, get_rse_name
 from rucio.db.sqla.constants import RequestState
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, parse_scope_name, try_stream
+from rucio.web.rest.utils import generate_http_error_flask
 
 try:
     from urlparse import parse_qs

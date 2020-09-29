@@ -20,8 +20,6 @@
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -32,8 +30,8 @@ from flask.views import MethodView
 
 from rucio.api.credential import get_signed_url
 from rucio.common.exception import RucioException
-from rucio.common.utils import generate_http_error_flask
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask
+from rucio.web.rest.utils import generate_http_error_flask
 
 try:
     from urlparse import parse_qs
