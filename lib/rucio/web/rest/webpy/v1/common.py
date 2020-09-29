@@ -1,4 +1,5 @@
-# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,21 +19,23 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
+
 from json import loads
 from time import time
 from traceback import format_exc
+
 from web import BadRequest, ctx, data, header, InternalError
 from web.webapi import Created, HTTPError, OK, seeother
 
 from rucio.api.authentication import validate_auth_token
 from rucio.common.exception import RucioException
-from rucio.common.utils import generate_http_error, generate_uuid
+from rucio.common.utils import generate_uuid
 from rucio.core.monitor import record_timer
+from rucio.web.rest.utils import generate_http_error
 
 
 def rucio_loadhook():
