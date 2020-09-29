@@ -29,16 +29,13 @@
 # - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Alan Malta Rodrigues <alan.malta@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
+
 from json import dumps, loads
 from traceback import format_exc
-try:
-    from urlparse import parse_qs
-except ImportError:
-    from urllib.parse import parse_qs
+
 from web import application, ctx, data, Created, header, InternalError, OK, loadhook
 
 from rucio.api.did import (add_did, add_dids, list_content, list_content_history,
@@ -56,8 +53,14 @@ from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     RSENotFound, RucioException, RuleNotFound,
                                     InvalidMetadata)
 from rucio.common.schema import get_schema_value
-from rucio.common.utils import generate_http_error, render_json, APIEncoder, parse_response
+from rucio.common.utils import render_json, APIEncoder, parse_response
 from rucio.web.rest.common import rucio_loadhook, RucioController, check_accept_header_wrapper
+from rucio.web.rest.utils import generate_http_error
+
+try:
+    from urlparse import parse_qs
+except ImportError:
+    from urllib.parse import parse_qs
 
 URLS = (
     '/(.*)/$', 'Scope',

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2014-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,33 +16,32 @@
 #
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2017
-# - Vincent Garonne <vgaronne@gmail.com>, 2014
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2015
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015-2019
 # - Stefan Prenner <stefan.prenner@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
+from gzip import GzipFile
 from io import BytesIO
 from json import dumps
 from os.path import dirname, join
 from tarfile import open, TarError
 
-from gzip import GzipFile
 from requests import get, ConnectionError
 from web import application, header, input as param_input, seeother, template
 from web import cookies
 
 from rucio.api.authentication import get_auth_token_x509
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.utils import generate_http_error
+from rucio.web.rest.utils import generate_http_error
 from rucio.web.ui.common.utils import get_token, authenticate, userpass_auth, x509token_auth, saml_auth, oidc_auth, finalize_auth, AUTH_ISSUERS, SAML_SUPPORT
-
 
 COMMON_URLS = (
     '/account_rse_usage', 'AccountRSEUsage',

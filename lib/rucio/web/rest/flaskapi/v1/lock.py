@@ -17,14 +17,12 @@
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2014
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2018
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
@@ -34,8 +32,9 @@ from flask.views import MethodView
 
 from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks
 from rucio.common.exception import RucioException, RSENotFound
-from rucio.common.utils import generate_http_error_flask, render_json
+from rucio.common.utils import render_json
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, parse_scope_name, try_stream
+from rucio.web.rest.utils import generate_http_error_flask
 
 LOGGER = getLogger("rucio.lock")
 SH = StreamHandler()

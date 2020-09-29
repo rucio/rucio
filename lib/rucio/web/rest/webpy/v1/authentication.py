@@ -25,8 +25,6 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -49,10 +47,11 @@ from rucio.api.authentication import (get_auth_oidc, get_auth_token_gss,
                                       validate_auth_token)
 from rucio.common.config import config_get
 from rucio.common.exception import AccessDenied, IdentityError, RucioException
-from rucio.common.utils import date_to_str, generate_http_error, urlparse
+from rucio.common.utils import date_to_str, urlparse
 from rucio.web.rest.common import RucioController, check_accept_header_wrapper
-
 # Extra modules: Only imported if available
+from rucio.web.rest.utils import generate_http_error
+
 EXTRA_MODULES = {'onelogin': False}
 
 for extra_module in EXTRA_MODULES:

@@ -22,8 +22,6 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -47,9 +45,10 @@ from rucio.common.exception import (Duplicate, AccessDenied, RSENotFound, RucioE
                                     InvalidObject, RSEProtocolDomainNotSupported,
                                     RSEProtocolPriorityError, InvalidRSEExpression,
                                     RSEAttributeNotFound, CounterNotFound)
-from rucio.common.utils import generate_http_error_flask, render_json, APIEncoder
+from rucio.common.utils import render_json, APIEncoder
 from rucio.rse import rsemanager
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, try_stream
+from rucio.web.rest.utils import generate_http_error_flask
 
 
 class RSEs(MethodView):

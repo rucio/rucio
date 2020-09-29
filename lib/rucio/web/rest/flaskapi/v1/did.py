@@ -26,8 +26,6 @@
 # - Alan Malta Rodrigues <alan.malta@cern.ch>, 2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -50,8 +48,9 @@ from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     UnsupportedStatus, UnsupportedOperation,
                                     RSENotFound, RucioException, RuleNotFound,
                                     InvalidMetadata)
-from rucio.common.utils import generate_http_error_flask, render_json, APIEncoder, parse_response
+from rucio.common.utils import render_json, APIEncoder, parse_response
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, parse_scope_name, try_stream
+from rucio.web.rest.utils import generate_http_error_flask
 
 try:
     from urlparse import parse_qs

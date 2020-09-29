@@ -17,15 +17,13 @@
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2014
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -38,8 +36,8 @@ from flask.views import MethodView
 
 from rucio.api.account_limit import set_local_account_limit, delete_local_account_limit, set_global_account_limit, delete_global_account_limit
 from rucio.common.exception import RSENotFound, AccessDenied, AccountNotFound
-from rucio.common.utils import generate_http_error_flask
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.utils import generate_http_error_flask
 
 LOGGER = getLogger("rucio.account_limit")
 SH = StreamHandler()

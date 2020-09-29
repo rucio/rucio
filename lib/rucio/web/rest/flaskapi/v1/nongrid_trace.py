@@ -19,8 +19,6 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -32,9 +30,9 @@ from flask import Flask, Blueprint, request
 from flask.views import MethodView
 from werkzeug.datastructures import Headers
 
-from rucio.common.utils import generate_http_error_flask
 from rucio.core.nongrid_trace import trace
 from rucio.web.rest.flaskapi.v1.common import after_request
+from rucio.web.rest.utils import generate_http_error_flask
 
 
 class XAODTrace(MethodView):
