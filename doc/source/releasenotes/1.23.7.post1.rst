@@ -1,0 +1,13 @@
+============
+1.23.7.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Core & Internals: Dependecy werkzeug should not be required for the client `#4035 <https://github.com/rucio/rucio/issues/4035>`_
