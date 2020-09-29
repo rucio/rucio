@@ -22,8 +22,6 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from traceback import format_exc
 
@@ -32,8 +30,8 @@ from flask.views import MethodView
 
 from rucio.api.scope import add_scope, list_scopes, get_scopes
 from rucio.common.exception import AccountNotFound, Duplicate, RucioException
-from rucio.common.utils import generate_http_error_flask
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
+from rucio.web.rest.utils import generate_http_error_flask
 
 
 class Scope(MethodView):

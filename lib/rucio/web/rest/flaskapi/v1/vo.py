@@ -25,8 +25,9 @@ from flask.views import MethodView
 
 from rucio.api.vo import add_vo, list_vos, recover_vo_root_identity, update_vo
 from rucio.common.exception import AccessDenied, AccountNotFound, Duplicate, RucioException, VONotFound, UnsupportedOperation
-from rucio.common.utils import render_json, generate_http_error_flask
+from rucio.common.utils import render_json
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, try_stream
+from rucio.web.rest.utils import generate_http_error_flask
 
 
 class VOs(MethodView):

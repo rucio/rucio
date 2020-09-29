@@ -24,8 +24,6 @@
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -53,9 +51,10 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
                                     ResourceTemporaryUnavailable, RucioException,
                                     RSENotFound, UnsupportedOperation, ReplicaNotFound, InvalidObject)
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
-from rucio.common.utils import generate_http_error_flask, parse_response, APIEncoder, render_json_list
+from rucio.common.utils import parse_response, APIEncoder, render_json_list
 from rucio.db.sqla.constants import BadFilesStatus
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, try_stream, parse_scope_name
+from rucio.web.rest.utils import generate_http_error_flask
 
 try:
     from urllib import unquote
