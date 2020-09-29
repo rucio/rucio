@@ -18,12 +18,9 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 import json
 from logging import getLogger, StreamHandler, DEBUG
@@ -34,8 +31,9 @@ from flask.views import MethodView
 
 from rucio.api.heartbeat import list_heartbeats
 from rucio.common.exception import RucioException
-from rucio.common.utils import APIEncoder, generate_http_error_flask
+from rucio.common.utils import APIEncoder
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
+from rucio.web.rest.utils import generate_http_error_flask
 
 LOGGER = getLogger("rucio.heartbeat")
 SH = StreamHandler()

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2014-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,25 +17,29 @@
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2014
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from logging import getLogger, StreamHandler, DEBUG
-try:
-    from urlparse import parse_qs
-except ImportError:
-    from urllib.parse import parse_qs
+
 from web import application, ctx, header, InternalError, loadhook
 
 from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks
 from rucio.common.exception import RucioException, RSENotFound
 from rucio.common.schema import get_schema_value
-from rucio.common.utils import generate_http_error, render_json
+from rucio.common.utils import render_json
 from rucio.web.rest.common import rucio_loadhook, check_accept_header_wrapper
+from rucio.web.rest.utils import generate_http_error
+
+try:
+    from urlparse import parse_qs
+except ImportError:
+    from urllib.parse import parse_qs
 
 LOGGER = getLogger("rucio.lock")
 SH = StreamHandler()

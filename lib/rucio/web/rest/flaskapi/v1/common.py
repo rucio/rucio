@@ -20,8 +20,6 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -36,7 +34,8 @@ from flask import request, Response
 from rucio.api.authentication import validate_auth_token
 from rucio.common.exception import RucioException
 from rucio.common.schema import get_schema_value
-from rucio.common.utils import generate_http_error_flask, generate_uuid
+from rucio.common.utils import generate_uuid
+from rucio.web.rest.utils import generate_http_error_flask
 
 
 def before_request():

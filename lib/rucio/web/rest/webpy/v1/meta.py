@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,18 +20,17 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from json import dumps, loads
 from logging import getLogger, StreamHandler, DEBUG
+
 from web import application, ctx, data, Created, InternalError, loadhook, header
 
 from rucio.api.meta import add_key, add_value, list_keys, list_values
 from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedValueType, RucioException, UnsupportedKeyType
-from rucio.common.utils import generate_http_error
 from rucio.web.rest.common import rucio_loadhook, RucioController, check_accept_header_wrapper
-
+from rucio.web.rest.utils import generate_http_error
 
 LOGGER = getLogger("rucio.meta")
 SH = StreamHandler()

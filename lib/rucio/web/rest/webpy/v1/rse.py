@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,16 +23,14 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-#
-# PY3K COMPATIBLE
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
+
 from json import dumps, loads
 from traceback import format_exc
-try:
-    from urlparse import parse_qs, parse_qsl
-except ImportError:
-    from urllib.parse import parse_qs, parse_qsl
+
 from web import (application, ctx, data, header, Created, InternalError, OK,
                  input, loadhook)
 
@@ -49,9 +48,15 @@ from rucio.common.exception import (Duplicate, AccessDenied, RSENotFound, RucioE
                                     InvalidObject, RSEProtocolDomainNotSupported,
                                     RSEProtocolPriorityError, InvalidRSEExpression,
                                     RSEAttributeNotFound, CounterNotFound)
-from rucio.common.utils import generate_http_error, render_json, APIEncoder
-from rucio.web.rest.common import rucio_loadhook, RucioController, check_accept_header_wrapper
+from rucio.common.utils import render_json, APIEncoder
 from rucio.rse import rsemanager
+from rucio.web.rest.common import rucio_loadhook, RucioController, check_accept_header_wrapper
+from rucio.web.rest.utils import generate_http_error
+
+try:
+    from urlparse import parse_qs, parse_qsl
+except ImportError:
+    from urllib.parse import parse_qs, parse_qsl
 
 URLS = (
     '/(.+)/attr/(.+)', 'Attributes',

@@ -32,8 +32,6 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -60,9 +58,7 @@ from uuid import uuid4 as uuid
 from xml.etree import ElementTree
 
 import requests
-import six
 from six import string_types, text_type, PY3
-from werkzeug.datastructures import Headers
 
 from rucio.common.config import config_get
 from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError, RucioException
@@ -94,9 +90,7 @@ except ImportError:
     import urllib.parse as urlparse
 
 # Extra modules: Only imported if available
-EXTRA_MODULES = {'web': False,
-                 'paramiko': False,
-                 'flask': False}
+EXTRA_MODULES = {'paramiko': False}
 
 try:
     from rucio.db.sqla.enum import EnumSymbol
@@ -111,17 +105,11 @@ for extra_module in EXTRA_MODULES:
     except ImportError:
         EXTRA_MODULES[extra_module] = False
 
-if EXTRA_MODULES['web']:
-    from web import HTTPError
-
 if EXTRA_MODULES['paramiko']:
     try:
         from paramiko import RSAKey
     except Exception:
         EXTRA_MODULES['paramiko'] = False
-
-if EXTRA_MODULES['flask']:
-    from flask import Response
 
 # HTTP code dictionary. Not complete. Can be extended if needed.
 codes = {
@@ -460,69 +448,6 @@ def parse_response(data):
         ret_obj = data
 
     return json.loads(ret_obj, object_hook=datetime_parser)
-
-
-def _error_response(exc_cls, exc_msg):
-    def strip_newlines(msg):
-        if msg is None:
-            return None
-        elif isinstance(msg, six.binary_type):
-            msg = six.ensure_text(msg, errors='replace')
-        elif not isinstance(msg, six.string_types):
-            # any objects will be converted to their string representation in unicode
-            msg = six.ensure_text(str(msg), errors='replace')
-        return msg.replace('\n', ' ').replace('\r', ' ')
-
-    data = {'ExceptionClass': exc_cls,
-            'ExceptionMessage': exc_msg}
-
-    exc_msg = strip_newlines(exc_msg)
-    if exc_msg:
-        # Truncate too long exc_msg
-        oldlen = len(exc_msg)
-        exc_msg = exc_msg[:min(oldlen, 125)]
-        if len(exc_msg) != oldlen:
-            exc_msg = exc_msg + '...'
-    headers = {'Content-Type': 'application/octet-stream',
-               'ExceptionClass': strip_newlines(exc_cls),
-               'ExceptionMessage': exc_msg}
-
-    return data, headers
-
-
-def generate_http_error(status_code, exc_cls, exc_msg):
-    """
-    utitily function to generate a complete HTTP error response.
-    :param status_code: The HTTP status code to generate a response for.
-    :param exc_cls: The name of the exception class to send with the response.
-    :param exc_msg: The error message.
-    :returns: a web.py HTTP response object.
-    """
-    data, headers = _error_response(exc_cls, exc_msg)
-    try:
-        return HTTPError(status=codes[status_code], headers=headers, data=render_json(**data))
-    except Exception:
-        print(data)
-        raise
-
-
-def generate_http_error_flask(status_code, exc_cls, exc_msg, headers=None):
-    """
-    utitily function to generate a complete HTTP error response.
-    :param status_code: The HTTP status code to generate a response for.
-    :param exc_cls: The name of the exception class to send with the response.
-    :param exc_msg: The error message.
-    :returns: a Flask HTTP response object.
-    :param headers: any default headers to send along.
-    """
-    data, prioheaders = _error_response(exc_cls, exc_msg)
-    headers = Headers(headers)
-    headers.extend(prioheaders)
-    try:
-        return Response(status=status_code, headers=headers, content_type=prioheaders['Content-Type'], response=render_json(**data))
-    except Exception:
-        print(data)
-        raise
 
 
 def execute(cmd, blocking=True):

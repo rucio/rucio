@@ -22,8 +22,6 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from json import loads, dumps
 from traceback import format_exc
@@ -34,8 +32,9 @@ from flask.views import MethodView
 from rucio.api.rule import list_replication_rules
 from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription, list_subscription_rule_states, get_subscription_by_id
 from rucio.common.exception import InvalidObject, RucioException, SubscriptionDuplicate, SubscriptionNotFound, RuleNotFound, AccessDenied
-from rucio.common.utils import generate_http_error_flask, render_json, APIEncoder
+from rucio.common.utils import render_json, APIEncoder
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, try_stream
+from rucio.web.rest.utils import generate_http_error_flask
 
 
 class Subscription(MethodView):

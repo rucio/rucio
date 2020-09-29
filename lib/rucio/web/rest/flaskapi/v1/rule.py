@@ -27,8 +27,6 @@
 # - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -48,8 +46,9 @@ from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, Acce
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime,
                                     DuplicateRule, InvalidObject, AccountNotFound, RuleReplaceFailed, ScratchDiskLifetimeConflict,
                                     ManualRuleApprovalBlocked, UnsupportedOperation)
-from rucio.common.utils import generate_http_error_flask, render_json, APIEncoder
+from rucio.common.utils import render_json, APIEncoder
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, parse_scope_name, try_stream
+from rucio.web.rest.utils import generate_http_error_flask
 
 LOGGER = getLogger("rucio.rule")
 SH = StreamHandler()
