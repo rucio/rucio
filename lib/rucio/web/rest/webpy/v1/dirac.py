@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # Copyright 2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,11 +16,12 @@
 #
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
+
 from traceback import format_exc
+
 from web import application, ctx, Created, data, InternalError, loadhook, unloadhook
 
 from rucio.api.dirac import add_files
@@ -27,8 +29,9 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
                                     DatabaseException, Duplicate, InvalidPath,
                                     ResourceTemporaryUnavailable, RucioException,
                                     RSENotFound, UnsupportedOperation)
-from rucio.common.utils import generate_http_error, parse_response
+from rucio.common.utils import parse_response
 from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController
+from rucio.web.rest.utils import generate_http_error
 
 URLS = ('/addfiles/?$', 'AddFiles')
 

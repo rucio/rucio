@@ -24,8 +24,6 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from __future__ import print_function
 
@@ -38,8 +36,8 @@ from rucio.api.replica import list_replicas
 from rucio.common.exception import RucioException, DataIdentifierNotFound, ReplicaNotFound
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_ranking, sort_dynamic, site_selector
 from rucio.common.schema import get_schema_value
-from rucio.common.utils import generate_http_error
 from rucio.web.rest.common import RucioController, check_accept_header_wrapper
+from rucio.web.rest.utils import generate_http_error
 
 try:
     from urlparse import parse_qs

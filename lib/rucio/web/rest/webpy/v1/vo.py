@@ -1,4 +1,5 @@
-# Copyright 2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2019-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +16,7 @@
 # Authors:
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from json import loads
 from traceback import format_exc
@@ -23,10 +25,11 @@ from web import application, Created, ctx, header, InternalError, loadhook, OK
 
 from rucio.api.vo import add_vo, list_vos, recover_vo_root_identity, update_vo
 from rucio.common.exception import AccessDenied, AccountNotFound, Duplicate, RucioException, VONotFound, UnsupportedOperation
-from rucio.common.utils import generate_http_error, render_json
+from rucio.common.utils import render_json
 from rucio.web.rest.common import (RucioController,
                                    check_accept_header_wrapper, data,
                                    rucio_loadhook)
+from rucio.web.rest.utils import generate_http_error
 
 URLS = ('/(.+)/recover', 'RecoverVO',
         '/(.+)', 'VO',

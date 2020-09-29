@@ -20,16 +20,15 @@
 # - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from flask import Flask, Blueprint, request
 from flask.views import MethodView
 
 from rucio.api.importer import import_data
 from rucio.common.exception import RucioException
-from rucio.common.utils import generate_http_error_flask, parse_response
+from rucio.common.utils import parse_response
 from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.utils import generate_http_error_flask
 
 
 class Import(MethodView):
