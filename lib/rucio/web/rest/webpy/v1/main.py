@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,8 +16,7 @@
 #
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from web import application, loadhook
 
@@ -60,8 +60,9 @@ from rucio.web.rest.rse import (Attributes as RAttributes, Distance as RDistance
                                 Usage as RUsage, UsageHistory as RUsageHistory, Limits as RLimits, RSE
                                 as RRSE, RSEs as RRSEs, QoSPolicy as RQoSPolicy)  # NOQA: F401
 from rucio.web.rest.scope import Scope as SCScope, ScopeList as SCScopeList  # NOQA: F401
-from rucio.web.rest.subscription import SubscriptionId as SSubscriptionId, States as AStates, Rules as SRules, SubscriptionName as SSubscriptionName, Subscription as SSubscription  # NOQA: F401
-from rucio.web.rest.temporary_did import BulkDIDS as TBulkDIDS   # NOQA: F401
+from rucio.web.rest.subscription import SubscriptionId as SSubscriptionId, States as SStates, Rules as SRules, SubscriptionName as SSubscriptionName, Subscription as SSubscription  # NOQA: F401
+from rucio.web.rest.temporary_did import BulkDIDS as TBulkDIDS  # NOQA: F401
+from rucio.web.rest.vo import VO as VVO, VOs as VVOs, RecoverVO as VRecoverVO  # NOQA: F401
 
 
 URLS = [
@@ -230,6 +231,12 @@ URLS += [
     '/subscriptions/(.*)/(.*)', 'SSubscription',
     '/subscriptions/(.*)', 'SSubscription',
     '/subscriptions/', 'SSubscription',
+]
+
+URLS += [
+    '/vos/(.+)/recover', 'VRecoverVO',
+    '/vos/(.+)', 'VVO',
+    '/vos/', 'VVOs'
 ]
 
 URLS += ['/tmp_dids', 'TBulkDIDS']
