@@ -578,6 +578,8 @@ class BadReplicas(RucioController):
             not_declared_files = declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except RSENotFound as error:
+            raise generate_http_error(404, 'RSENotFound', error.args[0])
         except ReplicaNotFound as error:
             raise generate_http_error(404, 'ReplicaNotFound', error.args[0])
         except RucioException as error:
