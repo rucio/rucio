@@ -411,7 +411,7 @@ def declare_bad_file_replicas(pfns, reason, issuer, status=BadFilesStatus.BAD, s
     scheme, files_to_declare, unknown_replicas = get_pfn_to_rse(pfns, vo=issuer.vo, session=session)
     for rse_id in files_to_declare:
         notdeclared = __declare_bad_file_replicas(files_to_declare[rse_id], rse_id, reason, issuer, status=status, scheme=scheme, session=session)
-        if notdeclared != []:
+        if notdeclared:
             unknown_replicas[rse_id] = notdeclared
     return unknown_replicas
 
