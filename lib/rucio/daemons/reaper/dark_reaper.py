@@ -21,8 +21,8 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2020
 
 '''
 Dark Reaper is a daemon to manage quarantined file deletion.
@@ -75,13 +75,13 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
     :param once: If True, only runs one iteration of the main loop.
     :param scheme: Force the reaper to use a particular protocol, e.g., mock.
     """
-    logging.info('Starting Dark Reaper %s-%s: Will work on RSEs: %s', worker_number, total_workers, ', '.join([rse['rse'] for rse in rses]))
+    logging.info('Starting Dark Reaper %s-%s: Will work on RSEs: %s', worker_number, total_workers, ', '.join(rses))
 
     pid = os.getpid()
     thread = threading.current_thread()
     hostname = socket.gethostname()
     executable = ' '.join(sys.argv)
-    hash_executable = hashlib.sha256(sys.argv[0] + ''.join([rse['rse'] for rse in rses])).hexdigest()
+    hash_executable = hashlib.sha256(sys.argv[0] + ''.join(rses)).hexdigest()
     sanity_check(executable=None, hostname=hostname)
 
     while not GRACEFUL_STOP.is_set():
@@ -92,14 +92,13 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
             nothing_to_do = True
 
             random.shuffle(rses)
-            for rse in rses:
-                rse_id = rse['id']
-                rse = rse['rse']
+            for rse_id in rses:
                 replicas = list_quarantined_replicas(rse_id=rse_id,
                                                      limit=chunk_size, worker_number=worker_number,
                                                      total_workers=total_workers)
 
                 rse_info = rsemgr.get_rse_info(rse_id=rse_id)
+                rse = rse_info['rse']
                 prot = rsemgr.create_protocol(rse_info, 'delete', scheme=scheme)
                 deleted_replicas = []
                 try:
