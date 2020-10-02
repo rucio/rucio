@@ -51,7 +51,8 @@ from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, InvalidType,
                                     DataIdentifierNotFound, Duplicate, InvalidPath,
                                     ResourceTemporaryUnavailable, RucioException,
-                                    RSENotFound, UnsupportedOperation, ReplicaNotFound, InvalidObject)
+                                    RSENotFound, UnsupportedOperation, ReplicaNotFound,
+                                    InvalidObject, ScopeNotFound)
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
 from rucio.common.schema import get_schema_value
 from rucio.common.utils import parse_response, APIEncoder, render_json_list
@@ -228,6 +229,8 @@ class Replicas(RucioController):
             raise generate_http_error(409, 'DataIdentifierAlreadyExists', error.args[0])
         except RSENotFound as error:
             raise generate_http_error(404, 'RSENotFound', error.args[0])
+        except ScopeNotFound as error:
+            raise generate_http_error(404, 'ScopeNotFound', error.args[0])
         except ResourceTemporaryUnavailable as error:
             raise generate_http_error(503, 'ResourceTemporaryUnavailable', error.args[0])
         except RucioException as error:
