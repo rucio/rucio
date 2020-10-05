@@ -304,6 +304,8 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                         purge_replicas = False
                                     rse_expression = str(rule_dict['rse_expression'])
                                     comment = str(subscription['comments'])
+                                    if 'comments' in rule_dict:
+                                        comment = str(rule_dict['comments'])
                                     subscription_id = str(subscription['id'])
                                     account = subscription['account']
                                     copies = int(rule_dict['copies'])
