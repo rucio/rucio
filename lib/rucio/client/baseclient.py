@@ -60,7 +60,7 @@ from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import (CannotAuthenticate, ClientProtocolNotSupported,
                                     NoAuthInformation, MissingClientParameter,
                                     MissingModuleException, ServerConnectionException)
-from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, ssh_sign
+from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, ssh_sign, setup_logger
 from rucio import version
 
 try:
@@ -92,11 +92,7 @@ if EXTRA_MODULES['requests_kerberos']:
     from requests_kerberos import HTTPKerberosAuth  # pylint: disable=import-error
 
 
-LOG = getLogger(__name__)
-SH = StreamHandler()
-SH.setLevel(ERROR)
-LOG.addHandler(SH)
-
+LOG = setup_logger(module_name=__name__)
 
 REGION = make_region(function_key_generator=my_key_generator).configure(
     'dogpile.cache.memory',
