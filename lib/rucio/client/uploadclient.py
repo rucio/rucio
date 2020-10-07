@@ -51,7 +51,8 @@ from rucio.client.client import Client
 from rucio.common.config import config_get_int
 from rucio.common.exception import (RucioException, RSEBlacklisted, DataIdentifierAlreadyExists, RSEOperationNotSupported,
                                     DataIdentifierNotFound, NoFilesUploaded, NotAllFilesUploaded, FileReplicaAlreadyExists,
-                                    ResourceTemporaryUnavailable, ServiceUnavailable, InputValidationError, RSEChecksumUnavailable)
+                                    ResourceTemporaryUnavailable, ServiceUnavailable, InputValidationError, RSEChecksumUnavailable,
+                                    ScopeNotFound)
 from rucio.common.utils import (adler32, detect_client_location, execute, generate_uuid, make_valid_did, md5, send_trace,
                                 retry, GLOBALLY_SUPPORTED_CHECKSUMS)
 from rucio.rse import rsemanager as rsemgr
@@ -347,8 +348,12 @@ class UploadClient:
         logger.debug('Registering file')
 
         # verification whether the scope exists
-        account_scopes = self.client.list_scopes_for_account(self.client.account)
-        if file['did_scope'] not in account_scopes:
+        account_scopes = []
+        try:
+            account_scopes = self.client.list_scopes_for_account(self.client.account)
+        except ScopeNotFound:
+            pass
+        if account_scopes and file['did_scope'] not in account_scopes:
             logger.warning('Scope {} not found for the account {}.'.format(file['did_scope'], self.client.account))
 
         rse = file['rse']
