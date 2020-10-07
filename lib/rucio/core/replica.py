@@ -1182,8 +1182,20 @@ def __bulk_add_new_file_dids(files, account, dataset_meta=None, session=None):
     try:
         session.flush()
     except IntegrityError as error:
+        if match('.*IntegrityError.*02291.*integrity constraint.*DIDS_SCOPE_FK.*violated - parent key not found.*', error.args[0]) \
+                or match('.*IntegrityError.*FOREIGN KEY constraint failed.*', error.args[0]) \
+                or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', error.args[0]) \
+                or match('.*IntegrityError.*02291.*integrity constraint.*DIDS_SCOPE_FK.*violated - parent key not found.*', error.args[0]) \
+                or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint "DIDS_SCOPE_FK".*', error.args[0]) \
+                or match('.*ForeignKeyViolation.*insert or update on table.*violates foreign key constraint.*', error.args[0]) \
+                or match('.*IntegrityError.*foreign key constraints? failed.*', error.args[0]):
+            raise exception.ScopeNotFound('Scope not found!')
+
         raise exception.RucioException(error.args)
     except DatabaseError as error:
+        if match('.*(DatabaseError).*ORA-14400.*inserted partition key does not map to any partition.*', error.args[0]):
+            raise exception.ScopeNotFound('Scope not found!')
+
         raise exception.RucioException(error.args)
     except FlushError as error:
         if match('New instance .* with identity key .* conflicts with persistent instance', error.args[0]):

@@ -47,7 +47,7 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (DataIdentifierNotFound, AccessDenied, UnsupportedOperation,
-                                    RucioException, ReplicaIsLocked, ReplicaNotFound)
+                                    RucioException, ReplicaIsLocked, ReplicaNotFound, ScopeNotFound)
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, clean_surls
 from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files, get_did_atime
@@ -837,6 +837,12 @@ class TestReplicaClients(unittest.TestCase):
         assert len(replicas) == 5
         for i in range(nbfiles):
             assert 'MOCK3' in replicas[i]['rses']
+
+    def test_add_replica_scope_not_found(self):
+        """ REPLICA (CLIENT): Add replica with missing scope """
+        files = [{'scope': 'nonexistingscope', 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb'}]
+        with pytest.raises(ScopeNotFound):
+            self.replica_client.add_replicas(rse='MOCK', files=files)
 
     def test_delete_replicas(self):
         """ REPLICA (CLIENT): Add and delete file replicas """

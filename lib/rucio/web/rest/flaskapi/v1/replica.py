@@ -37,8 +37,8 @@ from flask.views import MethodView
 from geoip2.errors import AddressNotFoundError
 from six import string_types
 
-from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replicas, list_dataset_replicas_bulk,
-                               delete_replicas,
+from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replicas,
+                               list_dataset_replicas_bulk, delete_replicas,
                                get_did_from_pfns, update_replicas_states,
                                declare_bad_file_replicas, add_bad_pfns, get_suspicious_files,
                                declare_suspicious_file_replicas, list_bad_replicas_status,
@@ -49,7 +49,8 @@ from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, InvalidType,
                                     DataIdentifierNotFound, Duplicate, InvalidPath,
                                     ResourceTemporaryUnavailable, RucioException,
-                                    RSENotFound, UnsupportedOperation, ReplicaNotFound, InvalidObject)
+                                    RSENotFound, UnsupportedOperation, ReplicaNotFound,
+                                    InvalidObject, ScopeNotFound)
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
 from rucio.common.utils import parse_response, APIEncoder, render_json_list
 from rucio.db.sqla.constants import BadFilesStatus
@@ -197,6 +198,7 @@ class Replicas(MethodView):
         :status 400: Invalid Path.
         :status 401: Invalid auth token.
         :status 404: RSE not found.
+        :status 404: Scope not found.
         :status 409: Replica already exists.
         :status 409: DID already exists.
         :status 503: Resource Temporary Unavailable.
@@ -221,6 +223,8 @@ class Replicas(MethodView):
             return generate_http_error_flask(409, 'DataIdentifierAlreadyExists', error.args[0])
         except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
+        except ScopeNotFound as error:
+            return generate_http_error_flask(404, 'ScopeNotFound', error.args[0])
         except ResourceTemporaryUnavailable as error:
             return generate_http_error_flask(503, 'ResourceTemporaryUnavailable', error.args[0])
         except RucioException as error:
