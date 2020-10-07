@@ -15,5 +15,6 @@
 #
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2020
 
-ALEMBIC_REVISION = '50280c53117c'  # the current alembic head revision
+ALEMBIC_REVISION = '8ea9122275b1'  # the current alembic head revision
