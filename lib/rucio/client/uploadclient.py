@@ -352,7 +352,7 @@ class UploadClient:
         try:
             account_scopes = self.client.list_scopes_for_account(self.client.account)
         except ScopeNotFound:
-            logger.warning('No socpe belonging to the account {}. Processing upload with given scope or no scope at all.'.format(self.client.account))
+            pass
         if account_scopes and file['did_scope'] not in account_scopes:
             logger.warning('Scope {} not found for the account {}.'.format(file['did_scope'], self.client.account))
 
