@@ -1,4 +1,5 @@
-# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +14,28 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2020
-# - David Cameron <d.g.cameron@gmail.com>, 2014
+# - David Cameron <david.cameron@cern.ch>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2020
-# - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
+# - Wen Guan <wen.guan@cern.ch>, 2014-2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
-# - Robert Illingworth, <illingwo@fnal.gov>, 2019
-# - Jaroslav Guenther, <jaroslav.guenther@gmail.com>, 2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Brandon White, <bjwhite@fnal.gov>, 2019
+# - Robert Illingworth <illingwo@fnal.gov>, 2019
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Ilija Vukotic <ivukotic@cern.ch>, 2020
+# - Brandon White <bjwhite@fnal.gov>, 2019
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
-# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Eric Vaandering <ewv@fnal.gov>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from __future__ import print_function
 from collections import defaultdict
@@ -2629,7 +2632,8 @@ def get_cleaned_updated_collection_replicas(total_workers, worker_number, sessio
             else:
                 duplicate_request_ids.append(update_request.id)
                 continue
-    replica_update_requests.filter(models.UpdatedCollectionReplica.id.in_(duplicate_request_ids)).delete(synchronize_session=False)
+    for chunk in chunks(duplicate_request_ids, 100):
+        session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.id.in_(chunk)).delete(synchronize_session=False)
 
     # Delete update requests which do not have collection_replicas
     session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.rse_id.is_(None)
