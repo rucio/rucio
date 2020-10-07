@@ -55,6 +55,7 @@ import time
 import zlib
 from uuid import uuid4 as uuid
 from xml.etree import ElementTree
+from logging.handlers import RotatingFileHandler
 
 import requests
 from six import string_types, text_type, PY3
@@ -515,7 +516,7 @@ def my_key_generator(namespace, fn, **kw):
 
 def get_logger(name):
     logger = logging.getLogger(name)
-    hdlr = logging.RotatingFileHandler('%s/%s.log' % (config_get('common', 'logdir'), name), maxBytes=1000000000, backupCount=10)
+    hdlr = RotatingFileHandler('%s/%s.log' % (config_get('common', 'logdir'), name), maxBytes=1000000000, backupCount=10)
     formatter = logging.Formatter('%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
     hdlr.setFormatter(formatter)
     logger.addHandler(hdlr)
