@@ -34,7 +34,6 @@
 
 from __future__ import print_function
 
-import os
 import unittest
 from json import dumps
 
@@ -46,12 +45,14 @@ from rucio.client.rseclient import RSEClient
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSupported,
-                                    InvalidObject, ResourceTemporaryUnavailable, RSEAttributeNotFound, RSEOperationNotSupported)
+                                    InvalidObject, ResourceTemporaryUnavailable,
+                                    RSEAttributeNotFound, RSEOperationNotSupported)
 from rucio.common.utils import generate_uuid
-from rucio.core.rse import (add_rse, get_rse_id, del_rse, restore_rse, list_rses, rse_exists, add_rse_attribute,
-                            list_rse_attributes,
-                            set_rse_transfer_limits, get_rse_transfer_limits, delete_rse_transfer_limits,
-                            get_rse_protocols, del_rse_attribute, get_rse_attribute, get_rse, rse_is_empty)
+from rucio.core.rse import (add_rse, get_rse_id, del_rse, restore_rse, list_rses,
+                            rse_exists, add_rse_attribute, list_rse_attributes,
+                            set_rse_transfer_limits, get_rse_transfer_limits,
+                            delete_rse_transfer_limits, get_rse_protocols,
+                            del_rse_attribute, get_rse_attribute, get_rse, rse_is_empty)
 from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import RSEType
 from rucio.rse import rsemanager as mgr
@@ -606,16 +607,6 @@ class TestRSEClient(unittest.TestCase):
         try:
             with pytest.raises(exception.InvalidObject):
                 self.client.add_protocol(protocol_rse, attributes)
-        except exception.DatabaseException:
-            if 'RDBMS' in os.environ:
-                if os.environ['RDBMS'].startswith('mysql'):
-                    pytest.xfail("Uncaught MySQL exception on server-side, bug https://github.com/rucio/rucio/issues/3921")
-                elif os.environ['RDBMS'].startswith('postgres'):
-                    pytest.xfail("Uncaught Postgres exception on server-side, bug https://github.com/rucio/rucio/issues/3921")
-                else:
-                    raise
-            else:
-                raise
         finally:
             self.client.delete_rse(protocol_rse)
 
@@ -1361,16 +1352,6 @@ class TestRSEClient(unittest.TestCase):
 
             with pytest.raises(exception.RSEProtocolNotSupported):
                 self.client.update_protocols(protocol_rse, scheme=attributes['scheme'], hostname=attributes['hostname'], port=attributes['port'], data={'impl': None})
-        except exception.DatabaseException:
-            if 'RDBMS' in os.environ:
-                if os.environ['RDBMS'].startswith('mysql'):
-                    pytest.xfail("Uncaught MySQL exception on server-side, bug https://github.com/rucio/rucio/issues/3921")
-                elif os.environ['RDBMS'].startswith('postgres'):
-                    pytest.xfail("Uncaught Postgres exception on server-side, bug https://github.com/rucio/rucio/issues/3921")
-                else:
-                    raise
-            else:
-                raise
         finally:
             self.client.delete_rse(protocol_rse)
 
