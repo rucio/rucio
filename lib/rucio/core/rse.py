@@ -930,17 +930,21 @@ def add_protocol(rse_id, parameter, session=None):
         new_protocol.save(session=session)
     except (IntegrityError, FlushError, OperationalError) as error:
         if ('UNIQUE constraint failed' in error.args[0]) or ('conflicts with persistent instance' in error.args[0]) \
-           or match('.*IntegrityError.*ORA-00001: unique constraint.*RSE_PROTOCOLS_PK.*violated.*', error.args[0]) \
-           or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
-           or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0])\
-           or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0])\
-           or match('.*IntegrityError.*columns.*are not unique.*', error.args[0]):
+                or match('.*IntegrityError.*ORA-00001: unique constraint.*RSE_PROTOCOLS_PK.*violated.*', error.args[0]) \
+                or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
+                or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+                or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
+                or match('.*IntegrityError.*columns.*are not unique.*', error.args[0]):
             raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (parameter['scheme'], parameter['port'], rse, parameter['hostname']))
         elif 'may not be NULL' in error.args[0] \
-             or match('.*IntegrityError.*ORA-01400: cannot insert NULL into.*RSE_PROTOCOLS.*IMPL.*', error.args[0]) \
-             or match('.*OperationalError.*cannot be null.*', error.args[0]):
+                or match('.*IntegrityError.*ORA-01400: cannot insert NULL into.*RSE_PROTOCOLS.*IMPL.*', error.args[0]) \
+                or match('.*IntegrityError.*Column.*cannot be null.*', error.args[0]) \
+                or match('.*IntegrityError.*null value in column.*violates not-null constraint.*', error.args[0]) \
+                or match('.*NotNullViolation.*null value in column.*violates not-null constraint.*', error.args[0]) \
+                or match('.*OperationalError.*cannot be null.*', error.args[0]):
             raise exception.InvalidObject('Missing values!')
-        raise error
+
+        raise exception.RucioException(error.args)
     return new_protocol
 
 
