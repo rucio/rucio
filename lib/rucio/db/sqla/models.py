@@ -504,7 +504,8 @@ class BadReplicas(BASE, ModelBase):
                    CheckConstraint('RSE_ID IS NOT NULL', name='BAD_REPLICAS_RSE_ID_NN'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='BAD_REPLICAS_ACCOUNT_FK'),
                    Index('BAD_REPLICAS_STATE_IDX', 'rse_id', 'state'),
-                   Index('BAD_REPLICAS_EXPIRES_AT_IDX', 'expires_at'))
+                   Index('BAD_REPLICAS_EXPIRES_AT_IDX', 'expires_at'),
+                   Index('BAD_REPLICAS_ACCOUNT_IDX', 'account'))
 
 
 class BadPFNs(BASE, ModelBase):
@@ -576,7 +577,8 @@ class DataIdentifierAssociation(BASE, ModelBase):
                    ForeignKeyConstraint(['child_scope', 'child_name'], ['dids.scope', 'dids.name'], ondelete="CASCADE", name='CONTENTS_CHILD_ID_FK'),
                    CheckConstraint('DID_TYPE IS NOT NULL', name='CONTENTS_DID_TYPE_NN'),
                    CheckConstraint('CHILD_TYPE IS NOT NULL', name='CONTENTS_CHILD_TYPE_NN'),
-                   Index('CONTENTS_CHILD_SCOPE_NAME_IDX', 'child_scope', 'child_name', 'scope', 'name'))
+                   Index('CONTENTS_CHILD_SCOPE_NAME_IDX', 'child_scope', 'child_name', 'scope', 'name'),
+                   Index('CONTENTS_RULE_EVAL_FB_IDX', 'rule_evaluation'))  # Under Oracle this is a FB index
 
 
 class ConstituentAssociation(BASE, ModelBase):
@@ -830,7 +832,8 @@ class RSEFileAssociation(BASE, ModelBase):
                    CheckConstraint('bytes IS NOT NULL', name='REPLICAS_SIZE_NN'),
                    CheckConstraint('lock_cnt IS NOT NULL', name='REPLICAS_LOCK_CNT_NN'),
                    Index('REPLICAS_TOMBSTONE_IDX', 'tombstone'),
-                   Index('REPLICAS_PATH_IDX', 'path', mysql_length=get_schema_value('NAME_LENGTH')))
+                   Index('REPLICAS_PATH_IDX', 'path', mysql_length=get_schema_value('NAME_LENGTH')),
+                   Index('REPLICAS_STATE_IDX', 'state'))  # Under Oracle this is a FB Index
 
 
 class CollectionReplica(BASE, ModelBase):
@@ -934,7 +937,7 @@ class ReplicationRule(BASE, ModelBase):
                          unique=True, mysql_length={'rse_expression': 767}),
                    Index('RULES_SCOPE_NAME_IDX', 'scope', 'name'),
                    Index('RULES_EXPIRES_AT_IDX', 'expires_at'),
-                   Index('RULES_STUCKSTATE_IDX', 'state'),  # This Index is only needed for the STUCK state
+                   Index('RULES_STUCKSTATE_IDX', 'state'),  # This Index is only needed for the STUCK state, there also is FB: RULES_INJECTSTATE_IDX, RULES_APPROVALSTATE_IDX
                    Index('RULES_CHILD_RULE_ID_IDX', 'child_rule_id'))
 
 
@@ -1117,7 +1120,8 @@ class Request(BASE, ModelBase, Versioned):
                    Index('REQUESTS_TYP_STA_UPD_IDX_OLD', 'request_type', 'state', 'updated_at'),
                    Index('REQUESTS_TYP_STA_UPD_IDX', 'request_type', 'state', 'activity'),
                    Index('REQUESTS_RULEID_IDX', 'rule_id'),
-                   Index('REQUESTS_EXTERNALID_UQ', 'external_id'))
+                   Index('REQUESTS_EXTERNALID_UQ', 'external_id'),
+                   Index('REQUESTS_DEST_RSE_ID_IDX', 'dest_rse_id'))
 
 
 class Source(BASE, ModelBase, Versioned):
@@ -1187,7 +1191,8 @@ class Subscription(BASE, ModelBase, Versioned):
                    UniqueConstraint('name', 'account', name='SUBSCRIPTIONS_NAME_ACCOUNT_UQ'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='SUBSCRIPTIONS_ACCOUNT_FK'),
                    CheckConstraint('RETROACTIVE IS NOT NULL', name='SUBSCRIPTIONS_RETROACTIVE_NN'),
-                   CheckConstraint('ACCOUNT IS NOT NULL', name='SUBSCRIPTIONS_ACCOUNT_NN'))
+                   CheckConstraint('ACCOUNT IS NOT NULL', name='SUBSCRIPTIONS_ACCOUNT_NN'),
+                   Index('SUBSCRIPTIONS_STATE_IDX', 'state'))  # Under Oracle this is a FB index
 
 
 class Token(BASE, ModelBase):
