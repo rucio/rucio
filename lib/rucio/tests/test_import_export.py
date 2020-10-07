@@ -1,4 +1,5 @@
-# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,7 +29,6 @@ import unittest
 from copy import deepcopy
 
 import pytest
-from paste.fixture import TestApp
 
 from rucio.client.exportclient import ExportClient
 from rucio.client.importclient import ImportClient
@@ -46,10 +46,7 @@ from rucio.core.rse import get_rse_id, get_rse_name, add_rse, get_rse, add_proto
     del_rse
 from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import RSEType, AccountType, IdentityType, AccountStatus
-from rucio.tests.common import rse_name_generator
-from rucio.web.rest.authentication import APP as auth_app
-from rucio.web.rest.exporter import APP as export_app
-from rucio.web.rest.importer import APP as import_app
+from rucio.tests.common import rse_name_generator, headers, auth, hdrdict
 
 
 def check_rse(rse_name, test_data, vo='def'):
@@ -83,7 +80,9 @@ def check_protocols(rse, test_data, vo='def'):
         assert {'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol.get('impl', ''), 'prefix': protocol.get('prefix', '')} in protocols
 
 
+@pytest.fixture
 def reset_rses():
+    yield
     db_session = session.get_session()
     for rse in db_session.query(models.RSE).all():
         rse.deleted = False
@@ -100,367 +99,372 @@ def test_active():
     return True
 
 
-class TestImporter(unittest.TestCase):
-    """ Tests the initial import method (hard-sync everything) """
+@pytest.fixture
+def importer_example_data(vo):
+    if not config_has_section('importer'):
+        config_add_section('importer')
+    config_set('importer', 'rse_sync_method', 'hard')
+    config_set('importer', 'attr_method', 'edit')
+    config_set('importer', 'protocol_method', 'edit')
 
-    def setUp(self):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
-            self.vo_header = {'X-Rucio-VO': self.vo['vo']}
-        else:
-            self.vo = {}
-            self.vo_header = {}
+    class ImporterExampleData:
+        new_rse = None
+        old_rse_1 = None
+        old_rse_id_1 = None
+        old_rse_2 = None
+        old_rse_id_2 = None
+        old_rse_3 = None
+        old_rse_id_3 = None
+        old_rse_4 = None
+        old_rse_id_4 = None
+        old_account_1 = None
+        old_account_2 = None
+        identity_to_be_removed = None
+        identity_to_be_added_to_account = None
+        data1 = None
+        data2 = None
+        data3 = None
 
-        if not config_has_section('importer'):
-            config_add_section('importer')
-        config_set('importer', 'rse_sync_method', 'hard')
-        config_set('importer', 'attr_method', 'edit')
-        config_set('importer', 'protocol_method', 'edit')
+        def check_accounts(self):
+            db_identities = list_identities()
+            for account in self.data1['accounts']:
+                # check existence
+                db_account = get_account(account=account['account'])
+                assert db_account['account'] == account['account']
 
-        # New RSE
-        self.new_rse = rse_name_generator()
+                # check properties
+                email = account.get('email')
+                if email:
+                    assert db_account['email'] == account['email']
 
-        # RSE 1 that already exists
-        self.old_rse_1 = rse_name_generator()
-        self.old_rse_id_1 = add_rse(self.old_rse_1, availability=1, region_code='DE', country_name='DE', deterministic=True, volatile=True, staging_area=True, time_zone='Europe', latitude='1', longitude='2', **self.vo)
-        add_protocol(self.old_rse_id_1, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
-        add_protocol(self.old_rse_id_1, {'scheme': 'scheme3', 'hostname': 'hostname3', 'port': 1000, 'impl': 'TODO'})
+                # check identities
+                identities = account.get('identities')
+                if identities:
+                    for identity in identities:
+                        # check identity creation and identity-account association
+                        identity_type = IdentityType.from_sym(identity['type'])
+                        identity = identity['identity']
+                        assert (identity, identity_type) in db_identities
+                        accounts_for_identity = list_accounts_for_identity(identity, identity_type)
+                        assert account['account'] in accounts_for_identity
 
-        set_rse_limits(rse_id=self.old_rse_id_1, name='MaxBeingDeletedFiles', value='10')
-        set_rse_limits(rse_id=self.old_rse_id_1, name='MinFreeSpace', value='10')
-        add_rse_attribute(rse_id=self.old_rse_id_1, key='attr1', value='test10')
-        add_rse_attribute(rse_id=self.old_rse_id_1, key='lfn2pfn_algorithm', value='test10')
-        add_rse_attribute(rse_id=self.old_rse_id_1, key='verify_checksum', value=True)
+            # check removal of account
+            account = get_account(self.old_account_1)
+            assert account['status'] == AccountStatus.DELETED
 
-        # RSE 2 that already exists
-        self.old_rse_2 = rse_name_generator()
-        self.old_rse_id_2 = add_rse(self.old_rse_2, **self.vo)
+            # check removal of identities
+            accounts_for_identity = list_accounts_for_identity(self.identity_to_be_removed, IdentityType.X509)
+            assert account['account'] not in accounts_for_identity
 
-        # RSE 3 that already exists
-        self.old_rse_3 = rse_name_generator()
-        self.old_rse_id_3 = add_rse(self.old_rse_3, **self.vo)
+    example_data = ImporterExampleData()
 
-        # RSE 4 that already exists
-        self.old_rse_4 = rse_name_generator()
-        self.old_rse_id_4 = add_rse(self.old_rse_4, **self.vo)
+    # New RSE
+    example_data.new_rse = rse_name_generator()
 
-        # Distance that already exists
-        add_distance(self.old_rse_id_1, self.old_rse_id_2)
+    # RSE 1 that already exists
+    example_data.old_rse_1 = rse_name_generator()
+    example_data.old_rse_id_1 = add_rse(example_data.old_rse_1, availability=1, region_code='DE', country_name='DE', deterministic=True, volatile=True, staging_area=True, time_zone='Europe', latitude='1', longitude='2', vo=vo)
+    add_protocol(example_data.old_rse_id_1, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
+    add_protocol(example_data.old_rse_id_1, {'scheme': 'scheme3', 'hostname': 'hostname3', 'port': 1000, 'impl': 'TODO'})
 
-        # Account 1 that already exists
-        self.old_account_1 = InternalAccount(rse_name_generator(), **self.vo)
-        add_account(self.old_account_1, AccountType.USER, email='test')
+    set_rse_limits(rse_id=example_data.old_rse_id_1, name='MaxBeingDeletedFiles', value='10')
+    set_rse_limits(rse_id=example_data.old_rse_id_1, name='MinFreeSpace', value='10')
+    add_rse_attribute(rse_id=example_data.old_rse_id_1, key='attr1', value='test10')
+    add_rse_attribute(rse_id=example_data.old_rse_id_1, key='lfn2pfn_algorithm', value='test10')
+    add_rse_attribute(rse_id=example_data.old_rse_id_1, key='verify_checksum', value=True)
 
-        # Account 2 that already exists
-        self.old_account_2 = InternalAccount(rse_name_generator(), **self.vo)
-        add_account(self.old_account_2, AccountType.USER, email='test')
+    # RSE 2 that already exists
+    example_data.old_rse_2 = rse_name_generator()
+    example_data.old_rse_id_2 = add_rse(example_data.old_rse_2, vo=vo)
 
-        # Identity that should be removed
-        self.identity_to_be_removed = rse_name_generator()
-        add_identity(self.identity_to_be_removed, IdentityType.X509, email='email')
-        add_account_identity(self.identity_to_be_removed, IdentityType.X509, self.old_account_2, 'email')
+    # RSE 3 that already exists
+    example_data.old_rse_3 = rse_name_generator()
+    example_data.old_rse_id_3 = add_rse(example_data.old_rse_3, vo=vo)
 
-        # Identity that already exsits but should be added to the account
-        self.identity_to_be_added_to_account = rse_name_generator()
-        add_identity(self.identity_to_be_added_to_account, IdentityType.X509, email='email')
+    # RSE 4 that already exists
+    example_data.old_rse_4 = rse_name_generator()
+    example_data.old_rse_id_4 = add_rse(example_data.old_rse_4, vo=vo)
 
-        self.data1 = {
-            'rses': {
-                self.new_rse: {
-                    'rse_type': RSEType.TAPE,
-                    'availability': 3,
-                    'city': 'NewCity',
-                    'region_code': 'CH',
-                    'country_name': 'switzerland',
-                    'staging_area': False,
-                    'time_zone': 'Europe',
-                    'latitude': 1,
-                    'longitude': 2,
-                    'deterministic': True,
-                    'volatile': False,
-                    'protocols': [{
-                        'scheme': 'scheme',
-                        'hostname': 'hostname',
-                        'port': 1000,
-                        'impl': 'impl'
-                    }],
-                    'attributes': {
-                        'attr1': 'test'
-                    },
-                    'MinFreeSpace': 20000,
-                    'lfn2pfn_algorithm': 'hash2',
-                    'verify_checksum': False,
-                    'availability_delete': True,
-                    'availability_read': False,
-                    'availability_write': True
+    # Distance that already exists
+    add_distance(example_data.old_rse_id_1, example_data.old_rse_id_2)
+
+    # Account 1 that already exists
+    example_data.old_account_1 = InternalAccount(rse_name_generator(), vo=vo)
+    add_account(example_data.old_account_1, AccountType.USER, email='test')
+
+    # Account 2 that already exists
+    example_data.old_account_2 = InternalAccount(rse_name_generator(), vo=vo)
+    add_account(example_data.old_account_2, AccountType.USER, email='test')
+
+    # Identity that should be removed
+    example_data.identity_to_be_removed = rse_name_generator()
+    add_identity(example_data.identity_to_be_removed, IdentityType.X509, email='email')
+    add_account_identity(example_data.identity_to_be_removed, IdentityType.X509, example_data.old_account_2, 'email')
+
+    # Identity that already exsits but should be added to the account
+    example_data.identity_to_be_added_to_account = rse_name_generator()
+    add_identity(example_data.identity_to_be_added_to_account, IdentityType.X509, email='email')
+
+    example_data.data1 = {
+        'rses': {
+            example_data.new_rse: {
+                'rse_type': RSEType.TAPE,
+                'availability': 3,
+                'city': 'NewCity',
+                'region_code': 'CH',
+                'country_name': 'switzerland',
+                'staging_area': False,
+                'time_zone': 'Europe',
+                'latitude': 1,
+                'longitude': 2,
+                'deterministic': True,
+                'volatile': False,
+                'protocols': [{
+                    'scheme': 'scheme',
+                    'hostname': 'hostname',
+                    'port': 1000,
+                    'impl': 'impl'
+                }],
+                'attributes': {
+                    'attr1': 'test'
                 },
-                self.old_rse_1: {
-                    'rse_type': RSEType.TAPE,
-                    'deterministic': False,
-                    'volatile': False,
-                    'region_code': 'US',
-                    'country_name': 'US',
-                    'staging_area': False,
-                    'time_zone': 'Asia',
-                    'longitude': 5,
-                    'city': 'City',
-                    'availability': 2,
-                    'latitude': 10,
-                    'protocols': [{
-                        'scheme': 'scheme1',
-                        'hostname': 'hostname1',
-                        'port': 1000,
-                        'prefix': 'prefix',
-                        'impl': 'impl1'
-                    }, {
-                        'scheme': 'scheme2',
-                        'hostname': 'hostname2',
-                        'port': 1001,
-                        'impl': 'impl'
-                    }],
-                    'attributes': {
-                        'attr1': 'test1',
-                        'attr2': 'test2'
-                    },
-                    'MinFreeSpace': 10000,
-                    'MaxBeingDeletedFiles': 1000,
-                    'verify_checksum': False,
-                    'lfn2pfn_algorithm': 'hash3',
-                    'availability_delete': False,
-                    'availability_read': False,
-                    'availability_write': True
+                'MinFreeSpace': 20000,
+                'lfn2pfn_algorithm': 'hash2',
+                'verify_checksum': False,
+                'availability_delete': True,
+                'availability_read': False,
+                'availability_write': True
+            },
+            example_data.old_rse_1: {
+                'rse_type': RSEType.TAPE,
+                'deterministic': False,
+                'volatile': False,
+                'region_code': 'US',
+                'country_name': 'US',
+                'staging_area': False,
+                'time_zone': 'Asia',
+                'longitude': 5,
+                'city': 'City',
+                'availability': 2,
+                'latitude': 10,
+                'protocols': [{
+                    'scheme': 'scheme1',
+                    'hostname': 'hostname1',
+                    'port': 1000,
+                    'prefix': 'prefix',
+                    'impl': 'impl1'
+                }, {
+                    'scheme': 'scheme2',
+                    'hostname': 'hostname2',
+                    'port': 1001,
+                    'impl': 'impl'
+                }],
+                'attributes': {
+                    'attr1': 'test1',
+                    'attr2': 'test2'
                 },
-                self.old_rse_2: {},
-                self.old_rse_3: {}
+                'MinFreeSpace': 10000,
+                'MaxBeingDeletedFiles': 1000,
+                'verify_checksum': False,
+                'lfn2pfn_algorithm': 'hash3',
+                'availability_delete': False,
+                'availability_read': False,
+                'availability_write': True
             },
-            'distances': {
-                self.old_rse_1: {
-                    self.old_rse_2: {'src_rse': self.old_rse_1, 'dest_rse': self.old_rse_2, 'ranking': 10},
-                    self.old_rse_3: {'src_rse': self.old_rse_1, 'dest_rse': self.old_rse_3, 'ranking': 4}
-                }
-            },
-            'accounts': [{
-                'account': InternalAccount('new_account', **self.vo),
-                'email': 'email',
-                'identities': [{
-                    'type': 'userpass',
-                    'identity': 'username',
-                    'password': 'password'
-                }]
-            }, {
-                'account': InternalAccount('new_account2', **self.vo),
-                'email': 'email'
-            }, {
-                'account': self.old_account_2,
-                'email': 'new_email',
-                'identities': [
-                    {
-                        'identity': self.identity_to_be_added_to_account,
-                        'type': 'x509'
-                    },
-                    {
-                        'type': 'userpass',
-                        'identity': 'username2',
-                        'password': 'password'
-                    }
-                ]
-            }, {
-                'account': InternalAccount('jdoe', **self.vo),
-                'email': 'email'
+            example_data.old_rse_2: {},
+            example_data.old_rse_3: {}
+        },
+        'distances': {
+            example_data.old_rse_1: {
+                example_data.old_rse_2: {'src_rse': example_data.old_rse_1, 'dest_rse': example_data.old_rse_2, 'ranking': 10},
+                example_data.old_rse_3: {'src_rse': example_data.old_rse_1, 'dest_rse': example_data.old_rse_3, 'ranking': 4}
+            }
+        },
+        'accounts': [{
+            'account': InternalAccount('new_account', vo=vo),
+            'email': 'email',
+            'identities': [{
+                'type': 'userpass',
+                'identity': 'username',
+                'password': 'password'
             }]
-        }
+        }, {
+            'account': InternalAccount('new_account2', vo=vo),
+            'email': 'email'
+        }, {
+            'account': example_data.old_account_2,
+            'email': 'new_email',
+            'identities': [
+                {
+                    'identity': example_data.identity_to_be_added_to_account,
+                    'type': 'x509'
+                },
+                {
+                    'type': 'userpass',
+                    'identity': 'username2',
+                    'password': 'password'
+                }
+            ]
+        }, {
+            'account': InternalAccount('jdoe', vo=vo),
+            'email': 'email'
+        }]
+    }
 
-        self.data2 = {'rses': {self.new_rse: {'rse': self.new_rse}}}
-        self.data3 = {'distances': {}}
+    example_data.data2 = {'rses': {example_data.new_rse: {'rse': example_data.new_rse}}}
+    example_data.data3 = {'distances': {}}
+    return example_data
 
-    def tearDown(self):
-        reset_rses()
 
-    def check_accounts(self, test_accounts):
-        db_identities = list_identities()
-        for account in test_accounts:
-            # check existence
-            db_account = get_account(account=account['account'])
-            assert db_account['account'] == account['account']
+def test_importer_core(vo, importer_example_data, reset_rses):
+    """ IMPORTER (CORE): test import. """
+    import_data(data=deepcopy(importer_example_data.data1), vo=vo)
 
-            # check properties
-            email = account.get('email')
-            if email:
-                assert db_account['email'] == account['email']
+    # RSE that had not existed before
+    check_rse(importer_example_data.new_rse, importer_example_data.data1['rses'], vo=vo)
+    check_protocols(importer_example_data.new_rse, importer_example_data.data1['rses'], vo=vo)
 
-            # check identities
-            identities = account.get('identities')
-            if identities:
-                for identity in identities:
-                    # check identity creation and identity-account association
-                    identity_type = IdentityType.from_sym(identity['type'])
-                    identity = identity['identity']
-                    assert (identity, identity_type) in db_identities
-                    accounts_for_identity = list_accounts_for_identity(identity, identity_type)
-                    assert account['account'] in accounts_for_identity
+    new_rse_id = get_rse_id(rse=importer_example_data.new_rse, vo=vo)
 
-        # check removal of account
-        account = get_account(self.old_account_1)
-        assert account['status'] == AccountStatus.DELETED
+    attributes = list_rse_attributes(rse_id=new_rse_id)
+    assert attributes['attr1'] == 'test'
+    limits = get_rse_limits(rse_id=new_rse_id)
+    assert limits['MinFreeSpace'] == 20000
 
-        # check removal of identities
-        accounts_for_identity = list_accounts_for_identity(self.identity_to_be_removed, IdentityType.X509)
-        assert account['account'] not in accounts_for_identity
+    # RSE 1 that already exists
+    check_rse(importer_example_data.old_rse_1, importer_example_data.data1['rses'], vo=vo)
 
-    def test_importer_core(self):
-        """ IMPORTER (CORE): test import. """
-        import_data(data=deepcopy(self.data1), **self.vo)
+    # one protocol should be created, one should be updated
+    check_protocols(importer_example_data.old_rse_1, importer_example_data.data1['rses'], vo=vo)
 
-        # RSE that had not existed before
-        check_rse(self.new_rse, self.data1['rses'], **self.vo)
-        check_protocols(self.new_rse, self.data1['rses'], **self.vo)
+    # one protocol should be removed as it is not specified in the import data
+    protocols = get_rse_protocols(importer_example_data.old_rse_id_1)
+    protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port']} for protocol in protocols['protocols']]
+    assert {'hostename': 'hostname3', 'port': 1000, 'scheme': 'scheme3'} not in protocols
 
-        new_rse_id = get_rse_id(rse=self.new_rse, **self.vo)
+    attributes = list_rse_attributes(rse_id=importer_example_data.old_rse_id_1)
+    assert attributes['attr1'] == 'test1'
+    assert attributes['attr2'] == 'test2'
 
-        attributes = list_rse_attributes(rse_id=new_rse_id)
-        assert attributes['attr1'] == 'test'
-        limits = get_rse_limits(rse_id=new_rse_id)
-        assert limits['MinFreeSpace'] == 20000
+    limits = get_rse_limits(rse_id=importer_example_data.old_rse_id_1)
+    assert limits['MaxBeingDeletedFiles'] == 1000
+    assert limits['MinFreeSpace'] == 10000
 
-        # RSE 1 that already exists
-        check_rse(self.old_rse_1, self.data1['rses'], **self.vo)
+    distance = get_distances(importer_example_data.old_rse_id_1, importer_example_data.old_rse_id_2)[0]
+    assert distance['ranking'] == 10
 
-        # one protocol should be created, one should be updated
-        check_protocols(self.old_rse_1, self.data1['rses'], **self.vo)
+    distance = get_distances(importer_example_data.old_rse_id_1, importer_example_data.old_rse_id_3)[0]
+    assert distance['ranking'] == 4
 
-        # one protocol should be removed as it is not specified in the import data
-        protocols = get_rse_protocols(self.old_rse_id_1)
-        protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port']} for protocol in protocols['protocols']]
-        assert {'hostename': 'hostname3', 'port': 1000, 'scheme': 'scheme3'} not in protocols
+    importer_example_data.check_accounts()
 
-        attributes = list_rse_attributes(rse_id=self.old_rse_id_1)
-        assert attributes['attr1'] == 'test1'
-        assert attributes['attr2'] == 'test2'
+    # RSE 4 should be flagged as deleted as it is missing in the import data
+    with pytest.raises(RSENotFound):
+        get_rse(rse_id=importer_example_data.old_rse_id_4)
 
-        limits = get_rse_limits(rse_id=self.old_rse_id_1)
-        assert limits['MaxBeingDeletedFiles'] == 1000
-        assert limits['MinFreeSpace'] == 10000
+    import_data(data=importer_example_data.data2, vo=vo)
+    import_data(data=importer_example_data.data3, vo=vo)
 
-        distance = get_distances(self.old_rse_id_1, self.old_rse_id_2)[0]
-        assert distance['ranking'] == 10
 
-        distance = get_distances(self.old_rse_id_1, self.old_rse_id_3)[0]
-        assert distance['ranking'] == 4
+def test_importer_client(vo, importer_example_data, reset_rses):
+    """ IMPORTER (CLIENT): test import. """
+    import_client = ImportClient()
+    import_client.import_data(data=deepcopy(importer_example_data.data1))
 
-        self.check_accounts(self.data1['accounts'])
+    # RSE that had not existed before
+    check_rse(importer_example_data.new_rse, importer_example_data.data1['rses'], vo=vo)
+    check_protocols(importer_example_data.new_rse, importer_example_data.data1['rses'], vo=vo)
 
-        # RSE 4 should be flagged as deleted as it is missing in the import data
-        with pytest.raises(RSENotFound):
-            get_rse(rse_id=self.old_rse_id_4)
+    new_rse_id = get_rse_id(rse=importer_example_data.new_rse, vo=vo)
 
-        import_data(data=self.data2, **self.vo)
-        import_data(data=self.data3, **self.vo)
+    protocols = get_rse_protocols(importer_example_data.old_rse_id_1)
+    protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port']} for protocol in protocols['protocols']]
+    assert {'hostename': 'hostname3', 'port': 1000, 'scheme': 'scheme3'} not in protocols
 
-    def test_importer_client(self):
-        """ IMPORTER (CLIENT): test import. """
-        import_client = ImportClient()
-        import_client.import_data(data=deepcopy(self.data1))
+    attributes = list_rse_attributes(rse_id=new_rse_id)
+    assert attributes['attr1'] == 'test'
 
-        # RSE that had not existed before
-        check_rse(self.new_rse, self.data1['rses'], **self.vo)
-        check_protocols(self.new_rse, self.data1['rses'], **self.vo)
+    limits = get_rse_limits(rse_id=new_rse_id)
+    assert limits['MinFreeSpace'] == 20000
 
-        new_rse_id = get_rse_id(rse=self.new_rse, **self.vo)
+    # RSE 1 that already exists
+    check_rse(importer_example_data.old_rse_1, importer_example_data.data1['rses'], vo=vo)
+    check_protocols(importer_example_data.old_rse_1, importer_example_data.data1['rses'], vo=vo)
 
-        protocols = get_rse_protocols(self.old_rse_id_1)
-        protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port']} for protocol in protocols['protocols']]
-        assert {'hostename': 'hostname3', 'port': 1000, 'scheme': 'scheme3'} not in protocols
+    attributes = list_rse_attributes(rse_id=importer_example_data.old_rse_id_1)
+    assert attributes['attr1'] == 'test1'
+    assert attributes['attr2'] == 'test2'
 
-        attributes = list_rse_attributes(rse_id=new_rse_id)
-        assert attributes['attr1'] == 'test'
+    limits = get_rse_limits(rse_id=importer_example_data.old_rse_id_1)
+    assert limits['MaxBeingDeletedFiles'] == 1000
+    assert limits['MinFreeSpace'] == 10000
 
-        limits = get_rse_limits(rse_id=new_rse_id)
-        assert limits['MinFreeSpace'] == 20000
+    distance = get_distances(importer_example_data.old_rse_id_1, importer_example_data.old_rse_id_2)[0]
+    assert distance['ranking'] == 10
 
-        # RSE 1 that already exists
-        check_rse(self.old_rse_1, self.data1['rses'], **self.vo)
-        check_protocols(self.old_rse_1, self.data1['rses'], **self.vo)
+    distance = get_distances(importer_example_data.old_rse_id_1, importer_example_data.old_rse_id_3)[0]
+    assert distance['ranking'] == 4
 
-        attributes = list_rse_attributes(rse_id=self.old_rse_id_1)
-        assert attributes['attr1'] == 'test1'
-        assert attributes['attr2'] == 'test2'
+    importer_example_data.check_accounts()
 
-        limits = get_rse_limits(rse_id=self.old_rse_id_1)
-        assert limits['MaxBeingDeletedFiles'] == 1000
-        assert limits['MinFreeSpace'] == 10000
+    # If the default sync method is not 'hard', RSE old_rse_id_4 should still be there
+    # with pytest.raises(RSENotFound):
+    #     get_rse(rse_id=importer_example_data.old_rse_id_4)
 
-        distance = get_distances(self.old_rse_id_1, self.old_rse_id_2)[0]
-        assert distance['ranking'] == 10
+    import_client.import_data(data=importer_example_data.data2)
+    import_client.import_data(data=importer_example_data.data3)
 
-        distance = get_distances(self.old_rse_id_1, self.old_rse_id_3)[0]
-        assert distance['ranking'] == 4
 
-        self.check_accounts(self.data1['accounts'])
+def test_importer_rest(vo, rest_client, auth_token, importer_example_data, reset_rses):
+    """ IMPORTER (REST): test import. """
+    headers_dict = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root'}
+    response = rest_client.post('/import/', headers=headers(auth(auth_token), hdrdict(headers_dict)), data=render_json(**importer_example_data.data1))
+    assert response.status_code == 201
 
-        # If the default sync method is not 'hard', RSE old_rse_id_4 should still be there
-        # with pytest.raises(RSENotFound):
-        #     get_rse(rse_id=self.old_rse_id_4)
+    # RSE that not existed before
+    check_rse(importer_example_data.new_rse, importer_example_data.data1['rses'], vo=vo)
+    check_protocols(importer_example_data.new_rse, importer_example_data.data1['rses'], vo=vo)
 
-        import_client.import_data(data=self.data2)
-        import_client.import_data(data=self.data3)
+    new_rse_id = get_rse_id(rse=importer_example_data.new_rse, vo=vo)
 
-    def test_importer_rest(self):
-        """ IMPORTER (REST): test import. """
-        mw = []
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        token = str(r1.header('X-Rucio-Auth-Token'))
-        headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
+    protocols = get_rse_protocols(importer_example_data.old_rse_id_1)
+    protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port']} for protocol in protocols['protocols']]
+    assert {'hostename': 'hostname3', 'port': 1000, 'scheme': 'scheme3'} not in protocols
 
-        r2 = TestApp(import_app.wsgifunc(*mw)).post('/', headers=headers2, expect_errors=True, params=render_json(**self.data1))
-        print(r2.body)
-        assert r2.status == 201
+    attributes = list_rse_attributes(rse_id=new_rse_id)
+    assert attributes['attr1'] == 'test'
 
-        # RSE that not existed before
-        check_rse(self.new_rse, self.data1['rses'], **self.vo)
-        check_protocols(self.new_rse, self.data1['rses'], **self.vo)
+    limits = get_rse_limits(rse_id=new_rse_id)
+    assert limits['MinFreeSpace'] == 20000
 
-        new_rse_id = get_rse_id(rse=self.new_rse, **self.vo)
+    # RSE 1 that already existed before
+    check_rse(importer_example_data.old_rse_1, importer_example_data.data1['rses'], vo=vo)
+    check_protocols(importer_example_data.old_rse_1, importer_example_data.data1['rses'], vo=vo)
 
-        protocols = get_rse_protocols(self.old_rse_id_1)
-        protocols = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port']} for protocol in protocols['protocols']]
-        assert {'hostename': 'hostname3', 'port': 1000, 'scheme': 'scheme3'} not in protocols
+    attributes = list_rse_attributes(rse_id=importer_example_data.old_rse_id_1)
+    assert attributes['attr1'] == 'test1'
+    assert attributes['attr2'] == 'test2'
 
-        attributes = list_rse_attributes(rse_id=new_rse_id)
-        assert attributes['attr1'] == 'test'
+    limits = get_rse_limits(rse_id=importer_example_data.old_rse_id_1)
+    assert limits['MaxBeingDeletedFiles'] == 1000
+    assert limits['MinFreeSpace'] == 10000
 
-        limits = get_rse_limits(rse_id=new_rse_id)
-        assert limits['MinFreeSpace'] == 20000
+    distance = get_distances(importer_example_data.old_rse_id_1, importer_example_data.old_rse_id_2)[0]
+    assert distance['ranking'] == 10
 
-        # RSE 1 that already existed before
-        check_rse(self.old_rse_1, self.data1['rses'], **self.vo)
-        check_protocols(self.old_rse_1, self.data1['rses'], **self.vo)
+    distance = get_distances(importer_example_data.old_rse_id_1, importer_example_data.old_rse_id_3)[0]
+    assert distance['ranking'] == 4
 
-        attributes = list_rse_attributes(rse_id=self.old_rse_id_1)
-        assert attributes['attr1'] == 'test1'
-        assert attributes['attr2'] == 'test2'
+    importer_example_data.check_accounts()
 
-        limits = get_rse_limits(rse_id=self.old_rse_id_1)
-        assert limits['MaxBeingDeletedFiles'] == 1000
-        assert limits['MinFreeSpace'] == 10000
+    with pytest.raises(RSENotFound):
+        get_rse(rse_id=importer_example_data.old_rse_id_4)
 
-        distance = get_distances(self.old_rse_id_1, self.old_rse_id_2)[0]
-        assert distance['ranking'] == 10
+    response = rest_client.post('/import/', headers=headers(auth(auth_token), hdrdict(headers_dict)), data=render_json(**importer_example_data.data2))
+    assert response.status_code == 201
 
-        distance = get_distances(self.old_rse_id_1, self.old_rse_id_3)[0]
-        assert distance['ranking'] == 4
-
-        self.check_accounts(self.data1['accounts'])
-
-        with pytest.raises(RSENotFound):
-            get_rse(rse_id=self.old_rse_id_4)
-
-        r2 = TestApp(import_app.wsgifunc(*mw)).post('/', headers=headers2, expect_errors=True, params=render_json(**self.data2))
-        assert r2.status == 201
-
-        r2 = TestApp(import_app.wsgifunc(*mw)).post('/', headers=headers2, expect_errors=True, params=render_json(**self.data3))
-        assert r2.status == 201
+    response = rest_client.post('/import/', headers=headers(auth(auth_token), hdrdict(headers_dict)), data=render_json(**importer_example_data.data3))
+    assert response.status_code == 201
 
 
 class TestImporterSyncModes(unittest.TestCase):
@@ -469,10 +473,8 @@ class TestImporterSyncModes(unittest.TestCase):
         # Since test config scenarios are complicated moved the setup inside the individual tests
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
-            self.vo_header = {'X-Rucio-VO': self.vo['vo']}
         else:
             self.vo = {}
-            self.vo_header = {}
 
     def test_import_rses_append(self):
         """ IMPORTER (CORE): test import rse (APPEND mode). """
@@ -1200,110 +1202,92 @@ class TestImporterSyncModes(unittest.TestCase):
         assert(data_protocol_formated not in protocols_formated)
 
 
-class TestExporter(unittest.TestCase):
+@pytest.fixture
+def distances_data(vo):
+    db_session = session.get_session()
+    db_session.query(models.Distance).delete()
+    db_session.commit()
 
-    def setUp(self):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
-            self.vo_header = {'X-Rucio-VO': self.vo['vo']}
-        else:
-            self.vo = {}
-            self.vo_header = {}
+    rse_1 = 'MOCK'
+    rse_1_id = get_rse_id(rse_1, vo=vo)
+    rse_2 = 'MOCK2'
+    rse_2_id = get_rse_id(rse_2, vo=vo)
+    ranking = 10
+    add_distance(rse_1_id, rse_2_id, ranking)
+    distances = get_distances(rse_1_id, rse_2_id)[0]
 
-        self.db_session = session.get_session()
-        self.db_session.query(models.Distance).delete()
-        self.db_session.commit()
-        self.rse_1 = 'MOCK'
-        self.rse_1_id = get_rse_id(self.rse_1, **self.vo)
-        self.rse_2 = 'MOCK2'
-        self.rse_2_id = get_rse_id(self.rse_2, **self.vo)
-        ranking = 10
-        add_distance(self.rse_1_id, self.rse_2_id, ranking)
-        self.distances = {
-            self.rse_1: {
-                self.rse_2: get_distances(self.rse_1_id, self.rse_2_id)[0]
-            }
+    return {'distances': distances, 'rse_1': rse_1, 'rse_1_id': rse_1_id, 'rse_2': rse_2, 'rse_2_id': rse_2_id}
+
+
+def test_export_core(vo, distances_data):
+    """ EXPORT (CORE): Test the export of data."""
+    data = export_data(vo=vo)
+    assert data['rses'] == export_rses(vo=vo)
+    distances_cmp = {
+        distances_data['rse_1_id']: {
+            distances_data['rse_2_id']: distances_data['distances']
         }
-        self.distances_core = {
-            self.rse_1_id: {
-                self.rse_2_id: get_distances(self.rse_1_id, self.rse_2_id)[0]
-            }
+    }
+    assert distances_cmp == data['distances']
+
+
+def test_export_client(vo, distances_data):
+    """ EXPORT (CLIENT): Test the export of data."""
+    export_client = ExportClient()
+    data = export_client.export_data()
+    rses = {}
+    for rse in list_rses(filters={'vo': vo}):
+        rse_name = rse['rse']
+        rse_id = rse['id']
+        rses[rse_name] = export_rse(rse_id=rse_id)
+    assert data['rses'] == parse_response(render_json(**rses))
+    distances_cmp = {
+        distances_data['rse_1']: {
+            distances_data['rse_2']: distances_data['distances']
         }
-
-    def test_export_core(self):
-        """ EXPORT (CORE): Test the export of data."""
-        data = export_data(**self.vo)
-        assert data['rses'] == export_rses(**self.vo)
-        assert data['distances'] == self.distances_core
-
-    def test_export_client(self):
-        """ EXPORT (CLIENT): Test the export of data."""
-        export_client = ExportClient()
-        data = export_client.export_data()
-        rses = {}
-        for rse in list_rses(filters=self.vo):
-            rse_name = rse['rse']
-            rse_id = rse['id']
-            rses[rse_name] = export_rse(rse_id=rse_id)
-        assert data['rses'] == parse_response(render_json(**rses))
-        assert data['distances'] == parse_response(render_json(**self.distances))
-
-    def test_export_rest(self):
-        """ EXPORT (REST): Test the export of data."""
-        mw = []
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        token = str(r1.header('X-Rucio-Auth-Token'))
-        headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
-
-        r2 = TestApp(export_app.wsgifunc(*mw)).get('/', headers=headers2, expect_errors=True)
-        rses = export_rses(**self.vo)
-        sanitised = {}
-        for rse_id in rses:
-            sanitised[get_rse_name(rse_id=rse_id)] = rses[rse_id]
-        rses = sanitised
-
-        assert r2.status == 200
-        assert parse_response(r2.body) == parse_response(render_json(**{'rses': rses, 'distances': self.distances}))
+    }
+    assert parse_response(render_json(**distances_cmp)) == data['distances']
 
 
-class TestExportImport(unittest.TestCase):
-    def setUp(self):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
-            self.vo_header = {'X-Rucio-VO': self.vo['vo']}
-        else:
-            self.vo = {}
-            self.vo_header = {}
+def test_export_rest(vo, rest_client, auth_token, distances_data):
+    """ EXPORT (REST): Test the export of data."""
+    headers_dict = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root'}
 
-    def tearDown(self):
-        reset_rses()
+    rses = export_rses(vo=vo)
+    sanitised = {}
+    for rse_id in rses:
+        sanitised[get_rse_name(rse_id=rse_id)] = rses[rse_id]
+    rses = sanitised
 
-    def test_export_import(self):
-        """ IMPORT/EXPORT (REST): Test the export and import of data together to check same syntax."""
-        if not config_has_section('importer'):
-            config_add_section('importer')
-            config_set('importer', 'rse_sync_method', 'hard')
-            config_set('importer', 'attr_method', 'hard')
-            config_set('importer', 'protocol_method', 'hard')
+    response = rest_client.get('/export/', headers=headers(auth(auth_token), hdrdict(headers_dict)))
+    assert response.status_code == 200
+    distances_cmp = {
+        distances_data['rse_1']: {
+            distances_data['rse_2']: distances_data['distances']
+        }
+    }
+    assert parse_response(render_json(**{'rses': rses, 'distances': distances_cmp})) == parse_response(response.get_data(as_text=True))
 
-        # Setup new RSE, distance, attribute, limits
-        new_rse = rse_name_generator()
-        add_rse(new_rse, **self.vo)
 
-        # Get token
-        mw = []
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        token = str(r1.header('X-Rucio-Auth-Token'))
-        headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
+def test_export_import(vo, rest_client, auth_token, reset_rses):
+    """ IMPORT/EXPORT (REST): Test the export and import of data together to check same syntax."""
+    if not config_has_section('importer'):
+        config_add_section('importer')
+        config_set('importer', 'rse_sync_method', 'hard')
+        config_set('importer', 'attr_method', 'hard')
+        config_set('importer', 'protocol_method', 'hard')
 
-        # Export data
-        r2 = TestApp(export_app.wsgifunc(*mw)).get('/', headers=headers2, expect_errors=True)
-        exported_data = parse_response(r2.body)
+    new_rse = rse_name_generator()
+    headers_dict = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root'}
 
-        # Import data
-        r3 = TestApp(import_app.wsgifunc(*mw)).post('/', headers=headers2, expect_errors=True, params=render_json(**exported_data))
-        assert r3.status == 201
+    # Setup new RSE, distance, attribute, limits
+    add_rse(new_rse, vo=vo)
+
+    # Export data
+    response = rest_client.get('/export/', headers=headers(auth(auth_token), hdrdict(headers_dict)))
+    assert response.status_code == 200
+    exported_data = parse_response(response.get_data(as_text=True))
+
+    # Import data
+    response = rest_client.post('/import/', headers=headers(auth(auth_token), hdrdict(headers_dict)), data=render_json(**exported_data))
+    assert response.status_code == 201

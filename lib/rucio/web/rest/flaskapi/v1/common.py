@@ -29,6 +29,7 @@ from functools import wraps
 from time import time
 from traceback import format_exc
 
+import six
 from flask import request, Response
 
 from rucio.api.authentication import validate_auth_token
@@ -38,11 +39,11 @@ from rucio.common.utils import generate_uuid
 from rucio.web.rest.utils import generate_http_error_flask
 
 
-def before_request():
+def request_auth_env():
     if request.environ.get('REQUEST_METHOD') == 'OPTIONS':
         return '', 200
 
-    auth_token = request.headers.get('X-Rucio-Auth-Token')
+    auth_token = request_header_ensure_string('X-Rucio-Auth-Token')
 
     try:
         auth = validate_auth_token(auth_token)
@@ -62,7 +63,7 @@ def before_request():
     request.environ['start_time'] = time()
 
 
-def after_request(response):
+def response_headers(response):
     response.headers['Access-Control-Allow-Origin'] = request.environ.get('HTTP_ORIGIN')
     response.headers['Access-Control-Allow-Headers'] = request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS')
     response.headers['Access-Control-Allow-Methods'] = '*'
@@ -131,3 +132,24 @@ def try_stream(generator, content_type=None):
         return Response(itertools.chain((peek,), it), content_type=content_type)
     except StopIteration:
         return Response('', content_type=content_type)
+
+
+def request_header_ensure_string(key, default=None):
+    """
+    Supplement for request.headers.get(...), which returns
+    unicode strings for Python 2.
+
+    :param key: the header name (case-insensitive).
+    :param default: the value to return, if the header is absent.
+        Returns None by default.
+    :raises TypeError: when the header value was not of binary type.
+    :returns: default, if the key is not present or a str type
+        corresponding to the header's value.
+    """
+    hdrval = request.headers.get(key, default=default, as_bytes=True)
+    if hdrval is None or hdrval == default:
+        return hdrval
+    elif isinstance(hdrval, six.binary_type):
+        return six.ensure_str(hdrval)
+    else:
+        raise TypeError("Unexpected header value type: " + str(type(hdrval)))
