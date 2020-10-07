@@ -119,11 +119,11 @@ class TestCurlRucio(unittest.TestCase):
         exitcode, out, err = execute(cmd)
         assert 'X-Rucio-Auth-Token' in out
         os.environ['RUCIO_TOKEN'] = out[len('X-Rucio-Auth-Token: '):].rstrip()
-        cmd = '''curl -s -i --cacert %s -H "X-Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -d '{"type": "USER", "email": "rucio@email.com"}' -X POST %s/accounts/%s''' % (self.cacert, self.host, account_name_generator())
+        cmd = '''curl -s -i --cacert %s -H "X-Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -H "Content-Type: application/json" -d '{"type": "USER", "email": "rucio@email.com"}' -X POST %s/accounts/%s''' % (self.cacert, self.host, account_name_generator())
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
-        assert '201 Created' in out
+        assert '201 Created'.lower() in out.lower()
 
     def test_get_accounts_whoami(self):
         """ACCOUNT (CURL): Test whoami method"""
@@ -136,7 +136,7 @@ class TestCurlRucio(unittest.TestCase):
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
-        assert '303 See Other' in out
+        assert '303 See Other'.lower() in out.lower()
 
     def test_post_rse(self):
         """RSE (CURL): add RSE"""
@@ -148,4 +148,4 @@ class TestCurlRucio(unittest.TestCase):
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
-        assert '201 Created' in out
+        assert '201 Created'.lower() in out.lower()

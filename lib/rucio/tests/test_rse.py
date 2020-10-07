@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,10 +35,8 @@
 from __future__ import print_function
 
 import unittest
-from json import dumps
 
 import pytest
-from paste.fixture import TestApp
 
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.rseclient import RSEClient
@@ -56,9 +54,7 @@ from rucio.core.rse import (add_rse, get_rse_id, del_rse, restore_rse, list_rses
 from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import RSEType
 from rucio.rse import rsemanager as mgr
-from rucio.tests.common import rse_name_generator
-from rucio.web.rest.authentication import APP as auth_app
-from rucio.web.rest.rse import APP as rse_app
+from rucio.tests.common import rse_name_generator, hdrdict, auth, headers
 
 
 class TestRSECoreApi(unittest.TestCase):
@@ -234,175 +230,122 @@ class TestRSECoreApi(unittest.TestCase):
         assert not rse_is_empty(rse_id=rse_id)
 
 
-class TestRSE(unittest.TestCase):
+def test_create_rse_success(vo, rest_client, auth_token):
+    """ RSE (REST): send a POST to create a new RSE """
+    rse_name = rse_name_generator()
+    headers_dict = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root'}
+    properties = {
+        'ASN': 'ASN',
+        'availability': 2,
+        'deterministic': True,
+        'volatile': True,
+        'city': 'city',
+        'region_code': 'DE',
+        'country_name': 'country_name',
+        'continent': 'EU',
+        'time_zone': 'time_zone',
+        'ISP': 'ISP',
+        'staging_area': True,
+        'rse_type': 'DISK',
+        'longitude': 1.0,
+        'latitude': 2.0
+    }
+    response = rest_client.post('/rses/' + rse_name, headers=headers(auth(auth_token), hdrdict(headers_dict)), json=properties)
+    assert response.status_code == 201
+    rse = get_rse(rse_id=get_rse_id(rse=rse_name, vo=vo))
+    assert rse.rse == rse_name
+    assert rse.deterministic == properties['deterministic']
+    assert rse.volatile == properties['volatile']
+    assert rse.city == properties['city']
+    assert rse.region_code == properties['region_code']
+    assert rse.country_name == properties['country_name']
+    assert rse.continent == properties['continent']
+    assert rse.time_zone == properties['time_zone']
+    assert rse.ISP == properties['ISP']
+    assert rse.staging_area == properties['staging_area']
+    assert rse.rse_type == RSEType.DISK
+    assert rse.longitude == properties['longitude']
+    assert rse.latitude == properties['latitude']
+    assert rse.ASN == properties['ASN']
+    assert rse.availability == properties['availability']
 
-    def setUp(self):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
-            self.vo_header = {'X-Rucio-VO': self.vo['vo']}
-        else:
-            self.vo = {}
-            self.vo_header = {}
+    response = rest_client.post('/rses/' + rse_name, headers=headers(auth(auth_token), hdrdict(headers_dict)))
+    assert response.status_code == 409
 
-    def test_create_rse_success(self):
-        """ RSE (REST): send a POST to create a new RSE """
-        mw = []
 
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+def xtest_tag_rses(rest_client, auth_token):
+    """ RSE (REST): send a POST to tag a RSE """
+    headers_dict = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root'}
+    data = {'rse': 'MOCK'}
+    response = rest_client.post('/rses/', headers=headers(auth(auth_token), hdrdict(headers_dict)), json=data)
+    assert response.status_code == 201
 
-        assert r1.status == 200
-        token = str(r1.header('X-Rucio-Auth-Token'))
-        rse_name = rse_name_generator()
-        headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
-        properties = {
-            'ASN': 'ASN',
-            'availability': 2,
-            'deterministic': True,
-            'volatile': True,
-            'city': 'city',
-            'region_code': 'DE',
-            'country_name': 'country_name',
-            'continent': 'EU',
-            'time_zone': 'time_zone',
-            'ISP': 'ISP',
-            'staging_area': True,
-            'rse_type': 'DISK',
-            'longitude': 1.0,
-            'latitude': 2.0
-        }
-        r2 = TestApp(rse_app.wsgifunc(*mw)).post('/' + rse_name, headers=headers2, expect_errors=True, params=dumps(properties))
-        assert r2.status == 201
-        rse = get_rse(rse_id=get_rse_id(rse=rse_name, **self.vo))
-        assert rse.rse == rse_name
-        assert rse.deterministic == properties['deterministic']
-        assert rse.volatile == properties['volatile']
-        assert rse.city == properties['city']
-        assert rse.region_code == properties['region_code']
-        assert rse.country_name == properties['country_name']
-        assert rse.continent == properties['continent']
-        assert rse.time_zone == properties['time_zone']
-        assert rse.ISP == properties['ISP']
-        assert rse.staging_area == properties['staging_area']
-        assert rse.rse_type == RSEType.DISK
-        assert rse.longitude == properties['longitude']
-        assert rse.latitude == properties['latitude']
-        assert rse.ASN == properties['ASN']
-        assert rse.availability == properties['availability']
+    data = {'tag': 'MOCK_TAG'}
+    response = rest_client.post('/rses/MOCK/tags', headers=headers(auth(auth_token), hdrdict(headers_dict)), json=data)
+    assert response.status_code == 201
 
-        headers3 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
-        r3 = TestApp(rse_app.wsgifunc(*mw)).post('/' + rse_name, headers=headers3, expect_errors=True)
-        assert r3.status == 409
 
-    def xtest_tag_rses(self):
-        """ RSE (REST): send a POST to tag a RSE """
-        mw = []
+def xtest_list_rse_tags(rest_client, auth_token):
+    """ RSE (REST): Test the listing of RSE tags """
+    headers_dict = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root'}
+    data = {'rse': 'MOCK'}
+    response = rest_client.post('/rses/', headers=headers(auth(auth_token), hdrdict(headers_dict)), json=data)
+    assert response.status_code == 201
 
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+    data = {'tag': 'MOCK_TAG'}
+    response = rest_client.post('/rses/MOCK/tags', headers=headers(auth(auth_token), hdrdict(headers_dict)), json=data)
+    assert response.status_code == 201
 
-        assert r1.status == 200
-        token = str(r1.header('X-Rucio-Auth-Token'))
+    response = rest_client.get('/rses/MOCK/tags', headers=headers(auth(auth_token), hdrdict(headers_dict)))
+    assert response.status_code == 200
 
-        headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'rse': 'MOCK'})
-        r2 = TestApp(rse_app.wsgifunc(*mw)).post('/', headers=headers2, params=data, expect_errors=True)
-        assert r2.status == 201
 
-        headers3 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'tag': 'MOCK_TAG'})
-        r3 = TestApp(rse_app.wsgifunc(*mw)).post('/MOCK/tags', headers=headers3, params=data, expect_errors=True)
-        assert r3.status == 201
+def test_get_rse_account_usage(rest_client, auth_token):
+    """ RSE (REST): Test of RSE account usage and limit """
+    headers_dict = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root'}
+    response = rest_client.get('/rses/MOCK/accounts/usage', headers=headers(auth(auth_token), hdrdict(headers_dict)))
+    assert response.status_code == 200
 
-    def xtest_list_rse_tags(self):
-        """ RSE (REST): Test the listing of RSE tags """
-        mw = []
 
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+def test_delete_rse_attribute(vo, rest_client, auth_token):
+    """ RSE (REST): Test the deletion of a RSE attribute """
+    rse_name = rse_name_generator()
+    add_rse(rse_name, vo=vo)
+    headers_dict = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root'}
 
-        assert r1.status == 200
-        token = str(r1.header('X-Rucio-Auth-Token'))
+    response = rest_client.delete('/rses/{0}/attr/{0}'.format(rse_name), headers=headers(auth(auth_token), hdrdict(headers_dict)))
+    assert response.status_code == 200
 
-        headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'rse': 'MOCK'})
-        r2 = TestApp(rse_app.wsgifunc(*mw)).post('/', headers=headers2, params=data, expect_errors=True)
-        assert r2.status == 201
+    response = rest_client.delete('/rses/{0}/attr/{0}'.format(rse_name), headers=headers(auth(auth_token), hdrdict(headers_dict)))
+    assert response.status_code == 404
 
-        headers3 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'tag': 'MOCK_TAG'})
-        r3 = TestApp(rse_app.wsgifunc(*mw)).post('/MOCK/tags', headers=headers3, params=data, expect_errors=True)
-        assert r3.status == 201
 
-        headers4 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
-        r4 = TestApp(rse_app.wsgifunc(*mw)).get('/MOCK/tags', headers=headers4, expect_errors=True)
-        assert r4.status == 200
+def test_delete_rse(vo, rest_client, auth_token):
+    """ RSE (REST): Test the deletion of RSE """
+    # Normal deletion
+    rse_name = rse_name_generator()
+    add_rse(rse_name, vo=vo)
+    headers_dict = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root'}
 
-    def test_get_rse_account_usage(self):
-        """ RSE (REST): Test of RSE account usage and limit """
-        mw = []
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        assert r1.status == 200
-        token = str(r1.header('X-Rucio-Auth-Token'))
-
-        headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
-        r2 = TestApp(rse_app.wsgifunc(*mw)).get('/MOCK/accounts/usage', headers=headers2, expect_errors=True)
-        assert r2.status == 200
-
-    def test_delete_rse_attribute(self):
-        """ RSE (REST): Test the deletion of a RSE attribute """
-        rse_name = rse_name_generator()
-        add_rse(rse_name, **self.vo)
-        mw = []
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        token = str(r1.header('X-Rucio-Auth-Token'))
-
-        headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
-        r2 = TestApp(rse_app.wsgifunc(*mw)).delete('/{0}/attr/{0}'.format(rse_name), headers=headers2, expect_errors=True)
-        assert r2.status == 200
-
-        r2 = TestApp(rse_app.wsgifunc(*mw)).delete('/{0}/attr/{0}'.format(rse_name), headers=headers2, expect_errors=True)
-        assert r2.status == 404
-
-    def test_delete_rse(self):
-        """ RSE (REST): Test the deletion of RSE """
-        mw = []
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        token = str(r1.header('X-Rucio-Auth-Token'))
-
-        # Normal deletion
-        rse_name = rse_name_generator()
-        add_rse(rse_name, **self.vo)
-        headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
-        r2 = TestApp(rse_app.wsgifunc(*mw)).delete('/{0}'.format(rse_name), headers=headers2, expect_errors=True)
-        assert r2.status == 200
-        # Second deletion
-        headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
-        r2 = TestApp(rse_app.wsgifunc(*mw)).delete('/{0}'.format(rse_name), headers=headers2, expect_errors=True)
-        assert r2.status == 404
-        # Deletion of not found RSE
-        rse_name = rse_name_generator()
-        headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
-        r2 = TestApp(rse_app.wsgifunc(*mw)).delete('/{0}'.format(rse_name), headers=headers2, expect_errors=True)
-        assert r2.status == 404
-        # Deletion of not empty RSE
-        rse_name = rse_name_generator()
-        rse_id = add_rse(rse_name, **self.vo)
-        db_session = session.get_session()
-        rse_usage = db_session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').one()
-        rse_usage.used = 1
-        db_session.commit()
-        headers2 = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root', 'X-Rucio-Auth-Token': str(token)}
-        r2 = TestApp(rse_app.wsgifunc(*mw)).delete('/{0}'.format(rse_name), headers=headers2, expect_errors=True)
+    response = rest_client.delete('/rses/{0}'.format(rse_name), headers=headers(auth(auth_token), hdrdict(headers_dict)))
+    assert response.status_code == 200
+    # Second deletion
+    response = rest_client.delete('/rses/{0}'.format(rse_name), headers=headers(auth(auth_token), hdrdict(headers_dict)))
+    assert response.status_code == 404
+    # Deletion of not found RSE
+    rse_name = rse_name_generator()
+    response = rest_client.delete('/rses/{0}'.format(rse_name), headers=headers(auth(auth_token), hdrdict(headers_dict)))
+    assert response.status_code == 404
+    # Deletion of not empty RSE
+    rse_name = rse_name_generator()
+    rse_id = add_rse(rse_name, vo=vo)
+    db_session = session.get_session()
+    rse_usage = db_session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').one()
+    rse_usage.used = 1
+    db_session.commit()
+    response = rest_client.delete('/rses/{0}'.format(rse_name), headers=headers(auth(auth_token), hdrdict(headers_dict)))
+    assert response.status_code == 404
+    assert response.headers.get('ExceptionClass') == 'RSEOperationNotSupported'
 
 
 class TestRSEClient(unittest.TestCase):

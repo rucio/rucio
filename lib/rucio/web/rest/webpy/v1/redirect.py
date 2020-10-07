@@ -119,53 +119,51 @@ class MetaLinkRedirector(RucioController):
             header('Content-Type', 'application/metalink4+xml')
             yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
 
-            try:
-                # iteratively stream the XML per file
-                for rfile in tmp_replicas:
-                    replicas = []
-                    dictreplica = {}
-                    for rse in rfile['rses']:
-                        for replica in rfile['rses'][rse]:
-                            replicas.append(replica)
-                            dictreplica[replica] = rse
+            # iteratively stream the XML per file
+            for rfile in tmp_replicas:
+                replicas = []
+                dictreplica = {}
+                for rse in rfile['rses']:
+                    for replica in rfile['rses'][rse]:
+                        replicas.append(replica)
+                        dictreplica[replica] = rse
 
-                    # stream metadata
-                    yield ' <file name="' + rfile['name'] + '">\n'
-                    yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
+                # stream metadata
+                yield ' <file name="' + rfile['name'] + '">\n'
+                yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
 
-                    if rfile['adler32'] is not None:
-                        yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
-                    if rfile['md5'] is not None:
-                        yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
+                if rfile['adler32'] is not None:
+                    yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
+                if rfile['md5'] is not None:
+                    yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
 
-                    yield '  <size>' + str(rfile['bytes']) + '</size>\n'
+                yield '  <size>' + str(rfile['bytes']) + '</size>\n'
 
-                    yield '  <glfn name="/atlas/rucio/%s:%s">' % (rfile['scope'], rfile['name'])
-                    yield '</glfn>\n'
+                yield '  <glfn name="/atlas/rucio/%s:%s">' % (rfile['scope'], rfile['name'])
+                yield '</glfn>\n'
 
-                    # sort the actual replicas if necessary
-                    if select == 'geoip':
-                        replicas = sort_geoip(dictreplica, client_location['ip'], ignore_error=True)
-                    elif select == 'closeness':
-                        replicas = sort_closeness(dictreplica, client_location)
-                    elif select == 'dynamic':
-                        replicas = sort_dynamic(dictreplica, client_location)
-                    elif select == 'ranking':
-                        replicas = sort_ranking(dictreplica, client_location)
-                    else:
-                        replicas = sort_random(dictreplica)
+                # sort the actual replicas if necessary
+                if select == 'geoip':
+                    replicas = sort_geoip(dictreplica, client_location['ip'], ignore_error=True)
+                elif select == 'closeness':
+                    replicas = sort_closeness(dictreplica, client_location)
+                elif select == 'dynamic':
+                    replicas = sort_dynamic(dictreplica, client_location)
+                elif select == 'ranking':
+                    replicas = sort_ranking(dictreplica, client_location)
+                else:
+                    replicas = sort_random(dictreplica)
 
-                    # stream URLs
-                    idx = 1
-                    for replica in replicas:
-                        yield '  <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx) + '">' + replica + '</url>\n'
-                        idx += 1
+                # stream URLs
+                idx = 1
+                for replica in replicas:
+                    yield '  <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx) + '">' + replica + '</url>\n'
+                    idx += 1
 
-                    yield ' </file>\n'
+                yield ' </file>\n'
 
-            finally:
-                # don't forget to send the metalink footer
-                yield '</metalink>\n'
+            # don't forget to send the metalink footer
+            yield '</metalink>\n'
 
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])

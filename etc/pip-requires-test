@@ -1,6 +1,5 @@
 # All dependencies needed to develop/test rucio should be defined here
 
-Paste==3.0.8                                      # Utilities for web development in pyton (3.0.8 last Py27 compatible version)
 pytest==4.6.11; python_version < '3.6'            # Used for testing
 pytest==6.0.1; python_version >= '3.6'
 Sphinx==1.8.5; python_version < '3.5'             # required to build documentation (1.8.5 last Py27 compatible version)

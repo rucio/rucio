@@ -114,8 +114,14 @@ def add_account_identity(identity, type, account, email, default=False, password
 
     try:
         iaa.save(session=session)
-    except IntegrityError:
-        raise exception.Duplicate('Identity pair \'%s\',\'%s\' already exists!' % (identity, type))
+    except IntegrityError as error:
+        if match('.*IntegrityError.*ORA-00001: unique constraint.*violated.*', error.args[0]) \
+                or match('.*IntegrityError.*UNIQUE constraint failed.*', error.args[0]) \
+                or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
+                or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+                or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
+                or match('.*IntegrityError.*columns? .*not unique.*', error.args[0]):
+            raise exception.Duplicate('Identity pair \'%s\',\'%s\' already exists!' % (identity, type))
 
 
 @read_session

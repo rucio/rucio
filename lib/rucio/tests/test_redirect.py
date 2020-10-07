@@ -56,7 +56,7 @@ class TestReplicaHeaderRedirection(unittest.TestCase):
                                                                                                     tmp_scope,
                                                                                                     tmp_name)
         _, out, _ = execute(cmd)
-        assert '404 Not Found' in out
+        assert '404 Not Found'.lower() in out.lower()
 
         self.replica_client.add_replicas(rse='MOCK', files=[{'scope': tmp_scope,
                                                              'name': tmp_name,
@@ -67,7 +67,7 @@ class TestReplicaHeaderRedirection(unittest.TestCase):
                                                               'bytes': 1,
                                                               'adler32': '0cc737eb'}])
         _, out, _ = execute(cmd)
-        assert '303 See Other' in out
+        assert '303 See Other'.lower() in out.lower()
         assert 'Location: https://mock' in out
 
 
@@ -98,7 +98,7 @@ class TestReplicaMetalinkRedirection(unittest.TestCase):
                                                                                                   tmp_scope,
                                                                                                   tmp_name)
         _, out, _ = execute(cmd)
-        assert '404 Not Found' in out
+        assert '404 Not Found'.lower() in out.lower()
 
         self.replica_client.add_replicas(rse='MOCK', files=[{'scope': tmp_scope,
                                                              'name': tmp_name,
@@ -109,7 +109,7 @@ class TestReplicaMetalinkRedirection(unittest.TestCase):
                                                               'bytes': 1,
                                                               'adler32': '0cc737eb'}])
         _, out, _ = execute(cmd)
-        assert '303 See Other' in out
+        assert '303 See Other'.lower() in out.lower()
         assert 'Link: </redirect/%s/%s/metalink' % (tmp_scope, tmp_name) in out
 
         cmd = 'curl -s -i --cacert %s -H "X-Rucio-Auth-Token: %s" %s -X GET %s/redirect/%s/%s/metalink' % (self.cacert,
@@ -119,7 +119,7 @@ class TestReplicaMetalinkRedirection(unittest.TestCase):
                                                                                                            tmp_scope,
                                                                                                            tmp_name)
         _, out, _ = execute(cmd)
-        assert '200 OK' in out
+        assert '200 OK'.lower() in out.lower()
         assert '<?xml' in out
         assert '<metalink' in out
         assert '<url location="MOCK"' in out

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2012-2020 CERN
 #
@@ -30,7 +29,7 @@ from flask.views import MethodView
 
 from rucio.api.credential import get_signed_url
 from rucio.common.exception import RucioException
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, request_header_ensure_string
 from rucio.web.rest.utils import generate_http_error_flask
 
 try:
@@ -79,10 +78,10 @@ class SignURL(MethodView):
         :status 500: Internal Server Error
         """
 
-        vo = request.headers.get('X-Rucio-VO', 'def')
-        account = request.headers.get('X-Rucio-Account')
-        appid = request.headers.get('X-Rucio-AppID', 'unknown')
-        ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+        vo = request_header_ensure_string('X-Rucio-VO', 'def')
+        account = request_header_ensure_string('X-Rucio-Account')
+        appid = request_header_ensure_string('X-Rucio-AppID', 'unknown')
+        ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
 
         rse, svc, operation, url = None, None, None, None
         try:
@@ -122,22 +121,19 @@ class SignURL(MethodView):
         return str(result), 200
 
 
-bp = Blueprint('credential', __name__)
+def blueprint():
+    bp = Blueprint('credential', __name__, url_prefix='/credential')
 
-signurl_view = SignURL.as_view('signurl')
-bp.add_url_rule('/signurl', view_func=signurl_view, methods=['get', 'options'])
-# yes, /signur ~= '/signurl?$'
-bp.add_url_rule('/signur', view_func=signurl_view, methods=['get', 'options'])
-application = Flask(__name__)
-application.register_blueprint(bp)
+    signurl_view = SignURL.as_view('signurl')
+    bp.add_url_rule('/signurl', view_func=signurl_view, methods=['get', 'options'])
+    # yes, /signur ~= '/signurl?$'
+    bp.add_url_rule('/signur', view_func=signurl_view, methods=['get', 'options'])
+
+    return bp
 
 
 def make_doc():
     """ Only used for sphinx documentation to add the prefix """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/credential')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

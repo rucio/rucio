@@ -130,62 +130,61 @@ class Replicas(RucioController):
 
             header('Content-Type', 'application/metalink4+xml' if metalink else 'application/x-json-stream')
 
-            try:
-                for rfile in list_replicas(dids=dids, schemes=schemes, vo=ctx.env.get('vo')):
+            for rfile in list_replicas(dids=dids, schemes=schemes, vo=ctx.env.get('vo')):
 
-                    # in first round, set the appropriate content type, and stream the header
-                    if __first:
-                        if metalink:
-                            yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
-                        __first = False
+                # in first round, set the appropriate content type, and stream the header
+                if __first:
+                    if metalink:
+                        yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
+                    __first = False
 
-                    # ... then, stream the replica information
-                    client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
-                    if client_ip is None:
-                        client_ip = ctx.ip
+                # ... then, stream the replica information
+                client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
+                if client_ip is None:
+                    client_ip = ctx.ip
 
-                    replicas = []
-                    dictreplica = {}
-                    for rse in rfile['rses']:
-                        for replica in rfile['rses'][rse]:
-                            replicas.append(replica)
-                            dictreplica[replica] = rse
-                    if select == 'geoip':
-                        try:
-                            replicas = sort_geoip(dictreplica, client_ip)
-                        except AddressNotFoundError:
-                            pass
-                    else:
-                        replicas = sort_random(dictreplica)
-                    if not metalink:
-                        yield dumps(rfile) + '\n'
-                    else:
-                        yield ' <file name="' + rfile['name'] + '">\n'
-                        yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
+                replicas = []
+                dictreplica = {}
+                for rse in rfile['rses']:
+                    for replica in rfile['rses'][rse]:
+                        replicas.append(replica)
+                        dictreplica[replica] = rse
+                if select == 'geoip':
+                    try:
+                        replicas = sort_geoip(dictreplica, client_ip)
+                    except AddressNotFoundError:
+                        pass
+                else:
+                    replicas = sort_random(dictreplica)
+                if not metalink:
+                    yield dumps(rfile) + '\n'
+                else:
+                    yield ' <file name="' + rfile['name'] + '">\n'
+                    yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
 
-                        if rfile['adler32'] is not None:
-                            yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
-                        if rfile['md5'] is not None:
-                            yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
+                    if rfile['adler32'] is not None:
+                        yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
+                    if rfile['md5'] is not None:
+                        yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
 
-                        yield '  <size>' + str(rfile['bytes']) + '</size>\n'
+                    yield '  <size>' + str(rfile['bytes']) + '</size>\n'
 
-                        yield '  <glfn name="/atlas/rucio/%s:%s">' % (rfile['scope'], rfile['name'])
-                        yield '</glfn>\n'
+                    yield '  <glfn name="/atlas/rucio/%s:%s">' % (rfile['scope'], rfile['name'])
+                    yield '</glfn>\n'
 
-                        idx = 0
-                        for replica in replicas:
-                            yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx + 1) + '">' + escape(replica) + '</url>\n'
-                            idx += 1
-                            if limit and limit == idx:
-                                break
-                        yield ' </file>\n'
+                    idx = 0
+                    for replica in replicas:
+                        yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx + 1) + '">' + escape(replica) + '</url>\n'
+                        idx += 1
+                        if limit and limit == idx:
+                            break
+                    yield ' </file>\n'
 
-                if metalink and __first:
+            if metalink:
+                if __first:
                     # ensure complete metalink on success without any content
                     yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n</metalink>\n'
-            finally:
-                if metalink and not __first:
+                else:
                     # if metalink start was already sent, always send the end
                     yield '</metalink>\n'
 
@@ -406,93 +405,92 @@ class ListReplicas(RucioController):
 
             header('Content-Type', 'application/metalink4+xml' if metalink else 'application/x-json-stream')
 
-            try:
-                for rfile in list_replicas(dids=dids, schemes=schemes,
-                                           unavailable=unavailable,
-                                           request_id=ctx.env.get('request_id'),
-                                           ignore_availability=ignore_availability,
-                                           all_states=all_states,
-                                           rse_expression=rse_expression,
-                                           client_location=client_location,
-                                           domain=domain, signature_lifetime=signature_lifetime,
-                                           resolve_archives=resolve_archives,
-                                           resolve_parents=resolve_parents,
-                                           updated_after=updated_after,
-                                           issuer=ctx.env.get('issuer'),
-                                           vo=ctx.env.get('vo')):
+            for rfile in list_replicas(dids=dids, schemes=schemes,
+                                       unavailable=unavailable,
+                                       request_id=ctx.env.get('request_id'),
+                                       ignore_availability=ignore_availability,
+                                       all_states=all_states,
+                                       rse_expression=rse_expression,
+                                       client_location=client_location,
+                                       domain=domain, signature_lifetime=signature_lifetime,
+                                       resolve_archives=resolve_archives,
+                                       resolve_parents=resolve_parents,
+                                       updated_after=updated_after,
+                                       issuer=ctx.env.get('issuer'),
+                                       vo=ctx.env.get('vo')):
 
-                    # in first round, set the appropriate content type, and stream the header
-                    if __first:
-                        if metalink:
-                            yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
-                        __first = False
+                # in first round, set the appropriate content type, and stream the header
+                if __first:
+                    if metalink:
+                        yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
+                    __first = False
 
-                    # ... then, stream the replica information
-                    if not metalink:
-                        yield dumps(rfile, cls=APIEncoder) + '\n'
+                # ... then, stream the replica information
+                if not metalink:
+                    yield dumps(rfile, cls=APIEncoder) + '\n'
+                else:
+
+                    replicas = []
+                    dictreplica = {}
+                    for replica in rfile['pfns'].keys():
+                        replicas.append(replica)
+                        dictreplica[replica] = (rfile['pfns'][replica]['domain'],
+                                                rfile['pfns'][replica]['priority'],
+                                                rfile['pfns'][replica]['rse'],
+                                                rfile['pfns'][replica]['client_extract'])
+
+                    yield ' <file name="' + rfile['name'] + '">\n'
+
+                    if 'parents' in rfile and rfile['parents']:
+                        yield '  <parents>\n'
+                        for parent in rfile['parents']:
+                            yield '   <did>' + parent + '</did>\n'
+                        yield '  </parents>\n'
+
+                    yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
+                    if rfile['adler32'] is not None:
+                        yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
+                    if rfile['md5'] is not None:
+                        yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
+                    yield '  <size>' + str(rfile['bytes']) + '</size>\n'
+
+                    yield '  <glfn name="/%s/rucio/%s:%s"></glfn>\n' % (config_get('policy', 'schema',
+                                                                                   raise_exception=False,
+                                                                                   default='generic'),
+                                                                        rfile['scope'],
+                                                                        rfile['name'])
+
+                    # TODO: deprecate this
+                    if select == 'geoip':
+                        replicas = sort_geoip(dictreplica, client_location['ip'])
+                    elif select == 'closeness':
+                        replicas = sort_closeness(dictreplica, client_location)
+                    elif select == 'dynamic':
+                        replicas = sort_dynamic(dictreplica, client_location)
+                    elif select == 'ranking':
+                        replicas = sort_ranking(dictreplica, client_location)
+                    elif select == 'random':
+                        replicas = sort_random(dictreplica)
                     else:
+                        replicas = sorted(dictreplica, key=dictreplica.get)
 
-                        replicas = []
-                        dictreplica = {}
-                        for replica in rfile['pfns'].keys():
-                            replicas.append(replica)
-                            dictreplica[replica] = (rfile['pfns'][replica]['domain'],
-                                                    rfile['pfns'][replica]['priority'],
-                                                    rfile['pfns'][replica]['rse'],
-                                                    rfile['pfns'][replica]['client_extract'])
+                    idx = 0
+                    for replica in replicas:
+                        yield '  <url location="' + str(dictreplica[replica][2]) \
+                            + '" domain="' + str(dictreplica[replica][0]) \
+                            + '" priority="' + str(dictreplica[replica][1]) \
+                            + '" client_extract="' + str(dictreplica[replica][3]).lower() \
+                            + '">' + escape(replica) + '</url>\n'
+                        idx += 1
+                        if limit and limit == idx:
+                            break
+                    yield ' </file>\n'
 
-                        yield ' <file name="' + rfile['name'] + '">\n'
-
-                        if 'parents' in rfile and rfile['parents']:
-                            yield '  <parents>\n'
-                            for parent in rfile['parents']:
-                                yield '   <did>' + parent + '</did>\n'
-                            yield '  </parents>\n'
-
-                        yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
-                        if rfile['adler32'] is not None:
-                            yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
-                        if rfile['md5'] is not None:
-                            yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
-                        yield '  <size>' + str(rfile['bytes']) + '</size>\n'
-
-                        yield '  <glfn name="/%s/rucio/%s:%s"></glfn>\n' % (config_get('policy', 'schema',
-                                                                                       raise_exception=False,
-                                                                                       default='generic'),
-                                                                            rfile['scope'],
-                                                                            rfile['name'])
-
-                        # TODO: deprecate this
-                        if select == 'geoip':
-                            replicas = sort_geoip(dictreplica, client_location['ip'])
-                        elif select == 'closeness':
-                            replicas = sort_closeness(dictreplica, client_location)
-                        elif select == 'dynamic':
-                            replicas = sort_dynamic(dictreplica, client_location)
-                        elif select == 'ranking':
-                            replicas = sort_ranking(dictreplica, client_location)
-                        elif select == 'random':
-                            replicas = sort_random(dictreplica)
-                        else:
-                            replicas = sorted(dictreplica, key=dictreplica.get)
-
-                        idx = 0
-                        for replica in replicas:
-                            yield '  <url location="' + str(dictreplica[replica][2]) \
-                                + '" domain="' + str(dictreplica[replica][0]) \
-                                + '" priority="' + str(dictreplica[replica][1]) \
-                                + '" client_extract="' + str(dictreplica[replica][3]).lower() \
-                                + '">' + escape(replica) + '</url>\n'
-                            idx += 1
-                            if limit and limit == idx:
-                                break
-                        yield ' </file>\n'
-
-                if metalink and __first:
+            if metalink:
+                if __first:
                     # ensure complete metalink on success without any content
                     yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n</metalink>\n'
-            finally:
-                if metalink and not __first:
+                else:
                     # if metalink start was already sent, always send the end
                     yield '</metalink>\n'
 
@@ -702,9 +700,9 @@ class BadReplicasStates(RucioController):
             if 'rse' in params:
                 rse = params['rse'][0]
             if 'younger_than' in params:
-                younger_than = datetime.strptime(params['younger_than'], "%Y-%m-%dT%H:%M:%S.%f")
+                younger_than = datetime.strptime(params['younger_than'][0], "%Y-%m-%dT%H:%M:%S.%f")
             if 'older_than' in params and params['older_than']:
-                older_than = datetime.strptime(params['older_than'], "%Y-%m-%dT%H:%M:%S.%f")
+                older_than = datetime.strptime(params['older_than'][0], "%Y-%m-%dT%H:%M:%S.%f")
             if 'limit' in params:
                 limit = int(params['limit'][0])
             if 'list_pfns' in params:

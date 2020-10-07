@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2014-2020 CERN
 #
@@ -24,7 +23,6 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
-from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
 
 from flask import Flask, Blueprint, request
@@ -33,13 +31,8 @@ from flask.views import MethodView
 from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks
 from rucio.common.exception import RucioException, RSENotFound
 from rucio.common.utils import render_json
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, parse_scope_name, try_stream
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream, request_auth_env, response_headers
 from rucio.web.rest.utils import generate_http_error_flask
-
-LOGGER = getLogger("rucio.lock")
-SH = StreamHandler()
-SH.setLevel(DEBUG)
-LOGGER.addHandler(SH)
 
 
 class LockByRSE(MethodView):
@@ -114,28 +107,21 @@ class LockByScopeName(MethodView):
             return str(error), 500
 
 
-"""----------------------
-   Web service startup
-----------------------"""
-bp = Blueprint('lock', __name__)
+def blueprint():
+    bp = Blueprint('lock', __name__, url_prefix='/locks')
 
-lock_by_rse_view = LockByRSE.as_view('lock_by_rse')
-bp.add_url_rule('/<rse>', view_func=lock_by_rse_view, methods=['get', ])
-lock_by_scope_name_view = LockByScopeName.as_view('lock_by_scope_name')
-bp.add_url_rule('/<path:scope_name>', view_func=lock_by_scope_name_view, methods=['get', ])
+    lock_by_rse_view = LockByRSE.as_view('lock_by_rse')
+    bp.add_url_rule('/<rse>', view_func=lock_by_rse_view, methods=['get', ])
+    lock_by_scope_name_view = LockByScopeName.as_view('lock_by_scope_name')
+    bp.add_url_rule('/<path:scope_name>', view_func=lock_by_scope_name_view, methods=['get', ])
 
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/locks')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

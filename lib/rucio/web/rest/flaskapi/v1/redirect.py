@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2014-2020 CERN
 #
@@ -28,7 +27,6 @@
 from __future__ import print_function
 
 import itertools
-from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
 
 from flask import Flask, Blueprint, request, redirect
@@ -38,18 +36,13 @@ from werkzeug.datastructures import Headers
 from rucio.api.replica import list_replicas
 from rucio.common.exception import RucioException, DataIdentifierNotFound, ReplicaNotFound
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_ranking, sort_dynamic, site_selector
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream, request_header_ensure_string
 from rucio.web.rest.utils import generate_http_error_flask
 
 try:
     from urlparse import parse_qs
 except ImportError:
     from urllib.parse import parse_qs
-
-LOGGER = getLogger("rucio.rucio")
-SH = StreamHandler()
-SH.setLevel(DEBUG)
-LOGGER.addHandler(SH)
 
 
 class MetaLinkRedirector(MethodView):
@@ -88,7 +81,7 @@ class MetaLinkRedirector(MethodView):
         dids, schemes, select = [{'scope': scope, 'name': name}], ['http', 'https', 'root', 'gsiftp', 'srm', 'davs'], None
 
         # set the correct client IP
-        client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+        client_ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
 
         client_location = {'ip': client_ip,
                            'fqdn': None,
@@ -112,7 +105,7 @@ class MetaLinkRedirector(MethodView):
                 client_location['site'] = params['site'][0]
 
         # get vo if given
-        vo = request.headers.get('X-Rucio-VO', 'def')
+        vo = request_header_ensure_string('X-Rucio-VO', 'def')
 
         try:
             replicas_iter = list_replicas(dids=dids, schemes=schemes, client_location=client_location, vo=vo)
@@ -125,53 +118,51 @@ class MetaLinkRedirector(MethodView):
                 # first, set the appropriate content type, and stream the header
                 yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
 
-                try:
-                    # iteratively stream the XML per file
-                    for rfile in itertools.chain((first, ), replicas_iter):
-                        replicas = []
-                        dictreplica = {}
-                        for rse in rfile['rses']:
-                            for replica in rfile['rses'][rse]:
-                                replicas.append(replica)
-                                dictreplica[replica] = rse
+                # iteratively stream the XML per file
+                for rfile in itertools.chain((first, ), replicas_iter):
+                    replicas = []
+                    dictreplica = {}
+                    for rse in rfile['rses']:
+                        for replica in rfile['rses'][rse]:
+                            replicas.append(replica)
+                            dictreplica[replica] = rse
 
-                        # stream metadata
-                        yield ' <file name="' + rfile['name'] + '">\n'
-                        yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
+                    # stream metadata
+                    yield ' <file name="' + rfile['name'] + '">\n'
+                    yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
 
-                        if rfile['adler32'] is not None:
-                            yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
-                        if rfile['md5'] is not None:
-                            yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
+                    if rfile['adler32'] is not None:
+                        yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
+                    if rfile['md5'] is not None:
+                        yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
 
-                        yield '  <size>' + str(rfile['bytes']) + '</size>\n'
+                    yield '  <size>' + str(rfile['bytes']) + '</size>\n'
 
-                        yield '  <glfn name="/atlas/rucio/%s:%s">' % (rfile['scope'], rfile['name'])
-                        yield '</glfn>\n'
+                    yield '  <glfn name="/atlas/rucio/%s:%s">' % (rfile['scope'], rfile['name'])
+                    yield '</glfn>\n'
 
-                        # sort the actual replicas if necessary
-                        if select == 'geoip':
-                            replicas = sort_geoip(dictreplica, client_location['ip'], ignore_error=True)
-                        elif select == 'closeness':
-                            replicas = sort_closeness(dictreplica, client_location)
-                        elif select == 'dynamic':
-                            replicas = sort_dynamic(dictreplica, client_location)
-                        elif select == 'ranking':
-                            replicas = sort_ranking(dictreplica, client_location)
-                        else:
-                            replicas = sort_random(dictreplica)
+                    # sort the actual replicas if necessary
+                    if select == 'geoip':
+                        replicas = sort_geoip(dictreplica, client_location['ip'], ignore_error=True)
+                    elif select == 'closeness':
+                        replicas = sort_closeness(dictreplica, client_location)
+                    elif select == 'dynamic':
+                        replicas = sort_dynamic(dictreplica, client_location)
+                    elif select == 'ranking':
+                        replicas = sort_ranking(dictreplica, client_location)
+                    else:
+                        replicas = sort_random(dictreplica)
 
-                        # stream URLs
-                        idx = 1
-                        for replica in replicas:
-                            yield '  <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx) + '">' + replica + '</url>\n'
-                            idx += 1
+                    # stream URLs
+                    idx = 1
+                    for replica in replicas:
+                        yield '  <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx) + '">' + replica + '</url>\n'
+                        idx += 1
 
-                        yield ' </file>\n'
+                    yield ' </file>\n'
 
-                finally:
-                    # don't forget to send the metalink footer
-                    yield '</metalink>\n'
+                # don't forget to send the metalink footer
+                yield '</metalink>\n'
 
             return try_stream(generate(), content_type='application/metalink4+xml')
         except DataIdentifierNotFound as error:
@@ -220,7 +211,7 @@ class HeaderRedirector(MethodView):
             # use the default HTTP protocols if no scheme is given
             select, rse, site, schemes = 'random', None, None, ['davs', 'http', 'https']
 
-            client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+            client_ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
 
             client_location = {'ip': client_ip,
                                'fqdn': None,
@@ -258,7 +249,7 @@ class HeaderRedirector(MethodView):
                 schemes = [schemes]  # list_replicas needs a list
 
             # get vo if given
-            vo = request.headers.get('X-Rucio-VO', 'def')
+            vo = request_header_ensure_string('X-Rucio-VO', 'def')
 
             replicas = [r for r in list_replicas(dids=[{'scope': scope, 'name': name, 'type': 'FILE'}],
                                                  schemes=schemes, client_location=client_location, vo=vo)]
@@ -320,27 +311,21 @@ class HeaderRedirector(MethodView):
             return str(error), 500, headers
 
 
-"""----------------------
-   Web service startup
-----------------------"""
-bp = Blueprint('redirect', __name__)
+def blueprint(no_doc=True):
+    bp = Blueprint('redirect', __name__, url_prefix='/redirect')
 
-metalink_redirector_view = MetaLinkRedirector.as_view('metalink_redirector')
-bp.add_url_rule('/<path:scope_name>/metalink', view_func=metalink_redirector_view, methods=['get', ])
-header_redirector_view = HeaderRedirector.as_view('header_redirector')
-bp.add_url_rule('/<path:scope_name>', view_func=header_redirector_view, methods=['get', ])
-# removed for doc: bp.add_url_rule('/<path:scope_name>/', view_func=header_redirector_view, methods=['get', ])
+    metalink_redirector_view = MetaLinkRedirector.as_view('metalink_redirector')
+    bp.add_url_rule('/<path:scope_name>/metalink', view_func=metalink_redirector_view, methods=['get', ])
+    header_redirector_view = HeaderRedirector.as_view('header_redirector')
+    bp.add_url_rule('/<path:scope_name>', view_func=header_redirector_view, methods=['get', ])
+    if no_doc:
+        bp.add_url_rule('/<path:scope_name>/', view_func=header_redirector_view, methods=['get', ])
 
-application = Flask(__name__)
-application.register_blueprint(bp)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/redirect')
+    doc_app.register_blueprint(blueprint(no_doc=False))
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

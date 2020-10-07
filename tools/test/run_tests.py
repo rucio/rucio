@@ -65,7 +65,14 @@ def find_image(images: typing.Dict, case: typing.Dict):
 
 
 def case_id(case: typing.Dict) -> str:
-    return f'{case["DIST"]}-py{case["PYTHON"]}-{case["SUITE"]}{"-" + case["RDBMS"] if "RDBMS" in case else ""}'
+    parts = [
+        case["DIST"],
+        'py' + case["PYTHON"],
+        case["SUITE"],
+        case.get("RDBMS", ""),
+        case.get("REST_BACKEND", "")
+    ]
+    return '-'.join(filter(bool, parts))
 
 
 def case_log(caseid, msg, file=sys.stderr):
@@ -184,17 +191,22 @@ def run_case(caseenv, image, use_podman, use_namespace, copy_rucio_logs, logs_di
         container_run_args = ' '.join(pod_net_arg if use_podman else network_arg)
         container_runtime_args = ' '.join(namespace_args)
 
-        # Running before_script.sh
-        run('./tools/test/before_script.sh', env={**os.environ, **caseenv, **namespace_env,
-                                                  "CONTAINER_RUNTIME_ARGS": container_runtime_args,
-                                                  "CONTAINER_RUN_ARGS": container_run_args,
-                                                  "CON_RUCIO": cid})
+        try:
+            # Running before_script.sh
+            run('./tools/test/before_script.sh', env={**os.environ, **caseenv, **namespace_env,
+                                                      "CONTAINER_RUNTIME_ARGS": container_runtime_args,
+                                                      "CONTAINER_RUN_ARGS": container_run_args,
+                                                      "CON_RUCIO": cid})
 
-        # output registered hostnames
-        run('docker', *namespace_args, 'exec', cid, 'cat', '/etc/hosts')
+            # output registered hostnames
+            run('docker', *namespace_args, 'exec', cid, 'cat', '/etc/hosts')
 
-        # Running install_script.sh
-        run('docker', *namespace_args, 'exec', cid, './tools/test/install_script.sh')
+            # Running install_script.sh
+            run('docker', *namespace_args, 'exec', cid, './tools/test/install_script.sh')
+        except:
+            # Try to get more information about failing runs in the CI
+            run('docker', *namespace_args, 'exec', cid, 'cat', '/var/log/httpd/error_log', check=False)
+            raise
 
         # Running test.sh
         run('docker', *namespace_args, 'exec', cid, './tools/test/test.sh')
