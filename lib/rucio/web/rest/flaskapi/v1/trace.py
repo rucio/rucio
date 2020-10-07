@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2013-2020 CERN
 #
@@ -34,7 +33,7 @@ from flask.views import MethodView
 from werkzeug.datastructures import Headers
 
 from rucio.core.trace import trace
-from rucio.web.rest.flaskapi.v1.common import after_request
+from rucio.web.rest.flaskapi.v1.common import response_headers, request_header_ensure_string
 from rucio.web.rest.utils import generate_http_error_flask
 
 
@@ -66,7 +65,7 @@ class Trace(MethodView):
             payload['traceTimeentryUnix'] = calendar.timegm(payload['traceTimeentry'].timetuple()) + payload['traceTimeentry'].microsecond / 1e6
 
             # guess client IP
-            payload['traceIp'] = request.headers.get('X-Forwarded-For', request.remote_addr)
+            payload['traceIp'] = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
 
             # generate unique ID
             payload['traceId'] = str(uuid.uuid4()).replace('-', '').lower()
@@ -82,25 +81,18 @@ class Trace(MethodView):
         return 'Created', 201, headers
 
 
-"""----------------------
-   Web service startup
-----------------------"""
-bp = Blueprint('trace', __name__)
+def blueprint():
+    bp = Blueprint('trace', __name__, url_prefix='/traces')
 
-trace_view = Trace.as_view('trace')
-bp.add_url_rule('/', view_func=trace_view, methods=['post', ])
+    trace_view = Trace.as_view('trace')
+    bp.add_url_rule('/', view_func=trace_view, methods=['post', ])
 
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.after_request(after_request)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/traces')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()
