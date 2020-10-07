@@ -1320,9 +1320,9 @@ def setup_logger(module_name=None, logger_name=None, logger_level=None, verbose=
             logger_level = logging.DEBUG
 
         # overriding by the config
-        cfg_levels = filter(lambda x: True if type(x) == str else False, logging._levelNames.keys())  # ['INFO', 'WARNING', etc.]
+        cfg_levels = (logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR)
         for level in cfg_levels:
-            cfg_opt = 'forceloglevel' + level.lower()
+            cfg_opt = 'forceloglevel' + logging.getLevelName(level)
             if _force_cfg_log_level(cfg_opt):
                 logger_level = level
 
