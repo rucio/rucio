@@ -220,9 +220,7 @@ class DownloadClient:
                 raise InputValidationError('Cannot use PFN download with wildcard in DID')
 
             did_scope, did_name = self._split_did_str(did_str)
-            dest_dir_path = self._prepare_dest_dir(item.get('base_dir', '.'),
-                                                   did_scope, did_name,
-                                                   item.get('no_subdir'))
+            dest_dir_path = self._prepare_dest_dir(item.get('base_dir', '.'), did_scope, item.get('no_subdir'))
 
             item['scope'] = did_scope
             item['name'] = did_name
@@ -1172,7 +1170,7 @@ class DownloadClient:
 
                     destinations = options['destinations']
                     dataset_scope, dataset_name = self._split_did_str(dataset_did_str)
-                    paths = [os.path.join(self._prepare_dest_dir(dest[0], dataset_name, file_did_name, dest[1]), file_did_name) for dest in destinations]
+                    paths = [os.path.join(self._prepare_dest_dir(dest[0], dataset_name, dest[1]), file_did_name) for dest in destinations]
                     if any(path in all_dest_file_paths for path in paths):
                         raise RucioException("Multiple file items with same destination file path")
 
@@ -1190,7 +1188,7 @@ class DownloadClient:
                         logger.error('No input options available for %s' % file_did_str)
                         continue
                     destinations = options['destinations']
-                    paths = [os.path.join(self._prepare_dest_dir(dest[0], file_did_scope, file_did_name, dest[1]), file_did_name) for dest in destinations]
+                    paths = [os.path.join(self._prepare_dest_dir(dest[0], file_did_scope, dest[1]), file_did_name) for dest in destinations]
                     if any(path in all_dest_file_paths for path in paths):
                         raise RucioException("Multiple file items with same destination file path")
                     all_dest_file_paths.update(paths)
@@ -1338,7 +1336,7 @@ class DownloadClient:
                 if pack is None:
                     scope = file_item['scope']
                     first_dest = next(iter(file_item['merged_options']['destinations']))
-                    dest_path = os.path.join(self._prepare_dest_dir(first_dest[0], scope, cea_id, first_dest[1]), cea_id)
+                    dest_path = os.path.join(self._prepare_dest_dir(first_dest[0], scope, first_dest[1]), cea_id)
                     pack = {'scope': scope,
                             'name': cea_id,
                             'dest_file_paths': [dest_path],
@@ -1384,29 +1382,21 @@ class DownloadClient:
 
         return did_scope, did_name
 
-    def _prepare_dest_dir(self, base_dir, dest_dir_name, file_name, no_subdir):
+    @staticmethod
+    def _prepare_dest_dir(base_dir, dest_dir_name, no_subdir):
         """
-        Builds the final destination path for a file and:
-            1. deletes existing files if no_subdir was given
-            2. creates the destination directory if it's not existent
+        Builds the final destination path for a file and creates the
+        destination directory if it's not existent.
         (This function is meant to be used as class internal only)
 
         :param base_dir: base directory part
         :param dest_dir_name: name of the destination directory
-        :param file_name: name of the file that will be downloaded
         :param no_subdir: if no subdirectory should be created
 
         :returns: the absolut path of the destination directory
         """
-        dest_dir_path = os.path.abspath(base_dir)
-        # if no subdirectory is used, existing files will be overwritten
-        if no_subdir:
-            dest_file_path = os.path.join(dest_dir_path, file_name)
-            if os.path.isfile(dest_file_path):
-                self.logger.debug('Deleting existing file: %s' % dest_file_path)
-                os.remove(dest_file_path)
-        else:
-            dest_dir_path = os.path.join(dest_dir_path, dest_dir_name)
+        # append dest_dir_name, if subdir should be used
+        dest_dir_path = os.path.join(os.path.abspath(base_dir), '' if no_subdir else dest_dir_name)
 
         if not os.path.isdir(dest_dir_path):
             os.makedirs(dest_dir_path)
