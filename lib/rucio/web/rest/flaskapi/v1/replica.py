@@ -571,6 +571,7 @@ class BadReplicas(MethodView):
         :status 201: Created.
         :status 400: Cannot decode json parameter list.
         :status 401: Invalid auth token.
+        :status 404: RSE not found.
         :status 404: Replica not found.
         :status 500: Internal Error.
         :returns: A list of not successfully declared files.
@@ -592,6 +593,8 @@ class BadReplicas(MethodView):
             not_declared_files = declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except RSENotFound as error:
+            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
         except ReplicaNotFound as error:
             return generate_http_error_flask(404, 'ReplicaNotFound', error.args[0])
         except RucioException as error:
