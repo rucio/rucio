@@ -1,0 +1,35 @@
+======
+1.23.8
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Rules: Add query hint to judge-evaluator query `#4040 <https://github.com/rucio/rucio/issues/4040>`_
+- Subscriptions: Possibility to overide the subscription comment `#4057 <https://github.com/rucio/rucio/issues/4057>`_
+- Testing: add tests with flask rest backend on travis `#1026 <https://github.com/rucio/rucio/issues/1026>`_
+
+****
+Bugs
+****
+
+- Core & Internals: RSE's add_protocol is leaking database exceptions on the API `#3921 <https://github.com/rucio/rucio/issues/3921>`_
+- Core & Internals: adding a replica with non-existent scope should raise ScopeNotFound `#3980 <https://github.com/rucio/rucio/issues/3980>`_
+- Recovery: Internal server error when declaring bad replicas on non-existent RSEs `#3409 <https://github.com/rucio/rucio/issues/3409>`_
+- Replicas: Abacus blocked by large deletion query `#4062 <https://github.com/rucio/rucio/issues/4062>`_
+
+-------
+Clients
+-------
+
+****
+Bugs
+****
+
+- Clients: rucio get --no-subdir does not check if file already exists `#3737 <https://github.com/rucio/rucio/issues/3737>`_
+- Clients: Scope check in upload client crashes in certain conditions `#4039 <https://github.com/rucio/rucio/issues/4039>`_
