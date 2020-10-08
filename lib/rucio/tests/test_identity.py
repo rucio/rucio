@@ -1,4 +1,5 @@
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,17 +28,13 @@ Test the Identity abstraction layer
 """
 import unittest
 
-from paste.fixture import TestApp
-
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account, del_account
 from rucio.core.identity import add_identity, del_identity, add_account_identity, del_account_identity, list_identities
 from rucio.db.sqla.constants import AccountType, IdentityType
-from rucio.tests.common import account_name_generator
-from rucio.web.rest.authentication import APP as auth_app
-from rucio.web.rest.identity import APP as identity_app
+from rucio.tests.common import account_name_generator, headers, hdrdict, auth
 
 
 class TestIdentity(unittest.TestCase):
@@ -91,26 +88,11 @@ class TestIdentity(unittest.TestCase):
         del_identity(self.account.external, IdentityType.SSH)
 
 
-class TestIdentityRest(object):
-    def test_userpass(self):
-        """ ACCOUNT (REST): send a POST to add an identity to an account."""
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            vo_header = {'X-Rucio-VO': config_get('client', 'vo', raise_exception=False, default='tst')}
-        else:
-            vo_header = {}
+def test_userpass(rest_client, auth_token):
+    """ ACCOUNT (REST): send a POST to add an identity to an account."""
+    username = uuid()
 
-        mw = []
-        account = 'root'
-        headers1 = {'X-Rucio-Account': account, 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(vo_header)
-        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-        assert res1.status == 200
-        token = str(res1.header('X-Rucio-Auth-Token'))
-        username = uuid()
-        password = 'secret'
-
-        # normal addition
-        headers2 = {'X-Rucio-Auth-Token': str(token), 'X-Rucio-Username': username, 'X-Rucio-Password': password,
-                    'X-Rucio-Email': 'email'}
-        res2 = TestApp(identity_app.wsgifunc(*mw)).put('/' + account + '/userpass', headers=headers2, expect_errors=True)
-        assert res2.status == 201
+    # normal addition
+    headers_dict = {'X-Rucio-Username': username, 'X-Rucio-Password': 'secret', 'X-Rucio-Email': 'email'}
+    response = rest_client.put('/identities/root/userpass', headers=headers(auth(auth_token), hdrdict(headers_dict)))
+    assert response.status_code == 201

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 import contextlib
+import itertools
 import os
 import subprocess
 import tempfile
@@ -33,12 +34,8 @@ from random import choice
 from string import ascii_uppercase
 
 import pytest
-from paste.fixture import TestApp
 from six import PY3
 
-from rucio.client.accountclient import AccountClient
-from rucio.common import exception
-from rucio.common.config import config_get, config_get_bool
 from rucio.common.utils import generate_uuid as uuid
 
 skip_rse_tests_with_accounts = pytest.mark.skipif(not os.path.exists('etc/rse-accounts.cfg'), reason='fails if no rse-accounts.cfg found')
@@ -59,51 +56,12 @@ def execute(cmd):
                                stdin=subprocess.PIPE,
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
-    out = ''
-    err = ''
-    exitcode = 0
 
     result = process.communicate()
     (out, err) = result
     exitcode = process.returncode
 
     return exitcode, out.decode(), err.decode()
-
-
-def create_accounts(account_list, user_type):
-    """ Registers a set of accounts
-
-    :param account_list: the list of accounts to be added
-    :param user_type: the type of accounts
-    """
-    account_client = AccountClient()
-    for account in account_list:
-        try:
-            account_client.add_account(account, user_type, email=None)
-        except exception.Duplicate:
-            pass  # Account already exists, no need to create it
-
-
-def get_auth_token(account, username, password):
-    """ Get's an authentication token from the server
-
-    :param account: the account authenticating
-    :param username:the username linked to the account
-    :param password: the password linked to the account
-    :returns: the authentication token
-    """
-    if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-        vo_header = {'X-Rucio-VO': config_get('client', 'vo', raise_exception=False, default='tst')}
-    else:
-        vo_header = {}
-
-    from rucio.web.rest.authentication import APP as auth_app
-    mw = []
-    header = {'Rucio-Account': account, 'Rucio-Username': username, 'Rucio-Password': password}
-    header.update(vo_header)
-    r1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=header, expect_errors=True)
-    token = str(r1.header('Rucio-Auth-Token'))
-    return token
 
 
 def account_name_generator():
@@ -172,3 +130,45 @@ def mock_open(module, file_like_object):
     finally:
         file_like_object.seek(0)
         delattr(module, 'open')
+
+
+def print_response(rest_response):
+    print('Status:', rest_response.status)
+    print()
+    nohdrs = True
+    for hdr, val in rest_response.headers.items():
+        if nohdrs:
+            print('Headers:')
+            print('-------')
+            nohdrs = False
+        print('%s: %s' % (hdr, val))
+
+    if not nohdrs:
+        print()
+
+    text = rest_response.get_data(as_text=True)
+    print(text if text else '<no content>')
+
+
+def headers(*iterables):
+    return list(itertools.chain(*iterables))
+
+
+def loginhdr(account, username, password):
+    yield 'X-Rucio-Account', str(account)
+    yield 'X-Rucio-Username', str(username)
+    yield 'X-Rucio-Password', str(password)
+
+
+def auth(token):
+    yield 'X-Rucio-Auth-Token', str(token)
+
+
+def vohdr(vo):
+    if vo:
+        yield 'X-Rucio-VO', str(vo)
+
+
+def hdrdict(dictionary):
+    for key in dictionary:
+        yield str(key), str(dictionary[key])

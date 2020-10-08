@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2016
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
@@ -30,10 +29,9 @@
 from __future__ import print_function
 
 import unittest
-from json import dumps, loads
+from json import loads
 
 import pytest
-from paste.fixture import TestApp
 
 from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription, \
     list_subscription_rule_states, get_subscription_by_id
@@ -51,8 +49,7 @@ from rucio.core.rule import add_rule
 from rucio.core.scope import add_scope
 from rucio.daemons.transmogrifier.transmogrifier import run
 from rucio.db.sqla.constants import AccountType, DIDType
-from rucio.web.rest.authentication import APP as auth_app
-from rucio.web.rest.subscription import APP as subs_app
+from rucio.tests.common import headers, auth
 
 
 class TestSubscriptionCoreApi(unittest.TestCase):
@@ -194,167 +191,118 @@ class TestSubscriptionCoreApi(unittest.TestCase):
             assert rule[3] == 2
 
 
-class TestSubscriptionRestApi(unittest.TestCase):
+def test_create_and_update_and_list_subscription(rest_client, auth_token):
+    """ SUBSCRIPTION (REST): Test the creation of a new subscription, update it, list it """
+    subscription_name = uuid()
+    projects = ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV']
+    pattern1 = r'(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
+                 \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)'
+    data = {'options': {'filter': {'project': projects, 'datatype': ['AOD', ], 'excluded_pattern': pattern1, 'account': ['tier0', ]},
+                        'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}],
+                        'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'blahblah'}}
+    response = rest_client.post('/subscriptions/root/' + subscription_name, headers=headers(auth(auth_token)), json=data)
+    assert response.status_code == 201
 
-    @classmethod
-    def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            cls.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
-            cls.vo_header = {'X-Rucio-VO': cls.vo['vo']}
-        else:
-            cls.vo = {}
-            cls.vo_header = {}
+    data = {'options': {'filter': {'project': ['toto', ]}}}
+    response = rest_client.put('/subscriptions/root/' + subscription_name, headers=headers(auth(auth_token)), json=data)
+    assert response.status_code == 201
 
-        cls.projects = ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV']
-        cls.pattern1 = r'(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
-                         \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)'
+    response = rest_client.get('/subscriptions/root/' + subscription_name, headers=headers(auth(auth_token)))
+    assert response.status_code == 200
+    assert loads(loads(response.get_data(as_text=True))['filter'])['project'][0] == 'toto'
 
-    def test_create_and_update_and_list_subscription(self):
-        """ SUBSCRIPTION (REST): Test the creation of a new subscription, update it, list it """
-        mw = []
 
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+def test_create_and_list_subscription_by_id(rest_client, auth_token):
+    """ SUBSCRIPTION (REST): Test the creation of a new subscription and get by subscription id """
+    subscription_name = uuid()
+    projects = ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV']
+    pattern1 = r'(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
+                 \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)'
+    data = {'options': {'filter': {'project': projects, 'datatype': ['AOD', ], 'excluded_pattern': pattern1, 'account': ['tier0', ]},
+                        'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}],
+                        'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'blahblah'}}
+    response = rest_client.post('/subscriptions/root/' + subscription_name, headers=headers(auth(auth_token)), json=data)
+    assert response.status_code == 201
 
-        assert res1.status == 200
-        token = str(res1.header('X-Rucio-Auth-Token'))
+    subscription_id = response.get_data(as_text=True)
+    response = rest_client.get('/subscriptions/Id/' + subscription_id, headers=headers(auth(auth_token)))
+    assert response.status_code == 200
+    assert loads(loads(response.get_data(as_text=True))['filter'])['project'][0] == 'data12_900GeV'
 
-        subscription_name = uuid()
-        headers2 = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'options': {'filter': {'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                                  'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}],
-                                  'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'blahblah'}})
-        res2 = TestApp(subs_app.wsgifunc(*mw)).post('/root/%s' % (subscription_name), headers=headers2, params=data, expect_errors=True)
-        assert res2.status == 201
 
-        data = dumps({'options': {'filter': {'project': ['toto', ]}}})
-        res3 = TestApp(subs_app.wsgifunc(*mw)).put('/root/%s' % (subscription_name), headers=headers2, params=data, expect_errors=True)
-        assert res3.status == 201
+def test_create_existing_subscription(rest_client, auth_token):
+    """ SUBSCRIPTION (REST): Test the creation of a existing subscription """
+    subscription_name = uuid()
+    projects = ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV']
+    pattern1 = r'(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
+                 \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)'
+    data = {'options': {'name': subscription_name, 'filter': {'project': projects, 'datatype': ['AOD', ], 'excluded_pattern': pattern1, 'account': ['tier0', ]},
+                        'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}],
+                        'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'We are the knights who say Ni !'}}
+    response = rest_client.post('/subscriptions/root/' + subscription_name, headers=headers(auth(auth_token)), json=data)
+    assert response.status_code == 201
 
-        res4 = TestApp(subs_app.wsgifunc(*mw)).get('/root/%s' % (subscription_name), headers=headers2, expect_errors=True)
-        assert res4.status == 200
-        assert loads(loads(res4.body)['filter'])['project'][0] == 'toto'
+    response = rest_client.post('/subscriptions/root/' + subscription_name, headers=headers(auth(auth_token)), json=data)
+    assert response.status_code == 409
+    assert response.headers.get('ExceptionClass') == 'SubscriptionDuplicate'
 
-    def test_create_and_list_subscription_by_id(self):
-        """ SUBSCRIPTION (REST): Test the creation of a new subscription and get by subscription id """
-        mw = []
 
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+def test_update_nonexisting_subscription(rest_client, auth_token):
+    """ SUBSCRIPTION (REST): Test the update of a non-existing subscription """
+    subscription_name = uuid()
+    data = {'options': {'filter': {'project': ['toto', ]}}}
+    response = rest_client.put('/subscriptions/root/' + subscription_name, headers=headers(auth(auth_token)), json=data)
+    assert response.status_code == 404
+    assert response.headers.get('ExceptionClass') == 'SubscriptionNotFound'
 
-        assert res1.status == 200
-        token = str(res1.header('X-Rucio-Auth-Token'))
 
-        subscription_name = uuid()
-        headers2 = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'options': {'filter': {'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                                  'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}],
-                                  'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'blahblah'}})
-        res2 = TestApp(subs_app.wsgifunc(*mw)).post('/root/%s' % (subscription_name), headers=headers2, params=data, expect_errors=True)
-        assert res2.status == 201
+def test_list_rules_states(vo, rest_client, auth_token):
+    """ SUBSCRIPTION (REST): Test listing of rule states for subscription """
+    tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
+    root = InternalAccount('root', vo=vo)
+    add_scope(tmp_scope, root)
+    site_a = 'RSE%s' % uuid().upper()
+    site_b = 'RSE%s' % uuid().upper()
 
-        subscription_id = res2.body.decode()
-        res3 = TestApp(subs_app.wsgifunc(*mw)).get('/Id/%s' % (subscription_id), headers=headers2, expect_errors=True)
-        assert res3.status == 200
-        assert loads(loads(res3.body)['filter'])['project'][0] == 'data12_900GeV'
+    site_a_id = add_rse(site_a, vo=vo)
+    site_b_id = add_rse(site_b, vo=vo)
 
-    def test_create_existing_subscription(self):
-        """ SUBSCRIPTION (REST): Test the creation of a existing subscription """
-        mw = []
+    # Add quota
+    set_local_account_limit(root, site_a_id, -1)
+    set_local_account_limit(root, site_b_id, -1)
 
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
+    # add a new dataset
+    dsn = 'dataset-%s' % uuid()
+    add_did(scope=tmp_scope, name=dsn,
+            type=DIDType.DATASET, account=root)
 
-        assert res1.status == 200
-        token = str(res1.header('X-Rucio-Auth-Token'))
+    subscription_name = uuid()
+    subid = add_subscription(name=subscription_name,
+                             account='root',
+                             filter={'account': ['root', ], 'scope': [tmp_scope.external, ]},
+                             replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}],
+                             lifetime=100000,
+                             retroactive=0,
+                             dry_run=0,
+                             comments='We want a shrubbery',
+                             issuer='root',
+                             vo=vo)
 
-        subscription_name = uuid()
-        headers2 = {'X-Rucio-Auth-Token': str(token)}
-        data = dumps({'options': {'name': subscription_name, 'filter': {'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
-                                  'replication_rules': [{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}],
-                                  'lifetime': 100000, 'retroactive': 0, 'dry_run': 0, 'comments': 'We are the knights who say Ni !'}})
-        res2 = TestApp(subs_app.wsgifunc(*mw)).post('/root/' + subscription_name, headers=headers2, params=data, expect_errors=True)
-        assert res2.status == 201
+    # Add two rules
+    add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account=root, copies=1, rse_expression=site_a, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
+    add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account=root, copies=1, rse_expression=site_b, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
 
-        res3 = TestApp(subs_app.wsgifunc(*mw)).post('/root/' + subscription_name, headers=headers2, params=data, expect_errors=True)
-        assert res3.header('ExceptionClass') == 'SubscriptionDuplicate'
-        assert res3.status == 409
+    response = rest_client.get('/subscriptions/%s/%s/Rules/States' % ('root', subscription_name), headers=headers(auth(auth_token)))
+    assert response.status_code == 200
 
-    def test_update_nonexisting_subscription(self):
-        """ SUBSCRIPTION (REST): Test the update of a non-existing subscription """
-        mw = []
-
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-
-        assert res1.status == 200
-        token = str(res1.header('X-Rucio-Auth-Token'))
-
-        subscription_name = uuid()
-        headers2 = {'X-Rucio-Auth-Token': str(token)}
-
-        data = dumps({'options': {'filter': {'project': ['toto', ]}}})
-        res2 = TestApp(subs_app.wsgifunc(*mw)).put('/root/' + subscription_name, headers=headers2, params=data, expect_errors=True)
-        assert res2.status == 404
-        assert res2.header('ExceptionClass') == 'SubscriptionNotFound'
-
-    def test_list_rules_states(self):
-        """ SUBSCRIPTION (REST): Test listing of rule states for subscription """
-        tmp_scope = InternalScope('mock_' + uuid()[:8], **self.vo)
-        root = InternalAccount('root', **self.vo)
-        add_scope(tmp_scope, root)
-        mw = []
-        site_a = 'RSE%s' % uuid().upper()
-        site_b = 'RSE%s' % uuid().upper()
-
-        site_a_id = add_rse(site_a, **self.vo)
-        site_b_id = add_rse(site_b, **self.vo)
-
-        # Add quota
-        set_local_account_limit(root, site_a_id, -1)
-        set_local_account_limit(root, site_b_id, -1)
-
-        # add a new dataset
-        dsn = 'dataset-%s' % uuid()
-        add_did(scope=tmp_scope, name=dsn,
-                type=DIDType.DATASET, account=root)
-
-        subscription_name = uuid()
-        subid = add_subscription(name=subscription_name,
-                                 account='root',
-                                 filter={'account': ['root', ], 'scope': [tmp_scope.external, ]},
-                                 replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK|MOCK2', 'copies': 2, 'activity': 'Data Brokering'}],
-                                 lifetime=100000,
-                                 retroactive=0,
-                                 dry_run=0,
-                                 comments='We want a shrubbery',
-                                 issuer='root',
-                                 **self.vo)
-
-        # Add two rules
-        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account=root, copies=1, rse_expression=site_a, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
-        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account=root, copies=1, rse_expression=site_b, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
-
-        headers1 = {'X-Rucio-Account': 'root', 'X-Rucio-Username': 'ddmlab', 'X-Rucio-Password': 'secret'}
-        headers1.update(self.vo_header)
-        res1 = TestApp(auth_app.wsgifunc(*mw)).get('/userpass', headers=headers1, expect_errors=True)
-
-        assert res1.status == 200
-        token = str(res1.header('X-Rucio-Auth-Token'))
-
-        headers2 = {'X-Rucio-Auth-Token': str(token)}
-        res2 = TestApp(subs_app.wsgifunc(*mw)).get('/%s/%s/Rules/States' % ('root', subscription_name), headers=headers2, expect_errors=True)
-
-        for line in res2.body.decode().split('\n'):
-            print(line)
-            rs = loads(line)
-            if rs[1] == subscription_name:
+    rulestates = None
+    for line in response.get_data(as_text=True).split('\n'):
+        if line:
+            rulestates = loads(line)
+            if rulestates[1] == subscription_name:
                 break
-        assert rs[3] == 2
+    assert rulestates is not None
+    assert rulestates[3] == 2
 
 
 class TestSubscriptionClient(unittest.TestCase):

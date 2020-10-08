@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2014-2020 CERN
 #
@@ -24,7 +23,6 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
-from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
 
 from flask import Flask, Blueprint, request as request, jsonify
@@ -32,13 +30,8 @@ from flask.views import MethodView
 
 from rucio.api import config
 from rucio.common.exception import ConfigurationError, RucioException, AccessDenied, ConfigNotFound
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask
 from rucio.web.rest.utils import generate_http_error_flask
-
-LOGGER = getLogger("rucio.config")
-SH = StreamHandler()
-SH.setLevel(DEBUG)
-LOGGER.addHandler(SH)
 
 
 class Config(MethodView):
@@ -182,33 +175,25 @@ class OptionSet(MethodView):
             return str(error), 500
 
 
-"""----------------------
-   Web service startup
-----------------------"""
+def blueprint():
+    bp = Blueprint('config', __name__, url_prefix='/config')
 
-bp = Blueprint('config', __name__)
-option_set_view = OptionSet.as_view('option_set')
-bp.add_url_rule('/<section>/<option>/<value>', view_func=option_set_view, methods=['put', ])
-option_get_del_view = OptionGetDel.as_view('option_get_del')
-bp.add_url_rule('/<section>/<option>', view_func=option_get_del_view, methods=['get', 'delete'])
-section_view = Section.as_view('section')
-bp.add_url_rule('/<section>', view_func=section_view, methods=['get', ])
-config_view = Config.as_view('config')
-# FIXME: should be '' instead
-bp.add_url_rule('/', view_func=config_view, methods=['get', ])
+    option_set_view = OptionSet.as_view('option_set')
+    bp.add_url_rule('/<section>/<option>/<value>', view_func=option_set_view, methods=['put', ])
+    option_get_del_view = OptionGetDel.as_view('option_get_del')
+    bp.add_url_rule('/<section>/<option>', view_func=option_get_del_view, methods=['get', 'delete'])
+    section_view = Section.as_view('section')
+    bp.add_url_rule('/<section>', view_func=section_view, methods=['get', ])
+    config_view = Config.as_view('config')
+    bp.add_url_rule('', view_func=config_view, methods=['get', ])
 
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/config')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

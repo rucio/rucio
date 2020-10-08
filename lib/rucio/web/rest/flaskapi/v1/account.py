@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2012-2020 CERN
 #
@@ -32,7 +31,6 @@ from __future__ import print_function
 
 from datetime import datetime
 from json import dumps, loads
-from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
 
 from flask import Flask, Blueprint, Response, request, redirect, jsonify
@@ -45,13 +43,8 @@ from rucio.api.rule import list_replication_rules
 from rucio.api.scope import add_scope, get_scopes
 from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound, RSENotFound, IdentityError, CounterNotFound
 from rucio.common.utils import APIEncoder, render_json
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, try_stream
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, try_stream, request_header_ensure_string
 from rucio.web.rest.utils import generate_http_error_flask
-
-LOGGER = getLogger("rucio.account")
-SH = StreamHandler()
-SH.setLevel(DEBUG)
-LOGGER.addHandler(SH)
 
 
 class Attributes(MethodView):
@@ -233,7 +226,7 @@ class AccountParameter(MethodView):
         """
         if account == 'whoami':
             # Redirect to the account uri
-            frontend = request.headers.get('X-Requested-Host')
+            frontend = request_header_ensure_string('X-Requested-Host')
             if frontend:
                 return redirect(frontend + "/accounts/%s" % (request.environ.get('issuer')), code=302)
             return redirect(request.environ.get('issuer'), code=303)
@@ -251,15 +244,15 @@ class AccountParameter(MethodView):
             print(format_exc())
             return str(error), 500
 
-        dict = acc.to_dict()
+        accdict = acc.to_dict()
 
-        for key, value in dict.items():
+        for key, value in accdict.items():
             if isinstance(value, datetime):
-                dict[key] = value.strftime('%Y-%m-%dT%H:%M:%S')
+                accdict[key] = value.strftime('%Y-%m-%dT%H:%M:%S')
 
-        del dict['_sa_instance_state']
+        del accdict['_sa_instance_state']
 
-        return Response(render_json(**dict), content_type="application/json")
+        return Response(render_json(**accdict), content_type="application/json")
 
     def put(self, account):
         """ update a parameter for a given account name
@@ -719,58 +712,52 @@ class GlobalUsage(MethodView):
             return str(error), 500
 
 
-"""----------------------
-   Web service startup
-----------------------"""
+def blueprint(no_doc=True):
+    bp = Blueprint('account', __name__, url_prefix='/accounts')
 
-bp = Blueprint('account', __name__)
+    attributes_view = Attributes.as_view('attributes')
+    bp.add_url_rule('/<account>/attr/', view_func=attributes_view, methods=['get', ])
+    bp.add_url_rule('/<account>/attr/<key>', view_func=attributes_view, methods=['post', 'delete'])
+    scopes_view = Scopes.as_view('scopes')
+    bp.add_url_rule('/<account>/scopes/', view_func=scopes_view, methods=['get', ])
+    bp.add_url_rule('/<account>/scopes/<scope>', view_func=scopes_view, methods=['post', ])
+    local_account_limits_view = LocalAccountLimits.as_view('local_account_limit')
+    bp.add_url_rule('/<account>/limits/local', view_func=local_account_limits_view, methods=['get', ])
+    bp.add_url_rule('/<account>/limits', view_func=local_account_limits_view, methods=['get', ])
+    bp.add_url_rule('/<account>/limits/local/<rse>', view_func=local_account_limits_view, methods=['get', ])
+    bp.add_url_rule('/<account>/limits/<rse>', view_func=local_account_limits_view, methods=['get', ])
+    global_account_limits_view = GlobalAccountLimits.as_view('global_account_limit')
+    bp.add_url_rule('/<account>/limits/global', view_func=global_account_limits_view, methods=['get', ])
+    bp.add_url_rule('/<account>/limits/global/<rse_expression>', view_func=global_account_limits_view, methods=['get', ])
+    identities_view = Identities.as_view('identities')
+    bp.add_url_rule('/<account>/identities', view_func=identities_view, methods=['get', 'post', 'delete'])
+    rules_view = Rules.as_view('rules')
+    bp.add_url_rule('/<account>/rules', view_func=rules_view, methods=['get', ])
+    usagehistory_view = UsageHistory.as_view('usagehistory')
+    bp.add_url_rule('/<account>/usage/history/<rse>', view_func=usagehistory_view, methods=['get', ])
+    usage_view = LocalUsage.as_view('usage')
+    bp.add_url_rule('/<account>/usage/local', view_func=usage_view, methods=['get', ])
+    bp.add_url_rule('/<account>/usage', view_func=usage_view, methods=['get', ])
+    bp.add_url_rule('/<account>/usage/local/<rse>', view_func=usage_view, methods=['get', ])
+    bp.add_url_rule('/<account>/usage/<rse>', view_func=usage_view, methods=['get', ])
+    global_usage_view = GlobalUsage.as_view('global_usage')
+    bp.add_url_rule('/<account>/usage/global', view_func=global_usage_view, methods=['get', ])
+    bp.add_url_rule('/<account>/usage/global/<rse_expression>', view_func=global_usage_view, methods=['get', ])
+    account_parameter_view = AccountParameter.as_view('account_parameter')
+    bp.add_url_rule('/<account>', view_func=account_parameter_view, methods=['get', 'put', 'post', 'delete'])
+    account_view = Account.as_view('account')
+    if no_doc:
+        # rule without trailing slash needs to be added before rule with trailing slash
+        bp.add_url_rule('', view_func=account_view, methods=['get', ])
+    bp.add_url_rule('/', view_func=account_view, methods=['get', ])
 
-attributes_view = Attributes.as_view('attributes')
-bp.add_url_rule('/<account>/attr/', view_func=attributes_view, methods=['get', ])
-bp.add_url_rule('/<account>/attr/<key>', view_func=attributes_view, methods=['post', 'delete'])
-scopes_view = Scopes.as_view('scopes')
-bp.add_url_rule('/<account>/scopes/', view_func=scopes_view, methods=['get', ])
-bp.add_url_rule('/<account>/scopes/<scope>', view_func=scopes_view, methods=['post', ])
-local_account_limits_view = LocalAccountLimits.as_view('local_account_limit')
-bp.add_url_rule('/<account>/limits/local', view_func=local_account_limits_view, methods=['get', ])
-bp.add_url_rule('/<account>/limits', view_func=local_account_limits_view, methods=['get', ])
-bp.add_url_rule('/<account>/limits/local/<rse>', view_func=local_account_limits_view, methods=['get', ])
-bp.add_url_rule('/<account>/limits/<rse>', view_func=local_account_limits_view, methods=['get', ])
-global_account_limits_view = GlobalAccountLimits.as_view('global_account_limit')
-bp.add_url_rule('/<account>/limits/global', view_func=global_account_limits_view, methods=['get', ])
-bp.add_url_rule('/<account>/limits/global/<rse_expression>', view_func=global_account_limits_view, methods=['get', ])
-identities_view = Identities.as_view('identities')
-bp.add_url_rule('/<account>/identities', view_func=identities_view, methods=['get', 'post', 'delete'])
-rules_view = Rules.as_view('rules')
-bp.add_url_rule('/<account>/rules', view_func=rules_view, methods=['get', ])
-usagehistory_view = UsageHistory.as_view('usagehistory')
-bp.add_url_rule('/<account>/usage/history/<rse>', view_func=usagehistory_view, methods=['get', ])
-usage_view = LocalUsage.as_view('usage')
-bp.add_url_rule('/<account>/usage/local', view_func=usage_view, methods=['get', ])
-bp.add_url_rule('/<account>/usage', view_func=usage_view, methods=['get', ])
-bp.add_url_rule('/<account>/usage/local/<rse>', view_func=usage_view, methods=['get', ])
-bp.add_url_rule('/<account>/usage/<rse>', view_func=usage_view, methods=['get', ])
-global_usage_view = GlobalUsage.as_view('global_usage')
-bp.add_url_rule('/<account>/usage/global', view_func=global_usage_view, methods=['get', ])
-bp.add_url_rule('/<account>/usage/global/<rse_expression>', view_func=global_usage_view, methods=['get', ])
-account_parameter_view = AccountParameter.as_view('account_parameter')
-bp.add_url_rule('/<account>', view_func=account_parameter_view, methods=['get', 'put', 'post', 'delete'])
-account_view = Account.as_view('account')
-bp.add_url_rule('/', view_func=account_view, methods=['get', ])
-# FIXME: Add '' rule for account_view
-
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/accounts')
+    doc_app.register_blueprint(blueprint(no_doc=False))
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

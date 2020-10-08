@@ -1,4 +1,5 @@
-# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,32 +20,21 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 import datetime
-import json
 import time
 import uuid
 
-from paste.fixture import TestApp
 
-from rucio.web.rest.trace import APP as trace_app
+def test_submit_trace(rest_client):
+    """ TRACE (REST): submit a trace via POST """
+    payload = {'uuid': str(uuid.uuid4()),  # str, because not JSON serializable
+               'string': 'deadbeef',
+               'hex': 0xDEADBEEF,
+               'int': 3,
+               'float': 3.14,
+               'long': 314314314314314314,
+               'timestamp': time.time(),
+               'datetime_str': str(datetime.datetime.utcnow()),  # str, because not JSON serializable
+               'boolean': True}
 
-
-class TestTrace(object):
-
-    @staticmethod
-    def test_submit_trace():
-        """ TRACE (REST): submit a trace via POST """
-
-        mwl = []
-
-        payload = json.dumps({'uuid': str(uuid.uuid4()),  # not JSON serialisable
-                              'string': 'deadbeef',
-                              'hex': 0xDEADBEEF,
-                              'int': 3,
-                              'float': 3.14,
-                              'long': 314314314314314314,
-                              'timestamp': time.time(),
-                              'datetime_str': str(datetime.datetime.utcnow()),  # not JSON serialisable
-                              'boolean': True})
-
-        ret = TestApp(trace_app.wsgifunc(*mwl)).post('/', params=payload, headers={'Content-Type': 'application/octet-stream'})
-        assert ret.status == 201
+    response = rest_client.post('/traces/', json=payload, content_type=[('Content-Type', 'application/octet-stream')])
+    assert response.status_code == 201

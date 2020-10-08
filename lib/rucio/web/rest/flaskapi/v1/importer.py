@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2018-2020 CERN
 #
@@ -27,7 +26,7 @@ from flask.views import MethodView
 from rucio.api.importer import import_data
 from rucio.common.exception import RucioException
 from rucio.common.utils import parse_response
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers
 from rucio.web.rest.utils import generate_http_error_flask
 
 
@@ -76,24 +75,22 @@ class Import(MethodView):
         return 'Created', 201
 
 
-bp = Blueprint('import', __name__)
+def blueprint(no_doc=True):
+    bp = Blueprint('import', __name__, url_prefix='/import')
 
-import_view = Import.as_view('scope')
-bp.add_url_rule('/', view_func=import_view, methods=['post', ])
-# FIXME: Add '' rule
+    import_view = Import.as_view('scope')
+    if no_doc:
+        # rule without trailing slash needs to be added before rule with trailing slash
+        bp.add_url_rule('', view_func=import_view, methods=['post', ])
+    bp.add_url_rule('/', view_func=import_view, methods=['post', ])
 
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
     """ Only used for sphinx documentation to add the prefix """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/import')
+    doc_app.register_blueprint(blueprint(no_doc=False))
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

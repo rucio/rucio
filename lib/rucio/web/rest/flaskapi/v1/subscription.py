@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2013-2020 CERN
 #
@@ -33,7 +32,7 @@ from rucio.api.rule import list_replication_rules
 from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription, list_subscription_rule_states, get_subscription_by_id
 from rucio.common.exception import InvalidObject, RucioException, SubscriptionDuplicate, SubscriptionNotFound, RuleNotFound, AccessDenied
 from rucio.common.utils import render_json, APIEncoder
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, try_stream
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, try_stream, request_auth_env, response_headers
 from rucio.web.rest.utils import generate_http_error_flask
 
 
@@ -307,37 +306,30 @@ class SubscriptionId(MethodView):
         return Response(render_json(**subscription), content_type="application/json")
 
 
-"""----------------------
-   Web service startup
-----------------------"""
-bp = Blueprint('subscription', __name__)
+def blueprint():
+    bp = Blueprint('subscription', __name__, url_prefix='/subscriptions')
 
-subscription_id_view = SubscriptionId.as_view('subscription_id')
-bp.add_url_rule('/Id/<subscription_id>', view_func=subscription_id_view, methods=['get', ])
-states_view = States.as_view('states')
-bp.add_url_rule('/<account>/<name>/Rules/States', view_func=states_view, methods=['get', ])
-bp.add_url_rule('/<account>/Rules/States', view_func=states_view, methods=['get', ])
-rules_view = Rules.as_view('rules')
-bp.add_url_rule('/<account>/<name>/Rules', view_func=rules_view, methods=['get', ])
-subscription_view = Subscription.as_view('subscription')
-bp.add_url_rule('/<account>/<name>', view_func=subscription_view, methods=['get', 'post', 'put'])
-bp.add_url_rule('/<account>', view_func=subscription_view, methods=['get', ])
-bp.add_url_rule('/', view_func=subscription_view, methods=['get', ])
-subscription_name_view = SubscriptionName.as_view('subscription_name')
-bp.add_url_rule('/Name/<name>', view_func=subscription_name_view, methods=['get', ])
+    subscription_id_view = SubscriptionId.as_view('subscription_id')
+    bp.add_url_rule('/Id/<subscription_id>', view_func=subscription_id_view, methods=['get', ])
+    states_view = States.as_view('states')
+    bp.add_url_rule('/<account>/<name>/Rules/States', view_func=states_view, methods=['get', ])
+    bp.add_url_rule('/<account>/Rules/States', view_func=states_view, methods=['get', ])
+    rules_view = Rules.as_view('rules')
+    bp.add_url_rule('/<account>/<name>/Rules', view_func=rules_view, methods=['get', ])
+    subscription_view = Subscription.as_view('subscription')
+    bp.add_url_rule('/<account>/<name>', view_func=subscription_view, methods=['get', 'post', 'put'])
+    bp.add_url_rule('/<account>', view_func=subscription_view, methods=['get', ])
+    bp.add_url_rule('/', view_func=subscription_view, methods=['get', ])
+    subscription_name_view = SubscriptionName.as_view('subscription_name')
+    bp.add_url_rule('/Name/<name>', view_func=subscription_name_view, methods=['get', ])
 
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/subscriptions')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()
