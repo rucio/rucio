@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2013-2020 CERN
 #
@@ -54,7 +53,7 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
 from rucio.common.utils import parse_response, APIEncoder, render_json_list
 from rucio.db.sqla.constants import BadFilesStatus
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, try_stream, parse_scope_name
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, try_stream, parse_scope_name, request_auth_env, response_headers, request_header_ensure_string
 from rucio.web.rest.utils import generate_http_error_flask
 
 try:
@@ -116,64 +115,63 @@ class Replicas(MethodView):
             schemes = SUPPORTED_PROTOCOLS
 
         try:
-            client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+            client_ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
 
             def generate(vo):
                 # we need to call list_replicas before starting to reply
                 # otherwise the exceptions won't be propagated correctly
                 first = metalink
 
-                try:
-                    # then, stream the replica information
-                    for rfile in list_replicas(dids=dids, schemes=schemes, vo=vo):
-                        if first and metalink:
-                            # first, set the appropriate content type, and stream the header
-                            yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
-                            first = False
+                # then, stream the replica information
+                for rfile in list_replicas(dids=dids, schemes=schemes, vo=vo):
+                    if first and metalink:
+                        # first, set the appropriate content type, and stream the header
+                        yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
+                        first = False
 
-                        replicas = []
-                        dictreplica = {}
-                        for rse in rfile['rses']:
-                            for replica in rfile['rses'][rse]:
-                                replicas.append(replica)
-                                dictreplica[replica] = rse
-                        if select == 'geoip':
-                            try:
-                                replicas = sort_geoip(dictreplica, client_ip)
-                            except AddressNotFoundError:
-                                pass
-                        else:
-                            replicas = sort_random(dictreplica)
-                        if not metalink:
-                            yield dumps(rfile) + '\n'
-                        else:
-                            yield ' <file name="' + rfile['name'] + '">\n'
-                            yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
+                    replicas = []
+                    dictreplica = {}
+                    for rse in rfile['rses']:
+                        for replica in rfile['rses'][rse]:
+                            replicas.append(replica)
+                            dictreplica[replica] = rse
+                    if select == 'geoip':
+                        try:
+                            replicas = sort_geoip(dictreplica, client_ip)
+                        except AddressNotFoundError:
+                            pass
+                    else:
+                        replicas = sort_random(dictreplica)
+                    if not metalink:
+                        yield dumps(rfile) + '\n'
+                    else:
+                        yield ' <file name="' + rfile['name'] + '">\n'
+                        yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
 
-                            if rfile['adler32'] is not None:
-                                yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
-                            if rfile['md5'] is not None:
-                                yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
+                        if rfile['adler32'] is not None:
+                            yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
+                        if rfile['md5'] is not None:
+                            yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
 
-                            yield '  <size>' + str(rfile['bytes']) + '</size>\n'
+                        yield '  <size>' + str(rfile['bytes']) + '</size>\n'
 
-                            yield '  <glfn name="/atlas/rucio/%s:%s">' % (rfile['scope'], rfile['name'])
-                            yield '</glfn>\n'
+                        yield '  <glfn name="/atlas/rucio/%s:%s">' % (rfile['scope'], rfile['name'])
+                        yield '</glfn>\n'
 
-                            idx = 0
-                            for replica in replicas:
-                                yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx + 1) + '">' + escape(replica) + '</url>\n'
-                                idx += 1
-                                if limit and limit == idx:
-                                    break
-                            yield ' </file>\n'
+                        idx = 0
+                        for replica in replicas:
+                            yield '   <url location="' + str(dictreplica[replica]) + '" priority="' + str(idx + 1) + '">' + escape(replica) + '</url>\n'
+                            idx += 1
+                            if limit and limit == idx:
+                                break
+                        yield ' </file>\n'
 
-                    if metalink and first:
+                if metalink:
+                    if first:
                         # if still first output, i.e. there were no replicas
                         yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n</metalink>\n'
-                finally:
-                    # don't forget to send the metalink footer
-                    if metalink and not first:
+                    else:
+                        # don't forget to send the metalink footer
                         yield '</metalink>\n'
 
             return try_stream(generate(vo=request.environ.get('vo')), content_type=content_type)
@@ -343,7 +341,7 @@ class ListReplicas(MethodView):
         content_type = request.accept_mimetypes.best_match(['application/x-json-stream', 'application/metalink4+xml'], 'application/x-json-stream')
         metalink = (content_type == 'application/metalink4+xml')
 
-        client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+        client_ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
 
         dids, schemes, select, unavailable, limit = [], None, None, False, None
         ignore_availability, rse_expression, all_states, domain = False, None, False, None
@@ -415,91 +413,90 @@ class ListReplicas(MethodView):
                 # otherwise the exceptions won't be propagated correctly
                 first = metalink
 
-                try:
-                    for rfile in list_replicas(dids=dids, schemes=schemes,
-                                               unavailable=unavailable,
-                                               request_id=request_id,
-                                               ignore_availability=ignore_availability,
-                                               all_states=all_states,
-                                               rse_expression=rse_expression,
-                                               client_location=client_location,
-                                               domain=domain, signature_lifetime=signature_lifetime,
-                                               resolve_archives=resolve_archives,
-                                               resolve_parents=resolve_parents,
-                                               updated_after=updated_after,
-                                               issuer=issuer,
-                                               vo=vo):
+                for rfile in list_replicas(dids=dids, schemes=schemes,
+                                           unavailable=unavailable,
+                                           request_id=request_id,
+                                           ignore_availability=ignore_availability,
+                                           all_states=all_states,
+                                           rse_expression=rse_expression,
+                                           client_location=client_location,
+                                           domain=domain, signature_lifetime=signature_lifetime,
+                                           resolve_archives=resolve_archives,
+                                           resolve_parents=resolve_parents,
+                                           updated_after=updated_after,
+                                           issuer=issuer,
+                                           vo=vo):
 
-                        # in first round, set the appropriate content type, and stream the header
-                        if first and metalink:
-                            yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
-                        first = False
+                    # in first round, set the appropriate content type, and stream the header
+                    if first and metalink:
+                        yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
+                    first = False
 
-                        if not metalink:
-                            yield dumps(rfile, cls=APIEncoder) + '\n'
+                    if not metalink:
+                        yield dumps(rfile, cls=APIEncoder) + '\n'
+                    else:
+                        replicas = []
+                        dictreplica = {}
+                        for replica in rfile['pfns'].keys():
+                            replicas.append(replica)
+                            dictreplica[replica] = (rfile['pfns'][replica]['domain'],
+                                                    rfile['pfns'][replica]['priority'],
+                                                    rfile['pfns'][replica]['rse'],
+                                                    rfile['pfns'][replica]['client_extract'])
+
+                        yield ' <file name="' + rfile['name'] + '">\n'
+
+                        if 'parents' in rfile and rfile['parents']:
+                            yield '  <parents>\n'
+                            for parent in rfile['parents']:
+                                yield '   <did>' + parent + '</did>\n'
+                            yield '  </parents>\n'
+
+                        yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
+                        if rfile['adler32'] is not None:
+                            yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
+                        if rfile['md5'] is not None:
+                            yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
+                        yield '  <size>' + str(rfile['bytes']) + '</size>\n'
+
+                        yield '  <glfn name="/%s/rucio/%s:%s"></glfn>\n' % (config_get('policy', 'schema',
+                                                                                       raise_exception=False,
+                                                                                       default='generic'),
+                                                                            rfile['scope'],
+                                                                            rfile['name'])
+
+                        # TODO: deprecate this
+                        if select == 'geoip':
+                            replicas = sort_geoip(dictreplica, client_location['ip'])
+                        elif select == 'closeness':
+                            replicas = sort_closeness(dictreplica, client_location)
+                        elif select == 'dynamic':
+                            replicas = sort_dynamic(dictreplica, client_location)
+                        elif select == 'ranking':
+                            replicas = sort_ranking(dictreplica, client_location)
+                        elif select == 'random':
+                            replicas = sort_random(dictreplica)
                         else:
-                            replicas = []
-                            dictreplica = {}
-                            for replica in rfile['pfns'].keys():
-                                replicas.append(replica)
-                                dictreplica[replica] = (rfile['pfns'][replica]['domain'],
-                                                        rfile['pfns'][replica]['priority'],
-                                                        rfile['pfns'][replica]['rse'],
-                                                        rfile['pfns'][replica]['client_extract'])
+                            replicas = sorted(dictreplica, key=dictreplica.get)
 
-                            yield ' <file name="' + rfile['name'] + '">\n'
+                        idx = 0
+                        for replica in replicas:
+                            yield '  <url location="' + str(dictreplica[replica][2]) \
+                                + '" domain="' + str(dictreplica[replica][0]) \
+                                + '" priority="' + str(dictreplica[replica][1]) \
+                                + '" client_extract="' + str(dictreplica[replica][3]).lower() \
+                                + '">' + escape(replica) + '</url>\n'
+                            idx += 1
+                            if limit and limit == idx:
+                                break
+                        yield ' </file>\n'
 
-                            if 'parents' in rfile and rfile['parents']:
-                                yield '  <parents>\n'
-                                for parent in rfile['parents']:
-                                    yield '   <did>' + parent + '</did>\n'
-                                yield '  </parents>\n'
-
-                            yield '  <identity>' + rfile['scope'] + ':' + rfile['name'] + '</identity>\n'
-                            if rfile['adler32'] is not None:
-                                yield '  <hash type="adler32">' + rfile['adler32'] + '</hash>\n'
-                            if rfile['md5'] is not None:
-                                yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
-                            yield '  <size>' + str(rfile['bytes']) + '</size>\n'
-
-                            yield '  <glfn name="/%s/rucio/%s:%s"></glfn>\n' % (config_get('policy', 'schema',
-                                                                                           raise_exception=False,
-                                                                                           default='generic'),
-                                                                                rfile['scope'],
-                                                                                rfile['name'])
-
-                            # TODO: deprecate this
-                            if select == 'geoip':
-                                replicas = sort_geoip(dictreplica, client_location['ip'])
-                            elif select == 'closeness':
-                                replicas = sort_closeness(dictreplica, client_location)
-                            elif select == 'dynamic':
-                                replicas = sort_dynamic(dictreplica, client_location)
-                            elif select == 'ranking':
-                                replicas = sort_ranking(dictreplica, client_location)
-                            elif select == 'random':
-                                replicas = sort_random(dictreplica)
-                            else:
-                                replicas = sorted(dictreplica, key=dictreplica.get)
-
-                            idx = 0
-                            for replica in replicas:
-                                yield '  <url location="' + str(dictreplica[replica][2]) \
-                                    + '" domain="' + str(dictreplica[replica][0]) \
-                                    + '" priority="' + str(dictreplica[replica][1]) \
-                                    + '" client_extract="' + str(dictreplica[replica][3]).lower() \
-                                    + '">' + escape(replica) + '</url>\n'
-                                idx += 1
-                                if limit and limit == idx:
-                                    break
-                            yield ' </file>\n'
-
-                    if metalink and first:
+                if metalink:
+                    if first:
                         # if still first output, i.e. there were no replicas
                         yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n</metalink>\n'
-                finally:
-                    # don't forget to send the metalink footer
-                    if metalink and not first:
+                    else:
+                        # don't forget to send the metalink footer
                         yield '</metalink>\n'
 
             return try_stream(generate(request_id=request.environ.get('request_id'),
@@ -1038,60 +1035,60 @@ class Tombstone(MethodView):
         return 'Created', 201
 
 
-bp = Blueprint('replica', __name__)
+def blueprint(no_doc=True):
+    bp = Blueprint('replica', __name__, url_prefix='/replicas')
 
-list_replicas_view = ListReplicas.as_view('list_replicas')
-bp.add_url_rule('/list', view_func=list_replicas_view, methods=['post', ])
-# removed for doc: bp.add_url_rule('/list/', view_func=list_replicas_view, methods=['post', ])
-replicas_view = Replicas.as_view('replicas')
-bp.add_url_rule('/', view_func=replicas_view, methods=['post', 'put', 'delete'])
-# FIXME: Add '' rule
-suspicious_replicas_view = SuspiciousReplicas.as_view('suspicious_replicas')
-bp.add_url_rule('/suspicious', view_func=suspicious_replicas_view, methods=['post', ])
-# removed for doc: bp.add_url_rule('/suspicious/', view_func=suspicious_replicas_view, methods=['post', ])
-bad_replicas_states_view = BadReplicasStates.as_view('bad_replicas_states')
-bp.add_url_rule('/bad/states', view_func=bad_replicas_states_view, methods=['get', ])
-# removed for doc: bp.add_url_rule('/bad/states/', view_func=bad_replicas_states_view, methods=['get', ])
-bad_replicas_summary_view = BadReplicasSummary.as_view('bad_replicas_summary')
-bp.add_url_rule('/bad/summary', view_func=bad_replicas_summary_view, methods=['get', ])
-# removed for doc: bp.add_url_rule('/bad/summary/', view_func=bad_replicas_summary_view, methods=['get', ])
-bad_replicas_pfn_view = BadPFNs.as_view('add_bad_pfns')
-bp.add_url_rule('/bad/pfns', view_func=bad_replicas_pfn_view, methods=['post', ])
-# removed for doc: bp.add_url_rule('/bad/pfns/', view_func=bad_replicas_pfn_view, methods=['post', ])
-replicas_rse_view = ReplicasRSE.as_view('replicas_rse')
-bp.add_url_rule('/rse/<rse>', view_func=replicas_rse_view, methods=['get', ])
-# removed for doc: bp.add_url_rule('/rse/<rse>/', view_func=replicas_rse_view, methods=['get', ])
-bad_replicas_view = BadReplicas.as_view('bad_replicas')
-bp.add_url_rule('/bad', view_func=bad_replicas_view, methods=['post', ])
-# removed for doc: bp.add_url_rule('/bad/', view_func=bad_replicas_view, methods=['post', ])
-replicas_dids_view = ReplicasDIDs.as_view('replicas_dids')
-bp.add_url_rule('/dids', view_func=replicas_dids_view, methods=['post', ])
-# removed for doc: bp.add_url_rule('/dids/', view_func=replicas_dids_view, methods=['post', ])
-dataset_replicas_view = DatasetReplicas.as_view('dataset_replicas')
-bp.add_url_rule('/<path:scope_name>/datasets', view_func=dataset_replicas_view, methods=['get', ])
-dataset_replicas_bulk_view = DatasetReplicasBulk.as_view('dataset_replicas_bulk')
-bp.add_url_rule('/datasets_bulk', view_func=dataset_replicas_bulk_view, methods=['post', ])
-# removed for doc: bp.add_url_rule('/datasets_bulk/', view_func=dataset_replicas_bulk_view, methods=['post', ])
-dataset_replicas_vp_view = DatasetReplicasVP.as_view('dataset_replicas_vp')
-# removed for doc: bp.add_url_rule('/<path:scope_name>/datasets_vp', view_func=dataset_replicas_vp_view, methods=['get', ])
-bp.add_url_rule('/<path:scope_name>', view_func=replicas_view, methods=['get', ])
-# removed for doc: bp.add_url_rule('/<path:scope_name>/', view_func=replicas_view, methods=['get', ])
-set_tombstone_view = Tombstone.as_view('set_tombstone')
-bp.add_url_rule('/tombstone', view_func=set_tombstone_view, methods=['post', ])
-# removed for doc: bp.add_url_rule('/tombstone/', view_func=set_tombstone_view, methods=['post', ])
+    list_replicas_view = ListReplicas.as_view('list_replicas')
+    bp.add_url_rule('/list', view_func=list_replicas_view, methods=['post', ])
+    replicas_view = Replicas.as_view('replicas')
+    if no_doc:
+        # rule without trailing slash needs to be added before rule with trailing slash
+        bp.add_url_rule('', view_func=replicas_view, methods=['post', 'put', 'delete'])
+    bp.add_url_rule('/', view_func=replicas_view, methods=['post', 'put', 'delete'])
+    suspicious_replicas_view = SuspiciousReplicas.as_view('suspicious_replicas')
+    bp.add_url_rule('/suspicious', view_func=suspicious_replicas_view, methods=['post', ])
+    bad_replicas_states_view = BadReplicasStates.as_view('bad_replicas_states')
+    bp.add_url_rule('/bad/states', view_func=bad_replicas_states_view, methods=['get', ])
+    bad_replicas_summary_view = BadReplicasSummary.as_view('bad_replicas_summary')
+    bp.add_url_rule('/bad/summary', view_func=bad_replicas_summary_view, methods=['get', ])
+    bad_replicas_pfn_view = BadPFNs.as_view('add_bad_pfns')
+    bp.add_url_rule('/bad/pfns', view_func=bad_replicas_pfn_view, methods=['post', ])
+    replicas_rse_view = ReplicasRSE.as_view('replicas_rse')
+    bp.add_url_rule('/rse/<rse>', view_func=replicas_rse_view, methods=['get', ])
+    bad_replicas_view = BadReplicas.as_view('bad_replicas')
+    bp.add_url_rule('/bad', view_func=bad_replicas_view, methods=['post', ])
+    replicas_dids_view = ReplicasDIDs.as_view('replicas_dids')
+    bp.add_url_rule('/dids', view_func=replicas_dids_view, methods=['post', ])
+    dataset_replicas_view = DatasetReplicas.as_view('dataset_replicas')
+    bp.add_url_rule('/<path:scope_name>/datasets', view_func=dataset_replicas_view, methods=['get', ])
+    dataset_replicas_bulk_view = DatasetReplicasBulk.as_view('dataset_replicas_bulk')
+    bp.add_url_rule('/datasets_bulk', view_func=dataset_replicas_bulk_view, methods=['post', ])
+    dataset_replicas_vp_view = DatasetReplicasVP.as_view('dataset_replicas_vp')
+    bp.add_url_rule('/<path:scope_name>', view_func=replicas_view, methods=['get', ])
+    set_tombstone_view = Tombstone.as_view('set_tombstone')
+    bp.add_url_rule('/tombstone', view_func=set_tombstone_view, methods=['post', ])
 
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+    if no_doc:
+        bp.add_url_rule('/list/', view_func=list_replicas_view, methods=['post', ])
+        bp.add_url_rule('/suspicious/', view_func=suspicious_replicas_view, methods=['post', ])
+        bp.add_url_rule('/bad/states/', view_func=bad_replicas_states_view, methods=['get', ])
+        bp.add_url_rule('/bad/summary/', view_func=bad_replicas_summary_view, methods=['get', ])
+        bp.add_url_rule('/bad/pfns/', view_func=bad_replicas_pfn_view, methods=['post', ])
+        bp.add_url_rule('/rse/<rse>/', view_func=replicas_rse_view, methods=['get', ])
+        bp.add_url_rule('/bad/', view_func=bad_replicas_view, methods=['post', ])
+        bp.add_url_rule('/dids/', view_func=replicas_dids_view, methods=['post', ])
+        bp.add_url_rule('/datasets_bulk/', view_func=dataset_replicas_bulk_view, methods=['post', ])
+        bp.add_url_rule('/<path:scope_name>/datasets_vp', view_func=dataset_replicas_vp_view, methods=['get', ])
+        bp.add_url_rule('/<path:scope_name>/', view_func=replicas_view, methods=['get', ])
+        bp.add_url_rule('/tombstone/', view_func=set_tombstone_view, methods=['post', ])
+
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/replicas')
+    doc_app.register_blueprint(blueprint(no_doc=False))
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

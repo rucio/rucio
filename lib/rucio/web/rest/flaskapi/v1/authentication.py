@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2018-2020 CERN
 #
@@ -39,10 +38,10 @@ from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gs
 from rucio.common.config import config_get
 from rucio.common.exception import AccessDenied, IdentityError, RucioException
 from rucio.common.utils import date_to_str, urlparse
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask
-# Extra modules: Only imported if available
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, request_header_ensure_string
 from rucio.web.rest.utils import generate_http_error_flask
 
+# Extra modules: Only imported if available
 EXTRA_MODULES = {'onelogin': False}
 
 for extra_module in EXTRA_MODULES:
@@ -117,12 +116,12 @@ class UserPass(MethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers['Pragma'] = 'no-cache'
 
-        vo = request.headers.get('X-Rucio-VO', 'def')
-        account = request.headers.get('X-Rucio-Account')
-        username = request.headers.get('X-Rucio-Username')
-        password = request.headers.get('X-Rucio-Password')
-        appid = request.headers.get('X-Rucio-AppID', 'unknown')
-        ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+        vo = request_header_ensure_string('X-Rucio-VO', 'def')
+        account = request_header_ensure_string('X-Rucio-Account')
+        username = request_header_ensure_string('X-Rucio-Username')
+        password = request_header_ensure_string('X-Rucio-Password')
+        appid = request_header_ensure_string('X-Rucio-AppID', 'unknown')
+        ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
 
         if not account or not username or not password:
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot authenticate without passing all required arguments', headers=headers)
@@ -186,7 +185,7 @@ class OIDC(MethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers.set('Pragma', 'no-cache')
 
-        vo = request.headers.get('X-Rucio-VO', 'def')
+        vo = request_header_ensure_string('X-Rucio-VO', 'def')
         account = request.environ.get('HTTP_X_RUCIO_ACCOUNT', 'webui')
         auth_scope = request.environ.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_SCOPE', "")
         audience = request.environ.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_AUDIENCE', "")
@@ -198,7 +197,7 @@ class OIDC(MethodView):
         polling = (polling == 'True' or polling == 'true')
         if refresh_lifetime == 'None':
             refresh_lifetime = None
-        ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+        ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
         try:
             kwargs = {'auth_scope': auth_scope,
                       'audience': audience,
@@ -265,7 +264,7 @@ class RedirectOIDC(MethodView):
         headers.set('Pragma', 'no-cache')
 
         try:
-            fetchtoken = (request.headers.get('X-Rucio-Client-Fetch-Token') == 'True')
+            fetchtoken = (request_header_ensure_string('X-Rucio-Client-Fetch-Token') == 'True')
             query_string = request.query_string.decode(encoding='utf-8')
             result = redirect_auth_oidc(query_string, fetchtoken)
 
@@ -337,7 +336,7 @@ class CodeOIDC(MethodView):
         headers.set('Pragma', 'no-cache')
 
         query_string = request.query_string.decode(encoding='utf-8')
-        ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+        ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
 
         try:
             result = get_token_oidc(query_string, ip)
@@ -402,7 +401,7 @@ class TokenOIDC(MethodView):
         headers.set('Pragma', 'no-cache')
 
         query_string = request.query_string.decode(encoding='utf-8')
-        ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+        ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
 
         try:
             result = get_token_oidc(query_string, ip)
@@ -478,9 +477,9 @@ class RefreshOIDC(MethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers.set('Pragma', 'no-cache')
 
-        vo = request.headers.get('X-Rucio-VO', 'def')
-        account = request.headers.get('X-Rucio-Account')
-        token = request.headers.get('X-Rucio-Auth-Token')
+        vo = request_header_ensure_string('X-Rucio-VO', 'def')
+        account = request_header_ensure_string('X-Rucio-Account')
+        token = request_header_ensure_string('X-Rucio-Auth-Token')
         if token is None or account is None:
             return generate_http_error_flask(401, 'CannotAuthorize', 'Cannot authorize token request.', headers=headers)
 
@@ -555,11 +554,11 @@ class GSS(MethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers['Pragma'] = 'no-cache'
 
-        vo = request.headers.get('X-Rucio-VO', 'def')
-        account = request.headers.get('X-Rucio-Account')
+        vo = request_header_ensure_string('X-Rucio-VO', 'def')
+        account = request_header_ensure_string('X-Rucio-Account')
         gsscred = request.environ.get('REMOTE_USER')
-        appid = request.headers.get('X-Rucio-AppID', 'unknown')
-        ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+        appid = request_header_ensure_string('X-Rucio-AppID', 'unknown')
+        ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
 
         try:
             result = get_auth_token_gss(account, gsscred, appid, ip, vo=vo)
@@ -628,16 +627,16 @@ class x509(MethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers['Pragma'] = 'no-cache'
 
-        vo = request.headers.get('X-Rucio-VO', 'def')
-        account = request.headers.get('X-Rucio-Account')
+        vo = request_header_ensure_string('X-Rucio-VO', 'def')
+        account = request_header_ensure_string('X-Rucio-Account')
         dn = request.environ.get('SSL_CLIENT_S_DN')
         if not dn:
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot get DN', headers=headers)
         if not dn.startswith('/'):
             dn = '/%s' % '/'.join(dn.split(',')[::-1])
 
-        appid = request.headers.get('X-Rucio-AppID', 'unknown')
-        ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+        appid = request_header_ensure_string('X-Rucio-AppID', 'unknown')
+        ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
 
         # If we get a valid proxy certificate we have to strip this postfix,
         # otherwise we would have to store the proxy DN in the database as well.
@@ -725,11 +724,11 @@ class SSH(MethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers['Pragma'] = 'no-cache'
 
-        vo = request.headers.get('X-Rucio-VO', 'def')
-        account = request.headers.get('X-Rucio-Account')
-        signature = request.headers.get('X-Rucio-SSH-Signature')
-        appid = request.headers.get('X-Rucio-AppID', 'unknown')
-        ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+        vo = request_header_ensure_string('X-Rucio-VO', 'def')
+        account = request_header_ensure_string('X-Rucio-Account')
+        signature = request_header_ensure_string('X-Rucio-SSH-Signature')
+        appid = request_header_ensure_string('X-Rucio-AppID', 'unknown')
+        ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
 
         # decode the signature which must come in base64 encoded
         try:
@@ -809,10 +808,10 @@ class SSHChallengeToken(MethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers['Pragma'] = 'no-cache'
 
-        vo = request.headers.get('X-Rucio-VO', 'def')
-        account = request.headers.get('X-Rucio-Account')
-        appid = request.headers.get('X-Rucio-AppID', 'unknown')
-        ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+        vo = request_header_ensure_string('X-Rucio-VO', 'def')
+        account = request_header_ensure_string('X-Rucio-Account')
+        appid = request_header_ensure_string('X-Rucio-AppID', 'unknown')
+        ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
 
         try:
             result = get_ssh_challenge_token(account, appid, ip, vo=vo)
@@ -879,10 +878,10 @@ class SAML(MethodView):
             return "SAML not configured on the server side.", 400, headers
 
         saml_nameid = cookies().get('saml-nameid')
-        vo = request.headers.get('X-Rucio-VO', 'def')
-        account = request.headers.get('X-Rucio-Account')
-        appid = request.headers.get('X-Rucio-AppID', 'unknown')
-        ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+        vo = request_header_ensure_string('X-Rucio-VO', 'def')
+        account = request_header_ensure_string('X-Rucio-Account')
+        appid = request_header_ensure_string('X-Rucio-AppID', 'unknown')
+        ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
 
         if saml_nameid:
             try:
@@ -979,7 +978,7 @@ class Validate(MethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers['Pragma'] = 'no-cache'
 
-        token = request.headers.get('X-Rucio-Auth-Token')
+        token = request_header_ensure_string('X-Rucio-Auth-Token')
 
         result = validate_auth_token(token)
         if not result:
@@ -988,44 +987,40 @@ class Validate(MethodView):
         return str(result), 200, headers
 
 
-bp = Blueprint('authentication', __name__)
+def blueprint():
+    bp = Blueprint('authentication', __name__, url_prefix='/auth')
 
-user_pass_view = UserPass.as_view('user_pass')
-bp.add_url_rule('/userpass', view_func=user_pass_view, methods=['get', 'options'])
-gss_view = GSS.as_view('gss')
-bp.add_url_rule('/gss', view_func=gss_view, methods=['get', 'options'])
-x509_view = x509.as_view('x509')
-bp.add_url_rule('/x509', view_func=x509_view, methods=['get', 'options'])
-bp.add_url_rule('/x509_proxy', view_func=x509_view, methods=['get', 'options'])
-ssh_view = SSH.as_view('ssh')
-bp.add_url_rule('/ssh', view_func=ssh_view, methods=['get', 'options'])
-ssh_challenge_token_view = SSHChallengeToken.as_view('ssh_challenge_token')
-bp.add_url_rule('/ssh_challenge_token', view_func=ssh_challenge_token_view, methods=['get', 'options'])
-saml_view = SAML.as_view('saml')
-bp.add_url_rule('/saml', view_func=saml_view, methods=['get', 'post', 'options'])
-validate_view = Validate.as_view('validate')
-bp.add_url_rule('/validate', view_func=validate_view, methods=['get', 'options'])
-oidc_view = OIDC.as_view('oidc_view')
-bp.add_url_rule('/oidc', view_func=oidc_view, methods=['get', 'options'])
-token_oidc_view = TokenOIDC.as_view('token_oidc_view')
-bp.add_url_rule('/oidc_token', view_func=token_oidc_view, methods=['get', 'options'])
-code_oidc_view = CodeOIDC.as_view('code_oidc_view')
-bp.add_url_rule('/oidc_code', view_func=code_oidc_view, methods=['get', 'options'])
-redirect_oidc_view = RedirectOIDC.as_view('redirect_oidc_view')
-bp.add_url_rule('/oidc_redirect', view_func=redirect_oidc_view, methods=['get', 'options'])
-refresh_oidc_view = RefreshOIDC.as_view('refresh_oidc_view')
-bp.add_url_rule('/oidc_refresh', view_func=refresh_oidc_view, methods=['get', 'options'])
+    user_pass_view = UserPass.as_view('user_pass')
+    bp.add_url_rule('/userpass', view_func=user_pass_view, methods=['get', 'options'])
+    gss_view = GSS.as_view('gss')
+    bp.add_url_rule('/gss', view_func=gss_view, methods=['get', 'options'])
+    x509_view = x509.as_view('x509')
+    bp.add_url_rule('/x509', view_func=x509_view, methods=['get', 'options'])
+    bp.add_url_rule('/x509_proxy', view_func=x509_view, methods=['get', 'options'])
+    ssh_view = SSH.as_view('ssh')
+    bp.add_url_rule('/ssh', view_func=ssh_view, methods=['get', 'options'])
+    ssh_challenge_token_view = SSHChallengeToken.as_view('ssh_challenge_token')
+    bp.add_url_rule('/ssh_challenge_token', view_func=ssh_challenge_token_view, methods=['get', 'options'])
+    saml_view = SAML.as_view('saml')
+    bp.add_url_rule('/saml', view_func=saml_view, methods=['get', 'post', 'options'])
+    validate_view = Validate.as_view('validate')
+    bp.add_url_rule('/validate', view_func=validate_view, methods=['get', 'options'])
+    oidc_view = OIDC.as_view('oidc_view')
+    bp.add_url_rule('/oidc', view_func=oidc_view, methods=['get', 'options'])
+    token_oidc_view = TokenOIDC.as_view('token_oidc_view')
+    bp.add_url_rule('/oidc_token', view_func=token_oidc_view, methods=['get', 'options'])
+    code_oidc_view = CodeOIDC.as_view('code_oidc_view')
+    bp.add_url_rule('/oidc_code', view_func=code_oidc_view, methods=['get', 'options'])
+    redirect_oidc_view = RedirectOIDC.as_view('redirect_oidc_view')
+    bp.add_url_rule('/oidc_redirect', view_func=redirect_oidc_view, methods=['get', 'options'])
+    refresh_oidc_view = RefreshOIDC.as_view('refresh_oidc_view')
+    bp.add_url_rule('/oidc_refresh', view_func=refresh_oidc_view, methods=['get', 'options'])
 
-application = Flask(__name__)
-application.register_blueprint(bp)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/auth')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

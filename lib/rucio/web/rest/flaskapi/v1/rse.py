@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2018-2020 CERN
 #
@@ -47,7 +46,7 @@ from rucio.common.exception import (Duplicate, AccessDenied, RSENotFound, RucioE
                                     RSEAttributeNotFound, CounterNotFound)
 from rucio.common.utils import render_json, APIEncoder
 from rucio.rse import rsemanager
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, try_stream
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, try_stream
 from rucio.web.rest.utils import generate_http_error_flask
 
 
@@ -1002,53 +1001,45 @@ class QoSPolicy(MethodView):
             return str(error), 500
 
 
-"""----------------------
-   Web service startup
-----------------------"""
-bp = Blueprint('rse', __name__)
+def blueprint():
+    bp = Blueprint('rse', __name__, url_prefix='/rses')
 
-attributes_view = Attributes.as_view('attributes')
-bp.add_url_rule('/<rse>/attr/<key>', view_func=attributes_view, methods=['post', 'delete'])
-bp.add_url_rule('/<rse>/attr/', view_func=attributes_view, methods=['get', ])
-distance_view = Distance.as_view('distance')
-bp.add_url_rule('/<source>/distances/<destination>', view_func=distance_view, methods=['get', 'post', 'put'])
-protocol_view = Protocol.as_view('protocol')
-bp.add_url_rule('/<rse>/protocols/<scheme>/<hostname>/<port>', view_func=protocol_view, methods=['delete', 'put'])
-bp.add_url_rule('/<rse>/protocols/<scheme>/<hostname>', view_func=protocol_view, methods=['delete', 'put'])
-bp.add_url_rule('/<rse>/protocols/<scheme>', view_func=protocol_view, methods=['get', 'post', 'delete', 'put'])
-protocol_list_view = ProtocolList.as_view('protocol_list')
-bp.add_url_rule('/<rse>/protocols', view_func=protocol_list_view, methods=['get', ])
-lfns2pfns_view = LFNS2PFNS.as_view('lfns2pfns')
-bp.add_url_rule('/<rse>/lfns2pfns', view_func=lfns2pfns_view, methods=['get', ])
-rse_account_usage_limit_view = RSEAccountUsageLimit.as_view('rse_account_usage_limit')
-bp.add_url_rule('/<rse>/accounts/usage', view_func=rse_account_usage_limit_view, methods=['get', ])
-usage_view = Usage.as_view('usage')
-bp.add_url_rule('/<rse>/usage', view_func=usage_view, methods=['get', 'put'])
-usage_history_view = UsageHistory.as_view('usage_history')
-bp.add_url_rule('/<rse>/usage/history', view_func=usage_history_view, methods=['get', ])
-limits_view = Limits.as_view('limits')
-bp.add_url_rule('/<rse>/limits', view_func=limits_view, methods=['get', 'put'])
-qos_policy_view = QoSPolicy.as_view('qos_policy')
-bp.add_url_rule('/<rse>/qos_policy', view_func=qos_policy_view, methods=['get', ])
-bp.add_url_rule('/<rse>/qos_policy/<policy>', view_func=qos_policy_view, methods=['post', 'delete'])
-rse_view = RSE.as_view('rse')
-bp.add_url_rule('/<rse>', view_func=rse_view, methods=['get', 'delete', 'put', 'post'])
-rses_view = RSEs.as_view('rses')
-bp.add_url_rule('/', view_func=rses_view, methods=['get', ])
+    attributes_view = Attributes.as_view('attributes')
+    bp.add_url_rule('/<rse>/attr/<key>', view_func=attributes_view, methods=['post', 'delete'])
+    bp.add_url_rule('/<rse>/attr/', view_func=attributes_view, methods=['get', ])
+    distance_view = Distance.as_view('distance')
+    bp.add_url_rule('/<source>/distances/<destination>', view_func=distance_view, methods=['get', 'post', 'put'])
+    protocol_view = Protocol.as_view('protocol')
+    bp.add_url_rule('/<rse>/protocols/<scheme>/<hostname>/<port>', view_func=protocol_view, methods=['delete', 'put'])
+    bp.add_url_rule('/<rse>/protocols/<scheme>/<hostname>', view_func=protocol_view, methods=['delete', 'put'])
+    bp.add_url_rule('/<rse>/protocols/<scheme>', view_func=protocol_view, methods=['get', 'post', 'delete', 'put'])
+    protocol_list_view = ProtocolList.as_view('protocol_list')
+    bp.add_url_rule('/<rse>/protocols', view_func=protocol_list_view, methods=['get', ])
+    lfns2pfns_view = LFNS2PFNS.as_view('lfns2pfns')
+    bp.add_url_rule('/<rse>/lfns2pfns', view_func=lfns2pfns_view, methods=['get', ])
+    rse_account_usage_limit_view = RSEAccountUsageLimit.as_view('rse_account_usage_limit')
+    bp.add_url_rule('/<rse>/accounts/usage', view_func=rse_account_usage_limit_view, methods=['get', ])
+    usage_view = Usage.as_view('usage')
+    bp.add_url_rule('/<rse>/usage', view_func=usage_view, methods=['get', 'put'])
+    usage_history_view = UsageHistory.as_view('usage_history')
+    bp.add_url_rule('/<rse>/usage/history', view_func=usage_history_view, methods=['get', ])
+    limits_view = Limits.as_view('limits')
+    bp.add_url_rule('/<rse>/limits', view_func=limits_view, methods=['get', 'put'])
+    qos_policy_view = QoSPolicy.as_view('qos_policy')
+    bp.add_url_rule('/<rse>/qos_policy', view_func=qos_policy_view, methods=['get', ])
+    bp.add_url_rule('/<rse>/qos_policy/<policy>', view_func=qos_policy_view, methods=['post', 'delete'])
+    rse_view = RSE.as_view('rse')
+    bp.add_url_rule('/<rse>', view_func=rse_view, methods=['get', 'delete', 'put', 'post'])
+    rses_view = RSEs.as_view('rses')
+    bp.add_url_rule('/', view_func=rses_view, methods=['get', ])
 
-
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/rses')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

@@ -26,7 +26,7 @@ from flask.views import MethodView
 from rucio.api.vo import add_vo, list_vos, recover_vo_root_identity, update_vo
 from rucio.common.exception import AccessDenied, AccountNotFound, Duplicate, RucioException, VONotFound, UnsupportedOperation
 from rucio.common.utils import render_json
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask, try_stream
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, try_stream
 from rucio.web.rest.utils import generate_http_error_flask
 
 
@@ -214,31 +214,23 @@ class RecoverVO(MethodView):
         return 'Created', 201
 
 
-"""----------------------
-   Web service startup
-----------------------"""
-bp = Blueprint('vo', __name__)
+def blueprint():
+    bp = Blueprint('vo', __name__, url_prefix='/vos')
 
-recover_view = RecoverVO.as_view('recover')
-bp.add_url_rule('/<vo>/recover', view_func=recover_view, methods=['post', ])
-vo_view = VO.as_view('vo')
-bp.add_url_rule('/<vo>', view_func=vo_view, methods=['put', 'post'])
-vos_view = VOs.as_view('vos')
-bp.add_url_rule('/', view_func=vos_view, methods=['get', ])
+    recover_view = RecoverVO.as_view('recover')
+    bp.add_url_rule('/<vo>/recover', view_func=recover_view, methods=['post', ])
+    vo_view = VO.as_view('vo')
+    bp.add_url_rule('/<vo>', view_func=vo_view, methods=['put', 'post'])
+    vos_view = VOs.as_view('vos')
+    bp.add_url_rule('/', view_func=vos_view, methods=['get', ])
 
-
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/vos')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()
