@@ -15,6 +15,9 @@
 #
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+
+from __future__ import print_function
+
 import importlib
 import os
 import traceback
@@ -62,8 +65,9 @@ def rest_client():
             def __init__(self, *args, **kwargs):
                 super(WrappedFlaskClient, self).__init__(*args, **kwargs)
 
-            def open(self, *args, **kwargs):
-                response = super(WrappedFlaskClient, self).open(*args, **kwargs)
+            def open(self, path='/', *args, **kwargs):
+                print(kwargs.get('method', 'GET'), path)
+                response = super(WrappedFlaskClient, self).open(path, *args, **kwargs)
                 try:
                     print_response(response)
                 except Exception:
@@ -114,10 +118,10 @@ def rest_client():
                         return path, endpoint_client.open
                 return path, super(WrappedTestClient, self).open
 
-            def open(self, *args, **kwargs):
-                path, open_method = self._endpoint_specials(args[0])
-
-                response = open_method(path, *args[1:], **kwargs)
+            def open(self, path='/', *args, **kwargs):
+                newpath, open_method = self._endpoint_specials(path)
+                print(kwargs.get('method', 'GET'), path)
+                response = open_method(newpath, *args, **kwargs)
                 try:
                     print_response(response)
                 except Exception:
