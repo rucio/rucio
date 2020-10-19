@@ -18,7 +18,7 @@
 # PY3K COMPATIBLE
 
 import unittest
-from rucio.core.did_meta_plugins.inequality_engine import clear_double_spaces, translate, get_num_op, expand_metadata, get_dict, inequality_engine
+from rucio.core.did_meta_plugins.inequality_engine import DEFAULT_MODEL, OP, clear_double_spaces, translate, get_num_op, convert_ternary, expand_metadata, get_dict, inequality_engine
 
 class TestClearDoubleSpaces(unittest.TestCase):
 
