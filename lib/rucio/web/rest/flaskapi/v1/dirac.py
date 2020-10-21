@@ -21,7 +21,7 @@ from __future__ import print_function
 
 from traceback import format_exc
 
-from flask import Blueprint, request
+from flask import Flask, Blueprint, request
 from flask.views import MethodView
 
 from rucio.api.dirac import add_files
@@ -90,7 +90,7 @@ class AddFiles(MethodView):
         return 'Created', 201
 
 
-def blueprint():
+def blueprint(no_doc=True):
     bp = Blueprint('dirac', __name__, url_prefix='/dirac')
 
     add_file_view = AddFiles.as_view('addfiles')
@@ -100,3 +100,10 @@ def blueprint():
     bp.before_request(request_auth_env)
     bp.after_request(response_headers)
     return bp
+
+
+def make_doc():
+    """ Only used for sphinx documentation """
+    doc_app = Flask(__name__)
+    doc_app.register_blueprint(blueprint(no_doc=False))
+    return doc_app
