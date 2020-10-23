@@ -284,7 +284,7 @@ def finalize_auth(token, identity_type, cookie_dict_extra=None):
         for key, value in cookie_dict_extra.items():
             COOKIES.append({'key': key, 'value': value})
         return redirect_to_last_known_url()
-    except Exception as e:
+    except Exception:
         return render_template("problem.html", msg="It was not possible to validate and finalize your login with the provided token.")
 
 

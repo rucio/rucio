@@ -57,36 +57,40 @@ def login():
     if request.method == 'POST':
         return userpass_auth()
 
+
 def oidc():
     account = request.args.get('account')
     issuer = request.args.get('issuer')
     vo = request.args.get('vo')
     if not MULTI_VO:
-        ui_vo = 'def'
-    
+        vo = 'def'
+
     if not account or not issuer:
         return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot get token OIDC auth url from the server.')
 
     return oidc_auth(account, issuer, vo)
 
+
 def oidc_final():
     session_token = request.cookies.get('x-rucio-auth-token')
     return finalize_auth(session_token, 'OIDC')
 
+
 def saml():
     return saml_auth(request.method)
+
 
 def x509():
     return x509token_auth()
 
 
 AUTH_URLS = (
-    ('/auth', 'auth', auth, ['GET',]),
+    ('/auth', 'auth', auth, ['GET', ]),
     ('/login', 'login', login, ['GET', 'POST']),
-    ('/oidc', 'oidc', oidc, ['GET,']), 
-    ('/oidc_final', 'oidc_final', oidc_final, ['GET',]),
+    ('/oidc', 'oidc', oidc, ['GET', ]),
+    ('/oidc_final', 'oidc_final', oidc_final, ['GET', ]),
     ('/saml', 'saml', saml, ['GET', 'POST']),
-    ('/x509', 'x509', x509, ['GET',])
+    ('/x509', 'x509', x509, ['GET', ])
 )
 
 COMMON_URLS = (
