@@ -20,7 +20,6 @@
 
 import sys
 from rucio.db.sqla import models
-from rucio.db.sqla.models import DataIdentifier
 
 DEFAULT_MODEL = models.DataIdentifier.__name__
 
