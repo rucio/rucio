@@ -262,7 +262,6 @@ def finalize_auth(token, identity_type, cookie_dict_extra=None):
     """
     global COOKIES
     valid_token_dict = validate_webui_token(from_cookie=False, session_token=token)
-
     if not valid_token_dict:
         return render_template("problem.html", msg="It was not possible to validate and finalize your login with the provided token.")
     try:
@@ -281,8 +280,9 @@ def finalize_auth(token, identity_type, cookie_dict_extra=None):
                         {'key': 'rucio-selected-account', 'value': quote(valid_token_dict['account'])},
                         {'key': 'rucio-selected-vo', 'value': quote(valid_token_dict['vo'])}])
 
-        for key, value in cookie_dict_extra.items():
-            COOKIES.append({'key': key, 'value': value})
+        if cookie_dict_extra:
+            for key, value in cookie_dict_extra.items():
+                COOKIES.append({'key': key, 'value': value})
         return redirect_to_last_known_url()
     except Exception:
         return render_template("problem.html", msg="It was not possible to validate and finalize your login with the provided token.")

@@ -144,7 +144,8 @@ else:
     )
 
 
-view_maker = lambda template, title: (lambda: authenticate(template=template, title=title))
+def view_maker(template, title):
+    return lambda: authenticate(template=template, title=title)
 
 for rule, endpoint, title in COMMON_URLS:
     template = endpoint + '.html'
