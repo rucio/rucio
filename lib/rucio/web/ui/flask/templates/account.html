@@ -1,0 +1,121 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2017-2020
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/account.js"></script>
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<div id="result" class="row" data-equalizer>
+
+  <div id="alert_box">
+  </div>
+  <div id="metadata" class="columns panel">
+    <h4>Account info</h4>
+    <div id="loading">
+      <div class="row"><div class="small-1 small-centered columns">
+          <img src="/media/spinner.gif">
+        </div>
+      </div>
+    </div>
+    <table id="t_metadata" style="word-wrap: break-word;">
+    </table>
+  </div>
+
+  <div id="attributes" class="columns panel">
+    <h4>Account attributes</h4>
+    <div id="loading_attr">
+      <div class="row"><div class="small-1 small-centered columns">
+          <img src="/media/spinner.gif">
+        </div>
+      </div>
+    </div>
+    <table id="attr_table" class="compact stripe order-column" style="word-wrap: break-word;">
+      <thead><tr><th>Key</th><th>Value</th></tr></thead>
+    </table>
+    </br>
+    <div class="row">
+      <div class="large-1 columns"><a class="button postfix" href="#" data-reveal-id="attrmodal">Add</a></div>
+      <div class="large-10 columns"></div>
+      <div class="large-1 columns"><a class="alert button postfix" id="del_attr">Delete</a></div>
+    </div>
+  </div>
+
+  <div id="identites" class="columns panel">
+    <h4>Account Identities</h4>
+    <div id="loading_id">
+      <div class="row"><div class="small-1 small-centered columns">
+          <img src="/media/spinner.gif">
+        </div>
+      </div>
+    </div>
+    <table id="identities_table" class="compact stripe order-column" style="word-wrap: break-word;">
+      <thead><tr><th>Identity</th><th>Type</th></tr></thead>
+    </table>
+    </br>
+    <div class="row">
+      <div class="large-1 columns"><a class="button postfix" href="#" data-reveal-id="identitymodal">Add</a></div>
+      <div class="large-10 columns"></div>
+      <div class="large-1 columns"><a class="alert button postfix" id="del_identity">Delete</a></div>
+    </div>
+  </div>
+
+</div>
+
+<div id="problem_details" style="margin: 2em;"></div>
+<div id="attrmodal" class="reveal-modal" data-reveal aria-labelledby="modalTitle" aria-hidden="true" role="dialog">
+  <div class="row">
+    <label>Key
+      <input type="text" id="key_input" placeholder=""></input>
+    </label>
+  </div>
+  <div class="row">
+    <label>Value
+      <input type="text" id="value_input" placeholder=""></input>
+    </label>
+  </div>
+  <div class="row">
+    <div class="large-1 columns"><a class="button postfix" id="add_attr">Add</a></div>
+  </div>
+  <div class="row">
+    <div id="attr_notify"></div>
+  </div>
+</div>
+
+<div id="identitymodal" class="reveal-modal" data-reveal aria-labelledby="modalTitle" aria-hidden="true" role="dialog">
+  <div class="row">
+    <label>Identity
+      <input type="text" id="identity_input" placeholder=""></input>
+    </label>
+  </div>
+  <div class="row">
+    <label>Type
+      <input type="text" id="type_input" placeholder=""></input>
+    </label>
+  </div>
+  <div class="row">
+    <label>Email
+      <input type="text" id="email_input" placeholder=""></input>
+    </label>
+  </div>
+  <div class="row">
+    <div class="large-1 columns"><a class="button postfix" id="add_identity">Add</a></div>
+  </div>
+  <div class="row">
+    <div id="identity_notify"></div>
+  </div>
+</div>
+{%- endblock content %}

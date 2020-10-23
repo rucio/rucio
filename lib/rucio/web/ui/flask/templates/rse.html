@@ -1,0 +1,116 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2020
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/rse.js"></script>
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<div id="result" class="row" data-equalizer>
+    <div id="rse_info" class="columns panel">
+        <h4>Informations</h4>
+        <div class="row" id="loadingInfo">
+            <div class="small-1 small-centered columns">
+                <img src="/media/spinner.gif">
+            </div>
+        </div>
+        <table id="t_metadata" style="word-wrap: break-word;">
+        </table>
+        <div id="errorLoadingInfo"></div>
+    </div>
+    <div id="rse_protocols" class="columns panel">
+        <h4>Protocols</h4>
+        <div id="loadingProtocols">
+            <div class="row">
+                <div class="small-1 small-centered columns">
+                    <img src="/media/spinner.gif">
+                </div>
+            </div>
+        </div>
+        <table id="t_rse_protocols" style="word-wrap: break-word;">
+        </table>
+        <div id="resultDeleteProtocol">
+            <div class="row" id="loaderDeleteProtocol">
+                <div class="small-1 small-centered columns">
+                    <img src="/media/spinner.gif">
+                </div>
+            </div>
+        </div>
+        <div class="row collapse">
+            <div class="large-2 columns">
+                <a class="button postfix" id="addProtocol">Add protocol</a>
+            </div>
+        </div>
+    </div>
+    <div id="rse_attributes" class="columns panel">
+        <h4>Attributes</h4>
+        <div class="row" id="loadingAttributes">
+            <div class="small-1 small-centered columns">
+                <img src="/media/spinner.gif">
+            </div>
+        </div>
+        <table id="t_rse_attributes" style="word-wrap: break-word;">
+        </table>
+        <div id="errorLoadingAttributes"></div>
+        <form class="row collapse">
+            <div class="large-3 columns">
+                <input type="text" id="newAttributeKey" placeholder="Key">
+            </div>
+            <div class="large-3 columns">
+                <input type="text" id="newAttributeValue" placeholder="Value">
+            </div>
+            <div class="large-3 columns">
+                <select id="newAttributeType" placeholder="Type">
+                    <option value="string">String</option>
+                    <option value="boolean">Boolean</option>
+                    <option value="integer">Integer</option>
+                    <option value="float">Float</option>
+                </select>
+            </div>
+            <div class="large-3 columns left">
+                <a class="button postfix" id="addAttribute">Add attribute</a>
+            </div>
+            <div id="resultAddAttribute" class="row">
+                <div class="row" id="loaderAddAttribute">
+                    <div class="small-1 small-centered columns">
+                        <img src="/media/spinner.gif">
+                    </div>
+                </div>
+            </div>
+            <div id="resultDeleteAttribute" class="row">
+                <div class="row" id="loaderDeleteAttribute">
+                    <div class="small-1 small-centered columns">
+                        <img src="/media/spinner.gif">
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+<div class="row collapse">
+    <div class="large-2 columns">
+        <a class="button postfix" id="deleteRSE">Delete RSE</a>
+    </div>
+</div>
+<div id="resultDeleteRSE" class="row">
+    <div class="row" id="loaderDeleteRSE">
+        <div class="small-1 small-centered columns">
+            <img src="/media/spinner.gif">
+        </div>
+    </div>
+</div>
+{%- endblock content %}

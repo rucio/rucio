@@ -1,0 +1,67 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2020
+ - Stefan Prenner, <stefan.prenner@cern.ch>, 2017-2018
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/did.js"></script>
+<link rel="stylesheet" href="//cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css">
+<script src="//cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<div id="result" class="row" data-equalizer>
+  <div id="metadata" class="columns panel">
+    <h4>DID Metadata</h4>
+    <div id="loading">Loading, please wait...</div>
+    <table id="t_metadata" style="word-wrap: break-word;">
+    </table>
+  </div>
+
+  <div id="generic_metadata" class="columns panel" style="display: none;">
+    <h4>Generic DID Metadata</h4>
+    <div id="loading">Loading, please wait...</div>
+    <table id="t_generic_metadata" style="word-wrap: break-word;">
+    </table>
+  </div>
+</div>
+
+<div id="result_contents" class="row">
+</div>
+
+<div id="result_rules" class="row">
+</div>
+
+<div id="result_dataset_replicas" class="row">
+</div>
+
+<div id="infomodalmeta" class="reveal-modal" data-reveal aria-labelledby="modalTitle2" aria-hidden="true" role="dialog">
+	<h2>Dataset Download</h2>
+	<p>Rucio UI creates metalinks for datasets with a maximum of 500 files files within the dataset (Download icon next to this info button). Triggering the download will give you .meta4 file that can be opened with a suitable metalink downloader (or browser plugin) like <a href='https://addons.mozilla.org/de/firefox/addon/downthemall/' target='_blank'>DownThemAll!</a>. To open the metalink file with DownThemAll! follow <a href ='http://hdfeos.org/examples/docs/vertex/asf_vertex_bulk_download_mac.pdf' target='_blank'>this</a> guideline.</p>
+	<p>Note: If there are no available RSEs that store the dataset no download icon will appear.</p>
+	<a class="close-reveal-modal" aria-label="Close">&#215;</a>
+</div>
+
+<div id="result_file_replicas" class="row">
+</div>
+
+<div id="problem_details" style="margin: 2em;"></div>
+
+<div id="infomodal" class="reveal-modal" data-reveal aria-labelledby="modalTitle" aria-hidden="true" role="dialog">
+	<h2>No Data</h2>
+	<a class="close-reveal-modal" aria-label="Close">&#215;</a>
+</div>
+{%- endblock content %}

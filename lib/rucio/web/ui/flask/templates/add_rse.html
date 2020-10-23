@@ -1,0 +1,111 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2020
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/add_rse.js"></script>
+<link rel="stylesheet" href="//cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css">
+<script src="//cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<div class="panel">
+    <div class="row collapse">
+        <form id="did_form">
+            <div class="row collapse">
+                <div class="large-1 columns">
+                    <label for="name" class="left inline">Name</label>
+                </div>
+                <div class="large-10 columns">
+                    <input type="text" id="name" placeholder="">
+                </div>
+            </div>
+            <div class="row collapse">
+                <div class="large-1 columns">
+                    <label for="city" class="left inline">City</label>
+                </div>
+                <div class="large-10 columns">
+                    <input type="text" id="city" placeholder="">
+                </div>
+            </div>
+            <div class="row collapse">
+                <div class="large-1 columns">
+                    <label for="region" class="left inline">Region</label>
+                </div>
+                <div class="large-10 columns">
+                    <input type="text" id="region" placeholder="">
+                </div>
+            </div>
+            <div class="row collapse">
+                <div class="large-1 columns">
+                    <label for="country" class="left inline">Country</label>
+                </div>
+                <div class="large-10 columns">
+                    <input type="text" id="country" placeholder="">
+                </div>
+            </div>
+            <div class="row collapse">
+                <div class="large-1 columns">
+                    <label for="continent" class="left inline">Continent</label>
+                </div>
+                <div class="large-10 columns">
+                    <input type="text" id="continent" placeholder="">
+                </div>
+            </div>
+            <div class="row collapse">
+                <div class="large-1 columns">
+                    <label for="isp" class="left inline">ISP</label>
+                </div>
+                <div class="large-10 columns">
+                    <input type="text" id="isp" placeholder="">
+                </div>
+            </div>
+            <div class="row collapse">
+                <div class="large-1 columns">
+                    <label for="timeZone" class="left inline">Time Zone</label>
+                </div>
+                <div class="large-10 columns">
+                    <input type="text" id="timeZone" placeholder="">
+                </div>
+            </div>
+            <div class="row collapse">
+                <input type="checkbox" id="stagingArea">
+                <label for="stagingArea">Staging Area?</label>
+            </div>
+            <div class="row collapse">
+                <input type="checkbox" id="deterministic">
+                <label for="deterministic">Deterministic?</label>
+            </div>
+            <div class="row collapse">
+                <input type="checkbox" id="volatile">
+                <label for="volatile">Volatile?</label>
+            </div>
+            <div class="row collapse">
+                <div class="large-2 columns">
+                    <a class="button postfix" id="addRSEButton">Add</a>
+                </div>
+            </div>
+            <div id="loader">
+                <div class="row">
+                    <div class="small-1 small-centered columns">
+                        <img src="/media/spinner.gif">
+                    </div>
+                </div>
+            </div>
+            <div id="result" class="row collapse"></div>
+        </form>
+    </div>
+</div>
+{%- endblock content %}

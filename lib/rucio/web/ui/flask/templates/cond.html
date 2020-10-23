@@ -1,0 +1,55 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2020
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/cond.js"></script>
+<link rel="stylesheet" href="//cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css">
+<script src="//cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<div id="main" class="row">
+
+  <div id="t_data" class="columns panel">
+    <h4>ConditionsDB Datasets <a href="#" data-reveal-id="infomodal"><i title="Info" class="step fi-info size-24"></i></a></h4>
+    <div id="note"></div>
+    <div id="loader"></div>
+    <div id="results">
+      <table id="resulttable" class="compact stripe order-column" style="word-wrap: break-word;">
+        <thead><tr><th>Name</th><th>Creation Date</th><th>Size (KB)</th><th>CERN</th><th>CA</th><th>DE</th><th>ES</th><th>FR</th><th>IT</th><th>NG</th><th>NL</th><th>RU</th><th>TW</th><th>UK</th><th>US</th></tr>
+        </thead>
+        <tfoot><tr><th>Name</th><th>Creation Date</th><th>Size (KB)</th><th>CERN</th><th>CA</th><th>DE</th><th>ES</th><th>FR</th><th>IT</th><th>NG</th><th>NL</th><th>RU</th><th>TW</th><th>UK</th><th>US</th></tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div id="problem"></div>
+<div id="infomodal" class="reveal-modal" data-reveal aria-labelledby="modalTitle" aria-hidden="true" role="dialog">
+  <h2>Description</h2>
+  <p>This page shows a summary of all ConditionsDB dataset replicas per cloud. For each dataset the size and creation date is given together with replica information for every cloud. If a dataset has a replica on a site in one cloud, two numbers will be displayed: First the number of successfully transferred files and second the total number of files in this dataset.</p>
+  <p>The cells have different colours:</p>
+  <ul>
+    <li><font color="#00FF00">Green:</font> The dataset has been fully transferred to this site.</li>
+    <li><font color="#00FFFF">Blue:</font> The dataset is still open, i.e., the total number of files is currently unknown.</li>
+    <li><font color="orange">Orange:</font> The dataset is currently transferring.</li>
+    <li><font color="red">Red:</font> There has been a problem with the transfer.</li>
+  </ul>
+  <a class="close-reveal-modal" aria-label="Close">&#215;</a>
+</div>
+{%- endblock content %}

@@ -1,0 +1,89 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2020
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/backlog_mon.js"></script>
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<div class="row">
+
+  <div id="t_data" class="columns panel">
+    <form>
+      <div class="row collapse">
+        <div class="large-2 columns">
+          <label>Account</label>
+            <input id="account_input" type="text" placeholder="Account" />
+        </div>
+        <div class="large-2 columns">
+          <label>Activity</label>
+            <input id="activity_input" type="text" placeholder="Activity" />
+        </div>
+        <div class="large-2 columns">
+          <label>Endpoint
+            <input id="rse_input" type="text" placeholder="RSE" />
+          </label>
+        </div>
+        <div class="large-2 columns">
+          <label>State
+            <select id="state_selector">
+              <option value=""></option>
+              <option value="done">Done</option>
+              <option value="90% transfers done">90% transfers done</option>
+              <option value="initialised">Initialised</option>
+              <option value="subscribed">Subscribed</option>
+              <option value="transferring">Transferring</option>
+              <option value="stuck">Stuck</option>
+            </select>
+          </label>
+        </div>
+        <div class="large-1 columns">
+          <label style="visibility: hidden;">.</label>
+            <select id="age_mode_selector">
+              <option value="younger">younger than</option>
+              <option value="older">older than</option>
+            </select>
+          </label>
+        </div>
+        <div class="large-1 columns"><label>Age
+            <select id="age_selector">
+              <option value="6h">6 hours</option>
+              <option value="12h">12 hours</option>
+              <option value="18h">18 hours</option>
+              <option value="1d" selected="selected">1 day</option>
+              <option value="2d">2 days</option>
+              <option value="4d">4 days</option>
+            </select>
+            </label>
+        </div>
+        <div class="large-2 columns">
+          <label style="visibility: hidden;">.</label>
+          <a class="button postfix inline" id="load_button">Load</a>
+        </div>
+      </div>
+    </form>
+    <div id="results">
+    </div>
+  </div>
+</div>
+
+<div id="problem"></div>
+
+<div id="myModal" class="reveal-modal" data-reveal>
+  <p id="copyurl"><p>
+  <a class="close-reveal-modal">&#215;</a>
+</div>
+{%- endblock content %}

@@ -1,0 +1,39 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2020
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/subscription.js"></script>
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<div id="result" class="row" data-equalizer>
+
+  <div id="metadata" class="columns panel">
+    <h4>Subscription metadata</h4>
+    <table id="t_metadata" style="word-wrap: break-word;">
+    </table>
+  </div>
+</div>
+<div class="row">
+  <div class="columns large-1">
+     <div id="subscription_editor" class="button small expand">Edit subcription</div>
+ </div>
+</div>
+
+<div id="problem_details" style="margin: 2em;"></div>
+{%- endblock content %}

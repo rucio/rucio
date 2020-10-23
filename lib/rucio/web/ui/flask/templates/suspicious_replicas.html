@@ -1,0 +1,86 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2020
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/suspicious_replicas.js"></script>
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<div id="alert_box">
+<div id="result" class="row" data-equalizer>
+    <div id="State" class="columns panel">
+        <h4>Suspicious Replicas</h4>
+        <div id="loader"></div>
+        <div id="dialogform" title="Declare bad replica">
+        </div>
+
+            <div class="row">
+                 <div class="large-6 columns">
+                    <table id="datepicker" style="table-layout:fixed; width:auto;">
+                        <thead>
+                            <tr>
+                                 <th>Start date</th>
+                            <tr>
+                        </thead>
+                        <tfoot>
+                            <tr>
+                                 <th><div id="datepicker1" style="font-size:14px; height: 250px;"></div></th>
+                            <tr>
+                        </tfoot>
+                    </table>
+
+                    <div class="row">
+                          <label>RSE expression</label>
+                              <input type="text" placeholder="RSE expression e.g. : tier=1&type=DATADISK or FZK-LCG2_DATADISK" id="rse_expression"/ >
+                    </div>
+
+                    <div class="row">
+                         <form id="rse_expression_checker">
+                             <input type="submit" id="rse_expr" value="Check RSE expression"></input>
+                         </form>
+                         <span id="rse_val_result"></span>
+                    </div>
+
+                    <div class="row">
+                        <label for="threshold">Threshold:</label>
+                        <div id="slider-range-min">
+                            <div id="custom-slider" class="ui-slider-handle"></div>
+                       </div>
+                       <br>
+                    </div>
+                    <div class="row">
+                    <div class="large-3 column">
+                        <input id="submit_button" type="button" value="Retrieve results">
+                    </div>
+                    <div class="large-3 column">
+                        <div id="declare_bad"></div>
+                    </div>
+                    </div>
+
+                 </div>
+                 <div class="large-6 columns">
+                     <div id="suspiciousplot"></div>
+                 </div>
+            </div>
+
+        <div id="suspiciousreplicas2">
+        </div>
+        <div id="downloader"></div>
+    </div>
+</div>
+
+<div id="problem_details" style="margin: 2em;"></div>
+{%- endblock content %}

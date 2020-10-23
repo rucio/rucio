@@ -1,0 +1,49 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2020
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/account_usage.js"></script>
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<div id="results" class="row">
+
+  <div id="t_data" class="columns panel">
+    <h4>Group Account Usage Overview (in TB / no TAPE)</h4>
+    <div id="quotaplot"></div>
+
+    <table id="resulttable_overview" class="compact stripe order-column" style="word-wrap: break-word;">
+      <thead><tr><th>Account</th><th>Quota</th><th>Used</th><th>Difference</th></tr></thead>
+      <tfoot><tr><th>Account</th><th>Quota</th><th>Used</th><th>Difference</th></tr></tfoot>
+    </table>
+    </br>
+    <h4>Group Account Usage Overview (in TB / only TAPE)</h4>
+    <table id="resulttable_tape_overview" class="compact stripe order-column" style="word-wrap: break-word;">
+      <thead><tr><th>Account</th><th>Quota</th><th>Used</th><th>Difference</th></tr></thead>
+      <tfoot><tr><th>Account</th><th>Quota</th><th>Used</th><th>Difference</th></tr></tfoot>
+    </table>
+    </br>
+    <h4>Group Account Usage per RSE (in TB)</h4>
+    <table id="resulttable_details" class="compact stripe order-column" style="word-wrap: break-word;">
+      <thead><tr><th>Account</th><th>RSE</th><th>Quota</th><th>Used</th><th>Difference</th></tr></thead>
+      <tfoot><tr><th>Account</th><th>RSE</th><th>Quota</th><th>Used</th><th>Difference</th></tr></tfoot>
+    </table>
+
+  </div>
+
+</div>
+<div id="problem"></div>
+{%- endblock content %}

@@ -1,0 +1,95 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2020
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/jquery.quicksearch.js"></script>
+<script src="/static/lifetime_exception.js"></script>
+<script src="static/chosen.jquery.min.js"></script>
+<script src="/static/jquery.multiple.select2.js"></script>
+<link rel="stylesheet" href="/static/multiple-select2.css"></script>
+<script src="/static/jquery.multiple.select.js"></script>
+<link rel="stylesheet" href="/static/multiple-select.css">
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<h4><h4>Subscriptions editor request interface</h4></h4>
+<div class="h2">Request form</div>
+<div id="alert_box">
+  </div>
+
+        <div id="loader"></div>
+        <div class="row">
+           <div class="large-6 columns">
+              <div class="row">
+                  <label>Reason</label>
+                     <textarea maxlength="2000" placeholder="Reason for the exception" id="reason" style="width:500px;"></textarea>
+              </div>
+              <div class="row">
+                 <label>Choose pattern</label>
+                 <form id="pattern_form">
+                 <input type="radio" name="pattern_selector" value="mc">
+                 <label for="mc">mc</label>
+                 <input type="radio" name="pattern_selector" value="data">
+                 <label for="data">data</label>
+                 <input type="radio" name="pattern_selector" value="valid">
+                 <label for="valid">valid</label>
+                 </form>
+              </div>
+              <div class="row" id="scope_div">
+                  <label>Project/scope</label>
+                     <select id="scopeselect" data-placeholder="Choose a scope..." class="chosen-select" style="width:500px;" tabindex="4"></select>
+              </div>
+              <div class="row" id="datatype_div">
+                  <label>Datatype</label>
+                     <select id="datatype" data-placeholder="Choose a datatype..." class="chosen-select" style="width:500px;" tabindex="4"></select>
+              </div>
+           </div>
+
+           <div class="large-6 columns">
+              <div class="row" id="lifetime_div">
+                  <label>Exception duration</label>
+                  <div id="datepicker" style="font-size:14px; height: 250px;"></div>
+              </div>
+           </div>
+        </div>
+
+
+        <div class="row" id="datasets_div"  style="width:500px;">
+            <label>Datasets</label>
+            <select id='datasets' multiple='multiple' style="width:500px;">
+            </select>
+            <a href='#' id='select-all'>select all</a>
+            <a href='#' id='deselect-all'>deselect all</a>
+        </div>
+        <div class="row">
+            <label>Estimated volume to keep</label>
+               <div id='estimated_vol'></div>
+        </div>
+
+
+        <div class="row">
+          <div class="large-5 columns">
+            <form id="submit_request">
+                  <input type="submit" value="Submit request">
+            </form>
+          </div>
+        </div>
+
+<div id="dialogform">
+<div id="dialogtext"></div>
+</div>
+{%- endblock content %}

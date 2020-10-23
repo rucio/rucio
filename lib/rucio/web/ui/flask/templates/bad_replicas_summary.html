@@ -1,0 +1,55 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2020
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/bad_replicas_summary.js"></script>
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<div id="result" class="row" data-equalizer>
+    <div id="State" class="columns panel">
+        <h4>Bad replica Summary</h4>
+        <div id="loader"></div>
+        <table id="datepicker" style="table-layout:fixed; width:auto;">
+            <thead>
+                <tr>
+                     <th>Start date</th>
+                     <th>End date</th>
+                <tr>
+            </thead>
+            <tfoot>
+                <tr>
+                     <th><div id="datepicker1" style="font-size:14px; height: 250px;"></div></th>
+                     <th><div id="datepicker2" style="font-size:14px; height: 250px;"></div></th>
+                <tr>
+            </tfoot>
+        </table>
+        <input id="show_suspicious" type="checkbox">
+        <label for="check_sample">Show suspicious</label>
+
+        <input id="submit_button" type="button" value="Retrieve results">
+
+
+        <div id="badreplicasummary2"></div>
+        </table>
+        <div id="downloader"></div>
+        <div id="results_pie"></div>
+    </div>
+</div>
+
+<div id="problem_details" style="margin: 2em;"></div>
+{%- endblock content %}
