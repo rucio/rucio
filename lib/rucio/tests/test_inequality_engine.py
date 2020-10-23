@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +21,7 @@
 import unittest
 from rucio.core.did_meta_plugins.inequality_engine import DEFAULT_MODEL, OP, clear_double_spaces, translate, get_num_op, convert_ternary, expand_metadata, get_dict, inequality_engine
 
+
 class TestClearDoubleSpaces(unittest.TestCase):
 
     def test_ClearDoubleSpaces(self):
@@ -34,8 +36,8 @@ class TestTranslate(unittest.TestCase):
         for translated_op in OP.keys():
             op_list = OP[translated_op]
             for op in op_list:
-                string = 'A'+op+'B'
-                control = 'A'+translated_op+'B'
+                string = 'A' + op + 'B'
+                control = 'A' + translated_op + 'B'
                 self.assertEqual(translate(string), control)
 
 
@@ -59,7 +61,7 @@ class TestConvertTernary(unittest.TestCase):
         control = ["87 < test", "test < 100"]
         result = convert_ternary(string)
 
-        for i,r in enumerate(result):
+        for i, r in enumerate(result):
             self.assertEqual(r, control[i])
 
     def test_ConvertNonTernary(self):
@@ -67,7 +69,7 @@ class TestConvertTernary(unittest.TestCase):
         control = ["87 < test"]
         result = convert_ternary(string)
 
-        for i,r in enumerate(result):
+        for i, r in enumerate(result):
             self.assertEqual(r, control[i])
 
     def test_ConvertTernary2(self):
@@ -75,7 +77,7 @@ class TestConvertTernary(unittest.TestCase):
         control = ["87 == test", "test < 7"]
         result = convert_ternary(string)
 
-        for i,r in enumerate(result):
+        for i, r in enumerate(result):
             self.assertEqual(r, control[i])
 
     def test_ConvertTernary3(self):
@@ -83,7 +85,7 @@ class TestConvertTernary(unittest.TestCase):
         control = ["87 == test", "test == 7"]
         result = convert_ternary(string)
 
-        for i,r in enumerate(result):
+        for i, r in enumerate(result):
             self.assertEqual(r, control[i])
 
 
@@ -91,7 +93,7 @@ class TestExpandMetadata(unittest.TestCase):
 
     def test_ExpandMetadata(self):
         string = "87 < length"
-        control = "87 < "+DEFAULT_MODEL+".length"
+        control = "87 < " + DEFAULT_MODEL + ".length"
         self.assertEqual(control, expand_metadata(string))
 
     def test_ExpandNoMetadata(self):
@@ -102,8 +104,8 @@ class TestExpandMetadata(unittest.TestCase):
 class TestGetDict(unittest.TestCase):
 
     def test_GetDict(self):
-        string87 = "87 < "+DEFAULT_MODEL+".length"
-        control = { 'model' : DEFAULT_MODEL, 'field' : 'length', 'op' : '>', 'value' : '87'}
+        string87 = "87 < " + DEFAULT_MODEL + ".length"
+        control = {'model': DEFAULT_MODEL, 'field': 'length', 'op': '>', 'value': '87'}
         print(get_dict(string87))
         self.assertEqual(get_dict(string87), control)
 

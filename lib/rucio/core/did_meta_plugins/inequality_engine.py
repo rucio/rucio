@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,29 +24,21 @@ from rucio.db.sqla.models import DataIdentifier
 
 DEFAULT_MODEL = models.DataIdentifier.__name__
 
-OP = {
-        ' == ' : ['==', ' = ', ' eq ', ' -eq '],
-        ' > ' : [' > ', ' gt ', ' -gt '],
-        ' >= ' : ['>=', ' ge ', ' -ge '],
-        ' < ' : [' < ', ' lt ', ' -lt '],
-        ' <= ' : ['<=', ' le ', ' -le '],
-        ' and ' : ['&&', ' & ', ' and '],
-        ' or ' : ['||', ' | ', ' or '],
-        }
-VALID_OP = sum(OP.values(),[])
-VALID_OP_NOSPACE = [ op.replace(' ','') for op in VALID_OP]
+OP = {' == ': ['==', ' = ', ' eq ', ' -eq '], ' > ': [' > ', ' gt ', ' -gt '], ' >= ': ['>=', ' ge ', ' -ge '], ' < ': [' < ', ' lt ', ' -lt '], ' <= ': ['<=', ' le ', ' -le '], ' and ': ['&&', ' & ', ' and '], ' or ': ['||', ' | ', ' or ']}
+VALID_OP = sum(OP.values(), [])
+VALID_OP_NOSPACE = [op.replace(' ', '') for op in VALID_OP]
 STD_OP = list(OP.keys())
 RANGE_OP = [STD_OP[1], STD_OP[2], STD_OP[3], STD_OP[4]]
-KEYWORDS = VALID_OP_NOSPACE+["True", "False"]
+KEYWORDS = VALID_OP_NOSPACE + ["True", "False"]
 
-INVERTED_STD_OP = { op.strip(' ').rstrip(' ') : op.strip(' ').rstrip(' ') for op in STD_OP}
+INVERTED_STD_OP = {op.strip(' ').rstrip(' '): op.strip(' ').rstrip(' ') for op in STD_OP}
 INVERTED_STD_OP['>'] = '<'
 INVERTED_STD_OP['>='] = '<='
 INVERTED_STD_OP['<'] = '>'
 INVERTED_STD_OP['<='] = '>='
 
 
-def clear_double_spaces(input_string : str) -> str:
+def clear_double_spaces(input_string):
     """
     Clears a filter input string from double spaces
 
@@ -53,13 +46,13 @@ def clear_double_spaces(input_string : str) -> str:
 
     :returns: reworked string
     """
-    input_string = input_string.strip().rstrip()
+    input_string = input_string.strip(' ').rstrip(' ')
     while '  ' in input_string:
-        input_string = input_string.replace('  ',' ')
+        input_string = input_string.replace('  ', ' ')
     return input_string
 
 
-def translate(input_string : str) -> str:
+def translate(input_string):
     """
     Replaces OP synonyms with standard python equivalents
 
@@ -74,7 +67,7 @@ def translate(input_string : str) -> str:
     return input_string
 
 
-def ingest(input_string : str) -> str:
+def ingest(input_string):
     """
     Groups all the functions needed to make filter string acceptable.
 
@@ -85,7 +78,7 @@ def ingest(input_string : str) -> str:
     return clear_double_spaces(translate(clear_double_spaces(input_string)))
 
 
-def get_num_op(input_string : str) -> list:
+def get_num_op(input_string):
     """
     Counts the number of OP contained in the string defining the filter
 
@@ -96,7 +89,7 @@ def get_num_op(input_string : str) -> list:
     return sum(input_string.count(op) for op in VALID_OP)
 
 
-def convert_ternary(input_string : str) -> list:
+def convert_ternary(input_string):
     """
     Splits a single string defining a range-like filter (A < key < B) into the AND of two filters (A < key AND B > key).
 
@@ -105,14 +98,14 @@ def convert_ternary(input_string : str) -> list:
     :returns: list of equivalent simpler filters
     """
     if get_num_op(input_string) == 2:
-        l = input_string.split(' ')
-        l.insert(2, l[2])
-        return [' '.join(l[0:3]), ' '.join(l[3:])]
+        splitted = input_string.split(' ')
+        splitted.insert(2, splitted[2])
+        return [' '.join(splitted[0:3]), ' '.join(splitted[3:])]
     else:
         return [input_string.strip(' ').rstrip(' ')]
 
 
-def expand_metadata(input_string : str, model : str = DEFAULT_MODEL) -> list:
+def expand_metadata(input_string, model=DEFAULT_MODEL):
     """
     Attaches the metadata prefix to all keywords found in the string defining the filter to apply
 
@@ -121,21 +114,21 @@ def expand_metadata(input_string : str, model : str = DEFAULT_MODEL) -> list:
 
     :returns: reworked string with metadata prefixes
     """
-    l = input_string.rstrip(' ').strip(' ').split(' ')
+    splitted = input_string.rstrip(' ').strip(' ').split(' ')
     model = model.rstrip('.')
-    for i,p in enumerate(l):
+    for i, p in enumerate(splitted):
         if hasattr(getattr(sys.modules[__name__], model), p):
-            l[i] = model + '.' + p
+            splitted[i] = model + '.' + p
         else:
-            if not p in KEYWORDS:
+            if p not in KEYWORDS:
                 try:
                     float(eval(p))
                 except:
                     pass
-    return ' '.join(l)
+    return ' '.join(splitted)
 
 
-def get_dict(input_string : str, model : str = DEFAULT_MODEL) -> list:
+def get_dict(input_string, model=DEFAULT_MODEL):
     """
     Returns sqlalchemy-compliant filters dictionary from the input string
 
@@ -145,15 +138,15 @@ def get_dict(input_string : str, model : str = DEFAULT_MODEL) -> list:
     :returns: reworked string
     """
     print(input_string)
-    l = input_string.split(' ')
-    print("len "+str(len(l)))
-    if len(l) == 3:
-        if model in l[0]:
+    splitted = input_string.split(' ')
+    print("len " + str(len(splitted)))
+    if len(splitted) == 3:
+        if model in splitted[0]:
             print('A')
-            return {'model' : model.rstrip('.'), 'field' : l[0].replace(model,'').strip('.'), 'op' : l[1], 'value' : l[2]}
-        elif model in l[2]:
+            return {'model': model.rstrip('.'), 'field': splitted[0].replace(model, '').strip('.'), 'op': splitted[1], 'value': splitted[2]}
+        elif model in splitted[2]:
             print('B')
-            return {'model' : model.rstrip('.'), 'field' : l[2].replace(model,'').strip('.'), 'op' : INVERTED_STD_OP[str(l[1])], 'value' : l[0]}
+            return {'model': model.rstrip('.'), 'field': splitted[2].replace(model, '').strip('.'), 'op': INVERTED_STD_OP[str(splitted[1])], 'value': splitted[0]}
     return {}
 
 
@@ -169,11 +162,12 @@ class inequality_engine:
         for og in or_groups:
             conditions = og.split(',')
             converted = []
+
             for cond in conditions:
-                
                 converted.extend(convert_ternary(expand_metadata(cond)))
+
             self.filters.append(converted)
-        
+
         if not self.filters or self.filters == [['']]:
             raise ValueError("No filter defined. Aborting.")
 
@@ -194,7 +188,7 @@ class inequality_engine:
 
         self.dicts = get_dicts(self.filters)
 
-        def get_query_columns(fil : dict, model : str = DEFAULT_MODEL):
+        def get_query_columns(fil, model=DEFAULT_MODEL):
             """
             Returns the list of SQL columns needed by the filter.
 
@@ -206,12 +200,11 @@ class inequality_engine:
             columns = []
             for cond in fil:
                 if 'field' in cond:
-                    if not (model+cond['field']) in columns:
-                        columns.append(model+cond['field'])
+                    if not (model + cond['field']) in columns:
+                        columns.append(model + cond['field'])
             return columns
 
         self.needed_columns = [get_query_columns(fil) for fil in self.dicts]
-
 
     def run(self):
         """
@@ -221,8 +214,7 @@ class inequality_engine:
         """
         return any(map(lambda and_group: all(map(lambda expr: eval(expr), and_group)), self.filters))
 
-
-    def createQuery(self, session, model = "models.DataIdentifier"):
+    def createQuery(self, session):
         """
         Returns the list of sqlalchemy queries describing the filter.
 
@@ -232,7 +224,7 @@ class inequality_engine:
         :returns: list of sqlalchemy queries
         """
         queries = []
-        for i,col in enumerate(self.needed_columns):
+        for i, col in enumerate(self.needed_columns):
             query = session.query(tuple(col))
             for cond in self.dicts[i]:
                 query = query.filter(cond)
