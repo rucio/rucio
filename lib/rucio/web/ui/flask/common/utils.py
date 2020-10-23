@@ -32,7 +32,6 @@ import sys
 from json import dumps, load
 from os.path import dirname, join
 from time import time
-from urllib.parse import unquote, quote
 
 from flask import request, render_template, redirect, make_response
 
@@ -41,6 +40,12 @@ from rucio.api.account import account_exists, get_account_info, list_account_att
 from rucio.common.config import config_get, config_get_bool
 from rucio.core import identity as identity_core, vo as vo_core
 from rucio.db.sqla.constants import AccountType, IdentityType
+
+try:
+    from urllib import unquote, quote
+except ImportError:
+    from urllib.parse import unquote, quote
+
 
 if sys.version_info > (3, 0):
     long = int
