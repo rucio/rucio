@@ -19,9 +19,9 @@
 # PY3K COMPATIBLE
 
 import sys
-from rucio.db.sqla import models
+from rucio.db.sqla.models import DataIdentifier
 
-DEFAULT_MODEL = models.DataIdentifier.__name__
+DEFAULT_MODEL = DataIdentifier.__name__
 
 OP = {' == ': ['==', ' = ', ' eq ', ' -eq '], ' > ': [' > ', ' gt ', ' -gt '], ' >= ': ['>=', ' ge ', ' -ge '], ' < ': [' < ', ' lt ', ' -lt '], ' <= ': ['<=', ' le ', ' -le '], ' and ': ['&&', ' & ', ' and '], ' or ': ['||', ' | ', ' or ']}
 VALID_OP = sum(OP.values(), [])
