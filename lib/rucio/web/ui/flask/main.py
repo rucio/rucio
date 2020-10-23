@@ -147,6 +147,7 @@ else:
 def view_maker(template, title):
     return lambda: authenticate(template=template, title=title)
 
+
 for rule, endpoint, title in COMMON_URLS:
     template = endpoint + '.html'
     application.add_url_rule(rule=rule, endpoint=endpoint, view_func=view_maker(template, title))
