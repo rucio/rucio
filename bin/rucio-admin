@@ -534,6 +534,10 @@ def update_rse(args):
         args.value = False
     params = {args.param: args.value}
     client.update_rse(args.rse, parameters=params)
+
+    if isinstance(args.value, bool):
+        args.value = str(args.value)
+
     print('Updated RSE %s settings %s to %s' % (args.rse, args.param, args.value if args.value.lower() not in ['', 'none', 'null'] else '[WIPED]'))
     return SUCCESS
 
