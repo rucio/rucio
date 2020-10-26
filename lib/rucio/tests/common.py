@@ -25,6 +25,8 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
+from __future__ import print_function
+
 import contextlib
 import itertools
 import os
@@ -172,3 +174,15 @@ def vohdr(vo):
 def hdrdict(dictionary):
     for key in dictionary:
         yield str(key), str(dictionary[key])
+
+
+def accept(mimetype):
+    yield 'Accept', mimetype
+
+
+class Mime:
+    """ Enum-type class for mimetypes. """
+    METALINK = 'application/metalink4+xml'
+    JSON = 'application/json'
+    JSON_STREAM = 'application/x-json-stream'
+    BINARY = 'application/octet-stream'
