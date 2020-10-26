@@ -21,7 +21,7 @@ from __future__ import print_function
 
 from traceback import format_exc
 
-from flask import Blueprint, request
+from flask import Flask, Blueprint, request
 from flask.views import MethodView
 
 from rucio.api.dirac import add_files
@@ -38,17 +38,25 @@ class AddFiles(MethodView):
 
     def post(self):
         """
-        Create file replicas at a given RSE.
+        Atomic method used by the RucioFileCatalog plugin in Dirac that :
+        - Creates files and their replicas
+        - Creates the dataset containing the files and attach the files to the dataset
+        - Creates a rule on the dataset with RSE expression ANY and grouping NONE
+        - Creates all the container hierarchy containing the dataset
 
-        HTTP Success:
-            201 Created
+        ..:quickref: AddFiles; Method used by the RucioFileCatalog plugin in Dirac.
 
-        HTTP Error:
-            401 Unauthorized
-            405 Method Not Allowed
-            409 Conflict
-            500 Internal Error
-            503 Service Unavailable
+        :<json list lfns: List of lfn (dictionary {'lfn': <lfn>, 'rse': <rse>, 'bytes': <bytes>, 'adler32': <adler32>, 'guid': <guid>, 'pfn': <pfn>}.
+        :<json bool ignore_availability: A boolean to choose if unavailable sites need to be ignored.
+
+        :status 201: Created.
+        :status 400: Cannot decode json parameter list.
+        :status 401: Invalid auth token.
+        :status 404: DID not found.
+        :status 405: Unsupported Operation.
+        :status 409: Duplicate.
+        :status 500: Internal Error.
+        :status 503: Temporary error.
         """
         try:
             parameters = parse_response(request.data)
@@ -82,7 +90,7 @@ class AddFiles(MethodView):
         return 'Created', 201
 
 
-def blueprint():
+def blueprint(no_doc=True):
     bp = Blueprint('dirac', __name__, url_prefix='/dirac')
 
     add_file_view = AddFiles.as_view('addfiles')
@@ -92,3 +100,10 @@ def blueprint():
     bp.before_request(request_auth_env)
     bp.after_request(response_headers)
     return bp
+
+
+def make_doc():
+    """ Only used for sphinx documentation """
+    doc_app = Flask(__name__)
+    doc_app.register_blueprint(blueprint(no_doc=False))
+    return doc_app
