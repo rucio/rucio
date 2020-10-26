@@ -33,10 +33,13 @@
 from __future__ import print_function
 
 import hashlib
+import os
+import sys
 import time
 import unittest
 from datetime import datetime, timedelta
 from json import dumps, loads
+from xml.etree import ElementTree
 
 import pytest
 import xmltodict
@@ -47,9 +50,10 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (DataIdentifierNotFound, AccessDenied, UnsupportedOperation,
-                                    RucioException, ReplicaIsLocked, ReplicaNotFound, ScopeNotFound)
+                                    RucioException, ReplicaIsLocked, ReplicaNotFound, ScopeNotFound,
+                                    DatabaseException)
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import generate_uuid, clean_surls
+from rucio.common.utils import generate_uuid, clean_surls, parse_response
 from rucio.core.did import add_did, attach_dids, get_did, set_status, list_files, get_did_atime
 from rucio.core.replica import (add_replica, add_replicas, delete_replicas, get_replicas_state,
                                 update_replica_lock_counter, get_replica, list_replicas,
@@ -62,7 +66,12 @@ from rucio.daemons.badreplicas.minos_temporary_expiration import run as minos_te
 from rucio.daemons.badreplicas.necromancer import run as necromancer_run
 from rucio.db.sqla.constants import DIDType, ReplicaState, OBSOLETE
 from rucio.rse import rsemanager as rsemgr
-from rucio.tests.common import execute, rse_name_generator, headers, auth
+from rucio.tests.common import execute, rse_name_generator, headers, auth, Mime, accept
+
+if sys.version_info >= (3, 3):
+    from unittest import mock
+else:
+    import mock
 
 
 class TestReplicaCore(unittest.TestCase):
@@ -742,31 +751,31 @@ def test_list_replicas_content_type(replica_client, rest_client, auth_token):
     replica_client.add_replicas(rse='MOCK', files=files1)
 
     # unsupported requested content type
-    response = rest_client.get('/replicas/%s/%s' % (scope, name), headers=headers(auth(auth_token), [('Accept', 'application/unsupported')]))
+    response = rest_client.get('/replicas/%s/%s' % (scope, name), headers=headers(auth(auth_token), accept('application/unsupported')))
     assert response.status_code == 406
 
     # content type json stream
-    response = rest_client.get('/replicas/%s/%s' % (scope, name), headers=headers(auth(auth_token), [('Accept', 'application/x-json-stream')]))
-    assert [header[1] for header in response.headers if header[0] == 'Content-Type'][0] == 'application/x-json-stream'
+    response = rest_client.get('/replicas/%s/%s' % (scope, name), headers=headers(auth(auth_token), accept(Mime.JSON_STREAM)))
+    assert [header[1] for header in response.headers if header[0] == 'Content-Type'][0] == Mime.JSON_STREAM
 
     # content type metalink4
-    response = rest_client.get('/replicas/%s/%s' % (scope, name), headers=headers(auth(auth_token), [('Accept', 'application/metalink4+xml')]))
-    assert [header[1] for header in response.headers if header[0] == 'Content-Type'][0] == 'application/metalink4+xml'
+    response = rest_client.get('/replicas/%s/%s' % (scope, name), headers=headers(auth(auth_token), accept(Mime.METALINK)))
+    assert [header[1] for header in response.headers if header[0] == 'Content-Type'][0] == Mime.METALINK
 
     # no requested content type
     response = rest_client.get('/replicas/%s/%s' % (scope, name), headers=headers(auth(auth_token)))
-    assert [header[1] for header in response.headers if header[0] == 'Content-Type'][0] == 'application/x-json-stream'
+    assert [header[1] for header in response.headers if header[0] == 'Content-Type'][0] == Mime.JSON_STREAM
 
     # all content types
-    response = rest_client.get('/replicas/%s/%s' % (scope, name), headers=headers(auth(auth_token), [('Accept', '*/*')]))
-    assert [header[1] for header in response.headers if header[0] == 'Content-Type'][0] == 'application/x-json-stream'
+    response = rest_client.get('/replicas/%s/%s' % (scope, name), headers=headers(auth(auth_token), accept('*/*')))
+    assert [header[1] for header in response.headers if header[0] == 'Content-Type'][0] == Mime.JSON_STREAM
 
     # multiple content types
-    response = rest_client.get('/replicas/%s/%s' % (scope, name), headers=headers(auth(auth_token), [('Accept', 'application/unsupported, application/x-json-stream')]))
-    assert [header[1] for header in response.headers if header[0] == 'Content-Type'][0] == 'application/x-json-stream'
+    response = rest_client.get('/replicas/%s/%s' % (scope, name), headers=headers(auth(auth_token), accept('application/unsupported, application/x-json-stream')))
+    assert [header[1] for header in response.headers if header[0] == 'Content-Type'][0] == Mime.JSON_STREAM
 
-    response = rest_client.get('/replicas/%s/%s' % (scope, name), headers=headers(auth(auth_token), [('Accept', 'application/unsupported, */*;q=0.8')]))
-    assert [header[1] for header in response.headers if header[0] == 'Content-Type'][0] == 'application/x-json-stream'
+    response = rest_client.get('/replicas/%s/%s' % (scope, name), headers=headers(auth(auth_token), accept('application/unsupported, */*;q=0.8')))
+    assert [header[1] for header in response.headers if header[0] == 'Content-Type'][0] == Mime.JSON_STREAM
 
 
 def test_add_list_replicas(replica_client):
@@ -991,3 +1000,129 @@ class TestReplicaMetalink(unittest.TestCase):
         for result in self.replica_client.get_did_from_pfns(pfns, rse):
             pfn = list(result.keys())[0]
             assert input[pfn] == list(result.values())[0]
+
+
+@pytest.mark.parametrize("content_type", [Mime.METALINK, Mime.JSON_STREAM])
+def test_list_replicas_streaming_error(content_type, vo, did_client, replica_client):
+    """
+    REPLICA (CLIENT): List replicas and test for behavior when an error occurs while streaming.
+    Complicated test ahead! Mocking the wsgi frameworks, because the
+    wsgi test clients failed, showing different behavior than on the
+    apache webserver. Running the code against the apache web server
+    was problematic, because it was not easily possible to inject
+    raising an error after returning an element from the API.
+    """
+    # mock data taken from a real response
+    mock_api_response = {
+        "adler32": "0cc737eb", "name": "file_a07ae361c1b844ba95f65b0ac385a3be", "rses": {
+            "MOCK3": ["srm://mock3.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/mock/bf/a5/file_a07ae361c1b844ba95f65b0ac385a3be"],
+            "MOCK": ["https://mock.com:2880/pnfs/rucio/disk-only/scratchdisk/mock/bf/a5/file_a07ae361c1b844ba95f65b0ac385a3be"],
+            "MOCK4": ["file://localhost/tmp/rucio_rse/mock/bf/a5/file_a07ae361c1b844ba95f65b0ac385a3be"]
+        }, "space_token": "RUCIODISK", "bytes": 1, "states": {"MOCK3": "AVAILABLE", "MOCK": "AVAILABLE", "MOCK4": "AVAILABLE"}, "pfns": {
+            "srm://mock3.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/mock/bf/a5/file_a07ae361c1b844ba95f65b0ac385a3be": {
+                "domain": "wan", "rse": "MOCK3", "priority": 3, "volatile": False, "client_extract": False, "type": "DISK", "rse_id": "4bce8ccadf594c42a627f842ccdb8fc2"
+            },
+            "https://mock.com:2880/pnfs/rucio/disk-only/scratchdisk/mock/bf/a5/file_a07ae361c1b844ba95f65b0ac385a3be": {
+                "domain": "wan", "rse": "MOCK", "priority": 2, "volatile": False, "client_extract": False, "type": "DISK", "rse_id": "908b01ee6fa04dd497c52d4869d778ca"
+            },
+            "file://localhost/tmp/rucio_rse/mock/bf/a5/file_a07ae361c1b844ba95f65b0ac385a3be": {
+                "domain": "wan", "rse": "MOCK4", "priority": 1, "volatile": False, "client_extract": False, "type": "DISK", "rse_id": "fd69ce85288845d9adcb54e2a7017520"
+            }
+        }, "scope": "mock", "md5": None
+    }
+
+    def api_returns(*_, **__):
+        yield mock_api_response
+        # raise after yielding an element
+        raise DatabaseException('Database error for testing')
+
+    dids_arg = dumps({'dids': [{'scope': 'mock', 'name': generate_uuid()}]})
+    rest_backend = os.environ.get('REST_BACKEND', 'webpy')
+    if rest_backend == 'webpy':
+        def list_replicas_on_api():
+            class MockedHTTPError(Exception):
+                def __init__(self, status_code, exc_cls, exc_msg):
+                    super(MockedHTTPError, self).__init__("MockedHTTPError %s, %s: %s" % (status_code, exc_cls, exc_msg))
+
+                @classmethod
+                def generate(cls, *args, **kwargs):
+                    raise cls(*args, **kwargs)
+
+            class FakeCtx:
+                env = {
+                    'issuer': 'root',
+                    'vo': vo,
+                    'request_id': generate_uuid(),
+                    'HTTP_ACCEPT': content_type,
+                }
+                query = None
+                ip = '127.0.0.1'
+
+            with mock.patch('rucio.web.rest.common.ctx', new=FakeCtx()), \
+                    mock.patch('rucio.web.rest.replica.ctx', new=FakeCtx()), \
+                    mock.patch('rucio.web.rest.replica.data', return_value=dids_arg), \
+                    mock.patch('rucio.web.rest.replica.header'), \
+                    mock.patch('rucio.web.rest.replica.generate_http_error', side_effect=MockedHTTPError.generate), \
+                    mock.patch('rucio.web.rest.replica.list_replicas', side_effect=api_returns):
+                from rucio.web.rest.replica import ListReplicas
+                list_replicas_restapi = ListReplicas()
+                with pytest.raises(MockedHTTPError, match='MockedHTTPError 500, DatabaseException: Database error for testing'):
+                    for element in list_replicas_restapi.POST():
+                        yield element
+
+    elif rest_backend == 'flask':
+        def list_replicas_on_api():
+            from werkzeug.datastructures import Headers
+
+            class FakeRequest:
+                class FakeAcceptMimetypes:
+                    provided = False
+                    best_match = mock.MagicMock(return_value=content_type)
+
+                environ = {
+                    'issuer': 'root',
+                    'vo': vo,
+                    'request_id': generate_uuid(),
+                }
+                query_string = None
+                data = dids_arg
+                headers = Headers()
+                accept_mimetypes = FakeAcceptMimetypes()
+                remote_addr = '127.0.0.1'
+
+            with mock.patch('rucio.web.rest.flaskapi.v1.common.request', new=FakeRequest()), \
+                    mock.patch('rucio.web.rest.flaskapi.v1.replica.request', new=FakeRequest()), \
+                    mock.patch('rucio.web.rest.flaskapi.v1.replica.list_replicas', side_effect=api_returns):
+                from rucio.web.rest.flaskapi.v1.replica import ListReplicas
+                list_replicas_restapi = ListReplicas()
+                result = list_replicas_restapi.post()
+                # since we're directly accessing the generator for Flask, there is no error handling
+                with pytest.raises(DatabaseException, match='Database error for testing'):
+                    for element in result.response:
+                        yield element
+
+    else:
+        return pytest.xfail('unknown REST_BACKEND: ' + rest_backend)
+
+    if content_type == Mime.METALINK:
+        # for metalink, this builds the incomplete XML that should be returned by the API on error
+        metalink = ''
+        for line in list_replicas_on_api():
+            metalink += line
+        assert metalink
+        print(metalink)
+        with pytest.raises(ElementTree.ParseError):
+            ElementTree.fromstring(metalink)
+
+    elif content_type == Mime.JSON_STREAM:
+        # for the json stream mimetype the API method just returns all mocked replicas on error
+        replicas = []
+        for json_doc in list_replicas_on_api():
+            if json_doc:
+                replicas.append(parse_response(json_doc))
+        assert replicas
+        print(replicas)
+        assert replicas == [mock_api_response]
+
+    else:
+        pytest.fail('unknown content_type parameter on test: ' + content_type)
