@@ -1,4 +1,4 @@
-# Copyright 2017-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2017-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,6 +24,8 @@
 
 FROM centos:7
 ARG PYTHON
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
 
 RUN yum install -y epel-release.noarch && \
     yum -y update && \
