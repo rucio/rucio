@@ -1,4 +1,5 @@
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,23 +20,21 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
 # - Tobias Wegner <twegner@cern.ch>, 2017
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2017-2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
-# - Tomas Javurek <tomas.javurek@cern.ch>, 2019
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2019-2020
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
-# - Eric Vaandering <ericvaandering@gmail.com>, 2019
+# - Eric Vaandering <ewv@fnal.gov>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 '''
  Client class for callers of the Rucio system
@@ -216,7 +215,15 @@ class BaseClient(object):
                     self.creds['password'] = config_get('client', 'password')
                 elif self.auth_type == 'x509':
                     self.creds['client_cert'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_cert'))))
+                    if not path.exists(self.creds['client_cert']):
+                        raise MissingClientParameter('X.509 client certificate not found: %s' % self.creds['client_cert'])
                     self.creds['client_key'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_key'))))
+                    if not path.exists(self.creds['client_key']):
+                        raise MissingClientParameter('X.509 client key not found: %s' % self.creds['client_key'])
+                    else:
+                        perms = oct(os.stat(self.creds['client_key']).st_mode)[-3:]
+                        if int(perms[-2]) > 0 or int(perms[-1]) > 0:
+                            raise CannotAuthenticate('X.509 authentication selected, but private key (%s) permissions are liberal (minimum expected: 0400, found %s)' % (self.creds['client_key'], perms))
                 elif self.auth_type == 'x509_proxy':
                     try:
                         self.creds['client_proxy'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_x509_proxy'))))
