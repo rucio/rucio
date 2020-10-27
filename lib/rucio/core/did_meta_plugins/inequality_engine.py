@@ -19,6 +19,7 @@
 # PY3K COMPATIBLE
 
 import sys
+from sqlalchemy import text
 from rucio.db.sqla.models import DataIdentifier
 from rucio.db.sqla.session import read_session
 
