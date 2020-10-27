@@ -38,7 +38,8 @@ from rucio.api.did import (add_did, add_dids, list_content, list_content_history
                            list_dids, list_dids_extended, list_files, scope_list, get_did,
                            set_metadata, get_metadata, get_metadata_bulk, set_status, attach_dids, detach_dids,
                            attach_dids_to_dids, get_dataset_by_guid, list_parent_dids,
-                           create_did_sample, list_new_dids, resurrect, get_users_following_did, remove_did_from_followed, add_did_to_followed, delete_metadata)
+                           create_did_sample, list_new_dids, resurrect, get_users_following_did,
+                           remove_did_from_followed, add_did_to_followed, delete_metadata, set_metadata_bulk)
 from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
@@ -900,11 +901,104 @@ class Meta(MethodView):
             print(format_exc())
             return str(error), 500
 
+    def post(self, scope_name):
+        """
+        Add metadata to a data identifier in bulk.
+
+        .. :quickref: Meta; Add DID metadata.
+
+        :param scope_name: data identifier (scope)/(name).
+        :status 201: Metadata created.
+        :status 400: Invalid input data.
+        :status 404: DID not found.
+        :status 409: Duplicate.
+        :status 500: Internal error.
+        :returns: Created
+        """
+        try:
+            scope, name = parse_scope_name(scope_name)
+        except ValueError as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
+
+        json_data = request.data
+        try:
+            params = loads(json_data)
+            meta = params['meta']
+            recursive = params.get('recursive', False)
+        except ValueError:
+            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+        try:
+            set_metadata_bulk(scope=scope, name=name, meta=meta,
+                              issuer=request.environ.get('issuer'), recursive=recursive, vo=request.environ.get('vo'))
+        except DataIdentifierNotFound as error:
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
+        except Duplicate as error:
+            return generate_http_error_flask(409, 'Duplicate', error.args[0])
+        except KeyNotFound as error:
+            return generate_http_error_flask(400, 'KeyNotFound', error.args[0])
+        except InvalidMetadata as error:
+            return generate_http_error_flask(400, 'InvalidMetadata', error.args[0])
+        except InvalidValueForKey as error:
+            return generate_http_error_flask(400, 'InvalidValueForKey', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return error, 500
+
+        return "Created", 201
+
+    def delete(self, scope_name):
+        """
+        Deletes the specified metadata from the DID
+
+        .. :quickref: Meta; Delete DID metadata.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            404 KeyNotFound
+        """
+        try:
+            scope, name = parse_scope_name(scope_name)
+        except ValueError as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
+
+        if 'key' in request.args:
+            key = request.args['key']
+        else:
+            return generate_http_error_flask(404, 'KeyNotFound', 'No key provided to remove')
+
+        try:
+            delete_metadata(scope=scope, name=name, key=key, vo=request.environ.get('vo'))
+        except KeyNotFound as error:
+            return generate_http_error_flask(404, 'KeyNotFound', error.args[0])
+        except DataIdentifierNotFound as error:
+            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
+        except NotImplementedError:
+            return generate_http_error_flask(409, 'NotImplementedError', 'Feature not in current database')
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
+        return '', 200
+
+
+class SingleMeta(MethodView):
     def post(self, scope_name, key):
         """
         Add metadata to a data identifier.
 
-        .. :quickref: Meta; Add DID metadata.
+        .. :quickref: SingleMeta; Add DID metadata.
 
         HTTP Success:
             201 Created
@@ -955,47 +1049,6 @@ class Meta(MethodView):
             return str(error), 500
 
         return 'Created', 201
-
-    def delete(self, scope_name):
-        """
-        Deletes the specified metadata from the DID
-
-        .. :quickref: Meta; Delete DID metadata.
-
-        HTTP Success:
-            200 OK
-
-        HTTP Error:
-            401 Unauthorized
-            404 KeyNotFound
-        """
-        try:
-            scope, name = parse_scope_name(scope_name)
-        except ValueError as error:
-            return generate_http_error_flask(400, 'ValueError', error.args[0])
-        except Exception as error:
-            print(format_exc())
-            return str(error), 500
-
-        if 'key' in request.args:
-            key = request.args['key']
-        else:
-            return generate_http_error_flask(404, 'KeyNotFound', 'No key provided to remove')
-
-        try:
-            delete_metadata(scope=scope, name=name, key=key, vo=request.environ.get('vo'))
-        except KeyNotFound as error:
-            return generate_http_error_flask(404, 'KeyNotFound', error.args[0])
-        except DataIdentifierNotFound as error:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
-        except NotImplementedError:
-            return generate_http_error_flask(409, 'NotImplementedError', 'Feature not in current database')
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            print(format_exc())
-            return str(error), 500
-        return '', 200
 
 
 class Rules(MethodView):
@@ -1407,8 +1460,9 @@ def blueprint():
     attachment_view = Attachment.as_view('attachment')
     bp.add_url_rule('/<path:scope_name>/dids', view_func=attachment_view, methods=['get', 'post', 'delete'])
     meta_view = Meta.as_view('meta')
-    bp.add_url_rule('/<path:scope_name>/meta/<key>', view_func=meta_view, methods=['post', ])
-    bp.add_url_rule('/<path:scope_name>/meta', view_func=meta_view, methods=['get', 'delete'])
+    bp.add_url_rule('/<path:scope_name>/meta', view_func=meta_view, methods=['get', 'post', 'delete'])
+    singlemeta_view = SingleMeta.as_view('singlemeta')
+    bp.add_url_rule('/<path:scope_name>/meta/<key>', view_func=singlemeta_view, methods=['post', ])
     rules_view = Rules.as_view('rules')
     bp.add_url_rule('/<path:scope_name>/rules', view_func=rules_view, methods=['get', ])
     parents_view = Parents.as_view('parents')

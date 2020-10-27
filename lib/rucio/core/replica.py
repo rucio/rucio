@@ -38,6 +38,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
+
 from collections import defaultdict
 from copy import deepcopy
 from curses.ascii import isprint
@@ -45,20 +46,20 @@ from datetime import datetime, timedelta
 from json import dumps
 from re import match
 from traceback import format_exc
+
 from six import string_types
 from sqlalchemy import func, and_, or_, exists, not_, update
 from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.sql import label
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError, NoResultFound
+from sqlalchemy.sql import label
 from sqlalchemy.sql.expression import case, select, text, false, true
 
 import rucio.core.did
 import rucio.core.lock
-
 from rucio.common import exception
-from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
 from rucio.common.types import InternalScope
+from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
 from rucio.core.config import get as config_get
 from rucio.core.credential import get_signed_url
 from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute, get_rse_vo, list_rses
@@ -1176,12 +1177,12 @@ def __bulk_add_new_file_dids(files, account, dataset_meta=None, session=None):
                                         did_type=DIDType.FILE, bytes=file['bytes'],
                                         md5=file.get('md5'), adler32=file.get('adler32'),
                                         is_new=None)
-        for key in file.get('meta', []):
-            new_did.update({key: file['meta'][key]})
-        for key in dataset_meta or {}:
-            new_did.update({key: dataset_meta[key]})
-
         new_did.save(session=session, flush=False)
+
+        if 'meta' in file and file['meta']:
+            rucio.core.did.set_metadata_bulk(scope=file['scope'], name=file['name'], meta=file['meta'], recursive=False, session=session)
+        if dataset_meta:
+            rucio.core.did.set_metadata_bulk(scope=file['scope'], name=file['name'], meta=dataset_meta, recursive=False, session=session)
     try:
         session.flush()
     except IntegrityError as error:
@@ -1374,7 +1375,7 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
 
 
 @transactional_session
-def add_replica(rse_id, scope, name, bytes, account, adler32=None, md5=None, dsn=None, pfn=None, meta={}, rules=[], tombstone=None, session=None):
+def add_replica(rse_id, scope, name, bytes, account, adler32=None, md5=None, dsn=None, pfn=None, meta=None, rules=[], tombstone=None, session=None):
     """
     Add File replica.
 
@@ -1393,6 +1394,9 @@ def add_replica(rse_id, scope, name, bytes, account, adler32=None, md5=None, dsn
 
     :returns: True is successful.
     """
+    if meta is None:
+        meta = {}
+
     file = {'scope': scope, 'name': name, 'bytes': bytes, 'adler32': adler32, 'md5': md5, 'meta': meta, 'rules': rules, 'tombstone': tombstone}
     if pfn:
         file['pfn'] = pfn
