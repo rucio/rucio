@@ -837,9 +837,10 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     source_url = re.sub('davs', 'gclouds', source_url)
                     source_url = re.sub('https', 'gclouds', source_url)
 
-                # IV - get external_host + strict_copy
+                # IV - get external_host + strict_copy + archive timeout
                 strict_copy = rse_attrs[dest_rse_id].get('strict_copy', False)
                 fts_hosts = rse_attrs[dest_rse_id].get('fts', None)
+                archive_timeout = rse_attrs[dest_rse_id].get('archive_timeout', None)
                 if source_sign_url == 'gcs':
                     fts_hosts = rse_attrs[source_rse_id].get('fts', None)
                 source_globus_endpoint_id = rse_attrs[source_rse_id].get('globus_endpoint_id', None)
@@ -926,7 +927,14 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     transfers[req_id]['initial_request_id'] = req_id
                 if strict_copy:
                     transfers[req_id]['strict_copy'] = strict_copy
-
+                if archive_timeout and (rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE
+                                        or rses_info[dest_rse_id]['rse_type'] == 'TAPE'):
+                    try:
+                        transfers[req_id]['archive_timeout'] = int(archive_timeout)
+                        logging.debug('Added archive timeout to transfer.')
+                    except ValueError:
+                        logging.warning('Could not set archive_timeout for %s. Must be integer.', dest_url)
+                        pass
             else:
                 current_schemes = transfers[req_id]['schemes']
                 # parse allow tape source expression, not finally version.
