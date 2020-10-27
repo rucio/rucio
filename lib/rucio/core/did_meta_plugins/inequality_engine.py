@@ -227,7 +227,7 @@ class inequality_engine:
         queries = []
         for i, col in enumerate(self.needed_columns):
             query = session.query(*col)
-            for cond in self.dicts[i]:
-                query = query.filter_by(*cond)
+            for cond in self.filters[i]:
+                query = query.filter(text(cond))
             queries.append(query)
         return queries
