@@ -138,15 +138,11 @@ def get_dict(input_string, model=DEFAULT_MODEL):
 
     :returns: reworked string
     """
-    print(input_string)
     splitted = input_string.split(' ')
-    print("len " + str(len(splitted)))
     if len(splitted) == 3:
         if model in splitted[0]:
-            print('A')
             return {'model': model.rstrip('.'), 'field': splitted[0].replace(model, '').strip('.'), 'op': splitted[1], 'value': splitted[2]}
         elif model in splitted[2]:
-            print('B')
             return {'model': model.rstrip('.'), 'field': splitted[2].replace(model, '').strip('.'), 'op': INVERTED_STD_OP[str(splitted[1])], 'value': splitted[0]}
     return {}
 
@@ -227,7 +223,7 @@ class inequality_engine:
         """
         queries = []
         for i, col in enumerate(self.needed_columns):
-            query = session.query(*col)
+            query = session.query(DataIdentifier)
             for cond in self.filters[i]:
                 query = query.filter(text(cond))
             queries.append(query)
