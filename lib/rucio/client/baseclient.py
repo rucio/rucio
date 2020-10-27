@@ -222,8 +222,8 @@ class BaseClient(object):
                         raise MissingClientParameter('X.509 client key not found: %s' % self.creds['client_key'])
                     else:
                         perms = oct(os.stat(self.creds['client_key']).st_mode)[-3:]
-                        if int(perms[-2]) > 0 or int(perms[-1]) > 0:
-                            raise CannotAuthenticate('X.509 authentication selected, but private key (%s) permissions are liberal (minimum expected: 0400, found %s)' % (self.creds['client_key'], perms))
+                        if perms != '400':
+                            raise CannotAuthenticate('X.509 authentication selected, but private key (%s) permissions are liberal (required: 400, found: %s)' % (self.creds['client_key'], perms))
                 elif self.auth_type == 'x509_proxy':
                     try:
                         self.creds['client_proxy'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_x509_proxy'))))
