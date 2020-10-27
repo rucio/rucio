@@ -165,7 +165,7 @@ class inequality_engine:
             converted = []
 
             for cond in conditions:
-                converted.extend(convert_ternary(expand_metadata(cond)))
+                converted.extend(convert_ternary(cond))
 
             self.filters.append(converted)
 
