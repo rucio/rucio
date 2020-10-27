@@ -1,0 +1,48 @@
+======
+1.23.9
+======
+
+-------
+General
+-------
+
+********
+Features
+********
+
+- Transfers: Support checking of tape staging status `#1797 <https://github.com/rucio/rucio/issues/1797>`_
+
+************
+Enhancements
+************
+
+- Core & Internals: BelleII: Fix permissions `#3891 <https://github.com/rucio/rucio/issues/3891>`_
+- Documentation: Add documentation to dirac endpoint `#3971 <https://github.com/rucio/rucio/issues/3971>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: 'rucio-admin rse info' should print protocol domain data as valid JSON `#4027 <https://github.com/rucio/rucio/issues/4027>`_
+- Clients: Unhelpful error message for certificates with incorrect permissions `#4071 <https://github.com/rucio/rucio/issues/4071>`_
+
+****
+Bugs
+****
+
+- Clients: rucio-admin update_rse does not work with booleans `#4048 <https://github.com/rucio/rucio/issues/4048>`_
+- Clients: Misleading documentation for list_dids() `#4078 <https://github.com/rucio/rucio/issues/4078>`_
+
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- WebUI: make certificate error message in webui configurable `#4068 <https://github.com/rucio/rucio/issues/4068>`_
