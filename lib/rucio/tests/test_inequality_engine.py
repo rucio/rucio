@@ -110,7 +110,7 @@ class TestGetDict(unittest.TestCase):
         self.assertEqual(get_dict(string87), control)
 
 
-class TestInequalityEngine(unittest.TestCase):
+class TestInequalityEngineOffline(unittest.TestCase):
 
     def test_Base(self):
         string = "True"
@@ -195,6 +195,31 @@ class TestInequalityEngine(unittest.TestCase):
         string = "False, False; False"
         self.assertFalse(inequality_engine(string).run())
 
+
+from rucio.common.config import config_get, config_get_bool
+from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.utils import generate_uuid
+from rucio.core.did import add_did
+from rucio.core.did_meta_plugins import list_dids, get_metadata, set_metadata
+
+
+class TestInequalityEngineOnline(unittest.TestCase):
+
+    def setUp(self):
+        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+            self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
+        else:
+            self.vo = {}
+        self.tmp_scope = InternalScope('mock', **self.vo)
+        self.root = InternalAccount('root', **self.vo)
+
+    def test_InequalityEngineEqual(self):
+        did_name = 'inequality_test_did_%s' % generate_uuid()
+        add_did(scope=self.tmp_scope, name=did_name, type='DATASET', account=self.root)
+        set_metadata(scope=self.tmp_scope, name=did_name, key='length', value='100')
+        query = inequality_engine("length == 100").createQueries()[0]
+        print(query)
+        assert False
 
 if __name__ == '__main__':
     unittest.main()
