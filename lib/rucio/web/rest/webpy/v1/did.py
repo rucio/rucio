@@ -43,7 +43,7 @@ from rucio.api.did import (add_did, add_dids, list_content, list_content_history
                            get_metadata, get_metadata_bulk, delete_metadata, set_status, attach_dids, detach_dids,
                            attach_dids_to_dids, get_dataset_by_guid, list_parent_dids,
                            create_did_sample, list_new_dids, resurrect, add_did_to_followed,
-                           get_users_following_did, remove_did_from_followed)
+                           get_users_following_did, remove_did_from_followed, set_metadata_bulk)
 from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
@@ -70,13 +70,12 @@ URLS = (
     '%s/files' % get_schema_value('SCOPE_NAME_REGEXP'), 'Files',
     '%s/dids/history' % get_schema_value('SCOPE_NAME_REGEXP'), 'AttachmentHistory',
     '%s/dids' % get_schema_value('SCOPE_NAME_REGEXP'), 'Attachment',
-    '%s/meta/(.*)' % get_schema_value('SCOPE_NAME_REGEXP'), 'Meta',
+    '%s/meta/(.*)' % get_schema_value('SCOPE_NAME_REGEXP'), 'SingleMeta',
     '%s/meta' % get_schema_value('SCOPE_NAME_REGEXP'), 'Meta',
     '%s/status' % get_schema_value('SCOPE_NAME_REGEXP'), 'DIDs',
     '%s/rules' % get_schema_value('SCOPE_NAME_REGEXP'), 'Rules',
     '%s/parents' % get_schema_value('SCOPE_NAME_REGEXP'), 'Parents',
     '%s/associated_rules' % get_schema_value('SCOPE_NAME_REGEXP'), 'AssociatedRules',
-    '%s/did_meta' % get_schema_value('SCOPE_NAME_REGEXP'), 'DidMeta',
     '/(.*)/(.*)/(.*)/(.*)/(.*)/sample', 'Sample',
     '%s' % get_schema_value('SCOPE_NAME_REGEXP'), 'DIDs',
     '', 'BulkDIDS',
@@ -672,9 +671,11 @@ class Meta(RucioController):
             print(format_exc())
             raise InternalError(error)
 
-    def POST(self, scope, name, key):
+    def POST(self, scope, name):
         """
-        Add metadata to a data identifier.
+        Add metadata to a data identifier in bulk.
+
+        .. :quickref: Meta; Add DID metadata.
 
         HTTP Success:
             201 Created
@@ -688,19 +689,17 @@ class Meta(RucioController):
 
         :param scope: The scope name.
         :param name: The data identifier name.
-        :param key: the key.
-
         """
         json_data = data()
         try:
             params = loads(json_data)
-            value = params['value']
+            meta = params['meta']
             recursive = params.get('recursive', False)
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
         try:
-            set_metadata(scope=scope, name=name, key=key, value=value,
-                         issuer=ctx.env.get('issuer'), recursive=recursive, vo=ctx.env.get('vo'))
+            set_metadata_bulk(scope=scope, name=name, meta=meta,
+                              issuer=ctx.env.get('issuer'), recursive=recursive, vo=ctx.env.get('vo'))
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except Duplicate as error:
@@ -751,6 +750,56 @@ class Meta(RucioController):
             print(format_exc())
             raise InternalError(error)
         raise OK()
+
+
+class SingleMeta(RucioController):
+
+    def POST(self, scope, name, key):
+        """
+        Add metadata to a data identifier.
+
+        HTTP Success:
+            201 Created
+
+        HTTP Error:
+            400 Bad Request
+            401 Unauthorized
+            404 Not Found
+            409 Conflict
+            500 Internal Error
+
+        :param scope: The scope name.
+        :param name: The data identifier name.
+        :param key: the key.
+
+        """
+        json_data = data()
+        try:
+            params = loads(json_data)
+            value = params['value']
+            recursive = params.get('recursive', False)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+        try:
+            set_metadata(scope=scope, name=name, key=key, value=value,
+                         issuer=ctx.env.get('issuer'), recursive=recursive, vo=ctx.env.get('vo'))
+        except DataIdentifierNotFound as error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
+        except Duplicate as error:
+            raise generate_http_error(409, 'Duplicate', error.args[0])
+        except KeyNotFound as error:
+            raise generate_http_error(400, 'KeyNotFound', error.args[0])
+        except InvalidMetadata as error:
+            raise generate_http_error(400, 'InvalidMetadata', error.args[0])
+        except InvalidValueForKey as error:
+            raise generate_http_error(400, 'InvalidValueForKey', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+
+        raise Created()
 
 
 class Rules(RucioController):
