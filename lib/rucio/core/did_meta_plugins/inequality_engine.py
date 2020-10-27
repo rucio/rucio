@@ -20,6 +20,7 @@
 
 import sys
 from rucio.db.sqla.models import DataIdentifier
+from rucio.db.sqla.session import stream_session
 
 DEFAULT_MODEL = DataIdentifier.__name__
 
@@ -213,7 +214,8 @@ class inequality_engine:
         """
         return any(map(lambda and_group: all(map(lambda expr: eval(expr), and_group)), self.filters))
 
-    def createQuery(self, session):
+    @stream_session
+    def createQueries(self, session=None):
         """
         Returns the list of sqlalchemy queries describing the filter.
 
