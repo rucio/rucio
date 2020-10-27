@@ -200,8 +200,8 @@ class inequality_engine:
             columns = []
             for cond in fil:
                 if 'field' in cond:
-                    if not (model + cond['field']) in columns:
-                        columns.append(model + cond['field'])
+                    if not (model + '.' + cond['field']) in columns:
+                        columns.append(model + '.' + cond['field'])
             return columns
 
         self.needed_columns = [get_query_columns(fil) for fil in self.dicts]

@@ -217,7 +217,9 @@ class TestInequalityEngineOnline(unittest.TestCase):
         did_name = 'inequality_test_did_%s' % generate_uuid()
         add_did(scope=self.tmp_scope, name=did_name, type='DATASET', account=self.root)
         set_metadata(scope=self.tmp_scope, name=did_name, key='length', value='100')
-        queries = inequality_engine("length == 100").createQueries()
+        ie = inequality_engine("length == 100")
+        print(ie.dicts)
+        queries = ie.createQueries()
         for q in queries:
             for scope, name, did_type, bytes, length in q.yield_per(100):
                 d = {'scope': scope,
