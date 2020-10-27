@@ -726,6 +726,9 @@ def set_rse_limits(rse_id, name, value, session=None):
 
     :returns: True if successful, otherwise false.
     """
+    if value == -1:
+        delete_rse_limit(rse_id, name, session)
+        return True
     rse_limit = models.RSELimit(rse_id=rse_id, name=name, value=value)
     rse_limit = session.merge(rse_limit)
     rse_limit.save(session=session)

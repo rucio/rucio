@@ -586,6 +586,17 @@ class RSEClient(BaseClient):
                                                data=r.content)
         raise exc_cls(exc_msg)
 
+    def delete_rse_limits(self, rse, name):
+        """
+        Delete RSE limit information.
+
+        :param rse: The RSE name.
+        :param name: The name of the limit.
+
+        :returns: True if successful, otherwise false.
+        """
+        return self.set_rse_limits(rse, name, -1)
+
     def add_distance(self, source, destination, parameters):
         """
         Add a src-dest distance.
