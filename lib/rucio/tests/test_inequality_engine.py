@@ -218,7 +218,14 @@ class TestInequalityEngineOnline(unittest.TestCase):
         add_did(scope=self.tmp_scope, name=did_name, type='DATASET', account=self.root)
         set_metadata(scope=self.tmp_scope, name=did_name, key='length', value='100')
         queries = inequality_engine("length == 100").createQueries()
-        print(queries)
+        for q in queries:
+            for scope, name, did_type, bytes, length in q.yield_per(100):
+                d = {'scope': scope,
+                    'name': name,
+                    'did_type': str(did_type),
+                    'bytes': bytes,
+                    'length': length}
+                print(d)
         assert False
 
 if __name__ == '__main__':
