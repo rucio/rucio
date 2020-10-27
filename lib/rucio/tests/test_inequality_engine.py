@@ -217,8 +217,8 @@ class TestInequalityEngineOnline(unittest.TestCase):
         did_name = 'inequality_test_did_%s' % generate_uuid()
         add_did(scope=self.tmp_scope, name=did_name, type='DATASET', account=self.root)
         set_metadata(scope=self.tmp_scope, name=did_name, key='length', value='100')
-        query = inequality_engine("length == 100").createQueries()[0]
-        print(query)
+        queries = inequality_engine("length == 100").createQueries()
+        print(queries)
         assert False
 
 if __name__ == '__main__':
