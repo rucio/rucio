@@ -23,7 +23,7 @@ from sqlalchemy import text
 from rucio.db.sqla.models import DataIdentifier
 from rucio.db.sqla.session import read_session
 
-DEFAULT_MODEL = DataIdentifier.__name__
+DEFAULT_MODEL = DataIdentifier.__tablename__
 
 OP = {' == ': ['==', ' = ', ' eq ', ' -eq '], ' > ': [' > ', ' gt ', ' -gt '], ' >= ': ['>=', ' ge ', ' -ge '], ' < ': [' < ', ' lt ', ' -lt '], ' <= ': ['<=', ' le ', ' -le '], ' and ': ['&&', ' & ', ' and '], ' or ': ['||', ' | ', ' or ']}
 VALID_OP = sum(OP.values(), [])
