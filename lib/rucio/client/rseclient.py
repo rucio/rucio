@@ -595,7 +595,17 @@ class RSEClient(BaseClient):
 
         :returns: True if successful, otherwise false.
         """
-        return self.set_rse_limits(rse, name, -1)
+        path = [self.RSE_BASEURL, rse, 'limits']
+        path = '/'.join(path)
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='DEL', data=dumps({'name': name}))
+        if r.status_code == codes.ok:
+            return True
+        exc_cls, exc_msg = self._get_exception(headers=r.headers,
+                                               status_code=r.status_code,
+                                               data=r.content)
+
+        return exc_cls(exc_msg)
 
     def add_distance(self, source, destination, parameters):
         """

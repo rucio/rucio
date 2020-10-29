@@ -727,7 +727,7 @@ def set_rse_limits(rse_id, name, value, session=None):
     :returns: True if successful, otherwise false.
     """
     if value == -1:
-        delete_rse_limit(rse_id, name, session)
+        delete_rse_limits(rse_id, name)
         return True
     rse_limit = models.RSELimit(rse_id=rse_id, name=name, value=value)
     rse_limit = session.merge(rse_limit)
@@ -756,7 +756,7 @@ def get_rse_limits(rse_id, name=None, session=None):
 
 
 @transactional_session
-def delete_rse_limit(rse_id, name=None, session=None):
+def delete_rse_limits(rse_id, name=None, session=None):
     """
     Delete RSE limit.
 
