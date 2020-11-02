@@ -2625,27 +2625,41 @@ def get_cleaned_updated_collection_replicas(total_workers, worker_number, sessio
     :returns:                  List of update requests for collection replicas.
     """
     # Delete duplicates
-    replica_update_requests = session.query(models.UpdatedCollectionReplica)
-    update_requests_with_rse_id = []
-    update_requests_without_rse_id = []
-    duplicate_request_ids = []
-    for update_request in replica_update_requests.all():
-        if update_request.rse_id is not None:
-            small_request = {'name': update_request.name, 'scope': update_request.scope, 'rse_id': update_request.rse_id}
-            if small_request not in update_requests_with_rse_id:
-                update_requests_with_rse_id.append(small_request)
+    if session.bind.dialect.name == 'oracle':
+        subquery = session.query(func.max(models.UpdatedCollectionReplica.id)).\
+            group_by(models.UpdatedCollectionReplica.scope,
+                     models.UpdatedCollectionReplica.name,
+                     models.UpdatedCollectionReplica.rse_id).subquery()
+        session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.id.notin_(subquery)).delete(synchronize_session=False)
+    elif session.bind.dialect.name == 'mysql':
+        subquery1 = session.query(func.max(models.UpdatedCollectionReplica.id).label('max_id')).\
+            group_by(models.UpdatedCollectionReplica.scope,
+                     models.UpdatedCollectionReplica.name,
+                     models.UpdatedCollectionReplica.rse_id).subquery()
+        subquery2 = session.query(subquery1.c.max_id).subquery()
+        session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.id.notin_(subquery2)).delete(synchronize_session=False)
+    else:
+        replica_update_requests = session.query(models.UpdatedCollectionReplica)
+        update_requests_with_rse_id = []
+        update_requests_without_rse_id = []
+        duplicate_request_ids = []
+        for update_request in replica_update_requests.all():
+            if update_request.rse_id is not None:
+                small_request = {'name': update_request.name, 'scope': update_request.scope, 'rse_id': update_request.rse_id}
+                if small_request not in update_requests_with_rse_id:
+                    update_requests_with_rse_id.append(small_request)
+                else:
+                    duplicate_request_ids.append(update_request.id)
+                    continue
             else:
-                duplicate_request_ids.append(update_request.id)
-                continue
-        else:
-            small_request = {'name': update_request.name, 'scope': update_request.scope}
-            if small_request not in update_requests_without_rse_id:
-                update_requests_without_rse_id.append(small_request)
-            else:
-                duplicate_request_ids.append(update_request.id)
-                continue
-    for chunk in chunks(duplicate_request_ids, 100):
-        session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.id.in_(chunk)).delete(synchronize_session=False)
+                small_request = {'name': update_request.name, 'scope': update_request.scope}
+                if small_request not in update_requests_without_rse_id:
+                    update_requests_without_rse_id.append(small_request)
+                else:
+                    duplicate_request_ids.append(update_request.id)
+                    continue
+        for chunk in chunks(duplicate_request_ids, 100):
+            session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.id.in_(chunk)).delete(synchronize_session=False)
 
     # Delete update requests which do not have collection_replicas
     session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.rse_id.is_(None)
