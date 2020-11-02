@@ -18,8 +18,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Martin Barisits <martin.barisits@cern.ch>, 2020
 
 import os
 import unittest
@@ -29,16 +28,18 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.uploadclient import UploadClient
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.types import InternalScope
+from rucio.common.types import InternalScope, InternalAccount
 from rucio.common.utils import generate_uuid
-from rucio.core.replica import delete_replicas
-from rucio.core.rse import get_rse_id
+from rucio.core.did import add_did
+from rucio.core.replica import delete_replicas, get_cleaned_updated_collection_replicas
+from rucio.core.rse import get_rse_id, add_rse
 from rucio.daemons.abacus import collection_replica
 from rucio.daemons.judge import cleaner
 from rucio.daemons.reaper import reaper
 from rucio.daemons.undertaker import undertaker
-from rucio.db.sqla.constants import DIDType
-from rucio.tests.common import file_generator
+from rucio.db.sqla import models, session
+from rucio.db.sqla.constants import DIDType, ReplicaState
+from rucio.tests.common import file_generator, rse_name_generator
 
 
 class TestAbacusCollectionReplica(unittest.TestCase):
@@ -69,6 +70,31 @@ class TestAbacusCollectionReplica(unittest.TestCase):
             reaper.run(once=True, include_rses='vo=%s&(%s)' % (self.vo['vo'], self.rse), greedy=True)
         else:
             reaper.run(once=True, include_rses=self.rse, greedy=True)
+
+    def test_abacus_collection_replica_cleanup(self):
+        """ ABACUS (COLLECTION REPLICA): Test if the cleanup procedure works correctly. """
+        collection_replica.run(once=True)
+        db_session = session.get_session()
+        rse1 = rse_name_generator()
+        rse_id1 = add_rse(rse1, **self.vo)
+        rse2 = rse_name_generator()
+        rse_id2 = add_rse(rse2, **self.vo)
+
+        scope = InternalScope('mock', **self.vo)
+        dataset = 'dataset_%s' % generate_uuid()
+        jdoe = InternalAccount('jdoe', **self.vo)
+        add_did(scope, dataset, DIDType.from_sym('DATASET'), jdoe)
+
+        models.CollectionReplica(scope=scope, name=dataset, rse_id=rse_id1, state=ReplicaState.AVAILABLE, bytes=1).save(session=db_session, flush=False)
+        models.CollectionReplica(scope=scope, name=dataset, rse_id=rse_id2, state=ReplicaState.AVAILABLE, bytes=1).save(session=db_session, flush=False)
+
+        models.UpdatedCollectionReplica(scope=scope, name=dataset, rse_id=rse_id1).save(session=db_session, flush=False)
+        models.UpdatedCollectionReplica(scope=scope, name=dataset, rse_id=rse_id1).save(session=db_session, flush=False)
+        models.UpdatedCollectionReplica(scope=scope, name=dataset, rse_id=rse_id2).save(session=db_session, flush=False)
+        models.UpdatedCollectionReplica(scope=scope, name=dataset, rse_id=rse_id2).save(session=db_session, flush=False)
+        models.UpdatedCollectionReplica(scope=scope, name=dataset, rse_id=None).save(session=db_session, flush=False)
+        db_session.commit()
+        assert len(get_cleaned_updated_collection_replicas(1, 1)) == 3
 
     def test_abacus_collection_replica(self):
         """ ABACUS (COLLECTION REPLICA): Test update of collection replica. """
