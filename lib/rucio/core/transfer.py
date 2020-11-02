@@ -481,20 +481,23 @@ def update_transfer_state(external_host, transfer_id, state, logging_prepend_str
 
 
 @transactional_session
-def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=None, session=None):
+def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=None, limit_dest_schemes=None, session=None):
     """
     Get a list of hops needed to transfer date from source_rse_id to dest_rse_id.
     Ideally, the list will only include one item (dest_rse_id) since no hops are needed.
-    :param source_rse_id:      Source RSE id of the transfer.
-    :param dest_rse_id:        Dest RSE id of the transfer.
-    :param include_multihop:   If no direct link can be made, also include multihop transfers.
-    :param multihop_rses:      List of RSE ids that can be used for multihop.
-    :returns:                  List of hops in the format [{'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'source_scheme_priority': N, 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm', 'dest_scheme_priority': N}]
-    :raises:                   NoDistance
+    :param source_rse_id:       Source RSE id of the transfer.
+    :param dest_rse_id:         Dest RSE id of the transfer.
+    :param include_multihop:    If no direct link can be made, also include multihop transfers.
+    :param multihop_rses:       List of RSE ids that can be used for multihop.
+    :param limit_dest_schemes:  List of destination schemes the matching scheme algorithm should be limited to for a single hop.
+    :returns:                   List of hops in the format [{'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'source_scheme_priority': N, 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm', 'dest_scheme_priority': N}]
+    :raises:                    NoDistance
     """
+    if not limit_dest_schemes:
+        limit_dest_schemes = []
 
     # Check if there is a cached result
-    result = REGION_SHORT.get('get_hops_%s_%s' % (str(source_rse_id), str(dest_rse_id)))
+    result = REGION_SHORT.get('get_hops_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))))
     if not isinstance(result, NoValue):
         return result
 
@@ -511,7 +514,7 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
     if distance_graph.get(source_rse_id, {dest_rse_id: None}).get(dest_rse_id) is not None:
         # Check if there is a protocol match between the two RSEs
         try:
-            matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=__load_rse_settings(rse_id=dest_rse_id, session=session),
+            matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=limit_dest_schemes if limit_dest_schemes else __load_rse_settings(rse_id=dest_rse_id, session=session),
                                                           rse_settings_src=__load_rse_settings(rse_id=source_rse_id, session=session),
                                                           operation_src='third_party_copy',
                                                           operation_dest='third_party_copy',
@@ -522,7 +525,7 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
                      'dest_scheme': matching_scheme[0],
                      'source_scheme_priority': matching_scheme[3],
                      'dest_scheme_priority': matching_scheme[2]}]
-            REGION_SHORT.set('get_hops_%s_%s' % (str(source_rse_id), str(dest_rse_id)), path)
+            REGION_SHORT.set('get_hops_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))), path)
             return path
         except RSEProtocolNotSupported as error:
             if include_multihop:
@@ -570,7 +573,7 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
                         continue
                     # Check if there is a compatible protocol pair
                     try:
-                        matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=__load_rse_settings(rse_id=out_v, session=session),
+                        matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=limit_dest_schemes if out_v == dest_rse_id and limit_dest_schemes else __load_rse_settings(rse_id=out_v, session=session),
                                                                       rse_settings_src=__load_rse_settings(rse_id=current_node, session=session),
                                                                       operation_src='third_party_copy',
                                                                       operation_dest='third_party_copy',
@@ -589,7 +592,7 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
                     except RSEProtocolNotSupported:
                         pass
     if dest_rse_id in visited_nodes:
-        REGION_SHORT.set('get_hops_%s_%s' % (str(source_rse_id), str(dest_rse_id)), visited_nodes[dest_rse_id]['path'])
+        REGION_SHORT.set('get_hops_%s_%s_%s' % (str(source_rse_id), str(dest_rse_id), ''.join(sorted(limit_dest_schemes))), visited_nodes[dest_rse_id]['path'])
         return visited_nodes[dest_rse_id]['path']
     else:
         raise NoDistance()
@@ -711,7 +714,12 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         # In case of non-connected, the list contains all the intermediary RSEs
         list_hops = []
         try:
-            list_hops = get_hops(source_rse_id, dest_rse_id, include_multihop=core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session), multihop_rses=multihop_rses, session=session)
+            list_hops = get_hops(source_rse_id,
+                                 dest_rse_id,
+                                 include_multihop=core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session),
+                                 multihop_rses=multihop_rses,
+                                 limit_dest_schemes=transfers.get(req_id, {}).get('schemes', None),
+                                 session=session)
             if len(list_hops) > 1:
                 logging.debug('From %s to %s requires multihop: %s', source_rse_id, dest_rse_id, list_hops)
                 multihop = True
@@ -946,40 +954,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     continue
 
                 # I - Check if there is already a transfer with a higher dest_scheme_priority
-                # I.1 - There is already a transfer queued with a higher dest_scheme_priority, skip it
-                if dest_scheme_priority > transfers[req_id]['dest_scheme_priority']:
-                    continue
-
-                # I.2 - The current scheme has a higher priority than the previous one. Need to recompute the destination URL
-                if dest_scheme_priority < transfers[req_id]['dest_scheme_priority']:
-                    transfers[req_id]['dest_scheme_priority'] = dest_scheme_priority
-                    dest_rse_id_key = 'write_%s_%s' % (dest_rse_id, destination_protocol)
-                    if dest_rse_id_key not in protocols:
-                        protocols[dest_rse_id_key] = rsemgr.create_protocol(rses_info[dest_rse_id], 'third_party_copy', destination_protocol)
-
-                    # I.2.1 - Get dest space token
-                    dest_spacetoken = None
-                    if protocols[dest_rse_id_key].attributes and \
-                       'extended_attributes' in protocols[dest_rse_id_key].attributes and \
-                       protocols[dest_rse_id_key].attributes['extended_attributes'] and \
-                       'space_token' in protocols[dest_rse_id_key].attributes['extended_attributes']:
-                        dest_spacetoken = protocols[dest_rse_id_key].attributes['extended_attributes']['space_token']
-
-                    # I.3.2 - Compute the destination url
-                    if rses_info[dest_rse_id]['deterministic']:
-                        dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name}).values())[0]
-                    else:
-                        # compute dest url in case of non deterministic
-                        # naming convention, etc.
-                        dsn = get_dsn(scope, name, dict_attributes.get('dsn', None))
-                        # DQ2 path always starts with /, but prefix might not end with /
-                        naming_convention = rse_attrs[dest_rse_id].get('naming_convention', None)
-                        dest_path = construct_surl(dsn, name, naming_convention)
-                        if rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE or rses_info[dest_rse_id]['rse_type'] == 'TAPE':
-                            if retry_count or activity == 'Recovery':
-                                dest_path = '%s_%i' % (dest_path, int(time.time()))
-
-                        dest_url = list(protocols[dest_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': dest_path}).values())[0]
+                # Deprecated, not necessary anymore #3682
 
                 # II - Build the source URL
                 source_url = list(protocols[source_rse_id_key].lfns2pfns(lfns={'scope': scope.external, 'name': name, 'path': path}).values())[0]
