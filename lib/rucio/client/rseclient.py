@@ -552,7 +552,7 @@ class RSEClient(BaseClient):
 
         :param rse: The RSE name.
         :param name: The name of the limit.
-        :param value: The feature value. Set to -1 to remove the limit.
+        :param value: The feature value.
 
         :returns: True if successful, otherwise false.
         """

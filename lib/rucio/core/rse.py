@@ -721,14 +721,11 @@ def set_rse_limits(rse_id, name, value, session=None):
 
     :param rse_id: The RSE id.
     :param name: The name of the limit.
-    :param value: The feature value. Set to -1 to remove the limit.
+    :param value: The feature value.
     :param session: The database session in use.
 
     :returns: True if successful, otherwise false.
     """
-    if value == -1:
-        delete_rse_limits(rse_id, name)
-        return True
     rse_limit = models.RSELimit(rse_id=rse_id, name=name, value=value)
     rse_limit = session.merge(rse_limit)
     rse_limit.save(session=session)

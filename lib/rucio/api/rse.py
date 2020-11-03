@@ -334,7 +334,7 @@ def set_rse_limits(rse, name, value, issuer, vo='def'):
 
     :param rse: The RSE name.
     :param name: The name of the limit.
-    :param value: The feature value. Set to -1 to remove the limit.
+    :param value: The feature value.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
 
