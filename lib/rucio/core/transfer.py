@@ -514,11 +514,12 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
     if distance_graph.get(source_rse_id, {dest_rse_id: None}).get(dest_rse_id) is not None:
         # Check if there is a protocol match between the two RSEs
         try:
-            matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=limit_dest_schemes if limit_dest_schemes else __load_rse_settings(rse_id=dest_rse_id, session=session),
+            matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=__load_rse_settings(rse_id=dest_rse_id, session=session),
                                                           rse_settings_src=__load_rse_settings(rse_id=source_rse_id, session=session),
                                                           operation_src='third_party_copy',
                                                           operation_dest='third_party_copy',
-                                                          domain='wan')
+                                                          domain='wan',
+                                                          scheme=limit_dest_schemes if limit_dest_schemes else None)
             path = [{'source_rse_id': source_rse_id,
                      'dest_rse_id': dest_rse_id,
                      'source_scheme': matching_scheme[1],
@@ -573,11 +574,12 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
                         continue
                     # Check if there is a compatible protocol pair
                     try:
-                        matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=limit_dest_schemes if out_v == dest_rse_id and limit_dest_schemes else __load_rse_settings(rse_id=out_v, session=session),
+                        matching_scheme = rsemgr.find_matching_scheme(rse_settings_dest=__load_rse_settings(rse_id=out_v, session=session),
                                                                       rse_settings_src=__load_rse_settings(rse_id=current_node, session=session),
                                                                       operation_src='third_party_copy',
                                                                       operation_dest='third_party_copy',
-                                                                      domain='wan')
+                                                                      domain='wan',
+                                                                      scheme=limit_dest_schemes if out_v == dest_rse_id and limit_dest_schemes else None)
                         visited_nodes[out_v] = {'distance': current_distance + distance_graph[current_node][out_v] + HOP_PENALTY,
                                                 'path': current_path + [{'source_rse_id': current_node,
                                                                          'dest_rse_id': out_v,
