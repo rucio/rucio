@@ -1,0 +1,13 @@
+============
+1.23.9.post2
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Transfers: Submission loop crash `#4103 <https://github.com/rucio/rucio/issues/4103>`_
