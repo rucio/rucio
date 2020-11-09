@@ -17,10 +17,16 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012
 # - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020
 
 """
 Installation script Rucio's development virtualenv
 """
+
+import os.path, sys
+base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(base_path)
+os.chdir(base_path)
 
 from __future__ import print_function
 
