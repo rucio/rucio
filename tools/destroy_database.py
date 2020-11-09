@@ -16,9 +16,9 @@ base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_path)
 os.chdir(base_path)
 
-import argparse
+import argparse  # noqa: E402
 
-from rucio.db.sqla.util import destroy_database, drop_everything
+from rucio.db.sqla.util import destroy_database, drop_everything  # noqa: E402
 
 if __name__ == '__main__':
 
