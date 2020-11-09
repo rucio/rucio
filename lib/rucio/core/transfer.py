@@ -660,7 +660,6 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
     multi_hop_dict = {}
 
     rse_mapping = {}
-    current_schemes = SUPPORTED_PROTOCOLS
 
     multihop_rses = []
     try:
@@ -917,7 +916,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     file_metadata['previous_attempt_id'] = previous_attempt_id
 
                 transfers[req_id] = {'request_id': req_id,
-                                     'schemes': __add_compatible_schemes(schemes=[destination_protocol], allowed_schemes=current_schemes),
+                                     'schemes': __add_compatible_schemes(schemes=[destination_protocol], allowed_schemes=SUPPORTED_PROTOCOLS),
                                      'account': account,
                                      # 'src_urls': [source_url],
                                      'sources': [(rse, source_url, source_rse_id, ranking if ranking is not None else 0, link_ranking)],
