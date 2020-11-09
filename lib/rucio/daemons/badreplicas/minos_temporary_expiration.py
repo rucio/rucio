@@ -15,12 +15,12 @@
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2018-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+from __future__ import division
 
 import logging
 import math
@@ -39,7 +39,7 @@ from rucio.common.config import config_get
 from rucio.common.utils import chunks
 from rucio.common.exception import DataIdentifierNotFound, ReplicaNotFound
 from rucio.core.did import get_metadata
-from rucio.core.replica import (update_replicas_states,
+from rucio.core.replica import (update_replicas_states, get_replicas_state,
                                 bulk_delete_bad_replicas, list_expired_temporary_unavailable_replicas)
 
 from rucio.core import heartbeat
@@ -75,13 +75,13 @@ def minos_tu_expiration(bulk=1000, once=False, sleep_time=60):
     heartbeat.sanity_check(executable=executable, hostname=hostname)
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
     prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-    logging.info(prepend_str + 'Minos Temporary Expiration starting')
+    logging.info('%s Minos Temporary Expiration starting', prepend_str)
 
     time.sleep(10)  # To prevent running on the same partition if all the daemons restart at the same time
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
     prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
 
-    logging.info(prepend_str + 'Minos Temporary Expiration started')
+    logging.info('%s Minos Temporary Expiration started', prepend_str)
 
     chunk_size = 10  # The chunk size used for the commits
 
@@ -91,61 +91,68 @@ def minos_tu_expiration(bulk=1000, once=False, sleep_time=60):
         prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
         try:
             # Get list of expired TU replicas
-            logging.info(prepend_str + 'Getting list of expired replicas')
+            logging.info('%s Getting list of expired replicas', prepend_str)
             expired_replicas = list_expired_temporary_unavailable_replicas(total_workers=heart_beat['nr_threads'],
                                                                            worker_number=heart_beat['assign_thread'],
                                                                            limit=1000)
-            logging.info(prepend_str + '%s expired replicas returned' % len(expired_replicas))
-            logging.debug(prepend_str + 'List of expired replicas returned %s' % str(expired_replicas))
+            logging.info('%s %s expired replicas returned', prepend_str, len(expired_replicas))
+            logging.debug('%s List of expired replicas returned %s', prepend_str, str(expired_replicas))
             replicas = []
             bad_replicas = []
-            for replica in expired_replicas:
-                replicas.append({'scope': replica[0], 'name': replica[1], 'rse_id': replica[2], 'state': ReplicaState.AVAILABLE})
-                bad_replicas.append({'scope': replica[0], 'name': replica[1], 'rse_id': replica[2], 'state': BadFilesStatus.TEMPORARY_UNAVAILABLE})
-            session = get_session()
-
             nchunk = 0
-            tot_chunk = int(math.ceil(len(replicas) / float(chunk_size)))
+            tot_chunk = int(math.ceil(len(expired_replicas) / float(chunk_size)))
             session = get_session()
             for chunk in chunks(expired_replicas, chunk_size):
+                skip_replica_update = []
                 # Process and update the replicas in chunks
-                replicas = [{'scope': replica[0], 'name': replica[1], 'rse_id': replica[2], 'state': ReplicaState.AVAILABLE} for replica in chunk]
-                # Remove the replicas from bad_replicas table in chunks
-                bad_replicas = [{'scope': replica[0], 'name': replica[1], 'rse_id': replica[2], 'state': BadFilesStatus.TEMPORARY_UNAVAILABLE} for replica in chunk]
+                for replica in chunk:
+                    scope, name, rse_id = replica[0], replica[1], replica[2]
+                    states_dictionary = get_replicas_state(scope=scope, name=name, session=session)
+                    # Check if the replica is not declared bad
+                    # If already declared bad don't update the replica state, but remove from bad_pfns
+                    if not (ReplicaState.BAD in states_dictionary and rse_id in states_dictionary[ReplicaState.BAD]):
+                        replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.AVAILABLE})
+                    else:
+                        skip_replica_update.append((scope, name))
+                    # Remove the replicas from bad_replicas table in chunks
+                    bad_replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': BadFilesStatus.TEMPORARY_UNAVAILABLE})
                 try:
                     nchunk += 1
-                    logging.debug(prepend_str + 'Running on %s chunk out of %s' % (nchunk, tot_chunk))
+                    logging.debug('%s Running on %s chunk out of %s', prepend_str, nchunk, tot_chunk)
                     update_replicas_states(replicas, nowait=True, session=session)
                     bulk_delete_bad_replicas(bad_replicas, session=session)
                     session.commit()  # pylint: disable=no-member
                 except (ReplicaNotFound, DataIdentifierNotFound) as error:
                     session.rollback()  # pylint: disable=no-member
-                    logging.warning(prepend_str + 'One of the replicas does not exist anymore. Updating and deleting one by one. Error : %s' % str(error))
-                    for idx in range(len(chunk)):
-                        logging.debug(prepend_str + 'Working on %s' % (str(replicas[idx])))
+                    logging.warning('%s One of the replicas does not exist anymore. Updating and deleting one by one. Error : %s', prepend_str, str(error))
+                    for replica in chunk:
+                        scope, name, rse_id = replica[0], replica[1], replica[2]
+                        logging.debug('%s Working on %s:%s on %s', prepend_str, scope, name, rse_id)
                         try:
-                            get_metadata(replicas[idx]['scope'], replicas[idx]['name'])
-                            update_replicas_states([replicas[idx], ], nowait=True, session=session)
-                            bulk_delete_bad_replicas([bad_replicas[idx], ], session=session)
+                            # First check if the DID exists
+                            get_metadata(scope, name)
+                            if (scope, name) not in skip_replica_update:
+                                update_replicas_states([{'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.AVAILABLE}, ], nowait=True, session=session)
+                            bulk_delete_bad_replicas([{'scope': scope, 'name': name, 'rse_id': rse_id, 'state': BadFilesStatus.TEMPORARY_UNAVAILABLE}, ], session=session)
                             session.commit()  # pylint: disable=no-member
                         except DataIdentifierNotFound:
                             session.rollback()  # pylint: disable=no-member
-                            logging.warning(prepend_str + 'DID %s:%s does not exist anymore. ' % (bad_replicas[idx]['scope'], bad_replicas[idx]['name']))
-                            bulk_delete_bad_replicas([bad_replicas[idx], ], session=session)
+                            logging.warning('%s DID %s:%s does not exist anymore.', prepend_str, scope, name)
+                            bulk_delete_bad_replicas([{'scope': scope, 'name': name, 'rse_id': rse_id, 'state': BadFilesStatus.TEMPORARY_UNAVAILABLE}, ], session=session)
                             session.commit()  # pylint: disable=no-member
                         except ReplicaNotFound:
                             session.rollback()  # pylint: disable=no-member
-                            logging.warning(prepend_str + '%s:%s on RSEID %s does not exist anymore. ' % (replicas[idx]['scope'], replicas[idx]['name'], replicas[idx]['rse_id']))
-                            bulk_delete_bad_replicas([bad_replicas[idx], ], session=session)
+                            logging.warning('%s Replica %s:%s on RSEID %s does not exist anymore.', prepend_str, scope, name, rse_id)
+                            bulk_delete_bad_replicas([{'scope': scope, 'name': name, 'rse_id': rse_id, 'state': BadFilesStatus.TEMPORARY_UNAVAILABLE}, ], session=session)
                             session.commit()  # pylint: disable=no-member
                     session = get_session()
                 except Exception:
                     session.rollback()  # pylint: disable=no-member
-                    logging.critical(traceback.format_exc())
+                    logging.critical('%s %s', prepend_str, str(traceback.format_exc()))
                     session = get_session()
 
         except Exception:
-            logging.critical(traceback.format_exc())
+            logging.critical('%s %s', prepend_str, str(traceback.format_exc()))
 
         tottime = time.time() - start_time
         if once:
@@ -155,8 +162,8 @@ def minos_tu_expiration(bulk=1000, once=False, sleep_time=60):
             time.sleep(sleep_time - tottime)
 
     heartbeat.die(executable, hostname, pid, hb_thread)
-    logging.info(prepend_str + 'Graceful stop requested')
-    logging.info(prepend_str + 'Graceful stop done')
+    logging.info('%s Graceful stop requested', prepend_str)
+    logging.info('%s Graceful stop done', prepend_str)
 
 
 def run(threads=1, bulk=100, once=False, sleep_time=60):
