@@ -8,10 +8,16 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
 # - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019
+# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020
 
 """
 This submits a transfer to FTS3 via the transfertool.
 """
+
+import os.path, sys
+base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(base_path)
+os.chdir(base_path)
 
 import time
 from pprint import pprint

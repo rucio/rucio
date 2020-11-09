@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+import os.path, sys
+base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(base_path)
+os.chdir(base_path)
+
 from rucio.db.sqla.session import get_session
 
 # Exit statuses

@@ -19,6 +19,12 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020
+
+import os.path, sys
+base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(base_path)
+os.chdir(base_path)
 
 import json
 import sys

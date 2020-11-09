@@ -15,6 +15,12 @@
 #
 # Authors:
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020
+
+import os.path, sys
+base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(base_path)
+os.chdir(base_path)
 
 import argparse
 from datetime import datetime

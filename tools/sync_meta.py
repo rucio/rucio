@@ -10,6 +10,12 @@
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2019
 # - Martin Barisits, <martin.barisits@cern.ch>, 2019
+# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020
+
+import os.path, sys
+base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(base_path)
+os.chdir(base_path)
 
 import sys
 import traceback

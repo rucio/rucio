@@ -8,8 +8,14 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2019
+# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020
 #
 # script to update the version parameter for RucioUI Javascript and CSS includes
+
+import os.path, sys
+base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(base_path)
+os.chdir(base_path)
 
 from hashlib import md5
 from re import sub
