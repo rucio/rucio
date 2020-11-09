@@ -945,7 +945,6 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                         logging.warning('Could not set archive_timeout for %s. Must be integer.', dest_url)
                         pass
             else:
-                current_schemes = transfers[req_id]['schemes']
                 # parse allow tape source expression, not finally version.
                 allow_tape_source = dict_attributes.get('allow_tape_source', None)
 
@@ -1225,7 +1224,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                              'initial_request_id': req_id,
                                              'parent_request': parent_request,
                                              'account': InternalAccount('root'),
-                                             'schemes': __add_compatible_schemes(schemes=[destination_protocol], allowed_schemes=current_schemes),
+                                             'schemes': __add_compatible_schemes(schemes=[destination_protocol], allowed_schemes=SUPPORTED_PROTOCOLS),
                                              # 'src_urls': [source_url],
                                              'sources': [(source_rse_name, source_url, source_rse_id, 0, 0)],
                                              'dest_urls': [dest_url],
