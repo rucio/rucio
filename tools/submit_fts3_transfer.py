@@ -20,11 +20,11 @@ base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_path)
 os.chdir(base_path)
 
-import time
-from pprint import pprint
+import time  # noqa: E402
+from pprint import pprint  # noqa: E402
 
-import rucio.transfertool.fts3
-from rucio.common.utils import generate_uuid
+import rucio.transfertool.fts3  # noqa: E402
+from rucio.common.utils import generate_uuid  # noqa: E402
 
 if __name__ == "__main__":
     # token for OAuth 2.0 OIDC authorization scheme is working only with dCache + davs/https protocols (as of September 2019)

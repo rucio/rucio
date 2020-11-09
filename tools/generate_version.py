@@ -9,14 +9,13 @@
 # - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020
 
 import sys
+import os
 import os.path
 base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_path)
 os.chdir(base_path)
 
-import os
-import subprocess
-import sys
+import subprocess  # noqa: E402
 
 
 def run_git_command(cmd):

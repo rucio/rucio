@@ -18,9 +18,9 @@ base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_path)
 os.chdir(base_path)
 
-from hashlib import md5
-from re import sub
-from sys import argv
+from hashlib import md5  # noqa: E402
+from re import sub  # noqa: E402
+from sys import argv  # noqa: E402
 
 
 files = ['/static/rucio.js', '/static/base.js', '/static/rucio.css']

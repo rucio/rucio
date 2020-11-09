@@ -18,11 +18,11 @@ base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_path)
 os.chdir(base_path)
 
-import sys
-import traceback
+import sys  # noqa: E402
+import traceback  # noqa: E402
 
-from rucio.client import Client
-from rucio.common.exception import Duplicate
+from rucio.client import Client  # noqa: E402
+from rucio.common.exception import Duplicate  # noqa: E402
 
 UNKNOWN = 3
 CRITICAL = 2

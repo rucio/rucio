@@ -29,14 +29,14 @@ base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_path)
 os.chdir(base_path)
 
-from __future__ import print_function
+from __future__ import print_function  # noqa: E402, F404
 
-import errno
-import optparse
-import os
-import shutil
-import subprocess
-import sys
+import errno  # noqa: E402
+import optparse  # noqa: E402
+import os  # noqa: E402
+import shutil  # noqa: E402
+import subprocess  # noqa: E402
+import sys  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 VENV = os.path.join(ROOT, '.venv')
