@@ -23,7 +23,8 @@
 Installation script Rucio's development virtualenv
 """
 
-import os.path, sys
+import sys
+import os.path
 base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_path)
 os.chdir(base_path)
