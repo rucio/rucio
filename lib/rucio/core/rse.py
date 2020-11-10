@@ -721,7 +721,7 @@ def set_rse_limits(rse_id, name, value, session=None):
 
     :param rse_id: The RSE id.
     :param name: The name of the limit.
-    :param value: The feature value. Set to -1 to remove the limit.
+    :param value: The feature value.
     :param session: The database session in use.
 
     :returns: True if successful, otherwise false.
@@ -753,7 +753,7 @@ def get_rse_limits(rse_id, name=None, session=None):
 
 
 @transactional_session
-def delete_rse_limit(rse_id, name=None, session=None):
+def delete_rse_limits(rse_id, name=None, session=None):
     """
     Delete RSE limit.
 

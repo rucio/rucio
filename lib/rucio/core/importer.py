@@ -99,7 +99,7 @@ def import_rses(rses, rse_sync_method='edit', attr_sync_method='edit', protocol_
             limit = rse.get(limit_name)
             if limit:
                 if limit_name in old_limits:
-                    rse_module.delete_rse_limit(rse_id=rse_id, name=limit_name, session=session)
+                    rse_module.delete_rse_limits(rse_id=rse_id, name=limit_name, session=session)
                 rse_module.set_rse_limits(rse_id=rse_id, name=limit_name, value=limit, session=session)
 
         # Attributes
