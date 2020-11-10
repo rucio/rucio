@@ -40,7 +40,8 @@ from rucio.api.rse import (add_rse, update_rse, list_rses, del_rse, add_rse_attr
                            add_protocol, get_rse_protocols, del_protocols,
                            update_protocols, get_rse, set_rse_usage,
                            get_rse_usage, list_rse_usage_history,
-                           set_rse_limits, get_rse_limits, parse_rse_expression,
+                           set_rse_limits, get_rse_limits, delete_rse_limits,
+                           parse_rse_expression,
                            add_distance, get_distance, update_distance,
                            add_qos_policy, delete_qos_policy, list_qos_policies)
 from rucio.common.exception import (Duplicate, AccessDenied, RSENotFound, RucioException,
@@ -757,6 +758,41 @@ class Limits(RucioController):
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
         try:
             set_rse_limits(rse=rse, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'), **parameter)
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except RSENotFound as error:
+            raise generate_http_error(404, 'RSENotFound', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+
+        raise OK()
+
+    def DELETE(self, rse):
+        """ Delete RSE limits.
+
+        HTTP Success:
+            200 Updated
+
+        HTTP Error:
+            400 Bad Request
+            401 Unauthorized
+            404 Not Found
+            409 Conflict
+            500 Internal Error
+
+        :param rse: The RSE name.
+        """
+        header('Content-Type', 'application/json')
+        json_data = data().decode()
+        try:
+            parameter = loads(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
+        try:
+            delete_rse_limits(rse=rse, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'), **parameter)
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
         except RSENotFound as error:

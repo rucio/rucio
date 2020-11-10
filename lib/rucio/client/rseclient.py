@@ -552,7 +552,7 @@ class RSEClient(BaseClient):
 
         :param rse: The RSE name.
         :param name: The name of the limit.
-        :param value: The feature value. Set to -1 to remove the limit.
+        :param value: The feature value.
 
         :returns: True if successful, otherwise false.
         """
@@ -585,6 +585,27 @@ class RSEClient(BaseClient):
                                                status_code=r.status_code,
                                                data=r.content)
         raise exc_cls(exc_msg)
+
+    def delete_rse_limits(self, rse, name):
+        """
+        Delete RSE limit information.
+
+        :param rse: The RSE name.
+        :param name: The name of the limit.
+
+        :returns: True if successful, otherwise false.
+        """
+        path = [self.RSE_BASEURL, rse, 'limits']
+        path = '/'.join(path)
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type='DEL', data=dumps({'name': name}))
+        if r.status_code == codes.ok:
+            return True
+        exc_cls, exc_msg = self._get_exception(headers=r.headers,
+                                               status_code=r.status_code,
+                                               data=r.content)
+
+        return exc_cls(exc_msg)
 
     def add_distance(self, source, destination, parameters):
         """
