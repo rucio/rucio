@@ -1,0 +1,31 @@
+=======
+1.23.10
+=======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Core & Internals: Only return the per-account usage for the 'rucio' source `#4106 <https://github.com/rucio/rucio/issues/4106>`_
+- Replicas: Improve performance of abacus duplicate deletion query `#4100 <https://github.com/rucio/rucio/issues/4100>`_
+
+****
+Bugs
+****
+
+- Consistency checks: Incorrect use of arguments in Dark Reaper `#4037 <https://github.com/rucio/rucio/issues/4037>`_
+- Recovery: Race condition between Minos and Necromancer `#4109 <https://github.com/rucio/rucio/issues/4109>`_
+
+-------
+Clients
+-------
+
+****
+Bugs
+****
+
+- Clients: Cannot delete an RSE limit `#4074 <https://github.com/rucio/rucio/issues/4074>`_
