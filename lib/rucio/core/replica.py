@@ -2957,8 +2957,9 @@ def get_replicas_state(scope=None, name=None, session=None):
     Method used by the necromancer to get all the replicas of a DIDs
     :param scope: The scope of the file.
     :param name: The name of the file.
-
     :param session: The database session in use.
+
+    :returns: A dictionary with the list of states as keys and the rse_ids as value
     """
 
     query = session.query(models.RSEFileAssociation.rse_id, models.RSEFileAssociation.state).filter_by(scope=scope, name=name)
