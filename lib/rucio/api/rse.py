@@ -334,7 +334,7 @@ def set_rse_limits(rse, name, value, issuer, vo='def'):
 
     :param rse: The RSE name.
     :param name: The name of the limit.
-    :param value: The feature value. Set to -1 to remove the limit.
+    :param value: The feature value.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
 
@@ -346,6 +346,25 @@ def set_rse_limits(rse, name, value, issuer, vo='def'):
         raise exception.AccessDenied('Account %s can not update RSE limits for RSE %s' % (issuer, rse))
 
     return rse_module.set_rse_limits(rse_id=rse_id, name=name, value=value)
+
+
+def delete_rse_limits(rse, name, issuer, vo='def'):
+    """
+    Set RSE limits.
+
+    :param rse: The RSE name.
+    :param name: The name of the limit.
+    :param issuer: The issuer account.
+    :param vo: The VO to act on.
+
+    :returns: True if successful, otherwise false.
+    """
+    rse_id = rse_module.get_rse_id(rse=rse, vo=vo)
+    kwargs = {'rse': rse, 'rse_id': rse_id}
+    if not permission.has_permission(issuer=issuer, vo=vo, action='delete_rse_limits', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not update RSE limits for RSE %s' % (issuer, rse))
+
+    return rse_module.delete_rse_limits(rse_id=rse_id, name=name)
 
 
 def get_rse_limits(rse, issuer, vo='def'):

@@ -36,7 +36,8 @@ from rucio.api.rse import (add_rse, update_rse, list_rses, del_rse, add_rse_attr
                            add_protocol, get_rse_protocols, del_protocols,
                            update_protocols, get_rse, set_rse_usage,
                            get_rse_usage, list_rse_usage_history,
-                           set_rse_limits, get_rse_limits, parse_rse_expression,
+                           set_rse_limits, get_rse_limits, delete_rse_limits,
+                           parse_rse_expression,
                            add_distance, get_distance, update_distance,
                            list_qos_policies, add_qos_policy, delete_qos_policy)
 from rucio.common.exception import (Duplicate, AccessDenied, RSENotFound, RucioException,
@@ -770,6 +771,38 @@ class Limits(MethodView):
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
         try:
             set_rse_limits(rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'), **parameter)
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except RSENotFound as error:
+            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
+
+        return '', 200
+
+    def delete(self, rse):
+        """ Update RSE limits.
+
+        .. :quickref: Limits; Update RSE limits.
+
+        :param rse: The RSE name.
+        :status 200: OK.
+        :status 400: Cannot decode json parameter dictionary.
+        :status 401: Invalid Auth Token.
+        :status 404: RSE Not Found.
+        :status 500: Internal Error.
+
+        """
+        json_data = request.data
+        try:
+            parameter = loads(json_data)
+        except ValueError:
+            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
+        try:
+            delete_rse_limits(rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'), **parameter)
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except RSENotFound as error:
