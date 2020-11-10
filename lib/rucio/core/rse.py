@@ -701,7 +701,7 @@ def get_rse_usage(rse_id, source=None, session=None, per_account=False):
                      'total': total,
                      'files': row.files,
                      'updated_at': row.updated_at}
-        if per_account:
+        if per_account and row.source == 'rucio':
             query_account_usage = session.query(models.AccountUsage).filter_by(rse_id=rse_id)
             account_usages = []
             for row in query_account_usage:
