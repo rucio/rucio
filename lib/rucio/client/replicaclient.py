@@ -64,6 +64,23 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
+    def declare_bad_did_replicas(self, rse, dids, reason):
+        """
+        Declare a list of bad replicas.
+
+        :param rse: The RSE where the bad replicas reside
+        :param dids: The DIDs of the bad replicas
+        :param reason: The reason of the loss.
+        """
+        data = {'reason': reason, 'rse': rse, 'dids': dids}
+        url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'bad/dids']))
+        headers = {}
+        r = self._send_request(url, headers=headers, type='POST', data=dumps(data))
+        if r.status_code == codes.created:
+            return loads(r.text)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
+
     def declare_suspicious_file_replicas(self, pfns, reason):
         """
         Declare a list of bad replicas.
