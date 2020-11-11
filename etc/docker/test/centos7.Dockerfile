@@ -109,8 +109,8 @@ COPY doc doc
 COPY lib lib
 
 # Install Rucio + dependencies
-RUN if [ "$PYTHON" == "2.7" ] ; then python3 -m pip --no-cache-dir install --upgrade .[oracle,postgresql,mysql,kerberos,dev,saml] ; fi && \
-    python -m pip --no-cache-dir install --upgrade .[oracle,postgresql,mysql,kerberos,dev,saml]
+RUN if [ "$PYTHON" == "2.7" ] ; then python3 -m pip --no-cache-dir install --upgrade .[oracle,postgresql,mysql,kerberos,dev,saml] ; else \
+    python -m pip --no-cache-dir install --upgrade .[oracle,postgresql,mysql,kerberos,dev,saml] ; fi
 
 WORKDIR /opt/rucio
 RUN cp -r /usr/local/src/rucio/{lib,bin,tools,etc} ./
