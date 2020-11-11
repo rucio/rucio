@@ -1,4 +1,5 @@
-# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2014-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +14,8 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
 
 import os
 import re
@@ -189,7 +190,7 @@ setup(
     description=DESCRIPTION,
     license="Apache License, Version 2.0",
     url="http://rucio.cern.ch/",
-    python_requires=">=2.6, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*",
+    python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*",
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'License :: OSI Approved :: Apache Software License',
@@ -203,9 +204,6 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: Implementation :: CPython',
-        'Programming Language :: Python :: Implementation :: PyPy',
-        'Environment :: No Input/Output (Daemon)'
     ],
     install_requires=REQUIRES,
     extras_require=EXTRAS_REQUIRES,
