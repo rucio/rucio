@@ -166,8 +166,6 @@ def main(arguments):
             sys.exit(0)
 
         if str(MyFile).endswith('.py'):
-            if arguments.script:
-                header += '#!/usr/bin/env python\n'
             header += '# -*- coding: utf-8 -*-\n'
 
         if int(min) == int(max):
@@ -211,7 +209,7 @@ def main(arguments):
                     raise RuntimeError('Cannot read file ' + str(MyFile)) from e
 
                 with open(MyFile, 'w') as modified:
-                    if not arguments.script and lines[0].rstrip() == '#!/usr/bin/env python':
+                    if lines[0].startswith('#!/usr/bin/env python'):
                         modified.write(lines[0])
                     elif lines[0].rstrip() == '#!/bin/bash':
                         modified.write(lines[0])
@@ -237,8 +235,6 @@ def main(arguments):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--script', '-s', dest='script', action='store_true', default=False,
-                        help='Generate header for python script.')
     parser.add_argument('--documentation', '-D', dest='documentation', action='store_true', default=False,
                         help='Generate header for documentation file.')
     parser.add_argument('--in-place', '-i', action='store_true', default=False,
