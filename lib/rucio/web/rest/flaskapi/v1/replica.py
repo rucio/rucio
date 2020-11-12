@@ -19,7 +19,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019-2020
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
@@ -53,7 +53,7 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
 from rucio.common.utils import parse_response, APIEncoder, render_json_list
 from rucio.db.sqla.constants import BadFilesStatus
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, try_stream, parse_scope_name, request_auth_env, response_headers, request_header_ensure_string
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, try_stream, parse_scope_name, request_auth_env, response_headers
 from rucio.web.rest.utils import generate_http_error_flask
 
 try:
@@ -115,7 +115,7 @@ class Replicas(MethodView):
             schemes = SUPPORTED_PROTOCOLS
 
         try:
-            client_ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
+            client_ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
             def generate(vo):
                 # we need to call list_replicas before starting to reply
@@ -341,7 +341,7 @@ class ListReplicas(MethodView):
         content_type = request.accept_mimetypes.best_match(['application/x-json-stream', 'application/metalink4+xml'], 'application/x-json-stream')
         metalink = (content_type == 'application/metalink4+xml')
 
-        client_ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
+        client_ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
         dids, schemes, select, unavailable, limit = [], None, None, False, None
         ignore_availability, rse_expression, all_states, domain = False, None, False, None

@@ -1,5 +1,5 @@
-#!/usr/bin/env python3
-# Copyright 2017-2018 CERN for the benefit of the ATLAS collaboration.
+#!/bin/bash
+# Copyright 2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,23 +14,16 @@
 # limitations under the License.
 #
 # Authors:
-# - Vitjan Zavrtanik, <vitjan.zavrtanik@cern.ch>, 2017
-# - Vincent Garonne, <vgaronne@gmail.com>, 2018
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2018
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
-'''
-Sonar is a daemon that tests inactive links.
-'''
+set -euo pipefail
 
-import signal
+echo '==============================='
+echo 'Running Sphinx                 '
+echo '==============================='
 
-from rucio.daemons.sonar.sonar.sonar_v3_dev_daemon import run, stop
+sphinx-build -avT doc/source/ doc/build/html
 
-if __name__ == "__main__":
-    signal.signal(signal.SIGTERM, stop)
-    try:
-        run()
-    except KeyboardInterrupt:
-        stop()
+if [ $? -ne 0 ]; then
+    exit 1
+fi

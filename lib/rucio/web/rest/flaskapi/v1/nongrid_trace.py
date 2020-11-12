@@ -30,7 +30,7 @@ from flask.views import MethodView
 from werkzeug.datastructures import Headers
 
 from rucio.core.nongrid_trace import trace
-from rucio.web.rest.flaskapi.v1.common import response_headers, request_header_ensure_string
+from rucio.web.rest.flaskapi.v1.common import response_headers
 from rucio.web.rest.utils import generate_http_error_flask
 
 
@@ -61,7 +61,7 @@ class XAODTrace(MethodView):
             payload['timeentry'] = int(time.time())
 
             # guess client IP
-            payload['ip'] = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
+            payload['ip'] = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
             trace(payload=payload)
 

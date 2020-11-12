@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2020 CERN for the benefit of the ATLAS collaboration.
 #

@@ -30,7 +30,6 @@ from __future__ import print_function
 import contextlib
 import itertools
 import os
-import subprocess
 import tempfile
 from random import choice
 from string import ascii_uppercase
@@ -38,32 +37,9 @@ from string import ascii_uppercase
 import pytest
 from six import PY3
 
-from rucio.common.utils import generate_uuid as uuid
+from rucio.common.utils import generate_uuid as uuid, execute
 
 skip_rse_tests_with_accounts = pytest.mark.skipif(not os.path.exists('etc/rse-accounts.cfg'), reason='fails if no rse-accounts.cfg found')
-
-
-def execute(cmd):
-    """
-    Executes a command in a subprocess. Returns a tuple
-    of (exitcode, out, err), where out is the string output
-    from stdout and err is the string output from stderr when
-    executing the command.
-
-    :param cmd: Command string to execute
-    """
-
-    process = subprocess.Popen(cmd,
-                               shell=True,
-                               stdin=subprocess.PIPE,
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE)
-
-    result = process.communicate()
-    (out, err) = result
-    exitcode = process.returncode
-
-    return exitcode, out.decode(), err.decode()
 
 
 def account_name_generator():

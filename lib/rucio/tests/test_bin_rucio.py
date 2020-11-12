@@ -1,4 +1,5 @@
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +18,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2019
 # - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
@@ -28,14 +29,15 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
 
 from __future__ import print_function
 
+import os
 import re
 import unittest
 from os import remove, unlink, listdir, rmdir, stat, path, environ
+
+import pytest
 
 from rucio.client.accountlimitclient import AccountLimitClient
 from rucio.client.didclient import DIDClient
@@ -45,7 +47,6 @@ from rucio.client.ruleclient import RuleClient
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalScope, InternalAccount
 from rucio.common.utils import generate_uuid, get_tmp_dir, md5, render_json
-from rucio.daemons.abacus import account as abacus_account
 from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import execute, account_name_generator, rse_name_generator, file_generator, scope_name_generator
 
@@ -1337,37 +1338,39 @@ class TestBinRucio(unittest.TestCase):
         self.account_client.set_local_account_limit(account, rse, -1)
         self.account_client.set_global_account_limit(account, rse_exp, -1)
 
+    @pytest.mark.skipif('SUITE' in os.environ and os.environ['SUITE'] == 'client', reason='uses abacus daemon and core functions')
     def test_list_account_usage(self):
         """ CLIENT (USER): list account usage. """
-        if environ.get('SUITE', 'all') != 'client':
-            from rucio.db.sqla import session, models
-            from rucio.core.account_counter import increase
-            db_session = session.get_session()
-            db_session.query(models.AccountUsage).delete()
-            db_session.query(models.AccountLimit).delete()
-            db_session.query(models.AccountGlobalLimit).delete()
-            db_session.query(models.UpdatedAccountCounter).delete()
-            db_session.commit()
-            rse = 'MOCK4'
-            rse_id = self.rse_client.get_rse(rse)['id']
-            rse_exp = 'MOCK|MOCK4'
-            account = 'root'
-            usage = 4
-            local_limit = 10
-            local_left = local_limit - usage
-            global_limit = 20
-            global_left = global_limit - usage
-            self.account_client.set_local_account_limit(account, rse, local_limit)
-            self.account_client.set_global_account_limit(account, rse_exp, global_limit)
-            increase(rse_id, InternalAccount(account, **self.vo), 1, usage)
-            abacus_account.run(once=True)
-            cmd = 'rucio list-account-usage {0}'.format(account)
-            exitcode, out, err = execute(cmd)
-            assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse, usage, local_limit, local_left), out) is not None
-            assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse_exp, usage, global_limit, global_left), out) is not None
-            cmd = 'rucio list-account-usage --rse {0} {1}'.format(rse, account)
-            exitcode, out, err = execute(cmd)
-            assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse, usage, local_limit, local_left), out) is not None
-            assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse_exp, usage, global_limit, global_left), out) is not None
-            self.account_client.set_local_account_limit(account, rse, -1)
-            self.account_client.set_global_account_limit(account, rse_exp, -1)
+        from rucio.db.sqla import session, models
+        from rucio.core.account_counter import increase
+        from rucio.daemons.abacus import account as abacus_account
+
+        db_session = session.get_session()
+        db_session.query(models.AccountUsage).delete()
+        db_session.query(models.AccountLimit).delete()
+        db_session.query(models.AccountGlobalLimit).delete()
+        db_session.query(models.UpdatedAccountCounter).delete()
+        db_session.commit()
+        rse = 'MOCK4'
+        rse_id = self.rse_client.get_rse(rse)['id']
+        rse_exp = 'MOCK|MOCK4'
+        account = 'root'
+        usage = 4
+        local_limit = 10
+        local_left = local_limit - usage
+        global_limit = 20
+        global_left = global_limit - usage
+        self.account_client.set_local_account_limit(account, rse, local_limit)
+        self.account_client.set_global_account_limit(account, rse_exp, global_limit)
+        increase(rse_id, InternalAccount(account, **self.vo), 1, usage)
+        abacus_account.run(once=True)
+        cmd = 'rucio list-account-usage {0}'.format(account)
+        exitcode, out, err = execute(cmd)
+        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse, usage, local_limit, local_left), out) is not None
+        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse_exp, usage, global_limit, global_left), out) is not None
+        cmd = 'rucio list-account-usage --rse {0} {1}'.format(rse, account)
+        exitcode, out, err = execute(cmd)
+        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse, usage, local_limit, local_left), out) is not None
+        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse_exp, usage, global_limit, global_left), out) is not None
+        self.account_client.set_local_account_limit(account, rse, -1)
+        self.account_client.set_global_account_limit(account, rse_exp, -1)

@@ -38,7 +38,7 @@ from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gs
 from rucio.common.config import config_get
 from rucio.common.exception import AccessDenied, IdentityError, RucioException
 from rucio.common.utils import date_to_str, urlparse
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, request_header_ensure_string
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask
 from rucio.web.rest.utils import generate_http_error_flask
 
 # Extra modules: Only imported if available
@@ -116,12 +116,12 @@ class UserPass(MethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers['Pragma'] = 'no-cache'
 
-        vo = request_header_ensure_string('X-Rucio-VO', 'def')
-        account = request_header_ensure_string('X-Rucio-Account')
-        username = request_header_ensure_string('X-Rucio-Username')
-        password = request_header_ensure_string('X-Rucio-Password')
-        appid = request_header_ensure_string('X-Rucio-AppID', 'unknown')
-        ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
+        vo = request.headers.get('X-Rucio-VO', default='def')
+        account = request.headers.get('X-Rucio-Account', default=None)
+        username = request.headers.get('X-Rucio-Username', default=None)
+        password = request.headers.get('X-Rucio-Password', default=None)
+        appid = request.headers.get('X-Rucio-AppID', default='unknown')
+        ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
         if not account or not username or not password:
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot authenticate without passing all required arguments', headers=headers)
@@ -185,7 +185,7 @@ class OIDC(MethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers.set('Pragma', 'no-cache')
 
-        vo = request_header_ensure_string('X-Rucio-VO', 'def')
+        vo = request.headers.get('X-Rucio-VO', default='def')
         account = request.environ.get('HTTP_X_RUCIO_ACCOUNT', 'webui')
         auth_scope = request.environ.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_SCOPE', "")
         audience = request.environ.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_AUDIENCE', "")
@@ -197,7 +197,7 @@ class OIDC(MethodView):
         polling = (polling == 'True' or polling == 'true')
         if refresh_lifetime == 'None':
             refresh_lifetime = None
-        ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
+        ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
         try:
             kwargs = {'auth_scope': auth_scope,
                       'audience': audience,
@@ -264,7 +264,7 @@ class RedirectOIDC(MethodView):
         headers.set('Pragma', 'no-cache')
 
         try:
-            fetchtoken = (request_header_ensure_string('X-Rucio-Client-Fetch-Token') == 'True')
+            fetchtoken = (request.headers.get('X-Rucio-Client-Fetch-Token', default=None) == 'True')
             query_string = request.query_string.decode(encoding='utf-8')
             result = redirect_auth_oidc(query_string, fetchtoken)
 
@@ -336,7 +336,7 @@ class CodeOIDC(MethodView):
         headers.set('Pragma', 'no-cache')
 
         query_string = request.query_string.decode(encoding='utf-8')
-        ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
+        ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
         try:
             result = get_token_oidc(query_string, ip)
@@ -401,7 +401,7 @@ class TokenOIDC(MethodView):
         headers.set('Pragma', 'no-cache')
 
         query_string = request.query_string.decode(encoding='utf-8')
-        ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
+        ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
         try:
             result = get_token_oidc(query_string, ip)
@@ -477,9 +477,9 @@ class RefreshOIDC(MethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers.set('Pragma', 'no-cache')
 
-        vo = request_header_ensure_string('X-Rucio-VO', 'def')
-        account = request_header_ensure_string('X-Rucio-Account')
-        token = request_header_ensure_string('X-Rucio-Auth-Token')
+        vo = request.headers.get('X-Rucio-VO', default='def')
+        account = request.headers.get('X-Rucio-Account', default=None)
+        token = request.headers.get('X-Rucio-Auth-Token', default=None)
         if token is None or account is None:
             return generate_http_error_flask(401, 'CannotAuthorize', 'Cannot authorize token request.', headers=headers)
 
@@ -554,11 +554,11 @@ class GSS(MethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers['Pragma'] = 'no-cache'
 
-        vo = request_header_ensure_string('X-Rucio-VO', 'def')
-        account = request_header_ensure_string('X-Rucio-Account')
+        vo = request.headers.get('X-Rucio-VO', default='def')
+        account = request.headers.get('X-Rucio-Account', default=None)
         gsscred = request.environ.get('REMOTE_USER')
-        appid = request_header_ensure_string('X-Rucio-AppID', 'unknown')
-        ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
+        appid = request.headers.get('X-Rucio-AppID', default='unknown')
+        ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
         try:
             result = get_auth_token_gss(account, gsscred, appid, ip, vo=vo)
@@ -627,16 +627,16 @@ class x509(MethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers['Pragma'] = 'no-cache'
 
-        vo = request_header_ensure_string('X-Rucio-VO', 'def')
-        account = request_header_ensure_string('X-Rucio-Account')
+        vo = request.headers.get('X-Rucio-VO', default='def')
+        account = request.headers.get('X-Rucio-Account', default=None)
         dn = request.environ.get('SSL_CLIENT_S_DN')
         if not dn:
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot get DN', headers=headers)
         if not dn.startswith('/'):
             dn = '/%s' % '/'.join(dn.split(',')[::-1])
 
-        appid = request_header_ensure_string('X-Rucio-AppID', 'unknown')
-        ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
+        appid = request.headers.get('X-Rucio-AppID', default='unknown')
+        ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
         # If we get a valid proxy certificate we have to strip this postfix,
         # otherwise we would have to store the proxy DN in the database as well.
@@ -724,11 +724,11 @@ class SSH(MethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers['Pragma'] = 'no-cache'
 
-        vo = request_header_ensure_string('X-Rucio-VO', 'def')
-        account = request_header_ensure_string('X-Rucio-Account')
-        signature = request_header_ensure_string('X-Rucio-SSH-Signature')
-        appid = request_header_ensure_string('X-Rucio-AppID', 'unknown')
-        ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
+        vo = request.headers.get('X-Rucio-VO', default='def')
+        account = request.headers.get('X-Rucio-Account', default=None)
+        signature = request.headers.get('X-Rucio-SSH-Signature', default=None)
+        appid = request.headers.get('X-Rucio-AppID', default='unknown')
+        ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
         # decode the signature which must come in base64 encoded
         try:
@@ -808,10 +808,10 @@ class SSHChallengeToken(MethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers['Pragma'] = 'no-cache'
 
-        vo = request_header_ensure_string('X-Rucio-VO', 'def')
-        account = request_header_ensure_string('X-Rucio-Account')
-        appid = request_header_ensure_string('X-Rucio-AppID', 'unknown')
-        ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
+        vo = request.headers.get('X-Rucio-VO', default='def')
+        account = request.headers.get('X-Rucio-Account', default=None)
+        appid = request.headers.get('X-Rucio-AppID', default='unknown')
+        ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
         try:
             result = get_ssh_challenge_token(account, appid, ip, vo=vo)
@@ -878,10 +878,10 @@ class SAML(MethodView):
             return "SAML not configured on the server side.", 400, headers
 
         saml_nameid = cookies().get('saml-nameid')
-        vo = request_header_ensure_string('X-Rucio-VO', 'def')
-        account = request_header_ensure_string('X-Rucio-Account')
-        appid = request_header_ensure_string('X-Rucio-AppID', 'unknown')
-        ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
+        vo = request.headers.get('X-Rucio-VO', default='def')
+        account = request.headers.get('X-Rucio-Account', default=None)
+        appid = request.headers.get('X-Rucio-AppID', default='unknown')
+        ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
         if saml_nameid:
             try:
@@ -978,7 +978,7 @@ class Validate(MethodView):
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers['Pragma'] = 'no-cache'
 
-        token = request_header_ensure_string('X-Rucio-Auth-Token')
+        token = request.headers.get('X-Rucio-Auth-Token', default=None)
 
         result = validate_auth_token(token)
         if not result:
