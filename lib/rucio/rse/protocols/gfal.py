@@ -97,14 +97,25 @@ class Default(protocol.RSEProtocol):
                 path = lfn['path'] if 'path' in lfn and lfn['path'] else self._get_path(scope=scope, name=name)
                 if self.attributes['scheme'] != 'root' and path.startswith('/'):  # do not modify path if it is root
                     path = path[1:]
-                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, web_service_path, prefix, path])
+                print('With port %s' % path)
+                if re.match('\w+://', path):
+                    pfns['%s:%s' % (scope, name)] = path  # Algorithm gave us a full URI. Use it
+                else:
+                    pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname,
+                                                             web_service_path, prefix, path])
         else:
             for lfn in lfns:
                 scope, name = str(lfn['scope']), lfn['name']
                 path = lfn['path'] if 'path' in lfn and lfn['path'] else self._get_path(scope=scope, name=name)
                 if self.attributes['scheme'] != 'root' and path.startswith('/'):  # do not modify path if it is root
                     path = path[1:]
-                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, ':', str(self.attributes['port']), web_service_path, prefix, path])
+                print('Without port %s' % path)
+                if re.match('\w+://', path):
+                    pfns['%s:%s' % (scope, name)] = path  # Algorithm gave us a full URI. Use it
+                else:
+                    pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, ':',
+                                                             str(self.attributes['port']), web_service_path, prefix,
+                                                             path])
 
         # self.logger.debug('count of pfns: {}'.format(len(list(pfns))))
 
