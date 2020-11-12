@@ -74,8 +74,11 @@ class Default(protocol.RSEProtocol):
                     path = self._get_path(scope=scope, name=name)
                 if path.startswith('/'):
                     path = path[1:]
-                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://',
-                                                         hostname, web_service_path, prefix, path])
+                if re.match('\w+://', path):
+                    pfns['%s:%s' % (scope, name)] = path  # Algorithm gave us a full URI. Use it
+                else:
+                    pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://',
+                                                             hostname, web_service_path, prefix, path])
         else:
             for lfn in lfns:
                 scope, name, path = lfn['scope'], lfn['name'], lfn.get('path')
@@ -83,9 +86,12 @@ class Default(protocol.RSEProtocol):
                     path = self._get_path(scope=scope, name=name)
                 if path.startswith('/'):
                     path = path[1:]
-                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://',
-                                                         hostname, ':', str(self.attributes['port']),
-                                                         web_service_path, prefix, path])
+                if re.match('\w+://', path):
+                    pfns['%s:%s' % (scope, name)] = path  # Algorithm gave us a full URI. Use it
+                else:
+                    pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://',
+                                                             hostname, ':', str(self.attributes['port']),
+                                                             web_service_path, prefix, path])
 
         return pfns
 
