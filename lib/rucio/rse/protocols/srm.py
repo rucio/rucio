@@ -48,7 +48,7 @@ class Default(protocol.RSEProtocol):
         :param path: The path to the file.
         :returns: Fully qualified PFN.
         """
-
+        print('LFNs to PFNs called')
         pfns = {}
         prefix = self.attributes['prefix']
         if self.attributes['extended_attributes'] is not None and\
@@ -106,6 +106,7 @@ class Default(protocol.RSEProtocol):
         :returns: a dict containing all known parts of the PFN for the protocol e.g. scheme, path, filename
         :raises RSEFileNameNotSupported: if the provided PFN doesn't match with the protocol settings
         """
+        print('Parse PFNs called')
 
         ret = dict()
         pfns = [pfns] if isinstance(pfns, string_types) else pfns
@@ -165,6 +166,7 @@ class Default(protocol.RSEProtocol):
         :param path: The path to the file.
         :returns: Fully qualified PFN.
         """
+        print('Path to PFNs called')
 
         if path.startswith("srm://"):
             return path
