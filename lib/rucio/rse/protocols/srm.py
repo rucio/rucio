@@ -74,6 +74,7 @@ class Default(protocol.RSEProtocol):
                     path = self._get_path(scope=scope, name=name)
                 if path.startswith('/'):
                     path = path[1:]
+                print('With port %s' % path)
                 if re.match('\w+://', path):
                     pfns['%s:%s' % (scope, name)] = path  # Algorithm gave us a full URI. Use it
                 else:
@@ -86,6 +87,7 @@ class Default(protocol.RSEProtocol):
                     path = self._get_path(scope=scope, name=name)
                 if path.startswith('/'):
                     path = path[1:]
+                print('Without port %s' % path)
                 if re.match('\w+://', path):
                     pfns['%s:%s' % (scope, name)] = path  # Algorithm gave us a full URI. Use it
                 else:
