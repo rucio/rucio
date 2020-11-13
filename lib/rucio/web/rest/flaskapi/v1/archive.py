@@ -52,7 +52,7 @@ class Archive(MethodView):
         :status 500: Internal Error.
         """
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
 
             def generate(vo):
                 for file in list_archive_content(scope=scope, name=name, vo=vo):

@@ -35,7 +35,7 @@ from web import application, ctx, header, seeother, InternalError
 from rucio.api.replica import list_replicas
 from rucio.common.exception import RucioException, DataIdentifierNotFound, ReplicaNotFound
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_ranking, sort_dynamic, site_selector
-from rucio.common.schema import get_schema_value
+from rucio.common.schema import insert_scope_name
 from rucio.web.rest.common import RucioController, check_accept_header_wrapper
 from rucio.web.rest.utils import generate_http_error
 
@@ -50,8 +50,8 @@ SH = StreamHandler()
 SH.setLevel(DEBUG)
 LOGGER.addHandler(SH)
 
-URLS = ('%s/metalink?$' % get_schema_value('SCOPE_NAME_REGEXP'), 'MetaLinkRedirector',
-        '%s/?$' % get_schema_value('SCOPE_NAME_REGEXP'), 'HeaderRedirector')
+URLS = insert_scope_name(('%s/metalink?$', 'MetaLinkRedirector',
+                          '%s/?$', 'HeaderRedirector'))
 
 
 class MetaLinkRedirector(RucioController):

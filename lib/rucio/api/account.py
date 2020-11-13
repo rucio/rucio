@@ -43,7 +43,7 @@ def add_account(account, type, email, issuer, vo='def'):
 
     """
 
-    validate_schema(name='account', obj=account)
+    validate_schema(name='account', obj=account, vo=vo)
 
     kwargs = {'account': account, 'type': type}
     if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='add_account', kwargs=kwargs):
@@ -97,7 +97,7 @@ def update_account(account, key, value, issuer='root', vo='def'):
     :param issuer: The issuer account
     :param vo: The VO to act on.
     """
-    validate_schema(name='account', obj=account)
+    validate_schema(name='account', obj=account, vo=vo)
     kwargs = {}
     if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='update_account', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not change %s  of the account' % (issuer, key))
@@ -180,8 +180,8 @@ def add_account_attribute(key, value, account, issuer, vo='def'):
     :param issuer: The issuer account.
     :param vo: The VO to act on.
     """
-    validate_schema(name='account_attribute', obj=key)
-    validate_schema(name='account_attribute', obj=value)
+    validate_schema(name='account_attribute', obj=key, vo=vo)
+    validate_schema(name='account_attribute', obj=value, vo=vo)
 
     kwargs = {'account': account, 'key': key, 'value': value}
     if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='add_attribute', kwargs=kwargs):
