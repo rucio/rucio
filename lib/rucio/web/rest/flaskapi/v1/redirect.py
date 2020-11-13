@@ -71,7 +71,7 @@ class MetaLinkRedirector(MethodView):
         headers.set('Access-Control-Allow-Credentials', 'true')
 
         try:
-            scope, name = parse_scope_name(scope_name, request_header_ensure_string('X-Rucio-VO', 'def'))
+            scope, name = parse_scope_name(scope_name, request.headers.get('X-Rucio-VO', default='def'))
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0], headers=headers)
         except Exception as error:
@@ -199,7 +199,7 @@ class HeaderRedirector(MethodView):
         headers.set('Access-Control-Allow-Credentials', 'true')
 
         try:
-            scope, name = parse_scope_name(scope_name, request_header_ensure_string('X-Rucio-VO', 'def'))
+            scope, name = parse_scope_name(scope_name, request.headers.get('X-Rucio-VO', default='def'))
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0], headers=headers)
         except Exception as error:
