@@ -32,41 +32,110 @@ import importlib
 # dictionary of schema modules for each VO
 schema_modules = {}
 
-# TODO: load schema module for each VO in multi-VO installations
+# list of unique SCOPE_NAME_REGEXP values from all schemas
+scope_name_regexps = []
 
 try:
-    if config.config_get_bool('common', 'multi_vo'):
-        GENERIC_FALLBACK = 'generic_multi_vo'
-    else:
-        GENERIC_FALLBACK = 'generic'
+    multivo = config.config_get_bool('common', 'multi_vo')
 except (NoOptionError, NoSectionError):
+    multivo = False
+
+# multi-VO version loads schema per-VO on demand
+# we can't get a list of VOs here because the database might not
+# be available as this is imported during the bootstrapping process
+if not multivo:
     GENERIC_FALLBACK = 'generic'
 
-if config.config_has_section('policy'):
-    try:
-        POLICY = config.config_get('policy', 'package') + ".schema"
-    except (NoOptionError, NoSectionError):
-        # fall back to old system for now
+    if config.config_has_section('policy'):
         try:
-            POLICY = config.config_get('policy', 'schema')
+            POLICY = config.config_get('policy', 'package') + ".schema"
         except (NoOptionError, NoSectionError):
-            POLICY = GENERIC_FALLBACK
-        POLICY = 'rucio.common.schema.' + POLICY.lower()
-else:
-    POLICY = 'rucio.common.schema.' + GENERIC_FALLBACK.lower()
+            # fall back to old system for now
+            try:
+                POLICY = config.config_get('policy', 'schema')
+            except (NoOptionError, NoSectionError):
+                POLICY = GENERIC_FALLBACK
+            POLICY = 'rucio.common.schema.' + POLICY.lower()
+    else:
+        POLICY = 'rucio.common.schema.' + GENERIC_FALLBACK.lower()
 
-try:
-    module = importlib.import_module(POLICY)
-except ImportError:
-    raise exception.PolicyPackageNotFound('Module ' + POLICY + ' not found')
+    try:
+        module = importlib.import_module(POLICY)
+    except ImportError:
+        raise exception.PolicyPackageNotFound('Module ' + POLICY + ' not found')
 
-schema_modules["def"] = module
+    schema_modules["def"] = module
+    scope_name_regexps.append(module.SCOPE_NAME_REGEXP)
 
 
-# TODO: in both of these functions, verify that named module exists
+def load_schema_for_vo(vo):
+    GENERIC_FALLBACK = 'generic_multi_vo'
+    if config.config_has_section('policy'):
+        try:
+            POLICY = config.config_get('policy', 'package-' + vo) + ".schema"
+        except (NoOptionError, NoSectionError):
+            # fall back to old system for now
+            try:
+                POLICY = config.config_get('policy', 'schema')
+            except (NoOptionError, NoSectionError):
+                POLICY = GENERIC_FALLBACK
+            POLICY = 'rucio.common.schema.' + POLICY.lower()
+    else:
+        POLICY = 'rucio.common.schema.' + GENERIC_FALLBACK.lower()
+
+    try:
+        module = importlib.import_module(POLICY)
+    except ImportError:
+        raise exception.PolicyPackageNotFound('Module ' + POLICY + ' not found')
+
+    schema_modules[vo] = module
+
+
 def validate_schema(name, obj, vo='def'):
+    if vo not in schema_modules:
+        load_schema_for_vo(vo)
     schema_modules[vo].validate_schema(name, obj)
 
 
 def get_schema_value(key, vo='def'):
+    if vo not in schema_modules:
+        load_schema_for_vo(vo)
     return getattr(schema_modules[vo], key)
+
+
+def get_scope_name_regexps():
+    """ returns a list of all unique SCOPE_NAME_REGEXPs from all schemas """
+
+    if len(scope_name_regexps) == 0:
+        # load schemas for all VOs here and add unique scope_name_regexps to list
+        from rucio.core.vo import list_vos
+        vos = list_vos()
+        for vo in vos:
+            if not vo['vo'] in schema_modules:
+                load_schema_for_vo(vo['vo'])
+            scope_name_regexp = schema_modules[vo['vo']].SCOPE_NAME_REGEXP
+            if scope_name_regexp not in scope_name_regexps:
+                scope_name_regexps.append(scope_name_regexp)
+    return scope_name_regexps
+
+
+def insert_scope_name(urls):
+    """
+    given a tuple of URLs for webpy with '%s' as a placeholder for
+    SCOPE_NAME_REGEXP, return a finalised tuple of URLs that will work for all
+    SCOPE_NAME_REGEXPs in all schemas
+    """
+
+    regexps = get_scope_name_regexps()
+    result = []
+    for i in range(0, len(urls), 2):
+        if "%s" in urls[i]:
+            # add a copy for each unique SCOPE_NAME_REGEXP
+            for scope_name_regexp in regexps:
+                result.append(urls[i] % scope_name_regexp)
+                result.append(urls[i + 1])
+        else:
+            # pass through unmodified
+            result.append(urls[i])
+            result.append(urls[i + 1])
+    return tuple(result)

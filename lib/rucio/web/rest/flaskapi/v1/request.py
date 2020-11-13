@@ -61,7 +61,7 @@ class RequestGet(MethodView):
         :status 406: Not Acceptable.
         """
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, f_request.environ.get('vo'))
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:

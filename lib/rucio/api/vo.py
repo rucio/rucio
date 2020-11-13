@@ -37,7 +37,7 @@ def add_vo(new_vo, issuer, description=None, email=None, vo='def'):
     :param vo: The vo of the user issuing the command.
     '''
 
-    validate_schema('vo', new_vo)
+    validate_schema('vo', new_vo, vo=vo)
 
     kwargs = {}
     if not has_permission(issuer=issuer, action='add_vo', kwargs=kwargs, vo=vo):

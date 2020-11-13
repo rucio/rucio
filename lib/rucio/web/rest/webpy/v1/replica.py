@@ -54,7 +54,7 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
                                     RSENotFound, UnsupportedOperation, ReplicaNotFound,
                                     InvalidObject, ScopeNotFound)
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
-from rucio.common.schema import get_schema_value
+from rucio.common.schema import insert_scope_name
 from rucio.common.utils import parse_response, APIEncoder, render_json_list
 from rucio.db.sqla.constants import BadFilesStatus
 from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController, check_accept_header_wrapper
@@ -67,20 +67,20 @@ except ImportError:
     from urllib.parse import unquote
     from urllib.parse import parse_qs
 
-URLS = ('/list/?$', 'ListReplicas',
-        '/?$', 'Replicas',
-        '/suspicious/?$', 'SuspiciousReplicas',
-        '/bad/states/?$', 'BadReplicasStates',
-        '/bad/summary/?$', 'BadReplicasSummary',
-        '/bad/pfns/?$', 'BadPFNs',
-        '/rse/(.*)/?$', 'ReplicasRSE',
-        '/bad/?$', 'BadReplicas',
-        '/dids/?$', 'ReplicasDIDs',
-        '%s/datasets$' % get_schema_value('SCOPE_NAME_REGEXP'), 'DatasetReplicas',
-        '/datasets_bulk/?$', 'DatasetReplicasBulk',
-        '%s/datasets_vp$' % get_schema_value('SCOPE_NAME_REGEXP'), 'DatasetReplicasVP',
-        '%s/?$' % get_schema_value('SCOPE_NAME_REGEXP'), 'Replicas',
-        '/tombstone/?$', 'Tombstone')
+URLS = insert_scope_name(('/list/?$', 'ListReplicas',
+                          '/?$', 'Replicas',
+                          '/suspicious/?$', 'SuspiciousReplicas',
+                          '/bad/states/?$', 'BadReplicasStates',
+                          '/bad/summary/?$', 'BadReplicasSummary',
+                          '/bad/pfns/?$', 'BadPFNs',
+                          '/rse/(.*)/?$', 'ReplicasRSE',
+                          '/bad/?$', 'BadReplicas',
+                          '/dids/?$', 'ReplicasDIDs',
+                          '%s/datasets$', 'DatasetReplicas',
+                          '/datasets_bulk/?$', 'DatasetReplicasBulk',
+                          '%s/datasets_vp$', 'DatasetReplicasVP',
+                          '%s/?$', 'Replicas',
+                          '/tombstone/?$', 'Tombstone'))
 
 
 class Replicas(RucioController):

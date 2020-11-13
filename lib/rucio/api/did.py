@@ -60,7 +60,7 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None, 
     :param recursive: Recursively list DIDs content.
     :param vo: The VO to act on.
     """
-    validate_schema(name='did_filters', obj=filters)
+    validate_schema(name='did_filters', obj=filters, vo=vo)
 
     scope = InternalScope(scope, vo=vo)
 
@@ -89,7 +89,7 @@ def list_dids_extended(scope, filters, type='collection', ignore_case=False, lim
     :param long: Long format option to display more information for each DID.
     :param recursive: Recursively list DIDs content.
     """
-    validate_schema(name='did_filters', obj=filters)
+    validate_schema(name='did_filters', obj=filters, vo=vo)
     scope = InternalScope(scope, vo=vo)
 
     if 'account' in filters:
@@ -122,9 +122,9 @@ def add_did(scope, name, type, issuer, account=None, statuses={}, meta={}, rules
     :param vo: The VO to act on.
     """
     v_did = {'name': name, 'type': type.upper(), 'scope': scope}
-    validate_schema(name='did', obj=v_did)
-    validate_schema(name='dids', obj=dids)
-    validate_schema(name='rse', obj=rse)
+    validate_schema(name='did', obj=v_did, vo=vo)
+    validate_schema(name='dids', obj=dids, vo=vo)
+    validate_schema(name='rse', obj=rse, vo=vo)
     kwargs = {'scope': scope, 'name': name, 'type': type, 'issuer': issuer, 'account': account, 'statuses': statuses, 'meta': meta, 'rules': rules, 'lifetime': lifetime}
     if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='add_did', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifier to scope %s' % (issuer, scope))
@@ -200,7 +200,7 @@ def attach_dids(scope, name, attachment, issuer, vo='def'):
     :param issuer: The issuer account.
     :param vo: The VO to act on.
     """
-    validate_schema(name='attachment', obj=attachment)
+    validate_schema(name='attachment', obj=attachment, vo=vo)
 
     rse_id = None
     if 'rse' in attachment:
@@ -240,7 +240,7 @@ def attach_dids_to_dids(attachments, issuer, ignore_duplicate=False, vo='def'):
     :param ignore_duplicate: If True, ignore duplicate entries.
     :param vo: The VO to act on.
     """
-    validate_schema(name='attachments', obj=attachments)
+    validate_schema(name='attachments', obj=attachments, vo=vo)
 
     for a in attachments:
         if 'rse' in a:
@@ -476,7 +476,7 @@ def get_metadata_bulk(dids, vo='def', session=None):
     :param session: The database session in use.
     """
 
-    validate_schema(name='dids', obj=dids)
+    validate_schema(name='dids', obj=dids, vo=vo)
     for entry in dids:
         entry['scope'] = InternalScope(entry['scope'], vo=vo)
     meta = did.get_metadata_bulk(dids)
@@ -586,7 +586,7 @@ def resurrect(dids, issuer, vo='def'):
     kwargs = {'issuer': issuer}
     if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='resurrect', kwargs=kwargs):
         raise rucio.common.exception.AccessDenied('Account %s can not resurrect data identifiers' % (issuer))
-    validate_schema(name='dids', obj=dids)
+    validate_schema(name='dids', obj=dids, vo=vo)
 
     for d in dids:
         d['scope'] = InternalScope(d['scope'], vo=vo)
