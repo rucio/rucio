@@ -97,7 +97,6 @@ class Default(protocol.RSEProtocol):
                 path = lfn['path'] if 'path' in lfn and lfn['path'] else self._get_path(scope=scope, name=name)
                 if self.attributes['scheme'] != 'root' and path.startswith('/'):  # do not modify path if it is root
                     path = path[1:]
-                print('With port %s' % path)
                 if re.match('\w+://', path):
                     pfns['%s:%s' % (scope, name)] = path  # Algorithm gave us a full URI. Use it
                 else:
@@ -109,7 +108,6 @@ class Default(protocol.RSEProtocol):
                 path = lfn['path'] if 'path' in lfn and lfn['path'] else self._get_path(scope=scope, name=name)
                 if self.attributes['scheme'] != 'root' and path.startswith('/'):  # do not modify path if it is root
                     path = path[1:]
-                print('Without port %s' % path)
                 if re.match('\w+://', path):
                     pfns['%s:%s' % (scope, name)] = path  # Algorithm gave us a full URI. Use it
                 else:
