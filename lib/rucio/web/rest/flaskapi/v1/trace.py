@@ -33,7 +33,7 @@ from flask.views import MethodView
 from werkzeug.datastructures import Headers
 
 from rucio.core.trace import trace
-from rucio.web.rest.flaskapi.v1.common import response_headers, request_header_ensure_string
+from rucio.web.rest.flaskapi.v1.common import response_headers
 from rucio.web.rest.utils import generate_http_error_flask
 
 
@@ -65,7 +65,7 @@ class Trace(MethodView):
             payload['traceTimeentryUnix'] = calendar.timegm(payload['traceTimeentry'].timetuple()) + payload['traceTimeentry'].microsecond / 1e6
 
             # guess client IP
-            payload['traceIp'] = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
+            payload['traceIp'] = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
             # generate unique ID
             payload['traceId'] = str(uuid.uuid4()).replace('-', '').lower()

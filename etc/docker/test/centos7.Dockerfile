@@ -31,8 +31,8 @@ RUN yum install -y epel-release.noarch && \
     yum -y update && \
     yum install -y gcc httpd gmp-devel krb5-devel mod_ssl mod_auth_kerb git openssl-devel bzip2-devel gridsite which libaio memcached ffi-devel nmap-ncat && \
     yum -y install https://repo.ius.io/ius-release-el7.rpm && \
-    yum -y install libxml2-devel xmlsec1-devel xmlsec1-openssl-devel libtool-ltdl-devel && \
-    if [ "$PYTHON" == "2.7" ] ; then yum -y install python python-devel python-pip mod_wsgi ; fi && \
+    yum -y install libxml2-devel xmlsec1-devel xmlsec1-openssl-devel libtool-ltdl-devel python && \
+    if [ "$PYTHON" == "2.7" ] ; then yum -y install python-devel python-pip python36u python36u-devel python36u-pip python36u-mod_wsgi ; fi && \
     if [ "$PYTHON" == "3.6" ] ; then yum -y install python36u python36u-devel python36u-pip python36u-mod_wsgi ; fi && \
     yum clean all
 
@@ -40,7 +40,8 @@ WORKDIR /usr/local/src
 RUN if [ "$PYTHON" == "2.7" ] ; then ln -sf python2.7 /usr/bin/python && ln -sf pip2.7 /usr/bin/pip ; \
     elif [ "$PYTHON" == "3.6" ] ; then ln -sf python3.6 /usr/bin/python && ln -sf pip3.6 /usr/bin/pip ; \
     elif [ "$PYTHON" == "3.7" ] ; then \
-        yum install -y httpd-devel bzip2-devel ncurses-devel sqlite-devel libffi-devel uuid-devel && yum clean all && \
+        yum install -y httpd-devel bzip2-devel ncurses-devel sqlite-devel libffi-devel uuid-devel && \
+        yum clean all && \
         curl -sSL https://www.python.org/ftp/python/3.7.9/Python-3.7.9.tar.xz | tar xJv && \
         cd Python-3.7.9 && \
         ./configure --enable-optimizations --enable-shared --libdir=/usr/local/lib LDFLAGS="-Wl,-rpath /usr/local/lib" && \
@@ -48,7 +49,7 @@ RUN if [ "$PYTHON" == "2.7" ] ; then ln -sf python2.7 /usr/bin/python && ln -sf 
         make install exec_prefix=/usr && \
         python3.7 -m ensurepip --default-pip && \
         cd .. && rm -rf Python-3.7.9 && \
-        ln -sf python3.7 /usr/bin/python && ln -sf pip3.7 /usr/bin/pip && \
+        ln -sf python3.7 /usr/bin/python && ln -sf python3.7 /usr/bin/python3 && ln -sf pip3.7 /usr/bin/pip && ln -sf pip3.7 /usr/bin/pip3 && \
         cp -al /usr/include/python3.7m/pyconfig.h /usr/local/include/python3.7m/pyconfig.h && \
         cp -al /usr/local/lib/* /usr/lib64/ && \
         curl -sSL https://github.com/GrahamDumpleton/mod_wsgi/archive/4.7.1.tar.gz | tar xzv && \
@@ -69,16 +70,17 @@ RUN curl https://www.sqlite.org/2019/sqlite-autoconf-3290000.tar.gz | tar xzv &&
     cd .. && rm -rf ./sqlite-autoconf-3290000
 
 RUN python -m pip --no-cache-dir install --upgrade pip && \
-    python -m pip --no-cache-dir install --upgrade setuptools wheel
-
-RUN mkdir -p /var/log/rucio/trace && \
-    chmod -R 777 /var/log/rucio
+    python -m pip --no-cache-dir install --upgrade setuptools wheel && \
+    if [ "$PYTHON" == "2.7" ] ; then python3 -m pip --no-cache-dir install --upgrade pip && \
+    python3 -m pip --no-cache-dir install --upgrade setuptools wheel ; fi
 
 WORKDIR /usr/local/src/rucio
 
 COPY etc etc
 
-RUN cp etc/certs/hostcert_rucio.pem /etc/grid-security/hostcert.pem && \
+RUN mkdir -p /var/log/rucio/trace && \
+    chmod -R 777 /var/log/rucio && \
+    cp etc/certs/hostcert_rucio.pem /etc/grid-security/hostcert.pem && \
     cp etc/certs/hostcert_rucio.key.pem /etc/grid-security/hostkey.pem && chmod 0400 /etc/grid-security/hostkey.pem && \
     cp etc/docker/test/extra/httpd.conf /etc/httpd/conf/httpd.conf && \
     cp etc/docker/test/extra/rucio.conf /etc/httpd/conf.d/rucio.conf && \
@@ -95,13 +97,20 @@ RUN rpm -i etc/docker/test/extra/oic.rpm; \
 
 # pre-install requirements
 RUN python -m pip --no-cache-dir install --upgrade -r etc/pip-requires -r etc/pip-requires-client -r etc/pip-requires-test \
-    'cx_oracle==7.3' 'psycopg2-binary>=2.4.2,<2.8' 'PyMySQL' 'kerberos>=1.3.0' 'pykerberos>=1.2.1' 'requests-kerberos>=0.12.0' 'python3-saml>=1.6.0'
+    'cx_oracle==7.3' 'psycopg2-binary>=2.4.2,<2.8' 'PyMySQL' 'kerberos>=1.3.0' 'pykerberos>=1.2.1' 'requests-kerberos>=0.12.0' 'python3-saml>=1.6.0' && \
+    if [ "$PYTHON" == "2.7" ] ; then python3 -m pip --no-cache-dir install --upgrade -r etc/pip-requires \
+    'cx_oracle==7.3' 'psycopg2-binary>=2.4.2,<2.8' 'PyMySQL' 'kerberos>=1.3.0' 'pykerberos>=1.2.1' 'requests-kerberos>=0.12.0' 'python3-saml>=1.6.0' ; fi
 
-# copy everything else (anything above is cache-friendly)
-COPY . .
+# copy everything else except the git-dir (anything above is cache-friendly)
+COPY .flake8 .pep8 .pycodestyle pylintrc setup.py setup_rucio.py setup_rucio_client.py setup_webui.py ./
+COPY tools tools
+COPY bin bin
+COPY doc doc
+COPY lib lib
 
 # Install Rucio + dependencies
-RUN python -m pip --no-cache-dir install --upgrade .[oracle,postgresql,mysql,kerberos,dev,saml]
+RUN if [ "$PYTHON" == "2.7" ] ; then python3 -m pip --no-cache-dir install --upgrade .[oracle,postgresql,mysql,kerberos,dev,saml] ; fi && \
+    python -m pip --no-cache-dir install --upgrade .[oracle,postgresql,mysql,kerberos,dev,saml]
 
 WORKDIR /opt/rucio
 RUN cp -r /usr/local/src/rucio/{lib,bin,tools,etc} ./

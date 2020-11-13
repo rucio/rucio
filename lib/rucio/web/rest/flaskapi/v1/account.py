@@ -43,7 +43,7 @@ from rucio.api.rule import list_replication_rules
 from rucio.api.scope import add_scope, get_scopes
 from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound, RSENotFound, IdentityError, CounterNotFound
 from rucio.common.utils import APIEncoder, render_json
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, try_stream, request_header_ensure_string
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, try_stream
 from rucio.web.rest.utils import generate_http_error_flask
 
 
@@ -226,7 +226,7 @@ class AccountParameter(MethodView):
         """
         if account == 'whoami':
             # Redirect to the account uri
-            frontend = request_header_ensure_string('X-Requested-Host')
+            frontend = request.headers.get('X-Requested-Host', default=None)
             if frontend:
                 return redirect(frontend + "/accounts/%s" % (request.environ.get('issuer')), code=302)
             return redirect(request.environ.get('issuer'), code=303)

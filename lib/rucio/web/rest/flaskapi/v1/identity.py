@@ -29,7 +29,7 @@ from flask import Flask, Blueprint, request, jsonify
 from flask.views import MethodView
 
 from rucio.api.identity import add_identity, add_account_identity, list_accounts_for_identity
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, request_header_ensure_string
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask
 
 
 class UserPass(MethodView):
@@ -50,9 +50,9 @@ class UserPass(MethodView):
         :status 401: Invalid Auth Token.
         :status 500: Internal Error.
         """
-        username = request_header_ensure_string('X-Rucio-Username')
-        password = request_header_ensure_string('X-Rucio-Password')
-        email = request_header_ensure_string('X-Rucio-Email')
+        username = request.headers.get('X-Rucio-Username', default=None)
+        password = request.headers.get('X-Rucio-Password', default=None)
+        email = request.headers.get('X-Rucio-Email', default=None)
 
         if not username or not password:
             return 'Username and Password must be set.', 400
@@ -91,7 +91,7 @@ class X509(MethodView):
         :status 500: Internal Error.
         """
         dn = request.environ.get('SSL_CLIENT_S_DN')
-        email = request_header_ensure_string('X-Rucio-Email')
+        email = request.headers.get('X-Rucio-Email', default=None)
 
         try:
             add_identity(dn, 'x509', email=email)
@@ -127,7 +127,7 @@ class GSS(MethodView):
         :status 500: Internal Error.
         """
         gsscred = request.environ.get('REMOTE_USER')
-        email = request_header_ensure_string('X-Rucio-Email')
+        email = request.headers.get('X-Rucio-Email', default=None)
 
         try:
             add_identity(gsscred, 'gss', email=email)

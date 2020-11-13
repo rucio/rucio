@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 set -eo pipefail
+
+# Note: this file is not run when RUN_HTTPD is defined as false for the test suite.
 
 echo "* docker $CONTAINER_RUNTIME_ARGS info"
 docker $CONTAINER_RUNTIME_ARGS info

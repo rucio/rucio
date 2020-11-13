@@ -36,7 +36,7 @@ from werkzeug.datastructures import Headers
 from rucio.api.replica import list_replicas
 from rucio.common.exception import RucioException, DataIdentifierNotFound, ReplicaNotFound
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_ranking, sort_dynamic, site_selector
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream, request_header_ensure_string
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream
 from rucio.web.rest.utils import generate_http_error_flask
 
 try:
@@ -81,7 +81,7 @@ class MetaLinkRedirector(MethodView):
         dids, schemes, select = [{'scope': scope, 'name': name}], ['http', 'https', 'root', 'gsiftp', 'srm', 'davs'], None
 
         # set the correct client IP
-        client_ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
+        client_ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
         client_location = {'ip': client_ip,
                            'fqdn': None,
@@ -105,7 +105,7 @@ class MetaLinkRedirector(MethodView):
                 client_location['site'] = params['site'][0]
 
         # get vo if given
-        vo = request_header_ensure_string('X-Rucio-VO', 'def')
+        vo = request.headers.get('X-Rucio-VO', default='def')
 
         try:
             replicas_iter = list_replicas(dids=dids, schemes=schemes, client_location=client_location, vo=vo)
@@ -211,7 +211,7 @@ class HeaderRedirector(MethodView):
             # use the default HTTP protocols if no scheme is given
             select, rse, site, schemes = 'random', None, None, ['davs', 'http', 'https']
 
-            client_ip = request_header_ensure_string('X-Forwarded-For', request.remote_addr)
+            client_ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
             client_location = {'ip': client_ip,
                                'fqdn': None,
@@ -249,7 +249,7 @@ class HeaderRedirector(MethodView):
                 schemes = [schemes]  # list_replicas needs a list
 
             # get vo if given
-            vo = request_header_ensure_string('X-Rucio-VO', 'def')
+            vo = request.headers.get('X-Rucio-VO', default='def')
 
             replicas = [r for r in list_replicas(dids=[{'scope': scope, 'name': name, 'type': 'FILE'}],
                                                  schemes=schemes, client_location=client_location, vo=vo)]

@@ -12,8 +12,8 @@ Pygments==2.6.1; python_version >= '3.5'
 docutils>=0.15,<0.16                              # Needed for sphinx
 pyflakes==2.1.1                                   # Passive checker of Python programs
 flake8==3.7.8                                     # Wrapper around PyFlakes&pep8
-pylint==1.9.4; python_version < '3.5'             # static code analysis. 1.9.5 last 2.7 compatible release
-pylint==2.5.3; python_version >= '3.5'
+pylint==1.9.4; python_version < '3.6'             # static code analysis. 1.9.5 last 2.7 compatible release
+pylint==2.6.0; python_version >= '3.6'
 isort>=4.2.5,<5                                   # pylint up to now (2.5.3) does not support isort 5
 virtualenv==20.0.12                               # Virtual Python Environment builder
 xmltodict==0.12.0                                 # Makes working with XML feel like you are working with JSON

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Copyright 2014-2020 CERN
 #
@@ -24,8 +24,6 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
 
 import re
 import sys
@@ -49,10 +47,10 @@ if sys.version_info > (3, 0):
 escapefunc = None
 try:
     import html
-    escapefunc = html.escape
+    escapefunc = html.escape  # noqa: E1101
 except ImportError:
     import cgi
-    escapefunc = cgi.escape
+    escapefunc = cgi.escape  # noqa: E1101
 
 try:
     from onelogin.saml2.auth import OneLogin_Saml2_Auth
