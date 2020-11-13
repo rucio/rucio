@@ -484,7 +484,7 @@ class RuleHistoryFull(MethodView):
         :returns: JSON dict containing informations about the requested user.
         """
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
 
             def generate(vo):
                 for history in list_replication_rule_full_history(scope, name, vo=vo):

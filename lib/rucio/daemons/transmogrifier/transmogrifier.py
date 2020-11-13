@@ -308,7 +308,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                                     copies = int(rule_dict['copies'])
                                     activity = rule_dict.get('activity', 'User Subscriptions')
                                     try:
-                                        validate_schema(name='activity', obj=activity)
+                                        validate_schema(name='activity', obj=activity, vo=account.vo)
                                     except InputValidationError as error:
                                         logging.error(prepend_str + 'Error validating the activity %s' % (str(error)))
                                         activity = 'User Subscriptions'

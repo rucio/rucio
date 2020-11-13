@@ -92,7 +92,7 @@ class Replicas(MethodView):
         :returns: A metalink description of replicas if metalink(4)+xml is specified in Accept:
         """
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
@@ -812,7 +812,7 @@ class DatasetReplicas(MethodView):
         :returns: A dictionary containing all replicas information.
         """
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
 
             def generate(deep, vo):
                 for row in list_dataset_replicas(scope=scope, name=name, deep=deep, vo=vo):
@@ -898,7 +898,7 @@ class DatasetReplicasVP(MethodView):
         :returns: If VP exists a list of dicts of sites, otherwise nothing
         """
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
 
             def generate(deep, vo):
                 for row in list_dataset_replicas_vp(scope=scope, name=name, deep=deep, vo=vo):

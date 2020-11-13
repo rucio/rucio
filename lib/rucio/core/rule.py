@@ -1300,7 +1300,7 @@ def update_rule(rule_id, options, session=None):
                 rule.source_replica_expression = options['source_replica_expression']
 
             if key == 'activity':
-                validate_schema('activity', options['activity'])
+                validate_schema('activity', options['activity'], vo=rule.account.vo)
                 rule.activity = options['activity']
                 # Cancel transfers and re-submit them:
                 for lock in session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.REPLICATING).all():
