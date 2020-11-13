@@ -182,7 +182,7 @@ class UploadClient:
 
             file_did = {'scope': file['did_scope'], 'name': file['did_name']}
             dataset_did_str = file.get('dataset_did_str')
-            rse_settings = self.rses.get(rse)
+            rse_settings = self.rses[rse]
             rse_sign_service = rse_settings.get('sign_url', None)
             is_deterministic = rse_settings.get('deterministic', True)
             if not is_deterministic and not pfn:
