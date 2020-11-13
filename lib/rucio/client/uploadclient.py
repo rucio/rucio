@@ -46,6 +46,7 @@ import socket
 
 import logging
 import time
+import random
 
 from rucio.client.client import Client
 from rucio.common.config import config_get_int
@@ -96,7 +97,7 @@ class UploadClient:
         """
         :param items: List of dictionaries. Each dictionary describing a file to upload. Keys:
             path                  - path of the file that will be uploaded
-            rse                   - rse name (e.g. 'CERN-PROD_DATADISK') where to upload the file
+            rse                   - rse expression/name (e.g. 'CERN-PROD_DATADISK') where to upload the file
             did_scope             - Optional: custom did scope (Default: user.<account>)
             did_name              - Optional: custom did name (Default: name of the file)
             dataset_scope         - Optional: custom dataset scope
@@ -130,14 +131,18 @@ class UploadClient:
         registered_dataset_dids = set()
         registered_file_dids = set()
         for file in files:
-            rse = file['rse']
-            if not self.rses.get(rse):
+            rse_expression = file['rse']
+            rse = None
+            if not self.rses.get(rse_expression):
+                rses = [r['rse'] for r in self.client.list_rses(rse_expression)]
+                rse = random.choice(rses)
                 rse_settings = self.rses.setdefault(rse, rsemgr.get_rse_info(rse, vo=self.client.vo))
                 if rse_settings['availability_write'] != 1:
                     raise RSEBlacklisted('%s is not available for writing. No actions have been taken' % rse)
 
             dataset_scope = file.get('dataset_scope')
             dataset_name = file.get('dataset_name')
+            file['rse'] = rse
             if dataset_scope and dataset_name:
                 dataset_did_str = ('%s:%s' % (dataset_scope, dataset_name))
                 file['dataset_did_str'] = dataset_did_str
@@ -168,6 +173,7 @@ class UploadClient:
             if traces_copy_out is not None:
                 traces_copy_out.append(trace)
 
+            rse = file['rse']
             trace['scope'] = file['did_scope']
             trace['datasetScope'] = file.get('dataset_scope', '')
             trace['dataset'] = file.get('dataset_name', '')
@@ -176,8 +182,7 @@ class UploadClient:
 
             file_did = {'scope': file['did_scope'], 'name': file['did_name']}
             dataset_did_str = file.get('dataset_did_str')
-            rse = file['rse']
-            rse_settings = self.rses[rse]
+            rse_settings = self.rses.get(rse)
             rse_sign_service = rse_settings.get('sign_url', None)
             is_deterministic = rse_settings.get('deterministic', True)
             if not is_deterministic and not pfn:
