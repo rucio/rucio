@@ -465,15 +465,12 @@ def execute(cmd, blocking=True):
                                stdin=subprocess.PIPE,
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
-    out = ''
-    err = ''
-    exitcode = 0
 
     if blocking:
         result = process.communicate()
         (out, err) = result
         exitcode = process.returncode
-        return exitcode, out, err
+        return exitcode, out.decode(), err.decode()
     return process
 
 

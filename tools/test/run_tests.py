@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Copyright 2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,7 +48,8 @@ def run(*args, check=True, return_stdout=False, env=None) -> typing.Union[typing
     if return_stdout:
         kwargs['stderr'] = sys.stderr
         kwargs['stdout'] = subprocess.PIPE
-    print("** Running", " ".join(args), kwargs, file=sys.stderr, flush=True)
+    args = [str(a) for a in args]
+    print("** Running", " ".join(map(lambda a: repr(a) if ' ' in a else a, args)), kwargs, file=sys.stderr, flush=True)
     proc = subprocess.run(args, **kwargs)
     if return_stdout:
         return proc.stdout
@@ -91,11 +93,13 @@ def main():
         logs_dir.mkdir(exist_ok=True)
 
     def gen_case_kwargs(case: typing.Dict):
+        use_httpd = case.get('RUN_HTTPD', True)
         return {'caseenv': stringify_dict(case),
                 'image': find_image(images=obj["images"], case=case),
                 'use_podman': use_podman,
                 'use_namespace': use_podman and parallel,
-                'copy_rucio_logs': copy_rucio_logs,
+                'use_httpd': use_httpd,
+                'copy_rucio_logs': copy_rucio_logs and use_httpd,
                 'logs_dir': logs_dir / f'log-{case_id(case)}'}
 
     if parallel:
@@ -156,7 +160,7 @@ def run_case_logger(run_case_kwargs: typing.Dict, stdlog=sys.stderr):
     return True
 
 
-def run_case(caseenv, image, use_podman, use_namespace, copy_rucio_logs, logs_dir: pathlib.Path):
+def run_case(caseenv, image, use_podman, use_namespace, use_httpd, copy_rucio_logs, logs_dir: pathlib.Path):
     if use_namespace:
         namespace = str(uuid.uuid4())
         namespace_args = ('--namespace', namespace)
@@ -166,23 +170,76 @@ def run_case(caseenv, image, use_podman, use_namespace, copy_rucio_logs, logs_di
         namespace_env = {}
 
     pod = ""
-    cid = ""
     if use_podman:
         print("*** Starting with pod for", {**caseenv, "IMAGE": image}, file=sys.stderr, flush=True)
-        stdout = run('podman', *namespace_args, 'pod', 'create', return_stdout=True, check=True)
+        stdout = run('podman', *namespace_args, 'pod', 'create', return_stdout=True)
         pod = stdout.decode().strip()
         if not pod:
             raise RuntimeError("Could not determine pod id")
     else:
         print("*** Starting", {**caseenv, "IMAGE": image}, file=sys.stderr, flush=True)
 
-    success = False
     try:
-        docker_env_args = list(itertools.chain(*map(lambda x: ('--env', f'{x[0]}={x[1]}'), caseenv.items())))
+        if use_httpd:
+            print("* Using httpd for test", file=sys.stderr, flush=True)
+            success = run_with_httpd(
+                caseenv=caseenv,
+                image=image,
+                use_podman=use_podman,
+                pod=pod,
+                namespace_args=namespace_args,
+                namespace_env=namespace_env,
+                copy_rucio_logs=copy_rucio_logs,
+                logs_dir=logs_dir,
+            )
+        else:
+            print("* Running test directly without httpd", file=sys.stderr, flush=True)
+            success = run_test_directly(
+                caseenv=caseenv,
+                image=image,
+                use_podman=use_podman,
+                pod=pod,
+                namespace_args=namespace_args,
+            )
+    finally:
+        print("*** Finalizing", {**caseenv, "IMAGE": image}, file=sys.stderr, flush=True)
+        if pod:
+            run('podman', *namespace_args, 'pod', 'stop', '-t', '10', pod, check=False)
+            run('podman', *namespace_args, 'pod', 'rm', '--force', pod, check=False)
+
+    if not success:
+        sys.exit(1)
+
+
+def run_test_directly(caseenv, image, use_podman, pod, namespace_args):
+    pod_net_arg = ('--pod', pod) if use_podman else ()
+    docker_env_args = list(itertools.chain(*map(lambda x: ('--env', f'{x[0]}={x[1]}'), caseenv.items())))
+    scripts_to_run = ' && '.join([
+        # before_script.sh is not included since it is written to run outside
+        # the container and does not contribute to running without httpd
+        './tools/test/install_script.sh',
+        './tools/test/test.sh',
+    ])
+
+    try:
+        # Running rucio container from given image with special entrypoint
+        run('docker', *namespace_args, 'run', '--rm', *pod_net_arg, *docker_env_args, image, 'sh', '-c', scripts_to_run)
+
+        return True
+    except subprocess.CalledProcessError as error:
+        print(f"** Running tests '{error.cmd}' exited with code {error.returncode}", {**caseenv, "IMAGE": image}, file=sys.stderr, flush=True)
+    return False
+
+
+def run_with_httpd(caseenv, image, use_podman, pod, namespace_args, namespace_env, copy_rucio_logs, logs_dir: pathlib.Path) -> bool:
+    cid = ""
+    try:
         pod_net_arg = ('--pod', pod) if use_podman else ()
+        docker_env_args = list(itertools.chain(*map(lambda x: ('--env', f'{x[0]}={x[1]}'), caseenv.items())))
+
         # Running rucio container from given image
         stdout = run('docker', *namespace_args, 'run', '--detach', *pod_net_arg,
-                     *docker_env_args, image, return_stdout=True, check=True)
+                     *docker_env_args, image, return_stdout=True)
         cid = stdout.decode().strip()
         if not cid:
             raise RuntimeError("Could not determine container id after docker run")
@@ -191,33 +248,26 @@ def run_case(caseenv, image, use_podman, use_namespace, copy_rucio_logs, logs_di
         container_run_args = ' '.join(pod_net_arg if use_podman else network_arg)
         container_runtime_args = ' '.join(namespace_args)
 
-        try:
-            # Running before_script.sh
-            run('./tools/test/before_script.sh', env={**os.environ, **caseenv, **namespace_env,
-                                                      "CONTAINER_RUNTIME_ARGS": container_runtime_args,
-                                                      "CONTAINER_RUN_ARGS": container_run_args,
-                                                      "CON_RUCIO": cid})
+        # Running before_script.sh
+        run('./tools/test/before_script.sh', env={**os.environ, **caseenv, **namespace_env,
+                                                  "CONTAINER_RUNTIME_ARGS": container_runtime_args,
+                                                  "CONTAINER_RUN_ARGS": container_run_args,
+                                                  "CON_RUCIO": cid})
 
-            # output registered hostnames
-            run('docker', *namespace_args, 'exec', cid, 'cat', '/etc/hosts')
+        # output registered hostnames
+        run('docker', *namespace_args, 'exec', cid, 'cat', '/etc/hosts')
 
-            # Running install_script.sh
-            run('docker', *namespace_args, 'exec', cid, './tools/test/install_script.sh')
-        except:
-            # Try to get more information about failing runs in the CI
-            run('docker', *namespace_args, 'exec', cid, 'cat', '/var/log/httpd/error_log', check=False)
-            raise
+        # Running install_script.sh
+        run('docker', *namespace_args, 'exec', cid, './tools/test/install_script.sh')
 
         # Running test.sh
         run('docker', *namespace_args, 'exec', cid, './tools/test/test.sh')
 
         # if everything went through without an exception, mark this case as a success
-        success = True
+        return True
     except subprocess.CalledProcessError as error:
         print(f"** Process '{error.cmd}' exited with code {error.returncode}", {**caseenv, "IMAGE": image}, file=sys.stderr, flush=True)
     finally:
-        print("*** Finalizing", {**caseenv, "IMAGE": image}, file=sys.stderr, flush=True)
-
         if cid:
             run('docker', *namespace_args, 'logs', cid, check=False)
             run('docker', *namespace_args, 'stop', cid, check=False)
@@ -229,12 +279,7 @@ def run_case(caseenv, image, use_podman, use_namespace, copy_rucio_logs, logs_di
                 except Exception:
                     print("** Error on retrieving logs for", {**caseenv, "IMAGE": image}, '\n', traceback.format_exc(), '\n**', file=sys.stderr, flush=True)
             run('docker', *namespace_args, 'rm', '-v', cid, check=False)
-        if pod:
-            run('podman', *namespace_args, 'pod', 'stop', '-t', '10', pod, check=False)
-            run('podman', *namespace_args, 'pod', 'rm', '--force', pod, check=False)
-
-    if not success:
-        sys.exit(1)
+    return False
 
 
 if __name__ == "__main__":

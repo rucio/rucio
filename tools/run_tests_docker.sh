@@ -147,10 +147,10 @@ fi
 
 if test ${special}; then
     echo 'Using the special config and only running test_dirac'
-    pytest -v --full-trace lib/rucio/tests/test_dirac.py
+    python -bb -m pytest -vvvrxs lib/rucio/tests/test_dirac.py
 else
     echo 'Running tests'
-    pytest -v --full-trace
+    python -bb -m pytest -vvvrxs
 fi
 
 exit $?

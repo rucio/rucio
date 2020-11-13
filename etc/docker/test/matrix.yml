@@ -6,13 +6,24 @@ dists:
         - "3.6"
         - "3.7"
 python:
-  - "2.7"
+  - id: "2.7"
+    allow:
+      suites:
+        - client
+        - client_syntax
   - "3.6"
   - "3.7"
   - "3.8"
 suites:
   - id: syntax
     SYNTAX_REPORT: 1
+    RUN_HTTPD: false
+  - id: client_syntax
+    RUN_HTTPD: false
+    allow:
+      python: "2.7"
+  - id: client
+    RDBMS: sqlite
   - id: all
     RDBMS:
       - oracle
@@ -31,11 +42,6 @@ suites:
         - postgres9
         - postgres12
         - sqlite
-  - id: client
-    RDBMS: sqlite
-    REST_BACKEND:
-      - webpy
-      - flask
   - id: multi_vo
     RDBMS: postgres12
     REST_BACKEND:
