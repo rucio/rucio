@@ -1,4 +1,5 @@
-# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,45 +14,43 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2015
-# - Wen Guan <wguan.icedew@gmail.com>, 2015
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2015
+# - Wen Guan <wen.guan@cern.ch>, 2015
+# - asket <asket.agarwal96@gmail.com>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Tobias Wegner <twegner@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
-# - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019 - 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Vivek Nigam <viveknigam.nigam3@gmail.com>, 2020
-#
-# PY3K COMPATIBLE
 
 import logging
 import random
 import sys
-
 from datetime import datetime, timedelta
 from hashlib import md5
 from re import match
-from six import string_types
 
+from six import string_types
 from sqlalchemy import and_, or_, exists
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import not_, func
 from sqlalchemy.sql.expression import bindparam, case, select, true
 
-import rucio.core.rule
 import rucio.core.replica  # import add_replicas
-
+import rucio.core.rule
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.utils import str_to_date, is_archive, chunks
@@ -173,11 +172,12 @@ def add_dids(dids, account, session=None):
                 new_did = models.DataIdentifier(scope=did['scope'], name=did['name'], account=did.get('account') or account,
                                                 did_type=did['type'], monotonic=did.get('statuses', {}).get('monotonic', False),
                                                 is_open=True, expired_at=expired_at)
-                # Add metadata
-                for key in did.get('meta', {}):
-                    new_did.update({key: did['meta'][key]})
 
                 new_did.save(session=session, flush=False)
+
+                if 'meta' in did and did['meta']:
+                    # Add metadata
+                    set_metadata_bulk(scope=did['scope'], name=did['name'], meta=did['meta'], recursive=False, session=session)
 
                 if did.get('dids', None):
                     attach_dids(scope=did['scope'], name=did['name'], dids=did['dids'],
@@ -1239,6 +1239,20 @@ def set_metadata(scope, name, key, value, type=None, did=None,
     :param session: The database session in use.
     """
     did_meta_plugins.set_metadata(scope=scope, name=name, key=key, value=value, recursive=recursive, session=session)
+
+
+@transactional_session
+def set_metadata_bulk(scope, name, meta, recursive=False, session=None):
+    """
+    Add metadata to data identifier.
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param meta: the key-values.
+    :param recursive: Option to propagate the metadata change to content.
+    :param session: The database session in use.
+    """
+    did_meta_plugins.set_metadata_bulk(scope=scope, name=name, meta=meta, recursive=recursive, session=session)
 
 
 @read_session

@@ -30,6 +30,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
 # - Alan Malta Rodrigues <alan.malta@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
 
@@ -472,6 +473,26 @@ class DIDClient(BaseClient):
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta', key])
         url = build_url(choice(self.list_hosts), path=path)
         data = dumps({'value': value, 'recursive': recursive})
+        r = self._send_request(url, type='POST', data=data)
+        if r.status_code == codes.created:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
+
+    def set_metadata_bulk(self, scope, name, meta, recursive=False):
+        """
+        Set data identifier metadata in bulk.
+
+        :param scope: The scope name.
+        :param name: The data identifier name.
+        :param meta: the metadata key-values.
+        :type meta: dict
+        :param recursive: Option to propagate the metadata change to content.
+        """
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta'])
+        url = build_url(choice(self.list_hosts), path=path)
+        data = dumps({'meta': meta, 'recursive': recursive})
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
             return True
