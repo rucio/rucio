@@ -89,7 +89,7 @@ class LockByScopeName(MethodView):
         """
         did_type = request.args.get('did_type', None)
         try:
-            scope, name = parse_scope_name(scope_name)
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
             if did_type == 'dataset':
                 def generate(vo):
                     for lock in get_dataset_locks(scope, name, vo=vo):

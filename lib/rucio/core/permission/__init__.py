@@ -33,47 +33,69 @@ import importlib
 # dictionary of permission modules for each VO
 permission_modules = {}
 
-# TODO: load permission module for each VO in multi-VO installations
-
 try:
-    if config.config_get_bool('common', 'multi_vo'):
-        GENERIC_FALLBACK = 'generic_multi_vo'
-    else:
-        GENERIC_FALLBACK = 'generic'
+    multivo = config.config_get_bool('common', 'multi_vo')
 except (NoOptionError, NoSectionError):
+    multivo = False
+
+# in multi-vo mode packages are loaded on demand when needed
+if not multivo:
     GENERIC_FALLBACK = 'generic'
 
-if config.config_has_section('permission'):
-    try:
-        FALLBACK_POLICY = config.config_get('permission', 'policy')
-    except (NoOptionError, NoSectionError):
+    if config.config_has_section('permission'):
+        try:
+            FALLBACK_POLICY = config.config_get('permission', 'policy')
+        except (NoOptionError, NoSectionError):
+            FALLBACK_POLICY = GENERIC_FALLBACK
+    elif config.config_has_section('policy'):
+        try:
+            FALLBACK_POLICY = config.config_get('policy', 'permission')
+        except (NoOptionError, NoSectionError):
+            FALLBACK_POLICY = GENERIC_FALLBACK
+    else:
         FALLBACK_POLICY = GENERIC_FALLBACK
-elif config.config_has_section('policy'):
+
+    if config.config_has_section('policy'):
+        try:
+            POLICY = config.config_get('policy', 'package') + ".permission"
+        except (NoOptionError, NoSectionError):
+            # fall back to old system for now
+            POLICY = 'rucio.core.permission.' + FALLBACK_POLICY.lower()
+    else:
+        POLICY = 'rucio.core.permission.' + GENERIC_FALLBACK.lower()
+
     try:
-        FALLBACK_POLICY = config.config_get('policy', 'permission')
-    except (NoOptionError, NoSectionError):
-        FALLBACK_POLICY = GENERIC_FALLBACK
-else:
-    FALLBACK_POLICY = GENERIC_FALLBACK
+        module = importlib.import_module(POLICY)
+    except ImportError:
+        raise exception.PolicyPackageNotFound('Module ' + POLICY + ' not found')
 
-if config.config_has_section('policy'):
+    permission_modules["def"] = module
+
+
+def load_permission_for_vo(vo):
+    GENERIC_FALLBACK = 'generic_multi_vo'
+    if config.config_has_section('policy'):
+        try:
+            POLICY = config.config_get('policy', 'package-' + vo) + ".permission"
+        except (NoOptionError, NoSectionError):
+            # fall back to old system for now
+            try:
+                POLICY = config.config_get('policy', 'permission')
+            except (NoOptionError, NoSectionError):
+                POLICY = GENERIC_FALLBACK
+            POLICY = 'rucio.core.permission.' + POLICY.lower()
+    else:
+        POLICY = 'rucio.common.permission.' + GENERIC_FALLBACK.lower()
+
     try:
-        POLICY = config.config_get('policy', 'package') + ".permission"
-    except (NoOptionError, NoSectionError):
-        # fall back to old system for now
-        POLICY = 'rucio.core.permission.' + FALLBACK_POLICY.lower()
-else:
-    POLICY = 'rucio.core.permission.' + GENERIC_FALLBACK.lower()
+        module = importlib.import_module(POLICY)
+    except ImportError:
+        raise exception.PolicyPackageNotFound('Module ' + POLICY + ' not found')
 
-
-try:
-    module = importlib.import_module(POLICY)
-except ImportError:
-    raise exception.PolicyPackageNotFound('Module ' + POLICY + ' not found')
-
-permission_modules["def"] = module
+    permission_modules[vo] = module
 
 
 def has_permission(issuer, action, kwargs):
-    # TODO: determine VO from issuer and call corresponding permission module
-    return permission_modules["def"].has_permission(issuer, action, kwargs)
+    if issuer.vo not in permission_modules:
+        load_permission_for_vo(issuer.vo)
+    return permission_modules[issuer.vo].has_permission(issuer, action, kwargs)

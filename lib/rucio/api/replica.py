@@ -162,7 +162,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
     :param issuer: The issuer account.
     :param vo: The VO to act on.
     """
-    validate_schema(name='r_dids', obj=dids)
+    validate_schema(name='r_dids', obj=dids, vo=vo)
 
     # Allow selected authenticated users to retrieve signed URLs.
     # Unauthenticated users, or permission-less users will get the raw URL without the signature.
@@ -220,7 +220,7 @@ def add_replicas(rse, files, issuer, ignore_availability=False, vo='def'):
     """
     for v_file in files:
         v_file.update({"type": "FILE"})  # Make sure DIDs are identified as files for checking
-    validate_schema(name='dids', obj=files)
+    validate_schema(name='dids', obj=files, vo=vo)
 
     rse_id = get_rse_id(rse=rse, vo=vo)
 
@@ -251,7 +251,7 @@ def delete_replicas(rse, files, issuer, ignore_availability=False, vo='def'):
 
     :returns: True is successful, False otherwise
     """
-    validate_schema(name='r_dids', obj=files)
+    validate_schema(name='r_dids', obj=files, vo=vo)
 
     rse_id = get_rse_id(rse=rse, vo=vo)
 
@@ -278,7 +278,7 @@ def update_replicas_states(rse, files, issuer, vo='def'):
     """
     for v_file in files:
         v_file.update({"type": "FILE"})  # Make sure DIDs are identified as files for checking
-    validate_schema(name='dids', obj=files)
+    validate_schema(name='dids', obj=files, vo=vo)
 
     rse_id = get_rse_id(rse=rse, vo=vo)
 
@@ -321,7 +321,7 @@ def list_dataset_replicas_bulk(dids, vo='def'):
     :returns: A list of dict dataset replicas
     """
 
-    validate_schema(name='dids', obj=dids)
+    validate_schema(name='dids', obj=dids, vo=vo)
     names_by_scope = dict()
     for d in dids:
         if d['scope'] in names_by_scope:

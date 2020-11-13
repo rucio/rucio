@@ -69,7 +69,7 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
               'ask_approval': ask_approval, 'asynchronous': asynchronous, 'priority': priority, 'split_container': split_container,
               'meta': meta}
 
-    validate_schema(name='rule', obj=kwargs)
+    validate_schema(name='rule', obj=kwargs, vo=vo)
 
     if not has_permission(issuer=issuer, vo=vo, action='add_rule', kwargs=kwargs):
         raise AccessDenied('Account %s can not add replication rule' % (issuer))

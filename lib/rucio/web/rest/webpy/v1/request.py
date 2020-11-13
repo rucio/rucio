@@ -31,7 +31,7 @@ from logging import getLogger, StreamHandler, DEBUG
 from web import application, ctx, loadhook, header
 
 from rucio.api import request
-from rucio.common.schema import get_schema_value
+from rucio.common.schema import insert_scope_name
 from rucio.common.utils import render_json
 from rucio.core.rse import get_rses_with_attribute_value, get_rse_name
 from rucio.db.sqla.constants import RequestState
@@ -49,8 +49,8 @@ SH = StreamHandler()
 SH.setLevel(DEBUG)
 LOGGER.addHandler(SH)
 
-URLS = ('%s/(.+)' % get_schema_value('SCOPE_NAME_REGEXP'), 'RequestGet',
-        '/list', 'RequestsGet')
+URLS = insert_scope_name(('%s/(.+)', 'RequestGet',
+                          '/list', 'RequestsGet'))
 
 
 class RequestGet(RucioController):
