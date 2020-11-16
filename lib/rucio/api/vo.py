@@ -1,4 +1,5 @@
-# Copyright 2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2019-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +16,7 @@
 # Authors:
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 
 from rucio.api.permission import has_permission
 from rucio.common import exception
@@ -79,7 +80,7 @@ def recover_vo_root_identity(root_vo, identity_key, id_type, email, issuer, defa
 
     account = InternalAccount('root', vo=root_vo)
 
-    return identity.add_account_identity(identity=identity_key, type=IdentityType.from_sym(id_type), default=default, email=email, account=account, password=password)
+    return identity.add_account_identity(identity=identity_key, type=IdentityType[id_type.upper()], default=default, email=email, account=account, password=password)
 
 
 def update_vo(updated_vo, parameters, issuer, vo='def'):

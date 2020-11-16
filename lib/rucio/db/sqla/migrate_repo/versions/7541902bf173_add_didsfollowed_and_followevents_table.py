@@ -1,4 +1,5 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2019-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +14,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+# - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 
 ''' add DidsFollowed and FollowEvents table '''
 
@@ -41,7 +44,7 @@ def upgrade():
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
                      sa.Column('account', sa.String(25)),
-                     sa.Column('did_type', DIDType.db_type(name='DIDS_FOLLOWED_TYPE_CHK')),
+                     sa.Column('did_type', sa.Enum(DIDType, name='DIDS_FOLLOWED_TYPE_CHK', values_callable=lambda obj: [e.value for e in obj])),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow))
 
@@ -61,7 +64,7 @@ def upgrade():
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
                      sa.Column('account', sa.String(25)),
-                     sa.Column('did_type', DIDType.db_type(name='DIDS_FOLLOWED_EVENTS_TYPE_CHK')),
+                     sa.Column('did_type', sa.Enum(DIDType, name='DIDS_FOLLOWED_EVENTS_TYPE_CHK', values_callable=lambda obj: [e.value for e in obj])),
                      sa.Column('event_type', sa.String(1024)),
                      sa.Column('payload', sa.Text),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),

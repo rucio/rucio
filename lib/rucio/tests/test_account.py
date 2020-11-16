@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2013
 # - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
@@ -26,8 +26,6 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 import unittest
 from json import loads
@@ -171,7 +169,7 @@ def test_del_user_success(rest_client, auth_token):
     response = rest_client.get('/accounts/' + acntusr, headers=headers(auth(auth_token)))
     assert response.status_code == 200
     body = loads(response.get_data(as_text=True))
-    assert body['status'] == AccountStatus.DELETED.description  # pylint: disable=no-member
+    assert body['status'] == AccountStatus.DELETED.name
 
 
 def test_del_user_failure(rest_client, auth_token):

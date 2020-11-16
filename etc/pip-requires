@@ -1,9 +1,11 @@
 # All dependencies needed to run rucio should be defined here
 
-SQLAlchemy==1.3.7                                 # DB backend
-alembic==1.4.1                                    # Lightweight database migration tool for SQLAlchemy
-web.py==0.62                                      # Python web framework
-python3-memcached==1.51                           # Quick and small memcached client for Python3
+SQLAlchemy==1.3.17                                # DB backend
+alembic==1.4.3                                    # Lightweight database migration tool for SQLAlchemy
+web.py==0.39; python_version <= '2.7'             # Python web framework for Python2
+web.py==0.40; python_version > '2.7'              # Python web framework for Python3
+python-memcached==1.59; python_version <= '2.7'   # Quick and small memcached client for Python2
+python3-memcached==1.51; python_version > '2.7'   # Quick and small memcached client for Python3
 python-dateutil==2.8.1                            # Extensions to the standard datetime module
 stomp.py==4.1.23                                  # ActiveMQ Messaging Protocol
 statsd==3.3.0                                     # Needed to log into graphite with more than 1 Hz

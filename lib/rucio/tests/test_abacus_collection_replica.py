@@ -20,6 +20,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 
 import os
 import unittest
@@ -85,7 +86,7 @@ class TestAbacusCollectionReplica(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         dataset = 'dataset_%s' % generate_uuid()
         jdoe = InternalAccount('jdoe', **self.vo)
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), jdoe)
+        add_did(scope, dataset, DIDType.DATASET, jdoe)
 
         models.CollectionReplica(scope=scope, name=dataset, rse_id=rse_id1, state=ReplicaState.AVAILABLE, bytes=1).save(session=db_session, flush=False)
         models.CollectionReplica(scope=scope, name=dataset, rse_id=rse_id2, state=ReplicaState.AVAILABLE, bytes=1).save(session=db_session, flush=False)

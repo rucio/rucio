@@ -1,4 +1,5 @@
-# Copyright 2016-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2016-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +20,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 
 import unittest
 from datetime import datetime
@@ -92,7 +94,7 @@ class TestJudgeCleaner(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]

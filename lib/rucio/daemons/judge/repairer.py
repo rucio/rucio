@@ -93,6 +93,7 @@ def rule_repairer(once=False):
                                     delta=-1 if once else 1800,
                                     limit=100,
                                     blacklisted_rules=[key for key in paused_rules])
+
             logging.debug('rule_repairer[%s/%s] index query time %f fetch size is %d' % (heartbeat['assign_thread'], heartbeat['nr_threads'], time.time() - start, len(rules)))
 
             if not rules and not once:

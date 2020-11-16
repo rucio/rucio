@@ -236,7 +236,7 @@ class CompleteDataset(DataModel):
         logger = logging.getLogger('auditor.data_models')
         super(CompleteDataset, self).__init__(*args[0:7])
         if len(args) == 8:
-            logger.warn('Extra parameter\nrse: %s\ndataset: %s\n', self.rse, self.name)
+            logger.warning('Extra parameter\nrse: %s\ndataset: %s\n', self.rse, self.name)
             self.state = args[7]
         else:
             self.state = None
@@ -266,7 +266,7 @@ class Replica(DataModel):
         super(Replica, self).__init__(*args)
 
         if len(args) == 8:
-            logger.warn('Missing parameter\nrse: %s\ndataset: %s\n', self.rse, self.name)
+            logger.warning('Missing parameter\nrse: %s\ndataset: %s\n', self.rse, self.name)
         assert len(args) <= 9
 
 

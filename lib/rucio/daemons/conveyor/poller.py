@@ -311,7 +311,7 @@ def poll_transfers(external_host, xfers, prepend_str='', request_ids=None, timeo
                     transfer_core.touch_transfer(external_host, transfer_id)
                 except (DatabaseException, DatabaseError) as error:
                     if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
-                        logging.warn(prepend_str + "Lock detected when handling request %s - skipping" % request_id)
+                        logging.warning(prepend_str + "Lock detected when handling request %s - skipping" % request_id)
                     else:
                         logging.error(traceback.format_exc())
             logging.debug(prepend_str + 'Finished updating %s transfer requests status (%i requests state changed) in %s seconds' % (len(xfers), cnt, (time.time() - tss)))

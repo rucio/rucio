@@ -1,0 +1,129 @@
+version: "2"
+services:
+  ruciomy5:
+    image: mysql:5
+    hostname: ruciomy5
+    environment:
+      - MYSQL_USER=rucio
+      - MYSQL_PASSWORD=rucio
+      - MYSQL_ROOT_PASSWORD=rucio
+      - MYSQL_DATABASE=rucio
+      - MYSQL_TCP_PORT=3305
+    ports:
+      - "3305:3305"
+  ruciomy8:
+    image: mysql:8
+    hostname: ruciomy8
+    environment:
+      - MYSQL_USER=rucio
+      - MYSQL_PASSWORD=rucio
+      - MYSQL_ROOT_PASSWORD=rucio
+      - MYSQL_DATABASE=rucio
+      - MYSQL_TCP_PORT=3308
+    ports:
+      - "3308:3308"
+  oracle:
+    image: docker.io/wnameless/oracle-xe-11g-r2
+    hostname: oracle
+    ports:
+      - "1521:1521"
+    environment:
+      - ORACLE_ALLOW_REMOTE=true
+      - ORACLE_DISABLE_ASYNCH_IO=true
+      - processes=1000
+      - sessions=1105
+      - transactions=1215
+  rucio:
+    image: rucio/rucio-dev:py3
+    hostname: rucio
+    ports:
+      - "443:443"
+    links:
+      - oracle:oracle
+      - ruciodb:ruciodb
+      - graphite:graphite
+      - fts:fts
+      - ftsdb:ftsdb
+      - xrd1:xrd1
+      - xrd2:xrd2
+      - xrd3:xrd3
+      - minio:minio
+    volumes:
+      - ../../../tools:/opt/rucio/tools
+      - ../../../bin:/opt/rucio/bin
+      - ../../../lib:/opt/rucio/lib
+    environment:
+      - X509_USER_CERT=/opt/rucio/etc/usercert.pem
+      - X509_USER_KEY=/opt/rucio/etc/userkey.pem
+      - RDBMS=postgres11
+  ruciodb:
+    image: postgres:11
+    environment:
+      - POSTGRES_USER=rucio
+      - POSTGRES_DB=rucio
+      - POSTGRES_PASSWORD=secret
+    ports:
+      - "5432:5432"
+    command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
+  graphite:
+    image: graphiteapp/graphite-statsd
+    ports:
+      - "80:80"
+  fts:
+    image: rucio/fts
+    hostname: fts
+    ports:
+      - "8446:8446"
+      - "8449:8449"
+  ftsdb:
+    image: mysql:5
+    hostname: ftsdb
+    environment:
+      - MYSQL_USER=fts
+      - MYSQL_PASSWORD=fts
+      - MYSQL_ROOT_PASSWORD=fts
+      - MYSQL_DATABASE=fts
+    ports:
+      - "3306:3306"
+  xrd1:
+    image: rucio/xrootd
+    hostname: xrd1
+    environment:
+      - XRDPORT=1094
+    ports:
+      - "1094:1094"
+    volumes:
+      - ../../certs/hostcert_xrd1.pem:/tmp/xrdcert.pem
+      - ../../certs/hostcert_xrd1.key.pem:/tmp/xrdkey.pem
+  xrd2:
+    image: rucio/xrootd
+    hostname: xrd2
+    environment:
+      - XRDPORT=1095
+    ports:
+      - "1095:1095"
+    volumes:
+      - ../../certs/hostcert_xrd2.pem:/tmp/xrdcert.pem
+      - ../../certs/hostcert_xrd2.key.pem:/tmp/xrdkey.pem
+  xrd3:
+    image: rucio/xrootd
+    hostname: xrd3
+    environment:
+      - XRDPORT=1096
+    ports:
+      - "1096:1096"
+    volumes:
+      - ../../certs/hostcert_xrd3.pem:/tmp/xrdcert.pem
+      - ../../certs/hostcert_xrd3.key.pem:/tmp/xrdkey.pem
+  minio:
+    image: minio/minio
+    hostname: minio
+    environment:
+      - MINIO_ACCESS_KEY=admin
+      - MINIO_SECRET_KEY=password
+    ports:
+      - "9000:9000"
+    volumes:
+      - ../../certs/hostcert_minio.pem:/root/.minio/certs/public.crt
+      - ../../certs/hostcert_minio.key.pem:/root/.minio/certs/private.key
+    command: ["server", "/data"]
