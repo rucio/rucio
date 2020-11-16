@@ -1,4 +1,5 @@
-# Copyright 2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2019-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +16,7 @@
 # Authors:
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
@@ -69,9 +71,9 @@ def add_vo(vo, description, email, session=None):
     from rucio.core.account import add_account, list_identities
     from rucio.core.identity import add_account_identity
     new_root = InternalAccount('root', vo=vo)
-    add_account(account=new_root, type=AccountType.from_sym('SERVICE'), email=email, session=session)
+    add_account(account=new_root, type=AccountType['SERVICE'], email=email, session=session)
     add_account_identity(identity='root@{}'.format(vo),
-                         type=IdentityType.from_sym('userpass'),
+                         type=IdentityType['USERPASS'],
                          account=new_root,
                          email=email,
                          default=False,

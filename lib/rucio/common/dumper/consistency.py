@@ -135,7 +135,7 @@ class Consistency(data_models.DataModel):
             sd_prefix = 'ddmendpoint_{0}_unknown_date'.format(
                 ddm_endpoint,
             )
-            logger.warn(
+            logger.warning(
                 'Using basic and error prune naming for RSE dump as no date '
                 'information was provided, %s dump will be named %s',
                 ddm_endpoint,

@@ -42,7 +42,12 @@
 
 from __future__ import print_function
 
-import imp
+try:
+    import importlib
+    importlib.util.find_spec('')
+except AttributeError:
+    import imp
+
 import os
 import random
 import sys
@@ -80,11 +85,17 @@ disable_warnings()
 EXTRA_MODULES = {'requests_kerberos': False}
 
 for extra_module in EXTRA_MODULES:
-    try:
-        imp.find_module(extra_module)
-        EXTRA_MODULES[extra_module] = True
-    except ImportError:
-        EXTRA_MODULES[extra_module] = False
+    if 'imp' in sys.modules:
+        try:
+            imp.find_module(extra_module)
+            EXTRA_MODULES[extra_module] = True
+        except ImportError:
+            EXTRA_MODULES[extra_module] = False
+    else:
+        if importlib.util.find_spec(extra_module):
+            EXTRA_MODULES[extra_module] = True
+        else:
+            EXTRA_MODULES[extra_module] = False
 
 if EXTRA_MODULES['requests_kerberos']:
     from requests_kerberos import HTTPKerberosAuth  # pylint: disable=import-error

@@ -1,4 +1,5 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +15,11 @@
 #
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 
 from six import string_types
 from rucio.common.exception import RSEOperationNotSupported
@@ -36,7 +37,7 @@ def import_rses(rses, rse_sync_method='edit', attr_sync_method='edit', protocol_
     for rse_name in rses:
         rse = rses[rse_name]
         if isinstance(rse.get('rse_type'), string_types):
-            rse['rse_type'] = RSEType.from_string(str(rse['rse_type']))
+            rse['rse_type'] = RSEType(rse['rse_type'])
 
         if rse_module.rse_exists(rse_name, vo=vo, include_deleted=False, session=session):
             # RSE exists and is active
@@ -161,7 +162,7 @@ def import_distances(distances, vo='def', session=None):
 @transactional_session
 def import_identities(identities, account_name, old_identities, old_identity_account, account_email, session=None):
     for identity in identities:
-        identity['type'] = IdentityType.from_sym(identity['type'])
+        identity['type'] = IdentityType[identity['type'].upper()]
 
     missing_identities = [identity for identity in identities if (identity['identity'], identity['type']) not in old_identities]
     missing_identity_account = [identity for identity in identities if (identity['identity'], identity['type'], account_name) not in old_identity_account]

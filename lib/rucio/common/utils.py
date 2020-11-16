@@ -35,13 +35,18 @@
 
 from __future__ import print_function
 
+try:
+    import importlib
+    importlib.util.find_spec('')
+except AttributeError:
+    import imp
+
 import base64
 import copy
 import datetime
 import errno
 import getpass
 import hashlib
-import imp
 import json
 import logging
 import os
@@ -49,13 +54,17 @@ import os.path
 import re
 import socket
 import subprocess
+import sys
 import tempfile
 import threading
 import time
 import zlib
+
+from enum import Enum
+from logging import getLogger, Formatter  # NOQA: F401
+from logging.handlers import RotatingFileHandler
 from uuid import uuid4 as uuid
 from xml.etree import ElementTree
-from logging.handlers import RotatingFileHandler
 
 import requests
 from six import string_types, text_type, PY3
@@ -92,18 +101,18 @@ except ImportError:
 # Extra modules: Only imported if available
 EXTRA_MODULES = {'paramiko': False}
 
-try:
-    from rucio.db.sqla.enum import EnumSymbol
-    EXTRA_MODULES['rucio.db.sqla.enum'] = True
-except ImportError:
-    EXTRA_MODULES['rucio.db.sqla.enum'] = False
-
 for extra_module in EXTRA_MODULES:
-    try:
-        imp.find_module(extra_module)
-        EXTRA_MODULES[extra_module] = True
-    except ImportError:
-        EXTRA_MODULES[extra_module] = False
+    if 'imp' in sys.modules:
+        try:
+            imp.find_module(extra_module)
+            EXTRA_MODULES[extra_module] = True
+        except ImportError:
+            EXTRA_MODULES[extra_module] = False
+    else:
+        if importlib.util.find_spec(extra_module):
+            EXTRA_MODULES[extra_module] = True
+        else:
+            EXTRA_MODULES[extra_module] = False
 
 if EXTRA_MODULES['paramiko']:
     try:
@@ -406,8 +415,8 @@ class APIEncoder(json.JSONEncoder):
             return obj.isoformat()
         elif isinstance(obj, datetime.timedelta):
             return obj.days * 24 * 60 * 60 + obj.seconds
-        elif isinstance(obj, EnumSymbol):
-            return obj.description
+        elif isinstance(obj, Enum):
+            return obj.name
         elif isinstance(obj, (InternalAccount, InternalScope)):
             return obj.external
         return json.JSONEncoder.default(self, obj)

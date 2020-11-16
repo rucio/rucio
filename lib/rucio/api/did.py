@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2020
@@ -155,9 +155,9 @@ def add_did(scope, name, type, issuer, account=None, statuses={}, meta={}, rules
                 raise rucio.common.exception.InvalidObject("Provided metadata %s doesn't match the naming convention: %s != %s" % (k, meta[k], extra_meta[k]))
 
         # Validate metadata
-        meta_core.validate_meta(meta=meta, did_type=DIDType.from_sym(type))
+        meta_core.validate_meta(meta=meta, did_type=DIDType[type.upper()])
 
-    return did.add_did(scope=scope, name=name, type=DIDType.from_sym(type), account=account or issuer,
+    return did.add_did(scope=scope, name=name, type=DIDType[type.upper()], account=account or issuer,
                        statuses=statuses, meta=meta, rules=rules, lifetime=lifetime,
                        dids=dids, rse_id=rse_id)
 
@@ -295,7 +295,7 @@ def list_new_dids(type=None, thread=None, total_threads=None, chunk_size=1000, v
     :param chunk_size: Number of requests to return per yield.
     :param vo: The VO to act on.
     """
-    dids = did.list_new_dids(did_type=type and DIDType.from_sym(type), thread=thread, total_threads=total_threads, chunk_size=chunk_size)
+    dids = did.list_new_dids(did_type=type and DIDType[type.upper()], thread=thread, total_threads=total_threads, chunk_size=chunk_size)
     for d in dids:
         if d['scope'].vo == vo:
             yield api_update_return_dict(d)

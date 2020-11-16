@@ -18,7 +18,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2015
@@ -39,6 +39,7 @@ import logging
 import random
 import sys
 from datetime import datetime, timedelta
+from enum import Enum
 from hashlib import md5
 from re import match
 
@@ -60,7 +61,6 @@ from rucio.core.monitor import record_timer_block, record_counter
 from rucio.core.naming_convention import validate_name
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, RuleState
-from rucio.db.sqla.enum import EnumSymbol
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 logging.basicConfig(stream=sys.stdout,
@@ -158,7 +158,7 @@ def add_dids(dids, account, session=None):
             try:
 
                 if isinstance(did['type'], string_types):
-                    did['type'] = DIDType.from_sym(did['type'])
+                    did['type'] = DIDType[did['type']]
 
                 if did['type'] == DIDType.FILE:
                     raise exception.UnsupportedOperation("Only collection (dataset/container) can be registered." % locals())
@@ -836,8 +836,8 @@ def list_new_dids(did_type, thread=None, total_threads=None, chunk_size=1000, se
 
     if did_type:
         if isinstance(did_type, string_types):
-            query = query.filter_by(did_type=DIDType.from_sym(did_type))
-        elif isinstance(did_type, EnumSymbol):
+            query = query.filter_by(did_type=DIDType[did_type])
+        elif isinstance(did_type, Enum):
             query = query.filter_by(did_type=did_type)
 
     query = filter_thread_work(session=session, query=query, total_threads=total_threads, thread_id=thread, hash_variable='name')

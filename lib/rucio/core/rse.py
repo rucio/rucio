@@ -1,4 +1,5 @@
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,24 +14,27 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2017
-# - Wen Guan <wguan.icedew@gmail.com>, 2015-2016
+# - Wen Guan <wen.guan@cern.ch>, 2015-2016
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2018
-# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2019
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
-# - Gabriele Fronze' <gfronze@cern.ch>, 2019
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2020
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Brandon White <bjwhite@fnal.gov>, 2019
+# - Gabriele Fronze' <gfronze@cern.ch>, 2019
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 
 from __future__ import division
 
@@ -96,7 +100,7 @@ def add_rse(rse, vo='def', deterministic=True, volatile=False, city=None, region
     :param session: The database session in use.
     """
     if isinstance(rse_type, string_types):
-        rse_type = RSEType.from_string(str(rse_type))
+        rse_type = RSEType(rse_type)
 
     new_rse = models.RSE(rse=rse, vo=vo, deterministic=deterministic, volatile=volatile, city=city,
                          region_code=region_code, country_name=country_name,
@@ -383,7 +387,7 @@ def list_rses(filters={}, session=None):
         for (k, v) in filters.items():
             if hasattr(models.RSE, k):
                 if k == 'rse_type':
-                    query = query.filter(getattr(models.RSE, k) == RSEType.from_sym(v))
+                    query = query.filter(getattr(models.RSE, k) == RSEType[v])
                 else:
                     query = query.filter(getattr(models.RSE, k) == v)
             elif k in ['availability_read', 'availability_write', 'availability_delete']:

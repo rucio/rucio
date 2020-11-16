@@ -248,7 +248,7 @@ def get_rses_to_hostname_mapping():
                 if prot['domains']['wan']['delete'] == 1:
                     result[rse['id']] = (prot['hostname'], rse_protocol)
             if rse['id'] not in result:
-                logging.warn('No default delete protocol for %s', rse['rse'])
+                logging.warning('No default delete protocol for %s', rse['rse'])
 
         REGION.set('rse_hostname_mapping', result)
         return result
