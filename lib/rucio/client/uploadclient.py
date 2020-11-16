@@ -130,12 +130,15 @@ class UploadClient:
         # and cache rse settings
         registered_dataset_dids = set()
         registered_file_dids = set()
+        rses = []
+        rse_expression = None
         for file in files:
             rse_expression = file['rse']
-            rse = None
-            if not self.rses.get(rse_expression):
-                rses = [r['rse'] for r in self.client.list_rses(rse_expression)]
-                rse = random.choice(rses)
+            if not rses:
+                rses = [r['rse'] for r in self.client.list_rses(rse_expression)]  # can raise InvalidRSEExpression
+                random.shuffle(rses)
+            rse = rses[0]
+            if not self.rses.get(rse):
                 rse_settings = self.rses.setdefault(rse, rsemgr.get_rse_info(rse, vo=self.client.vo))
                 if rse_settings['availability_write'] != 1:
                     raise RSEBlacklisted('%s is not available for writing. No actions have been taken' % rse)
@@ -478,6 +481,7 @@ class UploadClient:
         """
         logger = self.logger
         files = []
+        rse_expression = None
         for item in items:
             path = item.get('path')
             pfn = item.get('pfn')
@@ -487,6 +491,10 @@ class UploadClient:
             if not item.get('rse'):
                 logger.warning('Skipping file %s because no rse was given' % path)
                 continue
+            if rse_expression:
+                if rse_expression != item.get('rse'):
+                    logger.warning('Multi-dst upload not supported. Skipping file %s.' % path)
+            rse_expression = item.get('rse')
             if pfn:
                 item['force_scheme'] = pfn.split(':')[0]
 
