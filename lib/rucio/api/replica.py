@@ -23,6 +23,7 @@
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
 # - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Eric Vaandering <ewv@fnal.gov>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -321,7 +322,7 @@ def list_dataset_replicas_bulk(dids, vo='def'):
     :returns: A list of dict dataset replicas
     """
 
-    validate_schema(name='dids', obj=dids)
+    validate_schema(name='r_dids', obj=dids)
     names_by_scope = dict()
     for d in dids:
         if d['scope'] in names_by_scope:
