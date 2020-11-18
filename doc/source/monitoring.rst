@@ -173,8 +173,8 @@ Set up the Rucio internal monitoring dashboard
 Rucio need to be configured to enable the message broker. In Rucio, message are sent by the Hermes daemon. Settings are defined in therucio.cfg under the [messaging-hermes] section::
 
     [messaging-hermes]
-    username = admin
-    password = secret
+    username = 
+    password = 
     port = 61613
     nonssl_port = 61613
     use_ssl = False
@@ -183,8 +183,8 @@ Rucio need to be configured to enable the message broker. In Rucio, message are 
     destination = /topic/rucio.events
     brokers = activemq
     voname = atlas
-    email_from = Rucio <atlas-adc-ddm-support@cern.ch>
-    email_test = spamspamspam@cern.ch
+    email_from = 
+    email_test = 
 
 The default settings are listed above. If ssl is not used, set use_ssl to False and define username and password. They should be "admin", "admin" for the default activemq settings. If you are not using the containers created by the docker-compose command, change the brokers and port to the server hosting the message queue.
 
@@ -321,7 +321,7 @@ Where the rse.conf contains::
 
 The rse pipeline dumps data like how large is the total space, how large is the used space, how many files are saved on each RSE etc. Please fill in the jdbc connection details and Elastisearch connection details in the config file.
 
-More pipeline definitions can be found `here <https://github.com/feipengsy/rucio-monitoring/tree/master/scripts/logstash>`__, and users could design their own DB queries for their specific monitoring needs. Also users could directly import the Elasticsearch indices and Kibana dashboard from `these <https://github.com/feipengsy/rucio-monitoring/tree/master/kibana/visualization/db_dump>`__ jason files.
+More pipeline definitions can be found `here <https://github.com/feipengsy/rucio-monitoring/tree/master/scripts/logstash>`__, and users could design their own DB queries for their specific monitoring needs. Also users could directly import the Elasticsearch indices and Kibana dashboard from `these <https://github.com/feipengsy/rucio-monitoring/tree/master/kibana/visualization/db_dump>`__ json files.
 
 .. rubric:: Footnotes
 
