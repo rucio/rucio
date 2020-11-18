@@ -1,0 +1,31 @@
+[
+  {
+    "_id": "90fd1400-9c12-11e9-9ef1-ab86ce457da9",
+    "_type": "visualization",
+    "_source": {
+      "title": "[rucio] Failures",
+      "visState": "{\n  \"title\": \"[rucio] Failures\",\n  \"type\": \"table\",\n  \"params\": {\n    \"perPage\": 5,\n    \"showPartialRows\": false,\n    \"showMetricsAtAllLevels\": false,\n    \"sort\": {\n      \"columnIndex\": null,\n      \"direction\": null\n    },\n    \"showTotal\": false,\n    \"totalFunc\": \"sum\"\n  },\n  \"aggs\": [\n    {\n      \"id\": \"2\",\n      \"enabled\": true,\n      \"type\": \"count\",\n      \"schema\": \"metric\",\n      \"params\": {}\n    },\n    {\n      \"id\": \"3\",\n      \"enabled\": true,\n      \"type\": \"terms\",\n      \"schema\": \"bucket\",\n      \"params\": {\n        \"field\": \"reason\",\n        \"size\": 5,\n        \"order\": \"asc\",\n        \"orderBy\": \"_key\",\n        \"otherBucket\": false,\n        \"otherBucketLabel\": \"Other\",\n        \"missingBucket\": false,\n        \"missingBucketLabel\": \"Missing\"\n      }\n    }\n  ]\n}",
+      "uiStateJSON": "{\n  \"vis\": {\n    \"params\": {\n      \"sort\": {\n        \"columnIndex\": 0,\n        \"direction\": null\n      }\n    }\n  }\n}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\n  \"query\": {\n    \"query\": \"\",\n    \"language\": \"kuery\"\n  },\n  \"filter\": [\n    {\n      \"meta\": {\n        \"type\": \"phrases\",\n        \"key\": \"event_type\",\n        \"value\": \"transfer-failed, transfer-submission_failed\",\n        \"params\": [\n          \"transfer-failed\",\n          \"transfer-submission_failed\"\n        ],\n        \"alias\": null,\n        \"negate\": false,\n        \"disabled\": false,\n        \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index\"\n      },\n      \"query\": {\n        \"bool\": {\n          \"should\": [\n            {\n              \"match_phrase\": {\n                \"event_type\": \"transfer-failed\"\n              }\n            },\n            {\n              \"match_phrase\": {\n                \"event_type\": \"transfer-submission_failed\"\n              }\n            }\n          ],\n          \"minimum_should_match\": 1\n        }\n      },\n      \"$state\": {\n        \"store\": \"appState\"\n      }\n    }\n  ],\n  \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.index\"\n}"
+      }
+    },
+    "_migrationVersion": {
+      "visualization": "7.0.1"
+    },
+    "_references": [
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      },
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      }
+    ]
+  }
+]
