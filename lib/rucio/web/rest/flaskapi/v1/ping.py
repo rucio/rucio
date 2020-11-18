@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,28 +17,20 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
-from json import dumps
-from logging import getLogger, StreamHandler, DEBUG
-from flask import Flask, Blueprint, Response
+from flask import Flask, Blueprint, jsonify, request
 from flask.views import MethodView
+from werkzeug.datastructures import Headers
 
 from rucio import version
-from rucio.web.rest.flaskapi.v1.common import after_request, check_accept_header_wrapper_flask
-
-LOGGER = getLogger("rucio.rucio")
-SH = StreamHandler()
-SH.setLevel(DEBUG)
-LOGGER.addHandler(SH)
+from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask
 
 
 class Ping(MethodView):
-    '''
-    Ping class
-    '''
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
@@ -70,28 +62,36 @@ class Ping(MethodView):
         :status 500: Internal Error.
         :returns: JSON dictionary with the version.
         """
-        return Response(dumps({"version": version.version_string()}), content_type="application/json")
+        headers = Headers()
+        headers.set('Access-Control-Allow-Origin', request.environ.get('HTTP_ORIGIN'))
+        headers.set('Access-Control-Allow-Headers', request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        headers.set('Access-Control-Allow-Methods', '*')
+        headers.set('Access-Control-Allow-Credentials', 'true')
+
+        headers.set('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        headers.add('Cache-Control', 'post-check=0, pre-check=0')
+        headers.set('Pragma', 'no-cache')
+
+        response = jsonify(version=version.version_string())
+        response.headers.extend(headers)
+        return response
 
 
-# ----------------------
-#   Web service startup
-# ----------------------
-bp = Blueprint('ping', __name__)
+def blueprint(no_doc=True):
+    bp = Blueprint('ping', __name__, url_prefix='/ping')
 
-ping_view = Ping.as_view('ping')
-bp.add_url_rule('/', view_func=ping_view, methods=['get', ])
+    ping_view = Ping.as_view('ping')
+    if no_doc:
+        # rule without trailing slash needs to be added before rule with trailing slash
+        bp.add_url_rule('', view_func=ping_view, methods=['get', ])
+    bp.add_url_rule('/', view_func=ping_view, methods=['get', ])
 
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.after_request(after_request)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
     """ Only used for sphinx documentation to add the prefix """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/ping')
+    doc_app.register_blueprint(blueprint(no_doc=False))
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

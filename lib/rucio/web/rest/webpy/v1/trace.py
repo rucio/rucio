@@ -1,5 +1,6 @@
-#!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2013-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,12 +16,12 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2015
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
+
 import calendar
 import datetime
 import json
@@ -29,9 +30,9 @@ import uuid
 
 from web import application, ctx, data, header, InternalError, Created
 
-from rucio.common.utils import generate_http_error
 from rucio.core.trace import trace
 from rucio.web.rest.common import RucioController
+from rucio.web.rest.utils import generate_http_error
 
 URLS = (
     '/', 'Trace',

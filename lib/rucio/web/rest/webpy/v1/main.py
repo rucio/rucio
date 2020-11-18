@@ -1,5 +1,6 @@
-#!/usr/bin/env python
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,12 +16,11 @@
 #
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from web import application, loadhook
 
-from rucio.common.schema import get_schema_value
+from rucio.common.schema import insert_scope_name
 from rucio.web.rest.common import rucio_loadhook
 from rucio.web.rest.account import (Attributes as AAttributes, Scopes as AScopes, Identities as AIdentities,  # NOQA: F401
                                     LocalAccountLimits as ALocalAccountLimits, GlobalAccountLimits as  # NOQA: F401
@@ -60,8 +60,9 @@ from rucio.web.rest.rse import (Attributes as RAttributes, Distance as RDistance
                                 Usage as RUsage, UsageHistory as RUsageHistory, Limits as RLimits, RSE
                                 as RRSE, RSEs as RRSEs, QoSPolicy as RQoSPolicy)  # NOQA: F401
 from rucio.web.rest.scope import Scope as SCScope, ScopeList as SCScopeList  # NOQA: F401
-from rucio.web.rest.subscription import SubscriptionId as SSubscriptionId, States as AStates, Rules as SRules, SubscriptionName as SSubscriptionName, Subscription as SSubscription  # NOQA: F401
-from rucio.web.rest.temporary_did import BulkDIDS as TBulkDIDS   # NOQA: F401
+from rucio.web.rest.subscription import SubscriptionId as SSubscriptionId, States as SStates, Rules as SRules, SubscriptionName as SSubscriptionName, Subscription as SSubscription  # NOQA: F401
+from rucio.web.rest.temporary_did import BulkDIDS as TBulkDIDS  # NOQA: F401
+from rucio.web.rest.vo import VO as VVO, VOs as VVOs, RecoverVO as VRecoverVO  # NOQA: F401
 
 
 URLS = [
@@ -94,7 +95,7 @@ URLS += [
     '/accountlimits/(.+)/(.+)', 'ALLocalAccountLimit',
 ]
 
-URLS += ['/archives%s/files' % get_schema_value('SCOPE_NAME_REGEXP'), 'AVArchive']
+URLS += insert_scope_name(('/archives%s/files', 'AVArchive'))
 
 URLS += [
     '/config/(.+)/(.+)/(.*)', 'COptionSet',
@@ -103,30 +104,30 @@ URLS += [
     '/config', 'CConfig'
 ]
 
-URLS += [
+URLS += insert_scope_name((
     '/dids/(.*)/$', 'DScope',
     '/dids/(.*)/guid', 'DGUIDLookup',
     '/dids/(.*)/dids/search', 'DSearch',
-    '/dids%s/files' % get_schema_value('SCOPE_NAME_REGEXP'), 'DFiles',
-    '/dids%s/dids/history' % get_schema_value('SCOPE_NAME_REGEXP'), 'DAttachmentHistory',
-    '/dids%s/dids' % get_schema_value('SCOPE_NAME_REGEXP'), 'DAttachment',
-    '/dids%s/meta/(.*)' % get_schema_value('SCOPE_NAME_REGEXP'), 'DMeta',
-    '/dids%s/meta' % get_schema_value('SCOPE_NAME_REGEXP'), 'DMeta',
-    '/dids%s/status' % get_schema_value('SCOPE_NAME_REGEXP'), 'DDIDs',
-    '/dids%s/rules' % get_schema_value('SCOPE_NAME_REGEXP'), 'DRules',
-    '/dids%s/parents' % get_schema_value('SCOPE_NAME_REGEXP'), 'DParents',
-    '/dids%s/associated_rules' % get_schema_value('SCOPE_NAME_REGEXP'), 'DAssociatedRules',
-    '/dids%s/did_meta' % get_schema_value('SCOPE_NAME_REGEXP'), 'DDidMeta',
+    '/dids%s/files', 'DFiles',
+    '/dids%s/dids/history', 'DAttachmentHistory',
+    '/dids%s/dids', 'DAttachment',
+    '/dids%s/meta/(.*)', 'DMeta',
+    '/dids%s/meta', 'DMeta',
+    '/dids%s/status', 'DDIDs',
+    '/dids%s/rules', 'DRules',
+    '/dids%s/parents', 'DParents',
+    '/dids%s/associated_rules', 'DAssociatedRules',
+    '/dids%s/did_meta', 'DDidMeta',
     '/dids/(.*)/(.*)/(.*)/(.*)/(.*)/sample', 'DSample',
-    '/dids%s' % get_schema_value('SCOPE_NAME_REGEXP'), 'DDIDs',
+    '/dids%s', 'DDIDs',
     '/dids', 'DBulkDIDS',
     '/dids/attachments', 'DAttachments',
     '/dids/new', 'DNewDIDs',
     '/dids/resurrect', 'DResurrect',
     '/dids/list_dids_by_meta', 'DListByMeta',
-    '/dids%s/follow' % get_schema_value('SCOPE_NAME_REGEXP'), 'DFollow',
+    '/dids%s/follow', 'DFollow',
     '/dids/bulkmeta', 'DBulkMeta',
-]
+))
 
 URLS += [
     '/export/', 'EExport',
@@ -152,10 +153,10 @@ URLS += [
     '/lifetime_exceptions/(.+)', 'LELifetimeExceptionId'
 ]
 
-URLS += [
-    '/locks%s' % get_schema_value('SCOPE_NAME_REGEXP'), 'LLockByScopeName',
+URLS += insert_scope_name((
+    '/locks%s', 'LLockByScopeName',
     '/locks/(.*)', 'LLockByRSE'
-]
+))
 
 URLS += [
     '/meta/(.+)/(.+)', 'MValues',
@@ -164,7 +165,7 @@ URLS += [
     '/meta/', 'MMeta'
 ]
 
-URLS += [
+URLS += insert_scope_name((
     '/replicas/list/?$', 'RPListReplicas',
     '/replicas/?$', 'RPReplicas',
     '/replicas/suspicious/?$', 'RPSuspiciousReplicas',
@@ -174,16 +175,16 @@ URLS += [
     '/replicas/rse/(.*)/?$', 'RPReplicasRSE',
     '/replicas/bad/?$', 'RPBadReplicas',
     '/replicas/dids/?$', 'RPReplicasDIDs',
-    '/replicas%s/datasets$' % get_schema_value('SCOPE_NAME_REGEXP'), 'RPDatasetReplicas',
-    '/replicas%s/datasets_vp$' % get_schema_value('SCOPE_NAME_REGEXP'), 'RPDatasetReplicasVP',
-    '/replicas%s/?$' % get_schema_value('SCOPE_NAME_REGEXP'), 'RPReplicas',
+    '/replicas%s/datasets$', 'RPDatasetReplicas',
+    '/replicas%s/datasets_vp$', 'RPDatasetReplicasVP',
+    '/replicas%s/?$', 'RPReplicas',
     '/replicas/tombstone/?$', 'RPTombstone'
-]
+))
 
-URLS += [
-    '/requests/%s/(.+)' % get_schema_value('SCOPE_NAME_REGEXP'), 'RQRequestGet',
+URLS += insert_scope_name((
+    '/requests/%s/(.+)', 'RQRequestGet',
     '/requests/list', 'RQRequestsGet'
-]
+))
 
 URLS += [
     '/rses/(.+)/attr/(.+)', 'RAttributes',
@@ -205,16 +206,16 @@ URLS += [
     '/rses/', 'RRSEs',
 ]
 
-URLS += [
+URLS += insert_scope_name((
     '/rules/(.+)/locks', 'RUReplicaLocks',
     '/rules/(.+)/reduce', 'RUReduceRule',
     '/rules/(.+)/move', 'RUMoveRule',
-    '/rules%s/history' % get_schema_value('SCOPE_NAME_REGEXP'), 'RURuleHistoryFull',
+    '/rules%s/history', 'RURuleHistoryFull',
     '/rules/(.+)/history', 'RURuleHistory',
     '/rules/(.+)/analysis', 'RURuleAnalysis',
     '/rules/', 'RUAllRule',
     '/rules/(.+)', 'RURule'
-]
+))
 
 URLS += [
     '/scopes/', 'SCScope',
@@ -230,6 +231,12 @@ URLS += [
     '/subscriptions/(.*)/(.*)', 'SSubscription',
     '/subscriptions/(.*)', 'SSubscription',
     '/subscriptions/', 'SSubscription',
+]
+
+URLS += [
+    '/vos/(.+)/recover', 'VRecoverVO',
+    '/vos/(.+)', 'VVO',
+    '/vos/', 'VVOs'
 ]
 
 URLS += ['/tmp_dids', 'TBulkDIDS']

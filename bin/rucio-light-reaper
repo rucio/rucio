@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright 2016-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +16,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 """
 Reaper is a daemon to manage sub-file deletion
@@ -33,11 +34,13 @@ def get_parser():
     """
     parser = argparse.ArgumentParser(description="The light-reaper is responsible of deletion of temporary files")
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
-    parser.add_argument("--all-rses", action="store_true", default=False, help='Select RSEs from the quarantined queues')
     parser.add_argument("--total-workers", action="store", default=1, type=int, help='Total number of workers per process')
     parser.add_argument("--chunk-size", action="store", default=10, type=int, help='Chunk size')
     parser.add_argument("--scheme", action="store", default=None, type=str, help='Force the reaper to use a particular protocol, e.g., mock.')
     parser.add_argument('--rses', nargs='+', type=str, help='List of RSEs')
+    parser.add_argument('--exclude-rses', action="store", default=None, type=str, help='RSEs expression to exclude RSEs')
+    parser.add_argument('--include-rses', action="store", default=None, type=str, help='RSEs expression to include RSEs')
+    parser.add_argument('--vos', nargs='+', type=str, help='Optional list of VOs to consider. Only used in multi-VO mode.')
     return parser
 
 
@@ -48,6 +51,6 @@ if __name__ == '__main__':
     try:
         run(total_workers=args.total_workers, chunk_size=args.chunk_size,
             once=args.run_once, scheme=args.scheme, rses=args.rses,
-            all_rses=args.all_rses)
+            exclude_rses=args.exclude_rses, include_rses=args.include_rses, vos=args.vos)
     except KeyboardInterrupt:
         stop()

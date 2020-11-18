@@ -1,5 +1,6 @@
-#!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2014-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,28 +18,31 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
-from traceback import format_exc
-try:
-    from urlparse import parse_qs
-except ImportError:
-    from urllib.parse import parse_qs
-from web import application, ctx, header, seeother, InternalError
 
 from logging import getLogger, StreamHandler, DEBUG
+from traceback import format_exc
+
+from web import application, ctx, header, seeother, InternalError
 
 from rucio.api.replica import list_replicas
 from rucio.common.exception import RucioException, DataIdentifierNotFound, ReplicaNotFound
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_ranking, sort_dynamic, site_selector
-from rucio.common.schema import get_schema_value
-from rucio.common.utils import generate_http_error
+from rucio.common.schema import insert_scope_name
 from rucio.web.rest.common import RucioController, check_accept_header_wrapper
+from rucio.web.rest.utils import generate_http_error
+
+try:
+    from urlparse import parse_qs
+except ImportError:
+    from urllib.parse import parse_qs
 
 
 LOGGER = getLogger("rucio.rucio")
@@ -46,8 +50,8 @@ SH = StreamHandler()
 SH.setLevel(DEBUG)
 LOGGER.addHandler(SH)
 
-URLS = ('%s/metalink?$' % get_schema_value('SCOPE_NAME_REGEXP'), 'MetaLinkRedirector',
-        '%s/?$' % get_schema_value('SCOPE_NAME_REGEXP'), 'HeaderRedirector')
+URLS = insert_scope_name(('%s/metalink?$', 'MetaLinkRedirector',
+                          '%s/?$', 'HeaderRedirector'))
 
 
 class MetaLinkRedirector(RucioController):

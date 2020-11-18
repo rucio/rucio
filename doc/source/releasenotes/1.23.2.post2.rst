@@ -1,0 +1,13 @@
+============
+1.23.2.post2
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Core & Internals: add_replicas needs to clean signed URLs from cloud service `#3939 <https://github.com/rucio/rucio/issues/3939>`_

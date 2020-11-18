@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,24 +16,26 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
+
 from traceback import format_exc
+
+from flask import Flask, Blueprint, request, Response
+from flask.views import MethodView
+
+from rucio.api.credential import get_signed_url
+from rucio.common.exception import RucioException
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask
+from rucio.web.rest.utils import generate_http_error_flask
+
 try:
     from urlparse import parse_qs
 except ImportError:
     from urllib.parse import parse_qs
-from rucio.api.authentication import validate_auth_token
-from rucio.api.credential import get_signed_url
-from rucio.common.exception import AccessDenied, RucioException
-from rucio.common.utils import generate_http_error_flask
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask
-
-from flask import Flask, Blueprint, request, Response
-from flask.views import MethodView
 
 
 class SignURL(MethodView):
@@ -69,12 +71,6 @@ class SignURL(MethodView):
         :reqheader X-Rucio-VO: VO name as a string (Multi-VO only).
         :reqheader X-Rucio-Account: Account identifier as a string.
         :reqheader X-Rucio-AppID: Application identifier as a string.
-        :resheader Access-Control-Allow-Origin:
-        :resheader Access-Control-Allow-Headers:
-        :resheader Access-Control-Allow-Methods:
-        :resheader Access-Control-Allow-Credentials:
-        :resheader Access-Control-Expose-Headers:
-        :resheader X-Rucio-Auth-Token: The authentication token
         :status 200: Successfully signed URL
         :status 400: Bad Request
         :status 401: Unauthorized
@@ -82,45 +78,20 @@ class SignURL(MethodView):
         :status 500: Internal Server Error
         """
 
-        response = Response()
-        response.headers['Access-Control-Allow-Origin'] = request.environ.get('HTTP_ORIGIN')
-        response.headers['Access-Control-Allow-Headers'] = request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS')
-        response.headers['Access-Control-Allow-Methods'] = '*'
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-        response.headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token'
-
-        response.headers['Content-Type'] = 'application/octet-stream'
-        response.headers['Cache-Control'] = 'no-cache, no-store, max-age=0, must-revalidate'
-        response.headers['Cache-Control'] = 'post-check=0, pre-check=0'
-        response.headers['Pragma'] = 'no-cache'
-
-        vo = request.environ.get('HTTP_X_RUCIO_VO', 'def')
-        account = request.environ.get('HTTP_X_RUCIO_ACCOUNT')
-        appid = request.environ.get('HTTP_X_RUCIO_APPID')
-        if appid is None:
-            appid = 'unknown'
-        ip = request.environ.get('HTTP_X_FORWARDED_FOR')
-        if ip is None:
-            ip = request.remote_addr
-
-        try:
-            validate_auth_token(request.environ.get('HTTP_X_RUCIO_AUTH_TOKEN'))
-        except AccessDenied:
-            return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot authenticate to account %(account)s with given credentials' % locals())
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            print(format_exc())
-            return error, 500
+        vo = request.headers.get('X-Rucio-VO', default='def')
+        account = request.headers.get('X-Rucio-Account', default=None)
+        appid = request.headers.get('X-Rucio-AppID', default='unknown')
+        ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
         rse, svc, operation, url = None, None, None, None
         try:
-            params = parse_qs(request.query[1:])
+            query_string = request.query_string.decode(encoding='utf-8')
+            params = parse_qs(query_string)
+            rse = params.get('rse', [None])[0]
             lifetime = params.get('lifetime', [600])[0]
             service = params.get('svc', ['gcs'])[0]
             operation = params.get('op', ['read'])[0]
             url = params.get('url', [None])[0]
-            rse = params.get('rse', [None])[0]
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -142,28 +113,27 @@ class SignURL(MethodView):
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
         if not result:
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot generate signed URL for account %(account)s' % locals())
 
-        return response
+        return str(result), 200
 
 
-bp = Blueprint('credential', __name__)
+def blueprint():
+    bp = Blueprint('credential', __name__, url_prefix='/credential')
 
-signurl_view = SignURL.as_view('signurl')
-bp.add_url_rule('/signurl', view_func=signurl_view, methods=['get', 'options'])
-application = Flask(__name__)
-application.register_blueprint(bp)
+    signurl_view = SignURL.as_view('signurl')
+    bp.add_url_rule('/signurl', view_func=signurl_view, methods=['get', 'options'])
+    # yes, /signur ~= '/signurl?$'
+    bp.add_url_rule('/signur', view_func=signurl_view, methods=['get', 'options'])
+
+    return bp
 
 
 def make_doc():
     """ Only used for sphinx documentation to add the prefix """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/credential')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2017-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2017-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -72,14 +72,9 @@ if [ -f /tmp/rucio.db ]; then
 fi
 
 echo 'Running full alembic migration'
-alembic -c /opt/rucio/etc/alembic.ini downgrade base
+ALEMBIC_CONFIG="/opt/rucio/etc/alembic.ini" tools/alembic_migration.sh
 if [ $? != 0 ]; then
-    echo 'Failed to downgrade the database!'
-    exit 1
-fi
-alembic -c /opt/rucio/etc/alembic.ini upgrade head
-if [ $? != 0 ]; then
-    echo 'Failed to upgrade the database!'
+    echo 'Failed to run alembic migration!'
     exit 1
 fi
 
@@ -122,7 +117,7 @@ if test ${init_only}; then
 fi
 
 echo 'Running tests on VO "tst"'
-pytest -v --full-trace
+python -bb -m pytest -vvvrxs
 if [ $? != 0 ]; then
     echo 'Tests on first VO failed, not attempting tests at second VO'
     exit 1
@@ -168,7 +163,7 @@ if test ${activate_rse}; then
 fi
 
 echo 'Running tests on VO "ts2"'
-pytest -v --full-trace
+python -bb -m pytest -vvvrxs
 
 if [ $? != 0 ]; then
     echo 'Tests on second VO failed'

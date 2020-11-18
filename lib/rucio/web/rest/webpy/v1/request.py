@@ -1,5 +1,6 @@
-#!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2014-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,28 +17,31 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2020
+# - dciangot <diego.ciangottini@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from logging import getLogger, StreamHandler, DEBUG
-try:
-    from urlparse import parse_qs
-except ImportError:
-    from urllib.parse import parse_qs
 
 from web import application, ctx, loadhook, header
 
 from rucio.api import request
-from rucio.db.sqla.constants import RequestState
+from rucio.common.schema import insert_scope_name
+from rucio.common.utils import render_json
 from rucio.core.rse import get_rses_with_attribute_value, get_rse_name
-from rucio.common.schema import get_schema_value
-from rucio.common.utils import generate_http_error, render_json
+from rucio.db.sqla.constants import RequestState
 from rucio.web.rest.common import rucio_loadhook, RucioController, exception_wrapper, check_accept_header_wrapper
+from rucio.web.rest.utils import generate_http_error
+
+try:
+    from urlparse import parse_qs
+except ImportError:
+    from urllib.parse import parse_qs
 
 
 LOGGER = getLogger("rucio.request")
@@ -45,8 +49,8 @@ SH = StreamHandler()
 SH.setLevel(DEBUG)
 LOGGER.addHandler(SH)
 
-URLS = ('%s/(.+)' % get_schema_value('SCOPE_NAME_REGEXP'), 'RequestGet',
-        '/list', 'RequestsGet')
+URLS = insert_scope_name(('%s/(.+)', 'RequestGet',
+                          '/list', 'RequestsGet'))
 
 
 class RequestGet(RucioController):

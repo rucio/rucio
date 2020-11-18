@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,22 +14,16 @@
 # limitations under the License.
 #
 # Authors:
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+
+set -euo pipefail
 
 echo '==============================='
-echo 'Running pylint                 '
+echo 'Running Sphinx                 '
 echo '==============================='
 
-for filename in $(cat changed_files.txt);
-do
-    if grep -q "PY3K COMPATIBLE" $filename; then
-        echo "Check if file" $filename "is Python3 compatible"
-        pylint --py3k -d no-absolute-import -d round-builtin $filename 
-        if [ $? -ne 0 ]; then
-            echo "PYLINT FAILED"
-            cat pylint.out
-            exit 1
-        fi
-    fi
-done
-echo "PYLINT PASSED"
+sphinx-build -avT doc/source/ doc/build/html
+
+if [ $? -ne 0 ]; then
+    exit 1
+fi

@@ -1,0 +1,13 @@
+============
+1.23.6.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Transfers: Multihop problems with multiple sources `#3989 <https://github.com/rucio/rucio/issues/3989>`_

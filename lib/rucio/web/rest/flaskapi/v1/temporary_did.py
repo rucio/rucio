@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2016-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,23 +15,26 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-#
-# PY3K COMPATIBLE
+# - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
+
 from json import loads
 from traceback import format_exc
+
 from flask import Flask, Blueprint, request
 from flask.views import MethodView
 
 from rucio.api.temporary_did import (add_temporary_dids)
 from rucio.common.exception import RucioException
-from rucio.common.utils import generate_http_error_flask
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers
+from rucio.web.rest.utils import generate_http_error_flask
 
 
 class BulkDIDS(MethodView):
@@ -61,36 +64,23 @@ class BulkDIDS(MethodView):
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
-        return "Created", 201
+            return str(error), 500
+        return 'Created', 201
 
 
-class Compose(MethodView):
+def blueprint():
+    bp = Blueprint('temporary_did', __name__, url_prefix='/tmp_dids')
 
-    def POST(self):
-        return "Created", 201
+    bulk_dids_view = BulkDIDS.as_view('bulk_dids')
+    bp.add_url_rule('', view_func=bulk_dids_view, methods=['post', ])
 
-
-"""----------------------
-   Web service startup
-----------------------"""
-bp = Blueprint('temporary_did', __name__)
-
-bulk_dids_view = BulkDIDS.as_view('bulk_dids')
-bp.add_url_rule('/', view_func=bulk_dids_view, methods=['post', ])
-
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/tmp_dids')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

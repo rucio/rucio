@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,25 +23,32 @@ function srchome() {
     cd $RUCIO_HOME
 }
 
-if [[ $SUITE == "syntax" ]]; then
+if [ "$SUITE" == "syntax" ]; then
     srchome
     tools/test/check_syntax.sh
-fi
+    tools/test/sphinx_build.sh
 
-if [[ $SUITE == "python3" ]]; then
+elif [[ "$SUITE" =~ ^client.* ]]; then
+    if [ "$SUITE" == "client" ]; then
+        tools/run_tests_docker.sh -i
+    fi
+
     srchome
-    tools/test/check_python_3.sh
-fi
+    TEST_FILES="lib/rucio/tests/test_clients.py lib/rucio/tests/test_bin_rucio.py lib/rucio/tests/test_module_import.py"
 
-if [[ $SUITE == "client" ]]; then
-    srchome
-    pytest -v --full-trace lib/rucio/tests/test_clients.py lib/rucio/tests/test_bin_rucio.py lib/rucio/tests/test_module_import.py
-fi
+    if [ "$SUITE" == "client" ]; then
+        python -bb -m pytest -vvvrxs $TEST_FILES
+    elif [ "$SUITE" == "client_syntax" ]; then
+        CLIENT_BIN_FILES="bin/rucio bin/rucio-admin"
+        export SYNTAX_PYLINT_ARGS="$(tools/test/ignoretool.py --pylint)"
+        export SYNTAX_PYLINT_BIN_ARGS="$CLIENT_BIN_FILES"
+        export SYNTAX_FLAKE_ARGS="$(tools/test/ignoretool.py --flake8) $CLIENT_BIN_FILES $TEST_FILES"
+        tools/test/check_syntax.sh
+    fi
 
-if [[ $SUITE == "all" ]]; then
+elif [ "$SUITE" == "all" ]; then
     tools/run_tests_docker.sh
-fi
 
-if [[ $SUITE == "multi_vo" ]]; then
+elif [ "$SUITE" == "multi_vo" ]; then
     tools/run_multi_vo_tests_docker.sh
 fi

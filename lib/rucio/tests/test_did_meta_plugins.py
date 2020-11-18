@@ -1,4 +1,5 @@
-# Copyright 2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,8 +16,6 @@
 # Authors:
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 import unittest
 
@@ -27,10 +26,15 @@ from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import KeyNotFound
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
-from rucio.core.did import add_did
+from rucio.core.did import add_did, delete_dids, set_metadata_bulk
 from rucio.core.did_meta_plugins import list_dids, get_metadata, set_metadata
 from rucio.core.did_meta_plugins.json_meta import JSONDidMeta
 from rucio.db.sqla.session import get_session
+
+
+def skip_without_json():
+    if not JSONDidMeta().json_implemented(get_session()):
+        pytest.skip("JSON support is not implemented in this database")
 
 
 class TestDidMetaDidColumn(unittest.TestCase):
@@ -116,7 +120,6 @@ class TestDidMetaJSON(unittest.TestCase):
 
     def setUp(self):
         self.session = get_session()
-        self.implemented = JSONDidMeta().json_implemented(self.session)
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': config_get('client', 'vo', raise_exception=False, default='tst')}
         else:
@@ -129,9 +132,8 @@ class TestDidMetaJSON(unittest.TestCase):
 
     def test_add_did_meta(self):
         """ DID Meta (JSON): Add did meta """
-        if not self.implemented:
-            # For some oracle and sqlite version json support is not implemented
-            return
+        skip_without_json()
+
         did_name = 'mock_did_%s' % generate_uuid()
         meta_key = 'my_key_%s' % generate_uuid()
         meta_value = 'my_value_%s' % generate_uuid()
@@ -141,9 +143,8 @@ class TestDidMetaJSON(unittest.TestCase):
 
     def test_get_metadata(self):
         """ DID Meta (JSON): Get did meta """
-        if not self.implemented:
-            # For some oracle and sqlite version json support is not implemented
-            return
+        skip_without_json()
+
         did_name = 'mock_did_%s' % generate_uuid()
         meta_key = 'my_key_%s' % generate_uuid()
         meta_value = 'my_value_%s' % generate_uuid()
@@ -153,9 +154,7 @@ class TestDidMetaJSON(unittest.TestCase):
 
     def test_list_did_meta(self):
         """ DID Meta (JSON): List did meta """
-        if not self.implemented:
-            # For some oracle and sqlite version json support is not implemented
-            return
+        skip_without_json()
 
         meta_key1 = 'my_key_%s' % generate_uuid()
         meta_key2 = 'my_key_%s' % generate_uuid()
@@ -251,27 +250,27 @@ class TestDidMetaClient(unittest.TestCase):
 
     def test_delete_metadata(self):
         """ META (CLIENTS) : Deletes metadata key """
+        skip_without_json()
+
         tmp_name = 'name_%s' % generate_uuid()
         self.did_client.add_did(scope=self.tmp_scope, name=tmp_name, type="DATASET")
 
-        # Test JSON case
-        if self.json_implemented:
-            value1 = "value_" + str(generate_uuid())
-            value2 = "value_" + str(generate_uuid())
-            value3 = "value_" + str(generate_uuid())
+        value1 = "value_" + str(generate_uuid())
+        value2 = "value_" + str(generate_uuid())
+        value3 = "value_" + str(generate_uuid())
 
-            self.did_client.set_metadata(scope=self.tmp_scope, name=tmp_name, key="key1", value=value1)
-            self.did_client.set_metadata(scope=self.tmp_scope, name=tmp_name, key="key2", value=value2)
-            self.did_client.set_metadata(scope=self.tmp_scope, name=tmp_name, key="key3", value=value3)
+        self.did_client.set_metadata(scope=self.tmp_scope, name=tmp_name, key="key1", value=value1)
+        self.did_client.set_metadata(scope=self.tmp_scope, name=tmp_name, key="key2", value=value2)
+        self.did_client.set_metadata(scope=self.tmp_scope, name=tmp_name, key="key3", value=value3)
 
-            self.did_client.delete_metadata(scope=self.tmp_scope, name=tmp_name, key='key2')
+        self.did_client.delete_metadata(scope=self.tmp_scope, name=tmp_name, key='key2')
 
-            metadata = self.did_client.get_metadata(scope=self.tmp_scope, name=tmp_name, plugin="JSON")
-            assert len(metadata) == 2
-            assert metadata['key1'] == value1
-            assert metadata['key3'] == value3
-            with pytest.raises(KeyNotFound):
-                self.did_client.delete_metadata(scope=self.tmp_scope, name=tmp_name, key="key9")
+        metadata = self.did_client.get_metadata(scope=self.tmp_scope, name=tmp_name, plugin="JSON")
+        assert len(metadata) == 2
+        assert metadata['key1'] == value1
+        assert metadata['key3'] == value3
+        with pytest.raises(KeyNotFound):
+            self.did_client.delete_metadata(scope=self.tmp_scope, name=tmp_name, key="key9")
 
     def test_get_metadata(self):
         """ META (CLIENTS) : Gets all metadata for the given did """
@@ -439,3 +438,68 @@ class TestDidMetaClient(unittest.TestCase):
                 results.append(d)
             assert len(results) == 1
             assert did4 in results
+
+
+@pytest.fixture
+def testdid(vo):
+    did_name = 'testdid_%s' % generate_uuid()
+    mock_scope = InternalScope('mock', vo=vo)
+    didtype = 'DATASET'
+    account = InternalAccount('root', vo=vo)
+
+    add_did(scope=mock_scope, name=did_name, type=didtype, account=account)
+    yield {'name': did_name, 'scope': mock_scope}
+    delete_dids(dids=[{'name': did_name, 'scope': mock_scope, 'did_type': didtype, 'purge_replicas': True}], account=account)
+
+
+def test_did_set_metadata_bulk_single(testdid):
+    """ DID (CORE) : Test setting metadata in bulk with a single key-value pair """
+    skip_without_json()
+
+    testkey = 'testkey'
+    testmeta = {testkey: 'testvalue'}
+
+    set_metadata_bulk(meta=testmeta, recursive=False, **testdid)
+    meta = get_metadata(plugin="ALL", **testdid)
+    print('Metadata:', meta)
+
+    assert testkey in meta and meta[testkey] == testmeta[testkey]
+
+
+def test_did_set_metadata_bulk_multi(testdid):
+    """ DID (CORE) : Test setting metadata in bulk with multiple key-values """
+    skip_without_json()
+
+    testkeys = list(map(lambda i: 'testkey' + str(i), range(3)))
+    testmeta = {key: key + 'value' for key in testkeys}
+    # let two keys have the same value
+    testmeta[testkeys[1]] = testmeta[testkeys[0]]
+
+    set_metadata_bulk(meta=testmeta, recursive=False, **testdid)
+    meta = get_metadata(plugin="ALL", **testdid)
+    print('Metadata:', meta)
+
+    for testkey in testkeys:
+        assert testkey in meta and meta[testkey] == testmeta[testkey]
+
+
+def test_did_set_metadata_bulk_multi_client(testdid):
+    """ DID (CLIENT) : Test setting metadata in bulk with multiple key-values """
+    skip_without_json()
+
+    testkeys = list(map(lambda i: 'testkey' + str(i), range(3)))
+    testmeta = {key: key + 'value' for key in testkeys}
+    # let two keys have the same value
+    testmeta[testkeys[1]] = testmeta[testkeys[0]]
+
+    didclient = DIDClient()
+    external_testdid = testdid.copy()
+    external_testdid['scope'] = testdid['scope'].external
+    result = didclient.set_metadata_bulk(meta=testmeta, recursive=False, **external_testdid)
+    assert result is True
+
+    meta = get_metadata(plugin="ALL", **testdid)
+    print('Metadata:', meta)
+
+    for testkey in testkeys:
+        assert testkey in meta and meta[testkey] == testmeta[testkey]

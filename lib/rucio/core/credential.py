@@ -1,4 +1,4 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario@lassnig.net>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 #
@@ -115,10 +115,10 @@ def get_signed_url(rse_id, service, operation, url, lifetime=600):
         signature = urlencode({'': base64.b64encode(CREDS_GCS.sign_blob(to_sign)[1])})[1:]
 
         # assemble final signed URL
-        signed_url = 'https://storage.googleapis.com%s?GoogleAccessId=%s&Expires=%s&Signature=%s' % (path,
-                                                                                                     CREDS_GCS.service_account_email,
-                                                                                                     lifetime,
-                                                                                                     signature)
+        signed_url = 'https://storage.googleapis.com:443%s?GoogleAccessId=%s&Expires=%s&Signature=%s' % (path,
+                                                                                                         CREDS_GCS.service_account_email,
+                                                                                                         lifetime,
+                                                                                                         signature)
 
     elif service == 's3':
         # split URL to get hostname, bucket and key

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright 2012-2019 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +17,7 @@
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
 # - Wen Guan <wguan.icedew@gmail.com>, 2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 """
 Reaper is a daemon to manage file deletion
@@ -59,6 +60,24 @@ Check if the replica exists::
   | SCOPE   | NAME   | FILESIZE   | ADLER32   | RSE: REPLICA                                            |
   |---------+--------+------------+-----------+---------------------------------------------------------|
   +---------+--------+------------+-----------+---------------------------------------------------------+
+
+When run in multi-VO mode, by default the Reaper will run on RSEs from all VOs::
+
+  $ rucio-reaper --run-once
+  2020-07-28 15:15:14,110 5461    INFO    main: starting processes
+  2020-07-28 15:15:14,151 5461    INFO    Reaper: This instance will work on VOs: def, abc, xyz, 123
+
+By using the ``--vos`` argument only the VO or VOs specified will be affected by the Reaper::
+
+  $ rucio-reaper --run-once --vos abc xyz
+  2020-07-28 15:16:36,022 5474    INFO    main: starting processes
+  2020-07-28 15:16:36,066 5474    INFO    Reaper: This instance will work on VOs: abc, xyz
+
+Note that attempting the use the ``--vos`` argument when in single-VO mode will have no affect::
+
+  $ rucio-reaper --run-once --vos abc xyz
+  2020-07-28 15:21:33,348 5488    INFO    main: starting processes
+  2020-07-28 15:21:33,349 5488    WARNING Ignoring argument vos, this is only applicable in a multi-VO setup.
  ''')
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--total-workers", action="store", default=1, type=int, help='Total number of workers per process')
@@ -69,6 +88,7 @@ Check if the replica exists::
     parser.add_argument('--exclude-rses', action="store", default=None, type=str, help='RSEs expression to exclude RSEs')
     parser.add_argument('--include-rses', action="store", default=None, type=str, help='RSEs expression to include RSEs')
     parser.add_argument('--rses', nargs='+', type=str, help='List of RSEs')
+    parser.add_argument('--vos', nargs='+', type=str, help='Optional list of VOs to consider. Only used in multi-VO mode.')
     parser.add_argument('--delay-seconds', action="store", default=3600, type=int, help='Delay to retry failed deletion')
     return parser
 
@@ -80,6 +100,6 @@ if __name__ == '__main__':
     try:
         run(total_workers=args.total_workers, chunk_size=args.chunk_size, greedy=args.greedy,
             once=args.run_once, scheme=args.scheme, rses=args.rses, threads_per_worker=args.threads_per_worker,
-            exclude_rses=args.exclude_rses, include_rses=args.include_rses, delay_seconds=args.delay_seconds)
+            exclude_rses=args.exclude_rses, include_rses=args.include_rses, vos=args.vos, delay_seconds=args.delay_seconds)
     except KeyboardInterrupt:
         stop()

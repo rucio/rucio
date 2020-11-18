@@ -1,4 +1,5 @@
-# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,8 +22,6 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from __future__ import division
 
@@ -30,27 +29,24 @@ import logging
 import math
 import os
 import socket
-import traceback
 import threading
 import time
-
+import traceback
 from datetime import datetime
 from sys import stdout
 
-from rucio.db.sqla.constants import BadFilesStatus, BadPFNStatus, ReplicaState
-
-from rucio.db.sqla.session import get_session
+import rucio.db.sqla.util
 from rucio.common.config import config_get
+from rucio.common.exception import UnsupportedOperation, DataIdentifierNotFound, ReplicaNotFound, DatabaseException
 from rucio.common.utils import chunks
-from rucio.common.exception import UnsupportedOperation, DataIdentifierNotFound, ReplicaNotFound
+from rucio.core import heartbeat
 from rucio.core.did import get_metadata
 from rucio.core.replica import (get_bad_pfns, get_pfn_to_rse, declare_bad_file_replicas,
                                 get_did_from_pfns, update_replicas_states, bulk_add_bad_replicas,
                                 bulk_delete_bad_pfns, get_replicas_state)
 from rucio.core.rse import get_rse_name
-
-from rucio.core import heartbeat
-
+from rucio.db.sqla.constants import BadFilesStatus, BadPFNStatus, ReplicaState
+from rucio.db.sqla.session import get_session
 
 logging.basicConfig(stream=stdout,
                     level=getattr(logging,
@@ -271,6 +267,8 @@ def run(threads=1, bulk=100, once=False, sleep_time=60):
     """
     Starts up the minos threads.
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise DatabaseException('Database was not updated, daemon won\'t start')
 
     if once:
         logging.info('Will run only one iteration in a single threaded mode')

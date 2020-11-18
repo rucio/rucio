@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # Copyright 2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,12 +21,13 @@ from __future__ import print_function
 from sqlalchemy.orm.exc import NoResultFound
 from rucio.db.sqla import models
 from rucio.db.sqla.session import transactional_session, read_session
-from rucio.db.sqla.constants import DIDType, RuleGrouping
-from rucio.common.exception import InvalidType
+from rucio.db.sqla.constants import DIDType
+from rucio.common.exception import InvalidType, UnsupportedOperation
 from rucio.common.types import InternalScope, InternalAccount
 from rucio.common.utils import extract_scope
 from rucio.core.did import add_did, attach_dids_to_dids
 from rucio.core.replica import add_replicas
+from rucio.core.rule import add_rule
 from rucio.core.scope import list_scopes
 
 
@@ -41,11 +41,11 @@ def _exists(scope, name, session=None):
     :session: The session used
     """
     try:
-        session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
+        res = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
             with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').one()
-        return True
+        return True, res.did_type
     except NoResultFound:
-        return False
+        return False, None
 
 
 @transactional_session
@@ -71,7 +71,9 @@ def add_files(lfns, account, ignore_availability, session=None):
         filename = lfn['lfn']
         lfn_scope, _ = extract_scope(filename, scopes)
         lfn_scope = InternalScope(lfn_scope)
-        if _exists(lfn_scope, filename):
+
+        exists, did_type = _exists(lfn_scope, filename)
+        if exists:
             continue
 
         # Get all the ascendants of the file
@@ -84,7 +86,10 @@ def add_files(lfns, account, ignore_availability, session=None):
         dsn_name = lpns[0]
         dsn_scope, _ = extract_scope(dsn_name, scopes)
         dsn_scope = InternalScope(dsn_scope)
-        if (dsn_name not in exist_lfn) and (not _exists(dsn_scope, dsn_name)):
+        exists, did_type = _exists(dsn_scope, dsn_name)
+        if exists and did_type == DIDType.CONTAINER:
+            raise UnsupportedOperation('Cannot create %s as dataset' % dsn_name)
+        if (dsn_name not in exist_lfn) and not exists:
             print('Will create %s' % dsn_name)
             add_did(scope=dsn_scope,
                     name=dsn_name,
@@ -92,7 +97,7 @@ def add_files(lfns, account, ignore_availability, session=None):
                     account=InternalAccount(account),
                     statuses=None,
                     meta=None,
-                    rules=[{'copies': 1, 'rse_expression': 'ANY=true', 'weight': None, 'account': InternalAccount(account), 'lifetime': None, 'GROUPING': RuleGrouping.NONE}],
+                    rules=[{'copies': 1, 'rse_expression': 'ANY=true', 'weight': None, 'account': InternalAccount(account), 'lifetime': None, 'GROUPING': 'NONE'}],
                     lifetime=None,
                     dids=None,
                     rse_id=None,
@@ -122,13 +127,26 @@ def add_files(lfns, account, ignore_availability, session=None):
                      account=InternalAccount(account),
                      ignore_availability=ignore_availability,
                      session=session)
+        add_rule(dids=[{'scope': lfn_scope, 'name': filename}],
+                 account=InternalAccount(account),
+                 copies=1,
+                 rse_expression=lfn['rse'],
+                 grouping=None,
+                 weight=None,
+                 lifetime=86400,
+                 locked=None,
+                 subscription_id=None,
+                 session=session)
         attachments.append({'scope': dsn_scope, 'name': dsn_name, 'dids': [{'scope': lfn_scope, 'name': filename}]})
 
         # Now loop over the ascendants of the dataset and created them
         for lpn in lpns[1:]:
             child_scope, _ = extract_scope(lpn, scopes)
             child_scope = InternalScope(child_scope)
-            if (lpn not in exist_lfn) and (not _exists(child_scope, lpn)):
+            exists, did_type = _exists(child_scope, lpn)
+            if exists and did_type == DIDType.DATASET:
+                raise UnsupportedOperation('Cannot create %s as container' % lpn)
+            if (lpn not in exist_lfn) and not exists:
                 print('Will create %s' % lpn)
                 add_did(scope=child_scope,
                         name=lpn,

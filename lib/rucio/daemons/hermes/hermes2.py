@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-# Copyright 2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2014-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,36 +14,47 @@
 # limitations under the License.
 #
 # Authors:
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2020
+# - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
+# - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
+# - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 '''
-   Hernes2 is a daemon that get the messages and sends them to external services (influxDB, ES, ActiveMQ).
+   Hermes2 is a daemon that get the messages and sends them to external services (influxDB, ES, ActiveMQ).
 '''
 
+import calendar
+import copy
 import datetime
 import json
 import logging
 import os
+import random
 import re
-import sys
+import smtplib
 import socket
+import sys
 import threading
 import time
 import traceback
-
-from copy import deepcopy
+from email.mime.text import MIMEText
 
 import requests
+import stomp
+from prometheus_client import Counter
+from six import PY2
 
-from rucio.common.config import config_get
+import rucio.db.sqla.util
+from rucio.common.config import config_get, config_get_int, config_get_bool
+from rucio.common.exception import ConfigNotFound, DatabaseException
 from rucio.core import heartbeat
 from rucio.core.config import get
 from rucio.core.message import retrieve_messages, delete_messages, update_messages_services
-from rucio.common.exception import ConfigNotFound
-
+from rucio.core.monitor import record_counter
 
 logging.getLogger('requests').setLevel(logging.CRITICAL)
 
@@ -56,10 +67,237 @@ logging.basicConfig(stream=sys.stdout,
 
 GRACEFUL_STOP = threading.Event()
 
+RECONNECT_COUNTER = Counter('rucio_daemons_hermes2_reconnect', 'Counts Hermes2 reconnects to different ActiveMQ brokers', labelnames=('host',))
+
 
 def default(datetype):
     if isinstance(datetype, (datetime.date, datetime.datetime)):
         return datetype.isoformat()
+
+
+class HermesListener(stomp.ConnectionListener):
+    '''
+    Hermes Listener
+    '''
+    def __init__(self, broker):
+        '''
+        __init__
+        '''
+        self.__broker = broker
+
+    def on_error(self, headers, body):
+        '''
+        Error handler
+        '''
+        logging.error('[broker] [%s]: %s', self.__broker, body)
+
+
+def setup_activemq(prepend_str):
+    logging.info('%s [broker] Resolving brokers', prepend_str)
+
+    brokers_alias = []
+    brokers_resolved = []
+    try:
+        brokers_alias = [broker.strip() for broker in config_get('messaging-hermes', 'brokers').split(',')]
+    except:
+        raise Exception('Could not load brokers from configuration')
+
+    logging.info('%s [broker] Resolving broker dns alias: %s', prepend_str, brokers_alias)
+    brokers_resolved = []
+    for broker in brokers_alias:
+        try:
+            addrinfos = socket.getaddrinfo(broker, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
+            brokers_resolved.extend(ai[4][0] for ai in addrinfos)
+        except socket.gaierror as ex:
+            logging.error('%s [broker] Cannot resolve domain name %s (%s)', prepend_str, broker, str(ex))
+
+    logging.debug('%s [broker] Brokers resolved to %s', prepend_str, brokers_resolved)
+
+    if not brokers_resolved:
+        logging.fatal('%s [broker] No brokers resolved.', prepend_str)
+        return None, None, None, None, None
+
+    broker_timeout = 3
+    if not broker_timeout:  # Allow zero in config
+        broker_timeout = None
+
+    logging.info('%s [broker] Checking authentication method', prepend_str)
+    use_ssl = True
+    try:
+        use_ssl = config_get_bool('messaging-hermes', 'use_ssl')
+    except:
+        logging.info('%s [broker] Could not find use_ssl in configuration -- please update your rucio.cfg', prepend_str)
+
+    port = config_get_int('messaging-hermes', 'port')
+    vhost = config_get('messaging-hermes', 'broker_virtual_host', raise_exception=False)
+    if not use_ssl:
+        username = config_get('messaging-hermes', 'username')
+        password = config_get('messaging-hermes', 'password')
+        port = config_get_int('messaging-hermes', 'nonssl_port')
+
+    conns = []
+    for broker in brokers_resolved:
+        if not use_ssl:
+            logging.info('%s [broker] setting up username/password authentication: %s', prepend_str, broker)
+            con = stomp.Connection12(host_and_ports=[(broker, port)],
+                                     vhost=vhost,
+                                     keepalive=True,
+                                     timeout=broker_timeout)
+        else:
+            logging.info('%s [broker] setting up ssl cert/key authentication: %s', prepend_str, broker)
+            con = stomp.Connection12(host_and_ports=[(broker, port)],
+                                     use_ssl=True,
+                                     ssl_key_file=config_get('messaging-hermes', 'ssl_key_file'),
+                                     ssl_cert_file=config_get('messaging-hermes', 'ssl_cert_file'),
+                                     vhost=vhost,
+                                     keepalive=True,
+                                     timeout=broker_timeout)
+
+        con.set_listener('rucio-hermes',
+                         HermesListener(con.transport._Transport__host_and_ports[0]))
+
+        conns.append(con)
+    destination = config_get('messaging-hermes', 'destination')
+    return conns, destination, username, password, use_ssl
+
+
+def deliver_to_activemq(messages, conns, destination, username, password, use_ssl, prepend_str):
+    """
+    Deliver messages to ActiveMQ
+
+    :param messages:     The list of messages.
+    :param conns:        A list of connections.
+    :param destination:  The destination topic or queue.
+    :param username:     The username if no SSL connection.
+    :param password:     The username if no SSL connection.
+    :param use_ssl:      Boolean to choose if SSL connection is used.
+    :param prepend_str:  The string to prepend to the logging.
+    """
+    to_delete = []
+    for message in messages:
+        try:
+            conn = random.sample(conns, 1)[0]
+            if not conn.is_connected():
+                host_and_ports = conn.transport._Transport__host_and_ports[0][0]
+                record_counter('daemons.hermes.reconnect.%s' % host_and_ports.split('.')[0])
+                labels = {'host': host_and_ports.split('.')[0]}
+                RECONNECT_COUNTER.labels(**labels).inc()
+                conn.start()
+                if not use_ssl:
+                    logging.info('%s [broker] - connecting with USERPASS to %s',
+                                 prepend_str,
+                                 host_and_ports)
+                    conn.connect(username, password, wait=True)
+                else:
+                    logging.info('%s [broker] - connecting with SSL to %s',
+                                 prepend_str,
+                                 host_and_ports)
+                    conn.connect(wait=True)
+
+            conn.send(body=json.dumps({'event_type': str(message['event_type']).lower(),
+                                       'payload': message['payload'],
+                                       'created_at': str(message['created_at'])}),
+                      destination=destination,
+                      headers={'persistent': 'true',
+                               'event_type': str(message['event_type']).lower()})
+
+            to_delete.append(message['id'])
+        except ValueError:
+            logging.error('%s [broker] Cannot serialize payload to JSON: %s',
+                          prepend_str,
+                          str(message['payload']))
+            to_delete.append(message['id'])
+            continue
+        except stomp.exception.NotConnectedException as error:
+            logging.warn('%s [broker] Could not deliver message due to NotConnectedException: %s',
+                         prepend_str,
+                         str(error))
+            continue
+        except stomp.exception.ConnectFailedException as error:
+            logging.warn('%s [broker] Could not deliver message due to ConnectFailedException: %s',
+                         prepend_str,
+                         str(error))
+            continue
+        except Exception as error:
+            logging.error('%s [broker] Could not deliver message: %s',
+                          prepend_str,
+                          str(error))
+            logging.critical(traceback.format_exc())
+            continue
+
+        if str(message['event_type']).lower().startswith('transfer') or str(message['event_type']).lower().startswith('stagein'):
+            logging.debug('%s [broker] - event_type: %s, scope: %s, name: %s, rse: %s, request-id: %s, transfer-id: %s, created_at: %s',
+                          prepend_str,
+                          str(message['event_type']).lower(),
+                          message['payload'].get('scope', None),
+                          message['payload'].get('name', None),
+                          message['payload'].get('dst-rse', None),
+                          message['payload'].get('request-id', None),
+                          message['payload'].get('transfer-id', None),
+                          str(message['created_at']))
+
+        elif str(message['event_type']).lower().startswith('dataset'):
+            logging.debug('%s [broker] - event_type: %s, scope: %s, name: %s, rse: %s, rule-id: %s, created_at: %s)',
+                          prepend_str,
+                          str(message['event_type']).lower(),
+                          message['payload']['scope'],
+                          message['payload']['name'],
+                          message['payload']['rse'],
+                          message['payload']['rule_id'],
+                          str(message['created_at']))
+
+        elif str(message['event_type']).lower().startswith('deletion'):
+            if 'url' not in message['payload']:
+                message['payload']['url'] = 'unknown'
+            logging.debug('%s [broker] - event_type: %s, scope: %s, name: %s, rse: %s, url: %s, created_at: %s)',
+                          prepend_str,
+                          str(message['event_type']).lower(),
+                          message['payload']['scope'],
+                          message['payload']['name'],
+                          message['payload']['rse'],
+                          message['payload']['url'],
+                          str(message['created_at']))
+        else:
+            logging.debug('%s [broker] Other message: %s',
+                          prepend_str,
+                          message)
+    return to_delete
+
+
+def deliver_emails(messages, prepend_str):
+    """
+    Sends emails
+
+    :param messages:     The list of messages.
+    :param prepend_str:  The string to prepend to the logging.
+    """
+
+    email_from = config_get('messaging-hermes', 'email_from')
+    to_delete = []
+    for message in messages:
+        if message['event_type'] == 'email':
+
+            if PY2:
+                msg = MIMEText(message['payload']['body'].encode('utf-8'))
+            else:
+                msg = MIMEText(message['payload']['body'])
+
+            msg['From'] = email_from
+            msg['To'] = ', '.join(message['payload']['to'])
+            msg['Subject'] = message['payload']['subject'].encode('utf-8')
+
+            try:
+                smtp = smtplib.SMTP()
+                smtp.connect()
+                smtp.sendmail(msg['From'], message['payload']['to'], msg.as_string())
+                smtp.quit()
+                to_delete.append(message['id'])
+            except Exception as error:
+                logging.error('%s Cannot send email : %s', prepend_str, str(error))
+        else:
+            to_delete.append(message['id'])
+            continue
+    return to_delete
 
 
 def submit_to_elastic(messages, endpoint, prepend_str):
@@ -103,7 +341,7 @@ def aggregate_to_influx(messages, bin_size, endpoint, prepend_str):
         if event_type in ['transfer-failed', 'transfer-done']:
             transferred_at = time.strptime(payload['transferred_at'], '%Y-%m-%d %H:%M:%S')
             if bin_size == '1m':
-                transferred_at = int(datetime.datetime(*transferred_at[:5]).strftime('%s')) * 1000000000
+                transferred_at = int(calendar.timegm(transferred_at)) * 1000000000
                 transferred_at += microsecond
             if transferred_at not in bins:
                 bins[transferred_at] = {}
@@ -172,6 +410,18 @@ def hermes2(once=False, thread=0, bulk=1000, sleep_time=10):
     :param sleep_time: Time between two cycles.
     """
 
+    executable = 'hermes2'
+    hostname = socket.getfqdn()
+    pid = os.getpid()
+    hb_thread = threading.current_thread()
+    heartbeat.sanity_check(executable=executable, hostname=hostname, pid=pid, thread=hb_thread)
+    heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
+    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+
+    # Make an initial heartbeat so that all daemons have the correct worker number on the next try
+    GRACEFUL_STOP.wait(10)
+    heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
+
     try:
         services_list = get('hermes', 'services_list')
         services_list = services_list.split(',')
@@ -196,27 +446,17 @@ def hermes2(once=False, thread=0, bulk=1000, sleep_time=10):
             logging.error(err)
     if 'activemq' in services_list:
         try:
-            activemq_endpoint = config_get('hermes', 'activemq_endpoint', False, None)
-            if not activemq_endpoint:
-                logging.error('ActiveMQ defined in the services list, but no endpoint can be find. Exiting')
+            # activemq_endpoint = config_get('hermes', 'activemq_endpoint', False, None)
+            conns, destination, username, password, use_ssl = setup_activemq(prepend_str)
+            if not conns:
+                logging.error('ActiveMQ defined in the services list, cannot be setup')
                 sys.exit(1)
         except Exception as err:
             logging.error(err)
 
-    executable = 'hermes2'
-    hostname = socket.getfqdn()
-    pid = os.getpid()
-    hb_thread = threading.current_thread()
-    heartbeat.sanity_check(executable=executable, hostname=hostname, pid=pid, thread=hb_thread)
-    heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-
-    # Make an initial heartbeat so that all daemons have the correct worker number on the next try
-    GRACEFUL_STOP.wait(10)
-    heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
-
     while not GRACEFUL_STOP.is_set():
-        message_status = deepcopy(services_list)
+        message_status = copy.deepcopy(services_list)
+        message_statuses = {}
         stime = time.time()
         try:
             start_time = time.time()
@@ -227,35 +467,83 @@ def hermes2(once=False, thread=0, bulk=1000, sleep_time=10):
                                          total_threads=heart_beat['nr_threads'])
 
             if messages:
+                for message in messages:
+                    message_statuses[message['id']] = copy.deepcopy(services_list)
                 logging.debug('%s Retrieved %i messages retrieved in %s seconds', prepend_str, len(messages), time.time() - start_time)
+
                 if 'influx' in message_status:
+                    t_time = time.time()
                     logging.debug('%s Will submit to influxDB', prepend_str)
-                    state = aggregate_to_influx(messages, bin_size='1m', endpoint=influx_endpoint, prepend_str=prepend_str)
+                    try:
+                        state = aggregate_to_influx(messages=messages, bin_size='1m', endpoint=influx_endpoint, prepend_str=prepend_str)
+                    except Exception as error:
+                        logging.error('%s Error sending to InfluxDB : %s', prepend_str, str(error))
+                        state = 500
                     if state in [204, 200]:
-                        logging.info('%s Messages successfully submitted to influxDB', prepend_str)
-                        message_status.remove('influx')
+                        logging.info('%s Messages successfully submitted to influxDB in %s seconds', prepend_str, time.time() - t_time)
+                        for message in messages:
+                            message_statuses[message['id']].remove('influx')
                     else:
                         logging.info('%s Failure to submit to influxDB', prepend_str)
+
                 if 'elastic' in message_status:
-                    state = submit_to_elastic(messages, endpoint=elastic_endpoint, prepend_str=prepend_str)
+                    t_time = time.time()
+                    try:
+                        state = submit_to_elastic(messages=messages, endpoint=elastic_endpoint, prepend_str=prepend_str)
+                    except Exception as error:
+                        logging.error('%s Error sending to Elastic : %s', prepend_str, str(error))
+                        state = 500
                     if state in [200, 204]:
-                        logging.info('%s Messages successfully submitted to elastic', prepend_str)
-                        message_status.remove('elastic')
+                        logging.info('%s Messages successfully submitted to elastic in %s seconds', prepend_str, time.time() - t_time)
+                        for message in messages:
+                            message_statuses[message['id']].remove('elastic')
                     else:
                         logging.info('%s Failure to submit to elastic', prepend_str)
 
-                to_delete_or_update = []
+                if 'emails' in message_status:
+                    t_time = time.time()
+                    try:
+                        to_delete = deliver_emails(messages=messages, prepend_str=prepend_str)
+                        logging.info('%s Messages successfully submitted by emails in %s seconds', prepend_str, time.time() - t_time)
+                        for message_id in to_delete:
+                            message_statuses[message_id].remove('emails')
+                    except Exception as error:
+                        logging.error('%s Error sending email : %s', prepend_str, str(error))
+
+                if 'activemq' in message_status:
+                    t_time = time.time()
+                    try:
+                        to_delete = deliver_to_activemq(messages=messages, conns=conns, destination=destination, username=username, password=password, use_ssl=use_ssl, prepend_str=prepend_str)
+                        logging.info('%s Messages successfully submitted to ActiveMQ in %s seconds', prepend_str, time.time() - t_time)
+                        for message_id in to_delete:
+                            message_statuses[message_id].remove('activemq')
+                    except Exception as error:
+                        logging.error('%s Error sending to ActiveMQ : %s', prepend_str, str(error))
+
+                to_delete = []
+                to_update = {}
                 for message in messages:
-                    to_delete_or_update.append({'id': message['id'],
-                                                'created_at': message['created_at'],
-                                                'updated_at': message['created_at'],
-                                                'payload': str(message['payload']),
-                                                'event_type': 'email'})
-                if message_status == []:
-                    delete_messages(messages=to_delete_or_update)
-                else:
-                    logging.info('%s Failure to submit to one service. Will update the message status', prepend_str)
-                    update_messages_services(messages=to_delete_or_update, services=",".join(message_status))
+                    status = message_statuses[message['id']]
+                    if not status:
+                        to_delete.append({'id': message['id'],
+                                          'created_at': message['created_at'],
+                                          'updated_at': message['created_at'],
+                                          'payload': str(message['payload']),
+                                          'event_type': message['event_type']})
+                    else:
+                        status = ",".join(status)
+                        if status not in to_update:
+                            to_update[status] = []
+                        to_update[status].append({'id': message['id'],
+                                                  'created_at': message['created_at'],
+                                                  'updated_at': message['created_at'],
+                                                  'payload': str(message['payload']),
+                                                  'event_type': message['event_type']})
+                logging.info('%s Deleting %s messages', prepend_str, len(to_delete))
+                delete_messages(messages=to_delete)
+                for status in to_update:
+                    logging.info('%s Failure to submit %s messages to %s. Will update the message status', prepend_str, str(len(to_update[status])), status)
+                    update_messages_services(messages=to_update[status], services=status)
 
             if once:
                 break
@@ -280,6 +568,8 @@ def run(once=False, threads=1, bulk=1000, sleep_time=10, broker_timeout=3):
     '''
     Starts up the hermes2 threads.
     '''
+    if rucio.db.sqla.util.is_old_db():
+        raise DatabaseException('Database was not updated, daemon won\'t start')
 
     logging.info('starting hermes2 threads')
     thread_list = [threading.Thread(target=hermes2, kwargs={'thread': cnt,

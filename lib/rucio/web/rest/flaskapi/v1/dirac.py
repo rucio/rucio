@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # Copyright 2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,81 +15,95 @@
 #
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
+
 from traceback import format_exc
-from json import loads
 
 from flask import Flask, Blueprint, request
 from flask.views import MethodView
 
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
 from rucio.api.dirac import add_files
 from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, InvalidType,
                                     DatabaseException, Duplicate, InvalidPath,
                                     ResourceTemporaryUnavailable, RucioException,
-                                    RSENotFound)
-from rucio.common.utils import generate_http_error_flask
+                                    RSENotFound, UnsupportedOperation)
+from rucio.common.utils import parse_response
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers
+from rucio.web.rest.utils import generate_http_error_flask
 
 
 class AddFiles(MethodView):
 
-    @check_accept_header_wrapper_flask(['application/json'])
     def post(self):
         """
-        Create file replicas at a given RSE.
+        Atomic method used by the RucioFileCatalog plugin in Dirac that :
+        - Creates files and their replicas
+        - Creates the dataset containing the files and attach the files to the dataset
+        - Creates a rule on the dataset with RSE expression ANY and grouping NONE
+        - Creates all the container hierarchy containing the dataset
 
-        HTTP Success:
-            201 Created
+        ..:quickref: AddFiles; Method used by the RucioFileCatalog plugin in Dirac.
 
-        HTTP Error:
-            401 Unauthorized
-            409 Conflict
-            500 Internal Error
+        :<json list lfns: List of lfn (dictionary {'lfn': <lfn>, 'rse': <rse>, 'bytes': <bytes>, 'adler32': <adler32>, 'guid': <guid>, 'pfn': <pfn>}.
+        :<json bool ignore_availability: A boolean to choose if unavailable sites need to be ignored.
+
+        :status 201: Created.
+        :status 400: Cannot decode json parameter list.
+        :status 401: Invalid auth token.
+        :status 404: DID not found.
+        :status 405: Unsupported Operation.
+        :status 409: Duplicate.
+        :status 500: Internal Error.
+        :status 503: Temporary error.
         """
         try:
-            json_data = loads(request.data)
+            parameters = parse_response(request.data)
         except (ValueError, InvalidType):
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
         try:
-            add_files(lfns=json_data['lfns'], issuer=request.environ.get('issuer'), ignore_availability=json_data.get('ignore_availability', False))
+            add_files(lfns=parameters['lfns'], issuer=request.environ.get('issuer'), ignore_availability=parameters.get('ignore_availability', False))
         except InvalidPath as error:
             return generate_http_error_flask(400, 'InvalidPath', error.args[0])
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except DataIdentifierAlreadyExists as error:
-            return generate_http_error_flask(409, 'DataIdentifierAlreadyExists', error.args[0])
+        except UnsupportedOperation as error:
+            return generate_http_error_flask(405, 'UnsupportedOperation', error.args[0])
         except Duplicate as error:
             return generate_http_error_flask(409, 'Duplicate', error.args[0])
+        except DataIdentifierAlreadyExists as error:
+            return generate_http_error_flask(409, 'DataIdentifierAlreadyExists', error.args[0])
+        except RSENotFound as error:
+            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
         except DatabaseException as error:
-            return generate_http_error_flask(500, 'DatabaseException', error.args[0])
+            return generate_http_error_flask(503, 'DatabaseException', error.args[0])
         except ResourceTemporaryUnavailable as error:
             return generate_http_error_flask(503, 'ResourceTemporaryUnavailable', error.args[0])
         except RucioException as error:
+            print(format_exc())
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
-        return "Created", 201
+            return str(error), 500
+        return 'Created', 201
 
 
-"""----------------------
-   Web service startup
-----------------------"""
+def blueprint(no_doc=True):
+    bp = Blueprint('dirac', __name__, url_prefix='/dirac')
+
+    add_file_view = AddFiles.as_view('addfiles')
+    bp.add_url_rule('/addfiles', view_func=add_file_view, methods=['post', ])
+    bp.add_url_rule('/addfiles/', view_func=add_file_view, methods=['post', ])
+
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
-bp = Blueprint('dirac', __name__)
-URLS = ('/addfiles/?$', 'AddFiles')
-
-add_file_view = AddFiles.as_view('addfiles')
-bp.add_url_rule('/addfiles', view_func=add_file_view, methods=['post', ])
-
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+def make_doc():
+    """ Only used for sphinx documentation """
+    doc_app = Flask(__name__)
+    doc_app.register_blueprint(blueprint(no_doc=False))
+    return doc_app

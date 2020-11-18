@@ -34,6 +34,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
+# - Eric Vaandering <ewv@fnal.gov>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -50,7 +51,8 @@ from rucio.client.client import Client
 from rucio.common.config import config_get_int
 from rucio.common.exception import (RucioException, RSEBlacklisted, DataIdentifierAlreadyExists, RSEOperationNotSupported,
                                     DataIdentifierNotFound, NoFilesUploaded, NotAllFilesUploaded, FileReplicaAlreadyExists,
-                                    ResourceTemporaryUnavailable, ServiceUnavailable, InputValidationError, RSEChecksumUnavailable)
+                                    ResourceTemporaryUnavailable, ServiceUnavailable, InputValidationError, RSEChecksumUnavailable,
+                                    ScopeNotFound)
 from rucio.common.utils import (adler32, detect_client_location, execute, generate_uuid, make_valid_did, md5, send_trace,
                                 retry, GLOBALLY_SUPPORTED_CHECKSUMS)
 from rucio.rse import rsemanager as rsemgr
@@ -132,7 +134,7 @@ class UploadClient:
             if not self.rses.get(rse):
                 rse_settings = self.rses.setdefault(rse, rsemgr.get_rse_info(rse, vo=self.client.vo))
                 if rse_settings['availability_write'] != 1:
-                    raise RSEBlacklisted('%s is blacklisted for writing. No actions have been taken' % rse)
+                    raise RSEBlacklisted('%s is not available for writing. No actions have been taken' % rse)
 
             dataset_scope = file.get('dataset_scope')
             dataset_name = file.get('dataset_name')
@@ -346,8 +348,12 @@ class UploadClient:
         logger.debug('Registering file')
 
         # verification whether the scope exists
-        account_scopes = self.client.list_scopes_for_account(self.client.account)
-        if file['did_scope'] not in account_scopes:
+        account_scopes = []
+        try:
+            account_scopes = self.client.list_scopes_for_account(self.client.account)
+        except ScopeNotFound:
+            pass
+        if account_scopes and file['did_scope'] not in account_scopes:
             logger.warning('Scope {} not found for the account {}.'.format(file['did_scope'], self.client.account))
 
         rse = file['rse']

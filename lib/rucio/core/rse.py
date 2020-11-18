@@ -701,7 +701,7 @@ def get_rse_usage(rse_id, source=None, session=None, per_account=False):
                      'total': total,
                      'files': row.files,
                      'updated_at': row.updated_at}
-        if per_account:
+        if per_account and row.source == 'rucio':
             query_account_usage = session.query(models.AccountUsage).filter_by(rse_id=rse_id)
             account_usages = []
             for row in query_account_usage:
@@ -721,7 +721,7 @@ def set_rse_limits(rse_id, name, value, session=None):
 
     :param rse_id: The RSE id.
     :param name: The name of the limit.
-    :param value: The feature value. Set to -1 to remove the limit.
+    :param value: The feature value.
     :param session: The database session in use.
 
     :returns: True if successful, otherwise false.
@@ -753,7 +753,7 @@ def get_rse_limits(rse_id, name=None, session=None):
 
 
 @transactional_session
-def delete_rse_limit(rse_id, name=None, session=None):
+def delete_rse_limits(rse_id, name=None, session=None):
     """
     Delete RSE limit.
 
@@ -930,17 +930,21 @@ def add_protocol(rse_id, parameter, session=None):
         new_protocol.save(session=session)
     except (IntegrityError, FlushError, OperationalError) as error:
         if ('UNIQUE constraint failed' in error.args[0]) or ('conflicts with persistent instance' in error.args[0]) \
-           or match('.*IntegrityError.*ORA-00001: unique constraint.*RSE_PROTOCOLS_PK.*violated.*', error.args[0]) \
-           or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
-           or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0])\
-           or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0])\
-           or match('.*IntegrityError.*columns.*are not unique.*', error.args[0]):
+                or match('.*IntegrityError.*ORA-00001: unique constraint.*RSE_PROTOCOLS_PK.*violated.*', error.args[0]) \
+                or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
+                or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+                or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
+                or match('.*IntegrityError.*columns.*are not unique.*', error.args[0]):
             raise exception.Duplicate('Protocol \'%s\' on port %s already registered for  \'%s\' with hostname \'%s\'.' % (parameter['scheme'], parameter['port'], rse, parameter['hostname']))
         elif 'may not be NULL' in error.args[0] \
-             or match('.*IntegrityError.*ORA-01400: cannot insert NULL into.*RSE_PROTOCOLS.*IMPL.*', error.args[0]) \
-             or match('.*OperationalError.*cannot be null.*', error.args[0]):
+                or match('.*IntegrityError.*ORA-01400: cannot insert NULL into.*RSE_PROTOCOLS.*IMPL.*', error.args[0]) \
+                or match('.*IntegrityError.*Column.*cannot be null.*', error.args[0]) \
+                or match('.*IntegrityError.*null value in column.*violates not-null constraint.*', error.args[0]) \
+                or match('.*NotNullViolation.*null value in column.*violates not-null constraint.*', error.args[0]) \
+                or match('.*OperationalError.*cannot be null.*', error.args[0]):
             raise exception.InvalidObject('Missing values!')
-        raise error
+
+        raise exception.RucioException(error.args)
     return new_protocol
 
 

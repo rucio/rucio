@@ -1,4 +1,5 @@
-# Copyright 2014-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2014-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,12 +16,13 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2020
-# - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
-# - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
+# - Wen Guan <wen.guan@cern.ch>, 2014-2015
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
-#
-# PY3K COMPATIBLE
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Eric Vaandering <ewv@fnal.gov>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 '''
    Hermes is a daemon to deliver messages: to a messagebroker via STOMP, or emails via SMTP.
@@ -36,19 +38,19 @@ import sys
 import threading
 import time
 import traceback
-
 from email.mime.text import MIMEText
-from six import PY2
-from prometheus_client import Counter
-from sqlalchemy.orm.exc import NoResultFound
 
 import stomp
+from prometheus_client import Counter
+from six import PY2
+from sqlalchemy.orm.exc import NoResultFound
 
+import rucio.db.sqla.util
+from rucio.common import exception
 from rucio.common.config import config_get, config_get_int, config_get_bool
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import retrieve_messages, delete_messages
 from rucio.core.monitor import record_counter
-
 
 logging.getLogger('requests').setLevel(logging.CRITICAL)
 logging.getLogger('stomp').setLevel(logging.CRITICAL)
@@ -396,6 +398,8 @@ def run(once=False, send_email=True, threads=1, bulk=1000, delay=10, broker_time
     '''
     Starts up the hermes threads.
     '''
+    if rucio.db.sqla.util.is_old_db():
+        raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     logging.info('resolving brokers')
 

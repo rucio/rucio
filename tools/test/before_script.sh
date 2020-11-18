@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,12 +23,20 @@
 
 set -eo pipefail
 
+# Note: this file is not run when RUN_HTTPD is defined as false for the test suite.
+
 echo "* docker $CONTAINER_RUNTIME_ARGS info"
 docker $CONTAINER_RUNTIME_ARGS info
 echo
 echo "* env"
 env
 echo
+
+RESTART_HTTPD=0
+if [ "$REST_BACKEND" == "flask" ]; then
+    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO sed -i 's/Include \/opt\/rucio\/etc\/web\/aliases.conf/WSGIScriptAlias \/  \/opt\/rucio\/lib\/rucio\/web\/rest\/flaskapi\/v1\/main\.py/' /etc/httpd/conf.d/rucio.conf
+    RESTART_HTTPD=1
+fi
 
 if [ $RDBMS == "oracle" ]; then
     CON_ORACLE=$(docker $CONTAINER_RUNTIME_ARGS run -d $CONTAINER_RUN_ARGS -e processes=1000 -e sessions=1105 -e transactions=1215 -e ORACLE_ALLOW_REMOTE=true -e ORACLE_DISABLE_ASYNCH_IO=true docker.io/wnameless/oracle-xe-11g-r2)
@@ -54,7 +62,7 @@ if [ $RDBMS == "oracle" ]; then
     docker $CONTAINER_RUNTIME_ARGS exec $CON_ORACLE /bin/bash -c "/oracle_setup.sh"
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/rucio_oracle.cfg /opt/rucio/etc/rucio.cfg
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/alembic_oracle.ini /opt/rucio/etc/alembic.ini
-    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO httpd -k restart
+    RESTART_HTTPD=1
 
 elif [ $RDBMS == "mysql5" ]; then
     CON_MYSQL=$(docker $CONTAINER_RUNTIME_ARGS run -d $CONTAINER_RUN_ARGS -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% docker.io/mysql/mysql-server:5.7)
@@ -74,7 +82,7 @@ elif [ $RDBMS == "mysql5" ]; then
     fi
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/rucio_mysql5.cfg /opt/rucio/etc/rucio.cfg
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/alembic_mysql5.ini /opt/rucio/etc/alembic.ini
-    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO httpd -k restart
+    RESTART_HTTPD=1
 
 elif [ $RDBMS == "mysql8" ]; then
     CON_MYSQL=$(docker $CONTAINER_RUNTIME_ARGS run -d $CONTAINER_RUN_ARGS -e MYSQL_ROOT_PASSWORD=secret -e MYSQL_ROOT_HOST=% docker.io/mysql/mysql-server:8.0 --default-authentication-plugin=mysql_native_password --character-set-server=latin1)
@@ -94,7 +102,7 @@ elif [ $RDBMS == "mysql8" ]; then
     fi
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/rucio_mysql8.cfg /opt/rucio/etc/rucio.cfg
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/alembic_mysql8.ini /opt/rucio/etc/alembic.ini
-    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO httpd -k restart
+    RESTART_HTTPD=1
 
 elif [ $RDBMS == "postgres9" ]; then
     CON_POSTGRES=$(docker $CONTAINER_RUNTIME_ARGS run -d $CONTAINER_RUN_ARGS -e POSTGRES_PASSWORD=secret docker.io/postgres:9 -c 'max_connections=300')
@@ -114,7 +122,7 @@ elif [ $RDBMS == "postgres9" ]; then
     fi
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/rucio_postgres9.cfg /opt/rucio/etc/rucio.cfg
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/alembic_postgres9.ini /opt/rucio/etc/alembic.ini
-    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO httpd -k restart
+    RESTART_HTTPD=1
 
 elif [ $RDBMS == "postgres12" ]; then
     CON_POSTGRES=$(docker $CONTAINER_RUNTIME_ARGS run -d $CONTAINER_RUN_ARGS -e POSTGRES_PASSWORD=secret docker.io/postgres:12 -c 'max_connections=300')
@@ -140,11 +148,15 @@ elif [ $RDBMS == "postgres12" ]; then
     fi
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/rucio_postgres12.cfg /opt/rucio/etc/rucio.cfg
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/alembic_postgres12.ini /opt/rucio/etc/alembic.ini
-    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO httpd -k restart
+    RESTART_HTTPD=1
 
 elif [ $RDBMS == "sqlite" ]; then
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/rucio_sqlite.cfg /opt/rucio/etc/rucio.cfg
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/alembic_sqlite.ini /opt/rucio/etc/alembic.ini
+    RESTART_HTTPD=1
+fi
+
+if [ "$RESTART_HTTPD" == "1" ]; then
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO httpd -k restart
 fi
 

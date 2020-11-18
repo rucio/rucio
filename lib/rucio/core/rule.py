@@ -1,4 +1,5 @@
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,22 +14,23 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2012-2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
-# - David Cameron <d.g.cameron@gmail.com>, 2014
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
+# - David Cameron <david.cameron@cern.ch>, 2014
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Robert Illingworth <illingwo@fnal.gov>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
-# - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Brandon White <bjwhite@fnal.gov>, 2019
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
-# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Eric Vaandering <ewv@fnal.gov>, 2020
 
 from __future__ import division
 
@@ -67,7 +69,7 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     DataIdentifierNotFound, RuleNotFound, InputValidationError, RSEOverQuota,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
                                     InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
-                                    InvalidObject, RSEBlacklisted, RuleReplaceFailed, RequestNotFound,
+                                    InvalidObject, RSEBlacklisted, RSEWriteBlocked, RuleReplaceFailed, RequestNotFound,
                                     ManualRuleApprovalBlocked, UnsupportedOperation, UndefinedPolicy)
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalScope, InternalAccount
@@ -1048,7 +1050,7 @@ def repair_rule(rule_id, session=None):
                 source_rses = parse_expression(rule.source_replica_expression, filter={'vo': vo}, session=session)
             else:
                 source_rses = []
-        except (InvalidRSEExpression, RSEBlacklisted) as error:
+        except (InvalidRSEExpression, RSEBlacklisted, RSEWriteBlocked) as error:
             rule.state = RuleState.STUCK
             rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
             rule.save(session=session)
@@ -1298,7 +1300,7 @@ def update_rule(rule_id, options, session=None):
                 rule.source_replica_expression = options['source_replica_expression']
 
             if key == 'activity':
-                validate_schema('activity', options['activity'])
+                validate_schema('activity', options['activity'], vo=rule.account.vo)
                 rule.activity = options['activity']
                 # Cancel transfers and re-submit them:
                 for lock in session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.REPLICATING).all():
@@ -2554,10 +2556,11 @@ def __evaluate_did_attach(eval_did, session=None):
 
         # Get immediate new child DID's
         with record_timer_block('rule.evaluate_did_attach.list_new_child_dids'):
-            new_child_dids = session.query(models.DataIdentifierAssociation).filter(
-                models.DataIdentifierAssociation.scope == eval_did.scope,
-                models.DataIdentifierAssociation.name == eval_did.name,
-                models.DataIdentifierAssociation.rule_evaluation == True).all()  # noqa
+            new_child_dids = session.query(models.DataIdentifierAssociation)\
+                .with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(contents contents_pk)", 'oracle')\
+                .filter(models.DataIdentifierAssociation.scope == eval_did.scope,
+                        models.DataIdentifierAssociation.name == eval_did.name,
+                        models.DataIdentifierAssociation.rule_evaluation == True).all()  # noqa
 
         if new_child_dids:
             # Get all unsuspended RR from parents and eval_did
@@ -2590,7 +2593,7 @@ def __evaluate_did_attach(eval_did, session=None):
                             possible_rses.extend(parse_expression(rule.rse_expression, filter={'vo': vo}, session=session))
                             # else:
                             #     possible_rses.extend(parse_expression(rule.rse_expression, filter={'availability_write': True}, session=session))
-                        except (InvalidRSEExpression, RSEBlacklisted):
+                        except (InvalidRSEExpression, RSEBlacklisted, RSEWriteBlocked):
                             possible_rses = []
                             break
 
@@ -2618,7 +2621,7 @@ def __evaluate_did_attach(eval_did, session=None):
                             source_rses = []
                             if rule.source_replica_expression:
                                 source_rses = parse_expression(rule.source_replica_expression, filter={'vo': vo}, session=session)
-                        except (InvalidRSEExpression, RSEBlacklisted) as error:
+                        except (InvalidRSEExpression, RSEBlacklisted, RSEWriteBlocked) as error:
                             rule.state = RuleState.STUCK
                             rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
                             rule.save(session=session)

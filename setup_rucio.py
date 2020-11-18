@@ -162,7 +162,7 @@ def write_requirements():
         req_file.close()
 
 
-oracle_extras = ['cx_oracle==6.3.1']
+oracle_extras = ['cx_oracle==7.3']
 postgresql_extras = ['psycopg2-binary>=2.4.2,<2.8']
 mysql_extras = ['PyMySQL']
 kerberos_extras = ['kerberos>=1.3.0', 'pykerberos>=1.2.1', 'requests-kerberos>=0.12.0']

@@ -1,4 +1,5 @@
-# Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,18 +14,19 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2015-2016
-# - Martin Barisits <martin.barisits@cern.ch>, 2017
-# - Mario Lassnig <mario@lassnig.net>, 2018-2019
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2016
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Eric Vaandering <ewv@fnal.gov>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
-from base64 import b64encode
+
 from datetime import datetime
 from hashlib import sha256
 from os import urandom
@@ -32,20 +34,19 @@ from traceback import format_exc
 
 from alembic import command
 from alembic.config import Config
-
-from six import PY3
-
 from sqlalchemy import func
 from sqlalchemy.engine import reflection
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.schema import CreateSchema, MetaData, Table, DropTable, ForeignKeyConstraint, DropConstraint
 from sqlalchemy.sql.expression import select, text
 
+from rucio import alembicrevision
 from rucio.common.config import config_get
 from rucio.common.types import InternalAccount
 from rucio.core.account_counter import create_counters_for_new_account
 from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import AccountStatus, AccountType, IdentityType
+from rucio.db.sqla.session import get_engine
 
 
 def build_database(echo=True):
@@ -190,11 +191,7 @@ def create_root_account(create_counters=True):
     account = models.Account(account=InternalAccount(access, 'def'), account_type=AccountType.SERVICE, status=AccountStatus.ACTIVE)
 
     salt = urandom(255)
-    if PY3:
-        decoded_salt = b64encode(salt).decode()
-        salted_password = ('%s%s' % (decoded_salt, up_pwd)).encode()
-    else:
-        salted_password = '%s%s' % (salt, str(up_pwd))
+    salted_password = salt + up_pwd.encode()
     hashed_password = sha256(salted_password).hexdigest()
     identity1 = models.Identity(identity=up_id, identity_type=IdentityType.USERPASS, password=hashed_password, salt=salt, email=up_email)
     iaa1 = models.IdentityAccountAssociation(identity=identity1.identity, identity_type=identity1.identity_type, account=account.account, is_default=True)
@@ -263,3 +260,19 @@ def get_count(q):
     count_q = q.statement.with_only_columns([func.count()]).order_by(None)
     count = q.session.execute(count_q).scalar()
     return count
+
+
+def is_old_db():
+    """
+    Returns true, if alembic is used and the database is not on the
+    same revision as the code base.
+    """
+    schema = config_get('database', 'schema', raise_exception=False)
+
+    # checks if alembic is being used by looking up the AlembicVersion table
+    if not get_engine().has_table(models.AlembicVersion.__tablename__, schema):
+        return False
+
+    s = session.get_session()
+    query = s.query(models.AlembicVersion.version_num)
+    return query.count() != 0 and str(query.first()[0]) != alembicrevision.ALEMBIC_REVISION

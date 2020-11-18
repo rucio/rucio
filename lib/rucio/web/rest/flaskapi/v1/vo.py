@@ -1,4 +1,5 @@
-# Copyright 2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,17 +15,19 @@
 #
 # Authors:
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from json import loads
 from traceback import format_exc
 
-from flask import Flask, Blueprint, Response, request
+from flask import Flask, Blueprint, request
 from flask.views import MethodView
 
 from rucio.api.vo import add_vo, list_vos, recover_vo_root_identity, update_vo
 from rucio.common.exception import AccessDenied, AccountNotFound, Duplicate, RucioException, VONotFound, UnsupportedOperation
-from rucio.common.utils import generate_http_error, render_json
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
+from rucio.common.utils import render_json
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, try_stream
+from rucio.web.rest.utils import generate_http_error_flask
 
 
 class VOs(MethodView):
@@ -45,31 +48,31 @@ class VOs(MethodView):
 
         """
         try:
-            data = ""
-            for vo in list_vos(issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
-                data += render_json(**vo) + '\n'
-            return Response(data, content_type="application/x-json-stream")
+            def generate(issuer, vo):
+                for vo in list_vos(issuer=issuer, vo=vo):
+                    yield render_json(**vo) + '\n'
+
+            return try_stream(generate(issuer=request.environ.get('issuer'), vo=request.environ.get('vo')))
         except AccessDenied as error:
-            return generate_http_error(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except UnsupportedOperation as error:
-            return generate_http_error(409, 'UnsupportedOperation', error.args[0])
+            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0])
         except RucioException as error:
-            return generate_http_error(500, error.__class__.__name__, error.args[0])
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(error)
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
 
 class VO(MethodView):
     """ Add and update a VO. """
 
-    def post(self, new_vo):
+    def post(self, vo):
         """ Add a VO with a given name.
 
         .. :quickref: VO; Add a VOs.
 
-        :param new_vo: VO to be added.
+        :param vo: VO to be added.
         :<json string description: Desciption of VO.
         :<json string email: Admin email for VO.
         :status 201: VO created successfully.
@@ -78,7 +81,7 @@ class VO(MethodView):
         :status 500: Internal Error.
 
         """
-        json_data = request.data
+        json_data = request.data.decode()
         kwargs = {'description': None, 'email': None}
 
         try:
@@ -88,33 +91,32 @@ class VO(MethodView):
                     if param in parameters:
                         kwargs[param] = parameters[param]
         except ValueError:
-            return generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
+            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
         kwargs['issuer'] = request.environ.get('issuer')
         kwargs['vo'] = request.environ.get('vo')
 
         try:
-            add_vo(new_vo=new_vo, **kwargs)
+            add_vo(new_vo=vo, **kwargs)
         except AccessDenied as error:
-            return generate_http_error(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except UnsupportedOperation as error:
-            return generate_http_error(409, 'UnsupportedOperation', error.args[0])
+            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0])
         except Duplicate as error:
-            return generate_http_error(409, 'Duplicate', error.args[0])
+            return generate_http_error_flask(409, 'Duplicate', error.args[0])
         except RucioException as error:
-            return generate_http_error(500, error.__class__.__name__, error.args[0])
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(error)
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
-        return "Created", 201
+        return 'Created', 201
 
-    def put(self, updated_vo):
+    def put(self, vo):
         """ Update the details for a given VO
 
         .. :quickref: VO; Update a VOs.
 
-        :param updated_vo: VO to be updated.
+        :param vo: VO to be updated.
         :<json string description: Desciption of VO.
         :<json string email: Admin email for VO.
         :status 200: VO updated successfully.
@@ -124,40 +126,39 @@ class VO(MethodView):
         :status 500: Internal Error.
 
         """
-        json_data = request.data
+        json_data = request.data.decode()
 
         try:
             parameters = loads(json_data)
         except ValueError:
-            return generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
+            return generate_http_error_flask(400, 'ValueError', 'cannot decode json parameter dictionary')
 
         try:
-            update_vo(updated_vo=updated_vo, parameters=parameters, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            update_vo(updated_vo=vo, parameters=parameters, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:
-            return generate_http_error(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except VONotFound as error:
-            return generate_http_error(404, 'VONotFound', error.args[0])
+            return generate_http_error_flask(404, 'VONotFound', error.args[0])
         except UnsupportedOperation as error:
-            return generate_http_error(409, 'UnsupportedOperation', error.args[0])
+            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0])
         except RucioException as error:
-            return generate_http_error(500, error.__class__.__name__, error.args[0])
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(error)
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
-        return "OK", 200
+        return '', 200
 
 
 class RecoverVO(MethodView):
     """ Recover root identity for a VO. """
 
-    def post(self, root_vo):
+    def post(self, vo):
         """ Recover root identity for a given VO
 
         .. :quickref: RecoverVO; Recover VO root identity.
 
-        :param root_vo: VO to be recovered.
+        :param vo: VO to be recovered.
         :<json string identity: Identity key to use.
         :<json string authtype: Type of identity.
         :<json string email: Admin email for VO.
@@ -170,12 +171,12 @@ class RecoverVO(MethodView):
         :status 500: Internal Error.
 
         """
-        json_data = request.data
+        json_data = request.data.decode()
 
         try:
             parameter = loads(json_data)
         except ValueError:
-            return generate_http_error(400, 'ValueError', 'cannot decode json parameter dictionary')
+            return generate_http_error_flask(400, 'ValueError', 'cannot decode json parameter dictionary')
 
         try:
             identity = parameter['identity']
@@ -185,12 +186,12 @@ class RecoverVO(MethodView):
             default = parameter.get('default', False)
         except KeyError as error:
             if error.args[0] == 'authtype' or error.args[0] == 'identity' or error.args[0] == 'email':
-                return generate_http_error(400, 'KeyError', '%s not defined' % str(error))
+                return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(error))
         except TypeError:
-            return generate_http_error(400, 'TypeError', 'body must be a json dictionary')
+            return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
 
         try:
-            recover_vo_root_identity(root_vo=root_vo,
+            recover_vo_root_identity(root_vo=vo,
                                      identity_key=identity,
                                      id_type=authtype,
                                      email=email,
@@ -199,46 +200,37 @@ class RecoverVO(MethodView):
                                      issuer=request.environ.get('issuer'),
                                      vo=request.environ.get('vo'))
         except AccessDenied as error:
-            return generate_http_error(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except AccountNotFound as error:
-            return generate_http_error(404, 'AccountNotFound', error.args[0])
+            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
         except Duplicate as error:
-            return generate_http_error(409, 'Duplicate', error.args[0])
+            return generate_http_error_flask(409, 'Duplicate', error.args[0])
         except RucioException as error:
-            return generate_http_error(500, error.__class__.__name__, error.args[0])
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(error)
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
-        return "Created", 201
-
-
-"""----------------------
-   Web service startup
-----------------------"""
-bp = Blueprint('vo', __name__)
-
-recover_view = RecoverVO.as_view('recover')
-bp.add_url_rule('/<vo>/recover', view_func=recover_view, methods=['post', ])
-vo_view = VO.as_view('vo')
-bp.add_url_rule('/<vo>', view_func=vo_view, methods=['put', 'post'])
-vos_view = VOs.as_view('vos')
-bp.add_url_rule('/', view_func=vos_view, methods=['get', ])
+        return 'Created', 201
 
 
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+def blueprint():
+    bp = Blueprint('vo', __name__, url_prefix='/vos')
+
+    recover_view = RecoverVO.as_view('recover')
+    bp.add_url_rule('/<vo>/recover', view_func=recover_view, methods=['post', ])
+    vo_view = VO.as_view('vo')
+    bp.add_url_rule('/<vo>', view_func=vo_view, methods=['put', 'post'])
+    vos_view = VOs.as_view('vos')
+    bp.add_url_rule('/', view_func=vos_view, methods=['get', ])
+
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/vos')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

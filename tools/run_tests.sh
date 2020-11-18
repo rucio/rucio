@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -117,15 +117,10 @@ fi
 
 if test ${alembic}; then
     echo 'Running full alembic migration'
-    alembic downgrade base
+    tools/alembic_migration.sh
     if [ $? != 0 ]; then
-        echo 'Failed to downgrade the database!'
-        exit
-    fi
-    alembic upgrade head
-    if [ $? != 0 ]; then
-        echo 'Failed to upgrade the database!'
-        exit
+        echo 'Failed to run alembic migration!'
+        exit 1
     fi
 fi
 
@@ -145,7 +140,7 @@ fi
 for i in $iterations
 do
     echo 'Running test iteration' $i
-        echo pytest -v --full-trace $pytestextra $stop_on_failure
-        pytest -v --full-trace $pytestextra $stop_on_failure
+        echo python -bb -m pytest -vvvrxs $stop_on_failure $pytestextra
+        python -bb -m pytest -vvvrxs $stop_on_failure $pytestextra
     fi
 done

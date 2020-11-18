@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,18 +15,19 @@
 #
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
-# - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
+
 from json import dumps, loads
 from traceback import format_exc
-from flask import Flask, Blueprint, Response, request
+
+from flask import Flask, Blueprint, Response, request, jsonify
 from flask.views import MethodView
 
 from rucio.api.account_limit import get_rse_account_usage
@@ -35,7 +36,8 @@ from rucio.api.rse import (add_rse, update_rse, list_rses, del_rse, add_rse_attr
                            add_protocol, get_rse_protocols, del_protocols,
                            update_protocols, get_rse, set_rse_usage,
                            get_rse_usage, list_rse_usage_history,
-                           set_rse_limits, get_rse_limits, parse_rse_expression,
+                           set_rse_limits, get_rse_limits, delete_rse_limits,
+                           parse_rse_expression,
                            add_distance, get_distance, update_distance,
                            list_qos_policies, add_qos_policy, delete_qos_policy)
 from rucio.common.exception import (Duplicate, AccessDenied, RSENotFound, RucioException,
@@ -43,9 +45,10 @@ from rucio.common.exception import (Duplicate, AccessDenied, RSENotFound, RucioE
                                     InvalidObject, RSEProtocolDomainNotSupported,
                                     RSEProtocolPriorityError, InvalidRSEExpression,
                                     RSEAttributeNotFound, CounterNotFound)
-from rucio.common.utils import generate_http_error_flask, render_json, APIEncoder
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
+from rucio.common.utils import render_json, APIEncoder
 from rucio.rse import rsemanager
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, try_stream
+from rucio.web.rest.utils import generate_http_error_flask
 
 
 class RSEs(MethodView):
@@ -65,16 +68,15 @@ class RSEs(MethodView):
         :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: A list containing all RSEs.
-
         """
-        expression = request.args.get('name', None)
+        expression = request.args.get('expression')
         if expression:
             try:
-                data = ""
-                for rse in parse_rse_expression(expression, vo=request.environ.get('vo')):
-                    item = {'rse': rse}
-                    data += render_json(**item) + '\n'
-                return Response(data, content_type="application/x-json-stream")
+                def generate(vo):
+                    for rse in parse_rse_expression(expression, vo=vo):
+                        yield render_json(rse=rse) + '\n'
+
+                return try_stream(generate(vo=request.environ.get('vo')))
             except InvalidRSEExpression as error:
                 return generate_http_error_flask(400, 'InvalidRSEExpression', error.args[0])
             except InvalidObject as error:
@@ -82,10 +84,11 @@ class RSEs(MethodView):
             except RucioException as error:
                 return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         else:
-            data = ""
-            for rse in list_rses(vo=request.environ.get('vo')):
-                data += render_json(**rse) + '\n'
-            return Response(data, content_type="application/x-json-stream")
+            def generate(vo):
+                for rse in list_rses(vo=vo):
+                    yield render_json(**rse) + '\n'
+
+            return try_stream(generate(vo=request.environ.get('vo')))
 
 
 class RSE(MethodView):
@@ -119,7 +122,7 @@ class RSE(MethodView):
         :status 500: Internal Error.
 
         """
-        json_data = request.data
+        json_data = request.data.decode()
         kwargs = {'deterministic': True,
                   'volatile': False, 'city': None, 'staging_area': False,
                   'region_code': None, 'country_name': None,
@@ -149,11 +152,10 @@ class RSE(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(error)
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
-        return "Created", 201
+        return 'Created', 201
 
     def put(self, rse):
         """ Update RSE properties (e.g. name, availability).
@@ -193,11 +195,10 @@ class RSE(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(error)
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
-        return "Created", 201
+        return 'Created', 201
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rse):
@@ -233,20 +234,19 @@ class RSE(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: RSE not found.
         :status 500: Internal Error.
-
         """
         try:
             del_rse(rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
+        except RSEOperationNotSupported as error:
+            return generate_http_error_flask(404, 'RSEOperationNotSupported', error.args[0])
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except RSEOperationNotSupported as error:
-            return generate_http_error_flask(404, 'RSEOperationNotsupported', error.args[0])
         except CounterNotFound as error:
             return generate_http_error_flask(404, 'CounterNotFound', error.args[0])
 
-        return "OK", 200
+        return '', 200
 
 
 class Attributes(MethodView):
@@ -268,7 +268,7 @@ class Attributes(MethodView):
         :status 500: Internal Error.
 
         """
-        json_data = request.data
+        json_data = request.data.decode()
         try:
             parameter = loads(json_data)
         except ValueError:
@@ -286,9 +286,10 @@ class Attributes(MethodView):
         except Duplicate as error:
             return generate_http_error_flask(409, 'Duplicate', error.args[0])
         except Exception as error:
-            return error, 500
+            print(format_exc())
+            return str(error), 500
 
-        return "Created", 201
+        return 'Created', 201
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rse):
@@ -304,7 +305,6 @@ class Attributes(MethodView):
         :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: A list containing all RSE attributes.
-
         """
         try:
             rse_attr = list_rse_attributes(rse, vo=request.environ.get('vo'))
@@ -313,8 +313,10 @@ class Attributes(MethodView):
         except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
         except Exception as error:
-            return error, 500
-        return Response(dumps(rse_attr), content_type="application/json")
+            print(format_exc())
+            return str(error), 500
+
+        return jsonify(rse_attr)
 
     def delete(self, rse, key):
         """ Delete an RSE attribute for given RSE name.
@@ -338,12 +340,13 @@ class Attributes(MethodView):
         except RSEAttributeNotFound as error:
             return generate_http_error_flask(404, 'RSEAttributeNotFound', error.args[0])
         except Exception as error:
-            return error, 500
+            print(format_exc())
+            return str(error), 500
 
-        return "OK", 200
+        return '', 200
 
 
-class Protocols(MethodView):
+class ProtocolList(MethodView):
     """ List supported protocols. """
 
     @check_accept_header_wrapper_flask(['application/json'])
@@ -363,7 +366,6 @@ class Protocols(MethodView):
         :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: A list containing all supported protocols and all their attributes.
-
         """
         p_list = None
         try:
@@ -377,11 +379,10 @@ class Protocols(MethodView):
         except RSEProtocolDomainNotSupported as error:
             return generate_http_error_flask(404, 'RSEProtocolDomainNotSupported', error.args[0])
         except Exception as error:
-            print(error)
             print(format_exc())
-            return error, 500
+            return str(error), 500
         if len(p_list['protocols']):
-            return Response(dumps(p_list['protocols']), content_type="application/json")
+            return jsonify(p_list['protocols'])
         else:
             return generate_http_error_flask(404, 'RSEProtocolNotSupported', 'No protocols found for this RSE')
 
@@ -412,19 +413,25 @@ class LFNS2PFNS(MethodView):
         :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: A list with detailed PFN information.
-
         """
         lfns = []
-        scheme = request.get('scheme', None)
-        domain = request.get('domain', 'wan')
-        operation = request.get('operation', 'write')
-        p_lfns = request.get('lfn', None)
-        if p_lfns:
-            info = p_lfns.split(":", 1)
-            if len(info) != 2:
-                return generate_http_error_flask(400, 'InvalidPath', 'LFN in invalid format')
-            lfn_dict = {'scope': info[0], 'name': info[1]}
-            lfns.append(lfn_dict)
+        scheme = None
+        domain = 'wan'
+        operation = 'write'
+        if request.query_string:
+            for key, val in request.args.items():
+                if key == 'lfn':
+                    info = val.split(":", 1)
+                    if len(info) != 2:
+                        return generate_http_error_flask(400, 'InvalidPath', 'LFN in invalid format')
+                    lfn_dict = {'scope': info[0], 'name': info[1]}
+                    lfns.append(lfn_dict)
+                elif key == 'scheme':
+                    scheme = val
+                elif key == 'domain':
+                    domain = val
+                elif key == 'operation':
+                    operation = val
 
         rse_settings = None
         try:
@@ -436,12 +443,11 @@ class LFNS2PFNS(MethodView):
         except RSEProtocolDomainNotSupported as error:
             return generate_http_error_flask(404, 'RSEProtocolDomainNotSupported', error.args[0])
         except Exception as error:
-            print(error)
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
         pfns = rsemanager.lfns2pfns(rse_settings, lfns, operation=operation, scheme=scheme, domain=domain)
-        return Response(dumps(pfns), content_type="application/json")
+        return jsonify(pfns)
 
 
 class Protocol(MethodView):
@@ -465,7 +471,7 @@ class Protocol(MethodView):
         :status 500: Internal Error.
 
         """
-        json_data = request.data
+        json_data = request.data.decode()
         try:
             parameters = loads(json_data)
         except ValueError:
@@ -491,10 +497,9 @@ class Protocol(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(error)
             print(format_exc())
-            return error, 500
-        return "Created", 201
+            return str(error), 500
+        return 'Created', 201
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rse, scheme):
@@ -524,10 +529,9 @@ class Protocol(MethodView):
         except RSEProtocolDomainNotSupported as error:
             return generate_http_error_flask(404, 'RSEProtocolDomainNotSupported', error.args[0])
         except Exception as error:
-            print(error)
             print(format_exc())
-            return error, 500
-        return Response(dumps(p_list), content_type="application/json")
+            return str(error), 500
+        return jsonify(p_list)
 
     def put(self, rse, scheme, hostname=None, port=None):
         """
@@ -551,7 +555,7 @@ class Protocol(MethodView):
         :status 500: Internal Error.
 
         """
-        json_data = request.data
+        json_data = request.data.decode()
         try:
             parameter = loads(json_data)
         except ValueError:
@@ -572,11 +576,10 @@ class Protocol(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(error)
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
-        return "OK", 200
+        return '', 200
 
     def delete(self, rse, scheme, hostname=None, port=None):
         """
@@ -604,11 +607,10 @@ class Protocol(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(error)
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
-        return "OK", 200
+        return '', 200
 
 
 class Usage(MethodView):
@@ -633,23 +635,20 @@ class Usage(MethodView):
         :returns: A list of dictionaries with the usage information.
 
         """
-        usage = None
-        source = request.args.get('source', None)
-        per_account = request.args.get('per_account', False) == 'True'
         try:
-            usage = get_rse_usage(rse, issuer=request.environ.get('issuer'), source=source, per_account=per_account, vo=request.environ.get('vo'))
+            def generate(issuer, source, per_account, vo):
+                for usage in get_rse_usage(rse, issuer=issuer, source=source, per_account=per_account, vo=vo):
+                    yield render_json(**usage) + '\n'
+
+            return try_stream(generate(issuer=request.environ.get('issuer'), source=request.args.get('source'),
+                                       per_account=(request.args.get('per_account') == 'True'), vo=request.environ.get('vo')))
         except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
-
-        data = ""
-        for u in usage:
-            data = render_json(**u) + '\n'
-        return Response(data, content_type="application/x-json-stream")
+            return str(error), 500
 
     def put(self, rse):
         """ Update RSE usage information.
@@ -665,7 +664,7 @@ class Usage(MethodView):
         :status 500: Internal Error.
 
         """
-        json_data = request.data
+        json_data = request.data.decode()
         try:
             parameter = loads(json_data)
         except ValueError:
@@ -681,9 +680,9 @@ class Usage(MethodView):
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
-        return "OK", 200
+        return '', 200
 
 
 class UsageHistory(MethodView):
@@ -706,20 +705,19 @@ class UsageHistory(MethodView):
         :returns: Line separated list of dictionary with RSE usage information.
 
         """
-        source = request.args.get('source', None)
-
         try:
-            data = ""
-            for usage in list_rse_usage_history(rse=rse, issuer=request.environ.get('issuer'), source=source, vo=request.environ.get('vo')):
-                data = render_json(**usage) + '\n'
-            return Response(data, content_type="application/x-json-stream")
+            def generate(issuer, source, vo):
+                for usage in list_rse_usage_history(rse=rse, issuer=issuer, source=source, vo=vo):
+                    yield render_json(**usage) + '\n'
+
+            return try_stream(generate(issuer=request.environ.get('issuer'), source=request.args.get('source'), vo=request.environ.get('vo')))
         except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
 
 class Limits(MethodView):
@@ -751,7 +749,7 @@ class Limits(MethodView):
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
     def put(self, rse):
         """ Update RSE limits.
@@ -781,9 +779,41 @@ class Limits(MethodView):
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
-        return "OK", 200
+        return '', 200
+
+    def delete(self, rse):
+        """ Update RSE limits.
+
+        .. :quickref: Limits; Update RSE limits.
+
+        :param rse: The RSE name.
+        :status 200: OK.
+        :status 400: Cannot decode json parameter dictionary.
+        :status 401: Invalid Auth Token.
+        :status 404: RSE Not Found.
+        :status 500: Internal Error.
+
+        """
+        json_data = request.data
+        try:
+            parameter = loads(json_data)
+        except ValueError:
+            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
+        try:
+            delete_rse_limits(rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'), **parameter)
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except RSENotFound as error:
+            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
+
+        return '', 200
 
 
 class RSEAccountUsageLimit(MethodView):
@@ -804,21 +834,20 @@ class RSEAccountUsageLimit(MethodView):
         :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: Line separated list of dict with account usage and limits.
-
         """
         try:
-            usage = get_rse_account_usage(rse=rse, vo=request.environ.get('vo'))
-            data = ""
-            for row in usage:
-                data = dumps(row, cls=APIEncoder) + '\n'
-            return Response(data, content_type="application/json")
+            def generate(vo):
+                for usage in get_rse_account_usage(rse=rse, vo=vo):
+                    yield render_json(**usage) + '\n'
+
+            return try_stream(generate(vo=request.environ.get('vo')), content_type='application/json')
         except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
 
 class Distance(MethodView):
@@ -839,7 +868,6 @@ class Distance(MethodView):
         :status 406: Not Acceptable.
         :status 500: Internal Error.
         :returns: List of dictionaries with RSE distances.
-
         """
         try:
             distance = get_distance(source=source,
@@ -853,7 +881,7 @@ class Distance(MethodView):
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
+            return str(error), 500
 
     def post(self, source, destination):
         """ Create distance information between source RSE and destination RSE.
@@ -867,9 +895,8 @@ class Distance(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: RSE Not Found.
         :status 500: Internal Error.
-
         """
-        json_data = request.data
+        json_data = request.data.decode()
         try:
             parameter = loads(json_data)
         except ValueError:
@@ -888,8 +915,8 @@ class Distance(MethodView):
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
-        return "Created", 201
+            return str(error), 500
+        return 'Created', 201
 
     def put(self, source, destination):
         """ Update distance information between source RSE and destination RSE.
@@ -904,7 +931,7 @@ class Distance(MethodView):
         :status 404: RSE Not Found.
         :status 500: Internal Error.
         """
-        json_data = request.data
+        json_data = request.data.decode()
         try:
             parameters = loads(json_data)
         except ValueError:
@@ -922,12 +949,64 @@ class Distance(MethodView):
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
-        return "OK", 200
+            return str(error), 500
+        return '', 200
 
 
 class QoSPolicy(MethodView):
-    """ Create/Update and list QoS policies of RSEs. """
+    """ Add/Delete/List QoS policies on an RSE. """
+
+    @check_accept_header_wrapper_flask(['application/json'])
+    def post(self, rse, policy):
+        """
+        Add QoS policy to RSE
+
+        .. :quickref: QoSPolicy; Add QoS policy to RSE.
+
+        :param rse: The RSE name.
+        :param policy: The QoS policy name.
+        :status 201: Created.
+        :status 401: Invalid Auth Token.
+        :status 404: RSE Not Found.
+        :status 500: Internal Error.
+        """
+        try:
+            add_qos_policy(rse=rse, qos_policy=policy, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+        except RSENotFound as error:
+            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
+
+        return 'Created', 201
+
+    @check_accept_header_wrapper_flask(['application/json'])
+    def delete(self, rse, policy):
+        """
+        Delete QoS policy from RSE.
+
+        .. :quickref: QoSPolicy; Delete QoS policy from RSE.
+
+        :param rse: The RSE name.
+        :param policy: The QoS policy name.
+        :status 200: OK.
+        :status 401: Invalid Auth Token.
+        :status 404: RSE not found.
+        :status 500: Internal Error.
+        """
+        try:
+            delete_qos_policy(rse=rse, qos_policy=policy, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+        except RSENotFound as error:
+            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
+
+        return '', 200
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, rse):
@@ -943,118 +1022,57 @@ class QoSPolicy(MethodView):
         :status 500: Internal Error.
         :returns: List of QoS policies
         """
-
         try:
             qos_policies = list_qos_policies(rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
-            return Response(dumps(qos_policies, cls=APIEncoder), content_type="application/json")
+            return Response(dumps(qos_policies, cls=APIEncoder), content_type='application/json')
         except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())
-            return error, 500
-
-    @check_accept_header_wrapper_flask(['application/json'])
-    def post(self, rse, qos_policy):
-        """
-        Add QoS policy to RSE
-
-        .. :quickref: QoSPolicy; Add QoS policy to RSE.
-
-        :param rse: The RSE name.
-        :param qos_policy: The QoS policy name.
-        :status 201: Created.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE Not Found.
-        :status 500: Internal Error.
-        """
-        try:
-            add_qos_policy(rse=rse, qos_policy=qos_policy, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
-        except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            print(format_exc())
-            return error, 500
-
-        return "Created", 201
-
-    @check_accept_header_wrapper_flask(['application/json'])
-    def delete(self, rse, qos_policy):
-        """
-        Delete QoS policy from RSE.
-
-        .. :quickref: QoSPolicy; Delete QoS policy from RSE.
-
-        :param rse: The RSE name.
-        :param qos_policy: The QoS policy name.
-        :status 200: OK.
-        :status 401: Invalid Auth Token.
-        :status 404: RSE not found.
-        :status 500: Internal Error.
-        """
-
-        try:
-            delete_qos_policy(rse=rse, qos_policy=qos_policy, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
-        except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            print(format_exc())
-            return error, 500
-
-        return "OK", 200
+            return str(error), 500
 
 
-"""----------------------
-   Web service startup
-----------------------"""
-bp = Blueprint('rse', __name__)
+def blueprint():
+    bp = Blueprint('rse', __name__, url_prefix='/rses')
 
-attributes_view = Attributes.as_view('attributes')
-bp.add_url_rule('/<rse>/attr/<key>', view_func=attributes_view, methods=['post', 'delete'])
-bp.add_url_rule('/<rse>/attr', view_func=attributes_view, methods=['get', ])
-distance_view = Distance.as_view('distance')
-bp.add_url_rule('/<source>/attr/<destination>', view_func=distance_view, methods=['get', 'post', 'put'])
-protocols_view = Protocols.as_view('protocols')
-bp.add_url_rule('/<rse>/protocols', view_func=protocols_view, methods=['get', ])
-protocol_view = Protocol.as_view('protocol')
-bp.add_url_rule('/<rse>/protocols/<scheme>', view_func=protocol_view, methods=['get', 'post'])
-bp.add_url_rule('/<rse>/protocols/<scheme>/<hostname>/<port>', view_func=protocol_view, methods=['delete', 'put'])
-lfns2pfns_view = LFNS2PFNS.as_view('lfns2pfns')
-bp.add_url_rule('/<rse>/lfns2pfns', view_func=lfns2pfns_view, methods=['get', ])
-rse_account_usage_limit_view = RSEAccountUsageLimit.as_view('rse_account_usage_limit')
-bp.add_url_rule('/<rse>/accounts/usage', view_func=rse_account_usage_limit_view, methods=['get', ])
-usage_view = Usage.as_view('usage')
-bp.add_url_rule('/<rse>/usage', view_func=usage_view, methods=['get', 'put'])
-usage_history_view = UsageHistory.as_view('usage_history')
-bp.add_url_rule('/<rse>/usage/history', view_func=usage_history_view, methods=['get', ])
-limits_view = Limits.as_view('limits')
-bp.add_url_rule('/<rse>/limits', view_func=limits_view, methods=['get', 'put'])
-qos_policy_view = QoSPolicy.as_view('qos_policy')
-bp.add_url_rule('/<rse>/qos_policy', view_func=qos_policy_view, methods=['get', ])
-bp.add_url_rule('/<rse>/qos_policy/<policy>', view_func=qos_policy_view, methods=['post', 'delete'])
-rse_view = RSE.as_view('rse')
-bp.add_url_rule('/<rse>', view_func=rse_view, methods=['get', 'delete', 'put', 'post'])
-rses_view = RSEs.as_view('rses')
-bp.add_url_rule('/', view_func=rses_view, methods=['get', ])
+    attributes_view = Attributes.as_view('attributes')
+    bp.add_url_rule('/<rse>/attr/<key>', view_func=attributes_view, methods=['post', 'delete'])
+    bp.add_url_rule('/<rse>/attr/', view_func=attributes_view, methods=['get', ])
+    distance_view = Distance.as_view('distance')
+    bp.add_url_rule('/<source>/distances/<destination>', view_func=distance_view, methods=['get', 'post', 'put'])
+    protocol_view = Protocol.as_view('protocol')
+    bp.add_url_rule('/<rse>/protocols/<scheme>/<hostname>/<port>', view_func=protocol_view, methods=['delete', 'put'])
+    bp.add_url_rule('/<rse>/protocols/<scheme>/<hostname>', view_func=protocol_view, methods=['delete', 'put'])
+    bp.add_url_rule('/<rse>/protocols/<scheme>', view_func=protocol_view, methods=['get', 'post', 'delete', 'put'])
+    protocol_list_view = ProtocolList.as_view('protocol_list')
+    bp.add_url_rule('/<rse>/protocols', view_func=protocol_list_view, methods=['get', ])
+    lfns2pfns_view = LFNS2PFNS.as_view('lfns2pfns')
+    bp.add_url_rule('/<rse>/lfns2pfns', view_func=lfns2pfns_view, methods=['get', ])
+    rse_account_usage_limit_view = RSEAccountUsageLimit.as_view('rse_account_usage_limit')
+    bp.add_url_rule('/<rse>/accounts/usage', view_func=rse_account_usage_limit_view, methods=['get', ])
+    usage_view = Usage.as_view('usage')
+    bp.add_url_rule('/<rse>/usage', view_func=usage_view, methods=['get', 'put'])
+    usage_history_view = UsageHistory.as_view('usage_history')
+    bp.add_url_rule('/<rse>/usage/history', view_func=usage_history_view, methods=['get', ])
+    limits_view = Limits.as_view('limits')
+    bp.add_url_rule('/<rse>/limits', view_func=limits_view, methods=['get', 'put'])
+    qos_policy_view = QoSPolicy.as_view('qos_policy')
+    bp.add_url_rule('/<rse>/qos_policy', view_func=qos_policy_view, methods=['get', ])
+    bp.add_url_rule('/<rse>/qos_policy/<policy>', view_func=qos_policy_view, methods=['post', 'delete'])
+    rse_view = RSE.as_view('rse')
+    bp.add_url_rule('/<rse>', view_func=rse_view, methods=['get', 'delete', 'put', 'post'])
+    rses_view = RSEs.as_view('rses')
+    bp.add_url_rule('/', view_func=rses_view, methods=['get', ])
 
-
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/rses')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

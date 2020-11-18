@@ -1,4 +1,5 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,21 +14,23 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2015
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
-# - Eric Vaandering <ericvaandering@gmail.com>, 2018
-# - Asket Agarwal <asket.agarwal96@gmail.com>, 2018
+# - Eric Vaandering <ewv@fnal.gov>, 2018-2020
+# - asket <asket.agarwal96@gmail.com>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-#
-# PY3K COMPATIBLE
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
+# - Alan Malta Rodrigues <alan.malta@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
 
@@ -61,21 +64,20 @@ class DIDClient(BaseClient):
         List all data identifiers in a scope which match a given pattern.
 
         :param scope: The scope name.
-        :param filters: A dictionary of key/value pairs like {'name': 'file_name','rse-expression': 'tier0'}.
+        :param filters: A dictionary of key/value pairs like {'type': 'dataset', 'scope': 'test'}.
         :param type: The type of the did: 'all'(container, dataset or file)|'collection'(dataset or container)|'dataset'|'container'|'file'
         :param long: Long format option to display more information for each DID.
         :param recursive: Recursively list DIDs content.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), 'dids', 'search'])
         payload = {}
-        if long:
-            payload['long'] = 1
 
         for k, v in list(filters.items()):
             if k in ('created_before', 'created_after'):
                 payload[k] = date_to_str(v)
             else:
                 payload[k] = v
+        payload['long'] = long
         payload['type'] = type
         payload['recursive'] = recursive
 
@@ -94,21 +96,20 @@ class DIDClient(BaseClient):
         List all data identifiers in a scope which match a given pattern. Extended version that goes through plugin mechanism.
 
         :param scope: The scope name.
-        :param filters: A dictionary of key/value pairs like {'name': 'file_name','rse-expression': 'tier0'}.
+        :param filters: A dictionary of key/value pairs like {'type': 'dataset', 'scope': 'test'}.
         :param type: The type of the did: 'all'(container, dataset or file)|'collection'(dataset or container)|'dataset'|'container'|'file'
         :param long: Long format option to display more information for each DID.
         :param recursive: Recursively list DIDs content.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), 'dids', 'search_extended'])
         payload = {}
-        if long:
-            payload['long'] = 1
 
         for k, v in list(filters.items()):
             if k in ('created_before', 'created_after'):
                 payload[k] = date_to_str(v)
             else:
                 payload[k] = v
+        payload['long'] = long
         payload['type'] = type
         payload['recursive'] = recursive
 
@@ -472,6 +473,26 @@ class DIDClient(BaseClient):
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta', key])
         url = build_url(choice(self.list_hosts), path=path)
         data = dumps({'value': value, 'recursive': recursive})
+        r = self._send_request(url, type='POST', data=data)
+        if r.status_code == codes.created:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
+
+    def set_metadata_bulk(self, scope, name, meta, recursive=False):
+        """
+        Set data identifier metadata in bulk.
+
+        :param scope: The scope name.
+        :param name: The data identifier name.
+        :param meta: the metadata key-values.
+        :type meta: dict
+        :param recursive: Option to propagate the metadata change to content.
+        """
+        path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta'])
+        url = build_url(choice(self.list_hosts), path=path)
+        data = dumps({'meta': meta, 'recursive': recursive})
         r = self._send_request(url, type='POST', data=data)
         if r.status_code == codes.created:
             return True

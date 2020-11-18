@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+# Copyright 2014-2020 CERN
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Authors:
+# - Cedric Serfon, <cedric.serfon@cern.ch>, 2020
+#
+# PY3K COMPATIBLE
+
+"""
+Hermes2 is a daemon that get the messages and sends them to external services (influxDB, ES, ActiveMQ).
+"""
+
+import argparse
+import signal
+
+from rucio.daemons.hermes.hermes2 import run, stop
+
+
+def get_parser():
+    """
+    Returns the argparse parser.
+    """
+    parser = argparse.ArgumentParser(description="Hermes2 is a daemon that get the messages and sends them to external services (influxDB, ES, ActiveMQ).", formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''
+Run the daemon::
+
+  $ rucio-hermes2 --run-once
+    ''')
+    parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
+    parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: number of threads')
+    parser.add_argument("--bulk", action="store", default=1000, type=int, help='Bulk control: number of requests per cycle')
+    parser.add_argument("--sleep-time", action="store", default=10, type=int, help='Delay control: second control per cycle')
+    return parser
+
+
+if __name__ == "__main__":
+
+    signal.signal(signal.SIGTERM, stop)
+
+    parser = get_parser()
+    args = parser.parse_args()
+    try:
+        run(once=args.run_once,
+            threads=args.threads,
+            bulk=args.bulk,
+            sleep_time=args.sleep_time)
+    except KeyboardInterrupt:
+        stop()

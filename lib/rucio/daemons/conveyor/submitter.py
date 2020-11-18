@@ -1,4 +1,5 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,16 +17,20 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2019
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
-# - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2020
-# - Wen Guan <wguan.icedew@gmail.com>, 2014-2016
-# - Tomas Kouba <tomas.kouba@cern.ch>, 2014
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2016
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
-# - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Wen Guan <wen.guan@cern.ch>, 2014-2016
+# - Tomáš Kouba <tomas.kouba@cern.ch>, 2014
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2016
+# - dciangot <diego.ciangottini@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - maatthias <maatthias@gmail.com>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Nick Smith <nick.smith@cern.ch>, 2020
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
 Conveyor transfer submitter is a daemon to manage non-tape file transfers.
@@ -41,21 +46,25 @@ import sys
 import threading
 import time
 import traceback
-
 from collections import defaultdict
-try:
-    from ConfigParser import NoOptionError  # py2
-except Exception:
-    from configparser import NoOptionError  # py3
-from six import iteritems
-from prometheus_client import Counter
 
-from rucio.common.config import config_get
+from prometheus_client import Counter
+from six import iteritems
+
+import rucio.db.sqla.util
+from rucio.common import exception
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.schema import get_schema_value
 from rucio.core import heartbeat, request as request_core, transfer as transfer_core
 from rucio.core.monitor import record_counter, record_timer
 from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfer, get_conveyor_rses, USER_ACTIVITY
 from rucio.db.sqla.constants import RequestState
+
+try:
+    from ConfigParser import NoOptionError  # py2
+except Exception:
+    from configparser import NoOptionError  # py3
+
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging,
@@ -242,20 +251,26 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, group_bulk=1, group_policy='rule',
-        mock=False, rses=None, include_rses=None, exclude_rses=None, bulk=100, source_strategy=None,
+def run(once=False, group_bulk=1, group_policy='rule', mock=False,
+        rses=None, include_rses=None, exclude_rses=None, vos=None, bulk=100, source_strategy=None,
         activities=None, exclude_activities=None, sleep_time=600, max_sources=4, retry_other_fts=False, total_threads=1):
     """
     Starts up the conveyer threads.
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     if mock:
         logging.info('mock source replicas: enabled')
 
+    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
     working_rses = None
     if rses or include_rses or exclude_rses:
-        working_rses = get_conveyor_rses(rses, include_rses, exclude_rses)
+        working_rses = get_conveyor_rses(rses, include_rses, exclude_rses, vos)
         logging.info("RSE selection: RSEs: %s, Include: %s, Exclude: %s", rses, include_rses, exclude_rses)
+    elif multi_vo:
+        working_rses = get_conveyor_rses(rses, include_rses, exclude_rses, vos)
+        logging.info("RSE selection: automatic for relevant VOs")
     else:
         logging.info("RSE selection: automatic")
 
@@ -263,7 +278,17 @@ def run(once=False, group_bulk=1, group_policy='rule',
 
     if exclude_activities:
         if not activities:
-            activities = get_schema_value('ACTIVITY')
+            if not multi_vo:
+                vos = ['def']
+            if vos and len(vos) == 1:
+                activities = get_schema_value('ACTIVITY', vos[0])
+            elif vos and len(vos) > 1:
+                logging.warning('Cannot get activity list from schema when multiple VOs given, either provide `activities` argument or run on a single VO')
+                activities = [None]
+            else:
+                logging.warning('Cannot get activity list from schema when no VO given, either provide `activities` argument or `vos` with a single entry')
+                activities = [None]
+
         for activity in exclude_activities:
             if activity in activities:
                 activities.remove(activity)

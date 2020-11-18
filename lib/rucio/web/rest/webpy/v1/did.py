@@ -1,5 +1,6 @@
-#!/usr/bin/env python
-# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,28 +15,27 @@
 # limitations under the License.
 #
 # Authors:
-# - Angelos Molfetas <angelos.molfetas@cern.ch>, 2012
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2020
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2016
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
-# - Yun-Pin Sun <yun-pin.sun@cern.ch>, 2013
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
-# - Martin Baristis <martin.barisits@cern.ch>, 2014-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - asket <asket.agarwal96@gmail.com>, 2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Muhammad Aditya Hilmy <mhilmy@hey.com>, 2020
-#
-# PY3K COMPATIBLE
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2020
+# - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
+# - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Alan Malta Rodrigues <alan.malta@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
+
 from json import dumps, loads
 from traceback import format_exc
-try:
-    from urlparse import parse_qs
-except ImportError:
-    from urllib.parse import parse_qs
+
 from web import application, ctx, data, Created, header, InternalError, OK, loadhook
 
 from rucio.api.did import (add_did, add_dids, list_content, list_content_history,
@@ -43,7 +43,7 @@ from rucio.api.did import (add_did, add_dids, list_content, list_content_history
                            get_metadata, get_metadata_bulk, delete_metadata, set_status, attach_dids, detach_dids,
                            attach_dids_to_dids, get_dataset_by_guid, list_parent_dids,
                            create_did_sample, list_new_dids, resurrect, add_did_to_followed,
-                           get_users_following_did, remove_did_from_followed)
+                           get_users_following_did, remove_did_from_followed, set_metadata_bulk)
 from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
 from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     DataIdentifierAlreadyExists, DuplicateContent,
@@ -52,34 +52,40 @@ from rucio.common.exception import (ScopeNotFound, DataIdentifierNotFound,
                                     UnsupportedStatus, UnsupportedOperation,
                                     RSENotFound, RucioException, RuleNotFound,
                                     InvalidMetadata)
-from rucio.common.schema import get_schema_value
-from rucio.common.utils import generate_http_error, render_json, APIEncoder, parse_response
+from rucio.common.schema import insert_scope_name
+from rucio.common.utils import render_json, APIEncoder, parse_response
 from rucio.web.rest.common import rucio_loadhook, RucioController, check_accept_header_wrapper
+from rucio.web.rest.utils import generate_http_error
 
-URLS = (
+try:
+    from urlparse import parse_qs
+except ImportError:
+    from urllib.parse import parse_qs
+
+URLS = insert_scope_name((
     '/(.*)/$', 'Scope',
     '/(.*)/guid', 'GUIDLookup',
     '/(.*)/dids/search', 'Search',
     '/(.*)/dids/search_extended', 'SearchExtended',
-    '%s/files' % get_schema_value('SCOPE_NAME_REGEXP'), 'Files',
-    '%s/dids/history' % get_schema_value('SCOPE_NAME_REGEXP'), 'AttachmentHistory',
-    '%s/dids' % get_schema_value('SCOPE_NAME_REGEXP'), 'Attachment',
-    '%s/meta/(.*)' % get_schema_value('SCOPE_NAME_REGEXP'), 'Meta',
-    '%s/meta' % get_schema_value('SCOPE_NAME_REGEXP'), 'Meta',
-    '%s/status' % get_schema_value('SCOPE_NAME_REGEXP'), 'DIDs',
-    '%s/rules' % get_schema_value('SCOPE_NAME_REGEXP'), 'Rules',
-    '%s/parents' % get_schema_value('SCOPE_NAME_REGEXP'), 'Parents',
-    '%s/associated_rules' % get_schema_value('SCOPE_NAME_REGEXP'), 'AssociatedRules',
-    '%s/did_meta' % get_schema_value('SCOPE_NAME_REGEXP'), 'DidMeta',
+    '%s/files', 'Files',
+    '%s/dids/history', 'AttachmentHistory',
+    '%s/dids', 'Attachment',
+    '%s/meta/(.*)', 'SingleMeta',
+    '%s/meta', 'Meta',
+    '%s/status', 'DIDs',
+    '%s/rules', 'Rules',
+    '%s/parents', 'Parents',
+    '%s/associated_rules', 'AssociatedRules',
+    '%s/did_meta', 'DidMeta',
     '/(.*)/(.*)/(.*)/(.*)/(.*)/sample', 'Sample',
-    '%s' % get_schema_value('SCOPE_NAME_REGEXP'), 'DIDs',
     '', 'BulkDIDS',
     '/attachments', 'Attachments',
     '/new', 'NewDIDs',
     '/resurrect', 'Resurrect',
-    '%s/follow' % get_schema_value('SCOPE_NAME_REGEXP'), 'Follow',
+    '%s/follow', 'Follow',
     '/bulkmeta', 'BulkMeta',
-)
+    '%s', 'DIDs',
+))
 
 
 class Scope(RucioController):
@@ -151,7 +157,7 @@ class Search(RucioController):
                 elif k == 'limit':
                     limit = v[0]
                 elif k == 'long':
-                    long = v[0] == '1'
+                    long = v[0] in ['True', '1']
                 elif k == 'recursive':
                     recursive = v[0] == 'True'
                 else:
@@ -201,7 +207,7 @@ class SearchExtended(RucioController):
                 elif k == 'limit':
                     limit = v[0]
                 elif k == 'long':
-                    long = v[0] == '1'
+                    long = v[0] in ['True', '1']
                 elif k == 'recursive':
                     recursive = v[0] == 'True'
                 else:
@@ -666,9 +672,11 @@ class Meta(RucioController):
             print(format_exc())
             raise InternalError(error)
 
-    def POST(self, scope, name, key):
+    def POST(self, scope, name):
         """
-        Add metadata to a data identifier.
+        Add metadata to a data identifier in bulk.
+
+        .. :quickref: Meta; Add DID metadata.
 
         HTTP Success:
             201 Created
@@ -682,19 +690,17 @@ class Meta(RucioController):
 
         :param scope: The scope name.
         :param name: The data identifier name.
-        :param key: the key.
-
         """
         json_data = data()
         try:
             params = loads(json_data)
-            value = params['value']
+            meta = params['meta']
             recursive = params.get('recursive', False)
         except ValueError:
             raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
         try:
-            set_metadata(scope=scope, name=name, key=key, value=value,
-                         issuer=ctx.env.get('issuer'), recursive=recursive, vo=ctx.env.get('vo'))
+            set_metadata_bulk(scope=scope, name=name, meta=meta,
+                              issuer=ctx.env.get('issuer'), recursive=recursive, vo=ctx.env.get('vo'))
         except DataIdentifierNotFound as error:
             raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
         except Duplicate as error:
@@ -745,6 +751,56 @@ class Meta(RucioController):
             print(format_exc())
             raise InternalError(error)
         raise OK()
+
+
+class SingleMeta(RucioController):
+
+    def POST(self, scope, name, key):
+        """
+        Add metadata to a data identifier.
+
+        HTTP Success:
+            201 Created
+
+        HTTP Error:
+            400 Bad Request
+            401 Unauthorized
+            404 Not Found
+            409 Conflict
+            500 Internal Error
+
+        :param scope: The scope name.
+        :param name: The data identifier name.
+        :param key: the key.
+
+        """
+        json_data = data()
+        try:
+            params = loads(json_data)
+            value = params['value']
+            recursive = params.get('recursive', False)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter list')
+        try:
+            set_metadata(scope=scope, name=name, key=key, value=value,
+                         issuer=ctx.env.get('issuer'), recursive=recursive, vo=ctx.env.get('vo'))
+        except DataIdentifierNotFound as error:
+            raise generate_http_error(404, 'DataIdentifierNotFound', error.args[0])
+        except Duplicate as error:
+            raise generate_http_error(409, 'Duplicate', error.args[0])
+        except KeyNotFound as error:
+            raise generate_http_error(400, 'KeyNotFound', error.args[0])
+        except InvalidMetadata as error:
+            raise generate_http_error(400, 'InvalidMetadata', error.args[0])
+        except InvalidValueForKey as error:
+            raise generate_http_error(400, 'InvalidValueForKey', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+
+        raise Created()
 
 
 class Rules(RucioController):

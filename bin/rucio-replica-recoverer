@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +16,7 @@
 # Authors:
 #  - Cedric Serfon, <cedric.serfon@cern.ch>, 2018
 #  - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019
+#  - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # PY3K COMPATIBLE
 
 """
@@ -217,10 +218,25 @@ $$ list_bad_replicas_status(rse='MOCK_SUSPICIOUS', younger_than=from_date)
 
 $$ exit()
 
+When run in multi-VO mode, by default the daemon will run on RSEs from all VOs::
+
+  $ rucio-replica-recoverer --run-once
+  2020-07-28 15:15:14,151 5461    INFO    replica_recoverer: This instance will work on VOs: def, abc, xyz, 123
+
+By using the ``--vos`` argument only the VO or VOs specified will be affected::
+
+  $ rucio-replica-recoverer --run-once --vos abc xyz
+  2020-07-28 15:16:36,066 5474    INFO    replica_recoverer: This instance will work on VOs: abc, xyz
+
+Note that attempting the use the ``--vos`` argument when in single-VO mode will have no affect::
+
+  $ rucio-replica-recoverer --run-once --vos abc xyz
+  2020-07-28 15:21:33,349 5488    WARNING Ignoring argument vos, this is only applicable in a multi-VO setup.
 ''')  # NOQA: E501
     parser.add_argument("--nattempts", action="store", default=10, help='Minimum count of suspicious file replica appearance in bad_replicas table.Default value is 10.')
     parser.add_argument("--younger-than", action="store", default=3, help='Consider all file replicas logged in bad_replicas table since speicified number of younger-than. Default value is 3.')
     parser.add_argument("--rse-expression", action="store", default='MOCK', help='The RSE on which the recovery should be happening.')
+    parser.add_argument('--vos', nargs='+', type=str, help='Optional list of VOs to consider. Only used in multi-VO mode.')
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only.')
     parser.add_argument("--max-replicas-per-rse", action="store", default=100, help='The maximum number of suspicious replicas found on an RSE which may be declared bad. If a higher count is found, no action is be taken.')
     return parser
@@ -231,6 +247,6 @@ if __name__ == "__main__":
     PARSER = get_parser()
     ARGS = PARSER.parse_args()
     try:
-        run(once=ARGS.run_once, younger_than=ARGS.younger_than, nattempts=ARGS.nattempts, rse_expression=ARGS.rse_expression, max_replicas_per_rse=ARGS.max_replicas_per_rse)
+        run(once=ARGS.run_once, younger_than=ARGS.younger_than, nattempts=ARGS.nattempts, rse_expression=ARGS.rse_expression, vos=ARGS.vos, max_replicas_per_rse=ARGS.max_replicas_per_rse)
     except KeyboardInterrupt:
         stop()

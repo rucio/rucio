@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # Copyright 2016-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -232,7 +231,7 @@ def perm_add_account(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer)
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
 
 
 def perm_del_account(issuer, kwargs):
@@ -243,7 +242,7 @@ def perm_del_account(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer)
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
 
 
 def perm_update_account(issuer, kwargs):
@@ -259,13 +258,13 @@ def perm_update_account(issuer, kwargs):
 
 def perm_add_scope(issuer, kwargs):
     """
-    Checks if an account can add a scop to a account.
+    Checks if an account can add a scope to an account.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or issuer == kwargs.get('account')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
 
 
 def perm_get_auth_token_user_pass(issuer, kwargs):
@@ -328,8 +327,7 @@ def perm_add_account_identity(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-
-    return _is_root(issuer) or issuer == kwargs.get('account')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
 
 
 def perm_del_account_identity(issuer, kwargs):
@@ -340,8 +338,7 @@ def perm_del_account_identity(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-
-    return _is_root(issuer) or issuer == kwargs.get('account')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
 
 
 def perm_del_identity(issuer, kwargs):
@@ -352,8 +349,7 @@ def perm_del_identity(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-
-    return _is_root(issuer) or issuer.external in kwargs.get('accounts')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
 
 
 def perm_add_did(issuer, kwargs):
@@ -372,8 +368,7 @@ def perm_add_did(issuer, kwargs):
 
     return _is_root(issuer)\
         or has_account_attribute(account=issuer, key='admin')\
-        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)\
-        or kwargs['scope'] == u'mock'
+        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
 
 
 def perm_add_dids(issuer, kwargs):
@@ -404,8 +399,7 @@ def perm_attach_dids(issuer, kwargs):
     """
     return _is_root(issuer)\
         or has_account_attribute(account=issuer, key='admin')\
-        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)\
-        or kwargs['scope'] == 'mock'
+        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
 
 
 def perm_attach_dids_to_dids(issuer, kwargs):
@@ -438,8 +432,7 @@ def perm_create_did_sample(issuer, kwargs):
     """
     return _is_root(issuer)\
         or has_account_attribute(account=issuer, key='admin')\
-        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)\
-        or kwargs['scope'] == 'mock'
+        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer)
 
 
 def perm_del_rule(issuer, kwargs):
@@ -621,10 +614,7 @@ def perm_add_replicas(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return str(kwargs.get('rse', '')).endswith('SCRATCHDISK')\
-        or str(kwargs.get('rse', '')).endswith('USERDISK')\
-        or str(kwargs.get('rse', '')).endswith('MOCK')\
-        or str(kwargs.get('rse', '')).endswith('LOCALGROUPDISK')\
+    return str(kwargs.get('rse', '')).endswith('TMP-SE')\
         or _is_root(issuer)\
         or has_account_attribute(account=issuer, key='admin')
 
@@ -725,7 +715,7 @@ def perm_set_rse_usage(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    return _is_root(issuer)
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
 
 
 def perm_set_rse_limits(issuer, kwargs):
@@ -904,7 +894,7 @@ def perm_list_heartbeats(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    return _is_root(issuer)
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
 
 
 def perm_resurrect(issuer, kwargs):
@@ -960,7 +950,7 @@ def perm_add_bad_pfns(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer)
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
 
 
 def perm_remove_did_from_followed(issuer, kwargs):
@@ -973,8 +963,7 @@ def perm_remove_did_from_followed(issuer, kwargs):
     """
     return _is_root(issuer)\
         or has_account_attribute(account=issuer, key='admin')\
-        or kwargs['account'] == issuer\
-        or kwargs['scope'] == 'mock'
+        or kwargs['account'] == issuer
 
 
 def perm_remove_dids_from_followed(issuer, kwargs):

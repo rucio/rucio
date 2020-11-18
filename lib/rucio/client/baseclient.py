@@ -1,4 +1,5 @@
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,29 +14,27 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2013
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2020
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
 # - Tobias Wegner <twegner@cern.ch>, 2017
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2017-2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
-# - Tomas Javurek <tomas.javurek@cern.ch>, 2019
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2019-2020
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
-# - Eric Vaandering <ericvaandering@gmail.com>, 2019
+# - Eric Vaandering <ewv@fnal.gov>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 '''
  Client class for callers of the Rucio system
@@ -44,6 +43,7 @@
 from __future__ import print_function
 
 import imp
+import os
 import random
 import sys
 import traceback
@@ -215,7 +215,15 @@ class BaseClient(object):
                     self.creds['password'] = config_get('client', 'password')
                 elif self.auth_type == 'x509':
                     self.creds['client_cert'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_cert'))))
+                    if not path.exists(self.creds['client_cert']):
+                        raise MissingClientParameter('X.509 client certificate not found: %s' % self.creds['client_cert'])
                     self.creds['client_key'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_key'))))
+                    if not path.exists(self.creds['client_key']):
+                        raise MissingClientParameter('X.509 client key not found: %s' % self.creds['client_key'])
+                    else:
+                        perms = oct(os.stat(self.creds['client_key']).st_mode)[-3:]
+                        if perms != '400':
+                            raise CannotAuthenticate('X.509 authentication selected, but private key (%s) permissions are liberal (required: 400, found: %s)' % (self.creds['client_key'], perms))
                 elif self.auth_type == 'x509_proxy':
                     try:
                         self.creds['client_proxy'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_x509_proxy'))))
@@ -249,12 +257,15 @@ class BaseClient(object):
             raise ClientProtocolNotSupported('\'%s\' not supported' % auth_scheme)
 
         if (rucio_scheme == 'https' or auth_scheme == 'https') and ca_cert is None:
-            LOG.debug('HTTPS is required, but no ca_cert was passed. Trying to get it from the config file.')
-            try:
-                self.ca_cert = path.expandvars(config_get('client', 'ca_cert'))
-            except (NoOptionError, NoSectionError):
-                LOG.debug('No ca_cert found in configuration. Falling back to Mozilla default CA bundle (certifi).')
-                self.ca_cert = True
+            LOG.debug('HTTPS is required, but no ca_cert was passed. Trying to get it from X509_CERT_DIR.')
+            self.ca_cert = os.environ.get('X509_CERT_DIR', None)
+            if self.ca_cert is None:
+                LOG.debug('HTTPS is required, but no ca_cert was passed and X509_CERT_DIR is not defined. Trying to get it from the config file.')
+                try:
+                    self.ca_cert = path.expandvars(config_get('client', 'ca_cert'))
+                except (NoOptionError, NoSectionError):
+                    LOG.debug('No ca_cert found in configuration. Falling back to Mozilla default CA bundle (certifi).')
+                    self.ca_cert = True
 
         self.list_hosts = [self.host]
 
@@ -342,7 +353,8 @@ class BaseClient(object):
         elif 'content-type' in response.headers and response.headers['content-type'] == 'application/json':
             yield parse_response(response.text)
         else:  # Exception ?
-            yield response.text
+            if response.text:
+                yield response.text
 
     def _send_request(self, url, headers=None, type='GET', data=None, params=None, stream=False):
         """
@@ -376,7 +388,7 @@ class BaseClient(object):
                 else:
                     return
             except ConnectionError as error:
-                LOG.warning('ConnectionError: ' + str(error))
+                LOG.error('ConnectionError: ' + str(error))
                 if retry > self.request_retries:
                     raise
                 continue
@@ -412,7 +424,7 @@ class BaseClient(object):
                 result = self.session.get(url, headers=headers, verify=self.ca_cert)
                 break
             except ConnectionError as error:
-                LOG.warning('ConnectionError: ' + str(error))
+                LOG.error('ConnectionError: ' + str(error))
                 if retry > self.request_retries:
                     raise
 
@@ -492,7 +504,7 @@ class BaseClient(object):
 
                 break
             except RequestException:
-                LOG.warning('RequestException: %s', str(traceback.format_exc()))
+                LOG.error('RequestException: %s', str(traceback.format_exc()))
                 if retry > self.request_retries:
                     raise
 
@@ -607,7 +619,7 @@ class BaseClient(object):
 
                 break
             except RequestException:
-                LOG.warning('RequestException: %s', str(traceback.format_exc()))
+                LOG.error('RequestException: %s', str(traceback.format_exc()))
                 if retry > self.request_retries:
                     raise
 
@@ -673,7 +685,7 @@ class BaseClient(object):
             except ConnectionError as error:
                 if 'alert certificate expired' in str(error):
                     raise CannotAuthenticate(str(error))
-                LOG.warning('ConnectionError: ' + str(error))
+                LOG.error('ConnectionError: ' + str(error))
                 if retry > self.request_retries:
                     raise
 
@@ -718,7 +730,7 @@ class BaseClient(object):
             except ConnectionError as error:
                 if 'alert certificate expired' in str(error):
                     raise CannotAuthenticate(str(error))
-                LOG.warning('ConnectionError: ' + str(error))
+                LOG.error('ConnectionError: ' + str(error))
                 if retry > self.request_retries:
                     raise
 
@@ -751,7 +763,7 @@ class BaseClient(object):
             except ConnectionError as error:
                 if 'alert certificate expired' in str(error):
                     raise CannotAuthenticate(str(error))
-                LOG.warning('ConnectionError: ' + str(error))
+                LOG.error('ConnectionError: ' + str(error))
                 if retry > self.request_retries:
                     raise
 
@@ -787,7 +799,7 @@ class BaseClient(object):
                                           verify=self.ca_cert, auth=HTTPKerberosAuth())
                 break
             except ConnectionError as error:
-                LOG.warning('ConnectionError: ' + str(error))
+                LOG.error('ConnectionError: ' + str(error))
                 if retry > self.request_retries:
                     raise
 
@@ -828,7 +840,7 @@ class BaseClient(object):
                 result = self.session.get(url, headers=headers)
                 break
             except ConnectionError as error:
-                LOG.warning('ConnectionError: ' + str(error))
+                LOG.error('ConnectionError: ' + str(error))
                 if retry > self.request_retries:
                     raise
 

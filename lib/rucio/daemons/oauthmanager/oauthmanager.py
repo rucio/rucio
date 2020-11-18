@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2019-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,10 +14,9 @@
 # limitations under the License.
 #
 # Authors:
-#  - Jaroslav Guenther, <jaroslav.guenther@cern.ch>, 2019
-#  - Thomas Beermann <thomas.beermann@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
 OAuth Manager is a daemon which is reponsible for:
@@ -43,13 +42,15 @@ import traceback
 from re import match
 from sys import stdout
 
+from sqlalchemy.exc import DatabaseError
+
+import rucio.db.sqla.util
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException
 from rucio.core.authentication import delete_expired_tokens
 from rucio.core.heartbeat import die, live, sanity_check
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.oidc import delete_expired_oauthrequests, refresh_jwt_tokens
-from sqlalchemy.exc import DatabaseError
 
 logging.basicConfig(stream=stdout,
                     level=getattr(logging,
@@ -184,6 +185,8 @@ def run(once=False, threads=1, loop_rate=300, max_rows=100):
     """
     Starts up the OAuth Manager threads.
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise DatabaseException('Database was not updated, daemon won\'t start')
 
     sanity_check(executable='OAuthManager', hostname=socket.gethostname())
 

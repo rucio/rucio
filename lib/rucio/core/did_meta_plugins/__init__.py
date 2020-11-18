@@ -1,4 +1,5 @@
-# Copyright 2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,15 +16,12 @@
 # Authors:
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 import importlib
 
 from rucio.common import config
 from rucio.common.exception import PolicyPackageNotFound
 from rucio.db.sqla.session import read_session
-
 
 try:
     from ConfigParser import NoOptionError, NoSectionError
@@ -102,6 +100,32 @@ def set_metadata(scope, name, key, value, recursive=False, session=None):
         if meta_handler.manages_key(key):
             meta_handler.set_metadata(scope, name, key, value, recursive, session=session)
             break
+
+
+def set_metadata_bulk(scope, name, meta, recursive=False, session=None):
+    """
+    Sets the metadata for a given did.
+
+    To decide which metadata store to use, it is checking the
+    configuration of the server and assigns each key-value to the
+    correct plugin by checking them in order of METADATA_HANDLERS.
+
+    :param scope: The scope name.
+    :param name: The data identifier name.
+    :param meta: all key-values to set.
+    :param recursive: Option to propagate the metadata change to content.
+    :param session: The database session in use.
+    """
+    remainder = dict(meta)
+    for meta_handler in METADATA_HANDLERS:
+        pluginmeta = {}
+        for key, value in remainder.items():
+            if meta_handler.manages_key(key):
+                pluginmeta[key] = value
+        if pluginmeta:
+            for key in pluginmeta:
+                del remainder[key]
+            meta_handler.set_metadata_bulk(scope, name, meta=pluginmeta, recursive=recursive, session=session)
 
 
 def delete_metadata(scope, name, key, session=None):

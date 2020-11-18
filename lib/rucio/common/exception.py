@@ -25,6 +25,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Eric Vaandering <ewv@fnal.gov>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -566,13 +567,23 @@ class RSEAccessDenied(RucioException):
         self.error_code = 49
 
 
-class RSEBlacklisted(RucioException):
+class RSEWriteBlocked(RucioException):
     """
     RucioException
     """
     def __init__(self, *args, **kwargs):
+        super(RSEWriteBlocked, self).__init__(*args, **kwargs)
+        self._message = "RSE excluded; not available for writing."
+        self.error_code = 50
+
+
+class RSEBlacklisted(RucioException):
+    """
+    RucioException: To be deprecated at a later time, replaced by RSEWriteBlocked
+    """
+    def __init__(self, *args, **kwargs):
         super(RSEBlacklisted, self).__init__(*args, **kwargs)
-        self._message = "RSE excluded due to write blacklisting."
+        self._message = "RSE excluded; not available for writing."
         self.error_code = 50
 
 

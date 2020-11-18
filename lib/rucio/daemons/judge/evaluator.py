@@ -1,4 +1,5 @@
-# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,8 +23,6 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 """
 Judge-Evaluator is a daemon to re-evaluate and execute replication rules.
@@ -36,21 +35,21 @@ import sys
 import threading
 import time
 import traceback
-
 from datetime import datetime, timedelta
-from re import match
 from random import randint
-from six import iteritems
+from re import match
 
+from six import iteritems
 from sqlalchemy.exc import DatabaseError
 from sqlalchemy.orm.exc import FlushError
 
+import rucio.db.sqla.util
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed
 from rucio.common.types import InternalScope
 from rucio.core.heartbeat import live, die, sanity_check
-from rucio.core.rule import re_evaluate_did, get_updated_dids, delete_updated_did
 from rucio.core.monitor import record_counter
+from rucio.core.rule import re_evaluate_did, get_updated_dids, delete_updated_did
 
 graceful_stop = threading.Event()
 
@@ -183,6 +182,8 @@ def run(once=False, threads=1):
     """
     Starts up the Judge-Eval threads.
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise DatabaseException('Database was not updated, daemon won\'t start')
 
     executable = 'judge-evaluator'
     hostname = socket.gethostname()

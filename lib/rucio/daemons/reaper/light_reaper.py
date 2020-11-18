@@ -1,4 +1,5 @@
-# Copyright 2016-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2016-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +14,13 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2019
-# - Brandon White <bjwhite@fnal.gov>, 2019-2020
-#
-# PY3K COMPATIBLE
+# - Brandon White <bjwhite@fnal.gov>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 '''
 Light Reaper is a daemon to manage temporary object/file deletion.
@@ -35,16 +36,17 @@ import threading
 import time
 import traceback
 
+import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (SourceNotFound, DatabaseException, ServiceUnavailable,
-                                    RSEAccessDenied, ResourceTemporaryUnavailable)
+                                    RSEAccessDenied, RSENotFound, ResourceTemporaryUnavailable, VONotFound)
 from rucio.core import rse as rse_core
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import add_message
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.temporary_did import (list_expired_temporary_dids, delete_temporary_dids)
+from rucio.core.vo import list_vos
 from rucio.rse import rsemanager as rsemgr
-
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 
@@ -69,13 +71,13 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
     :param once: If True, only runs one iteration of the main loop.
     :param scheme: Force the reaper to use a particular protocol, e.g., mock.
     """
-    logging.info('Starting Light Reaper %s-%s: Will work on RSEs: %s', worker_number, total_workers, str(rses))
+    logging.info('Starting Light Reaper %s-%s: Will work on RSEs: %s', worker_number, total_workers, ', '.join([rse['rse'] for rse in rses]))
 
     pid = os.getpid()
     thread = threading.current_thread()
     hostname = socket.gethostname()
     executable = ' '.join(sys.argv)
-    hash_executable = hashlib.sha256(sys.argv[0] + ''.join(rses)).hexdigest()
+    hash_executable = hashlib.sha256(sys.argv[0] + ''.join([rse['rse'] for rse in rses])).hexdigest()
     sanity_check(executable=None, hostname=hostname)
 
     while not GRACEFUL_STOP.is_set():
@@ -86,12 +88,13 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
             nothing_to_do = True
 
             random.shuffle(rses)
-            for rse_id in rses:
+            for rse in rses:
+                rse_id = rse['id']
+                rse = rse['rse']
                 replicas = list_expired_temporary_dids(rse_id=rse_id,
                                                        limit=chunk_size, worker_number=worker_number,
                                                        total_workers=total_workers)
 
-                rse = rse_core.get_rse_name(rse_id=rse_id)
                 rse_info = rsemgr.get_rse_info(rse_id=rse_id)
                 rse_protocol = rse_core.get_rse_protocols(rse_id=rse_id)
                 prot = rsemgr.create_protocol(rse_info, 'delete', scheme=scheme)
@@ -110,15 +113,18 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
                             prot.delete(pfn)
                             duration = time.time() - start
                             logging.info('Light Reaper %s-%s: Deletion SUCCESS of %s:%s as %s on %s in %s seconds', worker_number, total_workers, replica['scope'], replica['name'], pfn, rse, duration)
-                            add_message('deletion-done', {'scope': replica['scope'].external,
-                                                          'name': replica['name'],
-                                                          'rse': rse,
-                                                          'rse_id': rse_id,
-                                                          'file-size': replica.get('bytes') or 0,
-                                                          'bytes': replica.get('bytes') or 0,
-                                                          'url': pfn,
-                                                          'duration': duration,
-                                                          'protocol': prot.attributes['scheme']})
+                            payload = {'scope': replica['scope'].external,
+                                       'name': replica['name'],
+                                       'rse': rse,
+                                       'rse_id': rse_id,
+                                       'file-size': replica.get('bytes') or 0,
+                                       'bytes': replica.get('bytes') or 0,
+                                       'url': pfn,
+                                       'duration': duration,
+                                       'protocol': prot.attributes['scheme']}
+                            if replica['scope'].vo != 'def':
+                                payload['vo'] = replica['scope'].vo
+                            add_message('deletion-done', payload)
                             deleted_replicas.append(replica)
                         except SourceNotFound:
                             err_msg = 'Light Reaper %s-%s: Deletion NOTFOUND of %s:%s as %s on %s' % (worker_number, total_workers, replica['scope'], replica['name'], pfn, rse)
@@ -127,15 +133,18 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
                         except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
                             err_msg = 'Light Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s' % (worker_number, total_workers, replica['scope'], replica['name'], pfn, rse, str(error))
                             logging.warning(err_msg)
-                            add_message('deletion-failed', {'scope': replica['scope'].external,
-                                                            'name': replica['name'],
-                                                            'rse': rse,
-                                                            'rse_id': rse_id,
-                                                            'file-size': replica['bytes'] or 0,
-                                                            'bytes': replica['bytes'] or 0,
-                                                            'url': pfn,
-                                                            'reason': str(error),
-                                                            'protocol': prot.attributes['scheme']})
+                            payload = {'scope': replica['scope'].external,
+                                       'name': replica['name'],
+                                       'rse': rse,
+                                       'rse_id': rse_id,
+                                       'file-size': replica['bytes'] or 0,
+                                       'bytes': replica['bytes'] or 0,
+                                       'url': pfn,
+                                       'reason': str(error),
+                                       'protocol': prot.attributes['scheme']}
+                            if replica['scope'].vo != 'def':
+                                payload['vo'] = replica['scope'].vo
+                            add_message('deletion-failed', payload)
 
                         except:
                             logging.critical(traceback.format_exc())
@@ -173,47 +182,65 @@ def stop(signum=None, frame=None):
 
 
 def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
-        exclude_rses=None, include_rses=None, delay_seconds=0, all_rses=False):
+        exclude_rses=None, include_rses=None, vos=None, delay_seconds=0):
     """
     Starts up the reaper threads.
 
     :param total_workers: The total number of workers.
     :param chunk_size: the size of chunk for deletion.
-    :param threads_per_worker: Total number of threads created by each worker.
     :param once: If True, only runs one iteration of the main loop.
-    :param greedy: If True, delete right away replicas with tombstone.
     :param rses: List of RSEs the reaper should work against. If empty, it considers all RSEs. (Single-VO only)
     :param scheme: Force the reaper to use a particular protocol/scheme, e.g., mock.
     :param exclude_rses: RSE expression to exclude RSEs from the Reaper.
     :param include_rses: RSE expression to include RSEs.
+    :param vos: VOs on which to look for RSEs. Only used in multi-VO mode.
+                If None, we either use all VOs if run from "def", or the current VO otherwise.
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise DatabaseException('Database was not updated, daemon won\'t start')
+
     logging.info('main: starting processes')
 
-    all_rses = rse_core.list_rses()
-    if all_rses:
-        rses = all_rses
+    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
+    if not multi_vo:
+        if vos:
+            logging.warning('Ignoring argument vos, this is only applicable in a multi-VO setup.')
+        vos = ['def']
     else:
-        if rses:
-            if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-                logging.warning('Ignoring argument rses, this is only available in a single-vo setup. Please try an RSE Expression with include_rses if it is required.')
-                rses = []
-            else:
-                rses = [rse_core.get_rse_id(rse=rse) for rse in rses]
-                rses = [rse for rse in rses if rse in all_rses]
+        if vos:
+            invalid = set(vos) - set([v['vo'] for v in list_vos()])
+            if invalid:
+                msg = 'VO{} {} cannot be found'.format('s' if len(invalid) > 1 else '', ', '.join([repr(v) for v in invalid]))
+                raise VONotFound(msg)
         else:
-            rses = all_rses
+            vos = [v['vo'] for v in list_vos()]
+        logging.info('Light Reaper: This instance will work on VO%s: %s' % ('s' if len(vos) > 1 else '', ', '.join([v for v in vos])))
 
-        if exclude_rses:
-            excluded_rses = [rse['id'] for rse in parse_expression(exclude_rses)]
-            rses = [rse for rse in rses if rse not in excluded_rses]
+    all_rses = []
+    for vo in vos:
+        all_rses.extend(rse_core.list_rses(filters={'vo': vo}))
 
-        if include_rses:
-            included_rses = [rse['id'] for rse in parse_expression(include_rses)]
-            rses = [rse for rse in rses if rse in included_rses]
+    if rses:
+        invalid = set(rses) - set([rse['rse'] for rse in all_rses])
+        if invalid:
+            msg = 'RSE{} {} cannot be found'.format('s' if len(invalid) > 1 else '',
+                                                    ', '.join([repr(rse) for rse in invalid]))
+            raise RSENotFound(msg)
+        rses = [rse for rse in all_rses if rse['rse'] in rses]
+    else:
+        rses = all_rses
 
-        if not rses:
-            logging.error('Dark Reaper: No RSEs found. Exiting.')
-            return
+    if exclude_rses:
+        excluded_rses = parse_expression(exclude_rses)
+        rses = [rse for rse in rses if rse not in excluded_rses]
+
+    if include_rses:
+        included_rses = parse_expression(include_rses)
+        rses = [rse for rse in rses if rse in included_rses]
+
+    if not rses:
+        logging.error('Light Reaper: No RSEs found. Exiting.')
+        return
 
     threads = []
     for worker in range(total_workers):

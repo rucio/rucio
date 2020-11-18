@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Copyright 2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +21,7 @@ import argparse
 import collections
 import itertools
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -52,6 +54,7 @@ def main():
     make_buildargs = partial(map, lambda argdict: BuildArgs(**argdict))
     distribution_buildargs = {dist: set(make_buildargs(filter_build_args(args))) for dist, args in
                               itertools.groupby(matrix, lambda d: d[DIST_KEY])}
+    use_podman = 'USE_PODMAN' in os.environ and os.environ['USE_PODMAN'] == '1'
 
     images = dict()
     for dist, buildargs_list in distribution_buildargs.items():
@@ -60,13 +63,13 @@ def main():
                                           buildargs._asdict().items()))
             if buildargs_tags:
                 buildargs_tags = '-' + buildargs_tags
-            imagetag = f'rucio-autotest:{dist}{buildargs_tags}'
+            imagetag = f'rucio-autotest:{dist.lower()}{buildargs_tags}'
             if script_args.cache_repo:
-                imagetag = script_args.cache_repo + '/' + imagetag
+                imagetag = script_args.cache_repo.lower() + '/' + imagetag
 
             cache_args = ()
             if script_args.build_no_cache:
-                cache_args = ('--no-cache',)
+                cache_args = ('--no-cache', '--pull-always' if use_podman else '--pull')
             elif script_args.cache_repo:
                 args = ('docker', 'pull', imagetag)
                 print("Running", " ".join(args), file=sys.stderr)

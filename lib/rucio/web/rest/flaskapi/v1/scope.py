@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,21 +17,20 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
-from json import dumps
+from traceback import format_exc
 
-from rucio.api.scope import add_scope, list_scopes
-from rucio.common.exception import AccountNotFound, Duplicate, RucioException
-from rucio.common.utils import generate_http_error_flask
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
-
-from flask import Flask, Blueprint, request
+from flask import Flask, Blueprint, request, jsonify
 from flask.views import MethodView
+
+from rucio.api.scope import add_scope, list_scopes, get_scopes
+from rucio.common.exception import AccountNotFound, Duplicate, RucioException
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, request_auth_env, response_headers
+from rucio.web.rest.utils import generate_http_error_flask
 
 
 class Scope(MethodView):
@@ -64,7 +63,7 @@ class Scope(MethodView):
         :status 406: Not Acceptable
         :returns: :class:`String`
         """
-        return dumps(list_scopes(vo=request.environ.get('vo')))
+        return jsonify(list_scopes(vo=request.environ.get('vo')))
 
     def post(self, account, scope):
         """Add a new scope.
@@ -87,29 +86,57 @@ class Scope(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            return error, 500
+            print(format_exc())
+            return str(error), 500
 
-        return "OK", 201
+        return 'Created', 201
 
 
-bp = Blueprint('scope', __name__)
+class AccountScopeList(MethodView):
 
-scope_view = Scope.as_view('scope')
-bp.add_url_rule('/', view_func=scope_view, methods=['GET', ])
-bp.add_url_rule('/<account>/<scope>', view_func=scope_view, methods=['POST', ])
+    @check_accept_header_wrapper_flask(['application/json'])
+    def get(self, account):
+        """List account scopes.
 
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+        .. :quickref: Scopes; Get scopes for account.
+
+        :resheader Content-Type: application/json
+        :status 200: Scopes found
+        :status 404: Account not found
+        :status 404: No scopes for this account
+        :status 406: Not Acceptable
+        :returns: A list containing all scope names for an account.
+        """
+        try:
+            scopes = get_scopes(account, vo=request.environ.get('vo'))
+        except AccountNotFound as error:
+            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
+
+        if not len(scopes):
+            return generate_http_error_flask(404, 'ScopeNotFound', 'no scopes found for account ID \'%s\'' % account)
+
+        return jsonify(scopes)
+
+
+def blueprint():
+    bp = Blueprint('scope', __name__, url_prefix='/scopes')
+
+    scope_view = Scope.as_view('scope')
+    bp.add_url_rule('/', view_func=scope_view, methods=['get', ])
+    bp.add_url_rule('/<account>/<scope>', view_func=scope_view, methods=['post', ])
+    account_scope_list_view = AccountScopeList.as_view('account_scope_list')
+    bp.add_url_rule('/<account>/scopes', view_func=account_scope_list_view, methods=['get', ])
+
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/scopes')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

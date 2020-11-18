@@ -1,7 +1,7 @@
 version: "2"
 services:
   rucio:
-    image: rucio/rucio-dev
+    image: rucio/rucio-dev:py3
     hostname: rucio
     ports:
       - "443:443"
@@ -15,6 +15,7 @@ services:
     environment:
       - X509_USER_CERT=/opt/rucio/etc/usercert.pem
       - X509_USER_KEY=/opt/rucio/etc/userkey.pem
+      - RDBMS=postgres11
   ruciodb:
     image: postgres:11
     environment:

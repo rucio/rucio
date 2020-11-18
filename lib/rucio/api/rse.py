@@ -61,7 +61,7 @@ def add_rse(rse, issuer, vo='def', deterministic=True, volatile=False, city=None
     :param ASN: Access service network.
     :param availability: Availability.
     """
-    validate_schema(name='rse', obj=rse)
+    validate_schema(name='rse', obj=rse, vo=vo)
     kwargs = {'rse': rse}
     if not permission.has_permission(issuer=issuer, vo=vo, action='add_rse', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not add RSE' % (issuer))
@@ -334,7 +334,7 @@ def set_rse_limits(rse, name, value, issuer, vo='def'):
 
     :param rse: The RSE name.
     :param name: The name of the limit.
-    :param value: The feature value. Set to -1 to remove the limit.
+    :param value: The feature value.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
 
@@ -346,6 +346,25 @@ def set_rse_limits(rse, name, value, issuer, vo='def'):
         raise exception.AccessDenied('Account %s can not update RSE limits for RSE %s' % (issuer, rse))
 
     return rse_module.set_rse_limits(rse_id=rse_id, name=name, value=value)
+
+
+def delete_rse_limits(rse, name, issuer, vo='def'):
+    """
+    Set RSE limits.
+
+    :param rse: The RSE name.
+    :param name: The name of the limit.
+    :param issuer: The issuer account.
+    :param vo: The VO to act on.
+
+    :returns: True if successful, otherwise false.
+    """
+    rse_id = rse_module.get_rse_id(rse=rse, vo=vo)
+    kwargs = {'rse': rse, 'rse_id': rse_id}
+    if not permission.has_permission(issuer=issuer, vo=vo, action='delete_rse_limits', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not update RSE limits for RSE %s' % (issuer, rse))
+
+    return rse_module.delete_rse_limits(rse_id=rse_id, name=name)
 
 
 def get_rse_limits(rse, issuer, vo='def'):
@@ -416,12 +435,16 @@ def add_distance(source, destination, issuer, vo='def', ranking=None, distance=N
     kwargs = {'source': source, 'destination': destination}
     if not permission.has_permission(issuer=issuer, vo=vo, action='add_distance', kwargs=kwargs):
         raise exception.AccessDenied('Account %s can not add RSE distances' % (issuer))
-    return distance_module.add_distance(src_rse_id=rse_module.get_rse_id(source, vo=vo),
-                                        dest_rse_id=rse_module.get_rse_id(destination, vo=vo),
-                                        ranking=ranking, agis_distance=distance,
-                                        geoip_distance=geoip_distance, active=active,
-                                        submitted=submitted, finished=finished,
-                                        failed=failed, transfer_speed=transfer_speed)
+    try:
+        return distance_module.add_distance(src_rse_id=rse_module.get_rse_id(source, vo=vo),
+                                            dest_rse_id=rse_module.get_rse_id(destination, vo=vo),
+                                            ranking=ranking, agis_distance=distance,
+                                            geoip_distance=geoip_distance, active=active,
+                                            submitted=submitted, finished=finished,
+                                            failed=failed, transfer_speed=transfer_speed)
+    except exception.Duplicate:
+        # use source and destination RSE names
+        raise exception.Duplicate('Distance from %s to %s already exists!' % (source, destination))
 
 
 def update_distance(source, destination, parameters, issuer, vo='def'):

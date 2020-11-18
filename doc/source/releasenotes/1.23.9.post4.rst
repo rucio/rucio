@@ -1,0 +1,13 @@
+============
+1.23.9.post4
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Transfers: Protocol mismatch for multisource transfers `#3682 <https://github.com/rucio/rucio/issues/3682>`_

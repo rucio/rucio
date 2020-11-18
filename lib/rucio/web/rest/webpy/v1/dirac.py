@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 # Copyright 2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,20 +16,22 @@
 #
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
+
 from traceback import format_exc
+
 from web import application, ctx, Created, data, InternalError, loadhook, unloadhook
 
 from rucio.api.dirac import add_files
 from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, InvalidType,
                                     DatabaseException, Duplicate, InvalidPath,
                                     ResourceTemporaryUnavailable, RucioException,
-                                    RSENotFound)
-from rucio.common.utils import generate_http_error, parse_response
+                                    RSENotFound, UnsupportedOperation)
+from rucio.common.utils import parse_response
 from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController
+from rucio.web.rest.utils import generate_http_error
 
 URLS = ('/addfiles/?$', 'AddFiles')
 
@@ -44,8 +47,10 @@ class AddFiles(RucioController):
 
         HTTP Error:
             401 Unauthorized
+            405 Method Not Allowed
             409 Conflict
             500 Internal Error
+            503 Service Unavailable
         """
         json_data = data()
         try:
@@ -59,6 +64,8 @@ class AddFiles(RucioController):
             raise generate_http_error(400, 'InvalidPath', error.args[0])
         except AccessDenied as error:
             raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except UnsupportedOperation as error:
+            raise generate_http_error(405, 'UnsupportedOperation', error.args[0])
         except Duplicate as error:
             raise generate_http_error(409, 'Duplicate', error.args[0])
         except DataIdentifierAlreadyExists as error:
@@ -70,6 +77,7 @@ class AddFiles(RucioController):
         except ResourceTemporaryUnavailable as error:
             raise generate_http_error(503, 'ResourceTemporaryUnavailable', error.args[0])
         except RucioException as error:
+            print(format_exc())
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
         except Exception as error:
             print(format_exc())

@@ -1,4 +1,5 @@
-# Copyright 2015-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,15 +14,15 @@
 # limitations under the License.
 #
 # Authors:
-# - Wen Guan <wguan.icedew@gmail.com>, 2015-2016
+# - Wen Guan <wen.guan@cern.ch>, 2015-2016
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2017
-# - Vincent Garonne <vgaronne@gmail.com>, 2016-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
-# - Brandon White <bjwhite@fnal.gov>, 2019-2020
-#
-# PY3K COMPATIBLE
+# - Brandon White <bjwhite@fnal.gov>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
 Conveyor stager is a daemon to manage stagein file transfers.
@@ -36,20 +37,23 @@ import sys
 import threading
 import time
 import traceback
-
 from collections import defaultdict
-try:
-    from ConfigParser import NoOptionError  # py2
-except Exception:
-    from configparser import NoOptionError  # py3
 
-from rucio.common.config import config_get
+import rucio.db.sqla.util
+from rucio.common import exception
+from rucio.common.config import config_get, config_get_bool
 from rucio.core import heartbeat
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.request import set_requests_state
 from rucio.core.staging import get_stagein_requests_and_source_replicas
 from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfer, get_conveyor_rses
 from rucio.db.sqla.constants import RequestState
+
+try:
+    from ConfigParser import NoOptionError  # py2
+except Exception:
+    from configparser import NoOptionError  # py3
+
 
 logging.basicConfig(stream=sys.stdout,
                     level=getattr(logging,
@@ -186,22 +190,28 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, total_threads=1, group_bulk=1, group_policy='rule',
-        mock=False, rses=None, include_rses=None, exclude_rses=None, bulk=100, source_strategy=None,
+def run(once=False, total_threads=1, group_bulk=1, group_policy='rule', mock=False,
+        rses=None, include_rses=None, exclude_rses=None, vos=None, bulk=100, source_strategy=None,
         activities=[], sleep_time=600, retry_other_fts=False):
     """
     Starts up the conveyer threads.
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     if mock:
         logging.info('mock source replicas: enabled')
 
+    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
     working_rses = None
     if rses or include_rses or exclude_rses:
-        working_rses = get_conveyor_rses(rses, include_rses, exclude_rses)
+        working_rses = get_conveyor_rses(rses, include_rses, exclude_rses, vos)
         logging.info("RSE selection: RSEs: %s, Include: %s, Exclude: %s" % (rses,
                                                                             include_rses,
                                                                             exclude_rses))
+    elif multi_vo:
+        working_rses = get_conveyor_rses(rses, include_rses, exclude_rses, vos)
+        logging.info("RSE selection: automatic for relevant VOs")
     else:
         logging.info("RSE selection: automatic")
 

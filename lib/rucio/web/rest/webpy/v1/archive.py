@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright 2018 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,14 +29,14 @@ from traceback import format_exc
 from web import application, ctx, loadhook, header, InternalError
 
 from rucio.api.did import list_archive_content
-from rucio.common.schema import get_schema_value
+from rucio.common.schema import insert_scope_name
 from rucio.web.rest.common import rucio_loadhook, RucioController, check_accept_header_wrapper
 
 LOGGER, SH = getLogger("rucio.meta"), StreamHandler()
 SH.setLevel(DEBUG)
 LOGGER.addHandler(SH)
 
-URLS = ('%s/files' % get_schema_value('SCOPE_NAME_REGEXP'), 'Archive')
+URLS = insert_scope_name(('%s/files', 'Archive'))
 
 
 class Archive(RucioController):

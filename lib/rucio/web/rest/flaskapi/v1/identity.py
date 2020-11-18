@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-# Copyright 2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,27 +19,17 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
-import json
 
 from traceback import format_exc
-from flask import Flask, Blueprint, Response, request
+
+from flask import Flask, Blueprint, request, jsonify
 from flask.views import MethodView
 
-from rucio.api.identity import (add_identity, add_account_identity,
-                                list_accounts_for_identity)
-from rucio.web.rest.flaskapi.v1.common import before_request, after_request, check_accept_header_wrapper_flask
-
-
-URLS = (
-    '/(.+)/(.+)/accounts', 'Accounts',
-    '/(.+)/userpass', 'UserPass',
-    '/(.+)/x509', 'X509',
-    '/(.+)/gss', 'GSS'
-)
+from rucio.api.identity import add_identity, add_account_identity, list_accounts_for_identity
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask
 
 
 class UserPass(MethodView):
@@ -60,17 +50,18 @@ class UserPass(MethodView):
         :status 401: Invalid Auth Token.
         :status 500: Internal Error.
         """
-        username = request.environ.get('HTTP_X_RUCIO_USERNAME')
-        password = request.environ.get('HTTP_X_RUCIO_PASSWORD')
-        email = request.environ.get('HTTP_X_RUCIO_EMAIL')
+        username = request.headers.get('X-Rucio-Username', default=None)
+        password = request.headers.get('X-Rucio-Password', default=None)
+        email = request.headers.get('X-Rucio-Email', default=None)
 
-        if username is None or password is None:
+        if not username or not password:
             return 'Username and Password must be set.', 400
 
         try:
             add_identity(username, 'userpass', email, password)
         except Exception as error:
-            return error, 500
+            print(format_exc())
+            return str(error), 500
 
         try:
             add_account_identity(username, 'userpass', account,
@@ -78,9 +69,10 @@ class UserPass(MethodView):
                                  issuer=request.environ.get('issuer'),
                                  vo=request.environ.get('vo'))
         except Exception as error:
-            return error, 500
+            print(format_exc())
+            return str(error), 500
 
-        return "Created", 201
+        return 'Created', 201
 
 
 class X509(MethodView):
@@ -99,12 +91,13 @@ class X509(MethodView):
         :status 500: Internal Error.
         """
         dn = request.environ.get('SSL_CLIENT_S_DN')
-        email = request.environ.get('HTTP_X_RUCIO_EMAIL')
+        email = request.headers.get('X-Rucio-Email', default=None)
 
         try:
             add_identity(dn, 'x509', email=email)
         except Exception as error:
-            return error, 500
+            print(format_exc())
+            return str(error), 500
 
         try:
             add_account_identity(dn, 'x509', account,
@@ -112,9 +105,10 @@ class X509(MethodView):
                                  issuer=request.environ.get('issuer'),
                                  vo=request.environ.get('vo'))
         except Exception as error:
-            return error, 500
+            print(format_exc())
+            return str(error), 500
 
-        return "Created", 201
+        return 'Created', 201
 
 
 class GSS(MethodView):
@@ -133,12 +127,13 @@ class GSS(MethodView):
         :status 500: Internal Error.
         """
         gsscred = request.environ.get('REMOTE_USER')
-        email = request.environ.get('HTTP_X_RUCIO_EMAIL')
+        email = request.headers.get('X-Rucio-Email', default=None)
 
         try:
             add_identity(gsscred, 'gss', email=email)
         except Exception as error:
-            return error, 500
+            print(format_exc())
+            return str(error), 500
 
         try:
             add_account_identity(gsscred, 'gss', account,
@@ -146,9 +141,10 @@ class GSS(MethodView):
                                  issuer=request.environ.get('issuer'),
                                  vo=request.environ.get('vo'))
         except Exception as error:
-            return error, 500
+            print(format_exc())
+            return str(error), 500
 
-        return "Created", 201
+        return 'Created', 201
 
 
 class Accounts(MethodView):
@@ -161,7 +157,7 @@ class Accounts(MethodView):
 
         .. :quickref: Accounts; list account identities.
 
-        :param identify_key: Identity string.
+        :param identity_key: Identity string.
         :param type: Identity type.
         :resheader Content-Type: application/json
         :status 200: OK.
@@ -171,39 +167,32 @@ class Accounts(MethodView):
         :returns: List of identities.
         """
         try:
-            return Response(json.dumps(list_accounts_for_identity(identity_key, type)), content_type="application/json")
+            accounts = list_accounts_for_identity(identity_key, type)
+            return jsonify(accounts)
         except Exception as error:
-            print(error)
-            print(str(format_exc()))
-            return error, 500
+            print(format_exc())
+            return str(error), 500
 
 
-# ----------------------
-#   Web service startup
-# ----------------------
-bp = Blueprint('identity', __name__)
+def blueprint():
+    bp = Blueprint('identity', __name__, url_prefix='/identities')
 
-userpass_view = UserPass.as_view('userpass')
-bp.add_url_rule('/<account>/userpass', view_func=userpass_view, methods=['put', ])
-x509_view = X509.as_view('x509')
-bp.add_url_rule('/<account>/x509', view_func=x509_view, methods=['put', ])
-gss_view = GSS.as_view('gss')
-bp.add_url_rule('/<account>/gss', view_func=gss_view, methods=['put', ])
-accounts_view = Accounts.as_view('accounts')
-bp.add_url_rule('/<identity_key>/<type>', view_func=accounts_view, methods=['get', ])
+    userpass_view = UserPass.as_view('userpass')
+    bp.add_url_rule('/<account>/userpass', view_func=userpass_view, methods=['put', ])
+    x509_view = X509.as_view('x509')
+    bp.add_url_rule('/<account>/x509', view_func=x509_view, methods=['put', ])
+    gss_view = GSS.as_view('gss')
+    bp.add_url_rule('/<account>/gss', view_func=gss_view, methods=['put', ])
+    accounts_view = Accounts.as_view('accounts')
+    bp.add_url_rule('/<identity_key>/<type>/accounts', view_func=accounts_view, methods=['get', ])
 
-application = Flask(__name__)
-application.register_blueprint(bp)
-application.before_request(before_request)
-application.after_request(after_request)
+    bp.before_request(request_auth_env)
+    bp.after_request(response_headers)
+    return bp
 
 
 def make_doc():
-    """ Only used for sphinx documentation to add the prefix """
+    """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
-    doc_app.register_blueprint(bp, url_prefix='/identities')
+    doc_app.register_blueprint(blueprint())
     return doc_app
-
-
-if __name__ == "__main__":
-    application.run()

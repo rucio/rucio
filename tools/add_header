@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +16,7 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2018
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2020
 
 """
 Utility script to generate header file
@@ -59,6 +59,9 @@ author_map = {
     ("David Cameron", "<d.g.cameron@gmail.com>"): ("David Cameron", "<david.cameron@cern.ch>"),
     ("Eric Vaandering", "<ericvaandering@gmail.com>"): ("Eric Vaandering", "<ewv@fnal.gov>"),
     ("Fernando López", "<fernando.e.lopez@gmail.com>"): ("Fernando López", "<felopez@cern.ch>"),
+    ("Lister", "<andrew.lister@stfc.ac.uk>"): ("Andrew Lister", "<andrew.lister@stfc.ac.uk>"),
+    ("javor", "<33832672+TomasJavurek@users.noreply.github.com>"): ("Tomas Javurek", "<tomas.javurek@cern.ch>"),
+    ("cserf", "<cedric.serfon@cern.ch>"): ("Cedric Serfon", "<cedric.serfon@cern.ch>"),
 }
 
 
@@ -129,9 +132,9 @@ def main(arguments):
         if arguments.documentation:
 
             if int(min) == int(max):
-                header += '..  Copyright %s CERN for the benefit of the ATLAS collaboration.\n' % max
+                header += '..  Copyright %s CERN\n' % max
             else:
-                header += '..  Copyright %s-%s CERN for the benefit of the ATLAS collaboration.\n' % (min, max)
+                header += '..  Copyright %s-%s CERN\n' % (min, max)
             header += '''    Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
@@ -163,14 +166,12 @@ def main(arguments):
             sys.exit(0)
 
         if str(MyFile).endswith('.py'):
-            if arguments.script:
-                header += '#!/usr/bin/env python\n'
             header += '# -*- coding: utf-8 -*-\n'
 
         if int(min) == int(max):
-            header += '# Copyright %s CERN for the benefit of the ATLAS collaboration.\n' % max
+            header += '# Copyright %s CERN\n' % max
         else:
-            header += '# Copyright %s-%s CERN for the benefit of the ATLAS collaboration.\n' % (min, max)
+            header += '# Copyright %s-%s CERN\n' % (min, max)
 
         header += '''#
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -208,7 +209,7 @@ def main(arguments):
                     raise RuntimeError('Cannot read file ' + str(MyFile)) from e
 
                 with open(MyFile, 'w') as modified:
-                    if not arguments.script and lines[0].rstrip() == '#!/usr/bin/env python':
+                    if lines[0].startswith('#!/usr/bin/env python'):
                         modified.write(lines[0])
                     elif lines[0].rstrip() == '#!/bin/bash':
                         modified.write(lines[0])
@@ -227,10 +228,6 @@ def main(arguments):
                                 first = False
                                 modified.write('\n')
                             modified.write(line)
-                        else:  # still in the comments section..
-                            if 'PY3K COMPATIBLE' in line:
-                                modified.write('#\n# PY3K COMPATIBLE\n')
-                            count -= 1
 
         else:
             print(header)
@@ -238,8 +235,6 @@ def main(arguments):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--script', '-s', dest='script', action='store_true', default=False,
-                        help='Generate header for python script.')
     parser.add_argument('--documentation', '-D', dest='documentation', action='store_true', default=False,
                         help='Generate header for documentation file.')
     parser.add_argument('--in-place', '-i', action='store_true', default=False,

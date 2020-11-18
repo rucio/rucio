@@ -21,6 +21,7 @@
 # - Brandon White, <bjwhite@fnal.gov>, 2019
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
+# - Eric Vaandering <ewv@fnal.gov>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -32,15 +33,14 @@ from dogpile.cache.api import NoValue
 from hashlib import sha256
 from six import add_metaclass
 
-from rucio.common import schema
 from rucio.common.config import config_get
 from rucio.common.exception import InvalidRSEExpression, RSEBlacklisted
 from rucio.core.rse import list_rses, get_rses_with_attribute, get_rse_attribute
 from rucio.db.sqla.session import transactional_session
 
 
-DEFAULT_RSE_ATTRIBUTE = schema.get_schema_value('DEFAULT_RSE_ATTRIBUTE')['pattern']
-RSE_ATTRIBUTE = schema.get_schema_value('RSE_ATTRIBUTE')['pattern']
+DEFAULT_RSE_ATTRIBUTE = r'([A-Z0-9]+([_-][A-Z0-9]+)*)'
+RSE_ATTRIBUTE = r'([A-Za-z0-9\._-]+[=<>][A-Za-z0-9_-]+)'
 PRIMITIVE = r'(\(*(%s|%s|%s)\)*)' % (RSE_ATTRIBUTE, DEFAULT_RSE_ATTRIBUTE, r'\*')
 UNION = r'(\|%s)' % (PRIMITIVE)
 INTERSECTION = r'(\&%s)' % (PRIMITIVE)
@@ -116,7 +116,7 @@ def parse_expression(expression, filter=None, session=None):
                 if rse.get('availability') & 2:
                     final_result.append(rse)
         if not final_result:
-            raise RSEBlacklisted('RSE excluded due to write blacklisting.')
+            raise RSEBlacklisted('RSE excluded; not available for writing.')
     else:
         final_result = vo_result
 

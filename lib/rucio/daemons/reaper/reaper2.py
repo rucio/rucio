@@ -1,4 +1,5 @@
-# Copyright 2016-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2016-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,8 +27,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 '''
 Reaper is a daemon to manage file deletion.
@@ -37,25 +37,28 @@ from __future__ import print_function, division
 
 import logging
 import os
-import socket
 import random
+import socket
 import sys
 import threading
 import time
 import traceback
-
+from collections import OrderedDict
 from datetime import datetime, timedelta
 from math import ceil
 from operator import itemgetter
-from collections import OrderedDict
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 from prometheus_client import Counter
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
+import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.exception import (DatabaseException, RSENotFound, ConfigNotFound, ReplicaUnAvailable, ReplicaNotFound, ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable, SourceNotFound)
+from rucio.common.exception import (DatabaseException, RSENotFound, ConfigNotFound,
+                                    ReplicaUnAvailable, ReplicaNotFound, ServiceUnavailable,
+                                    RSEAccessDenied, ResourceTemporaryUnavailable, SourceNotFound,
+                                    VONotFound)
 from rucio.common.utils import chunks
 from rucio.core import monitor
 from rucio.core.config import get
@@ -66,8 +69,8 @@ from rucio.core.replica import list_and_mark_unlocked_replicas, delete_replicas
 from rucio.core.rse import list_rses, get_rse_limits, get_rse_usage, list_rse_attributes, get_rse_protocols
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_evaluation_backlog
+from rucio.core.vo import list_vos
 from rucio.rse import rsemanager as rsemgr
-
 
 logging.getLogger("reaper").setLevel(logging.CRITICAL)
 
@@ -88,33 +91,51 @@ REGION = make_region().configure('dogpile.cache.memcached',
 DELETION_COUNTER = Counter('rucio_daemons_reaper_deletion_done', 'Number of deleted replicas')
 
 
-def get_rses_to_process(rses, include_rses, exclude_rses):
+def get_rses_to_process(rses, include_rses, exclude_rses, vos):
     """
     Return the list of RSEs to process based on rses, include_rses and exclude_rses
 
     :param rses:               List of RSEs the reaper should work against. If empty, it considers all RSEs.
     :param exclude_rses:       RSE expression to exclude RSEs from the Reaper.
     :param include_rses:       RSE expression to include RSEs.
+    :param vos:                VOs on which to look for RSEs. Only used in multi-VO mode.
+                               If None, we either use all VOs if run from "def",
 
     :returns: A list of RSEs to process
     """
-    result = REGION.get('rses_to_process')
+    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
+    if not multi_vo:
+        if vos:
+            logging.warning('Ignoring argument vos, this is only applicable in a multi-VO setup.')
+        vos = ['def']
+    else:
+        if vos:
+            invalid = set(vos) - set([v['vo'] for v in list_vos()])
+            if invalid:
+                msg = 'VO{} {} cannot be found'.format('s' if len(invalid) > 1 else '', ', '.join([repr(v) for v in invalid]))
+                raise VONotFound(msg)
+        else:
+            vos = [v['vo'] for v in list_vos()]
+        logging.info('Reaper: This instance will work on VO%s: %s' % ('s' if len(vos) > 1 else '', ', '.join([v for v in vos])))
+
+    cache_key = 'rses_to_process'
+    if multi_vo:
+        cache_key += '@%s' % '-'.join(vo for vo in vos)
+    result = REGION.get(cache_key)
     if result is not NO_VALUE:
         return result
 
-    all_rses = list_rses()
+    all_rses = []
+    for vo in vos:
+        all_rses.extend(list_rses(filters={'vo': vo}))
 
     if rses:
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            logging.warning('Ignoring argument rses, this is only available in a single-VO setup. Please try an RSE Expression with include_rses if it is required.')
-            rses = all_rses
-        else:
-            invalid = set(rses) - set([rse['rse'] for rse in all_rses])
-            if invalid:
-                msg = 'RSE{} {} cannot be found'.format('s' if len(invalid) > 1 else '',
-                                                        ', '.join([repr(rse) for rse in invalid]))
-                raise RSENotFound(msg)
-            rses = [rse for rse in all_rses if rse['rse'] in rses]
+        invalid = set(rses) - set([rse['rse'] for rse in all_rses])
+        if invalid:
+            msg = 'RSE{} {} cannot be found'.format('s' if len(invalid) > 1 else '',
+                                                    ', '.join([repr(rse) for rse in invalid]))
+            raise RSENotFound(msg)
+        rses = [rse for rse in all_rses if rse['rse'] in rses]
     else:
         rses = all_rses
 
@@ -126,7 +147,7 @@ def get_rses_to_process(rses, include_rses, exclude_rses):
         excluded_rses = parse_expression(exclude_rses)
         rses = [rse for rse in rses if rse not in excluded_rses]
 
-    REGION.set('rses_to_process', rses)
+    REGION.set(cache_key, rses)
     logging.info('Reaper: This instance will work on RSEs: %s', ', '.join([rse['rse'] for rse in rses]))
     return rses
 
@@ -147,6 +168,8 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, prepend_str):
                                  'bytes': replica['bytes'],
                                  'url': replica['pfn'],
                                  'protocol': prot.attributes['scheme']}
+                if replica['scope'].vo != 'def':
+                    deletion_dict['vo'] = replica['scope'].vo
                 logging.info('%s Deletion ATTEMPT of %s:%s as %s on %s', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name)
                 start = time.time()
                 # For STAGING RSEs, no physical deletion
@@ -191,14 +214,17 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, prepend_str):
     except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
         for replica in replicas:
             logging.warning('%s Deletion NOACCESS of %s:%s as %s on %s: %s', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name, str(error))
-            add_message('deletion-failed', {'scope': replica['scope'].external,
-                                            'name': replica['name'],
-                                            'rse': rse_name,
-                                            'file-size': replica['bytes'],
-                                            'bytes': replica['bytes'],
-                                            'url': replica['pfn'],
-                                            'reason': str(error),
-                                            'protocol': prot.attributes['scheme']})
+            payload = {'scope': replica['scope'].external,
+                       'name': replica['name'],
+                       'rse': rse_name,
+                       'file-size': replica['bytes'],
+                       'bytes': replica['bytes'],
+                       'url': replica['pfn'],
+                       'reason': str(error),
+                       'protocol': prot.attributes['scheme']}
+            if replica['scope'].vo != 'def':
+                payload['vo'] = replica['scope'].vo
+            add_message('deletion-failed', payload)
 
     finally:
         prot.close()
@@ -341,14 +367,16 @@ def __check_rse_usage(rse, rse_id, prepend_str):
     return result
 
 
-def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=False,
+def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=False, greedy=False,
            scheme=None, delay_seconds=0, sleep_time=60):
     """
     Main loop to select and delete files.
 
     :param rses:           List of RSEs the reaper should work against. If empty, it considers all RSEs.
-    :param exclude_rses:       RSE expression to exclude RSEs from the Reaper.
-    :param include_rses:       RSE expression to include RSEs.
+    :param include_rses:   RSE expression to include RSEs.
+    :param exclude_rses:   RSE expression to exclude RSEs from the Reaper.
+    :param vos:            VOs on which to look for RSEs. Only used in multi-VO mode.
+                           If None, we either use all VOs if run from "def", or the current VO otherwise.
     :param chunk_size:     The size of chunk for deletion.
     :param once:           If True, only runs one iteration of the main loop.
     :param greedy:         If True, delete right away replicas with tombstone.
@@ -402,7 +430,7 @@ def reaper(rses, include_rses, exclude_rses, chunk_size=100, once=False, greedy=
                 GRACEFUL_STOP.wait(30)
                 continue
 
-        rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses)
+        rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses, vos)
         if not rses_to_process:
             logging.error('%s Reaper: No RSEs found. Will sleep for 30 seconds', prepend_str)
             GRACEFUL_STOP.wait(30)
@@ -566,7 +594,7 @@ def stop(signum=None, frame=None):
     GRACEFUL_STOP.set()
 
 
-def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=None, exclude_rses=None, include_rses=None, delay_seconds=0, sleep_time=60):
+def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=None, exclude_rses=None, include_rses=None, vos=None, delay_seconds=0, sleep_time=60):
     """
     Starts up the reaper threads.
 
@@ -575,16 +603,23 @@ def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=N
     :param threads_per_worker: Total number of threads created by each worker.
     :param once:               If True, only runs one iteration of the main loop.
     :param greedy:             If True, delete right away replicas with tombstone.
-    :param rses:               List of RSEs the reaper should work against. If empty, it considers all RSEs. (Single-VO only)
+    :param rses:               List of RSEs the reaper should work against.
+                               If empty, it considers all RSEs.
     :param scheme:             Force the reaper to use a particular protocol/scheme, e.g., mock.
     :param exclude_rses:       RSE expression to exclude RSEs from the Reaper.
     :param include_rses:       RSE expression to include RSEs.
+    :param vos:                VOs on which to look for RSEs. Only used in multi-VO mode.
+                               If None, we either use all VOs if run from "def",
+                               or the current VO otherwise.
     :param delay_seconds:      The delay to query replicas in BEING_DELETED state.
     :param sleep_time:         Time between two cycles.
     """
+    if rucio.db.sqla.util.is_old_db():
+        raise DatabaseException('Database was not updated, daemon won\'t start')
+
     logging.info('main: starting processes')
 
-    rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses)
+    rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses, vos)
     if not rses_to_process:
         logging.error('Reaper: No RSEs found. Exiting.')
         return
@@ -599,6 +634,7 @@ def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=N
                                                             'rses': rses,
                                                             'include_rses': include_rses,
                                                             'exclude_rses': exclude_rses,
+                                                            'vos': vos,
                                                             'chunk_size': chunk_size,
                                                             'greedy': greedy,
                                                             'sleep_time': sleep_time,
