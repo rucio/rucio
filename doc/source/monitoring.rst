@@ -54,7 +54,7 @@ The Graphite builtin web page is on port 80 of the host. To use Grafana, setup G
 
 The Grafana web-portal is on port 3000 of the host. Add one data source of the type Graphite, choose access method to "Browser" and set URL to http://ip:80, where ip is the address of the server hosting the Graphite container dev_graphite_1.
 
-A set of pre-defined Grafana Rucio internal plots is provided `here <https://github.com/feipengsy/rucio-monitoring/blob/master/grafana-dashboards/rucio-internal.json>`__. Users could import them directly into Grafana. 
+A set of pre-defined Grafana Rucio internal plots is provided `here <https://github.com/rucio/rucio/blob/master/tools/monitoring/visualization/rucio-internal.json>`__. Users could import them directly into Grafana. 
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The list of Rucio internal metrics
@@ -256,7 +256,7 @@ Before transferring messages from the message queue to Elasticsearch, indices ne
       }
     }
 
-The formats of them are defined in `rucio-transfer.json <https://github.com/feipengsy/rucio-monitoring/blob/master/kibana/es-index/rucio-transfer.json>`__ and `rucio_deletion.json <https://github.com/feipengsy/rucio-monitoring/blob/master/kibana/es-index/rucio_deletion.json>`__ which could be imported into Kibana. 
+The formats of them are defined in `rucio-transfer.json <https://github.com/rucio/rucio/blob/master/tools/monitoring/rucio-transfer.json>`__ and `rucio_deletion.json <https://github.com/rucio/rucio/blob/master/tools/monitoring/rucio-deletion.json>`__ which could be imported into Kibana. 
 
 Rucio also sends messages when adding/deleting rules/DIDs and for file/dataset access. So the monitoring is not limitted to data transferring.
 
@@ -264,7 +264,7 @@ Rucio also sends messages when adding/deleting rules/DIDs and for file/dataset a
 
 This could be done via Logstash. Please refer to https://www.elastic.co/blog/integrating-jms-with-elasticsearch-service-using-logstash.
 
-Alternatively you could use a simple python script `extract.py <https://github.com/feipengsy/rucio-monitoring/blob/master/scripts/extract.py>`__. for this after installing the required tools::
+Alternatively you could use a simple python script `extract.py <https://github.com/rucio/rucio/blob/master/tools/monitoring/extract.py>`__. for this after installing the required tools::
 
     pip install --upgrade pip
     pip install elasticsearch 
@@ -277,7 +277,7 @@ Change the configurations (message broker and elastisearch cluster) in exporter.
 
 5) Create Kibana dashboards based on the imported messages.
 
-A set of pre-defined dashboards can be found `here <https://github.com/feipengsy/rucio-monitoring/tree/master/kibana/visualization>`__. in Jason format which could be imported to Kibana directly. But you may have to resolve different UUIDs in Kibana.
+A set of pre-defined dashboards can be found `here <https://github.com/rucio/rucio/tree/master/tools/monitoring/visualization>`__. in json format which could be imported to Kibana directly. But you may have to resolve different UUIDs in Kibana.
 
 -----------------
 Access monitoring
@@ -321,7 +321,7 @@ Where the rse.conf contains::
 
 The rse pipeline dumps data like how large is the total space, how large is the used space, how many files are saved on each RSE etc. Please fill in the jdbc connection details and Elastisearch connection details in the config file.
 
-More pipeline definitions can be found `here <https://github.com/feipengsy/rucio-monitoring/tree/master/scripts/logstash>`__, and users could design their own DB queries for their specific monitoring needs. Also users could directly import the Elasticsearch indices and Kibana dashboard from `these <https://github.com/feipengsy/rucio-monitoring/tree/master/kibana/visualization/db_dump>`__ json files.
+More pipeline definitions can be found `here <https://github.com/rucio/rucio/tree/master/tools/monitoring/logstash-pipeline>`__, and users could design their own DB queries for their specific monitoring needs. Also users could directly import the Elasticsearch indices and Kibana dashboard from `these <https://github.com/rucio/rucio/tree/master/tools/monitoring/visualization/db_dump>`__ json files.
 
 .. rubric:: Footnotes
 
