@@ -34,6 +34,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Vivek Nigam <viveknigam.nigam3@gmail.com>, 2020
+# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020
 
 import logging
 import random
@@ -1468,8 +1469,6 @@ def list_dids(scope, filters=None, type='collection', ignore_case=False, limit=N
             # Get attachted DIDs and save in list because query has to be finished before starting a new one in the recursion
             collections_content = []
             parent_scope = scope
-
-            from rucio.core.did import list_content
 
             for scope, name, did_type, bytes, length in query.yield_per(100):
                 if (did_type == DIDType.CONTAINER or did_type == DIDType.DATASET):
