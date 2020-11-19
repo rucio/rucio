@@ -145,7 +145,8 @@ class Search(RucioController):
         """
 
         header('Content-Type', 'application/x-json-stream')
-        filters = {}
+        filters = None
+        filterstr = None
         limit = None
         long = False
         recursive = False
@@ -160,11 +161,15 @@ class Search(RucioController):
                     long = v[0] in ['True', '1']
                 elif k == 'recursive':
                     recursive = v[0] == 'True'
+                elif k == 'filterstr':
+                    filterstr = v[0]
                 else:
+                    if not filters:
+                        filters = {}
                     filters[k] = v[0]
 
         try:
-            for did in list_dids(scope=scope, filters=filters, type=type, limit=limit, long=long, recursive=recursive, vo=ctx.env.get('vo')):
+            for did in list_dids(scope=scope, filters=filters, type=type, limit=limit, long=long, recursive=recursive, vo=ctx.env.get('vo'), filterstr=filterstr):
                 yield dumps(did) + '\n'
         except UnsupportedOperation as error:
             raise generate_http_error(409, 'UnsupportedOperation', error.args[0])

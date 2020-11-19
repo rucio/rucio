@@ -161,7 +161,8 @@ class Search(MethodView):
         :returns: Line separated name of DIDs or dictionaries of DIDs for long option
         """
 
-        filters = {}
+        filters = None
+        filterstr = None
         limit = None
         long = False
         recursive = False
@@ -176,12 +177,16 @@ class Search(MethodView):
                 long = v[0] in ['True', '1']
             elif k == 'recursive':
                 recursive = v[0] == 'True'
+            elif k == 'filterstr':
+                filterstr = v[0]
             else:
+                if not filters:
+                    filters = {}
                 filters[k] = v[0]
 
         try:
             def generate(vo):
-                for did in list_dids(scope=scope, filters=filters, type=type, limit=limit, long=long, recursive=recursive, vo=vo):
+                for did in list_dids(scope=scope, filters=filters, filterstr=filterstr, type=type, limit=limit, long=long, recursive=recursive, vo=vo):
                     yield dumps(did) + '\n'
 
             return try_stream(generate(vo=request.environ.get('vo')))

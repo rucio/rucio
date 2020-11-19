@@ -59,7 +59,7 @@ class DIDClient(BaseClient):
         super(DIDClient, self).__init__(rucio_host, auth_host, account, ca_cert,
                                         auth_type, creds, timeout, user_agent, vo=vo)
 
-    def list_dids(self, scope, filters, type='collection', long=False, recursive=False):
+    def list_dids(self, scope, filters=None, type='collection', long=False, recursive=False, filterstr=None):
         """
         List all data identifiers in a scope which match a given pattern.
 
@@ -72,11 +72,14 @@ class DIDClient(BaseClient):
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), 'dids', 'search'])
         payload = {}
 
-        for k, v in list(filters.items()):
-            if k in ('created_before', 'created_after'):
-                payload[k] = date_to_str(v)
-            else:
-                payload[k] = v
+        if filters:
+            for k, v in list(filters.items()):
+                if k in ('created_before', 'created_after'):
+                    payload[k] = date_to_str(v)
+                else:
+                    payload[k] = v
+        elif filterstr:
+            payload['filterstr'] = filterstr
         payload['long'] = long
         payload['type'] = type
         payload['recursive'] = recursive
