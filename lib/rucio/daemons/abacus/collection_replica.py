@@ -15,6 +15,8 @@
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2020
 
 """
 Abacus-Collection-Replica is a daemon to update collection replica.
@@ -42,7 +44,7 @@ logging.basicConfig(stream=sys.stdout,
                     format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
-def collection_replica_update(once=False):
+def collection_replica_update(once=False, limit=1000):
     """
     Main loop to check and update the collection replicas.
     """
@@ -66,7 +68,8 @@ def collection_replica_update(once=False):
             # Select a bunch of collection replicas for to update for this worker
             start = time.time()  # NOQA
             replicas = get_cleaned_updated_collection_replicas(total_workers=heartbeat['nr_threads'] - 1,
-                                                               worker_number=heartbeat['assign_thread'])
+                                                               worker_number=heartbeat['assign_thread'],
+                                                               limit=limit)
 
             logging.debug('Index query time %f size=%d' % (time.time() - start, len(replicas)))
             # If the list is empty, sent the worker to sleep
@@ -80,6 +83,9 @@ def collection_replica_update(once=False):
                     start_time = time.time()
                     update_collection_replica(replica)
                     logging.debug('collection_replica_update[%s/%s]: update of collection replica "%s" took %f' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, replica['id'], time.time() - start_time))
+                if limit and len(replicas) < limit and not once:
+                    time.sleep(10)
+
         except Exception:
             logging.error(traceback.format_exc())
         if once:

@@ -2616,11 +2616,12 @@ def mark_unlocked_replicas(rse_id, bytes, session=None):
 
 
 @transactional_session
-def get_cleaned_updated_collection_replicas(total_workers, worker_number, session=None):
+def get_cleaned_updated_collection_replicas(total_workers, worker_number, limit=None, session=None):
     """
     Get update request for collection replicas.
     :param total_workers:      Number of total workers.
     :param worker_number:      id of the executing worker.
+    :param limit:              Maximum numberws to return.
     :param session:            Database session in use.
     :returns:                  List of update requests for collection replicas.
     """
@@ -2671,6 +2672,8 @@ def get_cleaned_updated_collection_replicas(total_workers, worker_number, sessio
                                                                                  models.CollectionReplica.rse_id == models.UpdatedCollectionReplica.rse_id))).delete(synchronize_session=False)
 
     query = session.query(models.UpdatedCollectionReplica)
+    if limit:
+        query = query.limit(limit)
     return [update_request.to_dict() for update_request in query.all()]
 
 
