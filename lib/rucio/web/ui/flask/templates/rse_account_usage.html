@@ -1,0 +1,77 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2020
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/rse_account_usage.js"></script>
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<div class="panel">
+  <div class="row">
+    <label>RSE</label>
+  </div>
+  <div class="row collapse">
+    <div class="columns large-5">
+      <input type="text" id="rse_input" placeholder="RSE"></input>
+    </div>
+    <div class="columns large-2">
+      <a class="button postfix" id="select_rse">Select</a>
+    </div>
+    <div class="columns large-6">
+    </div>
+  </div>
+
+  <div class="row collapse">
+    <div class="columns large-4">
+    </div>
+    <div class="columns large-6">
+    </div>
+  </div>
+
+  <div class="row collapse" id="rse_options">
+  </div>
+  <div oclass="row collapse" id="rse_options_message">
+  </div>
+  </br>
+  <div class="row" id="results">
+  </div>
+
+  <div class="row collapse">
+    <div class="columns large-1">
+      <a class="button postfix" id="save_quota" style="display:none">Save Changes</a>
+    </div>
+  </div>
+</div>
+
+<div id="bulk_editor" class="reveal-modal" data-reveal aria-labelledby="modalTitle" aria-hidden="true" role="dialog">
+  <h2 id="modalTitle">Set all accounts for this site</h2>
+  Set quota: <input id="bulk_input" type="text"/>
+  <a id="bulk_apply" class="button success">Apply</a>
+  <a id="bulk_cancel" class="button alert">Cancel</a>
+  <a class="close-reveal-modal" aria-label="Close">&#215;</a>
+</div>
+
+<div id="info" class="reveal-modal" data-reveal aria-labelledby="modalTitle" aria-hidden="true" role="dialog">
+  <h2 id="modalTitle">Quota Settings</h2>
+  The following inputs are supported:
+  <ul>
+    <li>Percentage of overall disk space, e.g. 50%</li>
+    <li>Any positive number followed by one of E(xa), P(eta), T(era), G(iga), M(ega), K(ilo), B(ytes) as unit indicator e.g.: 5000T, 5P, 5000000000000000<br>If no unit is indicated, bytes are assumed as default.</li>
+    <li>0 to set <b>Read-Only access</b></li>
+    <li>For <b>Unlimited quota</b> use -1</li>
+  </ul>
+</div>
+{%- endblock content %}

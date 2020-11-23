@@ -1,0 +1,51 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2020
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/rse_locks.js"></script>
+<script src="/static/jquery.multiple.select.js"></script>
+<link rel="stylesheet" href="/static/multiple-select.css">
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<div class="row">
+  <div class="large-4 columns">
+    <div class="row collapse postfix-round">
+      <div class="large-10 small-10 columns">
+        <input id="rse_expr_box" type="text" placeholder="RSE Expression">
+      </div>
+      <div class="large-2 small-10 columns">
+        <a class="button postfix" id="rse_expr_eval">Evaluate</a>
+      </div>
+    </div>
+    <div class="row collapse" id="problem">
+    </div>
+    <center>
+      <ul class="button-group">
+        <li><a id="clear_selection" class="button small">Clear selection</a></li>
+        <li><a id="redraw_chart" class="button small">Redraw chart</a></li>
+      </ul>
+    </center>
+    <div>
+      <select id="rseselect" multiple="multiple"></select>
+    </div>
+  </div>
+  <div class="large-8 columns panel">
+    <div id="rseplot" style="height:40em;"></div>
+  </div>
+</div>
+{%- endblock content %}

@@ -1,0 +1,57 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2020
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/search.js"></script>
+<link rel="stylesheet" href="//cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css">
+<script src="//cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<div class="panel">
+  <div class="row collapse">
+    <form id="did_form">
+        <div class="row collapse">
+          <div class="large-1 columns">
+            <label for="pattern-label" class="left inline">Data pattern</label>
+          </div>
+          <div class="large-5 columns">
+            <input type="text" id="pattern_input" placeholder="scope OR pattern OR scope:name">
+          </div>
+          <div class="large-2 columns">
+            <a class="button postfix" id="search_did_button">Search</a>
+          </div>
+          <div class="large-3 columns inline" style="padding-left: 15px;">
+            <input type="radio" name="didtype" value="collection" id="pattern_collection" checked>
+            <label for="pattern_collection">Container & Dataset</label>
+            <input type="radio" name="didtype" value="container" id="pattern_container">
+            <label for="pattern_container">Container</label>
+            <input type="radio" name="didtype" value="dataset" id="pattern_dataset">
+            <label for="pattern_dataset">Dataset</label>
+            <input type="radio" name="didtype" value="file" id="pattern_file">
+            <label for="pattern_file">File</label>
+          </div>
+          <div class="large-1 columns">
+          </div>
+        </div>
+      </form>
+  </div>
+  <div id="results" class="row"></div>
+</div>
+
+<div id="problem_details" style="margin: 2em;"></div>
+{%- endblock content %}

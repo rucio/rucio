@@ -1,0 +1,36 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2020
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/subscriptionrules.js"></script>
+<link rel="stylesheet" href="//cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css">
+<script src="//cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<div id="main" class="row">
+
+  <div id="t_data" class="columns panel">
+    <h4>Rules</h4>
+    <div id="loader"></div>
+    <div id="results"></div>
+  </div>
+
+</div>
+
+<div id="problem"></div>
+{%- endblock content %}

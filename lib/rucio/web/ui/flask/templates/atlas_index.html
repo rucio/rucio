@@ -1,0 +1,25 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2017-2020
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/atlas_index.js"></script>
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<center>
+  <div id="gridview" style="width: 50%; height: 50%;">[loading]</div>
+</center>
+{%- endblock content %}

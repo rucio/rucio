@@ -1,0 +1,139 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2020
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/list_rules.js"></script>
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<div id="results" class="row">
+
+  <div id="t_data" class="columns panel">
+    <div class="row">
+      <div class="large-11 columns">
+        <h4>Rules <a href="#" data-reveal-id="infomodal"><i title="Info" class="step fi-info size-24"></i></a></h4>
+      </div>
+      <div class="large-1 columns">
+          <a class="button small postfix" href="/r2d2/request">New request</a>
+      </div>
+    </div>
+    <form>
+      <div id="selector_row" class="row collapse">
+        <div class="large-2 columns">
+          <label>Account<input type="text" id="account_input" placeholder="Account"></input></label>
+        </div>
+        <div class="large-2 columns">
+          <label>RSE<input type="text" id="rse_input" placeholder="RSE"></input></label>
+        </div>
+        <div class="large-1 columns">
+          <label>State<select id="state_selector">
+              <option value=""></option>
+              <option value="OK">OK</option>
+              <option value="REPLICATING">REPLICATING</option>
+              <option value="STUCK">STUCK</option>
+              <option value="SUSPENDED">SUSPENDED</option>
+            </select>
+          </label>
+        </div>
+        <div class="large-2 columns">
+          <label>Activity<input type="text" id="activity_input" placeholder="Activity"></input></label>
+        </div>
+        <div class="large-1 columns">
+          <label>Interval
+            <input type="text" id="age_input" placeholder="" value="14"></input>
+          </label>
+        </div>
+        <div class="large-1 columns">
+          <label><text style="visibility:hidden">.</text>
+            <select id="age_selector">
+              <option value="days">days</option>
+              <option value="hours">hours</option>
+              <option value="minutes">minutes</option>
+            </select>
+          </label>
+        </div>
+        <div class="large-1 columns">
+          <label><text style="visibility:hidden">.</text>
+            <div class="row">
+              <div class="large-12 large-centered columns">
+                <i title="Custom Range" id="custom_dates" class="step fi-clock size-24"></i>
+              </div>
+            </div>
+          </label>
+        </div>
+        <div class="large-2 columns">
+          <label><text style="visibility:hidden">.</text>
+          <a class="button small postfix" id="apply_button">Apply</a>
+          </label>
+        </div>
+      </div>
+    </form>
+    <div class="row">
+    <div id="date_panel" class="columns large-12" style="display:none;">
+      <table id="datepicker" style="table-layout:fixed; width:auto;">
+        <thead>
+          <tr>
+            <th>Start date</th>
+            <th>End date</th>
+          <tr>
+        </thead>
+        <tfoot>
+          <tr>
+            <th><div id="datepicker1" style="font-size:14px; height: 250px;"></div></th>
+            <th><div id="datepicker2" style="font-size:14px; height: 250px;"></div></th>
+          <tr>
+        </tfoot>
+      </table>
+    </div>
+    </div>
+    <div id="loader"></div>
+    <div id="results_panel" style="visibility:false;">
+      <table id="resulttable" class="compact stripe order-column" style="word-wrap: break-word;">
+        <thead><tr><th>Name</th><th>Account</th><th>RSE Expression</th><th>Creation Date</th><th>Remaining Lifetime</th><th>State</th><th>Locks OK</th><th>Locks Replicating</th><th>Locks Stuck</th></tr></thead>
+        <tfoot><tr><th>Name</th><th>Account</th><th>RSE Expression</th><th>Creation Date</th><th>Remaining Lifetime</th><th>State</th><th>Locks OK</th><th>Locks Replicating</th><th>Locks Stuck</th></tr></tfoot>
+    </table>
+    </div>
+    </br>
+    <div class="row">
+      <div class="large-2 columns">
+        <div id="selectall"></div>
+      </div>
+      <div class="large-9 columns"></div>
+      <div class="large-1 columns">
+        <div id="delete"></div>
+      </div>
+    </div>
+    <div id="downloader"></div>
+  </div>
+
+</div>
+<div id="problem"></div>
+<div id="infomodal" class="reveal-modal" data-reveal aria-labelledby="modalTitle" aria-hidden="true" role="dialog">
+  <h2>Description</h2>
+  <p>This page shows a table of all the rules requested by you. You can pre-filter the results using the fields on the top. If you have a lot of rules this can speed up the listing. The default interval is set to 14 days, i.e., only rules created by you in the last 2 week will be displayed. It is also possible to select a specific time window using the little clock symbol.</p>
+  <p>The resulting table shows you an overview of all your rules including the requested DID, the RSE, creation date, time remaining until this rule will be deleted (if applicable), the current state of the of the rule and the states of the locks (file replicas).
+  <p>To delete a rule you first have to select it by clicking anywhere except the name. Multiple rule can be selected at a time. It is also possible to first filter the rules using the search field and then select only the filtered ones by clicking on "Select all". To then delete the rules click on "Delete rule(s)". There will first be a popup asking for confirmation. Even after confirming, the rules are not directly deleted but rather their lifetime will be set to 1 hour, i.e., if you make a mistake you still have an hour to revert it. Extending the lifetime is possible on the rule detail page when clicking the name.</p>
+  <p>Possible states and their colours:</p>
+  <ul>
+    <li><font color="green">OK</font>: The rule is complete and the DID has been fully transferred.</li>
+    <li><font color="orange">REPLICATING</font>: The rule is currently copying the files.</li>
+    <li><font color="red">STUCK</font>: There has been a problem with the replication, more details can be found by clicking on the DID name.</li>
+    <li><font color="purple">WAITING_APPROVAL</font>: The rule needs approval and is currently still in waiting state.</li>
+    <li><font color="pink">INJECT</font>: The rule has just now been approved will start replicating soon.</li>
+  </ul>
+  <a class="close-reveal-modal" aria-label="Close">&#215;</a>
+</div>
+{%- endblock content %}

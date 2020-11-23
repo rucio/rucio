@@ -1,0 +1,51 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2020
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/subscriptions.js"></script>
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<div id="rules" class="row">
+  <div id="rules_panel" class="columns panel">
+    <h4>Rules</h4>
+    <div class="row">
+      <div class="column large-2 medium-2 small-2">
+      <a class="button postfix inline" id="show_rules">Show my rules</a>
+      </div>
+      <div class="column large-2 medium-2 small-2">
+      <a class="button postfix inline" id="request_rules" href="/r2d2/request">Request new rules</a>
+      </div>
+      <div class="column large-8"></div>
+    </div>
+  </div>
+</div>
+
+<div id="results" class="row">
+
+  <div id="t_data" class="columns panel">
+    <h4>Subscriptions</h4>
+    <div id="loader"></div>
+    <table id="resulttable" class="compact stripe order-column" style="word-wrap: break-word;">
+      <thead><tr><th>Name</th><th>Ok</th><th>Replicating</th><th>Stuck</th><th>Suspended</th></tr></thead>
+      <tfoot><tr><th>Name</th><th>Ok</th><th>Replicating</th><th>Stuck</th><th>Suspended</th></tr></tfoot>
+    </table>
+    <div id="last_update"></div>
+  </div>
+
+</div>
+<div id="problem"></div>
+{%- endblock content %}
