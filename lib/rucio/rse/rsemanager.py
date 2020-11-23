@@ -17,7 +17,7 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2012-2020
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
 # - Wen Guan <wen.guan@cern.ch>, 2014-2017
 # - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
@@ -681,7 +681,8 @@ def find_matching_scheme(rse_settings_dest, rse_settings_src, operation_src, ope
             if protocol['scheme'] not in scheme:
                 tbr.append(protocol)
                 continue
-        if protocol['domains'].get(domain, {}).get(operation_src, 1) == 0:
+        prot = protocol['domains'].get(domain, {}).get(operation_src, 1)
+        if prot is None or prot == 0:
             tbr.append(protocol)
     for r in tbr:
         src_candidates.remove(r)
@@ -696,7 +697,8 @@ def find_matching_scheme(rse_settings_dest, rse_settings_src, operation_src, ope
             if protocol['scheme'] not in scheme:
                 tbr.append(protocol)
                 continue
-        if protocol['domains'].get(domain, {}).get(operation_dest, 1) == 0:
+        prot = protocol['domains'].get(domain, {}).get(operation_dest, 1)
+        if prot is None or prot == 0:
             tbr.append(protocol)
     for r in tbr:
         dest_candidates.remove(r)
