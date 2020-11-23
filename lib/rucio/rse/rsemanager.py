@@ -169,7 +169,7 @@ def select_protocol(rse_settings, operation, scheme=None, domain='wan'):
     return min(candidates, key=lambda k: k['domains'][domain][operation])
 
 
-def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_token=None, logger=logging.log):
+def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_token=None, logger=logging.log, protocol_attr=None):
     """
     Instanciates the protocol defined for the given operation.
 
@@ -190,7 +190,12 @@ def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_tok
     if domain and domain not in utils.rse_supported_protocol_domains():
         raise exception.RSEProtocolDomainNotSupported('Domain %s not supported' % domain)
 
-    protocol_attr = select_protocol(rse_settings, operation, scheme, domain)
+    if not protocol_attr:
+        protocol_attr = select_protocol(rse_settings, operation, scheme, domain)
+    else:
+        candidates = _get_possible_protocols(rse_settings, operation, scheme, domain)
+        if not protocol_attr in candidates:
+             raise exception.RSEProtocolNotSupported('Protocol %s operation %s on domain %s not supported' % (protocol_attr, operation, domain))
 
     # Instantiate protocol
     comp = protocol_attr['impl'].split('.')
