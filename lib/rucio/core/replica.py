@@ -1490,7 +1490,7 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
                         found_on_lan = found_on_lan or (pfns_lan_buffer == pfns[scheme])
                         if found_on_lan:
                             break
-                    
+
                     if found_on_lan == pfns[scheme]:
                         # Registration always with wan
                         pfns[scheme] = expected_pfns_wan
