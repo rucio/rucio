@@ -37,7 +37,7 @@ except ImportError:
 from rucio.common import exception
 
 
-def config_get(section, option, raise_exception=True, default=None):
+def config_get(section, option, raise_exception=True, default=None, clean_cached=False):
     """
     Return the string value for a given option in a section
 
@@ -48,11 +48,14 @@ def config_get(section, option, raise_exception=True, default=None):
 .
     :returns: the configuration value.
     """
+    global __CONFIG
     try:
         return get_config().get(section, option)
     except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as err:
         if raise_exception and default is None:
             raise err
+        if clean_cached:
+            __CONFIG = None
         return default
 
 

@@ -72,7 +72,7 @@ from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, D
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation,
                                     RucioException, DuplicateRule, InvalidType)
 from rucio.common.utils import sizefmt, Color, detect_client_location, chunks, parse_did_filter_from_string, \
-    extract_scope
+    extract_scope, setup_logger
 from rucio.tests.test_rucio_server import TestRucioClient
 
 try:
@@ -86,41 +86,8 @@ FAILURE = 1
 DEFAULT_SECURE_PORT = 443
 DEFAULT_PORT = 80
 
-logger = logging.getLogger("user")
 gfal2_logger = logging.getLogger("gfal2")
 tablefmt = 'psql'
-
-
-def setup_logger(logger):
-    logger.setLevel(logging.INFO)
-    hdlr = logging.StreamHandler()
-
-    def emit_decorator(fnc):
-        def func(*args):
-            if 'RUCIO_LOGGING_FORMAT' not in os.environ:
-                levelno = args[0].levelno
-                format_str = '%(asctime)s\t%(levelname)s\t%(message)s\033[0m'
-                if levelno >= logging.CRITICAL:
-                    color = '\033[31;1m'
-                elif levelno >= logging.ERROR:
-                    color = '\033[31;1m'
-                elif levelno >= logging.WARNING:
-                    color = '\033[33;1m'
-                elif levelno >= logging.INFO:
-                    color = '\033[32;1m'
-                elif levelno >= logging.DEBUG:
-                    color = '\033[36;1m'
-                    format_str = '%(asctime)s\t%(levelname)s\t%(filename)s\t%(funcName)s\t%(message)s\033[0m'
-                else:
-                    color = '\033[0m'
-                formatter = logging.Formatter('{0}{1}'.format(color, format_str))
-            else:
-                formatter = logging.Formatter(os.environ['RUCIO_LOGGING_FORMAT'])
-            hdlr.setFormatter(formatter)
-            return fnc(*args)
-        return func
-    hdlr.emit = emit_decorator(hdlr.emit)
-    logger.addHandler(hdlr)
 
 
 def setup_gfal2_logger(logger):
@@ -128,7 +95,6 @@ def setup_gfal2_logger(logger):
     logger.addHandler(logging.StreamHandler())
 
 
-setup_logger(logger)
 setup_gfal2_logger(gfal2_logger)
 
 
@@ -2345,9 +2311,9 @@ if __name__ == '__main__':
 
     args = oparser.parse_args(arguments)
 
+    logger = None
     try:
-        if args.verbose:
-            logger.setLevel(logging.DEBUG)
+        logger = setup_logger(module_name=__name__, logger_name='user', verbose=args.verbose)
         start_time = time.time()
         result = args.function(args)
         end_time = time.time()
