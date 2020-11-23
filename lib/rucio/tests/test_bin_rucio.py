@@ -105,7 +105,7 @@ class TestBinRucio(unittest.TestCase):
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        assert 'Could not load Rucio configuration file' in err and err.rstrip().endswith('errconfig')
+        assert 'Could not load Rucio configuration file' in err and re.match('.*errconfig.*$', err, re.DOTALL)
 
     def test_add_account(self):
         """CLIENT(ADMIN): Add account"""

@@ -43,6 +43,7 @@ import getpass
 import hashlib
 import imp
 import json
+import logging
 import os
 import os.path
 import re
@@ -52,10 +53,9 @@ import tempfile
 import threading
 import time
 import zlib
-from logging import getLogger, Formatter
-from logging.handlers import RotatingFileHandler
 from uuid import uuid4 as uuid
 from xml.etree import ElementTree
+from logging.handlers import RotatingFileHandler
 
 import requests
 from six import string_types, text_type, PY3
@@ -512,9 +512,9 @@ def my_key_generator(namespace, fn, **kw):
 
 
 def get_logger(name):
-    logger = getLogger(name)
+    logger = logging.getLogger(name)
     hdlr = RotatingFileHandler('%s/%s.log' % (config_get('common', 'logdir'), name), maxBytes=1000000000, backupCount=10)
-    formatter = Formatter('%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
+    formatter = logging.Formatter('%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
     hdlr.setFormatter(formatter)
     logger.addHandler(hdlr)
     logger.setLevel(config_get('common', 'loglevel').upper())
@@ -1327,6 +1327,84 @@ def query_bunches(query, bunch_by):
     if item_bunch:
         filtered_bunches.append(item_bunch)
     return filtered_bunches
+
+
+def setup_logger(module_name=None, logger_name=None, logger_level=None, verbose=False):
+    '''
+    Factory method to set logger with handlers.
+    :param module_name: __name__ of the module that is calling this method
+    :param logger_name: name of the logger, typically name of the module.
+    :param logger_level: if not given, fetched from config.
+    :param verbose: verbose option set in bin/rucio
+    '''
+    # helper method for cfg check
+    def _force_cfg_log_level(cfg_option):
+        cfg_forced_modules = config_get('logging', cfg_option, raise_exception=False, default=None, clean_cached=True)
+        if cfg_forced_modules:
+            if re.match(str(cfg_forced_modules), module_name):
+                return True
+        return False
+
+    # creating log
+    if not logger_name:
+        if not module_name:
+            logger_name = 'usr'
+        else:
+            logger_name = module_name.split('.')[-1]
+    logger = logging.getLogger(logger_name)
+
+    # extracting the log level
+    if not logger_level:
+        logger_level = logging.WARNING
+        if verbose:
+            logger_level = logging.DEBUG
+
+        # overriding by the config
+        cfg_levels = (logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR)
+        for level in cfg_levels:
+            cfg_opt = 'forceloglevel' + logging.getLevelName(level)
+            if _force_cfg_log_level(cfg_opt):
+                logger_level = level
+
+    # setting the log level
+    logger.setLevel(logger_level)
+
+    # preferred logger handling
+    def add_handler(logger):
+        hdlr = logging.StreamHandler()
+
+        def emit_decorator(fnc):
+            def func(*args):
+                if 'RUCIO_LOGGING_FORMAT' not in os.environ:
+                    levelno = args[0].levelno
+                    format_str = '%(asctime)s\t%(levelname)s\t%(message)s\033[0m'
+                    if levelno >= logging.CRITICAL:
+                        color = '\033[31;1m'
+                    elif levelno >= logging.ERROR:
+                        color = '\033[31;1m'
+                    elif levelno >= logging.WARNING:
+                        color = '\033[33;1m'
+                    elif levelno >= logging.INFO:
+                        color = '\033[32;1m'
+                    elif levelno >= logging.DEBUG:
+                        color = '\033[36;1m'
+                        format_str = '%(asctime)s\t%(levelname)s\t%(filename)s\t%(message)s\033[0m'
+                    else:
+                        color = '\033[0m'
+                    formatter = logging.Formatter('{0}{1}'.format(color, format_str))
+                else:
+                    formatter = logging.Formatter(os.environ['RUCIO_LOGGING_FORMAT'])
+                hdlr.setFormatter(formatter)
+                return fnc(*args)
+            return func
+        hdlr.emit = emit_decorator(hdlr.emit)
+        logger.addHandler(hdlr)
+
+    # setting handler and formatter
+    if not logger.handlers:
+        add_handler(logger)
+
+    return logger
 
 
 class retry:
