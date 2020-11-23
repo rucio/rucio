@@ -365,7 +365,7 @@ def __check_rse_usage(rse, rse_id, prepend_str):
             result = (max_being_deleted_files, needed_free_space, used, free, False)
         REGION.set('rse_usage_%s' % rse_id, result)
         return result
-    logging.debug('%s Using cached value for RSE usage on RSE %s', prepend_str, rse)
+
     return result
 
 
