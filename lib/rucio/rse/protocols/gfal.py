@@ -29,6 +29,7 @@
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -471,7 +472,6 @@ class Default(protocol.RSEProtocol):
         :raises SourceNotFound: if the source file was not found.
         :raises RucioException: if it failed to remove the file.
         """
-        self.logger.debug('count: {}'.format(len(list(paths))))
 
         ctx = self.__ctx
 
