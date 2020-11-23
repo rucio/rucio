@@ -846,6 +846,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     source_url = re.sub('davs', 'gclouds', source_url)
                     source_url = re.sub('https', 'gclouds', source_url)
 
+                use_ipv4 = rse_attrs[source_rse_id].get('use_ipv4', False) or rse_attrs[dest_rse_id].get('use_ipv4', False)
+
                 # IV - get external_host + strict_copy + archive timeout
                 strict_copy = rse_attrs[dest_rse_id].get('strict_copy', False)
                 fts_hosts = rse_attrs[dest_rse_id].get('fts', None)
@@ -936,6 +938,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     transfers[req_id]['initial_request_id'] = req_id
                 if strict_copy:
                     transfers[req_id]['strict_copy'] = strict_copy
+                if use_ipv4:
+                    transfers[req_id]['use_ipv4'] = True
                 if archive_timeout and (rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE
                                         or rses_info[dest_rse_id]['rse_type'] == 'TAPE'):
                     try:
@@ -1047,6 +1051,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
                 # transfers[id]['src_urls'].append((source_rse_id, source_url))
                 transfers[req_id]['sources'].append((rse, source_url, source_rse_id, ranking, link_ranking))
+                # if one source has force IPv4, force IPv4 for the whole job
+                if rse_attrs[source_rse_id].get('use_ipv4', True):
+                    transfers[req_id]['use_ipv4'] = True
 
         except Exception:
             logging.critical("Exception happened when trying to get transfer for request %s: %s" % (req_id, traceback.format_exc()))
