@@ -240,6 +240,13 @@ def get_rses_to_hostname_mapping():
 
     result = REGION.get('rse_hostname_mapping')
     if result is NO_VALUE:
+        semaphore = REGION.get('semaphore')
+        if semaphore is NO_VALUE:
+            REGION.set('semaphore', True)
+        else:
+            time.sleep(40)
+            result = REGION.get('rse_hostname_mapping')
+            return result
         result = {}
         all_rses = list_rses()
         for rse in all_rses:
@@ -251,6 +258,7 @@ def get_rses_to_hostname_mapping():
                 logging.warn('No default delete protocol for %s', rse['rse'])
 
         REGION.set('rse_hostname_mapping', result)
+        REGION.delete('semaphore')
         return result
 
     return result
@@ -394,7 +402,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
     logging.info('%s Reaper starting', prepend_str)
 
     if not once:
-        GRACEFUL_STOP.wait(10)  # To prevent running on the same partition if all the reapers restart at the same time
+        GRACEFUL_STOP.wait(10 + random.randint(0, 20))  # To prevent running on the same partition if all the reapers restart at the same time
     heart_beat = live(executable, hostname, pid, hb_thread)
     prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logging.info('%s Reaper started', prepend_str)
@@ -436,6 +444,9 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
             GRACEFUL_STOP.wait(30)
             continue
         start_time = time.time()
+        memcached_expiration_time = get('reaper', 'memcached_expiration_time')
+        if not memcached_expiration_time:
+            memcached_expiration_time = 120
         try:
             staging_areas = []
             dict_rses = {}
@@ -465,6 +476,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
             # Ordering the RSEs based on the needed free space
             sorted_dict_rses = OrderedDict(sorted(dict_rses.items(), key=itemgetter(1), reverse=True))
             logging.debug('%s List of RSEs to process ordered by needed space desc : %s', prepend_str, str(sorted_dict_rses))
+            logging.info('%s Starting cycle', prepend_str)
 
             # Get the mapping between the RSE and the hostname used for deletion. The dictionary has RSE as key and (hostanme, rse_info) as value
             rses_hostname_mapping = get_rses_to_hostname_mapping()
@@ -482,14 +494,16 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
             random.shuffle(list_rses_mult)
 
             for rse_name, rse_id, needed_free_space, max_being_deleted_files in list_rses_mult:
-                result = REGION.get('pause_deletion_%s' % rse_id, expiration_time=120)
+                result = REGION.get('pause_deletion_%s' % rse_id, expiration_time=memcached_expiration_time)
                 if result is not NO_VALUE:
-                    logging.info('%s Not enough replicas to delete on %s during the previous cycle. Deletion paused for a while', prepend_str, rse_name)
                     continue
                 logging.debug('%s Working on %s. Percentage of the total space needed %.2f', prepend_str, rse_name, needed_free_space / tot_needed_free_space * 100)
                 rse_hostname, rse_info = rses_hostname_mapping[rse_id]
                 rse_hostname_key = '%s,%s' % (rse_id, rse_hostname)
-                payload_cnt = list_payload_counts(executable, older_than=600, hash_executable=None, session=None)
+                payload_cnt = REGION.get('payload_cnt', expiration_time=30)
+                if payload_cnt is NO_VALUE:
+                    payload_cnt = list_payload_counts(executable, older_than=600, hash_executable=None, session=None)
+                    REGION.set('payload_cnt', payload_cnt)
                 # logging.debug('%s Payload count : %s', prepend_str, str(payload_cnt))
                 tot_threads_for_hostname = 0
                 tot_threads_for_rse = 0
@@ -536,9 +550,12 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                 # Physical  deletion will take place there
                 try:
                     prot = rsemgr.create_protocol(rse_info, 'delete', scheme=scheme)
+                    last_refresh = time.time()
                     for file_replicas in chunks(replicas, 100):
                         # Refresh heartbeat
-                        live(executable, hostname, pid, hb_thread, older_than=600, hash_executable=None, payload=rse_hostname_key, session=None)
+                        if (time.time() - last_refresh) > 180:
+                            live(executable, hostname, pid, hb_thread, older_than=600, hash_executable=None, payload=rse_hostname_key, session=None)
+                            last_refresh = time.time()
                         del_start_time = time.time()
                         for replica in file_replicas:
                             try:
@@ -559,7 +576,11 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                         del_start = time.time()
                         with monitor.record_timer_block('reaper.delete_replicas'):
                             delete_replicas(rse_id=rse_id, files=deleted_files)
-                        logging.debug('%s delete_replicas successed on %s : %s replicas in %s seconds', prepend_str, rse_name, len(deleted_files), time.time() - del_start)
+                        deletion_time = time.time() - del_start
+                        if deletion_time > 120:
+                            logging.warning('%s delete_replicas successed on %s : %s replicas in %s seconds', prepend_str, rse_name, len(deleted_files), deletion_time)
+                        else:
+                            logging.debug('%s delete_replicas successed on %s : %s replicas in %s seconds', prepend_str, rse_name, len(deleted_files), deletion_time)
                         monitor.record_counter(counters='reaper.deletion.done', delta=len(deleted_files))
                         DELETION_COUNTER.inc(len(deleted_files))
                 except Exception:
