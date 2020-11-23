@@ -194,8 +194,8 @@ def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_tok
         protocol_attr = select_protocol(rse_settings, operation, scheme, domain)
     else:
         candidates = _get_possible_protocols(rse_settings, operation, scheme, domain)
-        if not protocol_attr in candidates:
-             raise exception.RSEProtocolNotSupported('Protocol %s operation %s on domain %s not supported' % (protocol_attr, operation, domain))
+        if protocol_attr not in candidates:
+            raise exception.RSEProtocolNotSupported('Protocol %s operation %s on domain %s not supported' % (protocol_attr, operation, domain))
 
     # Instantiate protocol
     comp = protocol_attr['impl'].split('.')
