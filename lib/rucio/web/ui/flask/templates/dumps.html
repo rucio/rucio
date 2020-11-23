@@ -1,0 +1,89 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2014-2015
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2020
+-->
+
+{% extends 'base.html' %}
+
+{% block content -%}
+{{ super() }}
+<div id="links" class="row" data-equalizer>
+
+  <h3>Available daily dumps</h3>
+  <div id="replica_dumps" class="panel">
+    <h4>Replicas per RSE</h4>
+    Retrieve a tab-separated, bz2 compressed, list of replicas at an RSE.</br>
+    <b>URL:</b> https://rucio-hadoop.cern.ch/replica_dumps</br>
+    <b>URL params:</b> rse, date (optional)</br>
+    <b>Example:</b> <a href="https://rucio-hadoop.cern.ch/replica_dumps?rse=CERN-PROD_DATADISK&date=12-12-2015">https://rucio-hadoop.cern.ch/replica_dumps?rse=CERN-PROD_DATADISK&date=21-01-2015</a></br>
+    <b>Format:</b> RSE, scope, name, checksum, size, creation date, path, update date, state, last accessed date, tombstone</br>
+    <b>Notabene:</b> if no date provided, the latest available dump will be taken
+  </div>
+  <div id="dataset_dumps" class="panel">
+    <h4>Datasets per RSE</h4>
+    Retrieve a list of complete datasets at an RSE.</br>
+    <b>URL:</b> https://rucio-hadoop.cern.ch/consistency_datasets</br>
+    <b>URL params:</b> rse, date (optional)</br>
+    <b>Example:</b> <a href="https://rucio-hadoop.cern.ch/consistency_datasets?rse=CERN-PROD_DATADISK&date=21-01-2015">https://rucio-hadoop.cern.ch/consistency_datasets?rse=CERN-PROD_DATADISK&date=21-01-2015</a></br>
+    <b>Format:</b> RSE, scope, name, owner, size, creation date, last accessed date, corresponding rule ids, total number of available replicas on the grid, last row update in the DB</br>
+    <b>Notabene:</b> size can be empty (dataset is still open); last accessed date can be empty; if no date provided, the latest available dump will be taken
+  </div>
+  <div id="dataset_replica_dumps" class="panel">
+    <h4>Datasets per RSE (with incomplete)</h4>
+    Retrieve a list of all datasets (complete and incomplete) at an RSE.</br>
+    <b>URL:</b> https://rucio-hadoop.cern.ch/datasets_per_rse</br>
+    <b>URL params:</b> rse, date (optional)</br>
+    <b>Example:</b> <a href="https://rucio-hadoop.cern.ch/datasets_per_rse?rse=CERN-PROD_DATADISK&date=27-03-2015">https://rucio-hadoop.cern.ch/datasets_per_rse?rse=CERN-PROD_DATADISK&date=27-03-2015</a></br>
+    <b>Format:</b> RSE, scope, name, account, size, creation date, update date, last accessed date, rule id, state</br>
+    <b>Notabene:</b> last accessed date can be empty; if no date provided, the latest available dump will be taken; account is 'None' and rule id is empty if there are no rules for this datasets; accounts and rule ids will be given as a comma separated list sorted in the same order if there is more that one rule
+  </div>
+  <div id="suspicious_files_dumps" class="panel">
+    <h4>Suspicious files</h4>
+    Retrieve a list of all suspicious file replicas.</br>
+    <b>URL:</b> https://rucio-hadoop.cern.ch/suspicious_files</br>
+    <b>URL params:</b> date (optional)</br>
+    <b>Example:</b> <a href="https://rucio-hadoop.cern.ch/suspicious_files?date=2017-12-04">https://rucio-hadoop.cern.ch/suspicious_files?date=2017-12-04</a></br>
+    <b>Format:</b> RSE, scope, name, path</br>
+    <b>Notabene:</b> if no date provided, the latest available dump will be taken
+  </div>
+
+</br>
+  <h3>Additional daily dumps (not exposed)</h3>
+  <div id="database_dumps">
+    <div class="panel">
+      <h4>RSEs</h4>
+      <b>Format:</b> id, rse, rse_type, deterministic, volatile
+    </div>
+    <div class="panel">
+      <h4>RSE Attributes</h4>
+      <b>Format:</b> rse_id, key, value
+    </div>
+    <div class="panel">
+      <h4>Dataset Locks</h4>
+      <b>Format:</b> rule_id, rse_id, account, state, updated_at, created_at, length, bytes, accessed_at
+    </div>
+    <div class="panel">
+      <h4>Rules</h4>
+      <b>Format:</b> id, subscription_id, account, scope, name, did_type, state, rse_expression, copies, expires_at, weight, locked, grouping, error, updated_at, created_at, locks_ok_cnt, locks_replicating_cnt, locks_stuck_cnt, source_replica_expression, activity, notification, stuck_at
+    </div>
+    <div class="panel">
+      <h4>DIDs</h4>
+      <b>Format:</b> scope, name, account, did_type, hidden, is_open, complete, obsolete, bytes, length, events, project, datatype, run_number, stream_name, prod_step, version, task_id, panda_id, campaign, lumiblocknr, provenance, phys_group, transient, created_at, updated_at
+    </div>
+    <div class="panel">
+      <h4>Replicas</h4>
+      <b>Format:</b> scope, name, rse_id, bytes, state, lock_cnt, adler32, created_at, accessed_at, tombstone, path
+    </div>
+  </div>
+</div>
+
+<div id="problem_details" style="margin: 2em;"></div>
+{%- endblock content %}

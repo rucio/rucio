@@ -1,0 +1,73 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2020
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/rule.js"></script>
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<div id="result" class="row" data-equalizer>
+
+  <div id="alert_box">
+  </div>
+  <div id="metadata" class="columns panel">
+    <h4>Rule metadata</h4>
+    <div id="loading">
+      <div class="row"><div class="small-1 small-centered columns">
+          <img src="/media/spinner.gif">
+        </div>
+      </div>
+    </div>
+    <table id="t_metadata" style="word-wrap: break-word;">
+    </table>
+    <div class="row">
+      <div class="columns large-1">
+        <div id="boost_button">  </div>
+      </div>
+      <div id="boost_message" class="columns large-5">
+      </div>
+      <div class="columns large-6">
+      </div>
+    </div>
+  </div>
+
+  <div id="locks">
+  </div>
+
+  <div id="examine">
+  </div>
+</div>
+
+<div id="problem_details" style="margin: 2em;"></div>
+
+<div id="denymodal" class="reveal-modal" data-reveal aria-labelledby="modalTitle" aria-hidden="true" role="dialog">
+  <h2>Reason</h2>
+  <div class="row">
+    <div class="large-12 columns">
+      <textarea rows="4" id="deny_reason_input"></textarea>
+    </div>
+  </div>
+  <div class="row collapse">
+    <div class="large-10 columns"><text style="visibility:hidden">.</text></div>
+    <div class="large-2 columns">
+      <a class="button postfix" id="confirm_deny_button">Confirm</a>
+    </div>
+  </div>
+
+  <a class="close-reveal-modal" aria-label="Close">&#215;</a>
+</div>
+{%- endblock content %}

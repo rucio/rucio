@@ -1,0 +1,135 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2017
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2020
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/subscriptions_editor.js"></script>
+<script src="static/chosen.jquery.min.js"></script>
+<script src="/static/jquery.multiple.select.js"></script>
+<link rel="stylesheet" href="/static/multiple-select.css">
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<h4>Subscriptions editor</h4>
+<div id="result" class="row" data-equalizer>
+
+     <div class="large-20 columns">
+        <div id="loader"></div>
+        <div class="row">
+           <div class="large-5 columns">
+              <div class="row">
+                  <label>Name</label>
+                     <textarea maxlength="64" placeholder="Name of the subscription" id="name"></textarea>
+              </div>
+              <div class="row">
+                  <label>Account</label>
+                     <textarea maxlength="25" placeholder="The account of the subscription" id="sub_account"></textarea>
+              </div>
+              <div class="row">
+                 <label>Scope</label>
+                 <select id="scopeselect" data-placeholder="Choose a scope..." class="chosen-select" multiple style="width:500px;" tabindex="4"></select>
+              </div>
+              <div class="row">
+                 <label>Choose on pattern</label>
+                 <form id="pattern_form">
+                 <input type="radio" name="enable_pattern" value="Yes" id="enable_pattern_yes">
+                 <label for="enable_pattern_yes">Yes</label>
+                 <input type="radio" name="enable_pattern" value="No" id="enable_pattern_no">
+                 <label for="enable_pattern_no">No</label>
+                 </form>
+              </div>
+              <div class="row">
+                 <label>Pattern</label>
+                 <textarea maxlength="255" placeholder="pattern (e.g. data15.*merge.*)" id="pattern"></textarea>
+              </div>
+              <div class="row">
+                 <div>
+                     <label>Metadata selection</label>
+                     <select id="metaselect" data-placeholder="Choose a filter for metadata" class="chosen-select" multiple style="width:500px;" tabindex="4"></select>
+                </div>
+              </div>
+              <div class="row">
+                 <div class="input_fields_wrap"></div>
+              </div>
+
+           </div>
+        
+
+           <div class="large-5 columns">
+              <div class="row">
+                 <label>Split rule</label>
+                 <form id="splitrule_form">
+                 <input type="radio" name="splitrule" value="Yes" id="split_rule_yes">
+                 <label for="split_rule_yes">Yes</label>
+                 <input type="radio" name="splitrule" value="No" id="split_rule_no" checked>
+                 <label for="split_rule_no">No</label>
+                 </form>
+              </div>
+              <div class="row">
+                  <label>Lifetime (in days). Leave empty for infinite lifetime.</label>
+                     <input type="text" id="lifetime" class="numbersOnly"></input>
+              </div>
+              <div class="row">
+                  <label>Copies</label>
+                     <input type="text" placeholder="Number of copies" id="copies" class="numbersOnly"/ >
+              </div>
+              <div class="row">
+                  <label>RSE expression</label>
+                     <input type="text" placeholder="RSE expression e.g. : tier=1&type=DATADISK" id="rse_expression"/ >
+              </div>
+              <div class="row">
+                  <form id="rse_expression_checker">
+                  <input type="submit" id="rse_expr" value="Check RSE expression"></input>
+                  </form>
+                  <span id="rse_val_result"></span>
+              </div>
+              <div class="row">
+                  <label>Comment</label>
+                     <textarea maxlength="255" placeholder="Put a meaningful comment" id="comments"></textarea>
+              </div>
+              <div class="row">
+                  <label>Source replica expression</label>
+                     <input type="text" placeholder="Choose the source (optional)" id="source_replica_expression"></input>
+              </div>
+              <div class="row">
+                  <label>Activity</label>
+                     <input type="text" placeholder="Activity used by FTS" id="activity"></input>
+              </div>
+              <div class="row">
+                  <label>Weight</label>
+                     <input type="text" placeholder="Weight to use (e.g. freespace)" id="weight"></input>
+              </div>
+           </div>
+        </div>
+
+
+
+
+
+        <div class="row">
+          <div class="large-5 columns">
+            <form id="submit_request">
+                  <input type="submit">
+            </form>
+          </div>
+        </div>
+
+<div id="dialogform">
+<div id="dialogtext"></div>
+</div>
+</div>
+</div>
+{%- endblock content %}

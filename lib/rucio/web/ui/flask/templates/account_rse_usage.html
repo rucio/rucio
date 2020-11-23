@@ -1,0 +1,51 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2020
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2019
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/account_rse_usage.js"></script>
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<div class="panel">
+  <div class="row">
+    <label>Account</label>
+  </div>
+  <div class="row collapse">
+    <div class="columns large-4">
+      <input type="text" id="account_input" placeholder="Account"></input>
+    </div>
+    <div class="columns large-2">
+      <a class="button postfix" id="select_account">Select</a>
+    </div>
+    <div class="columns large-6">
+    </div>
+
+  </div>
+    <div class="columns large-4">
+        <input id="show_history" type="checkbox">
+        <label for="check_sample">Show history graphics (will take longer)</label>
+    </div>
+
+  <div class="large-12 columns panel">
+    <div id="rseplot"></div>
+  </div>
+
+  <div class="row" id="results">
+  </div>
+
+</div>
+{%- endblock content %}
