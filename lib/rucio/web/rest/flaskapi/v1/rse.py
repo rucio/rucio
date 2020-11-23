@@ -285,6 +285,8 @@ class Attributes(MethodView):
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except Duplicate as error:
             return generate_http_error_flask(409, 'Duplicate', error.args[0])
+        except RSENotFound as error:
+            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
         except Exception as error:
             print(format_exc())
             return str(error), 500
