@@ -1,0 +1,64 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Martin Barisits, <martin.barisits@cern.ch>, 2014
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2020
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/rules.js"></script>
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<div class="h2">Add replication rule</div>
+
+
+<div class="h3">
+  <table>
+    <tr>
+      <td>Scope</td>
+      <td><input type="text" id="scope" name="scope"/></td>
+    </tr>
+    <tr>
+      <td>Name</td>
+      <td><input type="text" id="name" name="name" size="50"/></td>
+    </tr>
+    <tr>
+      <td>RSE Expression</td>
+      <td><input type="text" id="rse_expression" name="rse_expression" size="50"/></td>
+    </tr>
+    <tr>
+      <td>Copies</td>
+      <td><select name="copies" id="copies"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option></select></td>
+    </tr>
+    <tr>
+      <td>Grouping</td>
+      <td><select name="grouping" id="grouping"><option value="DATASET">DATASET</option><option value="ALL">ALL</option><option value="NONE">NONE</option></select></td>
+    </tr>
+    <tr>
+      <td>Weight</td>
+      <td><input type="text" id="weight" name="weight"/></td>
+    </tr>
+    <tr>
+      <td>Lifetime</td>
+      <td><input type="text" id="lifetime" name="lifetime"/> (s)</td>
+    </tr>
+    <tr>
+      <td>Source Replica Expression</td>
+      <td><input type="text" id="source_replica_expression" name="source_replica_expression" size="50"/></td>
+    </tr>
+  </table>
+  <input type="submit" value="Create" id="ruleSubmit">
+  <div id="result"></div>
+</div>
+{%- endblock content %}

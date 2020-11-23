@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2020
+ - Martin Barisits, <martin.barisits@cern.ch>, 2014
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2019
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+ - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
+ - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+ - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+-->
+
+<html>
+<head>
+  <title>Rucio UI - Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+  <link rel="icon" href="/favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/3.0.1/normalize.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/foundation/5.4.4/css/foundation.min.css">
+  <link rel="stylesheet" href="/static/rucio.css?version=9fbb2bab0b085dc2065ed24e8e658787">
+  <link rel="stylesheet" href="/static/foundation-icons.css">
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.11.3/themes/smoothness/jquery-ui.css">
+  <link rel="stylesheet" href="/static/chosen.min.css">
+  <script src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
+  <script src="https://code.jquery.com/ui/1.11.1/jquery-ui.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-cookie/1.4.1/jquery.cookie.min.js"></script>
+  <script src="/static/jquery.storageapi.min.js"></script>
+  <script src="/static/filesize.min.js"></script>
+  <script src="/static/chosen.jquery.min.js"></script>
+  <script src="/static/version.js"></script>
+  <script src="/static/login.js"></script>
+  <script type="text/javascript">
+    $('a[href^="/"]').each(function(){
+      /* only add the prefix if it's not already added */
+      if ($(this).attr("href").indexOf('/ui/') == -1) {
+          var newUrl = '/ui' + $(this).attr("href");
+          $(this).attr("href", newUrl);
+      }
+    });
+  </script>
+</head>
+
+<body>
+  <nav class="top-bar" data-topbar role="navigation">
+    <ul class="title-area">
+      <li class="name">
+        <h1><a href="/">Rucio UI</a></h1>
+      </li>
+      <li class="toggle-topbar menu-icon"><a href="#"><span>Menu</span></a></li>
+    </ul>
+  </nav>
+
+  <div id="content" style="margin: 1em;">
+    <div id="results" class="row">
+
+      <div id="t_data" class="columns panel">
+        <div class="row">
+          <div class="large-11 columns">
+            <h3>Login to Rucio</h3>
+          </div>
+        </div>
+        <form id="login_form" method="POST" action="/login">
+          <div class="row">
+            <div class="large-6 columns center">
+              <label>Username
+                <input type="text" name="username" id="username" placeholder="Enter username here..."/>
+              </label>
+            </div>
+          </div>
+          <div class="row">
+            <div class="large-6 columns center">
+              <label>Password
+                <input type="password" name="password" placeholder="Enter password here..." id="password"/>
+              </label>
+            </div>
+          </div>
+          {% if account %}
+          <div class="row">
+            <div class="large-6 columns center">
+              <label>Rucio account name: {{ account }}</label>
+              <input type="hidden" name="account" value=$account id="account"/>
+            </div>
+          </div>
+          {% else %}
+          <div class="row">
+            <div class="large-6 columns center">
+              <label>Rucio account name (optional)
+                <input type="text" name="account" placeholder="account name ..." id="account"/>
+              </label>
+            </div>
+          </div>
+          {% endif %}
+          <br>
+          <div class="row">
+            <div class="large-6 columns center">
+              <input class="button small postfix" id="login_button" type="submit" name="submit" value="Login" onclick="display_spinner()">
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    <div id="loader"></div>
+  </div>
+
+</body>
+</html>

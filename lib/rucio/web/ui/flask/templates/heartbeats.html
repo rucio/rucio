@@ -1,0 +1,37 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2015-2020
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/heartbeats.js"></script>
+<link rel="stylesheet" href="//cdn.datatables.net/1.10.2/css/jquery.dataTables.min.css">
+<script src="//cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<div id="result" class="row" data-equalizer>
+
+  <div id="t_data" class="columns panel">
+    <h4>Heartbeats</h4>
+    <table id="dt_data" class="compact stripe order-column" style="word-wrap: break-word;">
+      <thead><th>Executable</th><th>Hostname</th><th>PID</th><th>Thread</th><th>Updated</th><th>Created</th></thead>
+      <tfoot><th>Executable</th><th>Hostname</th><th>PID</th><th>Thread</th><th>Updated</th><th>Created</th></tfoot>
+    </table>
+  </div>
+
+</div>
+
+<div id="problem_details" style="margin: 2em;"></div>
+{%- endblock content %}

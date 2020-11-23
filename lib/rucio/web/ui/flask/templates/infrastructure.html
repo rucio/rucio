@@ -1,0 +1,49 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2020
+-->
+
+{% extends 'base.html' %}
+
+{% block content -%}
+{{ super() }}
+<div class="h2">Infrastructure</div>
+
+<div class="h3">
+  <table>
+    <tr>
+      <td>AI/Machine Dashboards</td>
+      <td><a href="https://dashboards.cern.ch/public/_plugin/kibana/#dashboard/temp/v7raJi6oSe6O5iWOOILNTQ">Production</a></td>
+      <td><a href="https://dashboards.cern.ch/public/_plugin/kibana/#dashboard/temp/bcu8CDeHSuKrbOB9njz_Wg">Integration</a></td>
+    </tr>
+    <tr>
+      <td>Nagios</td>
+      <td><a href="https://rucio-nagios-prod.cern.ch/nagios">Production</a></td>
+      <td><a href="https://rucio-nagios-int.cern.ch/nagios">Integration</a></td>
+    </tr>
+    <tr>
+      <td>HAProxy Status</td>
+      <td><a href="http://rucio-lb-prod.cern.ch:82/haproxy?stats">Production</a></td>
+      <td><a href="http://rucio-lb-int.cern.ch:82/haproxy?stats">Integration</a></td>
+   </tr>
+    <tr>
+      <td>HAProxy Dashboard</td>
+      <td><a href="http://rucio-graphite-prod.cern.ch/dashboard/#HAProxy Monitoring">Production</a></td>
+      <td><a href="http://rucio-graphite-int.cern.ch/dashboard/#HAProxy Monitoring">Integration</a></td>
+    </tr>
+    <tr>
+      <td>Graphite Dashboard</td>
+      <td><a href="http://rucio-graphite-prod.cern.ch/dashboard">Production</a></td>
+      <td><a href="http://rucio-graphite-int.cern.ch/dashboard">Integration</a></td>
+    </tr>
+  </table>
+</div>
+{%- endblock content %}

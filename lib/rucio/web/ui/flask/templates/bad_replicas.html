@@ -1,0 +1,43 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2015
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2020
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/bad_replicas.js"></script>
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<div id="result" class="row" data-equalizer>
+    <div id="State" class="columns panel">
+        <h4>Bad replica states</h4>
+        <table id="badreplicastates" style="word-wrap: break-word;">
+            <thead>
+                <tr>
+                    <th>Scope</th>
+                    <th>Name</th>
+                    <th>State</th>
+                    <th>RSE</th>
+                    <th>Created_at</th>
+                    <th>Updated_at</th>
+                </tr>
+            </thead>
+        </table>
+        <div id="downloader"></div>
+    </div>
+</div>
+
+<div id="problem_details" style="margin: 2em;"></div>
+{%- endblock content %}

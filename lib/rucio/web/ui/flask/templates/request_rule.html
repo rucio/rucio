@@ -1,0 +1,325 @@
+<!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2015-2020
+-->
+
+{% extends 'base.html' %}
+
+{% block head -%}
+{{ super() }}
+<script src="/static/request_rule.js"></script>
+{%- endblock head %}
+
+{% block content -%}
+{{ super() }}
+<div id="main">
+  <div class="row">
+    <div class="column large-8 medium-6 small-4">
+      <div data-alert style="font-size:120%" id="tour_alert" class="alert-box secondary radius">
+        If you are new to this interface you might want to take the <a id="start_tour">tour</a>.
+        <a href="#" id="tour_alert_close" class="close">&times;</a>
+      </div>
+      <div data-alert style="font-size:120%" id="jira_alert" class="alert-box secondary radius">
+        If you find any errors or have suggestions for improvements for this interface please report it to <a href="https://its.cern.ch/jira/browse/RUCIO" target="_blank">Jira</a>.
+        <a href="#" class="close">&times;</a>
+      </div>
+    </div>
+  </div>
+  <div id="info_panel" class="content active">
+    <div class="row">
+      <p>Your input will be saved until you submit it. If you want to clear the form please click <a id="clear_data">here</a>.<p>
+    </div>
+  </div>
+  <div class="column large-8">
+  <dl class="accordion" data-accordion>
+    <dd class="accordion-navigation large-12">
+      <a id="did_title" href="#did_panel"><b>1. Select Data Identifiers (DIDs)</b></a>
+      <div id="did_panel" class="content active">
+        <ul class="tabs" data-tab>
+          <li class="tab-title active"><a id="did_pattern_title" href="#panel1">DID Pattern Search</a></li>
+          <li class="tab-title"><a id="did_list_title" href="#panel2">List of DIDs</a></li>
+        </ul>
+        <div class="tabs-content">
+          <div class="content active" id="panel1">
+            <div class="row">
+              <p>Please start by entering a DID or DID wildcard and search for either containers or datasets. Then select the requested DIDs. Please do not use a trailing '/' for containers.</p>
+            </div>
+            <div class="row">
+              <div class="large-12 columns">
+                <form id="did_form">
+                  <div class="row collapse">
+                    <div class="large-2 columns">
+                      <label for="pattern-label" class="left inline">Data pattern</label>
+                    </div>
+                    <div class="large-5 columns">
+                      <input type="text" id="pattern_input" placeholder="scope:name...">
+                    </div>
+                    <div class="large-2 columns">
+                      <a class="button postfix" id="search_did_button">Search</a>
+                    </div>
+                    <div class="large-3 columns inline" style="padding-left: 15px;">
+                      <input type="radio" name="didtype" value="container" id="container_type">
+                      <label for="grouping_all">Container</label>
+                      <input type="radio" name="didtype" value="dataset" id="dataset_type" checked>
+                      <label for="grouping_dataset">Dataset</label>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </div>
+            <div class="row">
+              <div class="large-12 columns">
+                <div id="did_message"></div>
+              </div>
+            </div>
+            <div id="did_search">
+            </div>
+          </div>
+          <div class="content" id="panel2">
+            <div class="row">
+              <p>If you want to create a rule for several DIDs without a pattern, here you can enter them, one DID per line:</p>
+            </div>
+            <div class="row">
+              <div class="large-12 columns">
+                <textarea rows="10" id="multi_did_input"></textarea>
+              </div>
+            </div>
+            <div class="row">
+              <div class="large-12 columns">
+                <form id="multi_did_form">
+                  <div class="row collapse">
+                    <div class="large-2 columns">
+                      <a class="button postfix" id="search_multi_did_button">Search</a>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            <div class="row">
+              <div class="large-12 columns">
+                <div id="multi_did_message"></div>
+              </div>
+            </div>
+            <div id="did_multi_search">
+            </div>
+          </div>
+        </div>
+      </div>
+    </dd>
+    <dd class="accordion-navigation large-12">
+      <a id="rse_title" href="#rse_panel"><b>2. Select Rucio Storage Elements (RSEs)</b></a>
+      <div id="rse_panel" class="content">
+        <div class="row">
+          <p>Please enter an RSE or an RSE expression.</p>
+        </div>
+        <div class="row">
+          <div class="large-12 columns">
+            <div class="row collapse">
+              <div class="small-2 columns">
+                <label for="rse-label" class="left inline">RSE (expression)</label>
+              </div>
+              <div class="small-8 columns">
+                <input type="text" id="rse_input" placeholder="RSE">
+              </div>
+              <div class="small-2 columns">
+                <a class="button postfix" id="search_rse_button">Check Quota</a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div id="quota_details" class="large-8 medium-6 small-4 columns">
+          </div>
+        </div>
+        <div class="row">
+          <div id="rse_total_did_size" class="large-12 columns">
+          </div>
+        </div>
+        <div class="row">
+          <div id="rse_table" class="large-12 columns">
+          </div>
+        </div>
+        <div class="row">
+          <div id="manual_approval" class="large-12 columns">
+          </div>
+        </div>
+        <div class="row" id="rse_continue">
+        </div>
+      </div>
+    </dd>
+    <dd class="accordion-navigation large-12 medium-6 small-4">
+      <a id="options_title" href="#options_panel"><b>3. Options</b></a>
+      <div id="options_panel" class="content">
+        <div class="row">
+          <p>Please select/enter your wanted options and then submit your rule request.</p>
+        </div>
+        <div class="row">
+            <div class="large-5 columns">
+              <label>Grouping</label>
+              <form id="grouping_form">
+              <input type="radio" name="grouping" value="ALL" id="grouping_all">
+              <label for="grouping_all">All</label>
+              <input type="radio" name="grouping" value="DATASET" id="grouping_dataset" checked>
+              <label for="grouping_dataset">Dataset</label>
+              <input type="radio" name="grouping" value="NONE" id="grouping_none">
+              <label for="grouping_none">None</label>
+              </form>
+            </div>
+        </div>
+        <div class="row">
+            <div class="large-5 columns">
+              <label>Notifications</label>
+              <form id="notify">
+              <input type="radio" name="notify" value="Y" id="notify_y">
+              <label for="notify_yes">Yes</label>
+              <input type="radio" name="notify" value="N" id="notify_n" checked>
+              <label for="notify_no">No</label>
+              </form>
+            </div>
+        </div>
+        <div class="row">
+          <div class="large-5 columns">
+            <label>Lifetime (in days). Leave empty for infinite lifetime.
+              <input type="text" id="lifetime" value="180"></input>
+            </label>
+          </div>
+        </div>
+        <div class="row">
+          <div class="large-5 columns">
+            <label>Copies
+              <input type="text" placeholder="" id="copies" value="1"/ >
+            </label>
+          </div>
+        </div>
+        <div class="row">
+          <div class="large-5 columns">
+            <label>Comment
+              <textarea placeholder="" id="comment"></textarea>
+            </label>
+          </div>
+        </div>
+        <div class="row">
+          <div class="large-2 columns">
+            <label>Create sample
+            <div class="switch">
+              <input id="check_sample" type="checkbox">
+              <label for="check_sample">Sample</label>
+            </div>
+            </label>
+          </div>
+          <div class="large-3 columns">
+            <label style="visibility: hidden;">.</label>
+            <input type="text" placeholder="Number of files" id="nbfiles" disabled/>
+          </div>
+          <div class="large-7 columns"></div>
+        </div>
+        <div class="row">
+          <div class="large-2 columns">
+            <label>Asynchronous Mode
+            <div class="switch">
+              <input id="async_mode" type="checkbox">
+              <label for="async_mode">Asynchronous Mode</label>
+            </div>
+            </label>
+          </div>
+        </div>
+        <div class="row">
+          <div class="large-2 columns">
+            <label style="visibility: hidden;">.</label>
+            <div class="button postfix" id="options_continue">Continue</div>
+          </div>
+          <div class="large-6 columns">
+            <label style="visibility: hidden;">.</label>
+            <div id="check_text"></div>
+          </div>
+          <div class="large-4 columns">
+          </div>
+        </div>
+    </dd>
+    <dd class="accordion-navigation large-12 medium-6 small-4">
+      <a href="#summary_panel"><b>4. Summary</b></a>
+      <div id="summary_panel" class="content">
+      </div>
+    </dd>
+
+  </dl>
+  </div>
+  <div id="info_did" class="column large-4 panel">
+    <h4>Data Identifiers and Scope</h4>
+    <text>
+      <p>Files, datasets and containers share the same naming convention, which is composed of two strings: the scope and the name, separated by a colon. The combination of scope and name is called a data identifier (DID).</p>
+      <p>The scope is used to divide the name space into several, separate sub spaces for production and individual users. User scope always start with 'user.' followed by the account name.</p>
+      <p>By default users can read from all scopes but only write into their own one. Only privileged accounts have the right to write into multiple scopes including production scopes like <text style="font-family:courier">mc15_13TeV<text>.</p>
+      <p>Examples:</br>
+        <p style="font-family:courier; font-size:100%">Official dataset:</br>data15_13TeV.00266904.physics_Main.<wbr/>merge.DAOD_SUSY1.<wbr/>f594_m1435_p2361_tid05608871_00</p>
+        <p style="font-family:courier; font-size:100%">User dataset:</br>user.jdoe:my.dataset.1</p>
+      </p>
+    </text>
+  </div>
+  <div id="info_rse" class="column large-4 panel">
+    <h4>Rucio Storage Elements</h4>
+    <text>
+      <p>Rucio Storage Elements (RSEs) are storage endpoints at sites, where data is written to. They can have different types like DATADISK or LOCALGROUPDISK, which are subject to different permissions and policies.</p>
+      <p>Accounts in Rucio have quota set per RSEs that specify where one account can write data and how much. A detailed explanation about permissions and quotas in Rucio can be found on this <a href="https://twiki.cern.ch/twiki/bin/viewauth/AtlasComputing/RucioClientsHowTo#Permissions_and_quotas">twiki</a> page.</p>
+        <p>RSEs have a set of attributes assigned to them so that they can be grouped in different ways, e.g., all UK RSEs or all Tier-1 RSEs. Those attributes can be used to compose RSE expressions, which can be applied if you don't explicitly want to have the data replicated to one specific RSE.</p>
+      <p>Examples:</br>
+        <p>Replicate to any LOCALGROUPDISK in the US cloud:<br/><text style="font-family:courier; font-size:100%">cloud=US&type=LOCALGROUPDISK</text></p>
+        <p>Replicate to any Tier-1 SCRATCHDISK but not RAL-LCG2:<br/><text style="font-family:courier; font-size:100%">tier=1&type=SCRATCHDISK\site=RAL-LCG2</text></p>
+      </p>
+    </text>
+  </div>
+  <div id="info_options" class="column large-4 panel">
+    <h4>Options</h4>
+    <text>
+      <ol>
+        <li>Grouping: The grouping option defines how replicas are distributed, if the RSE Expression covers multiple RSEs. ALL means that all files are written to the same RSE (Picked from the RSE Expression). DATASET means that all files in the same dataset are written to the same RSE. NONE means that all files are spread over all possible RSEs of the RSE Expression (A new one is essential picked for each file).</li>
+        <li>Notifications: Enable email notification. If set to "Yes" you will get an email when the rule has successfully replicated the requested DID.</li>
+        <li>Lifetime: The lifetime is specified in days and defines when a rule will be deleted again. For SCRATCHDISK the maximum lifetime is 15 days and for everything else you can choose any number of days or leave it empty to set no lifetime at all.</li>
+        <li>Copies: The copies also only work with RSE expression and it defines the number of replicas that should be created.</li>
+        <li>Comment: The comment is optional unless you want to ask for approval. Then you have to give a justification here.</li>
+        <li>Create Sample: Create a sample dataset with the given number of random files from the selected dataset.</li>
+        <li>Asynchronous Mode: If you have a large requests with a lot of datasets/files you might check this box. In this mode you don't have to wait until the server has fully evaluated your request, but you will have to check after some time on your rule list if the request has been successful.</li>
+      </ol>
+    </text>
+  </div>
+</div>
+  <ol class="joyride-list" data-joyride data-options>
+    <li data-id="accountlist" data-text="Next" data-options="tip_location: left; prev_button: false">
+      <p>First, please make sure you selected the correct account for your activity. Some endpoints require special accounts to be able write to them. More about this can be found at the <a href="https://twiki.cern.ch/twiki/bin/viewauth/AtlasComputing/RucioClientsHowTo#Rucio_UI">twiki</a>.</p>
+    </li>
+    <li data-id="did_title" data-class="custom so-awesome" data-text="Next" data-prev-text="Prev">
+      <h4>DIDs</h4>
+      <p>You will start by selecting your data identifiers (DIDs). DIDs represent files, datasets or containers.</p>
+    </li>
+    <li data-id="did_pattern_title" data-class="custom so-awesome" data-text="Next" data-prev-text="Prev">
+      <h4>Pattern Select</h4>
+      <p>One way is to specify a search pattern and then select the DIDs that you want to replicate. The wildcard character is '*'.</p>
+    </li>
+    <li data-id="did_list_title" data-class="custom so-awesome" data-text="Next" data-prev-text="Prev">
+      <h4>DIDs</h4>
+      <p>If you already know all the DIDs you want to replicate you can also directly put them in here.</p>
+    </li>
+    <li data-id="rse_title" data-class="custom so-awesome" data-text="Next" data-prev-text="Prev">
+      <h4>RSEs</h4>
+      <p>In the next step you have to select the Rucio Storage Elements (RSEs) you want to replicate the data to.</p>
+    </li>
+    <li data-id="search_rse_button" data-class="custom so-awesome" data-text="Next" data-prev-text="Prev">
+      <h4>Quota Check</h4>
+      <p>After you put in an RSE or RSE expression you always have to check your quota on this endpoints to make sure that you can write there.</p>
+    </li>
+    <li data-id="options_title" data-class="custom so-awesome" data-text="Next" data-prev-text="Prev">
+      <h4>Options</h4>
+      <p>Next, you can select some options for the new rules.</p>
+    </li>
+    <li data-id="options_continue" data-class="custom so-awesome" data-text="Finish" data-prev-text="Prev">
+      <h4>Continue to summary</h4>
+      <p>The last step will bring you to the summary page with an overview of all the dids and their size and the selected RSEs and options for a last check before you create the new rule.</p>
+    </li>
+  </ol>
+{%- endblock content %}

@@ -1,0 +1,186 @@
+ <!--
+ Copyright European Organization for Nuclear Research (CERN)
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Authors:
+ - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
+ - Thomas Beermann, <thomas.beermann@cern.ch>, 2014-2020
+ - Martin Barisits, <martin.barisits@cern.ch>, 2014
+ - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2019
+ - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
+-->
+
+<!DOCTYPE html>
+<html>
+  <head>
+    {% block head -%}
+    <title>Rucio UI - {{ title }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/normalize/3.0.1/normalize.min.css">
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/foundation/5.4.4/css/foundation.min.css">
+    <link rel="stylesheet" type="text/css" href="//cdn.datatables.net/1.10.16/css/jquery.dataTables.css">
+    <link rel="stylesheet" href="/static/rucio.css?version=9fbb2bab0b085dc2065ed24e8e658787">
+    <link rel="stylesheet" href="/static/foundation-icons.css">
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.11.3/themes/smoothness/jquery-ui.css">
+    <link rel="stylesheet" href="/static/chosen.min.css">
+    
+    <script src="//code.jquery.com/jquery-2.1.1.min.js"></script>
+    <script src="//code.jquery.com/ui/1.11.1/jquery-ui.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery-cookie/1.4.1/jquery.cookie.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/modernizr/2.8.3/modernizr.min.js"></script>
+    <script src="//cdn.jsdelivr.net/foundation/5.4.4/js/foundation.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="//cdn.datatables.net/1.10.16/js/jquery.dataTables.js"></script>
+    <script src="//code.highcharts.com/highcharts.js"></script>
+    <script src="//code.highcharts.com/modules/exporting.js"></script>
+    <script src="/static/jquery.storageapi.min.js"></script>
+    <script src="/static/filesize.min.js"></script>
+    <script src="/static/chosen.jquery.min.js"></script>
+    <script src="/static/rucio.js?version=c4c9966296a7478d8156131d9733e002"></script>
+    <script src="/static/base.js?version=c25299da061163ff63c5927f87290e9a"></script>
+    <script src="/static/version.js"></script>
+    <script type="text/javascript">var token = "{{ token }}";</script>
+    <script type="text/javascript">var account = "{{ account }}";</script>
+    <script type="text/javascript">var vo = "{{ vo }}";</script>
+    <script type="text/javascript">var policy="{{ policy }}"</script>
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-32728665-2', 'auto');
+      ga('require', 'linkid', 'linkid.js');
+      ga('send', 'pageview');
+    </script>
+    {%- endblock head %}
+  </head>
+
+  <body>
+    <div id="wrap">
+      <div id="warning_header"></div>
+      <nav class="top-bar" data-topbar role="navigation">
+        <ul class="title-area">
+          <li class="name">
+            <h1><a href="/">Rucio UI</a></h1>
+          </li>
+          <li class="toggle-topbar menu-icon"><a href="#"><span>Menu</span></a></li>
+        </ul>
+        <section class="top-bar-section">
+          <ul class="left">
+            <li class="has-dropdown">
+              <a>Monitoring</a>
+              <ul class="dropdown">
+                <li><a href="/subscriptions">Subscriptions &amp; Rules</a></li>
+                <li><a href="/rse_locks">RSE Locks</a></li>
+                <li><a href="/rse_usage">Rucio Storage Elements (RSE)</a></li>
+                <li><a href="/account_rse_usage">Account Usage</a></li>
+                {% if policy == 'atlas' %}<li><a href="/account_usage">Group Account Usage</a></li>{% endif %}
+                {% if policy == 'atlas' %}<li><a href="/rule_backlog_monitor">Rule Backlog</a></li>{% endif %}
+                <li><a href="/bad_replicas/summary">Bad file replicas</a></li>
+                {% if policy == 'atlas' %}<li><a href="/dbrelease_summary">DBRelease Overview</a></li>{% endif %}
+                {% if policy == 'atlas' %}<li><a href="/conditions_summary">ConditionsDB Overview</a></li>{% endif %}
+              </ul>
+            </li>
+
+            <li class="has-dropdown">
+              <a>Data Transfers (R2D2)</a>
+              <ul class="dropdown" id="r2d2_dropdown">
+                <li><a id="list_rules_link" href="/r2d2">List my rules</a></li>
+                <li><a id="create_rules_link" href="/r2d2/request">Request new rule</a></li>
+              </ul>
+            </li>
+
+            {% if policy == 'atlas' %}
+                <li class="has-dropdown">
+                   <a>Reports</a>
+                   <ul class="dropdown">
+                     <li><a href="/dumps">Dumps</a></li>
+                   </ul>
+                </li>
+            {% endif %}
+            <li id="admin_dropdown" class="has-dropdown" style="display:none;">
+              <a>Admin</a>
+              <ul class="dropdown">
+                <li><a href="/list_accounts">Account management</a></li>
+                <li><a href="/rses">RSE management</a></li>
+              </ul>
+            </li>
+
+            <li class="has-form">
+              <div class="row collapse">
+                <div class="large-8 small-9 columns">
+                  <input id="searchbox" type="text" size="45" placeholder="pattern OR name OR rule id" style="height: 1.8rem; font-size: 0.75rem;">
+                </div>
+                <div class="large-4 small-3 columns">
+                  <a class="button expand" onClick="did_search(document.getElementById('searchbox').value)">Search</a>
+                </div>
+              </div>
+            </li>
+          </ul>
+
+          <ul class="right">
+            <li id="accountlist" class="has-dropdown">
+              <a>Using account: <span id="current_account">[loading]</span>
+              {% if multi_vo %}
+                 on VO: <span id="current_vo">[loading]</span></a>
+              {% else %}
+                </a>
+              {% endif %}
+              <ul id="accountselecter" class="dropdown">
+              </ul>
+            </li>
+          {% if policy == 'atlas' %}
+              <li class="has-dropdown">
+                <a>Other Monitoring</a>
+                <ul class="dropdown">
+                  <li><a href="http://dashb-atlas-data.cern.ch/ddm2/">DDM Dashboard</a>
+                  <li><a href="http://dashb-fts-transfers.cern.ch/">FTS Dashboard</a>
+                  <li><a href="https://fts3-pilot.cern.ch:8449/fts3/ftsmon/#/">FTS Monitor CERN</a>
+                  <li><a href="https://www-ftsmon-test.gridpp.rl.ac.uk:8449/fts3/ftsmon/#/">FTS Monitor RAL</a>
+                  <li><a href="http://bigpanda.cern.ch/">PanDA Monitor</a>
+                  <li><a href="http://adc-monitoring.cern.ch/">ADC Monitoring</a>
+                </ul>
+              </li>
+
+              <li class="has-dropdown">
+                <a><span class="help" style="color:#b2d546">Help</span></a>
+                <ul class="dropdown">
+                  <li><a href="mailto:atlas-adc-ddm-support@cern.ch">ADC DDM Support Mailing List</a>
+                  <li><a href="mailto:rucio-dev@cern.ch">Rucio Development Mailing List</a>
+                  <li><a href="http://rucio.cern.ch/">Rucio Web Site</a>
+                </ul>
+              </li>
+          {% endif %}
+          </ul>
+        </section>
+      </nav>
+
+      <div class="top-subbar row">
+        <div class="left" id="div-subtitle" style="padding-left: 1em;">
+          You are here: {{ title }} <span id="subbar-details"></span>
+        </div>
+        <div class="right" id="div-subtitle" style="padding-right: 1em;">
+          Rucio Version ( WebUI / Server ): <span id="rucio_webui_version"></span> / <span id="rucio_server_version">[loading]</span>
+        </div>
+      </div>
+
+      <div id="content" style="margin: 1em;">
+        {% block content %}{% endblock content %}
+      </div>
+    </div>
+
+    <footer>
+      <div class="row">
+        <div class="left" style="padding-left: 1em;">&copy; 2012-2020 <a href="https://cern.ch/">European Organisation for Nuclear Research (CERN)</a></div>
+        <div class="right" style="padding-right: 1em;"><script>document.write(new Date());</script></div>
+      </div>
+    </footer>
+
+    <script>jQuery(document).foundation();</script>
+  </body>
+</html>
