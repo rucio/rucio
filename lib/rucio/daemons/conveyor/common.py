@@ -311,6 +311,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
 
         multihop = transfer.get('multihop', False)
         strict_copy = transfer.get('strict_copy', False)
+        use_ipv4 = transfer.get('use_ipv4', False)
 
         external_host = transfer['external_host']
         scope = t_file['metadata']['scope']
@@ -342,6 +343,9 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
             job_params['multihop'] = True
         if strict_copy:
             job_params['strict_copy'] = True
+        if use_ipv4:
+            job_params['ipv4'] = True
+            job_params['ipv6'] = False
 
         # Don't put optional & missing keys in the parameters
         if transfer['dest_spacetoken']:
