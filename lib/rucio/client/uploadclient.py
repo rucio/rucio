@@ -84,6 +84,7 @@ class UploadClient:
             logger.debug('Tracing is turned off.')
         self.default_file_scope = 'user.' + self.client.account
         self.rses = {}
+        self.rse_expressions = {}
 
         self.trace = {}
         self.trace['hostname'] = socket.getfqdn()
@@ -119,6 +120,12 @@ class UploadClient:
         :raises NoFilesUploaded: if no files were successfully uploaded
         :raises NotAllFilesUploaded: if not all files were successfully uploaded
         """
+        # helper to get rse from rse_expression:
+        def _pick_random_rse(rse_expression):
+            rses = [r['rse'] for r in self.client.list_rses(rse_expression)]  # can raise InvalidRSEExpression
+            random.shuffle(rses)
+            return rses[0]
+
         logger = self.logger
         self.trace['uuid'] = generate_uuid()
 
@@ -130,14 +137,11 @@ class UploadClient:
         # and cache rse settings
         registered_dataset_dids = set()
         registered_file_dids = set()
-        rses = []
         rse_expression = None
         for file in files:
             rse_expression = file['rse']
-            if not rses:
-                rses = [r['rse'] for r in self.client.list_rses(rse_expression)]  # can raise InvalidRSEExpression
-                random.shuffle(rses)
-            rse = rses[0]
+            rse = self.rse_expressions.setdefault(rse_expression, _pick_random_rse(rse_expression))
+
             if not self.rses.get(rse):
                 rse_settings = self.rses.setdefault(rse, rsemgr.get_rse_info(rse, vo=self.client.vo))
                 if rse_settings['availability_write'] != 1:
@@ -481,7 +485,6 @@ class UploadClient:
         """
         logger = self.logger
         files = []
-        rse_expression = None
         for item in items:
             path = item.get('path')
             pfn = item.get('pfn')
@@ -491,13 +494,8 @@ class UploadClient:
             if not item.get('rse'):
                 logger.warning('Skipping file %s because no rse was given' % path)
                 continue
-            if rse_expression:
-                if rse_expression != item.get('rse'):
-                    logger.warning('Multi-dst upload not supported. Skipping file %s.' % path)
-            rse_expression = item.get('rse')
             if pfn:
                 item['force_scheme'] = pfn.split(':')[0]
-
             if os.path.isdir(path):
                 dname, subdirs, fnames = next(os.walk(path))
                 for fname in fnames:
