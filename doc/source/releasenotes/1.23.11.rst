@@ -1,0 +1,35 @@
+=======
+1.23.11
+=======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Deletion: remove unnecessary log messages from reaper2 `#4143 <https://github.com/rucio/rucio/issues/4143>`_
+- Release management: Upgrade information in setup.py (1.23.0) `#4121 <https://github.com/rucio/rucio/issues/4121>`_
+- Replicas: Make abacus collection replica more memory aware `#4149 <https://github.com/rucio/rucio/issues/4149>`_
+- Transfers: Possibility to force IPv4 transfers `#4141 <https://github.com/rucio/rucio/issues/4141>`_
+- WebUI: Port web ui to Flask `#4041 <https://github.com/rucio/rucio/issues/4041>`_
+
+****
+Bugs
+****
+
+- Core & Internals: RSE set-attribute fails if RSE does not exist `#4008 <https://github.com/rucio/rucio/issues/4008>`_
+- DIRAC: Fix wrong grouping for the rules in dirac add_files `#4144 <https://github.com/rucio/rucio/issues/4144>`_
+- Transfers: conveyor submitter crashes on python3 `#4148 <https://github.com/rucio/rucio/issues/4148>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Unconditionally reducing the log level omits important information even under '-v'  `#3912 <https://github.com/rucio/rucio/issues/3912>`_
