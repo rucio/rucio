@@ -1,12 +1,21 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# -*- coding: utf-8 -*-
+# Copyright 2015-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015
-# - Martin Barisits, <martin.barisits@cern.ch>, 2016-2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
 
 import os
 import sys
@@ -86,6 +95,7 @@ setup(
     description=description,
     license="Apache License, Version 2.0",
     url="http://rucio.cern.ch/",
+    python_requires=">=3.6, !=3.9.*, <4",
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'License :: OSI Approved :: Apache Software License',
@@ -94,8 +104,10 @@ setup(
         'Operating System :: POSIX :: Linux',
         'Natural Language :: English',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2.6',
-        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
         'Environment :: No Input/Output (Daemon)', ],
     install_requires=['rucio>=1.2.5', ],
     dependency_links=[],
