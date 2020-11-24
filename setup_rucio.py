@@ -1,4 +1,5 @@
-# Copyright 2014-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2014-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,15 +14,12 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-
-'''
-Setup.py which moves kerberos modules in extra dependencies to be buildthedocs compliant.
-'''
 
 import glob
 import os
@@ -209,6 +207,7 @@ setup(
     description=description,
     license="Apache License, Version 2.0",
     url="http://rucio.cern.ch/",
+    python_requires=">=2.7, <4",
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'License :: OSI Approved :: Apache Software License',
