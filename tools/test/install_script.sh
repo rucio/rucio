@@ -22,7 +22,7 @@
 
 set -eo pipefail
 
-echo "* Running tests with $(python --version 2>&1) and $(pip --version 2>&1)"
+echo "* Using $(which python) $(python --version 2>&1) and $(which pip) $(pip --version 2>&1)"
 
 if [ "$SUITE" == "client" -o "$SUITE" == "client_syntax" ]; then
     cd /usr/local/src/rucio
