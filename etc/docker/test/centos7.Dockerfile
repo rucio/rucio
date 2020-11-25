@@ -71,8 +71,11 @@ RUN curl https://www.sqlite.org/2019/sqlite-autoconf-3290000.tar.gz | tar xzv &&
 
 RUN python -m pip --no-cache-dir install --upgrade pip && \
     python -m pip --no-cache-dir install --upgrade setuptools wheel && \
-    if [ "$PYTHON" == "2.7" ] ; then python3 -m pip --no-cache-dir install --upgrade pip && \
-    python3 -m pip --no-cache-dir install --upgrade setuptools wheel ; fi
+    if [ "$PYTHON" == "2.7" ] ; then \
+        python3 -m pip --no-cache-dir install --upgrade pip && \
+        python3 -m pip --no-cache-dir install --upgrade setuptools wheel && \
+        ln -sf python2.7 /usr/bin/python && ln -sf pip2.7 /usr/bin/pip && rm -f /usr/local/bin/pip ; \
+    fi
 
 WORKDIR /usr/local/src/rucio
 
@@ -96,10 +99,12 @@ RUN rpm -i etc/docker/test/extra/oic.rpm; \
     ldconfig
 
 # pre-install requirements
-RUN python -m pip --no-cache-dir install --upgrade -r etc/pip-requires -r etc/pip-requires-client -r etc/pip-requires-test \
-    'cx_oracle==7.3' 'psycopg2-binary>=2.4.2,<2.8' 'PyMySQL' 'kerberos>=1.3.0' 'pykerberos>=1.2.1' 'requests-kerberos>=0.12.0' 'python3-saml>=1.6.0' && \
-    if [ "$PYTHON" == "2.7" ] ; then python3 -m pip --no-cache-dir install --upgrade -r etc/pip-requires \
-    'cx_oracle==7.3' 'psycopg2-binary>=2.4.2,<2.8' 'PyMySQL' 'kerberos>=1.3.0' 'pykerberos>=1.2.1' 'requests-kerberos>=0.12.0' 'python3-saml>=1.6.0' ; fi
+RUN if [ "$PYTHON" == "2.7" ] ; then \
+        python3 -m pip --no-cache-dir install --upgrade -r etc/pip-requires && \
+        python2 -m pip --no-cache-dir install --upgrade -r etc/pip-requires-client -r etc/pip-requires-test ; \
+    else \
+        python -m pip --no-cache-dir install --upgrade -r etc/pip-requires -r etc/pip-requires-client -r etc/pip-requires-test ; \
+    fi
 
 # copy everything else except the git-dir (anything above is cache-friendly)
 COPY .flake8 .pep8 .pycodestyle pylintrc setup.py setup_rucio.py setup_rucio_client.py setup_webui.py ./
@@ -108,9 +113,9 @@ COPY bin bin
 COPY doc doc
 COPY lib lib
 
-# Install Rucio + dependencies
-RUN if [ "$PYTHON" == "2.7" ] ; then python3 -m pip --no-cache-dir install --upgrade .[oracle,postgresql,mysql,kerberos,dev,saml] ; else \
-    python -m pip --no-cache-dir install --upgrade .[oracle,postgresql,mysql,kerberos,dev,saml] ; fi
+# Install Rucio server + dependencies
+RUN if [ "$PYTHON" == "2.7" ] ; then PYEXEC=python3 ; else PYEXEC=python ; fi ; \
+    $PYEXEC -m pip --no-cache-dir install --upgrade .[oracle,postgresql,mysql,kerberos,dev,saml]
 
 WORKDIR /opt/rucio
 RUN cp -r /usr/local/src/rucio/{lib,bin,tools,etc} ./

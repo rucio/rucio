@@ -169,6 +169,8 @@ def run_case(caseenv, image, use_podman, use_namespace, use_httpd, copy_rucio_lo
         namespace_args = ()
         namespace_env = {}
 
+    run('docker', 'image', 'ls', image)
+
     pod = ""
     if use_podman:
         print("*** Starting with pod for", {**caseenv, "IMAGE": image}, file=sys.stderr, flush=True)
