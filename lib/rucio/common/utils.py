@@ -670,6 +670,8 @@ def clean_surls(surls):
             surl = re.sub('/srm/managerv2\?SFN=', '', surl)  # NOQA: W605
         if surl.startswith('https://storage.googleapis.com'):
             surl = surl.split('?GoogleAccessId')[0]
+        if '?X-Amz' in surl:
+            surl = surl.split('?X-Amz')[0]
         res.append(surl)
     res.sort()
     return res
