@@ -22,9 +22,22 @@ rucio-admin rse add XRD2
 rucio-admin rse add XRD3
 
 # Add the protocol definitions for the storage servers
-rucio-admin rse add-protocol --hostname xrd1 --scheme root --prefix //rucio --port 1094 --impl rucio.rse.protocols.gfal.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD1
-rucio-admin rse add-protocol --hostname xrd2 --scheme root --prefix //rucio --port 1095 --impl rucio.rse.protocols.gfal.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD2
-rucio-admin rse add-protocol --hostname xrd3 --scheme root --prefix //rucio --port 1096 --impl rucio.rse.protocols.gfal.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD3
+rucio-admin rse add-protocol --hostname xrd1 --scheme root --prefix //rucio --port 1094 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD1
+rucio-admin rse add-protocol --hostname xrd2 --scheme root --prefix //rucio --port 1095 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD2
+rucio-admin rse add-protocol --hostname xrd3 --scheme root --prefix //rucio --port 1096 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD3
+
+# Set test_container_xrd attribute for xrd containers
+rucio-admin rse set-attribute --rse XRD1 --key test_container_xrd --value True
+rucio-admin rse set-attribute --rse XRD2 --key test_container_xrd --value True
+rucio-admin rse set-attribute --rse XRD3 --key test_container_xrd --value True
+
+# Workaround, xrootd.py#connect returns with Auth Failed due to execution of the command in subprocess
+XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 xrdfs xrd1:1094 query config xrd1:1094
+XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 xrdfs xrd2:1095 query config xrd2:1095
+XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 xrdfs xrd3:1096 query config xrd3:1096
+
+# Enable test_rse_protocol_* that depend on presence of etc/rse-accounts.cfg
+cp etc/rse-accounts.cfg.template etc/rse-accounts.cfg
 
 # Enable FTS
 rucio-admin rse set-attribute --rse XRD1 --key fts --value https://fts:8446
