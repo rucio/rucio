@@ -145,10 +145,9 @@ class MgrTestCases:
     def test_put_mgr_SourceNotFound_multi(self):
         """(RSE/PROTOCOLS): Put multiple files to storage (SourceNotFound)"""
         result = mgr.upload(self.rse_settings, [{'name': 'not_existing_data.raw', 'scope': 'user.%s' % self.user,
-                                                          'adler32': 'some_random_stuff', 'filesize': 4711},
-                                                         {'name': '4_rse_local_put.raw', 'scope': 'user.%s' % self.user,
-                                                          'adler32': adler32('%s/4_rse_local_put.raw' % self.tmpdir), 'filesize': os.stat('%s/4_rse_local_put.raw' % self.tmpdir)[os.path.stat.ST_SIZE]}],
-                                     source_dir=self.tmpdir)
+                                                'adler32': 'some_random_stuff', 'filesize': 4711},
+                                                {'name': '4_rse_local_put.raw', 'scope': 'user.%s' % self.user,
+                                                'adler32': adler32('%s/4_rse_local_put.raw' % self.tmpdir), 'filesize': os.stat('%s/4_rse_local_put.raw' % self.tmpdir)[os.path.stat.ST_SIZE]}], source_dir=self.tmpdir)
         status = result[0]
         details = result[1]
         if details['user.%s:4_rse_local_put.raw' % self.user]:
@@ -163,8 +162,7 @@ class MgrTestCases:
     def test_put_mgr_FileReplicaAlreadyExists_multi(self):
         """(RSE/PROTOCOLS): Put multiple files to storage (FileReplicaAlreadyExists)"""
         result = mgr.upload(self.rse_settings, [{'name': '1_rse_remote_get.raw', 'scope': 'user.%s' % self.user, 'adler32': "bla-bla", 'filesize': 4711},
-                                                         {'name': '2_rse_remote_get.raw', 'scope': 'user.%s' % self.user, 'adler32': "bla-bla", 'filesize': 4711}],
-                                     source_dir=self.tmpdir)
+                                                {'name': '2_rse_remote_get.raw', 'scope': 'user.%s' % self.user, 'adler32': "bla-bla", 'filesize': 4711}], source_dir=self.tmpdir)
         status = result[0]
         details = result[1]
         if details['user.%s:1_rse_remote_get.raw' % self.user]:
