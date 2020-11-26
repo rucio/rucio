@@ -6,7 +6,7 @@ on:
   - workflow_dispatch
 
 jobs:
-  setup:
+  integration-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -14,26 +14,9 @@ jobs:
         run: docker-compose -f etc/docker/dev/docker-compose-storage.yml up -d
       - name: Initialize tests
         run: docker exec -t dev_rucio_1 tools/run_tests_docker.sh -ir
-
-  test_rucio_server:
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
       - name: File Upload/Download Test
         run: docker exec -t dev_rucio_1 pytest -v --full-trace lib/rucio/tests/test_rucio_server.py
-
-  test_rse_protocol_xrootd:
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
       - name: Test Protocol XrootD
         run: docker exec -t dev_rucio_1 pytest -v --full-trace lib/rucio/tests/test_rse_protocol_xrootd.py
-
-  cleanup:
-    runs-on: ubuntu-latest
-    needs:
-      - test_rucio_server
-      - test_rse_protocol_xrootd
-    steps:
       - name: Stop containers
         run: docker-compose -f etc/docker/dev/docker-compose-storage.yml down
