@@ -37,6 +37,21 @@ def file_generator(size=2048, namelen=10):
     return fn
 
 
+def get_scope_and_rses():
+    """
+    Check if xrd containers rses for xrootd are available in the testing environment.
+    :return: A tuple (scope, rses) for the rucio client where scope is mock/test and rses is a list.
+    """
+    cmd = "rucio list-rses --expression 'test_container_xrd=True'"
+    print(cmd)
+    exitcode, out, err = execute(cmd)
+    print(out, err)
+    rses = out.split()
+    if len(rses) == 0:
+        return 'mock', ['MOCK-POSIX']
+    return 'test', rses
+
+
 def delete_rules(did):
     # get the rules for the file
     print('Deleting rules')
@@ -57,8 +72,8 @@ class TestRucioClient(unittest.TestCase):
 
     def setUp(self):
         self.marker = '$ > '
-        self.scope = 'mock'
-        self.rse = 'MOCK-POSIX'
+        self.scope, self.rses = get_scope_and_rses()
+        self.rse = self.rses[0]
         self.generated_dids = []
 
     def tearDown(self):
