@@ -524,7 +524,7 @@ def delete(rse_settings, lfns, domain='wan', auth_token=None):
     ret = {}
     gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
 
-    protocol = create_protocol(rse_settings, 'delete', domain, auth_token=auth_token)
+    protocol = create_protocol(rse_settings, 'delete', domain=domain, auth_token=auth_token)
     protocol.connect()
 
     lfns = [lfns] if not type(lfns) is list else lfns
@@ -574,7 +574,7 @@ def rename(rse_settings, files, domain='wan', auth_token=None):
     ret = {}
     gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
 
-    protocol = create_protocol(rse_settings, 'write', domain, auth_token=auth_token)
+    protocol = create_protocol(rse_settings, 'write', domain=domain, auth_token=auth_token)
     protocol.connect()
 
     files = [files] if not type(files) is list else files
