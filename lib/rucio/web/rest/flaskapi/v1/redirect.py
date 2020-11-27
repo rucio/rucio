@@ -19,10 +19,11 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2020
 
 from __future__ import print_function
 
@@ -35,7 +36,7 @@ from werkzeug.datastructures import Headers
 
 from rucio.api.replica import list_replicas
 from rucio.common.exception import RucioException, DataIdentifierNotFound, ReplicaNotFound
-from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_ranking, sort_dynamic, site_selector
+from rucio.core.replica_sorter import site_selector, sort_replicas
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream
 from rucio.web.rest.utils import generate_http_error_flask
 
@@ -78,7 +79,7 @@ class MetaLinkRedirector(MethodView):
             print(format_exc())
             return str(error), 500, headers
 
-        dids, schemes, select = [{'scope': scope, 'name': name}], ['http', 'https', 'root', 'gsiftp', 'srm', 'davs'], None
+        dids, schemes, sortby = [{'scope': scope, 'name': name}], ['http', 'https', 'root', 'gsiftp', 'srm', 'davs'], None
 
         # set the correct client IP
         client_ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
@@ -93,9 +94,9 @@ class MetaLinkRedirector(MethodView):
             if 'schemes' in params:
                 schemes = params['schemes']
             if 'select' in params:
-                select = params['select'][0]
+                sortby = params['select'][0]
             if 'sort' in params:
-                select = params['sort'][0]
+                sortby = params['sort'][0]
 
             if 'ip' in params:
                 client_location['ip'] = params['ip'][0]
@@ -141,17 +142,7 @@ class MetaLinkRedirector(MethodView):
                     yield '  <glfn name="/atlas/rucio/%s:%s">' % (rfile['scope'], rfile['name'])
                     yield '</glfn>\n'
 
-                    # sort the actual replicas if necessary
-                    if select == 'geoip':
-                        replicas = sort_geoip(dictreplica, client_location['ip'], ignore_error=True)
-                    elif select == 'closeness':
-                        replicas = sort_closeness(dictreplica, client_location)
-                    elif select == 'dynamic':
-                        replicas = sort_dynamic(dictreplica, client_location)
-                    elif select == 'ranking':
-                        replicas = sort_ranking(dictreplica, client_location)
-                    else:
-                        replicas = sort_random(dictreplica)
+                    replicas = sort_replicas(dictreplica, client_location, selection=sortby)
 
                     # stream URLs
                     idx = 1
@@ -283,17 +274,7 @@ class HeaderRedirector(MethodView):
                             else:
                                 return 'no redirection possible - no valid RSE for HTTP redirection found', 404, headers
                         else:
-                            if select == 'geoip':
-                                rep = sort_geoip(dictreplica, client_location['ip'])
-                            elif select == 'closeness':
-                                rep = sort_closeness(dictreplica, client_location)
-                            elif select == 'dynamic':
-                                rep = sort_dynamic(dictreplica, client_location)
-                            elif select == 'ranking':
-                                rep = sort_ranking(dictreplica, client_location)
-                            else:
-                                rep = sort_random(dictreplica)
-
+                            rep = sort_replicas(dictreplica, client_location, selection=select)
                             selected_url = rep[0]
 
             if selected_url:
