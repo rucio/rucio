@@ -3,7 +3,7 @@
 SQLAlchemy==1.3.7                                 # DB backend
 alembic==1.4.1                                    # Lightweight database migration tool for SQLAlchemy
 web.py==0.62                                      # Python web framework
-python3-memcached==1.51                           # Quick and small memcached client for Python3
+python-memcached==1.59                            # Quick and small memcached client for Python3
 python-dateutil==2.8.1                            # Extensions to the standard datetime module
 stomp.py==4.1.23                                  # ActiveMQ Messaging Protocol
 statsd==3.3.0                                     # Needed to log into graphite with more than 1 Hz
