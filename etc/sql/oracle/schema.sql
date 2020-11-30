@@ -930,7 +930,7 @@ PARTITION BY LIST(SCOPE)
 	 CONSTRAINT REQUESTS_SCOPE_NN CHECK (SCOPE IS NOT NULL), 
 	 CONSTRAINT REQUESTS_NAME_NN CHECK (NAME IS NOT NULL), 
 	 CONSTRAINT REQUESTS_TYPE_CHK CHECK (request_type in ('U', 'D', 'T', 'I', 'O')), 
-	 CONSTRAINT REQUESTS_STATE_CHK CHECK (state IN ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U', 'W', 'M')) 
+	 CONSTRAINT REQUESTS_STATE_CHK CHECK (state IN ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U', 'W', 'M', 'P'))
    ) PCTFREE 3;
 
 

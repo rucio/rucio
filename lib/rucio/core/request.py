@@ -27,31 +27,36 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 import datetime
 import json
 import logging
 import time
 import traceback
+from typing import TYPE_CHECKING
 
 from six import string_types
-
 from sqlalchemy import and_, or_, func, update
 from sqlalchemy.exc import IntegrityError
-# from sqlalchemy.sql import tuple_
 from sqlalchemy.sql.expression import asc, false, true
 
+from rucio.common.config import config_get_bool
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation, ConfigNotFound
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, chunks, get_parsed_throttler_mode
 from rucio.core.config import get
 from rucio.core.message import add_message
 from rucio.core.monitor import record_counter, record_timer
-from rucio.core.rse import get_rse_name, get_rse_transfer_limits, get_rse_vo
+from rucio.core.rse import get_rse_name, get_rse_vo, get_rse_transfer_limits
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import RequestState, RequestType, FTSState, ReplicaState, LockState, RequestErrMsg
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 from rucio.transfertool.fts3 import FTS3Transfertool
+
+if TYPE_CHECKING:
+    from typing import List, Tuple, Iterable, Iterator, Optional
+    from sqlalchemy.orm import Session
 
 """
 The core request.py is specifically for handling requests.
@@ -135,7 +140,8 @@ def queue_requests(requests, session=None):
     logging.debug("queue requests")
 
     request_clause = []
-    transfer_limits, rses = get_rse_transfer_limits(session=session), {}
+    rses = {}
+    preparer_enabled = config_get_bool('conveyor', 'use_preparer', raise_exception=False, default=False)
     for req in requests:
 
         if isinstance(req['attributes'], string_types):
@@ -166,35 +172,6 @@ def queue_requests(requests, session=None):
             for request in query_existing_requests:
                 existing_requests.append(request)
 
-    # Temporary disabled
-    source_rses = {}
-    # request_scopes_names = [(request['scope'], request['name']) for request in requests]
-    # for chunked_requests in chunks(request_scopes_names, 50):
-    #    results = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id, models.Distance.dest_rse_id, models.Distance.ranking)\
-    #                     .filter(tuple_(models.RSEFileAssociation.scope, models.RSEFileAssociation.name).in_(chunked_requests))\
-    #                     .join(models.Distance, models.Distance.src_rse_id == models.RSEFileAssociation.rse_id)\
-    #                     .all()
-    #    for result in results:
-    #        scope = result[0]
-    #        name = result[1]
-    #        src_rse_id = result[2]
-    #        dest_rse_id = result[3]
-    #        distance = result[4]
-    #        if scope not in source_rses:
-    #            source_rses[scope] = {}
-    #        if name not in source_rses[scope]:
-    #            source_rses[scope][name] = {}
-    #        if dest_rse_id not in source_rses[scope][name]:
-    #            source_rses[scope][name][dest_rse_id] = {}
-    #        if src_rse_id not in source_rses[scope][name][dest_rse_id]:
-    #            source_rses[scope][name][dest_rse_id][src_rse_id] = distance
-
-    try:
-        throttler_mode = get('throttler', 'mode', default=None, use_cache=False, session=session)
-        direction, all_activities = get_parsed_throttler_mode(throttler_mode)
-    except ConfigNotFound:
-        throttler_mode = None
-
     new_requests, sources, messages = [], [], []
     for request in requests:
         dest_rse_name = get_rse_name(rse_id=request['dest_rse_id'], session=session)
@@ -210,38 +187,13 @@ def queue_requests(requests, session=None):
                 return obj.internal
             raise TypeError('Could not serialise object %r' % obj)
 
-        source_rse_id = request.get('source_rse_id')
-        if not source_rse_id:
-            try:
-                source_rses_of_request = source_rses[request['scope']][request['name']][request['dest_rse_id']]
-                source_rse_id = min(source_rses_of_request, key=source_rses_of_request.get)
-            except KeyError:
-                pass
-        activity_limit = transfer_limits.get(request['attributes']['activity'], {})
-        all_activities_limit = transfer_limits.get('all_activities', {})
-        limit_found = False
-        if throttler_mode:
-            if direction == 'source':
-                if all_activities:
-                    if all_activities_limit.get(source_rse_id):
-                        limit_found = True
-                else:
-                    if activity_limit.get(source_rse_id):
-                        limit_found = True
-            elif direction == 'destination':
-                if all_activities:
-                    if all_activities_limit.get(request['dest_rse_id']):
-                        limit_found = True
-                else:
-                    if activity_limit.get(request['dest_rse_id']):
-                        limit_found = True
-        request['state'] = RequestState.WAITING if limit_found else RequestState.QUEUED
+        request['state'] = RequestState.PREPARING if preparer_enabled else RequestState.QUEUED
 
         new_request = {'request_type': request['request_type'],
                        'scope': request['scope'],
                        'name': request['name'],
                        'dest_rse_id': request['dest_rse_id'],
-                       'source_rse_id': source_rse_id,
+                       'source_rse_id': request.get('source_rse_id', None),
                        'attributes': json.dumps(request['attributes'], default=temp_serializer),
                        'state': request['state'],
                        'rule_id': request['rule_id'],
@@ -304,6 +256,7 @@ def queue_requests(requests, session=None):
 
     for messages_chunk in chunks(messages, 1000):
         session.bulk_insert_mappings(models.Message, messages_chunk)
+
     return new_requests
 
 
@@ -1539,3 +1492,81 @@ def list_requests(src_rse_ids, dst_rse_ids, states=[RequestState.WAITING], sessi
                                                  models.Request.dest_rse_id.in_(dst_rse_ids))
     for request in query.yield_per(500):
         yield request
+
+
+# important column indices from __list_transfer_requests_and_source_replicas
+request_id_col = 0
+activity_col = 7
+dest_rse_id_col = 10
+source_rse_id_col = 12
+distance_col = 20
+
+
+@transactional_session
+def preparer_update_requests(source_iter: "Iterable[Tuple]", session: "Optional[Session]" = None) -> int:
+    count = 0
+    for req_source in source_iter:
+        new_state = __throttler_request_state(
+            activity=req_source[activity_col],
+            source_rse_id=req_source[source_rse_id_col],
+            dest_rse_id=req_source[dest_rse_id_col],
+            session=session,
+        )
+        session.query(models.Request).filter_by(id=req_source[request_id_col]).update({
+            models.Request.state: new_state,
+            models.Request.source_rse_id: req_source[source_rse_id_col],
+        }, synchronize_session=False)
+        count += 1
+    return count
+
+
+def __throttler_request_state(activity, source_rse_id, dest_rse_id, session: "Optional[Session]" = None) -> RequestState:
+    """
+    Takes request attributes to return a new state for the request
+    based on throttler settings. Always returns QUEUED,
+    if the throttler mode is not set.
+    """
+    try:
+        throttler_mode = get('throttler', 'mode', default=None, use_cache=False, session=session)
+    except ConfigNotFound:
+        throttler_mode = None
+
+    limit_found = False
+    if throttler_mode:
+        transfer_limits = get_rse_transfer_limits(session=session)
+        activity_limit = transfer_limits.get(activity, {})
+        all_activities_limit = transfer_limits.get('all_activities', {})
+        direction, all_activities = get_parsed_throttler_mode(throttler_mode)
+        if direction == 'source':
+            if all_activities:
+                if all_activities_limit.get(source_rse_id):
+                    limit_found = True
+            else:
+                if activity_limit.get(source_rse_id):
+                    limit_found = True
+        elif direction == 'destination':
+            if all_activities:
+                if all_activities_limit.get(dest_rse_id):
+                    limit_found = True
+            else:
+                if activity_limit.get(dest_rse_id):
+                    limit_found = True
+
+    return RequestState.WAITING if limit_found else RequestState.QUEUED
+
+
+def minimum_distance_requests(req_sources: "List[Tuple]") -> "Iterator[Tuple]":
+    # sort by Request.id, should be pretty quick since the database should return it this way (tim sort)
+    req_sources.sort(key=lambda t: t[request_id_col])
+
+    # req_sources must be non-empty and sorted by ids at this point, see above
+    cur_request_id = req_sources[0][request_id_col]
+    shortest_item = req_sources[0]
+    for idx in range(1, len(req_sources)):
+        if cur_request_id != req_sources[idx][request_id_col]:
+            yield shortest_item
+            cur_request_id = req_sources[idx][request_id_col]
+            shortest_item = req_sources[idx]
+        elif req_sources[idx][distance_col] < shortest_item[distance_col]:
+            shortest_item = req_sources[idx]
+    yield shortest_item
