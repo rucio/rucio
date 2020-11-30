@@ -41,7 +41,10 @@ def upgrade():
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'S', 'T')")
 
     elif context.get_context().dialect.name == 'postgresql':
-        pass  # too complicated on PostgreSQL -- leave the ENUM as it is
+        op.execute('ALTER TABLE ' + schema + 'replicas DROP CONSTRAINT IF EXISTS "REPLICAS_STATE_CHK", ALTER COLUMN state TYPE CHAR')
+        op.execute('DROP TYPE "REPLICAS_STATE_CHK"')
+        op.execute("CREATE TYPE \"REPLICAS_STATE_CHK\" AS ENUM('A', 'U', 'C', 'B', 'D', 'S', 'T')")
+        op.execute("ALTER TABLE %sreplicas ALTER COLUMN state TYPE \"REPLICAS_STATE_CHK\" USING state::\"REPLICAS_STATE_CHK\"" % schema)
 
     elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
         create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
@@ -66,7 +69,10 @@ def downgrade():
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'S')")
 
     elif context.get_context().dialect.name == 'postgresql':
-        pass  # too complicated on PostgreSQL -- leave the ENUM as it is
+        op.execute('ALTER TABLE ' + schema + 'replicas DROP CONSTRAINT IF EXISTS "REPLICAS_STATE_CHK", ALTER COLUMN state TYPE CHAR')
+        op.execute('DROP TYPE "REPLICAS_STATE_CHK"')
+        op.execute("CREATE TYPE \"REPLICAS_STATE_CHK\" AS ENUM('A', 'U', 'C', 'B', 'D', 'S')")
+        op.execute("ALTER TABLE %sreplicas ALTER COLUMN state TYPE \"REPLICAS_STATE_CHK\" USING state::\"REPLICAS_STATE_CHK\"" % schema)
 
     elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
         create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
