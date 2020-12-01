@@ -46,6 +46,7 @@ import socket
 
 import logging
 import time
+import random
 
 from rucio.client.client import Client
 from rucio.common.config import config_get_int
@@ -83,6 +84,7 @@ class UploadClient:
             logger.debug('Tracing is turned off.')
         self.default_file_scope = 'user.' + self.client.account
         self.rses = {}
+        self.rse_expressions = {}
 
         self.trace = {}
         self.trace['hostname'] = socket.getfqdn()
@@ -96,7 +98,7 @@ class UploadClient:
         """
         :param items: List of dictionaries. Each dictionary describing a file to upload. Keys:
             path                  - path of the file that will be uploaded
-            rse                   - rse name (e.g. 'CERN-PROD_DATADISK') where to upload the file
+            rse                   - rse expression/name (e.g. 'CERN-PROD_DATADISK') where to upload the file
             did_scope             - Optional: custom did scope (Default: user.<account>)
             did_name              - Optional: custom did name (Default: name of the file)
             dataset_scope         - Optional: custom dataset scope
@@ -118,6 +120,12 @@ class UploadClient:
         :raises NoFilesUploaded: if no files were successfully uploaded
         :raises NotAllFilesUploaded: if not all files were successfully uploaded
         """
+        # helper to get rse from rse_expression:
+        def _pick_random_rse(rse_expression):
+            rses = [r['rse'] for r in self.client.list_rses(rse_expression)]  # can raise InvalidRSEExpression
+            random.shuffle(rses)
+            return rses[0]
+
         logger = self.logger
         self.trace['uuid'] = generate_uuid()
 
@@ -129,8 +137,11 @@ class UploadClient:
         # and cache rse settings
         registered_dataset_dids = set()
         registered_file_dids = set()
+        rse_expression = None
         for file in files:
-            rse = file['rse']
+            rse_expression = file['rse']
+            rse = self.rse_expressions.setdefault(rse_expression, _pick_random_rse(rse_expression))
+
             if not self.rses.get(rse):
                 rse_settings = self.rses.setdefault(rse, rsemgr.get_rse_info(rse, vo=self.client.vo))
                 if rse_settings['availability_write'] != 1:
@@ -138,6 +149,7 @@ class UploadClient:
 
             dataset_scope = file.get('dataset_scope')
             dataset_name = file.get('dataset_name')
+            file['rse'] = rse
             if dataset_scope and dataset_name:
                 dataset_did_str = ('%s:%s' % (dataset_scope, dataset_name))
                 file['dataset_did_str'] = dataset_did_str
@@ -168,6 +180,7 @@ class UploadClient:
             if traces_copy_out is not None:
                 traces_copy_out.append(trace)
 
+            rse = file['rse']
             trace['scope'] = file['did_scope']
             trace['datasetScope'] = file.get('dataset_scope', '')
             trace['dataset'] = file.get('dataset_name', '')
@@ -176,7 +189,6 @@ class UploadClient:
 
             file_did = {'scope': file['did_scope'], 'name': file['did_name']}
             dataset_did_str = file.get('dataset_did_str')
-            rse = file['rse']
             rse_settings = self.rses[rse]
             rse_sign_service = rse_settings.get('sign_url', None)
             is_deterministic = rse_settings.get('deterministic', True)
@@ -484,7 +496,6 @@ class UploadClient:
                 continue
             if pfn:
                 item['force_scheme'] = pfn.split(':')[0]
-
             if os.path.isdir(path):
                 dname, subdirs, fnames = next(os.walk(path))
                 for fname in fnames:
