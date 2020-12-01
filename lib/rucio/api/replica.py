@@ -401,6 +401,30 @@ def add_bad_pfns(pfns, issuer, state, reason=None, expires_at=None, vo='def'):
     return replica.add_bad_pfns(pfns=pfns, account=issuer, state=state, reason=reason, expires_at=expires_at)
 
 
+def add_bad_dids(dids, rse, issuer, state, reason=None, expires_at=None, vo='def'):
+    """
+    Add bad replica entries for DIDs.
+
+    :param dids: the list of dids with bad replicas at rse.
+    :param rse: the rse with the bad replicas.
+    :param issuer: The issuer account.
+    :param state: One of the possible states : BAD
+    :param reason: A string describing the reason of the loss.
+    :param expires_at: None
+    :param vo: The VO to act on.
+
+    :returns: The list of replicas not declared bad
+    """
+    kwargs = {'state': state}
+    if not permission.has_permission(issuer=issuer, vo=vo, action='add_bad_pfns', kwargs=kwargs):
+        raise exception.AccessDenied('Account %s can not declare bad PFN or DIDs' % issuer)
+
+    issuer = InternalAccount(issuer, vo=vo)
+    rse_id = get_rse_id(rse=rse)
+
+    return replica.add_bad_dids(dids=dids, rse_id=rse_id, reason=reason, issuer=issuer, state=state)
+
+
 def get_suspicious_files(rse_expression, younger_than=None, nattempts=None, vo='def'):
     """
     List the list of suspicious files on a list of RSEs

@@ -42,7 +42,7 @@ from web import application, ctx, Created, data, header, InternalError, loadhook
 from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replicas, list_dataset_replicas_bulk,
                                delete_replicas, list_dataset_replicas_vp,
                                get_did_from_pfns, update_replicas_states,
-                               declare_bad_file_replicas, add_bad_pfns, get_suspicious_files,
+                               declare_bad_file_replicas, add_bad_dids, add_bad_pfns, get_suspicious_files,
                                declare_suspicious_file_replicas, list_bad_replicas_status,
                                get_bad_replicas_summary, list_datasets_per_rse,
                                set_tombstone)
@@ -56,7 +56,7 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
 from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
 from rucio.common.schema import get_schema_value
 from rucio.common.utils import parse_response, APIEncoder, render_json_list
-from rucio.db.sqla.constants import BadFilesStatus
+from rucio.db.sqla.constants import BadFilesStatus, ReplicaState
 from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController, check_accept_header_wrapper
 from rucio.web.rest.utils import generate_http_error
 
@@ -72,6 +72,7 @@ URLS = ('/list/?$', 'ListReplicas',
         '/suspicious/?$', 'SuspiciousReplicas',
         '/bad/states/?$', 'BadReplicasStates',
         '/bad/summary/?$', 'BadReplicasSummary',
+        '/bad/dids/?$', 'BadDIDs',
         '/bad/pfns/?$', 'BadPFNs',
         '/rse/(.*)/?$', 'ReplicasRSE',
         '/bad/?$', 'BadReplicas',
@@ -911,6 +912,57 @@ class ReplicasRSE(RucioController):
         except Exception as error:
             print(format_exc())
             raise InternalError(error)
+
+
+class BadDIDs(RucioController):
+
+    def POST(self):
+        """
+        Declare a list of bad replicas by DID.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            400 BadRequest
+            401 Unauthorized
+            409 Conflict
+            500 InternalError
+
+        """
+        json_data = data()
+        dids = []
+        rse = None
+        reason = None
+        expires_at = None
+        header('Content-Type', 'application/x-json-stream')
+        try:
+            params = parse_response(json_data)
+            if 'dids' in params:
+                dids = params['dids']
+            if 'rse' in params:
+                rse = params['rse']
+            if 'reason' in params:
+                reason = params['reason']
+            state = ReplicaState.BAD
+            if 'expires_at' in params and params['expires_at']:
+                expires_at = datetime.strptime(params['expires_at'], "%Y-%m-%dT%H:%M:%S.%f")
+            not_declared_files = add_bad_dids(dids=dids, rse=rse, issuer=ctx.env.get('issuer'), state=state,
+                                              reason=reason, expires_at=expires_at, vo=ctx.env.get('vo'))
+        except (ValueError, InvalidType) as error:
+            raise generate_http_error(400, 'ValueError', error.args[0])
+        except AccessDenied as error:
+            raise generate_http_error(401, 'AccessDenied', error.args[0])
+        except ReplicaNotFound as error:
+            raise generate_http_error(404, 'ReplicaNotFound', error.args[0])
+        except Duplicate as error:
+            raise generate_http_error(409, 'Duplicate', error.args[0])
+        except RucioException as error:
+            raise generate_http_error(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+        raise Created(dumps(not_declared_files))
 
 
 class BadPFNs(RucioController):

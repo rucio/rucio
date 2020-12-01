@@ -401,6 +401,53 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
 
 
 @transactional_session
+def add_bad_dids(dids, rse_id, reason, issuer, state=ReplicaState.BAD, session=None):
+    """
+    Declare a list of bad replicas.
+
+    :param dids: The list of DIDs.
+    :param rse_id: The RSE id.
+    :param reason: The reason of the loss.
+    :param issuer: The issuer account.
+    :param state: ReplicaState.BAD
+    :param session: The database session in use.
+    """
+    unknown_replicas = []
+    replicas = []
+
+    for did in dids:
+        scope = InternalScope(did['scope'], vo=issuer.vo)
+        name = did['name']
+        replica_exists, _scope, _name, already_declared, size = __exists_replicas(rse_id, scope, name, path=None,
+                                                                                  session=session)
+        if replica_exists and not already_declared:
+            replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
+            new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=state,
+                                                 account=issuer, bytes=size)
+            new_bad_replica.save(session=session, flush=False)
+            session.query(models.Source).filter_by(scope=scope, name=name,
+                                                   rse_id=rse_id).delete(synchronize_session=False)
+        else:
+            if already_declared:
+                unknown_replicas.append('%s:%s %s' % (did['scope'], name, 'Already declared'))
+            else:
+                unknown_replicas.append('%s:%s %s' % (did['scope'], name, 'Unknown replica'))
+
+    if str(state) == str(ReplicaState.BAD):
+        try:
+            update_replicas_states(replicas, session=session)
+        except exception.UnsupportedOperation:
+            raise exception.ReplicaNotFound("One or several replicas don't exist.")
+
+    try:
+        session.flush()
+    except (IntegrityError, DatabaseError, FlushError) as error:
+        raise exception.RucioException(error.args)
+
+    return unknown_replicas
+
+
+@transactional_session
 def declare_bad_file_replicas(pfns, reason, issuer, status=BadFilesStatus.BAD, session=None):
     """
     Declare a list of bad replicas.
