@@ -8,12 +8,19 @@
 # Authors:
 # - Thomas Beermann, <thomas.beermann@cern.ch>, 2015
 # - Martin Barisits, <martin.barisits@cern.ch>, 2019
+# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020
 #
 # script to update the version parameter for RucioUI Javascript and CSS includes
 
-from hashlib import md5
-from re import sub
-from sys import argv
+import sys
+import os.path
+base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(base_path)
+os.chdir(base_path)
+
+from hashlib import md5  # noqa: E402
+from re import sub  # noqa: E402
+from sys import argv  # noqa: E402
 
 
 files = ['/static/rucio.js', '/static/base.js', '/static/rucio.css']

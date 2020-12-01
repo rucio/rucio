@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 
-from rucio.db.sqla.session import get_session
+import sys
+import os.path
+base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(base_path)
+os.chdir(base_path)
+
+from rucio.db.sqla.session import get_session  # noqa: E402
 
 # Exit statuses
 OK, WARNING, CRITICAL, UNKNOWN = 0, 1, 2, 3

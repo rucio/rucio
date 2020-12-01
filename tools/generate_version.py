@@ -6,10 +6,16 @@
 #
 # Authors:
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017-2019
+# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020
 
-import os
-import subprocess
 import sys
+import os
+import os.path
+base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(base_path)
+os.chdir(base_path)
+
+import subprocess  # noqa: E402
 
 
 def run_git_command(cmd):
