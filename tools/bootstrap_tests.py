@@ -25,13 +25,20 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020
 
-from rucio.api.vo import add_vo
-from rucio.client import Client
-from rucio.common.config import config_get, config_get_bool
-from rucio.common.exception import Duplicate
-from rucio.core.account import add_account_attribute
-from rucio.common.types import InternalAccount
+import sys
+import os.path
+base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(base_path)
+os.chdir(base_path)
+
+from rucio.api.vo import add_vo  # noqa: E402
+from rucio.client import Client  # noqa: E402
+from rucio.common.config import config_get, config_get_bool  # noqa: E402
+from rucio.common.exception import Duplicate  # noqa: E402
+from rucio.core.account import add_account_attribute  # noqa: E402
+from rucio.common.types import InternalAccount  # noqa: E402
 
 
 if __name__ == '__main__':
