@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2020 CERN
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,8 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
@@ -111,7 +110,7 @@ class RequestList(MethodView):
                 return generate_http_error_flask(400, 'MissingParameter', 'Source site is missing')
 
             try:
-                states = [RequestState.from_string(state) for state in request_states.split(',')]
+                states = [RequestState(state) for state in request_states.split(',')]
             except ValueError:
                 return generate_http_error_flask(400, 'Invalid', 'Request state value is invalid')
 

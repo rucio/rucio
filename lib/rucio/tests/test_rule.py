@@ -1,4 +1,5 @@
-# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,10 +15,10 @@
 #
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015-2019
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Robert Illingworth <illingwo@fnal.gov>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
@@ -26,8 +27,6 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 import json
 import random
@@ -207,7 +206,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         # Add a first rule to the DS
@@ -228,7 +227,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         # Add a first rule to the DS
@@ -242,12 +241,12 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files1 = create_files(3, scope, self.rse4_id)
         dataset1 = 'dataset_' + str(uuid())
-        add_did(scope, dataset1, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset1, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset1, files1, self.jdoe)
 
         files2 = create_files(3, scope, self.rse4_id)
         dataset2 = 'dataset_' + str(uuid())
-        add_did(scope, dataset2, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset2, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset2, files2, self.jdoe)
 
         # Add the rules to both DS
@@ -282,13 +281,13 @@ class TestReplicationRuleCore(unittest.TestCase):
         """ REPLICATION RULE (CORE): Add a replication rule on a container, NONE Grouping"""
         scope = InternalScope('mock', **self.vo)
         container = 'container_' + str(uuid())
-        add_did(scope, container, DIDType.from_sym('CONTAINER'), self.jdoe)
+        add_did(scope, container, DIDType.CONTAINER, self.jdoe)
         all_files = []
         for i in range(3):
             files = create_files(3, scope, self.rse1_id)
             all_files.extend(files)
             dataset = 'dataset_' + str(uuid())
-            add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+            add_did(scope, dataset, DIDType.DATASET, self.jdoe)
             attach_dids(scope, dataset, files, self.jdoe)
             attach_dids(scope, container, [{'scope': scope, 'name': dataset}], self.jdoe)
 
@@ -303,7 +302,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
@@ -327,13 +326,13 @@ class TestReplicationRuleCore(unittest.TestCase):
         """ REPLICATION RULE (CORE): Add a replication rule on a container, ALL Grouping"""
         scope = InternalScope('mock', **self.vo)
         container = 'container_' + str(uuid())
-        add_did(scope, container, DIDType.from_sym('CONTAINER'), self.jdoe)
+        add_did(scope, container, DIDType.CONTAINER, self.jdoe)
         all_files = []
         for i in range(3):
             files = create_files(3, scope, self.rse1_id)
             all_files.extend(files)
             dataset = 'dataset_' + str(uuid())
-            add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+            add_did(scope, dataset, DIDType.DATASET, self.jdoe)
             attach_dids(scope, dataset, files, self.jdoe)
             attach_dids(scope, container, [{'scope': scope, 'name': dataset}], self.jdoe)
 
@@ -353,7 +352,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
@@ -378,7 +377,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse5, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
@@ -390,14 +389,14 @@ class TestReplicationRuleCore(unittest.TestCase):
         """ REPLICATION RULE (CORE): Add a replication rule on a container, DATASET Grouping"""
         scope = InternalScope('mock', **self.vo)
         container = 'container_' + str(uuid())
-        add_did(scope, container, DIDType.from_sym('CONTAINER'), self.jdoe)
+        add_did(scope, container, DIDType.CONTAINER, self.jdoe)
         all_files = []
         dataset_files = []
         for i in range(3):
             files = create_files(3, scope, self.rse1_id)
             all_files.extend(files)
             dataset = 'dataset_' + str(uuid())
-            add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+            add_did(scope, dataset, DIDType.DATASET, self.jdoe)
             attach_dids(scope, dataset, files, self.jdoe)
             attach_dids(scope, container, [{'scope': scope, 'name': dataset}], self.jdoe)
             dataset_files.append({'scope': scope, 'name': dataset, 'files': files})
@@ -419,7 +418,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='NONE', weight="fakeweight", lifetime=None, locked=False, subscription_id=None)
@@ -435,14 +434,14 @@ class TestReplicationRuleCore(unittest.TestCase):
         """ REPLICATION RULE (CORE): Add a replication rule on a container, DATASET Grouping, WEIGHTS"""
         scope = InternalScope('mock', **self.vo)
         container = 'container_' + str(uuid())
-        add_did(scope, container, DIDType.from_sym('CONTAINER'), self.jdoe)
+        add_did(scope, container, DIDType.CONTAINER, self.jdoe)
         all_files = []
         dataset_files = []
         for i in range(3):
             files = create_files(3, scope, self.rse1_id)
             all_files.extend(files)
             dataset = 'dataset_' + str(uuid())
-            add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+            add_did(scope, dataset, DIDType.DATASET, self.jdoe)
             attach_dids(scope, dataset, files, self.jdoe)
             attach_dids(scope, container, [{'scope': scope, 'name': dataset}], self.jdoe)
             dataset_files.append({'scope': scope, 'name': dataset, 'files': files})
@@ -465,7 +464,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
@@ -477,7 +476,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='DATASET', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
@@ -492,7 +491,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
@@ -512,7 +511,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=True, subscription_id=None)[0]
@@ -530,7 +529,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
@@ -547,7 +546,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
@@ -569,7 +568,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
@@ -596,7 +595,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
@@ -614,7 +613,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         files = create_files(3, scope, self.rse3_id, bytes=100)
         # local quota
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         set_local_account_limit(account=self.jdoe, rse_id=self.rse3_id, bytes=5)
@@ -627,7 +626,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse3_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         set_local_account_limit(account=self.jdoe, rse_id=self.rse3_id, bytes=400)
@@ -646,7 +645,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         set_rse_limits(self.rse3_id, 'MaxSpaceAvailable', 250)
@@ -663,7 +662,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         set_status(scope=scope, name=dataset, open=False)
@@ -683,7 +682,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         set_status(scope=scope, name=dataset, open=False)
@@ -702,7 +701,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, notify='C')[0]
@@ -722,7 +721,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, notify='C')[0]
 
@@ -746,7 +745,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(30, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, notify='P')[0]
 
@@ -802,7 +801,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse4, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None, purge_replicas=True)[0]
@@ -824,7 +823,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         with pytest.raises(RSEBlacklisted):
@@ -849,7 +848,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
@@ -868,7 +867,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, [self.rse1_id, self.rse3_id])
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=2, rse_expression=self.rse1 + '|' + self.rse3, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
@@ -883,7 +882,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, [self.rse1_id, self.rse3_id])
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=2, rse_expression=self.rse1 + '|' + self.rse3 + '|' + self.rse5, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
@@ -896,7 +895,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, [self.rse1_id])
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
@@ -922,7 +921,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression='%s' % rse, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
@@ -939,7 +938,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=200)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
         set_status(scope=scope, name=dataset, open=False)
 
@@ -970,7 +969,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         with pytest.raises(ManualRuleApprovalBlocked):
@@ -982,9 +981,9 @@ class TestReplicationRuleCore(unittest.TestCase):
         files = create_files(3, scope, self.rse1_id)
         dataset1 = 'dataset_' + str(uuid())
         dataset2 = 'dataset_' + str(uuid())
-        add_did(scope, dataset1, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset1, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset1, files, self.jdoe)
-        add_did(scope, dataset2, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset2, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset2, files, self.jdoe)
 
         rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset1}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
@@ -1002,7 +1001,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
@@ -1027,7 +1026,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='NONE',
@@ -1218,7 +1217,7 @@ class TestReplicationRuleClient(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         ret = self.rule_client.add_replication_rule(dids=[{'scope': scope.external, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE')
@@ -1233,7 +1232,7 @@ class TestReplicationRuleClient(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
@@ -1248,7 +1247,7 @@ class TestReplicationRuleClient(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
@@ -1266,7 +1265,7 @@ class TestReplicationRuleClient(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         ret = self.rule_client.add_replication_rule(dids=[{'scope': scope.external, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE')
@@ -1278,7 +1277,7 @@ class TestReplicationRuleClient(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         ret = self.rule_client.add_replication_rule(dids=[{'scope': scope.external, 'name': dataset}], account='jdoe', copies=2, rse_expression=self.T1, grouping='NONE')
@@ -1292,7 +1291,7 @@ class TestReplicationRuleClient(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=True, subscription_id=None)[0]
@@ -1306,7 +1305,7 @@ class TestReplicationRuleClient(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight='fakeweight', lifetime=None, locked=True, subscription_id=None)[0]
@@ -1319,7 +1318,7 @@ class TestReplicationRuleClient(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id_1 = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight='fakeweight', lifetime=150, locked=True, subscription_id=None)[0]
@@ -1337,12 +1336,12 @@ class TestReplicationRuleClient(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight='fakeweight', lifetime=150, locked=True, subscription_id=None, ask_approval=True)[0]
         rule = self.rule_client.get_replication_rule(rule_id)
-        assert rule['state'] == str(RuleState.WAITING_APPROVAL)
+        assert rule['state'] == RuleState.WAITING_APPROVAL.name
         self.rule_client.approve_replication_rule(rule_id)
         rule = self.rule_client.get_replication_rule(rule_id)
-        assert rule['state'] == str(RuleState.INJECT)
+        assert rule['state'] == RuleState.INJECT.name

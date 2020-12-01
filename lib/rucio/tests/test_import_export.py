@@ -142,7 +142,7 @@ def importer_example_data(vo):
                 if identities:
                     for identity in identities:
                         # check identity creation and identity-account association
-                        identity_type = IdentityType.from_sym(identity['type'])
+                        identity_type = IdentityType[identity['type'].upper()]
                         identity = identity['identity']
                         assert (identity, identity_type) in db_identities
                         accounts_for_identity = list_accounts_for_identity(identity, identity_type)

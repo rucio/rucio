@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
 # - David Cameron <david.cameron@cern.ch>, 2014
@@ -824,16 +824,16 @@ def list_rules(filters={}, session=None):
                 continue
             elif key == 'state':
                 if isinstance(value, string_types):
-                    value = RuleState.from_string(value)
+                    value = RuleState(value)
                 else:
                     try:
-                        value = RuleState.from_sym(value)
+                        value = RuleState[value]
                     except ValueError:
                         pass
             elif key == 'did_type' and isinstance(value, string_types):
-                value = DIDType.from_string(value)
+                value = DIDType(value)
             elif key == 'grouping' and isinstance(value, string_types):
-                value = RuleGrouping.from_string(value)
+                value = RuleGrouping(value)
             query = query.filter(getattr(models.ReplicationRule, key) == value)
 
     try:

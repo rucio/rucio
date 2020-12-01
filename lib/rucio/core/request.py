@@ -1,23 +1,32 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# -*- coding: utf-8 -*-
+# Copyright 2013-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015, 2017
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2015-2017
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014-2017
-# - Wen Guan, <wen.guan@cern.ch>, 2014-2016
-# - Joaquin Bogado, <jbogadog@cern.ch>, 2016
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2016
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2017-2020
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Brandon White, <bjwhite@fnal.gov>, 2019
-#
-# PY3K COMPATIBLE
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2020
+# - Wen Guan <wen.guan@cern.ch>, 2014-2016
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2015-2019
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2016
+# - Joaquin Bogado <jbogadog@cern.ch>, 2017
+# - Igor Mandrichenko <rucio@fermicloud055.fnal.gov>, 2018
+# - Robert Illingworth <illingwo@fnal.gov>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
 
 import datetime
 import json
@@ -190,10 +199,10 @@ def queue_requests(requests, session=None):
     for request in requests:
         dest_rse_name = get_rse_name(rse_id=request['dest_rse_id'], session=session)
         if req['request_type'] == RequestType.TRANSFER and (request['scope'], request['name'], request['dest_rse_id']) in existing_requests:
-            logging.warn('Request TYPE %s for DID %s:%s at RSE %s exists - ignoring' % (request['request_type'],
-                                                                                        request['scope'],
-                                                                                        request['name'],
-                                                                                        dest_rse_name))
+            logging.warning('Request TYPE %s for DID %s:%s at RSE %s exists - ignoring' % (request['request_type'],
+                                                                                           request['scope'],
+                                                                                           request['name'],
+                                                                                           dest_rse_name))
             continue
 
         def temp_serializer(obj):
@@ -715,7 +724,7 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
                                                                      dest_rse_id=dest_rse_id,
                                                                      request_type=request_type).all()
         if not reqs:
-            logging.warn('Tried to cancel non-existant request for DID %s:%s at RSE %s' % (scope, name, get_rse_name(rse_id=dest_rse_id, session=session)))
+            logging.warning('Tried to cancel non-existant request for DID %s:%s at RSE %s' % (scope, name, get_rse_name(rse_id=dest_rse_id, session=session)))
     except IntegrityError as error:
         raise RucioException(error.args)
 
@@ -728,7 +737,7 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
                     transfertool_map[req[2]] = FTS3Transfertool(external_host=req[2])
                 transfertool_map[req[2]].cancel(transfer_ids=[req[1]])
             except Exception as error:
-                logging.warn('Could not cancel FTS3 transfer %s on %s: %s' % (req[1], req[2], str(error)))
+                logging.warning('Could not cancel FTS3 transfer %s on %s: %s' % (req[1], req[2], str(error)))
         archive_request(request_id=req[0], session=session)
 
 
@@ -1326,7 +1335,7 @@ def update_request_state(response, logging_prepend_str=None, session=None):
                     try:
                         src_rse_name, src_rse_id = __get_source_rse(response['request_id'], src_url, session=session)
                     except Exception:
-                        logging.warn(prepend_str + 'Cannot get correct RSE for source url: %s(%s)' % (src_url, traceback.format_exc()))
+                        logging.warning(prepend_str + 'Cannot get correct RSE for source url: %s(%s)' % (src_url, traceback.format_exc()))
                         src_rse_name = None
                     if src_rse_name and src_rse_name != src_rse:
                         response['src_rse'] = src_rse_name
@@ -1508,7 +1517,7 @@ def __get_source_rse(request_id, src_url, session=None):
                 logging.debug("Find rse name %s for %s" % (src_rse_name, src_url))
                 return src_rse_name, src_rse_id
         # cannot find matched surl
-        logging.warn('Cannot get correct RSE for source url: %s' % (src_url))
+        logging.warning('Cannot get correct RSE for source url: %s' % (src_url))
         return None, None
     except Exception:
         logging.error('Cannot get correct RSE for source url: %s(%s)' % (src_url, traceback.format_exc()))

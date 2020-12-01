@@ -16,14 +16,12 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 import unittest
 
@@ -32,6 +30,7 @@ import pytest
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
+from rucio.db.sqla.constants import ReplicaState
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import InvalidObject
 from rucio.common.types import InternalAccount, InternalScope
@@ -246,7 +245,7 @@ class TestDatasetReplicaUpdate(unittest.TestCase):
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['available_bytes'] == len(files) * file_size
         assert dataset_replica['available_replicas_cnt'] == len(files)
-        assert str(dataset_replica['state']) == 'AVAILABLE'
+        assert dataset_replica['state'] == ReplicaState.AVAILABLE
 
         # Delete one file replica -> dataset replica should be unavailable
         delete_replicas(rse_id=self.rse_id, files=[files[0]], session=self.db_session)
@@ -257,7 +256,7 @@ class TestDatasetReplicaUpdate(unittest.TestCase):
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['available_bytes'] == (len(files) - 1) * file_size
         assert dataset_replica['available_replicas_cnt'] == len(files) - 1
-        assert str(dataset_replica['state']) == 'UNAVAILABLE'
+        assert dataset_replica['state'] == ReplicaState.UNAVAILABLE
 
         # Add one file replica -> dataset replica should be available again
         add_replicas(rse_id=self.rse_id, files=[files[0]], account=self.account, session=self.db_session)
@@ -270,7 +269,7 @@ class TestDatasetReplicaUpdate(unittest.TestCase):
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['available_bytes'] == len(files) * file_size
         assert dataset_replica['available_replicas_cnt'] == len(files)
-        assert str(dataset_replica['state']) == 'AVAILABLE'
+        assert dataset_replica['state'] == ReplicaState.AVAILABLE
 
         # Delete all file replicas -> dataset replica should be deleted
         delete_replicas(rse_id=self.rse_id, files=files, session=self.db_session)
@@ -295,7 +294,7 @@ class TestDatasetReplicaUpdate(unittest.TestCase):
             assert dataset_replica['length'] == len(files)
             assert dataset_replica['available_bytes'] == len(files) * file_size
             assert dataset_replica['available_replicas_cnt'] == len(files)
-            assert str(dataset_replica['state']) == 'AVAILABLE'
+            assert dataset_replica['state'] == ReplicaState.AVAILABLE
 
         # Delete first replica on first RSE -> replica on first RSE should be unavailable, replica on second RSE should be still available
         delete_replicas(rse_id=self.rse_id, files=[files[0]], session=self.db_session)
@@ -309,13 +308,13 @@ class TestDatasetReplicaUpdate(unittest.TestCase):
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['available_bytes'] == (len(files) - 1) * file_size
         assert dataset_replica['available_replicas_cnt'] == len(files) - 1
-        assert str(dataset_replica['state']) == 'UNAVAILABLE'
+        assert dataset_replica['state'] == ReplicaState.UNAVAILABLE
         dataset_replica = self.db_session.query(models.CollectionReplica).filter_by(scope=self.scope, name=dataset_name, rse_id=self.rse2_id).one()  # pylint: disable=no-member
         assert dataset_replica['bytes'] == len(files) * file_size
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['available_bytes'] == len(files) * file_size
         assert dataset_replica['available_replicas_cnt'] == len(files)
-        assert str(dataset_replica['state']) == 'AVAILABLE'
+        assert dataset_replica['state'] == ReplicaState.AVAILABLE
 
         # Set the state of the first replica on the second RSE to UNAVAILABLE -> both replicass should be unavailable
         file_replica = self.db_session.query(models.RSEFileAssociation).filter_by(rse_id=self.rse2_id, scope=self.scope, name=files[0]['name']).one()  # pylint: disable=no-member
@@ -329,13 +328,13 @@ class TestDatasetReplicaUpdate(unittest.TestCase):
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['available_bytes'] == (len(files) - 1) * file_size
         assert dataset_replica['available_replicas_cnt'] == len(files) - 1
-        assert str(dataset_replica['state']) == 'UNAVAILABLE'
+        assert dataset_replica['state'] == ReplicaState.UNAVAILABLE
         dataset_replica = self.db_session.query(models.CollectionReplica).filter_by(scope=self.scope, name=dataset_name, rse_id=self.rse2_id).one()  # pylint: disable=no-member
         assert dataset_replica['bytes'] == len(files) * file_size
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['available_bytes'] == (len(files) - 1) * file_size
         assert dataset_replica['available_replicas_cnt'] == len(files) - 1
-        assert str(dataset_replica['state']) == 'UNAVAILABLE'
+        assert dataset_replica['state'] == ReplicaState.UNAVAILABLE
 
         # Delete first replica on second RSE -> file is not longer part of dataset -> both replicas should be available
         delete_replicas(rse_id=self.rse2_id, files=[files[0]], session=self.db_session)
@@ -348,13 +347,13 @@ class TestDatasetReplicaUpdate(unittest.TestCase):
         assert dataset_replica['length'] == len(files) - 1
         assert dataset_replica['available_bytes'] == (len(files) - 1) * file_size
         assert dataset_replica['available_replicas_cnt'] == len(files) - 1
-        assert str(dataset_replica['state']) == 'AVAILABLE'
+        assert dataset_replica['state'] == ReplicaState.AVAILABLE
         dataset_replica = self.db_session.query(models.CollectionReplica).filter_by(scope=self.scope, name=dataset_name, rse_id=self.rse2_id).one()  # pylint: disable=no-member
         assert dataset_replica['bytes'] == (len(files) - 1) * file_size
         assert dataset_replica['length'] == len(files) - 1
         assert dataset_replica['available_bytes'] == (len(files) - 1) * file_size
         assert dataset_replica['available_replicas_cnt'] == len(files) - 1
-        assert str(dataset_replica['state']) == 'AVAILABLE'
+        assert dataset_replica['state'] == ReplicaState.AVAILABLE
 
         # Add first replica to the first RSE -> first replicas should be available
         add_replicas(rse_id=self.rse_id, files=[files[0]], account=self.account, session=self.db_session)
@@ -368,13 +367,13 @@ class TestDatasetReplicaUpdate(unittest.TestCase):
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['available_bytes'] == len(files) * file_size
         assert dataset_replica['available_replicas_cnt'] == len(files)
-        assert str(dataset_replica['state']) == 'AVAILABLE'
+        assert dataset_replica['state'] == ReplicaState.AVAILABLE
         dataset_replica = self.db_session.query(models.CollectionReplica).filter_by(scope=self.scope, name=dataset_name, rse_id=self.rse2_id).one()  # pylint: disable=no-member
         assert dataset_replica['bytes'] == len(files) * file_size
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['available_bytes'] == (len(files) - 1) * file_size
         assert dataset_replica['available_replicas_cnt'] == len(files) - 1
-        assert str(dataset_replica['state']) == 'UNAVAILABLE'
+        assert dataset_replica['state'] == ReplicaState.UNAVAILABLE
 
         # Add first replica to the second RSE -> both replicas should be available again
         add_replicas(rse_id=self.rse2_id, files=[files[0]], account=self.account, session=self.db_session)
@@ -387,10 +386,10 @@ class TestDatasetReplicaUpdate(unittest.TestCase):
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['available_bytes'] == len(files) * file_size
         assert dataset_replica['available_replicas_cnt'] == len(files)
-        assert str(dataset_replica['state']) == 'AVAILABLE'
+        assert dataset_replica['state'] == ReplicaState.AVAILABLE
         dataset_replica = self.db_session.query(models.CollectionReplica).filter_by(scope=self.scope, name=dataset_name, rse_id=self.rse2_id).one()  # pylint: disable=no-member
         assert dataset_replica['bytes'] == len(files) * file_size
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['available_bytes'] == len(files) * file_size
         assert dataset_replica['available_replicas_cnt'] == len(files)
-        assert str(dataset_replica['state']) == 'AVAILABLE'
+        assert dataset_replica['state'] == ReplicaState.AVAILABLE

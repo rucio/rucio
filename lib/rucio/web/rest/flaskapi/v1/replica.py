@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,10 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019-2020
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
@@ -719,7 +718,7 @@ class BadReplicasStates(MethodView):
             if 'state' in params:
                 state = params['state'][0]
             if isinstance(state, string_types):
-                state = BadFilesStatus.from_string(state)
+                state = BadFilesStatus(state)
             if 'rse' in params:
                 rse = params['rse'][0]
             if 'younger_than' in params:

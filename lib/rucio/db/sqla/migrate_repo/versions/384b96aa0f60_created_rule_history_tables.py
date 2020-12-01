@@ -1,4 +1,5 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +14,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Martin Barisits <martin.barisits@cern.ch>, 2015
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2017
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2016
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2020
 
 ''' created rule history tables '''
 
@@ -48,8 +49,8 @@ def upgrade():
                      sa.Column('account', sa.String(25)),
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
-                     sa.Column('did_type', DIDType.db_type()),
-                     sa.Column('state', RuleState.db_type()),
+                     sa.Column('did_type', sa.Enum(DIDType, name='RULES_HIST_RECENT_DIDTYPE_CHK', values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('state', sa.Enum(RuleState, name='RULES_HIST_RECENT_STATE_CHK', values_callable=lambda obj: [e.value for e in obj])),
                      sa.Column('error', sa.String(255)),
                      sa.Column('rse_expression', sa.String(255)),
                      sa.Column('copies', sa.SmallInteger),
@@ -61,8 +62,8 @@ def upgrade():
                      sa.Column('locks_stuck_cnt', sa.BigInteger),
                      sa.Column('source_replica_expression', sa.String(255)),
                      sa.Column('activity', sa.String(50)),
-                     sa.Column('grouping', RuleGrouping.db_type()),
-                     sa.Column('notification', RuleNotification.db_type()),
+                     sa.Column('grouping', sa.Enum(RuleGrouping, name='RULES_HIST_RECENT_GROUPING_CHK', values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('notification', sa.Enum(RuleNotification, name='RULES_HIST_RECENT_NOTIFY_CHK', values_callable=lambda obj: [e.value for e in obj])),
                      sa.Column('stuck_at', sa.DateTime),
                      sa.Column('purge_replicas', sa.Boolean()),
                      sa.Column('ignore_availability', sa.Boolean()),
@@ -76,8 +77,8 @@ def upgrade():
                      sa.Column('account', sa.String(25)),
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
-                     sa.Column('did_type', DIDType.db_type()),
-                     sa.Column('state', RuleState.db_type()),
+                     sa.Column('did_type', sa.Enum(DIDType, name='RULES_HISTORY_DIDTYPE_CHK', values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('state', sa.Enum(RuleState, name='RULES_HISTORY_STATE_CHK', values_callable=lambda obj: [e.value for e in obj])),
                      sa.Column('error', sa.String(255)),
                      sa.Column('rse_expression', sa.String(255)),
                      sa.Column('copies', sa.SmallInteger),
@@ -89,8 +90,8 @@ def upgrade():
                      sa.Column('locks_stuck_cnt', sa.BigInteger),
                      sa.Column('source_replica_expression', sa.String(255)),
                      sa.Column('activity', sa.String(50)),
-                     sa.Column('grouping', RuleGrouping.db_type()),
-                     sa.Column('notification', RuleNotification.db_type()),
+                     sa.Column('grouping', sa.Enum(RuleGrouping, name='RULES_HISTORY_GROUPING_CHK', values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('notification', sa.Enum(RuleNotification, name='RULES_HISTORY_NOTIFY_CHK', values_callable=lambda obj: [e.value for e in obj])),
                      sa.Column('stuck_at', sa.DateTime),
                      sa.Column('purge_replicas', sa.Boolean()),
                      sa.Column('ignore_availability', sa.Boolean()),

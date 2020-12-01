@@ -1,24 +1,34 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# -*- coding: utf-8 -*-
+# Copyright 2013-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013-2015, 2017
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2018
-# - Wen Guan, <wen.guan@cern.ch>, 2014-2016
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2019
-# - Eric Vaandering, <ewv@fnal.gov>, 2018
-# - Diego Ciangottini <diego.ciangottini@pg.infn.it>, 2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
+# - Wen Guan <wen.guan@cern.ch>, 2014-2016
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2020
+# - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
+# - Eric Vaandering <ewv@fnal.gov>, 2018
+# - dciangot <diego.ciangottini@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+# - Dilaksun Bavarajan <dilaksun.bavarajan@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2020
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 from __future__ import absolute_import, division
 import datetime
@@ -170,7 +180,7 @@ class FTS3Transfertool(Transfertool):
         except JSONDecodeError as error:
             raise TransferToolWrongAnswer(error)
         except Exception as error:
-            logging.warn('Could not submit transfer to %s - %s' % (self.external_host, str(error)))
+            logging.warning('Could not submit transfer to %s - %s' % (self.external_host, str(error)))
 
         if post_result and post_result.status_code == 200:
             record_counter('transfertool.fts3.%s.submission.success' % self.__extract_host(self.external_host), len(files))
@@ -185,9 +195,9 @@ class FTS3Transfertool(Transfertool):
         else:
             if expected_transfer_id:
                 transfer_id = expected_transfer_id
-                logging.warn("Failed to submit transfer to %s, will use expected transfer id %s, error: %s", self.external_host, transfer_id, post_result.text if post_result is not None else post_result)
+                logging.warning("Failed to submit transfer to %s, will use expected transfer id %s, error: %s", self.external_host, transfer_id, post_result.text if post_result is not None else post_result)
             else:
-                logging.warn("Failed to submit transfer to %s, error: %s", self.external_host, post_result.text if post_result is not None else post_result)
+                logging.warning("Failed to submit transfer to %s, error: %s", self.external_host, post_result.text if post_result is not None else post_result)
             record_counter('transfertool.fts3.%s.submission.failure' % self.__extract_host(self.external_host), len(files))
             labels = {'state': 'failure', 'host': self.__extract_host(self.external_host)}
             SUBMISSION_COUNTER.labels(**labels).inc(len(files))
@@ -379,7 +389,7 @@ class FTS3Transfertool(Transfertool):
         except JSONDecodeError as error:
             raise TransferToolWrongAnswer(error)
         except Exception:
-            logging.warn('Could not query latest terminal states from %s', self.external_host)
+            logging.warning('Could not query latest terminal states from %s', self.external_host)
 
         if jobs and (jobs.status_code == 200 or jobs.status_code == 207):
             record_counter('transfertool.fts3.%s.query_latest.success' % self.__extract_host(self.external_host))
@@ -480,7 +490,7 @@ class FTS3Transfertool(Transfertool):
                                   headers=self.headers,
                                   timeout=None)
         except Exception:
-            logging.warn('Could not get config of %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
+            logging.warning('Could not get config of %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
         if result and result.status_code == 200:
             C = result.json()
             config_se = C[storage_element]
@@ -504,7 +514,7 @@ class FTS3Transfertool(Transfertool):
             try:
                 policy = config_get('policy', 'permission')
             except Exception:
-                logging.warn('Could not get policy from config')
+                logging.warning('Could not get policy from config')
             params_dict[storage_element]['operations'] = {policy: {'staging': staging}}
         # A lot of try-excepts to avoid dictionary overwrite's,
         # see https://stackoverflow.com/questions/27118687/updating-nested-dictionaries-when-data-has-existing-key/27118776
@@ -540,7 +550,7 @@ class FTS3Transfertool(Transfertool):
                                    timeout=None)
 
         except Exception:
-            logging.warn('Could not set the config of %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
+            logging.warning('Could not set the config of %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
         if result and result.status_code == 200:
             configSe = result.json()
             return configSe
@@ -578,7 +588,7 @@ class FTS3Transfertool(Transfertool):
                                        headers=self.headers,
                                        timeout=None)
             except Exception:
-                logging.warn('Could not ban %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
+                logging.warning('Could not ban %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
             if result and result.status_code == 200:
                 return 0
             raise Exception('Could not ban the storage %s , status code returned : %s', (storage_element, result.status_code if result else None))
@@ -592,7 +602,7 @@ class FTS3Transfertool(Transfertool):
                                          headers=self.headers,
                                          timeout=None)
             except Exception:
-                logging.warn('Could not unban %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
+                logging.warning('Could not unban %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
             if result and result.status_code == 204:
                 return 0
             raise Exception('Could not unban the storage %s , status code returned : %s', (storage_element, result.status_code if result else None))
@@ -629,7 +639,7 @@ class FTS3Transfertool(Transfertool):
                 except JSONDecodeError as error:
                     raise TransferToolWrongAnswer(error)
                 except Exception as error:
-                    logging.warn('Could not get baseid and voname from %s - %s' % (self.external_host, str(error)))
+                    logging.warning('Could not get baseid and voname from %s - %s' % (self.external_host, str(error)))
 
                 if get_result and get_result.status_code == 200:
                     baseid = str(get_result.json()['base_id'])
@@ -640,7 +650,7 @@ class FTS3Transfertool(Transfertool):
 
                     logging.debug("Get baseid %s and voname %s from %s", baseid, voname, self.external_host)
                 else:
-                    logging.warn("Failed to get baseid and voname from %s, error: %s", self.external_host, get_result.text if get_result is not None else get_result)
+                    logging.warning("Failed to get baseid and voname from %s, error: %s", self.external_host, get_result.text if get_result is not None else get_result)
                     result = (None, None)
         except Exception as error:
             logging.warning("Failed to get baseid and voname from %s: %s" % (self.external_host, str(error)))

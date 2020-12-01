@@ -1,4 +1,5 @@
-# Copyright 2014-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2014-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +16,7 @@
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2019
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2015
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
@@ -101,7 +102,7 @@ class TestJudgeRepairer(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse4_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.T1, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
@@ -128,7 +129,7 @@ class TestJudgeRepairer(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(4, scope, self.rse4_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.T1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None, activity='DebugJudge')[0]
@@ -152,7 +153,7 @@ class TestJudgeRepairer(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(4, scope, self.rse4_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, activity='DebugJudge')[0]
@@ -174,7 +175,7 @@ class TestJudgeRepairer(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse4_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
 
         # Add a first rule to the DS
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
@@ -212,7 +213,7 @@ class TestJudgeRepairer(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse4_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         # Add a first rule to the DS
@@ -247,7 +248,7 @@ class TestJudgeRepairer(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(4, scope, self.rse4_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
@@ -276,7 +277,7 @@ class TestJudgeRepairer(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(4, scope, self.rse4_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.T1, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
@@ -306,7 +307,7 @@ class TestJudgeRepairer(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(4, scope, self.rse4_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=rse, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=True, activity='DebugJudge')[0]

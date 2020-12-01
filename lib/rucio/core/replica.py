@@ -114,7 +114,7 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
     for row in summary:
         if (row[2], row[1], row[4]) not in incidents:
             incidents[(row[2], row[1], row[4])] = {}
-        incidents[(row[2], row[1], row[4])][str(row[3])] = row[0]
+        incidents[(row[2], row[1], row[4])][str(row[3].name)] = row[0]
 
     for incident in incidents:
         res = incidents[incident]
@@ -123,6 +123,7 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
         res['created_at'] = incident[1]
         res['reason'] = incident[2]
         result.append(res)
+
     return result
 
 
@@ -1005,7 +1006,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                 if file['scope'] == scope and file['name'] == name:
                     # extract properly the pfn from the tuple
                     file['rses'][rse_id] += list(set([tmp_pfn[0] for tmp_pfn in pfns]))
-                    file['states'][rse_id] = str(state)
+                    file['states'][rse_id] = str(state.name if state else state)
 
                     if resolve_parents:
                         file['parents'] = ['%s:%s' % (parent['scope'].internal, parent['name'])
@@ -1014,7 +1015,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                     for tmp_pfn in pfns:
                         file['pfns'][tmp_pfn[0]] = {'rse_id': tmp_pfn[4]['rse_id'] if tmp_pfn[1] == 'zip' else rse_id,
                                                     'rse': tmp_pfn[4]['rse'] if tmp_pfn[1] == 'zip' else rse,
-                                                    'type': tmp_pfn[4]['type'] if tmp_pfn[1] == 'zip' else str(rse_type),
+                                                    'type': tmp_pfn[4]['type'] if tmp_pfn[1] == 'zip' else str(rse_type.name),
                                                     'volatile': tmp_pfn[4]['volatile'] if tmp_pfn[1] == 'zip' else volatile,
                                                     'domain': tmp_pfn[1],
                                                     'priority': tmp_pfn[2],
@@ -1051,7 +1052,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                 file['scope'], file['name'] = scope, name
                 file['bytes'], file['md5'], file['adler32'] = bytes, md5, adler32
                 file['pfns'], file['rses'] = {}, defaultdict(list)
-                file['states'] = {rse_id: str(state)}
+                file['states'] = {rse_id: str(state.name if state else state)}
 
                 if resolve_parents:
                     file['parents'] = ['%s:%s' % (parent['scope'].internal, parent['name'])
@@ -1278,15 +1279,10 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
             new_replicas.append({'rse_id': rse_id, 'scope': file['scope'],
                                  'name': file['name'], 'bytes': file['bytes'],
                                  'path': file.get('path'),
-                                 'state': ReplicaState.from_string(file.get('state', 'A')),
+                                 'state': ReplicaState(file.get('state', 'A')),
                                  'md5': file.get('md5'), 'adler32': file.get('adler32'),
                                  'lock_cnt': file.get('lock_cnt', 0),
                                  'tombstone': file.get('tombstone')})
-#            new_replica = models.RSEFileAssociation(rse_id=rse_id, scope=file['scope'], name=file['name'], bytes=file['bytes'],
-#                                                    path=file.get('path'), state=ReplicaState.from_string(file.get('state', 'A')),
-#                                                    md5=file.get('md5'), adler32=file.get('adler32'), lock_cnt=file.get('lock_cnt', 0),
-#                                                    tombstone=file.get('tombstone'))
-#            new_replica.save(session=session, flush=False)
     try:
         new_replicas and session.bulk_insert_mappings(models.RSEFileAssociation,
                                                       new_replicas)
@@ -1835,7 +1831,7 @@ def update_replicas_states(replicas, nowait=False, add_tombstone=False, session=
             raise exception.ReplicaNotFound("No row found for scope: %s name: %s rse: %s" % (replica['scope'], replica['name'], get_rse_name(replica['rse_id'], session=session)))
 
         if isinstance(replica['state'], string_types):
-            replica['state'] = ReplicaState.from_string(replica['state'])
+            replica['state'] = ReplicaState(replica['state'])
 
         values = {'state': replica['state']}
         if replica['state'] == ReplicaState.BEING_DELETED:
@@ -2912,8 +2908,9 @@ def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, session=Non
 
     :returns: True is successful.
     """
+
     if isinstance(state, string_types):
-        rep_state = BadPFNStatus.from_sym(state)
+        rep_state = BadPFNStatus[state]
     else:
         rep_state = state
 
@@ -3019,7 +3016,7 @@ def get_suspicious_files(rse_expression, filter=None, **kwargs):
     # assembling exclude_states_clause
     exclude_states_clause = []
     for state in exclude_states:
-        exclude_states_clause.append(BadFilesStatus.from_string(state))
+        exclude_states_clause.append(BadFilesStatus(state))
 
     # making aliases for bad_replicas and replicas tables
     bad_replicas_alias = aliased(models.BadReplicas, name='bad_replicas_alias')
