@@ -3146,7 +3146,9 @@ def __create_recipents_list(rse_expression, filter=None, session=None):
 
     # DDMADMIN as default
     if not recipents:
-        recipents = [('atlas-adc-ddm-support@cern.ch', 'ddmadmin')]
+        default_mail_from = config_get('core', 'default_mail_from', raise_exception=False, default=None)
+        if default_mail_from:
+            recipents = [(default_mail_from, 'ddmadmin')]
 
     return list(set(recipents))
 
