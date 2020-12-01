@@ -20,8 +20,8 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+
+from typing import TYPE_CHECKING
 
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
@@ -29,6 +29,9 @@ from sqlalchemy.orm import aliased
 from rucio.common import exception
 from rucio.db.sqla.models import Distance, RSE
 from rucio.db.sqla.session import transactional_session, read_session
+
+if TYPE_CHECKING:
+    from typing import List, Dict
 
 
 @transactional_session
@@ -77,7 +80,7 @@ def add_distance_short(src_rse_id, dest_rse_id, distance=None, session=None):
 
 
 @read_session
-def get_distances(src_rse_id=None, dest_rse_id=None, session=None):
+def get_distances(src_rse_id=None, dest_rse_id=None, session=None) -> "List[Dict]":
     """
     Get distances between rses.
 

@@ -40,6 +40,8 @@ from six import PY3
 from rucio.common.utils import generate_uuid as uuid, execute
 
 skip_rse_tests_with_accounts = pytest.mark.skipif(not os.path.exists('etc/rse-accounts.cfg'), reason='fails if no rse-accounts.cfg found')
+skiplimitedsql = pytest.mark.skipif('RDBMS' in os.environ and (os.environ['RDBMS'] == 'sqlite' or os.environ['RDBMS'] == 'mysql5'),
+                                    reason="does not work in SQLite or MySQL 5, because of missing features")
 
 
 def account_name_generator():

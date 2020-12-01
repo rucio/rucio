@@ -15,8 +15,6 @@
 #
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 import sys
 
@@ -30,7 +28,7 @@ from rucio.daemons.automatix import automatix
 from rucio.daemons.badreplicas import minos, minos_temporary_expiration, necromancer
 from rucio.daemons.c3po import c3po
 from rucio.daemons.cache import consumer
-from rucio.daemons.conveyor import finisher, fts_throttler, poller, poller_latest, receiver, stager, submitter, throttler
+from rucio.daemons.conveyor import finisher, fts_throttler, poller, poller_latest, receiver, stager, submitter, throttler, preparer
 from rucio.daemons.follower import follower
 from rucio.daemons.hermes import hermes, hermes2
 from rucio.daemons.judge import cleaner, evaluator, injector, repairer
@@ -67,6 +65,7 @@ DAEMONS = [
     stager,
     submitter,
     throttler,
+    preparer,
     follower,
     hermes,
     hermes2,
@@ -87,8 +86,10 @@ DAEMONS = [
     undertaker,
 ]
 
+ids = [mod.__name__ for mod in DAEMONS]
 
-@pytest.mark.parametrize('daemon', DAEMONS)
+
+@pytest.mark.parametrize('daemon', argvalues=DAEMONS, ids=ids)
 @mock.patch('rucio.db.sqla.util.is_old_db')
 def test_fail_on_old_database(mock_is_old_db, daemon):
     """ DAEMON: Test daemon failure on old database """

@@ -22,6 +22,7 @@
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from datetime import datetime
 from enum import Enum
@@ -159,6 +160,7 @@ class RequestState(Enum):
     MISMATCH_SCHEME = 'M'
     SUSPEND = 'U'
     WAITING = 'W'
+    PREPARING = 'P'
 
 
 class RequestType(Enum):
