@@ -16,7 +16,7 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
@@ -64,7 +64,7 @@ from rucio.core.rse import add_rse, add_protocol, add_rse_attribute, del_rse_att
 from rucio.daemons.badreplicas.minos import run as minos_run
 from rucio.daemons.badreplicas.minos_temporary_expiration import run as minos_temp_run
 from rucio.daemons.badreplicas.necromancer import run as necromancer_run
-from rucio.db.sqla.constants import DIDType, ReplicaState, OBSOLETE
+from rucio.db.sqla.constants import DIDType, ReplicaState, BadPFNStatus, OBSOLETE
 from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import execute, rse_name_generator, headers, auth, Mime, accept
 
@@ -298,8 +298,8 @@ class TestReplicaCore(unittest.TestCase):
         replica_cpt = 0
         for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm'], all_states=True):
             assert 'states' in replica
-            assert replica['states'][rses[0]] == str(ReplicaState.COPYING)
-            assert replica['states'][rses[1]] == str(ReplicaState.AVAILABLE)
+            assert replica['states'][rses[0]] == str(ReplicaState.COPYING.name)
+            assert replica['states'][rses[1]] == str(ReplicaState.AVAILABLE.name)
             replica_cpt += 1
 
         assert nbfiles == replica_cpt
@@ -860,7 +860,7 @@ def test_add_temporary_unavailable_pfns(vo, replica_client):
     for pfn in list_rep:
         pfn = str(clean_surls([pfn])[0])
         assert pfn in bad_pfns
-        assert str(bad_pfns[pfn][0]) == 'TEMPORARY_UNAVAILABLE'
+        assert bad_pfns[pfn][0] == BadPFNStatus.TEMPORARY_UNAVAILABLE
         assert bad_pfns[pfn][1] == reason_str
 
     # Submit with wrong state
@@ -880,11 +880,11 @@ def test_add_temporary_unavailable_pfns(vo, replica_client):
     # Check the state in the replica table
     for did in files:
         rep = get_replicas_state(scope=InternalScope(did['scope'], vo=vo), name=did['name'])
-        assert str(list(rep.keys())[0]) == 'TEMPORARY_UNAVAILABLE'
+        assert list(rep.keys())[0] == ReplicaState.TEMPORARY_UNAVAILABLE
 
     rep = []
     for did in files:
-        did['state'] = ReplicaState.from_sym('TEMPORARY_UNAVAILABLE')
+        did['state'] = ReplicaState.TEMPORARY_UNAVAILABLE
         rep.append(did)
 
     # Run the minos expiration
@@ -892,7 +892,7 @@ def test_add_temporary_unavailable_pfns(vo, replica_client):
     # Check the state in the replica table
     for did in files:
         rep = get_replicas_state(scope=InternalScope(did['scope'], vo=vo), name=did['name'])
-        assert str(list(rep.keys())[0]) == 'AVAILABLE'
+        assert list(rep.keys())[0] == ReplicaState.AVAILABLE
 
 
 def test_set_tombstone2(vo, replica_client):

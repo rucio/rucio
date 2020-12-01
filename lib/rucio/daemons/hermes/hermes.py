@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2020
 # - Wen Guan <wen.guan@cern.ch>, 2014-2015
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2018
@@ -288,8 +288,8 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                                           'payload': json.dumps(message['payload']),
                                           'event_type': message['event_type']})
                     except ValueError:
-                        logging.warn('Cannot serialize payload to JSON: %s',
-                                     str(message['payload']))
+                        logging.warning('Cannot serialize payload to JSON: %s',
+                                        str(message['payload']))
                         to_delete.append({'id': message['id'],
                                           'created_at': message['created_at'],
                                           'updated_at': message['created_at'],
@@ -297,15 +297,15 @@ def deliver_messages(once=False, brokers_resolved=None, thread=0, bulk=1000, del
                                           'event_type': message['event_type']})
                         continue
                     except stomp.exception.NotConnectedException as error:
-                        logging.warn('Could not deliver message due to NotConnectedException: %s',
-                                     str(error))
+                        logging.warning('Could not deliver message due to NotConnectedException: %s',
+                                        str(error))
                         continue
                     except stomp.exception.ConnectFailedException as error:
-                        logging.warn('Could not deliver message due to ConnectFailedException: %s',
-                                     str(error))
+                        logging.warning('Could not deliver message due to ConnectFailedException: %s',
+                                        str(error))
                         continue
                     except Exception as error:
-                        logging.warn('Could not deliver message: %s', str(error))
+                        logging.warning('Could not deliver message: %s', str(error))
                         logging.critical(traceback.format_exc())
                         continue
 

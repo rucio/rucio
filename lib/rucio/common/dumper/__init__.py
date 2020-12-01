@@ -100,7 +100,7 @@ def cacert_config(config, rucio_home):
         cacert = None
 
     if cacert is None or not os.path.exists(cacert):
-        logger.warn('Configured CA Certificate file "%s" not found: Host certificate verification disabled', cacert)
+        logger.warning('Configured CA Certificate file "%s" not found: Host certificate verification disabled', cacert)
         cacert = False
 
     return cacert

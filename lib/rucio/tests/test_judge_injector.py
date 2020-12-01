@@ -1,4 +1,5 @@
-# Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,11 +16,12 @@
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 
 import unittest
 
@@ -91,7 +93,7 @@ class TestJudgeEvaluator(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         # Add a first rule to the DS
@@ -111,7 +113,7 @@ class TestJudgeEvaluator(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         # Add a first rule to the DS
@@ -135,7 +137,7 @@ class TestJudgeEvaluator(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         # Add a first rule to the DS
@@ -151,13 +153,13 @@ class TestJudgeEvaluator(unittest.TestCase):
         """ JUDGE INJECTOR (CORE): Add a replication rule with an r2d2 container treatment"""
         scope = InternalScope('mock', **self.vo)
         container = 'asdf.r2d2_request.2016-04-01-15-00-00.ads.' + str(uuid())
-        add_did(scope, container, DIDType.from_sym('CONTAINER'), self.jdoe)
+        add_did(scope, container, DIDType.CONTAINER, self.jdoe)
         datasets = []
         for i in range(3):
             files = create_files(3, scope, self.rse1_id)
             dataset = 'dataset_' + str(uuid())
             datasets.append(dataset)
-            add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+            add_did(scope, dataset, DIDType.DATASET, self.jdoe)
             attach_dids(scope, dataset, files, self.jdoe)
             attach_dids(scope, container, [{'scope': scope, 'name': dataset}], self.jdoe)
         rule_id = add_rule(dids=[{'scope': scope, 'name': container}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=900, locked=False, subscription_id=None, ask_approval=True)[0]
@@ -174,13 +176,13 @@ class TestJudgeEvaluator(unittest.TestCase):
         """ JUDGE INJECTOR (CORE): Add a replication rule with an r2d2 container treatment and duplicate rule"""
         scope = InternalScope('mock', **self.vo)
         container = 'asdf.r2d2_request.2016-04-01-15-00-00.ads.' + str(uuid())
-        add_did(scope, container, DIDType.from_sym('CONTAINER'), self.jdoe)
+        add_did(scope, container, DIDType.CONTAINER, self.jdoe)
         datasets = []
         for i in range(3):
             files = create_files(3, scope, self.rse1_id)
             dataset = 'dataset_' + str(uuid())
             datasets.append(dataset)
-            add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+            add_did(scope, dataset, DIDType.DATASET, self.jdoe)
             attach_dids(scope, dataset, files, self.jdoe)
             attach_dids(scope, container, [{'scope': scope, 'name': dataset}], self.jdoe)
         add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=900, locked=False, subscription_id=None, ask_approval=False)

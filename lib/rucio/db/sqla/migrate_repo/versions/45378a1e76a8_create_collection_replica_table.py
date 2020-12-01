@@ -1,4 +1,5 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +14,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2019
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2017
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2020
 
 ''' create collection replica table '''
 
@@ -23,7 +24,7 @@ import datetime
 
 import sqlalchemy as sa
 
-from alembic import context, op
+from alembic import context
 from alembic.op import (create_table, create_primary_key, create_foreign_key,
                         create_check_constraint, create_index, drop_table,
                         drop_constraint)
@@ -46,11 +47,11 @@ def upgrade():
         create_table('collection_replicas',
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
-                     sa.Column('did_type', DIDType.db_type()),
+                     sa.Column('did_type', sa.Enum(DIDType, name='COLLECTION_REPLICAS_TYPE_CHK', values_callable=lambda obj: [e.value for e in obj])),
                      sa.Column('rse_id', GUID()),
                      sa.Column('bytes', sa.BigInteger),
                      sa.Column('length', sa.BigInteger),
-                     sa.Column('state', ReplicaState.db_type(), default=ReplicaState.UNAVAILABLE),
+                     sa.Column('state', sa.Enum(ReplicaState, name='COLLECTION_REPLICAS_STATE_CHK', values_callable=lambda obj: [e.value for e in obj]), default=ReplicaState.UNAVAILABLE),
                      sa.Column('accessed_at', sa.DateTime),
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
@@ -60,7 +61,6 @@ def upgrade():
         create_foreign_key('COLLECTION_REPLICAS_RSE_ID_FK', 'collection_replicas', 'rses', ['rse_id'], ['id'])
         create_check_constraint('COLLECTION_REPLICAS_SIZE_NN', 'collection_replicas', 'bytes IS NOT NULL')
         create_check_constraint('COLLECTION_REPLICAS_STATE_NN', 'collection_replicas', 'state IS NOT NULL')
-        create_check_constraint('COLLECTION_REPLICAS_STATE_CHK', 'collection_replicas', "state in ('A', 'U', 'C', 'B', 'D', 'S')")
         create_index('COLLECTION_REPLICAS_RSE_ID_IDX', 'collection_replicas', ['rse_id'])
 
 
@@ -74,9 +74,6 @@ def downgrade():
         drop_table('collection_replicas')
 
     elif context.get_context().dialect.name == 'postgresql':
-        schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
-        op.execute('ALTER TABLE ' + schema + 'collection_replicas ALTER COLUMN state TYPE CHAR')  # pylint: disable=no-member
-        drop_constraint('COLLECTION_REPLICAS_STATE_CHK', 'collection_replicas', type_='check')
         drop_table('collection_replicas')
 
     elif context.get_context().dialect.name == 'mysql':

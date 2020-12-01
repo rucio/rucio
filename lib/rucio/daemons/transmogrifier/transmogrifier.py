@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,16 +14,12 @@
 # limitations under the License.
 #
 # Authors:
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
-# - Vincent Garonne <vgaronne@gmail.com>, 2014-2018
-# - David Cameron <d.g.cameron@gmail.com>, 2014
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2015-2018
-# - Wen Guan <wen.guan@cern.ch>, 2015
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
@@ -433,7 +429,7 @@ def transmogrifier(bulk=5, once=False, sleep_time=60):
                     elif did['did_type'] == str(DIDType.CONTAINER):
                         monitor.record_counter(counters='transmogrifier.did.container.processed', delta=1)
                     monitor.record_counter(counters='transmogrifier.did.processed', delta=1)
-                    identifiers.append({'scope': did['scope'], 'name': did['name'], 'did_type': DIDType.from_sym(did['did_type'])})
+                    identifiers.append({'scope': did['scope'], 'name': did['name'], 'did_type': did['did_type']})
 
             time1 = time.time()
 

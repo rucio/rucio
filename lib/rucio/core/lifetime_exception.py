@@ -1,4 +1,5 @@
-# Copyright 2017-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2017-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +14,13 @@
 # limitations under the License.
 #
 # Authors:
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2016-2018
-# - Dimitrios Christidis, <dimitrios.christidis@cern.ch> 2018
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2017-2018
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
+# - Martin Barisits <martin.barisits@cern.ch>, 2018-2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 
 from __future__ import division
 
@@ -111,7 +112,7 @@ def add_exception(dids, account, pattern, comments, expires_at, session=None):
         did_type = None
         if 'did_type' in did:
             if isinstance(did['did_type'], string_types):
-                did_type = DIDType.from_sym(did['did_type'])
+                did_type = DIDType[did['did_type']]
             else:
                 did_type = did['did_type']
         new_exception = models.LifetimeExceptions(id=exception_id, scope=did['scope'], name=did['name'], did_type=did_type,
