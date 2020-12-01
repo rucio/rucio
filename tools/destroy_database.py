@@ -8,10 +8,17 @@
 # Authors:
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2012
 # - Vincent Garonne, <vincent.garonne@cern.ch>, 2012-2013
+# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020
 
-import argparse
+import sys
+import os.path
+base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(base_path)
+os.chdir(base_path)
 
-from rucio.db.sqla.util import destroy_database, drop_everything
+import argparse  # noqa: E402
+
+from rucio.db.sqla.util import destroy_database, drop_everything  # noqa: E402
 
 if __name__ == '__main__':
 
