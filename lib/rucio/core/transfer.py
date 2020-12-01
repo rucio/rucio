@@ -32,9 +32,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Nick Smith <nick.smith@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
-
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import division
 
@@ -46,6 +44,7 @@ import logging
 import re
 import time
 import traceback
+from typing import TYPE_CHECKING
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
@@ -54,14 +53,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import false
 
 from rucio.common import constants
+from rucio.common.config import config_get
+from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.common.exception import (InvalidRSEExpression, NoDistance,
                                     RequestNotFound, RSEProtocolNotSupported,
                                     RucioException, UnsupportedOperation)
-from rucio.common.config import config_get
 from rucio.common.rse_attributes import get_rse_attributes
 from rucio.common.types import InternalAccount
 from rucio.common.utils import construct_surl
-from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.config import get as core_config_get
 from rucio.core.monitor import record_counter, record_timer
@@ -76,6 +75,8 @@ from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.fts3 import FTS3Transfertool
 
+if TYPE_CHECKING:
+    from typing import List, Tuple
 
 # Extra modules: Only imported if available
 EXTRA_MODULES = {'globus_sdk': False}
@@ -650,6 +651,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                                                activity=activity,
                                                                older_than=older_than,
                                                                rses=rses,
+                                                               request_state=RequestState.QUEUED,
                                                                session=session)
 
     unavailable_read_rse_ids = __get_unavailable_rse_ids(operation='read', session=session)
@@ -1267,8 +1269,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
 
 @read_session
-def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=0,
-                                                 limit=None, activity=None, older_than=None, rses=None, session=None):
+def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, limit=None, activity=None,
+                                                 older_than=None, rses=None, request_state=None, session=None) -> "List[Tuple]":
     """
     List requests with source replicas
     :param total_workers:     Number of total workers.
@@ -1280,6 +1282,10 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
     :param session:          Database session to use.
     :returns:                List.
     """
+
+    if request_state is None:
+        request_state = RequestState.QUEUED
+
     sub_requests = session.query(models.Request.id,
                                  models.Request.rule_id,
                                  models.Request.scope,
@@ -1292,12 +1298,12 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
                                  models.Request.previous_attempt_id,
                                  models.Request.dest_rse_id,
                                  models.Request.retry_count,
-                                 models.Request.account)\
-        .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
-        .filter(models.Request.state == RequestState.QUEUED)\
-        .filter(models.Request.request_type == RequestType.TRANSFER)\
-        .join(models.RSE, models.RSE.id == models.Request.dest_rse_id)\
-        .filter(models.RSE.deleted == false())\
+                                 models.Request.account) \
+        .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle') \
+        .filter(models.Request.state == request_state) \
+        .filter(models.Request.request_type == RequestType.TRANSFER) \
+        .join(models.RSE, models.RSE.id == models.Request.dest_rse_id) \
+        .filter(models.RSE.deleted == false()) \
         .filter(models.RSE.availability.in_((2, 3, 6, 7)))
 
     if isinstance(older_than, datetime.datetime):
@@ -1333,19 +1339,19 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
                           sub_requests.c.retry_count,
                           models.Source.url,
                           models.Source.ranking,
-                          models.Distance.ranking)\
+                          models.Distance.ranking) \
         .outerjoin(models.RSEFileAssociation, and_(sub_requests.c.scope == models.RSEFileAssociation.scope,
                                                    sub_requests.c.name == models.RSEFileAssociation.name,
                                                    models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                                                   sub_requests.c.dest_rse_id != models.RSEFileAssociation.rse_id))\
-        .with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PK)", 'oracle')\
+                                                   sub_requests.c.dest_rse_id != models.RSEFileAssociation.rse_id)) \
+        .with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PK)", 'oracle') \
         .outerjoin(models.RSE, and_(models.RSE.id == models.RSEFileAssociation.rse_id,
-                                    models.RSE.deleted == false()))\
+                                    models.RSE.deleted == false())) \
         .outerjoin(models.Source, and_(sub_requests.c.id == models.Source.request_id,
-                                       models.RSE.id == models.Source.rse_id))\
-        .with_hint(models.Source, "+ index(sources SOURCES_PK)", 'oracle')\
+                                       models.RSE.id == models.Source.rse_id)) \
+        .with_hint(models.Source, "+ index(sources SOURCES_PK)", 'oracle') \
         .outerjoin(models.Distance, and_(sub_requests.c.dest_rse_id == models.Distance.dest_rse_id,
-                                         models.RSEFileAssociation.rse_id == models.Distance.src_rse_id))\
+                                         models.RSEFileAssociation.rse_id == models.Distance.src_rse_id)) \
         .with_hint(models.Distance, "+ index(distances DISTANCES_PK)", 'oracle')
 
     if rses:
