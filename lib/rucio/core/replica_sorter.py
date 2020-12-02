@@ -1,4 +1,5 @@
-# Copyright 2017-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2017-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,9 +21,8 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
-#
-# PY3K COMPATIBLE
-#
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+
 # This product includes GeoLite data created by MaxMind,
 # available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>
 
@@ -33,18 +33,22 @@ import random
 import socket
 import tarfile
 import time
-
 from math import asin, cos, radians, sin, sqrt
+from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
-from dogpile.cache import make_region
-
-import requests
 import geoip2.database
+import requests
+from dogpile.cache import make_region
+from dogpile.cache.api import NO_VALUE
 
 from rucio.common import utils
 from rucio.common.config import config_get
 from rucio.common.exception import InvalidRSEExpression
 from rucio.core.rse_expression_parser import parse_expression
+
+if TYPE_CHECKING:
+    from typing import Dict, List, Optional
 
 REGION = make_region(function_key_generator=utils.my_key_generator).configure(
     'dogpile.cache.memory',
@@ -106,7 +110,6 @@ def __get_lat_long(se, gi):
     return None, None
 
 
-@REGION.cache_on_arguments(namespace='site_distance')
 def __get_distance(se1, se2, ignore_error):
     """
     Get the distance between 2 host using the GeoLite DB
@@ -114,26 +117,35 @@ def __get_distance(se1, se2, ignore_error):
     :param se2 : A second hostname or IP.
     :ignore_error: Ignore exception when the GeoLite DB cannot be retrieved
     """
-    directory = '/tmp'
-    ipv6_filename = 'GeoLite2-City'
-    try:
-        __get_geoip_db(directory, ipv6_filename)
+    # does not cache ignore_error, str.lower on hostnames/ips is fine
+    canonical_parties = list(map(lambda x: str(x).lower(), [se1, se2])).sort()
+    cache_key = f'replica_sorter:__get_distance|site_distance|{canonical_parties}'
+    cache_val = REGION.get(cache_key)
+    if cache_val is NO_VALUE:
+        directory = '/tmp'
+        ipv6_filename = 'GeoLite2-City'
+        try:
+            __get_geoip_db(directory, ipv6_filename)
 
-        gi = geoip2.database.Reader('%s/%s' % (directory, '%s.mmdb' % ipv6_filename))
+            gi = geoip2.database.Reader('%s/%s' % (directory, '%s.mmdb' % ipv6_filename))
 
-        lat1, long1 = __get_lat_long(se1, gi)
-        lat2, long2 = __get_lat_long(se2, gi)
+            lat1, long1 = __get_lat_long(se1, gi)
+            lat2, long2 = __get_lat_long(se2, gi)
 
-        if lat1 and lat2:
-            long1, lat1, long2, lat2 = map(radians, [long1, lat1, long2, lat2])
-            dlon = long2 - long1
-            dlat = lat2 - lat1
-            return 6378 * 2 * asin(sqrt(sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2))
-    except Exception as error:
-        if not ignore_error:
-            raise error
-    # One host is on the Moon
-    return 360000
+            if lat1 and lat2:
+                long1, lat1, long2, lat2 = map(radians, [long1, lat1, long2, lat2])
+                dlon = long2 - long1
+                dlat = lat2 - lat1
+                cache_val = 6378 * 2 * asin(sqrt(sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2))
+                REGION.set(cache_key, cache_val)
+                return cache_val
+        except Exception as error:
+            if not ignore_error:
+                raise error
+        # One host is on the Moon
+        cache_val = 360000
+        REGION.set(cache_key, cache_val)
+    return cache_val
 
 
 def site_selector(replicas, site, vo):
@@ -157,61 +169,85 @@ def site_selector(replicas, site, vo):
     return result
 
 
-def sort_random(replicas):
+def sort_replicas(dictreplica: "Dict", client_location: "Dict", selection: "Optional[str]" = None) -> "List":
+    """
+    General sorting method for a dictionary of replicas. Returns the List of replicas.
+
+    :param dictreplica: A dict with replicas as keys (URIs).
+    :param client_location: Location dictionary containing {'ip', 'fqdn', 'site'}
+    :param selection: the selected sorting algorithm.
+    :param default: the default sorting algorithm (random, if not defined).
+    :returns: the keys of dictreplica in a sorted list.
+    """
+    if not selection:
+        selection = 'geoip'
+
+    if selection == 'geoip':
+        replicas = sort_geoip(dictreplica, client_location, ignore_error=True)
+    elif selection == 'closeness':
+        replicas = sort_closeness(dictreplica, client_location)
+    elif selection == 'dynamic':
+        replicas = sort_dynamic(dictreplica, client_location)
+    elif selection == 'ranking':
+        replicas = sort_ranking(dictreplica, client_location)
+    elif selection == 'random':
+        replicas = sort_random(dictreplica)
+    else:
+        replicas = list(dictreplica.keys())
+
+    return replicas
+
+
+def sort_random(dictreplica: "Dict") -> "List":
     """
     Return a list of replicas sorted randomly.
-    :param replicas : A dict with RSEs as values and replicas as keys (URIs).
+    :param dictreplica: A dict with replicas as keys (URIs).
     """
 
-    list_replicas = list(replicas.keys())
+    list_replicas = list(dictreplica.keys())
     random.shuffle(list_replicas)
-
     return list_replicas
 
 
-def sort_geoip(replicas, client_ip, ignore_error=False):
+def sort_geoip(dictreplica: "Dict", client_location: "Dict", ignore_error: bool = False) -> "List":
     """
     Return a list of replicas sorted by geographical distance to the client IP.
-    :param replicas : A dict with RSEs as values and replicas as keys (URIs).
-    :param client_ip: The IP of the client.
-    :ignore_error: Ignore exception when the GeoLite DB cannot be retrieved
+    :param dictreplica: A dict with replicas as keys (URIs).
+    :param client_location: Location dictionary containing {'ip', 'fqdn', 'site'}
+    :param ignore_error: Ignore exception when the GeoLite DB cannot be retrieved
     """
 
-    distances = {}
-    for replica in replicas:
-        se = replica.split('/')[2].split(':')[0]
-        distance = __get_distance(se, client_ip, ignore_error)
-        distances[replica] = distance
-    tmp = [x[0] for x in sorted(list(distances.items()), key=lambda x: x[1])]
+    def distance(pfn):
+        return __get_distance(urlparse(pfn).hostname, client_location['ip'], ignore_error)
 
-    return tmp
+    return list(sorted(dictreplica, key=distance))
 
 
-def sort_closeness(replicas, location):
+def sort_closeness(dictreplica: "Dict", client_location: "Dict") -> "List":
     """
-    Return a list of replicas sorted by AGIS closeness.
-    :param replicas : A dict with RSEs as values and replicas as keys (URIs).
-    :param location: Location dictionary containing {'ip', 'fqdn', 'site'}
+    Return a list of replicas sorted by AGIS closeness. NOT IMPLEMENTED
+    :param dictreplica: A dict with replicas as keys (URIs).
+    :param client_location: Location dictionary containing {'ip', 'fqdn', 'site'}
     """
 
-    return replicas
+    return list(dictreplica.keys())
 
 
-def sort_ranking(replicas, location):
+def sort_ranking(dictreplica: "Dict", client_location: "Dict") -> "List":
     """
-    Return a list of replicas sorted by ranking metric.
-    :param replicas : A dict with RSEs as values and replicas as keys (URIs).
-    :param location: Location dictionary containing {'ip', 'fqdn', 'site'}
-    """
-
-    return replicas
-
-
-def sort_dynamic(replicas, location):
-    """
-    Return a list of replicas sorted by dynamic network metrics.
-    :param replicas : A dict with RSEs as values and replicas as keys (URIs).
-    :param location: Location dictionary containing {'ip', 'fqdn', 'site'}
+    Return a list of replicas sorted by ranking metric. NOT IMPLEMENTED
+    :param dictreplica: A dict with replicas as keys (URIs).
+    :param client_location: Location dictionary containing {'ip', 'fqdn', 'site'}
     """
 
-    return replicas
+    return list(dictreplica.keys())
+
+
+def sort_dynamic(dictreplica: "Dict", client_location: "Dict") -> "List":
+    """
+    Return a list of replicas sorted by dynamic network metrics. NOT IMPLEMENTED
+    :param dictreplica: A dict with replicas as keys (URIs).
+    :param client_location: Location dictionary containing {'ip', 'fqdn', 'site'}
+    """
+
+    return list(dictreplica.keys())

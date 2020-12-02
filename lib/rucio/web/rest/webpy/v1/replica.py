@@ -33,7 +33,6 @@ from json import dumps, loads
 from traceback import format_exc
 from xml.sax.saxutils import escape
 
-from geoip2.errors import AddressNotFoundError
 from six import string_types
 from web import application, ctx, Created, data, header, InternalError, loadhook, OK, unloadhook
 
@@ -51,9 +50,9 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
                                     ResourceTemporaryUnavailable, RucioException,
                                     RSENotFound, UnsupportedOperation, ReplicaNotFound,
                                     InvalidObject, ScopeNotFound)
-from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
 from rucio.common.schema import insert_scope_name
 from rucio.common.utils import parse_response, APIEncoder, render_json_list
+from rucio.core.replica_sorter import sort_replicas
 from rucio.db.sqla.constants import BadFilesStatus, ReplicaState
 from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController, check_accept_header_wrapper
 from rucio.web.rest.utils import generate_http_error
@@ -117,6 +116,14 @@ class Replicas(RucioController):
             if 'limit' in params:
                 limit = int(params['limit'][0])
 
+        client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
+        if client_ip is None:
+            client_ip = ctx.ip
+
+        client_location = {'ip': client_ip,
+                           'fqdn': None,
+                           'site': None}
+
         # Resolve all reasonable protocols when doing metalink for maximum access possibilities
         if metalink and schemes is None:
             schemes = SUPPORTED_PROTOCOLS
@@ -138,23 +145,15 @@ class Replicas(RucioController):
                     __first = False
 
                 # ... then, stream the replica information
-                client_ip = ctx.env.get('HTTP_X_FORWARDED_FOR')
-                if client_ip is None:
-                    client_ip = ctx.ip
-
                 replicas = []
                 dictreplica = {}
                 for rse in rfile['rses']:
                     for replica in rfile['rses'][rse]:
                         replicas.append(replica)
                         dictreplica[replica] = rse
-                if select == 'geoip':
-                    try:
-                        replicas = sort_geoip(dictreplica, client_ip)
-                    except AddressNotFoundError:
-                        pass
-                else:
-                    replicas = sort_random(dictreplica)
+
+                replicas = sort_replicas(dictreplica, client_location, selection=select)
+
                 if not metalink:
                     yield dumps(rfile) + '\n'
                 else:
@@ -338,7 +337,10 @@ class ListReplicas(RucioController):
         ignore_availability, rse_expression, all_states, domain = False, None, False, None
         signature_lifetime, resolve_archives, resolve_parents = None, True, False
         updated_after = None
-        client_location = {}
+
+        client_location = {'ip': client_ip,
+                           'fqdn': None,
+                           'site': None}
 
         json_data = data()
         try:
@@ -355,8 +357,7 @@ class ListReplicas(RucioController):
             if 'rse_expression' in params:
                 rse_expression = params['rse_expression']
             if 'client_location' in params:
-                client_location = params['client_location']
-                client_location['ip'] = params['client_location'].get('ip', client_ip)
+                client_location.update(params['client_location'])
             if 'sort' in params:
                 select = params['sort']
             if 'domain' in params:
@@ -459,30 +460,19 @@ class ListReplicas(RucioController):
                                                                         rfile['scope'],
                                                                         rfile['name'])
 
-                    # TODO: deprecate this
-                    if select == 'geoip':
-                        replicas = sort_geoip(dictreplica, client_location['ip'])
-                    elif select == 'closeness':
-                        replicas = sort_closeness(dictreplica, client_location)
-                    elif select == 'dynamic':
-                        replicas = sort_dynamic(dictreplica, client_location)
-                    elif select == 'ranking':
-                        replicas = sort_ranking(dictreplica, client_location)
-                    elif select == 'random':
-                        replicas = sort_random(dictreplica)
-                    else:
-                        replicas = sorted(dictreplica, key=dictreplica.get)
+                    lanreplicas = [replica for replica, v in dictreplica.items() if v[0] == 'lan']
+                    replicas = lanreplicas + sort_replicas({k: v for k, v in dictreplica.items() if v[0] != 'lan'}, client_location, selection=select)
 
-                    idx = 0
+                    idx = 1
                     for replica in replicas:
                         yield '  <url location="' + str(dictreplica[replica][2]) \
                             + '" domain="' + str(dictreplica[replica][0]) \
-                            + '" priority="' + str(dictreplica[replica][1]) \
+                            + '" priority="' + str(idx) \
                             + '" client_extract="' + str(dictreplica[replica][3]).lower() \
                             + '">' + escape(replica) + '</url>\n'
-                        idx += 1
                         if limit and limit == idx:
                             break
+                        idx += 1
                     yield ' </file>\n'
 
             if metalink:
