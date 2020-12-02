@@ -92,7 +92,7 @@ class TestS3(unittest.TestCase):
         rule_id = add_rule(dids=self.files3, account=self.root, copies=1, rse_expression=self.rsenons3,
                            grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-        requestss = get_transfer_requests_and_source_replicas()
+        requestss = get_transfer_requests_and_source_replicas(rses=[self.rses3])
         for requests in requestss:
             for request in requests:
                 if requests[request]['rule_id'] == rule_id[0]:
@@ -108,7 +108,7 @@ class TestS3(unittest.TestCase):
         rule_id = add_rule(dids=self.filenons3, account=self.root, copies=1, rse_expression=self.rses3,
                            grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-        requestss = get_transfer_requests_and_source_replicas()
+        requestss = get_transfer_requests_and_source_replicas(rses=[self.rses3])
         for requests in requestss:
             for request in requests:
                 if requests[request]['rule_id'] == rule_id[0]:
