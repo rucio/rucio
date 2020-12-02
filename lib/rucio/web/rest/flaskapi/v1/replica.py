@@ -19,7 +19,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019-2020
-# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
@@ -32,7 +32,6 @@ from xml.sax.saxutils import escape
 
 from flask import Flask, Blueprint, Response, request
 from flask.views import MethodView
-from geoip2.errors import AddressNotFoundError
 from six import string_types
 
 from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replicas,
@@ -49,11 +48,10 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
                                     ResourceTemporaryUnavailable, RucioException,
                                     RSENotFound, UnsupportedOperation, ReplicaNotFound,
                                     InvalidObject, ScopeNotFound)
-from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
 from rucio.common.utils import parse_response, APIEncoder, render_json_list
+from rucio.core.replica_sorter import sort_replicas
 from rucio.db.sqla.constants import BadFilesStatus, ReplicaState
-from rucio.web.rest.flaskapi.v1.common import (check_accept_header_wrapper_flask, try_stream, parse_scope_name,
-                                               request_auth_env, response_headers)
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, try_stream, parse_scope_name, request_auth_env, response_headers
 from rucio.web.rest.utils import generate_http_error_flask
 
 try:
@@ -104,6 +102,12 @@ class Replicas(MethodView):
 
         dids, schemes, select, limit = [{'scope': scope, 'name': name}], None, None, None
 
+        client_ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
+
+        client_location = {'ip': client_ip,
+                           'fqdn': None,
+                           'site': None}
+
         schemes = request.args.get('schemes', None)
         select = request.args.get('select', None)
         limit = request.args.get('limit', None)
@@ -115,8 +119,6 @@ class Replicas(MethodView):
             schemes = SUPPORTED_PROTOCOLS
 
         try:
-            client_ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
-
             def generate(vo):
                 # we need to call list_replicas before starting to reply
                 # otherwise the exceptions won't be propagated correctly
@@ -135,13 +137,9 @@ class Replicas(MethodView):
                         for replica in rfile['rses'][rse]:
                             replicas.append(replica)
                             dictreplica[replica] = rse
-                    if select == 'geoip':
-                        try:
-                            replicas = sort_geoip(dictreplica, client_ip)
-                        except AddressNotFoundError:
-                            pass
-                    else:
-                        replicas = sort_random(dictreplica)
+
+                    replicas = sort_replicas(dictreplica, client_location, selection=select)
+
                     if not metalink:
                         yield dumps(rfile) + '\n'
                     else:
@@ -317,14 +315,14 @@ class ListReplicas(MethodView):
 
         :reqheader HTTP_ACCEPT: application/metalink4+xml
         :query schemes: A list of schemes to filter the replicas.
-        :query sort: Requested sorting of the result, e.g., 'geoip', 'closeness', 'dynamic', 'ranking'.
+        :query sort: Requested sorting of the result, e.g., 'geoip', 'closeness', 'dynamic', 'ranking', 'random'.
         :<json list dids: list of DIDs.
         :<json list schemes: A list of schemes to filter the replicas.
         :<json bool unavailable: Also include unavailable replicas.
         :<json bool all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
         :<json string rse_expression: The RSE expression to restrict on a list of RSEs.
         :<json dict client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site'}.
-        :<json bool sort: Requested sorting of the result, e.g., 'geoip', 'closeness', 'dynamic', 'ranking'.
+        :<json bool sort: Requested sorting of the result, e.g., 'geoip', 'closeness', 'dynamic', 'ranking', 'random'.
         :<json string domain: The network domain for the call, either None, 'wan' or 'lan'. None is fallback to 'wan', 'all' is both ['lan','wan']
         :resheader Content-Type: application/x-json-stream
         :resheader Content-Type: application/metalink4+xml
@@ -347,7 +345,10 @@ class ListReplicas(MethodView):
         ignore_availability, rse_expression, all_states, domain = False, None, False, None
         signature_lifetime, resolve_archives, resolve_parents = None, True, False
         updated_after = None
-        client_location = {}
+
+        client_location = {'ip': client_ip,
+                           'fqdn': None,
+                           'site': None}
 
         try:
             params = parse_response(request.data)
@@ -363,8 +364,7 @@ class ListReplicas(MethodView):
             if 'rse_expression' in params:
                 rse_expression = params['rse_expression']
             if 'client_location' in params:
-                client_location = params['client_location']
-                client_location['ip'] = params['client_location'].get('ip', client_ip)
+                client_location.update(params['client_location'])
             if 'sort' in params:
                 select = params['sort']
             if 'domain' in params:
@@ -465,30 +465,19 @@ class ListReplicas(MethodView):
                                                                             rfile['scope'],
                                                                             rfile['name'])
 
-                        # TODO: deprecate this
-                        if select == 'geoip':
-                            replicas = sort_geoip(dictreplica, client_location['ip'])
-                        elif select == 'closeness':
-                            replicas = sort_closeness(dictreplica, client_location)
-                        elif select == 'dynamic':
-                            replicas = sort_dynamic(dictreplica, client_location)
-                        elif select == 'ranking':
-                            replicas = sort_ranking(dictreplica, client_location)
-                        elif select == 'random':
-                            replicas = sort_random(dictreplica)
-                        else:
-                            replicas = sorted(dictreplica, key=dictreplica.get)
+                        lanreplicas = [replica for replica, v in dictreplica.items() if v[0] == 'lan']
+                        replicas = lanreplicas + sort_replicas({k: v for k, v in dictreplica.items() if v[0] != 'lan'}, client_location, selection=select)
 
-                        idx = 0
+                        idx = 1
                         for replica in replicas:
                             yield '  <url location="' + str(dictreplica[replica][2]) \
                                 + '" domain="' + str(dictreplica[replica][0]) \
-                                + '" priority="' + str(dictreplica[replica][1]) \
+                                + '" priority="' + str(idx) \
                                 + '" client_extract="' + str(dictreplica[replica][3]).lower() \
                                 + '">' + escape(replica) + '</url>\n'
-                            idx += 1
                             if limit and limit == idx:
                                 break
+                            idx += 1
                         yield ' </file>\n'
 
                 if metalink:
