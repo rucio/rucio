@@ -24,6 +24,7 @@
 #
 # PY3K COMPATIBLE
 
+from rucio.common.types import InternalScope
 from rucio.core.lifetime_exception import list_exceptions
 import rucio.core.scope
 from rucio.core.account import list_account_attributes, has_account_attribute
@@ -382,9 +383,12 @@ def perm_add_dids(issuer, kwargs):
     # Check the accounts of the issued rules
     if issuer != 'root' and not has_account_attribute(account=issuer, key='admin'):
         for did in kwargs['dids']:
+            if not rucio.core.scope.is_scope_owner(scope=InternalScope(did['scope']), account=issuer):
+                return False
             for rule in did.get('rules', []):
                 if rule['account'] != issuer:
                     return False
+        return True
 
     return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
 
