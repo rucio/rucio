@@ -837,6 +837,11 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     dest_url = re.sub('https', 'gclouds', dest_url)
                     if source_protocol in ['davs', 'https']:
                         source_url += '?copy_mode=push'
+                elif sign_url == 's3':
+                    dest_url = re.sub('davs', 's3s', dest_url)
+                    dest_url = re.sub('https', 's3s', dest_url)
+                    if source_protocol in ['davs', 'https']:
+                        source_url += '?copy_mode=push'
                 elif WEBDAV_TRANSFER_MODE:
                     if source_protocol in ['davs', 'https']:
                         source_url += '?copy_mode=%s' % WEBDAV_TRANSFER_MODE
@@ -845,6 +850,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 if source_sign_url == 'gcs':
                     source_url = re.sub('davs', 'gclouds', source_url)
                     source_url = re.sub('https', 'gclouds', source_url)
+                elif source_sign_url == 's3':
+                    source_url = re.sub('davs', 's3s', source_url)
+                    source_url = re.sub('https', 's3s', source_url)
 
                 use_ipv4 = rse_attrs[source_rse_id].get('use_ipv4', False) or rse_attrs[dest_rse_id].get('use_ipv4', False)
 
@@ -940,8 +948,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     transfers[req_id]['strict_copy'] = strict_copy
                 if use_ipv4:
                     transfers[req_id]['use_ipv4'] = True
-                if archive_timeout and (rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE
-                                        or rses_info[dest_rse_id]['rse_type'] == 'TAPE'):
+                if archive_timeout and (rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE or rses_info[dest_rse_id]['rse_type'] == 'TAPE'):
                     try:
                         transfers[req_id]['archive_timeout'] = int(archive_timeout)
                         logging.debug('Added archive timeout to transfer.')
@@ -968,6 +975,11 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     dest_url = re.sub('https', 'gclouds', dest_url)
                     if source_protocol in ['davs', 'https']:
                         source_url += '?copy_mode=push'
+                elif sign_url == 's3':
+                    dest_url = re.sub('davs', 's3s', dest_url)
+                    dest_url = re.sub('https', 's3s', dest_url)
+                    if source_protocol in ['davs', 'https']:
+                        source_url += '?copy_mode=push'
                 elif WEBDAV_TRANSFER_MODE:
                     if source_protocol in ['davs', 'https']:
                         source_url += '?copy_mode=%s' % WEBDAV_TRANSFER_MODE
@@ -976,6 +988,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 if source_sign_url == 'gcs':
                     source_url = re.sub('davs', 'gclouds', source_url)
                     source_url = re.sub('https', 'gclouds', source_url)
+                elif source_sign_url == 's3':
+                    source_url = re.sub('davs', 's3s', source_url)
+                    source_url = re.sub('https', 's3s', source_url)
 
                 # III - The transfer queued previously is a multihop, but this one is direct.
                 # Reset the sources, remove the multihop flag

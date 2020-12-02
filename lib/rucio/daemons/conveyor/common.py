@@ -335,8 +335,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                       'bring_online': transfer['bring_online'] if transfer['bring_online'] else None,
                       'job_metadata': {'issuer': 'rucio'},  # finaly job_meta will like this. currently job_meta will equal file_meta to include request_id and etc.
                       'overwrite': transfer['overwrite'],
-                      'priority': 3,
-                      's3alternate': True}
+                      'priority': 3}
         if transfer.get('archive_timeout', None):
             job_params['archive_timeout'] = transfer['archive_timeout']
         if multihop:

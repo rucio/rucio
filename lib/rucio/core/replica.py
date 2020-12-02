@@ -981,7 +981,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                     if root_proxy_internal:
                                         # TODO: XCache does not seem to grab signed URLs. Doublecheck with XCache devs.
                                         #       For now -> skip prepending XCache for GCS.
-                                        if 'storage.googleapis.com' in pfn or 'atlas-google-cloud.cern.ch' in pfn:
+                                        if 'storage.googleapis.com' in pfn or 'atlas-google-cloud.cern.ch' in pfn or 'amazonaws.com' in pfn:
                                             pass  # ATLAS HACK
                                         else:
                                             # don't forget to mangle gfal-style davs URL into generic https URL
