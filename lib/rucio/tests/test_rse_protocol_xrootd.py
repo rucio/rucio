@@ -201,7 +201,7 @@ class TestRseXROOTD(unittest.TestCase):
         with pytest.raises(exception.FileReplicaAlreadyExists):
             self.mtc.test_put_mgr_FileReplicaAlreadyExists_single()
 
-    # # MGR-Tests: DELETE
+    # MGR-Tests: DELETE
     def test_delete_mgr_ok_multi(self):
         """XROOTD (RSE/PROTOCOLS): Delete multiple files from storage (Success)"""
         self.mtc.test_delete_mgr_ok_multi()

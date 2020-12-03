@@ -36,9 +36,6 @@ XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 xrdfs xrd1:1094 query config xrd1:1094
 XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 xrdfs xrd2:1095 query config xrd2:1095
 XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 xrdfs xrd3:1096 query config xrd3:1096
 
-# Enable test_rse_protocol_* that depend on presence of etc/rse-accounts.cfg
-cp etc/rse-accounts.cfg.template etc/rse-accounts.cfg
-
 # Enable FTS
 rucio-admin rse set-attribute --rse XRD1 --key fts --value https://fts:8446
 rucio-admin rse set-attribute --rse XRD2 --key fts --value https://fts:8446

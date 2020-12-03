@@ -39,7 +39,10 @@ jobs:
       - name: Start containers
         run: docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml up -d
       - name: Initialize tests
-        run: docker exec -t dev_rucio_1 tools/run_tests_docker.sh -ir
+        shell: bash
+        run: |
+          docker exec -t dev_rucio_1 cp etc/rse-accounts.cfg.template etc/rse-accounts.cfg
+          docker exec -t dev_rucio_1 tools/run_tests_docker.sh -ir
       - name: File Upload/Download Test
         run: docker exec -t dev_rucio_1 pytest -v --full-trace lib/rucio/tests/test_rucio_server.py
       - name: Test Protocol XrootD
