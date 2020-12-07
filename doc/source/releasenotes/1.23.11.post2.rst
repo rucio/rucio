@@ -1,0 +1,13 @@
+=============
+1.23.11.post2
+=============
+
+-------
+General
+-------
+
+********
+Features
+********
+
+- Replicas: Allow declaring bad replicas via RSE/DID pair and REST API `#4099 <https://github.com/rucio/rucio/issues/4099>`_
