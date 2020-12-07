@@ -54,7 +54,7 @@ from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness,
 from rucio.common.utils import parse_response, APIEncoder, render_json_list
 from rucio.db.sqla.constants import BadFilesStatus, ReplicaState
 from rucio.web.rest.flaskapi.v1.common import (check_accept_header_wrapper_flask, try_stream, parse_scope_name,
-                                               request_auth_env, response_headers)
+                                               request_auth_env, response_headers, request_header_ensure_string)
 from rucio.web.rest.utils import generate_http_error_flask
 
 try:
