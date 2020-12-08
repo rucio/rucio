@@ -14,5 +14,5 @@ redis==3.5.3                                      # Python client for Redis key-
 numpy==1.19.4                                     # Numpy for forecasting T3C
 paramiko==2.7.2                                   # SSH2 protocol library
 Flask==1.1.2                                      # Python web framework
-oic==1.2.0                                        # for authentication via OpenID Connect protocol
+oic==1.2.1                                        # for authentication via OpenID Connect protocol
 prometheus_client==0.9.0                          # Python client for the Prometheus monitoring system
