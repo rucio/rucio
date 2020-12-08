@@ -1,63 +1,60 @@
 # All dependencies needed to run rucio should be defined here
 
-SQLAlchemy==1.3.17                                # DB backend
+SQLAlchemy==1.3.17                                # DB backend -- cannot move to 1.3.18-1.3.20 due to MySQL5 NOWAIT bug in SQLAlchemy
 alembic==1.4.3                                    # Lightweight database migration tool for SQLAlchemy
-web.py==0.39; python_version <= '2.7'             # Python web framework for Python2
-web.py==0.40; python_version > '2.7'              # Python web framework for Python3
-python-memcached==1.59; python_version <= '2.7'   # Quick and small memcached client for Python2
-python3-memcached==1.51; python_version > '2.7'   # Quick and small memcached client for Python3
+web.py==0.62                                      # Python web framework
+python-memcached==1.59                            # Quick and small memcached client for Python3
 python-dateutil==2.8.1                            # Extensions to the standard datetime module
 stomp.py==4.1.23                                  # ActiveMQ Messaging Protocol
 statsd==3.3.0                                     # Needed to log into graphite with more than 1 Hz
-geoip2==3.0.0                                     # GeoIP2 API (for IPv6 support)
+geoip2==4.1.0                                     # GeoIP2 API (for IPv6 support)
 oauth2client==4.1.3                               # OAuth 2.0 client library
 retrying==1.3.3                                   # general-purpose retrying library to simplify the task of adding retry behavior to just about anything
-functools32==3.2.3.post2; python_version == '2.7' # explicitly needed on CC7
-redis==3.4.1                                      # Python client for Redis key-value store
-numpy==1.14.2; python_version <= '3.5'            # Numpy for forecasting T3C (1.17.0 is Py3 only)
-numpy==1.19.0; python_version >= '3.6'            # Numpy for forecasting T3C
-paramiko==2.7.1                                   # SSH2 protocol library
-Flask==1.1.1                                      # Python web framework
-M2Crypto<=0.35.2                                  # Dependency of FTS rest API; Temporary fix since 0.33 does not install on CC7
-oic==0.15.1                                       # for authentication via OpenID Connect protocol
-prometheus_client==0.7.1                          # Python client for the Prometheus monitoring system
+redis==3.5.3                                      # Python client for Redis key-value store
+numpy==1.19.4                                     # Numpy for forecasting T3C
+paramiko==2.7.2                                   # SSH2 protocol library
+Flask==1.1.2                                      # Python web framework
+oic==1.2.1                                        # for authentication via OpenID Connect protocol
+prometheus_client==0.9.0                          # Python client for the Prometheus monitoring system
 # All dependencies needed to run rucio client should be defined here
-setuptools>=36.8.0,<45.0.0                        # Python packaging utilities (36.8.0 last py2.6 compatible version, 45.0 only Py3 compatible)
-argcomplete>=1.9.0,<1.12.0                        # Bash tab completion for argparse
-requests>=2.20.0,<2.24.0                          # Python HTTP for Humans.
-urllib3>=1.24.2,<1.26                             # HTTP library with thread-safe connection pooling, file post, etc.
-dogpile.cache>=0.6.5,<0.7.0                       # Caching API plugins (0.7.0 only Py3 compatible)
-boto>=2.49.0,<2.50.0                              # S3 boto protocol
-tabulate>=0.8.0,<0.9.0                            # Pretty-print tabular data
-progressbar2>=3.39.0,<3.41.0                      # Text progress bar
-bz2file>=0.98,<0.99                               # Read and write bzip2-compressed files.
-python-magic>=0.4.15,<0.5.0                       # File type identification using libmagic
-futures>=3.2.0; python_version < '3.0'            # Clean single-source support for Python 3 and 2
-six>=1.12.0<1.15.0                                # Python 2 and 3 compatibility utilities
-boto3>=1.9.130,<1.13.0                            # S3 boto protocol (new version)
-pysftp>=0.2.9,<0.3                                # Used by sftp protocol
-jsonschema>=3.2.0                                 # For JSON schema validation (Policy modules)
+setuptools>=36.8.0,<45.0.0; python_version < '3.0'          # Python packaging utilities (36.8.0 last py2.6 compatible version, 45.0 only Py3 compatible)
+setuptools>=45.0.0,<=50.3.2; python_version >= '3.0'        # Python packaging utilities
+argcomplete>=1.9.0,<=1.12.2                                 # Bash tab completion for argparse
+requests>=2.20.0,<=2.25.0                                   # Python HTTP for Humans.
+urllib3>=1.24.2,<1.26                                       # HTTP library with thread-safe connection pooling, file post, etc.
+dogpile.cache>=0.6.5,<0.7.0; python_version < '3.0'         # Caching API plugins (0.7.0 only Py3 compatible)
+dogpile.cache>=0.6.5,<=1.1.1; python_version >= '3.0'       # Caching API plugins
+boto>=2.49.0,<2.50.0                                        # S3 boto protocol
+tabulate>=0.8.0,<0.9.0                                      # Pretty-print tabular data
+progressbar2>=3.39.0,<=3.53.1                               # Text progress bar
+bz2file>=0.98,<0.99                                         # Read and write bzip2-compressed files.
+python-magic>=0.4.15,<0.5.0                                 # File type identification using libmagic
+futures>=3.2.0; python_version < '3.0'                      # Clean single-source support for Python 3 and 2
+six>=1.12.0<1.16.0                                          # Python 2 and 3 compatibility utilities
+boto3>=1.9.130,<1.17.0                                      # S3 boto protocol (new version)
+pysftp>=0.2.9,<0.3                                          # Used by sftp protocol
+jsonschema>=3.2.0                                           # For JSON schema validation (Policy modules)
 # All dependencies needed to develop/test rucio should be defined here
 
 pytest==4.6.11; python_version < '3.6'            # Used for testing
-pytest==6.0.1; python_version >= '3.6'
+pytest==6.1.2; python_version >= '3.6'
 Sphinx==1.8.5; python_version < '3.5'             # required to build documentation (1.8.5 last Py27 compatible version)
-Sphinx==3.1.2; python_version >= '3.5'
+Sphinx==3.3.1; python_version >= '3.5'
 sphinx-rtd-theme==0.4.3; python_version < '3.5'   # Read the Docs theme for Sphinx
 sphinx-rtd-theme==0.5.0; python_version >= '3.5'
 sphinxcontrib-httpdomain==1.7.0                   # Provides a Sphinx domain for describing RESTful HTTP APIs
 Pygments==2.5.2; python_version < '3.5'           # Python Syntax highlighter (2.5.2 last Py27 compatible version)
-Pygments==2.6.1; python_version >= '3.5'
-docutils>=0.15,<0.16                              # Needed for sphinx
+Pygments==2.7.2; python_version >= '3.5'
+docutils>=0.15,<=0.16                             # Needed for sphinx
 pyflakes==2.1.1                                   # Passive checker of Python programs
 flake8==3.7.8                                     # Wrapper around PyFlakes&pep8
 pylint==1.9.4; python_version < '3.6'             # static code analysis. 1.9.5 last 2.7 compatible release
 pylint==2.6.0; python_version >= '3.6'
 isort>=4.2.5,<5                                   # pylint up to now (2.5.3) does not support isort 5
-virtualenv==20.0.12                               # Virtual Python Environment builder
+virtualenv==20.2.1                                # Virtual Python Environment builder
 xmltodict==0.12.0                                 # Makes working with XML feel like you are working with JSON
-pytz==2019.3                                      # World timezone definitions, modern and historical
-Babel==2.8.0                                      # Internationalization utilities - Dependency of sphinx
+pytz==2020.4                                      # World timezone definitions, modern and historical
+Babel==2.9.0                                      # Internationalization utilities - Dependency of sphinx
 subprocess32==3.5.4; python_version <= '3.0'      # A backport of the subprocess module from Python 3.2/3.3 for use on 2.x.
 pycodestyle==2.5.0                                # New package replacing pep8
 mock==3.0.5; python_version < '3.3'               # Mock package needed for readthedocs build for mocking pycurls (mock seems to break SQLAlchemy in Python 3 tests + since Python 3.3 there is unittest.mock)
