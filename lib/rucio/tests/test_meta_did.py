@@ -1,4 +1,5 @@
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2017
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2020
 
 import unittest
 
@@ -56,3 +58,15 @@ class TestMetaDIDClient(unittest.TestCase):
         meta = self.did_client.get_metadata(scope=tmp_scope, name=tmp_dataset)
         assert key in meta
         assert meta[key] == value
+
+    def test_set_is_new_meta(self):
+        """ META DID (CLIENTS):  Try to set is_new metadata"""
+        # Add a scope
+        tmp_scope = 'mock'
+
+        # Add a dataset
+        tmp_dataset = 'dsn_%s' % uuid()
+
+        self.did_client.add_dataset(scope=tmp_scope, name=tmp_dataset)
+
+        self.did_client.set_metadata(scope=tmp_scope, name=tmp_dataset, key='is_new', value=True)
