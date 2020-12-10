@@ -1061,7 +1061,10 @@ class DownloadClient:
         # if excluding tapes, we need to list them first
         tape_rses = []
         if self.is_tape_excluded:
-            tape_rses = [endp['rse'] for endp in self.client.list_rses(rse_expression='istape=true')]
+            try:
+                tape_rses = [endp['rse'] for endp in self.client.list_rses(rse_expression='istape=true')]
+            except:
+                logger.debug('No tapes found.')
 
         for item in merged_items:
             # since we're using metalink we need to explicitly give all schemes
