@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
@@ -81,6 +81,7 @@ HARDCODED_KEYS = [
     "is_archive",
     "constituent",
     "access_cnt",
+    "is_new",
 
     # Keys used while listing dids
     "created_before",
