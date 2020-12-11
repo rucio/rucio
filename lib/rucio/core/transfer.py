@@ -1067,7 +1067,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 # transfers[id]['src_urls'].append((source_rse_id, source_url))
                 transfers[req_id]['sources'].append((rse, source_url, source_rse_id, ranking, link_ranking))
                 # if one source has force IPv4, force IPv4 for the whole job
-                if rse_attrs[source_rse_id].get('use_ipv4', True):
+                use_ipv4 = rse_attrs[source_rse_id].get('use_ipv4', False)
+                if use_ipv4:
                     transfers[req_id]['use_ipv4'] = True
 
         except Exception:
