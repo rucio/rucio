@@ -11,6 +11,8 @@ services:
       - MYSQL_TCP_PORT=3305
     ports:
       - "3305:3305"
+    tmpfs:
+      - /var/lib/mysql:rw,size=1024m
   ruciomy8:
     image: mysql:8
     hostname: ruciomy8
@@ -22,6 +24,8 @@ services:
       - MYSQL_TCP_PORT=3308
     ports:
       - "3308:3308"
+    tmpfs:
+      - /var/lib/mysql:rw,size=1024m
   oracle:
     image: docker.io/wnameless/oracle-xe-11g-r2
     hostname: oracle
@@ -29,7 +33,6 @@ services:
       - "1521:1521"
     environment:
       - ORACLE_ALLOW_REMOTE=true
-      - ORACLE_DISABLE_ASYNCH_IO=true
       - processes=1000
       - sessions=1105
       - transactions=1215
@@ -64,6 +67,8 @@ services:
       - POSTGRES_PASSWORD=secret
     ports:
       - "5432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data:rw,size=1024m
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
   graphite:
     image: graphiteapp/graphite-statsd
@@ -85,6 +90,8 @@ services:
       - MYSQL_DATABASE=fts
     ports:
       - "3306:3306"
+    tmpfs:
+      - /var/lib/mysql:rw,size=1024m
   xrd1:
     image: rucio/xrootd
     hostname: xrd1

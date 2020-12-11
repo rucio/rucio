@@ -34,6 +34,8 @@ services:
       - POSTGRES_PASSWORD=secret
     ports:
       - "5432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data:rw,size=1024m
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
   graphite:
     image: graphiteapp/graphite-statsd
@@ -55,6 +57,8 @@ services:
       - MYSQL_DATABASE=fts
     ports:
       - "3306:3306"
+    tmpfs:
+      - /var/lib/mysql:rw,size=1024m
   xrd1:
     image: rucio/xrootd
     hostname: xrd1
