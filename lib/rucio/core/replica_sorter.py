@@ -22,6 +22,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Nicolo Magini <nicolo.magini@cern.ch>, 2020
 
 # This product includes GeoLite data created by MaxMind,
 # available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>
@@ -45,6 +46,8 @@ from dogpile.cache.api import NO_VALUE
 from rucio.common import utils
 from rucio.common.config import config_get
 from rucio.common.exception import InvalidRSEExpression
+from rucio.core.distance import get_distances
+from rucio.core.rse import get_rse_id
 from rucio.core.rse_expression_parser import parse_expression
 
 if TYPE_CHECKING:
@@ -184,6 +187,8 @@ def sort_replicas(dictreplica: "Dict", client_location: "Dict", selection: "Opti
 
     if selection == 'geoip':
         replicas = sort_geoip(dictreplica, client_location, ignore_error=True)
+    elif selection == 'distance':
+        replicas = sort_distance(dictreplica, client_location)
     elif selection == 'closeness':
         replicas = sort_closeness(dictreplica, client_location)
     elif selection == 'dynamic':
@@ -221,6 +226,28 @@ def sort_geoip(dictreplica: "Dict", client_location: "Dict", ignore_error: bool 
         return __get_distance(urlparse(pfn).hostname, client_location['ip'], ignore_error)
 
     return list(sorted(dictreplica, key=distance))
+
+
+def sort_distance(dictreplica: "Dict", client_location: "Dict") -> "List":
+    """
+    Return a list of replicas sorted by distance metric.
+    :param dictreplica: A dict with replicas as keys (URIs).
+    :param client_location: Location dictionary containing {'ip', 'fqdn', 'site'}
+    """
+
+    client_rse_id = parse_expression("site=%s&rse_type=DISK" % client_location['site'])[0]['id']
+
+    replica_distances = {}
+    for pfn in dictreplica:
+        src_rse = dictreplica[pfn][2]
+        try:
+            replica_distances[pfn] = get_distances(src_rse_id=get_rse_id(src_rse),
+                                                   dest_rse_id=client_rse_id)[0]['distance']
+        # no distances defined, skip replica
+        except (IndexError, KeyError):
+            pass
+
+    return list(sorted(replica_distances, key=lambda pfn: replica_distances[pfn]))
 
 
 def sort_closeness(dictreplica: "Dict", client_location: "Dict") -> "List":
