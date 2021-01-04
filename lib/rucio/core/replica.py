@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2020
 # - Wen Guan <wen.guan@cern.ch>, 2014-2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019-2021
 # - Robert Illingworth <illingwo@fnal.gov>, 2019
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
@@ -356,7 +356,7 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
         for pfn in parsed_pfn:
             path = '%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
             __exists, scope, name, already_declared, size = __exists_replicas(rse_id, scope=None, name=None, path=path, session=session)
-            if __exists and ((status == BadFilesStatus.BAD and not already_declared) or status == BadFilesStatus.SUSPICIOUS):
+            if __exists and ((str(status) == str(BadFilesStatus.BAD) and not already_declared) or str(status) == str(BadFilesStatus.SUSPICIOUS)):
                 replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
                 new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer, bytes=size)
                 new_bad_replica.save(session=session, flush=False)
@@ -380,7 +380,7 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
                     if no_hidden_char:
                         unknown_replicas.append('%s %s' % (pfn, 'Unknown replica'))
 
-        if status == BadFilesStatus.BAD and declared_replicas != []:
+        if str(status) == str(BadFilesStatus.BAD) and declared_replicas != []:
             # For BAD file, we modify the replica state, not for suspicious
             query = session.query(models.RSEFileAssociation.path, models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
                 with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PATH_IDX", 'oracle').\
