@@ -1,0 +1,39 @@
+=======
+1.23.12
+=======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Policies: Belle II : Final version of the extract_scope method `#4217 <https://github.com/rucio/rucio/issues/4217>`_
+
+****
+Bugs
+****
+
+- Release management: Security upgrade for oic dependency `#4180 <https://github.com/rucio/rucio/issues/4180>`_
+
+-------
+Clients
+-------
+
+************
+Enhancements
+************
+
+- Clients: Rucio upload with rse_expression `#4129 <https://github.com/rucio/rucio/issues/4129>`_
+
+-----
+WebUI
+-----
+
+****
+Bugs
+****
+
+- WebUI: sorting of column of type datetime in datatable broken `#1771 <https://github.com/rucio/rucio/issues/1771>`_
