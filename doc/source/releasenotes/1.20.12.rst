@@ -1,0 +1,13 @@
+=======
+1.20.12
+=======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Release management: Upgrade information in setup.py (1.20.0) `#4122 <https://github.com/rucio/rucio/issues/4122>`_
