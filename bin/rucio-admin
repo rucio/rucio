@@ -36,6 +36,7 @@
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Rob Barnsley <robbarnsley@users.noreply.github.com>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import division
 from __future__ import print_function
@@ -43,24 +44,19 @@ from __future__ import print_function
 import argparse
 import datetime
 import json
-import math
 import logging
+import math
 import os
 import signal
 import sys
 import time
 import traceback
-
-try:
-    from ConfigParser import NoOptionError, NoSectionError
-except ImportError:
-    from configparser import NoOptionError, NoSectionError
-
 from functools import wraps
 
 import argcomplete
 import tabulate
 
+from rucio import version
 from rucio.client import Client
 from rucio.common.config import config_get
 from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists, AccessDenied,
@@ -69,19 +65,22 @@ from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists
                                     DuplicateContent, RuleNotFound, CannotAuthenticate,
                                     Duplicate, ReplicaIsLocked, ConfigNotFound, ScopeNotFound)
 from rucio.common.utils import chunks, construct_surl, sizefmt, get_bytes_value_from_string, render_json, parse_response, extract_scope
-from rucio import version
 from rucio.rse import rsemanager as rsemgr
+
+try:
+    from ConfigParser import NoOptionError, NoSectionError
+except ImportError:
+    from configparser import NoOptionError, NoSectionError
+
 
 possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
                                                 os.pardir, os.pardir))
 if os.path.exists(os.path.join(possible_topdir, 'lib/rucio', '__init__.py')):
     sys.path.insert(0, possible_topdir)
 
-
 SUCCESS = 0
 FAILURE = 1
 DEFAULT_PORT = 443
-
 
 logger = logging.getLogger("user")
 
@@ -94,23 +93,7 @@ def setup_logger(logger):
 
     def emit_decorator(fcn):
         def func(*args):
-            if True:
-                formatter = logging.Formatter("%(message)s")
-            else:
-                levelno = args[0].levelno
-                if levelno >= logging.CRITICAL:
-                    color = '\033[31;1m'
-                elif levelno >= logging.ERROR:
-                    color = '\033[31;1m'
-                elif levelno >= logging.WARNING:
-                    color = '\033[33;1m'
-                elif levelno >= logging.INFO:
-                    color = '\033[32;1m'
-                elif levelno >= logging.DEBUG:
-                    color = '\033[36;1m'
-                else:
-                    color = '\033[0m'
-                formatter = logging.Formatter('{0}%(asctime)s %(levelname)s [%(message)s]\033[0m'.format(color))
+            formatter = logging.Formatter("%(message)s")
             hdlr.setFormatter(formatter)
             return fcn(*args)
         return func
@@ -1210,7 +1193,13 @@ def get_parser():
     Returns the argparse parser.
     """
     oparser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), add_help=True)
-    subparsers = oparser.add_subparsers()
+
+    required_arg = {}
+    if sys.version_info >= (3, 7):
+        # required argument was added in Python 3.7 and restores the Python 2 behavior
+        required_arg = {'required': True}
+
+    subparsers = oparser.add_subparsers(dest='subcommand', **required_arg)
 
     # Main arguments
     oparser.add_argument('--version', action='version', version='%(prog)s ' + version.version_string())
@@ -1248,7 +1237,7 @@ def get_parser():
 
     # The import export subparser
     data_parser = subparsers.add_parser('data', help='Import and export data')
-    data_subparsers = data_parser.add_subparsers()
+    data_subparsers = data_parser.add_subparsers(dest='data_subcommand', **required_arg)
 
     # The import command
     import_parser = data_subparsers.add_parser('import',
@@ -1278,7 +1267,7 @@ def get_parser():
 
     # The account subparser
     account_parser = subparsers.add_parser('account', help='Account methods')
-    account_subparser = account_parser.add_subparsers()
+    account_subparser = account_parser.add_subparsers(dest='account_subcommand', **required_arg)
 
     # The list_accounts command
     list_account_parser = account_subparser.add_parser('list',
@@ -1518,7 +1507,7 @@ def get_parser():
 
     # The identity subparser
     identity_parser = subparsers.add_parser('identity', help='Identity methods')
-    identity_subparser = identity_parser.add_subparsers()
+    identity_subparser = identity_parser.add_subparsers(dest='identity_subcommand', **required_arg)
 
     # The identity_add command
     identity_add_parser = identity_subparser.add_parser('add',
@@ -1573,7 +1562,7 @@ def get_parser():
 
     # The RSE subparser
     rse_parser = subparsers.add_parser('rse', help='RSE (Rucio Storage Element) methods')
-    rse_subparser = rse_parser.add_subparsers()
+    rse_subparser = rse_parser.add_subparsers(dest='rse_subcommand', **required_arg)
 
     # The list_rses command
     list_rse_parser = rse_subparser.add_parser('list',
@@ -1893,7 +1882,7 @@ def get_parser():
 
     # The scope subparser
     scope_parser = subparsers.add_parser('scope', help='Scope methods')
-    scope_subparser = scope_parser.add_subparsers()
+    scope_subparser = scope_parser.add_subparsers(dest='scope_subcommand', **required_arg)
 
     # The add_scope command
     add_scope_parser = scope_subparser.add_parser('add',
@@ -1931,7 +1920,7 @@ def get_parser():
                                           help='Configuration methods. The global configuration of data mangement system can by modified.',
                                           formatter_class=argparse.RawDescriptionHelpFormatter,
                                           epilog='''e.g. quotas, daemons, rses''')
-    config_subparser = config_parser.add_subparsers()
+    config_subparser = config_parser.add_subparsers(dest='config_subcommand', **required_arg)
 
     # The get_config command
     get_config_parser = config_subparser.add_parser('get',
@@ -1990,7 +1979,7 @@ def get_parser():
 
     # The subscription parser
     subs_parser = subparsers.add_parser('subscription', help='Subscription methods. The methods for automated and regular processing of some specific rules.')
-    subs_subparser = subs_parser.add_subparsers()
+    subs_subparser = subs_parser.add_subparsers(dest='subscription_subcommand', **required_arg)
 
     # The add-subscription command
     add_sub_parser = subs_subparser.add_parser('add',
@@ -2087,7 +2076,7 @@ def get_parser():
 
     # The replica parser
     rep_parser = subparsers.add_parser('replicas', help='Replica methods')
-    rep_subparser = rep_parser.add_subparsers()
+    rep_subparser = rep_parser.add_subparsers(dest='replicas_subcommand', **required_arg)
 
     # The declare-bad command
     declare_bad_file_replicas_parser = rep_subparser.add_parser('declare-bad',
@@ -2168,7 +2157,11 @@ if __name__ == '__main__':
         oparser.print_help()
         sys.exit(FAILURE)
 
-    args = oparser.parse_args(sys.argv[1:])
+    args = oparser.parse_args()
+
+    if not hasattr(args, 'which'):
+        oparser.print_help()
+        sys.exit(FAILURE)
 
     commands = {'add_account': add_account,
                 'list_accounts': list_accounts,
@@ -2229,6 +2222,6 @@ if __name__ == '__main__':
         if args.verbose:
             print("Completed in %-0.4f sec." % (end_time - start_time))
         sys.exit(result)
-    except Exception as error:
-        logger.error("Strange error: {0}".format(error))
+    except Exception:
+        logger.exception("Uncaught exception")
         sys.exit(FAILURE)
