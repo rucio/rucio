@@ -1,0 +1,89 @@
+===================
+1.24.0 "Aquadonkey"
+===================
+
+--------------------
+Upgrade Instructions
+--------------------
+
+This feature release requires a database schema upgrade. Please consult the `documentation <https://rucio.readthedocs.io/en/latest/database.html>`_ about upgrading your database schema.
+
+The following changes are necessary and are covered by the ``alembic upgrade head`` command:
+
+1. Adding missing indices which were only available as functional oracle indices. For oracle databases installed with the `schema.sql <https://github.com/rucio/rucio/blob/master/etc/sql/oracle/schema.sql>`_ definition, these should already exist (Please verify). (Alembic revision ``8ea9122275b1``)
+
+  - Adding ``SUBSCRIPTIONS_STATE_IDX`` on ``subscriptions`` table
+  - Adding ``CONTENTS_RULE_EVAL_FB_IDX`` on ``contents`` table
+  - Adding ``REPLICAS_STATE_IDX`` on ``replicas`` table
+  - Adding ``BAD_REPLICAS_ACCOUNT_IDX`` on ``bad_replicas`` table
+  - Adding ``REQUESTS_DEST_RSE_ID_IDX`` on ``requests`` table
+
+2. Update of ``REQUESTS_STATE_CHK`` constraint in ``requests`` table in preparation for Conveyor Preparer (Alembic revision ``d23453595260``)
+
+-----------------
+Important changes
+-----------------
+
+1. This Rucio release line drops support for Python 2.7 on the Server/Daemon Side. Only Python 3.6 and 3.7 are supported from now on. Rucio clients are still Python 2.7 compatible for the foreseen future (EOL will be announced). If your environment is requiring to run Rucio under Python 2.7 we recommend the Rucio 1.23 LTS release line, which will be supported until 2022.
+
+2. Due to a fix (`#3994 <https://github.com/rucio/rucio/issues/3994>`_) in the salting-algorithm used for Python 3 all hashes for stored passwords in Rucio need to be re-collected. This only affects password authentication. X509, Kerberos or OIDC authentication is unaffected.
+   
+-------
+General
+-------
+
+********
+Features
+********
+
+- Core & Internals: Add check that alembic version of DB works with rucio release `#1157 <https://github.com/rucio/rucio/issues/1157>`_
+- Core & Internals: Some function based indexes missing in models.py `#2714 <https://github.com/rucio/rucio/issues/2714>`_
+- Core & Internals: Policy packages should support multi-VO Rucio installations `#3542 <https://github.com/rucio/rucio/issues/3542>`_
+- Core & Internals: Provide a bulk method for setting metadata `#3847 <https://github.com/rucio/rucio/issues/3847>`_
+- Database: Upgrade SQLAlchemy version `#4055 <https://github.com/rucio/rucio/issues/4055>`_
+- Replicas: Allow declaring bad replicas via RSE/DID pair and REST API `#4099 <https://github.com/rucio/rucio/issues/4099>`_
+- Transfers: Re-Write of Conveyor-Throttler and the throtteling system `#4056 <https://github.com/rucio/rucio/issues/4056>`_
+
+************
+Enhancements
+************
+
+- Core & Internals: Make tool execution-dir independent `#4113 <https://github.com/rucio/rucio/issues/4113>`_
+- Core & Internals: Hardcoded atlas-adc-ddm-support eMail address for rule approval `#4164 <https://github.com/rucio/rucio/issues/4164>`_
+- Deletion: all_rses option redundant for light and dark reaper `#3933 <https://github.com/rucio/rucio/issues/3933>`_
+- Release management: Upgrade information in setup.py (1.24.0) `#4120 <https://github.com/rucio/rucio/issues/4120>`_
+- Release management: 1.24 Dependency upgrade `#4157 <https://github.com/rucio/rucio/issues/4157>`_
+- Release management: Python memcached package `#4169 <https://github.com/rucio/rucio/issues/4169>`_
+- Replicas: Set geoip as default sorting algorithm in list_replicas `#4017 <https://github.com/rucio/rucio/issues/4017>`_
+
+****
+Bugs
+****
+
+- Authentication & Authorisation: Userpass authentication not backwards compatible nor unicode capable `#3994 <https://github.com/rucio/rucio/issues/3994>`_
+- Clients: list_replicas returns a generator with an empty string when there are no replicas `#2517 <https://github.com/rucio/rucio/issues/2517>`_
+- Core & Internals: Clean URLs coming from AWS `#4159 <https://github.com/rucio/rucio/issues/4159>`_
+- Core & Internals: S3 endpoints in TPC must use s3s:// instead of s3:// `#4173 <https://github.com/rucio/rucio/issues/4173>`_
+- DIRAC: Bug in Belle II permission for dirac `#4174 <https://github.com/rucio/rucio/issues/4174>`_
+- Release management: Security upgrade for oic dependency `#4181 <https://github.com/rucio/rucio/issues/4181>`_
+
+-------
+Clients
+-------
+
+****
+Bugs
+****
+
+- Clients: Python3 client subparser failure `#4202 <https://github.com/rucio/rucio/issues/4202>`_
+  
+-----
+WebUI
+-----
+
+************
+Enhancements
+************
+
+- WebUI: Suspicious replicas page is hidden `#4185 <https://github.com/rucio/rucio/issues/4185>`_
+- WebUI: RSE usage page uses obsolete SRM counter `#4195 <https://github.com/rucio/rucio/issues/4195>`_
