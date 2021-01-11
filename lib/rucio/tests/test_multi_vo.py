@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020 CERN
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
-# - Martin Barisits <martin.barisits@cern.ch>, 2020
+# - Mario Lassnig <mlassnig@users.noreply.github.com>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2020-2021
 
 import os
 import sys
@@ -65,7 +65,7 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import add_rule
 from rucio.core.vo import add_vo, vo_exists
 from rucio.daemons.automatix.automatix import automatix
-from rucio.daemons.reaper.reaper import run as run_reaper
+from rucio.daemons.reaper.reaper2 import run as run_reaper
 from rucio.db.sqla import models, session as db_session
 from rucio.tests.common import execute, headers, hdrdict, vohdr, auth, loginhdr
 from rucio.tests.test_authentication import PRIVATE_KEY, PUBLIC_KEY
