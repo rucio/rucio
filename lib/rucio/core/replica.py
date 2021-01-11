@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2021
 # - David Cameron <david.cameron@cern.ch>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2020
 # - Wen Guan <wen.guan@cern.ch>, 2014-2015
@@ -1111,7 +1111,7 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                     for tmp_pfn in pfns:
                         file['pfns'][tmp_pfn[0]] = {'rse_id': tmp_pfn[4]['rse_id'] if tmp_pfn[1] == 'zip' else rse_id,
                                                     'rse': tmp_pfn[4]['rse'] if tmp_pfn[1] == 'zip' else rse,
-                                                    'type': tmp_pfn[4]['type'] if tmp_pfn[1] == 'zip' else str(rse_type),
+                                                    'type': tmp_pfn[4]['type'] if tmp_pfn[1] == 'zip' else str(rse_type.name),
                                                     'volatile': tmp_pfn[4]['volatile'] if tmp_pfn[1] == 'zip' else volatile,
                                                     'domain': tmp_pfn[1],
                                                     'priority': tmp_pfn[2],
