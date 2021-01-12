@@ -23,7 +23,7 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2020
 # - Wen Guan <wen.guan@cern.ch>, 2014-2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019-2021
 # - Robert Illingworth <illingwo@fnal.gov>, 2019
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
@@ -325,7 +325,7 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
             scope = InternalScope(scope, vo=issuer.vo)
 
             __exists, scope, name, already_declared, size = __exists_replicas(rse_id, scope, name, path=None, session=session)
-            if __exists and ((str(status) == str(BadFilesStatus.BAD) and not already_declared) or str(status) == str(BadFilesStatus.SUSPICIOUS)):
+            if __exists and ((status == BadFilesStatus.BAD and not already_declared) or status == BadFilesStatus.SUSPICIOUS):
                 replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
                 new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer, bytes=size)
                 new_bad_replica.save(session=session, flush=False)
@@ -343,7 +343,7 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
                             break
                     if no_hidden_char:
                         unknown_replicas.append('%s %s' % (pfn, 'Unknown replica'))
-        if str(status) == str(BadFilesStatus.BAD):
+        if status == BadFilesStatus.BAD:
             # For BAD file, we modify the replica state, not for suspicious
             try:
                 # there shouldn't be any exceptions since all replicas exist
