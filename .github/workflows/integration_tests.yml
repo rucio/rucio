@@ -16,7 +16,9 @@ jobs:
         run: python3 -m pip install -U PyYAML
       - name: Identify Matrix
         id: matrix
-        run: echo "::set-output name=matrix::$(jq '.[]  | select(.SUITE=="integration-test")' <<< $(./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml))"
+        run: echo "::set-output name=matrix::$(jq -c '[.[]  | select(.SUITE=="integration-test")]' <<< $(./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml))"
+      - name: test output
+        run: echo "${{ steps.matrix.outputs.matrix }}"
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
 
@@ -29,7 +31,7 @@ jobs:
         cfg: ${{ fromJson(needs.setup.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v2
-      - name: Build images
+      - name: Build rucio-dev images
         id: images
         shell: bash
         run: |
@@ -46,33 +48,11 @@ jobs:
           docker logout https://docker.pkg.github.com
           if [[ -z $IMAGES ]]; then exit 1; fi
           echo "::set-output name=images::$IMAGES"
-#    steps:
-#      - name: Checkout rucio containers repository
-#        uses: actions/checkout@v2
-#        with:
-#          repository: rucio/containers
-#      - uses: actions/checkout@v2
-#        name: Checkout rucio source
-#        with:
-#          path: dev/rucio
-#      - name: Prepare Images
-#        shell: bash
-#        run: |
-#          sed -i "s/RUN git clone .*/COPY .\/rucio \/tmp\/rucio/" $GITHUB_WORKSPACE/dev/Dockerfile_py3
-#      - name: Build Images
-#        uses: whoan/docker-build-with-cache-action@v5
-#        id: build
-#        with:
-#          username: "${{ github.actor }}"
-#          password: "${{ secrets.GITHUB_TOKEN }}"
-#          registry: docker.pkg.github.com
-#          context: "${{ github.workspace }}/dev"
-#          dockerfile: Dockerfile_py3
-#          image_name: rucio-dev
-#      - name: Prepare Docker Compose
-#        shell: bash
-#        run: |
-#          IMG=$(echo "${{ steps.build.outputs.FULL_IMAGE_NAME }}" | sed 's_/_\\/_g')
+      - name: Prepare Docker Compose
+        shell: bash
+        run: |
+#          IMG=$(echo "${{ steps.images.outputs.images }}" | sed 's_/_\\/_g')
+          echo "${{ steps.images.outputs.images }}"
 #          sed "s/image: rucio\/rucio-dev/image: $IMG/" $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml
 #      - name: Start containers
 #        run: docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml up -d
@@ -87,5 +67,5 @@ jobs:
 #        run: docker exec -t dev_rucio_1 pytest -v --full-trace lib/rucio/tests/test_rse_protocol_xrootd.py
 #      - name: Stop containers
 #        run: docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml down
-    outputs:
-      image: ${{ steps.build.outputs.FULL_IMAGE_NAME }}
+#    outputs:
+#      image: ${{ steps.build.outputs.FULL_IMAGE_NAME }}
