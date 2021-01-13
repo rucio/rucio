@@ -1205,8 +1205,6 @@ PARTITION DATA_BEFORE_01052015 VALUES LESS THAN (TO_DATE('01-05-2015', 'DD-MM-YY
 );
 
 
- CREATE INDEX MESSAGES_HISTORY_ETYPE_INDX ON MESSAGES_HISTORY (EVENT_TYPE) LOCAL COMPRESS 1;
-
 
 -- 41 ) ========================================= TOKENS table ========================================= 
 
