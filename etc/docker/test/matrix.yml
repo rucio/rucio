@@ -47,3 +47,5 @@ suites:
     REST_BACKEND:
       - webpy
       - flask
+
+  - id: integration-test
