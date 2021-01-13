@@ -21,48 +21,71 @@ jobs:
       matrix: ${{ steps.matrix.outputs.matrix }}
 
   integration-tests:
-    runs-on: ubuntu-latest
     needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cfg: ${{ fromJson(needs.setup.outputs.matrix) }}
     steps:
-      - name: Checkout rucio containers repository
-        uses: actions/checkout@v2
-        with:
-          repository: rucio/containers
       - uses: actions/checkout@v2
-        name: Checkout rucio source
-        with:
-          path: dev/rucio
-      - name: Prepare Images
+      - name: Build images
+        id: images
         shell: bash
         run: |
-          sed -i "s/RUN git clone .*/COPY .\/rucio \/tmp\/rucio/" $GITHUB_WORKSPACE/dev/Dockerfile_py3
-      - name: Build Images
-        uses: whoan/docker-build-with-cache-action@v5
-        id: build
-        with:
-          username: "${{ github.actor }}"
-          password: "${{ secrets.GITHUB_TOKEN }}"
-          registry: docker.pkg.github.com
-          context: "${{ github.workspace }}/dev"
-          dockerfile: Dockerfile_py3
-          image_name: rucio-dev
-      - name: Prepare Docker Compose
-        shell: bash
-        run: |
-          IMG=$(echo "${{ steps.build.outputs.FULL_IMAGE_NAME }}" | sed 's_/_\\/_g')
-          sed "s/image: rucio\/rucio-dev/image: $IMG/" $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml
-      - name: Start containers
-        run: docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml up -d
-      - name: Initialize tests
-        shell: bash
-        run: |
-          docker exec -t dev_rucio_1 cp etc/rse-accounts.cfg.template etc/rse-accounts.cfg
-          docker exec -t dev_rucio_1 tools/run_tests_docker.sh -ir
-      - name: File Upload/Download Test
-        run: docker exec -t dev_rucio_1 pytest -v --full-trace lib/rucio/tests/test_rucio_server.py
-      - name: Test Protocol XrootD
-        run: docker exec -t dev_rucio_1 pytest -v --full-trace lib/rucio/tests/test_rse_protocol_xrootd.py
-      - name: Stop containers
-        run: docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml down
+          docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          i=0; until [ "$i" -ge 3 ]; do
+            IMAGES=$(echo '${{ toJson(matrix.cfg) }}' | ./tools/test/build_images.py \
+                --cache-repo docker.pkg.github.com/${{ github.repository }} ./etc/docker/test || echo "")
+            if [[ -n $IMAGES ]]; then break;
+            else
+              i=$((i+1)); sleep 5;
+              echo "::warning::Building images failed, retrying…"
+            fi
+          done
+          docker logout https://docker.pkg.github.com
+          if [[ -z $IMAGES ]]; then exit 1; fi
+          echo "::set-output name=images::$IMAGES"
+#    steps:
+#      - name: Checkout rucio containers repository
+#        uses: actions/checkout@v2
+#        with:
+#          repository: rucio/containers
+#      - uses: actions/checkout@v2
+#        name: Checkout rucio source
+#        with:
+#          path: dev/rucio
+#      - name: Prepare Images
+#        shell: bash
+#        run: |
+#          sed -i "s/RUN git clone .*/COPY .\/rucio \/tmp\/rucio/" $GITHUB_WORKSPACE/dev/Dockerfile_py3
+#      - name: Build Images
+#        uses: whoan/docker-build-with-cache-action@v5
+#        id: build
+#        with:
+#          username: "${{ github.actor }}"
+#          password: "${{ secrets.GITHUB_TOKEN }}"
+#          registry: docker.pkg.github.com
+#          context: "${{ github.workspace }}/dev"
+#          dockerfile: Dockerfile_py3
+#          image_name: rucio-dev
+#      - name: Prepare Docker Compose
+#        shell: bash
+#        run: |
+#          IMG=$(echo "${{ steps.build.outputs.FULL_IMAGE_NAME }}" | sed 's_/_\\/_g')
+#          sed "s/image: rucio\/rucio-dev/image: $IMG/" $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml
+#      - name: Start containers
+#        run: docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml up -d
+#      - name: Initialize tests
+#        shell: bash
+#        run: |
+#          docker exec -t dev_rucio_1 cp etc/rse-accounts.cfg.template etc/rse-accounts.cfg
+#          docker exec -t dev_rucio_1 tools/run_tests_docker.sh -ir
+#      - name: File Upload/Download Test
+#        run: docker exec -t dev_rucio_1 pytest -v --full-trace lib/rucio/tests/test_rucio_server.py
+#      - name: Test Protocol XrootD
+#        run: docker exec -t dev_rucio_1 pytest -v --full-trace lib/rucio/tests/test_rse_protocol_xrootd.py
+#      - name: Stop containers
+#        run: docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml down
     outputs:
       image: ${{ steps.build.outputs.FULL_IMAGE_NAME }}

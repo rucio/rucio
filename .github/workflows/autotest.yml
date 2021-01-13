@@ -15,7 +15,7 @@ jobs:
         run: python3 -m pip install -U PyYAML
       - name: Identify Matrix
         id: matrix
-        run: echo "::set-output name=matrix::$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml)"
+        run: echo "::set-output name=matrix::$(jq '.[]  | select(.SUITE!="integration-test")' <<< $(./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml))"
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
   test:
