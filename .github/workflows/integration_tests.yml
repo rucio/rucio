@@ -51,21 +51,18 @@ jobs:
       - name: Prepare Docker Compose
         shell: bash
         run: |
-#          IMG=$(echo "${{ steps.images.outputs.images }}" | sed 's_/_\\/_g')
-          echo "${{ steps.images.outputs.images }}"
-#          sed "s/image: rucio\/rucio-dev/image: $IMG/" $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml
-#      - name: Start containers
-#        run: docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml up -d
-#      - name: Initialize tests
-#        shell: bash
-#        run: |
-#          docker exec -t dev_rucio_1 cp etc/rse-accounts.cfg.template etc/rse-accounts.cfg
-#          docker exec -t dev_rucio_1 tools/run_tests_docker.sh -ir
-#      - name: File Upload/Download Test
-#        run: docker exec -t dev_rucio_1 pytest -v --full-trace lib/rucio/tests/test_rucio_server.py
-#      - name: Test Protocol XrootD
-#        run: docker exec -t dev_rucio_1 pytest -v --full-trace lib/rucio/tests/test_rse_protocol_xrootd.py
-#      - name: Stop containers
-#        run: docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml down
-#    outputs:
-#      image: ${{ steps.build.outputs.FULL_IMAGE_NAME }}
+          IMG=$(docker image ls -q --filter "reference=docker.pkg.github.com/${{ github.repository }}/rucio-integration-test")
+          sed "s/image: rucio\/rucio-dev.*/image: $IMG/" $GITHUB_WORKSPACE/etc/docker/dev/docker-compose-storage.yml
+      - name: Start containers
+        run: docker-compose -f $GITHUB_WORKSPACE/etc/docker/dev/docker-compose-storage.yml up -d
+      - name: Initialize tests
+        shell: bash
+        run: |
+          docker exec -t dev_rucio_1 cp etc/rse-accounts.cfg.template etc/rse-accounts.cfg
+          docker exec -t dev_rucio_1 tools/run_tests_docker.sh -ir
+      - name: File Upload/Download Test
+        run: docker exec -t dev_rucio_1 pytest -v --full-trace lib/rucio/tests/test_rucio_server.py
+      - name: Test Protocol XrootD
+        run: docker exec -t dev_rucio_1 pytest -v --full-trace lib/rucio/tests/test_rse_protocol_xrootd.py
+      - name: Stop containers
+        run: docker-compose -f $GITHUB_WORKSPACE/etc/docker/dev/docker-compose-storage.yml down
