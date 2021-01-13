@@ -2,7 +2,7 @@ name: Run all the autotests
 
 on:
   - pull_request
-  - push
+  #- push
 
 jobs:
   setup:

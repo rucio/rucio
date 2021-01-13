@@ -6,8 +6,23 @@ on:
   - workflow_dispatch
 
 jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Update pip
+        run: python3 -m pip install -U pip setuptools
+      - name: Install python requirements for matrix_parser.py
+        run: python3 -m pip install -U PyYAML
+      - name: Identify Matrix
+        id: matrix
+        run: echo "::set-output name=matrix::$(jq '.[]  | select(.SUITE=="integration-test")' <<< $(./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml))"
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+
   integration-tests:
     runs-on: ubuntu-latest
+    needs: setup
     steps:
       - name: Checkout rucio containers repository
         uses: actions/checkout@v2
