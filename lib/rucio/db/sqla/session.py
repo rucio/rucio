@@ -19,6 +19,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Eric Vaandering <ewv@fnal.gov>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 #
 # PY3K COMPATIBLE
 
@@ -256,7 +257,6 @@ def get_session():
 
 def retry_if_db_connection_error(exception):
     """Return True if error in connecting to db."""
-    print(exception)
     if isinstance(exception, (OperationalError, DatabaseException)):
         conn_err_codes = ('2002', '2003', '2006',  # MySQL
                           'ORA-00028',  # Oracle session has been killed
@@ -339,11 +339,9 @@ def stream_session(function):
                 for row in function(*args, **kwargs):
                     yield row
             except TimeoutError as error:
-                print(error)
                 session.rollback()  # pylint: disable=maybe-no-member
                 raise DatabaseException(str(error))
             except DatabaseError as error:
-                print(error)
                 session.rollback()  # pylint: disable=maybe-no-member
                 raise DatabaseException(str(error))
             except:
@@ -377,11 +375,9 @@ def transactional_session(function):
                 result = function(*args, **kwargs)
                 session.commit()  # pylint: disable=maybe-no-member
             except TimeoutError as error:
-                print(error)
                 session.rollback()  # pylint: disable=maybe-no-member
                 raise DatabaseException(str(error))
             except DatabaseError as error:
-                print(error)
                 session.rollback()  # pylint: disable=maybe-no-member
                 raise DatabaseException(str(error))
             except:
