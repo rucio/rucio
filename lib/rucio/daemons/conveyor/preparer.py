@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020 CERN
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import logging
 import os
@@ -28,6 +28,7 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.exception import RucioException
+from rucio.common.utils import formatted_logger
 from rucio.core import heartbeat
 from rucio.core.request import preparer_update_requests, minimum_distance_requests
 from rucio.core.transfer import __list_transfer_requests_and_source_replicas
@@ -96,6 +97,8 @@ def preparer(once, sleep_time, bulk):
     current_thread = threading.current_thread()
     worker_number = current_thread
     total_workers = '?'
+    prefix = 'conveyor-preparer[%s/%s] ' % (worker_number, total_workers)
+    daemon_logger = formatted_logger(logging.log, prefix + '%s')
     heartbeat.sanity_check(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
 
     try:
@@ -107,10 +110,13 @@ def preparer(once, sleep_time, bulk):
             worker_number = pulse['assign_thread']
             total_workers = pulse['nr_threads']
 
+            prefix = 'conveyor-preparer[%s/%s] ' % (worker_number, total_workers)
+            daemon_logger = formatted_logger(logging.log, prefix + '%s')
+
             try:
                 updated_msg = run_once(total_workers=total_workers, worker_number=worker_number, limit=bulk)
             except RucioException:
-                logging.exception('conveyor-preparer[%s/%s] errored with a RucioException, retrying later' % (worker_number, total_workers))
+                daemon_logger(logging.ERROR, 'errored with a RucioException, retrying later', exc_info=True)
                 updated_msg = 'errored'
 
             if once:
@@ -118,13 +124,13 @@ def preparer(once, sleep_time, bulk):
 
             end_time = time()
             time_diff = end_time - start_time
-            logging.info('conveyor-preparer[%s/%s] %s, taking %.3f seconds' % (worker_number, total_workers, updated_msg, time_diff))
+            daemon_logger(logging.INFO, '%s, taking %.3f seconds' % (updated_msg, time_diff))
             if time_diff < sleep_time:
                 sleep_remaining = sleep_time - time_diff
-                logging.info('conveyor-preparer[%s/%s] sleeping for a while :  %.2f seconds' % (worker_number, total_workers, sleep_remaining))
+                daemon_logger(logging.DEBUG, 'sleeping for a while :  %.2f seconds' % sleep_remaining)
                 graceful_stop.wait(sleep_remaining)
 
-        logging.info('conveyor-preparer[%s/%s]: gracefully stopping' % (worker_number, total_workers))
+        daemon_logger(logging.INFO, 'gracefully stopping')
 
     finally:
         heartbeat.die(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
