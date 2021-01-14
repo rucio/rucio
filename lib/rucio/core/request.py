@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2021
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2020
@@ -382,11 +382,11 @@ def query_request(request_id, transfertool='fts3', session=None):
         else:
             if 'job_state' not in response:
                 req_status['new_state'] = RequestState.LOST
-            elif response['job_state'] in (str(FTSState.FAILED),
-                                           str(FTSState.FINISHEDDIRTY),
-                                           str(FTSState.CANCELED)):
+            elif response['job_state'] in (str(FTSState.FAILED.name),
+                                           str(FTSState.FINISHEDDIRTY.name),
+                                           str(FTSState.CANCELED.name)):
                 req_status['new_state'] = RequestState.FAILED
-            elif response['job_state'] == str(FTSState.FINISHED):
+            elif response['job_state'] == str(FTSState.FINISHED.name):
                 req_status['new_state'] = RequestState.DONE
     else:
         raise NotImplementedError

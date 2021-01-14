@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Igor Mandrichenko <rucio@fermicloud055.fnal.gov>, 2018
@@ -302,11 +302,11 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeou
                 fts_resps[transfer_id] = Exception("Transfer id %s is not returned" % transfer_id)
             if fts_resps[transfer_id] and not isinstance(fts_resps[transfer_id], Exception):
                 for request_id in fts_resps[transfer_id]:
-                    if fts_resps[transfer_id][request_id]['file_state'] in (str(FTSState.FAILED),
-                                                                            str(FTSState.FINISHEDDIRTY),
-                                                                            str(FTSState.CANCELED)):
+                    if fts_resps[transfer_id][request_id]['file_state'] in (str(FTSState.FAILED.name),
+                                                                            str(FTSState.FINISHEDDIRTY.name),
+                                                                            str(FTSState.CANCELED.name)):
                         fts_resps[transfer_id][request_id]['new_state'] = RequestState.FAILED
-                    elif fts_resps[transfer_id][request_id]['file_state'] in str(FTSState.FINISHED):
+                    elif fts_resps[transfer_id][request_id]['file_state'] in str(FTSState.FINISHED.name):
                         fts_resps[transfer_id][request_id]['new_state'] = RequestState.DONE
         return fts_resps
     elif transfertool == 'globus':
