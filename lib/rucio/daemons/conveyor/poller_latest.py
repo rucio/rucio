@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2020 CERN
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2021
 
 """
 Conveyor is a daemon to manage file transfers.
@@ -80,7 +81,10 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
                 logging.debug('polling latest %s hours on host: %s' % (last_nhours, external_host))
                 ts = time.time()
                 resps = None
-                state = [str(FTSState.FINISHED), str(FTSState.FAILED), str(FTSState.FINISHEDDIRTY), str(FTSState.CANCELED)]
+                state = [str(FTSState.FINISHED.name),
+                         str(FTSState.FAILED.name),
+                         str(FTSState.FINISHEDDIRTY.name),
+                         str(FTSState.CANCELED.name)]
                 try:
                     resps = transfer.query_latest(external_host, state=state, last_nhours=last_nhours)
                 except Exception:
