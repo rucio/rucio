@@ -57,7 +57,7 @@ def build_images(matrix, script_args, test_mode):
             elif script_args.cache_repo:
                 args = ('docker', 'pull', imagetag)
                 print("Running", " ".join(args), file=sys.stderr)
-                subprocess.run(args, stdout=sys.stderr, check=False)
+                # subprocess.run(args, stdout=sys.stderr, check=False)
                 cache_args = ('--cache-from', imagetag)
 
             buildfile = pathlib.Path(script_args.buildfiles_dir) / f'{dist}.Dockerfile'
@@ -66,13 +66,13 @@ def build_images(matrix, script_args, test_mode):
                     '.')
 
             print("Running", " ".join(args), file=sys.stderr)
-            subprocess.run(args, stdout=sys.stderr, check=True)
+            # subprocess.run(args, stdout=sys.stderr, check=True)
             print("Finished building image", imagetag, file=sys.stderr)
 
             if script_args.push_cache:
                 args = ('docker', 'push', imagetag)
                 print("Running", " ".join(args), file=sys.stderr)
-                subprocess.run(args, stdout=sys.stderr, check=True)
+                # subprocess.run(args, stdout=sys.stderr, check=True)
 
             images[imagetag] = {DIST_KEY: dist, **buildargs._asdict()}
 
