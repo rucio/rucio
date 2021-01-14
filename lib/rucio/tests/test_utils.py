@@ -1,4 +1,5 @@
-# Copyright 2017-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2017-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,11 +17,10 @@
 # - Frank Berghaus <frank.berghaus@cern.ch>, 2017-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import datetime
+import logging
 import tempfile
 import unittest
 from re import match
@@ -28,7 +28,7 @@ from re import match
 import pytest
 
 from rucio.common.exception import InvalidType
-from rucio.common.utils import md5, adler32, parse_did_filter_from_string
+from rucio.common.utils import md5, adler32, parse_did_filter_from_string, formatted_logger
 
 
 class TestUtils(unittest.TestCase):
@@ -88,3 +88,16 @@ class TestUtils(unittest.TestCase):
         with pytest.raises(InvalidType):
             input = 'type=g'
             parse_did_filter_from_string(input)
+
+
+def test_formatted_logger():
+    result = None
+
+    def log_func(level, msg, *args, **kwargs):
+        nonlocal result
+        result = (level, msg)
+
+    new_log_func = formatted_logger(log_func, "a %s c")
+
+    new_log_func(logging.INFO, "b")
+    assert result == (logging.INFO, "a b c")

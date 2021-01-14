@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
@@ -31,7 +31,7 @@
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from __future__ import print_function
 
@@ -45,6 +45,7 @@ import base64
 import copy
 import datetime
 import errno
+import functools
 import getpass
 import hashlib
 import json
@@ -59,7 +60,6 @@ import tempfile
 import threading
 import time
 import zlib
-
 from enum import Enum
 from logging import getLogger, Formatter  # NOQA: F401
 from logging.handlers import RotatingFileHandler
@@ -1448,3 +1448,19 @@ class retry:
                     logger.debug(str(e))
                 attempt -= 1
         return self.func(*self.args, **self.kwargs)
+
+
+def formatted_logger(innerfunc, formatstr="%s"):
+    """
+    Decorates the passed function, formatting log input by
+    the passed formatstr. The format string must always include a %s.
+
+    :param innerfunc: function to be decorated. Must take (level, msg) arguments.
+    :type innerfunc: Callable
+    :param formatstr: format string with %s as placeholder.
+    :type formatstr: str
+    """
+    @functools.wraps(innerfunc)
+    def log_format(level, msg, *args, **kwargs):
+        return innerfunc(level, formatstr % msg, *args, **kwargs)
+    return log_format
