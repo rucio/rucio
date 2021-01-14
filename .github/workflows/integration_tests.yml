@@ -61,8 +61,8 @@ jobs:
           docker exec -t dev_rucio_1 cp etc/rse-accounts.cfg.template etc/rse-accounts.cfg
           docker exec -t dev_rucio_1 tools/run_tests_docker.sh -ir
       - name: File Upload/Download Test
-        run: docker exec -t dev_rucio_1 pytest -v --full-trace lib/rucio/tests/test_rucio_server.py
+        run: docker exec -t dev_rucio_1 python -bb -m pytest -vvvrxs lib/rucio/tests/test_rucio_server.py
       - name: Test Protocol XrootD
-        run: docker exec -t dev_rucio_1 pytest -v --full-trace lib/rucio/tests/test_rse_protocol_xrootd.py
+        run: docker exec -t dev_rucio_1 python -bb -m pytest -vvvrxs lib/rucio/tests/test_rse_protocol_xrootd.py
       - name: Stop containers
         run: docker-compose -f $GITHUB_WORKSPACE/etc/docker/dev/docker-compose-storage.yml down
