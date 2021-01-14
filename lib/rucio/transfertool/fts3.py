@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2021
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Wen Guan <wen.guan@cern.ch>, 2014-2016
@@ -682,7 +682,7 @@ class FTS3Transfertool(Transfertool):
         """
         last_src_file = 0
         for i in range(len(fts_files_response)):
-            if fts_files_response[i]['file_state'] in [str(FTSState.FINISHED)]:
+            if fts_files_response[i]['file_state'] in [str(FTSState.FINISHED.name)]:
                 last_src_file = i
                 break
             if fts_files_response[i]['file_state'] != 'NOT_USED':
@@ -750,10 +750,10 @@ class FTS3Transfertool(Transfertool):
                     continue
 
                 # not terminated job
-                if file_resp['file_state'] not in [str(FTSState.FAILED),
-                                                   str(FTSState.FINISHEDDIRTY),
-                                                   str(FTSState.CANCELED),
-                                                   str(FTSState.FINISHED)]:
+                if file_resp['file_state'] not in [str(FTSState.FAILED.name),
+                                                   str(FTSState.FINISHEDDIRTY.name),
+                                                   str(FTSState.CANCELED.name),
+                                                   str(FTSState.FINISHED.name)]:
                     continue
 
                 if file_resp['start_time'] is None or file_resp['finish_time'] is None:
@@ -794,7 +794,7 @@ class FTS3Transfertool(Transfertool):
                                      'details': {'files': file_resp['file_metadata']}}
 
                 # multiple source replicas jobs and we found the successful one, it's the final state.
-                if multi_sources and file_resp['file_state'] in [str(FTSState.FINISHED)]:
+                if multi_sources and file_resp['file_state'] in [str(FTSState.FINISHED.name)]:
                     break
         return resps
 
@@ -808,10 +808,10 @@ class FTS3Transfertool(Transfertool):
             if job_response['http_status'] == '200 Ok':
                 files_response = job_response['files']
                 multi_sources = job_response['job_metadata'].get('multi_sources', False)
-                if multi_sources and job_response['job_state'] not in [str(FTSState.FAILED),
-                                                                       str(FTSState.FINISHEDDIRTY),
-                                                                       str(FTSState.CANCELED),
-                                                                       str(FTSState.FINISHED)]:
+                if multi_sources and job_response['job_state'] not in [str(FTSState.FAILED.name),
+                                                                       str(FTSState.FINISHEDDIRTY.name),
+                                                                       str(FTSState.CANCELED.name),
+                                                                       str(FTSState.FINISHED.name)]:
                     # multipe source replicas jobs is still running. should wait
                     responses[transfer_id] = {}
                     continue
