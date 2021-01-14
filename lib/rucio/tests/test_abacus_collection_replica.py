@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2020 CERN
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - Martin Barisits <martin.barisits@cern.ch>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2020-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 
 import os
@@ -37,7 +37,7 @@ from rucio.core.replica import delete_replicas, get_cleaned_updated_collection_r
 from rucio.core.rse import get_rse_id, add_rse
 from rucio.daemons.abacus import collection_replica
 from rucio.daemons.judge import cleaner
-from rucio.daemons.reaper import reaper
+from rucio.daemons.reaper import reaper2
 from rucio.daemons.undertaker import undertaker
 from rucio.db.sqla import models, session
 from rucio.db.sqla.constants import DIDType, ReplicaState
@@ -70,9 +70,9 @@ class TestAbacusCollectionReplica(unittest.TestCase):
         undertaker.run(once=True)
         cleaner.run(once=True)
         if cls.vo:
-            reaper.run(once=True, include_rses='vo=%s&(%s)' % (cls.vo['vo'], cls.rse), greedy=True)
+            reaper2.run(once=True, include_rses='vo=%s&(%s)' % (cls.vo['vo'], cls.rse), greedy=True)
         else:
-            reaper.run(once=True, include_rses=cls.rse, greedy=True)
+            reaper2.run(once=True, include_rses=cls.rse, greedy=True)
 
     def test_abacus_collection_replica_cleanup(self):
         """ ABACUS (COLLECTION REPLICA): Test if the cleanup procedure works correctly. """
@@ -140,11 +140,13 @@ class TestAbacusCollectionReplica(unittest.TestCase):
         assert str(dataset_replica['state']) == 'UNAVAILABLE'
 
         # Delete all files -> collection replica should be deleted
+        from rucio.daemons.reaper.reaper2 import REGION
+        REGION.invalidate()
         cleaner.run(once=True)
         if self.vo:
-            reaper.run(once=True, include_rses='vo=%s&(%s)' % (self.vo['vo'], self.rse), greedy=True)
+            reaper2.run(once=True, include_rses='vo=%s&(%s)' % (self.vo['vo'], self.rse), greedy=True)
         else:
-            reaper.run(once=True, include_rses=self.rse, greedy=True)
+            reaper2.run(once=True, include_rses=self.rse, greedy=True)
         self.rule_client.add_replication_rule([{'scope': self.scope, 'name': self.dataset}], 1, self.rse, lifetime=-1)
         collection_replica.run(once=True)
         dataset_replica = [replica for replica in self.replica_client.list_dataset_replicas(self.scope, self.dataset)]

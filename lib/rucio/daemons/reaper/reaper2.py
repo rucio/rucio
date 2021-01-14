@@ -91,7 +91,7 @@ def get_rses_to_process(rses, include_rses, exclude_rses, vos):
     :param exclude_rses:       RSE expression to exclude RSEs from the Reaper.
     :param include_rses:       RSE expression to include RSEs.
     :param vos:                VOs on which to look for RSEs. Only used in multi-VO mode.
-                               If None, we either use all VOs if run from "def",
+                               If None, we either use all VOs if run from "def"
 
     :returns: A list of RSEs to process
     """
@@ -113,6 +113,7 @@ def get_rses_to_process(rses, include_rses, exclude_rses, vos):
     cache_key = 'rses_to_process'
     if multi_vo:
         cache_key += '@%s' % '-'.join(vo for vo in vos)
+
     result = REGION.get(cache_key)
     if result is not NO_VALUE:
         return result
@@ -238,7 +239,7 @@ def get_rses_to_hostname_mapping():
     """
     Return a dictionaries mapping the RSEs to the hostname of the SE
 
-    :returns: Dictionary with RSE_id as key and (hostname, rse_info) as value
+    :returns:      Dictionary with RSE_id as key and (hostname, rse_info) as value
     """
 
     result = REGION.get('rse_hostname_mapping')
@@ -536,13 +537,11 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                             tot_threads_for_hostname += payload_cnt[key]
                         if key.split(',')[0] == str(rse_id):
                             tot_threads_for_rse += payload_cnt[key]
-
                 max_deletion_thread = get_max_deletion_threads_by_hostname(rse_hostname)
                 if rse_hostname_key in payload_cnt and tot_threads_for_hostname >= max_deletion_thread:
                     logger(logging.DEBUG, 'Too many deletion threads for %s on RSE %s. Back off', rse_hostname, rse_name)
                     # Might need to reschedule a try on this RSE later in the same cycle
                     continue
-
                 logger(logging.INFO, 'Nb workers on %s smaller than the limit (current %i vs max %i). Starting new worker on RSE %s', rse_hostname, tot_threads_for_hostname, max_deletion_thread, rse_name)
                 live(executable, hostname, pid, hb_thread, older_than=600, hash_executable=None, payload=rse_hostname_key, session=None)
                 logger(logging.DEBUG, 'Total deletion workers for %s : %i', rse_hostname, tot_threads_for_hostname + 1)
@@ -569,7 +568,6 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                     continue
                 except Exception:
                     logger(logging.CRITICAL, 'Exception', exc_info=True)
-
                 # Physical  deletion will take place there
                 try:
                     prot = rsemgr.create_protocol(rse_info, 'delete', scheme=scheme, logger=logger)
