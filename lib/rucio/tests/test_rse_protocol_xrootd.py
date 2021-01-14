@@ -144,34 +144,6 @@ class TestRseXROOTD(unittest.TestCase):
         self.rse_id, self.prefix, self.hostname, self.port = TestRseXROOTD.get_rse_info()
         self.mtc = MgrTestCases(self.tmpdir, self.rse_id, TestRseXROOTD.user, TestRseXROOTD.static_file)
 
-    # Mgr-Tests: GET
-    # def test_multi_get_mgr_ok(self):
-    #     """XROOTD (RSE/PROTOCOLS): Get multiple files from storage providing LFNs and PFNs (Success)"""
-    #     self.mtc.test_multi_get_mgr_ok()
-    #
-    # def test_get_mgr_ok_single_lfn(self):
-    #     """XROOTD (RSE/PROTOCOLS): Get a single file from storage providing LFN (Success)"""
-    #     self.mtc.test_get_mgr_ok_single_lfn()
-    #
-    # def test_get_mgr_ok_single_pfn(self):
-    #     """XROOTD (RSE/PROTOCOLS): Get a single file from storage providing PFN (Success)"""
-    #     self.mtc.test_get_mgr_ok_single_pfn()
-    #
-    # def test_get_mgr_SourceNotFound_multi(self):
-    #     """XROOTD (RSE/PROTOCOLS): Get multiple files from storage providing LFNs and PFNs (SourceNotFound)"""
-    #     with pytest.raises(exception.SourceNotFound):
-    #         self.mtc.test_get_mgr_SourceNotFound_multi()
-    #
-    # def test_get_mgr_SourceNotFound_single_lfn(self):
-    #     """XROOTD (RSE/PROTOCOLS): Get a single file from storage providing LFN (SourceNotFound)"""
-    #     with pytest.raises(exception.SourceNotFound):
-    #         self.mtc.test_get_mgr_SourceNotFound_single_lfn()
-    #
-    # def test_get_mgr_SourceNotFound_single_pfn(self):
-    #     """XROOTD (RSE/PROTOCOLS): Get a single file from storage providing PFN (SourceNotFound)"""
-    #     with pytest.raises(exception.SourceNotFound):
-    #         self.mtc.test_get_mgr_SourceNotFound_single_pfn()
-
     # Mgr-Tests: PUT
     def test_put_mgr_ok_multi(self):
         """XROOTD (RSE/PROTOCOLS): Put multiple files to storage providing LFNs and PFNs (Success)"""
