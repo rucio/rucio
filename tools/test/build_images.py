@@ -50,14 +50,13 @@ def build_images(matrix, script_args, test_mode):
             imagetag = f'rucio-{test_mode}:{dist.lower()}{buildargs_tags}'
             if script_args.cache_repo:
                 imagetag = script_args.cache_repo.lower() + '/' + imagetag
-            print(buildargs_list)
             cache_args = ()
             if script_args.build_no_cache:
                 cache_args = ('--no-cache', '--pull-always' if use_podman else '--pull')
             elif script_args.cache_repo:
                 args = ('docker', 'pull', imagetag)
                 print("Running", " ".join(args), file=sys.stderr)
-                # subprocess.run(args, stdout=sys.stderr, check=False)
+                subprocess.run(args, stdout=sys.stderr, check=False)
                 cache_args = ('--cache-from', imagetag)
 
             buildfile = pathlib.Path(script_args.buildfiles_dir) / f'{dist}.Dockerfile'
@@ -66,20 +65,17 @@ def build_images(matrix, script_args, test_mode):
                     '.')
 
             print("Running", " ".join(args), file=sys.stderr)
-            # subprocess.run(args, stdout=sys.stderr, check=True)
+            subprocess.run(args, stdout=sys.stderr, check=True)
             print("Finished building image", imagetag, file=sys.stderr)
 
             if script_args.push_cache:
                 args = ('docker', 'push', imagetag)
                 print("Running", " ".join(args), file=sys.stderr)
-                # subprocess.run(args, stdout=sys.stderr, check=True)
+                subprocess.run(args, stdout=sys.stderr, check=True)
 
             images[imagetag] = {DIST_KEY: dist, **buildargs._asdict()}
 
-    if script_args.output == 'dict':
-        json.dump(images, sys.stdout)
-    elif script_args.output == 'list':
-        json.dump(list(images.keys()), sys.stdout)
+    return images
 
 
 def main():
@@ -103,8 +99,18 @@ def main():
     for x in matrix:
         autotests.append(x) if x['SUITE'] != 'integration-test' else integration_tests.append(x)
 
-    build_images(integration_tests, script_args, 'integration-test')
-    build_images(autotests, script_args, 'autotest')
+    images = dict()
+
+    autotest_images = build_images(matrix, script_args, test_mode='autotest')
+    integration_test_images = build_images(matrix, script_args, test_mode='integration-test')
+
+    images.update(autotest_images)
+    images.update(integration_test_images)
+
+    if script_args.output == 'dict':
+        json.dump(images, sys.stdout)
+    elif script_args.output == 'list':
+        json.dump(list(images.keys()), sys.stdout)
 
 
 if __name__ == "__main__":
