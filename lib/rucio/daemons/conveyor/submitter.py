@@ -24,7 +24,7 @@
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2016
 # - dciangot <diego.ciangottini@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - maatthias <maatthias@gmail.com>, 2019
+# - Matt Snyder <msnyder@bnl.gov>, 2019-2021
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Nick Smith <nick.smith@cern.ch>, 2020
@@ -118,6 +118,8 @@ def submitter(once=False, rses=None, mock=False,
     if activities:
         activities.sort()
         executable += '--activities ' + str(activities)
+    if TRANSFER_TOOL:
+        executable += ' --transfertool ' + TRANSFER_TOOL
 
     hostname = socket.getfqdn()
     pid = os.getpid()
@@ -170,7 +172,9 @@ def submitter(once=False, rses=None, mock=False,
                                             max_sources=max_sources,
                                             bring_online=bring_online,
                                             retry_other_fts=retry_other_fts,
+                                            transfertool=TRANSFER_TOOL,
                                             logger=logger)
+
                 record_timer('daemons.conveyor.transfer_submitter.get_transfers.per_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
                 record_counter('daemons.conveyor.transfer_submitter.get_transfers', len(transfers))
                 GET_TRANSFERS_COUNTER.inc(len(transfers))
@@ -313,7 +317,7 @@ def run(once=False, group_bulk=1, group_policy='rule', mock=False,
 
 def __get_transfers(total_workers=0, worker_number=0, failover_schemes=None, limit=None, activity=None, older_than=None,
                     rses=None, schemes=None, mock=False, max_sources=4, bring_online=43200,
-                    retry_other_fts=False, logger=logging.log):
+                    retry_other_fts=False, transfertool=None, logger=logging.log):
     """
     Get transfers to process
 
@@ -330,6 +334,7 @@ def __get_transfers(total_workers=0, worker_number=0, failover_schemes=None, lim
     :bring_online:           Bring online timeout.
     :param logger:           Optional decorated logger that can be passed from the calling daemons or servers.
     :retry_other_fts:        Retry other fts servers if needed
+    :transfertool:           The transfer tool as specified in rucio.cfg
     :returns:                List of transfers
     """
 
@@ -342,7 +347,8 @@ def __get_transfers(total_workers=0, worker_number=0, failover_schemes=None, lim
                                                                                                                                      schemes=schemes,
                                                                                                                                      bring_online=bring_online,
                                                                                                                                      retry_other_fts=retry_other_fts,
-                                                                                                                                     failover_schemes=failover_schemes)
+                                                                                                                                     failover_schemes=failover_schemes,
+                                                                                                                                     transfertool=transfertool)
     request_core.set_requests_state(reqs_no_source, RequestState.NO_SOURCES, logger=logger)
     request_core.set_requests_state(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES, logger=logger)
     request_core.set_requests_state(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME, logger=logger)
