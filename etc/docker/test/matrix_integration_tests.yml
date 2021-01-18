@@ -1,0 +1,18 @@
+dists:
+  - id: centos7
+    allow:
+      python:
+        - "2.7"
+        - "3.6"
+        - "3.7"
+python:
+  - id: "2.7"
+    allow:
+      suites:
+        - integration-test
+  - "3.6"
+  - "3.7"
+  - "3.8"
+suites:
+  - id: integration-test
+

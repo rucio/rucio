@@ -32,22 +32,29 @@ BUILD_ARG_KEYS = ["PYTHON"]
 BuildArgs = collections.namedtuple('BuildArgs', BUILD_ARG_KEYS)
 
 
-def build_images(matrix, script_args, test_mode):
+def build_images(matrix, script_args):
+
+    for dist, args in itertools.groupby(matrix, lambda d: d[DIST_KEY]):
+        for arg in args:
+            if "image_identifier" not in arg:
+                arg['image_identifier'] = 'autotest'
+
     filter_build_args = partial(map,
                                 lambda argdict: {arg: val for arg, val in argdict.items() if arg in BUILD_ARG_KEYS})
     make_buildargs = partial(map, lambda argdict: BuildArgs(**argdict))
     distribution_buildargs = {dist: (set(make_buildargs(filter_build_args(args)))) for dist, args in
                               itertools.groupby(matrix, lambda d: d[DIST_KEY])}
-
     use_podman = 'USE_PODMAN' in os.environ and os.environ['USE_PODMAN'] == '1'
     images = dict()
     for dist, buildargs_list in distribution_buildargs.items():
         for buildargs in buildargs_list:
-            buildargs_tags = '-'.join(map(lambda it: str(it[0]).lower() + str(it[1]).lower(),
-                                          buildargs._asdict().items()))
+            filtered_buildargs = buildargs._asdict()
+            del filtered_buildargs['image_identifier']
+            buildargs_tags = '-'.join(map(lambda it: str(it[0]).lower() + str(it[1]).lower() if '' else '',
+                                          filtered_buildargs.items()))
             if buildargs_tags:
                 buildargs_tags = '-' + buildargs_tags
-            imagetag = f'rucio-{test_mode}:{dist.lower()}{buildargs_tags}'
+            imagetag = f'rucio-{buildargs.image_identifier}:{dist.lower()}{buildargs_tags}'
             if script_args.cache_repo:
                 imagetag = script_args.cache_repo.lower() + '/' + imagetag
             cache_args = ()
@@ -95,17 +102,7 @@ def main():
                         help='push the images to the cache repo')
     script_args = parser.parse_args()
 
-    integration_tests, autotests = [], []
-    for x in matrix:
-        autotests.append(x) if x['SUITE'] != 'integration-test' else integration_tests.append(x)
-
-    images = dict()
-
-    autotest_images = build_images(matrix, script_args, test_mode='autotest')
-    integration_test_images = build_images(matrix, script_args, test_mode='integration-test')
-
-    images.update(autotest_images)
-    images.update(integration_test_images)
+    images = build_images(matrix, script_args)
 
     if script_args.output == 'dict':
         json.dump(images, sys.stdout)

@@ -16,7 +16,7 @@ jobs:
         run: python3 -m pip install -U PyYAML
       - name: Identify Matrix
         id: matrix
-        run: echo "::set-output name=matrix::$(jq -c '[.[]  | select(.SUITE=="integration-test")]' <<< $(./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml))"
+        run: echo "::set-output name=matrix::$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix_integration_tests.yml)"
       - name: test output
         run: echo "${{ steps.matrix.outputs.matrix }}"
     outputs:
@@ -52,7 +52,7 @@ jobs:
         shell: bash
         run: |
           IMG=$(docker image ls -q --filter "reference=docker.pkg.github.com/${{ github.repository }}/rucio-integration-test")
-          sed "s/image: rucio\/rucio-dev.*/image: $IMG/" $GITHUB_WORKSPACE/etc/docker/dev/docker-compose-storage.yml
+          sed -i "s/image: rucio\/rucio-dev.*/image: $IMG/" $GITHUB_WORKSPACE/etc/docker/dev/docker-compose-storage.yml
       - name: Start containers
         run: docker-compose -f $GITHUB_WORKSPACE/etc/docker/dev/docker-compose-storage.yml up -d
       - name: Initialize tests

@@ -49,3 +49,4 @@ suites:
       - flask
 
   - id: integration-test
+    image_identifier: integration-test
