@@ -3,7 +3,6 @@ name: End to End integration tests
 on:
   - pull_request
   - push
-  - workflow_dispatch
 
 jobs:
   setup:
@@ -51,7 +50,9 @@ jobs:
       - name: Prepare Docker Compose
         shell: bash
         run: |
-          IMG=$(docker image ls -q --filter "reference=docker.pkg.github.com/${{ github.repository }}/rucio-integration-test")
+          docker image ls
+          IMG=$(docker image ls -q --filter "reference=docker.pkg.github.com/${{ github.repository }}/rucio-integration-test" | head -1)
+          echo "$IMG"
           sed -i "s/image: rucio\/rucio-dev.*/image: $IMG/" $GITHUB_WORKSPACE/etc/docker/dev/docker-compose-storage.yml
       - name: Start containers
         run: docker-compose -f $GITHUB_WORKSPACE/etc/docker/dev/docker-compose-storage.yml up -d
