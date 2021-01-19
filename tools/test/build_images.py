@@ -91,8 +91,7 @@ def build_images(matrix, script_args):
 
 
 def main():
-    # matrix = json.load(sys.stdin)
-    matrix = json.loads('[{"DIST": "centos7", "PYTHON": "2.7", "SUITE": "integration-test"}, {"DIST": "centos7", "PYTHON": "3.6", "SUITE": "integration-test"}, {"DIST": "centos7", "PYTHON": "3.7", "SUITE": "integration-test"}]')
+    matrix = json.load(sys.stdin)
     matrix = (matrix,) if isinstance(matrix, dict) else matrix
 
     parser = argparse.ArgumentParser(description='Build images according to the test matrix read from stdin.')
