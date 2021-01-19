@@ -268,7 +268,7 @@ def download_rse_dump(rse, configuration, date='latest', destdir=DUMPS_CACHE_DIR
         'ddmendpoint',
         rse,
         date.strftime('%d-%m-%Y'),
-        hashlib.sha1(url).hexdigest()
+        hashlib.sha1(url.encode()).hexdigest()
     )
     filename = re.sub(r'\W', '-', filename)
     path = os.path.join(destdir, filename)
