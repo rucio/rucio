@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 #
 # PY3K COMPATIBLE
 
@@ -524,7 +525,7 @@ def delete(rse_settings, lfns, domain='wan', auth_token=None):
     ret = {}
     gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
 
-    protocol = create_protocol(rse_settings, 'delete', domain, auth_token=auth_token)
+    protocol = create_protocol(rse_settings, 'delete', domain=domain, auth_token=auth_token)
     protocol.connect()
 
     lfns = [lfns] if not type(lfns) is list else lfns
@@ -574,7 +575,7 @@ def rename(rse_settings, files, domain='wan', auth_token=None):
     ret = {}
     gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
 
-    protocol = create_protocol(rse_settings, 'write', domain, auth_token=auth_token)
+    protocol = create_protocol(rse_settings, 'write', domain=domain, auth_token=auth_token)
     protocol.connect()
 
     files = [files] if not type(files) is list else files
