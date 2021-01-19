@@ -15,4 +15,4 @@ python:
   - "3.8"
 suites:
   - id: integration-test
-
+    image_identifier: integration-test

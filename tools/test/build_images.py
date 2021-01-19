@@ -28,17 +28,22 @@ import sys
 from functools import partial
 
 DIST_KEY = "DIST"
-BUILD_ARG_KEYS = ["PYTHON"]
+BUILD_ARG_KEYS = ["PYTHON", "image_identifier"]
 BuildArgs = collections.namedtuple('BuildArgs', BUILD_ARG_KEYS)
+
+
+def add_image_identifier(grouped_args):
+    for dist, args in grouped_args:
+        for arg in args:
+            if "image_identifier" not in arg:
+                arg['image_identifier'] = 'autotest'
+    return grouped_args
 
 
 def build_images(matrix, script_args):
 
-    for dist, args in itertools.groupby(matrix, lambda d: d[DIST_KEY]):
-        for arg in args:
-            if "image_identifier" not in arg:
-                arg['image_identifier'] = 'autotest'
-
+    grouped_args = itertools.groupby(matrix, lambda d: d[DIST_KEY])
+    add_image_identifier(grouped_args)
     filter_build_args = partial(map,
                                 lambda argdict: {arg: val for arg, val in argdict.items() if arg in BUILD_ARG_KEYS})
     make_buildargs = partial(map, lambda argdict: BuildArgs(**argdict))
@@ -86,7 +91,8 @@ def build_images(matrix, script_args):
 
 
 def main():
-    matrix = json.load(sys.stdin)
+    # matrix = json.load(sys.stdin)
+    matrix = json.loads('[{"DIST": "centos7", "PYTHON": "2.7", "SUITE": "integration-test"}, {"DIST": "centos7", "PYTHON": "3.6", "SUITE": "integration-test"}, {"DIST": "centos7", "PYTHON": "3.7", "SUITE": "integration-test"}]')
     matrix = (matrix,) if isinstance(matrix, dict) else matrix
 
     parser = argparse.ArgumentParser(description='Build images according to the test matrix read from stdin.')
