@@ -351,17 +351,8 @@ class DidColumnMeta(DidMetaPlugin):
         """
         raise NotImplementedError('The DidColumnMeta plugin does not currently support deleting metadata.')
 
-    def manages_key(self, key):
-        """
-        Returns wether key is managed by this plugin or not.
-
-        :param key: Key of the metadata.
-        :returns (Boolean)
-        """
-        if key in HARDCODED_KEYS:  # or hasattr(models.DataIdentifier, key):
-            return True
-
-        return False
+    def manages_key(self, key, session=None):
+        return key in HARDCODED_KEYS  # alternatively hasattr(models.DataIdentifier, key)
 
     def get_plugin_name(self):
         """

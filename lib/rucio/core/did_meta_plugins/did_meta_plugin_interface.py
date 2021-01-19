@@ -107,11 +107,11 @@ class DidMetaPlugin(object):
         pass
 
     @abstractmethod
-    def manages_key(self, key):
+    def manages_key(self, key, session=None):
         """
         Returns whether key is managed by this plugin or not.
-        JSON plugin should be considered a wildcard.
         :param key: Key of the metadata.
+        :param session: The database session in use.
         :returns (Boolean)
         """
         pass
