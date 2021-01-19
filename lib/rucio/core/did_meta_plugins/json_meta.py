@@ -176,14 +176,9 @@ class JSONDidMeta(DidMetaPlugin):
             for row in query.yield_per(5):
                 yield row.name
 
-    def manages_key(self, key):
-        """
-        Returns whether key is managed by this plugin or not.
-        JSON plugin should be considered a wildcard.
-        :param key: Key of the metadata.
-        :returns (Boolean)
-        """
-        return True
+    @read_session
+    def manages_key(self, key, session=None):
+        return self.json_implemented(session=session)
 
     def get_plugin_name(self):
         """
