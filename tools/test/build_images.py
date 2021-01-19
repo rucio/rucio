@@ -28,15 +28,15 @@ import sys
 from functools import partial
 
 DIST_KEY = "DIST"
-BUILD_ARG_KEYS = ["PYTHON", "image_identifier"]
+BUILD_ARG_KEYS = ["PYTHON", "IMAGE_IDENTIFIER"]
 BuildArgs = collections.namedtuple('BuildArgs', BUILD_ARG_KEYS)
 
 
 def add_image_identifier(grouped_args):
     for dist, args in grouped_args:
         for arg in args:
-            if "image_identifier" not in arg:
-                arg['image_identifier'] = 'autotest'
+            if "IMAGE_IDENTIFIER" not in arg:
+                arg['IMAGE_IDENTIFIER'] = 'autotest'
     return grouped_args
 
 
@@ -54,12 +54,12 @@ def build_images(matrix, script_args):
     for dist, buildargs_list in distribution_buildargs.items():
         for buildargs in buildargs_list:
             filtered_buildargs = buildargs._asdict()
-            del filtered_buildargs['image_identifier']
+            del filtered_buildargs['IMAGE_IDENTIFIER']
             buildargs_tags = '-'.join(map(lambda it: str(it[0]).lower() + str(it[1]).lower(),
                                           filtered_buildargs.items()))
             if buildargs_tags:
                 buildargs_tags = '-' + buildargs_tags
-            imagetag = f'rucio-{buildargs.image_identifier}:{dist.lower()}{buildargs_tags}'
+            imagetag = f'rucio-{buildargs.IMAGE_IDENTIFIER}:{dist.lower()}{buildargs_tags}'
             if script_args.cache_repo:
                 imagetag = script_args.cache_repo.lower() + '/' + imagetag
             cache_args = ()

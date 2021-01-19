@@ -16,6 +16,8 @@ jobs:
       - name: Identify Matrix
         id: matrix
         run: echo "::set-output name=matrix::$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml)"
+      - name: check output
+        run: echo "${{ steps.matrix.outputs.matrix }}"
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
   test:
@@ -44,6 +46,9 @@ jobs:
           docker logout https://docker.pkg.github.com
           if [[ -z $IMAGES ]]; then exit 1; fi
           echo "::set-output name=images::$IMAGES"
+      - name: Test output
+        run: |
+          echo '{"matrix": ${{ toJson(matrix.cfg) }}, "images": ${{ steps.images.outputs.images }} }'
       - name: Run test with cfg
         run: 'echo ''{"matrix": ${{ toJson(matrix.cfg) }}, "images": ${{ steps.images.outputs.images }} }'' | ./tools/test/run_tests.py'
   release-patch-setup:

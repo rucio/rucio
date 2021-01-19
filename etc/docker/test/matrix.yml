@@ -47,6 +47,6 @@ suites:
     REST_BACKEND:
       - webpy
       - flask
+image_identifier:
+  - id: autotest
 
-  - id: integration-test
-    image_identifier: integration-test

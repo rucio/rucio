@@ -83,6 +83,8 @@ def case_log(caseid, msg, file=sys.stderr):
 
 def main():
     obj = json.load(sys.stdin)
+    print(obj)
+    print("*********")
     cases = (obj["matrix"],) if isinstance(obj["matrix"], dict) else obj["matrix"]
     use_podman = 'USE_PODMAN' in os.environ and os.environ['USE_PODMAN'] == '1'
     parallel = 'PARALLEL_AUTOTESTS' in os.environ and os.environ['PARALLEL_AUTOTESTS'] == '1'
