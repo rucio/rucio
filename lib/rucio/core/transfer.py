@@ -247,15 +247,16 @@ def set_transfers_state(transfers, submitted_at, session=None):
                 raise RucioException("Failed to set requests %s tansfer %s: request doesn't exist or is not in SUBMITTING state" % (request_id, transfers[request_id]))
 
             request_type = transfers[request_id].get('request_type', None)
+
             msg = {'request-id': request_id,
-                   'request-type': str(request_type).lower() if request_type else request_type,
+                   'request-type': request_type,
                    'scope': transfers[request_id]['scope'].external,
                    'name': transfers[request_id]['name'],
                    'src-rse-id': transfers[request_id]['metadata'].get('src_rse_id', None),
                    'src-rse': transfers[request_id]['metadata'].get('src_rse', None),
                    'dst-rse-id': transfers[request_id]['metadata'].get('dst_rse_id', None),
                    'dst-rse': transfers[request_id]['metadata'].get('dst_rse', None),
-                   'state': str(transfers[request_id]['state']),
+                   'state': transfers[request_id]['state'],
                    'activity': transfers[request_id]['metadata'].get('activity', None),
                    'file-size': transfers[request_id]['metadata'].get('filesize', None),
                    'bytes': transfers[request_id]['metadata'].get('filesize', None),
@@ -268,10 +269,11 @@ def set_transfers_state(transfers, submitted_at, session=None):
                 msg['vo'] = transfers[request_id]['scope'].vo
 
             if msg['request-type']:
-                transfer_status = '%s-%s' % (msg['request-type'], msg['state'])
+                transfer_status = '%s-%s' % (msg['request-type'].name, msg['state'].name)
             else:
                 transfer_status = 'transfer-%s' % msg['state']
             transfer_status = transfer_status.lower()
+
             message_core.add_message(transfer_status, msg, session=session)
 
     except IntegrityError as error:
@@ -910,7 +912,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                  'scope': scope,
                                  'name': name,
                                  'activity': activity,
-                                 'request_type': str(RequestType.TRANSFER).lower(),
+                                 'request_type': RequestType.TRANSFER,
                                  'src_type': transfer_src_type,
                                  'dst_type': transfer_dst_type,
                                  'src_rse': rse,
@@ -1232,7 +1234,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                      'scope': scope,
                                      'name': name,
                                      'activity': transfers[req_id]['file_metadata']['activity'],
-                                     'request_type': str(RequestType.TRANSFER).lower(),
+                                     'request_type': RequestType.TRANSFER,
                                      'src_type': transfer_src_type,
                                      'dst_type': transfer_dst_type,
                                      'src_rse': source_rse_name,
