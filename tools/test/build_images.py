@@ -55,7 +55,7 @@ def build_images(matrix, script_args):
         for buildargs in buildargs_list:
             filtered_buildargs = buildargs._asdict()
             del filtered_buildargs['image_identifier']
-            buildargs_tags = '-'.join(map(lambda it: str(it[0]).lower() + str(it[1]).lower() if '' else '',
+            buildargs_tags = '-'.join(map(lambda it: str(it[0]).lower() + str(it[1]).lower(),
                                           filtered_buildargs.items()))
             if buildargs_tags:
                 buildargs_tags = '-' + buildargs_tags
