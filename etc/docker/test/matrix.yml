@@ -48,5 +48,3 @@ suites:
       - webpy
       - flask
 
-  - id: integration-test
-    image_identifier: integration-test
