@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019-2020 CERN
+# Copyright 2019-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import unittest
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from rucio.common.config import config_get, config_get_bool, config_set, config_remove_option
 from rucio.common.types import InternalAccount, InternalScope
@@ -2023,12 +2023,12 @@ class TestRequestCoreRelease(unittest.TestCase):
         add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
         name2 = generate_uuid()
         add_replica(self.source_rse_id, self.scope, name2, 1, self.account, session=self.db_session)
-        current_hour = datetime.now().hour
+        two_hours = timedelta(hours=2)
         requests = [{
             'source_rse_id': self.source_rse_id,
             'dest_rse_id': self.dest_rse_id,
             'request_type': RequestType.TRANSFER,
-            'requested_at': datetime.now().replace(hour=current_hour - 2),
+            'requested_at': datetime.now() - two_hours,
             'request_id': generate_uuid(),
             'name': name1,
             'scope': self.scope,
@@ -2076,12 +2076,11 @@ class TestRequestCoreRelease(unittest.TestCase):
         dataset_name = generate_uuid()
         add_did(self.scope, dataset_name, DIDType.DATASET, self.account, session=self.db_session)
         attach_dids(self.scope, dataset_name, [{'name': name1, 'scope': self.scope}, {'name': name2, 'scope': self.scope}], self.account, session=self.db_session)
-        current_hour = datetime.now().hour
         requests = [{
             'source_rse_id': self.source_rse_id,
             'dest_rse_id': self.dest_rse_id,
             'request_type': RequestType.TRANSFER,
-            'requested_at': datetime.now().replace(hour=current_hour - 2),
+            'requested_at': datetime.now() - two_hours,
             'request_id': generate_uuid(),
             'name': name1,
             'scope': self.scope,
