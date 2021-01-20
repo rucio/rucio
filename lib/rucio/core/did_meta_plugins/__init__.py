@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020 CERN
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,12 +15,12 @@
 #
 # Authors:
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import importlib
 
 from rucio.common import config
-from rucio.common.exception import PolicyPackageNotFound
+from rucio.common.exception import PolicyPackageNotFound, InvalidMetadata
 from rucio.db.sqla.session import read_session
 
 try:
@@ -92,14 +92,18 @@ def set_metadata(scope, name, key, value, recursive=False, session=None):
     :param name: The name of the did.
     :param key: Key of the metadata.
     :param value: Value of the metadata.
-    :param did: (Optional) The data identifier info.
     :param recursive: (Optional) Option to propagate the metadata change to content.
-    :param session: (Optional)  The database session in use.
+    :param session: (Optional) The database session in use.
     """
+    meta_was_set = False
     for meta_handler in METADATA_HANDLERS:
         if meta_handler.manages_key(key, session=session):
             meta_handler.set_metadata(scope, name, key, value, recursive, session=session)
+            meta_was_set = True
             break
+
+    if not meta_was_set:
+        raise InvalidMetadata('No plugin accepts metadata key %s on DID %s:%s' % (key, scope, name))
 
 
 def set_metadata_bulk(scope, name, meta, recursive=False, session=None):
@@ -112,19 +116,34 @@ def set_metadata_bulk(scope, name, meta, recursive=False, session=None):
 
     :param scope: The scope name.
     :param name: The data identifier name.
-    :param meta: all key-values to set.
-    :param recursive: Option to propagate the metadata change to content.
-    :param session: The database session in use.
+    :param meta: The key-value mapping of metadata to set.
+    :param recursive: (Optional) Option to propagate the metadata change to content.
+    :param session: (Optional) The database session in use.
     """
-    remainder = dict(meta)
-    for meta_handler in METADATA_HANDLERS:
-        pluginmeta = {}
-        for key, value in remainder.items():
+    denied_keys = list()
+    if not isinstance(meta, dict):
+        # always convert to dict, so that .items() can be called
+        meta = dict(meta)
+    meta_handler_keys = {meta_handler: [] for meta_handler in METADATA_HANDLERS}
+
+    for key, value in meta.items():
+        meta_is_included = False
+        # using METADATA_HANDLERS here to ensure the order of plugins applied
+        for meta_handler in METADATA_HANDLERS:
             if meta_handler.manages_key(key, session=session):
-                pluginmeta[key] = value
-        if pluginmeta:
-            for key in pluginmeta:
-                del remainder[key]
+                meta_handler_keys[meta_handler].append(key)
+                meta_is_included = True
+                break
+
+        if not meta_is_included:
+            denied_keys.append(key)
+
+    if denied_keys:
+        raise InvalidMetadata('No plugin accepted metadata keys %s on DID %s:%s' % (denied_keys, scope, name))
+
+    for meta_handler, key_list in meta_handler_keys.items():
+        if key_list:
+            pluginmeta = {key: meta[key] for key in key_list}
             meta_handler.set_metadata_bulk(scope, name, meta=pluginmeta, recursive=recursive, session=session)
 
 
