@@ -12,6 +12,7 @@
   - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
   - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
   - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+  - Ian Johnson, <ian.johnson@stfc.ac.uk>, 2021
 
   PY3K COMPATIBLE
 '''
@@ -24,10 +25,11 @@ from rucio.common.utils import api_update_return_dict
 from rucio.core import rule
 from rucio.common.config import config_get_bool
 
+
 def is_multi_vo():
     """
     Check whether this instance is configured for multi-VO
-    returns: Boolean True if running in multi-VO 
+    returns: Boolean True if running in multi-VO
     """
     return config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
 
