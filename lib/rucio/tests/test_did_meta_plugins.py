@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020 CERN
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import unittest
 
@@ -28,12 +28,12 @@ from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.did import add_did, delete_dids, set_metadata_bulk
 from rucio.core.did_meta_plugins import list_dids, get_metadata, set_metadata
-from rucio.core.did_meta_plugins.json_meta import JSONDidMeta
 from rucio.db.sqla.session import get_session
+from rucio.db.sqla.util import json_implemented
 
 
 def skip_without_json():
-    if not JSONDidMeta().json_implemented(get_session()):
+    if not json_implemented():
         pytest.skip("JSON support is not implemented in this database")
 
 
@@ -217,7 +217,6 @@ class TestDidMetaClient(unittest.TestCase):
         self.did_client = DIDClient()
         self.tmp_scope = 'mock'
         self.session = get_session()
-        self.json_implemented = JSONDidMeta().json_implemented(self.session)
 
     def tearDown(self):
         self.session.commit()  # pylint: disable=no-member
@@ -228,7 +227,7 @@ class TestDidMetaClient(unittest.TestCase):
         self.did_client.add_did(scope=self.tmp_scope, name=tmp_name, type="DATASET")
 
         # Test JSON case
-        if self.json_implemented:
+        if json_implemented(session=self.session):
             # data1 = ["key1": "value_" + str(generate_uuid()), "key2": "value_" + str(generate_uuid()), "key3": "value_" + str(generate_uuid())]
             value1 = "value_" + str(generate_uuid())
             value2 = "value_" + str(generate_uuid())
@@ -278,7 +277,7 @@ class TestDidMetaClient(unittest.TestCase):
         self.did_client.add_did(scope=self.tmp_scope, name=tmp_name, type="DATASET")
 
         # Test JSON case
-        if self.json_implemented:
+        if json_implemented(session=self.session):
             value1 = "value_" + str(generate_uuid())
             value2 = "value_" + str(generate_uuid())
 
@@ -296,7 +295,7 @@ class TestDidMetaClient(unittest.TestCase):
         assert self.did_client.get_metadata(scope=self.tmp_scope, name=tmp_name)['project'] == 'data12_14TeV'
 
         # Test Mixed case
-        if self.json_implemented:
+        if json_implemented(session=self.session):
             all_metadata = self.did_client.get_metadata(scope=self.tmp_scope, name=tmp_name, plugin="ALL")
             assert all_metadata['key1'] == value1
             assert all_metadata['key2'] == value2
@@ -354,7 +353,7 @@ class TestDidMetaClient(unittest.TestCase):
             assert dsn in results
 
         # Test JSON use case
-        if self.json_implemented:
+        if json_implemented(session=self.session):
             did1 = 'name_%s' % generate_uuid()
             did2 = 'name_%s' % generate_uuid()
             did3 = 'name_%s' % generate_uuid()

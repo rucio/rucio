@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 # - Brandon White, <bjwhite@fnal.gov>, 2019
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from datetime import datetime, timedelta
 
@@ -49,19 +49,14 @@ from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import stream_session, read_session, transactional_session
 
 HARDCODED_KEYS = [
+    # specials (keys not backed by the did table)
     "lifetime",
+    # fields on the did table
+    "hidden",
+    "is_new",
+    "events",
     "guid",
-    "events",
-    "adler32",
-    "bytes",
-    "events",
-
-    # Fields on the did table
-    "length",
-    "md5",
-    # "expired_at",
-    # "purge_replicas",
-    "deleted_at",
+    "purge_replicas",
     "project",
     "datatype",
     "run_number",
@@ -81,18 +76,25 @@ HARDCODED_KEYS = [
     "is_archive",
     "constituent",
     "access_cnt",
-    "is_new",
+    # all keys in constants.RESERVED_KEYS should be read-only from the API,
+    # but could be used in internal calls to set_metadata_*
+    # fields in did table and constants.RESERVED_KEYS
+    "name"
+    "length",
+    "md5",
+    "expired_at",
+    "deleted_at",
+    # fields in did table and constants.RESERVED_KEYS, but special handling
+    "bytes",
+    "adler32",
 
     # Keys used while listing dids
     "created_before",
     "created_after",
-    "guid",
     "length.gt",
     "length.lt",
     "length.gte",
     "length.lte",
-    "length",
-    "name"
 ]
 
 
