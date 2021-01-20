@@ -70,7 +70,7 @@ class ReplicaFromHDFS(Replica):
             _hdfs_get(cls.BASE_URL.format(date.strftime('%Y-%m-%d'), rse), tmp_dir)
             files = (os.path.join(tmp_dir, file_) for file_ in sorted(os.listdir(tmp_dir)))
 
-            with temp_file(cache_dir, filename) as (full_dump, _):
+            with temp_file(cache_dir, filename, binary=True) as (full_dump, _):
                 for chunk_file in files:
                     with open(chunk_file, 'rb') as partial_dump:
                         while True:
