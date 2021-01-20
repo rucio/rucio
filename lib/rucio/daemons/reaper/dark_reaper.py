@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2020 CERN
+# Copyright 2016-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2020
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2020-2021
 
 '''
 Dark Reaper is a daemon to manage quarantined file deletion.
@@ -83,7 +83,7 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
     thread = threading.current_thread()
     hostname = socket.gethostname()
     executable = ' '.join(sys.argv)
-    hash_executable = hashlib.sha256(sys.argv[0] + ''.join(rses)).hexdigest()
+    hash_executable = hashlib.sha256((sys.argv[0] + ''.join(rses)).encode()).hexdigest()
     sanity_check(executable=None, hostname=hostname)
 
     while not GRACEFUL_STOP.is_set():
@@ -111,9 +111,12 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
                         if replica['scope']:
                             scope = replica['scope'].external
                         try:
-                            pfn = str(rsemgr.lfns2pfns(rse_settings=rse_info,
-                                                       lfns=[{'scope': scope, 'name': replica['name'], 'path': replica['path']}],
-                                                       operation='delete', scheme=scheme).values()[0])
+                            pfn = str(list(rsemgr.lfns2pfns(rse_settings=rse_info,
+                                                            lfns=[{'scope': scope,
+                                                                   'name': replica['name'],
+                                                                   'path': replica['path']}],
+                                                            operation='delete',
+                                                            scheme=scheme).values())[0])
                             logging.info('Dark Reaper %s-%s: Deletion ATTEMPT of %s:%s as %s on %s', worker_number, total_workers, scope, replica['name'], pfn, rse)
                             start = time.time()
                             prot.delete(pfn)
