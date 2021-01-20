@@ -325,10 +325,12 @@ class TestBinRucio(unittest.TestCase):
         if environ.get('SUITE', 'all') != 'client':
             from rucio.db.sqla import session, models
             db_session = session.get_session()
-            db_session.query(models.RSEFileAssociation).filter_by(name=tmp_file1_name, scope=InternalScope(self.user, **self.vo)).delete()
+            internal_scope = InternalScope(self.user, **self.vo)
+            db_session.query(models.RSEFileAssociation).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
             db_session.query(models.ReplicaLock).delete()
-            db_session.query(models.ReplicationRule).filter_by(name=tmp_file1_name, scope=InternalScope(self.user, **self.vo)).delete()
-            db_session.query(models.DataIdentifier).filter_by(name=tmp_file1_name, scope=InternalScope(self.user, **self.vo)).delete()
+            db_session.query(models.ReplicationRule).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
+            db_session.query(models.DidMeta).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
+            db_session.query(models.DataIdentifier).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
             db_session.commit()
             tmp_file4 = file_generator()
             checksum_tmp_file4 = md5(tmp_file4)
