@@ -97,7 +97,7 @@ def set_metadata(scope, name, key, value, recursive=False, session=None):
     :param session: (Optional)  The database session in use.
     """
     for meta_handler in METADATA_HANDLERS:
-        if meta_handler.manages_key(key):
+        if meta_handler.manages_key(key, session=session):
             meta_handler.set_metadata(scope, name, key, value, recursive, session=session)
             break
 
@@ -120,7 +120,7 @@ def set_metadata_bulk(scope, name, meta, recursive=False, session=None):
     for meta_handler in METADATA_HANDLERS:
         pluginmeta = {}
         for key, value in remainder.items():
-            if meta_handler.manages_key(key):
+            if meta_handler.manages_key(key, session=session):
                 pluginmeta[key] = value
         if pluginmeta:
             for key in pluginmeta:
@@ -137,7 +137,7 @@ def delete_metadata(scope, name, key, session=None):
     :param key: Key of the metadata.
     """
     for meta_handler in METADATA_HANDLERS:
-        if meta_handler.manages_key(key):
+        if meta_handler.manages_key(key, session=session):
             meta_handler.delete_metadata(scope, name, key, session=session)
 
 
@@ -169,11 +169,11 @@ def list_dids(scope=None, filters=None, type='collection', ignore_case=False, li
             continue
         if meta_handler_to_use is None:
             for meta_handler in METADATA_HANDLERS:
-                if meta_handler.manages_key(key):
+                if meta_handler.manages_key(key, session=session):
                     meta_handler_to_use = meta_handler
                     break
         else:
-            if not meta_handler_to_use.manages_key(key):
+            if not meta_handler_to_use.manages_key(key, session=session):
                 # Mix case, difficult, slow and will probably blow up memory
                 raise NotImplementedError('Filter keys used do not all belong on the same metadata plugin.')
 
