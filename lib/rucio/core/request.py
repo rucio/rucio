@@ -1336,9 +1336,9 @@ def add_monitor_message(request, response, session=None):
     """
 
     if request['request_type']:
-        transfer_status = '%s-%s' % (request['request_type'], response['new_state'])
+        transfer_status = '%s-%s' % (request['request_type'].name, response['new_state'].name)
     else:
-        transfer_status = 'transfer-%s' % (response['new_state'])
+        transfer_status = 'transfer-%s' % (response['new_state'].name)
     transfer_status = transfer_status.lower()
 
     activity = response.get('activity', None)
