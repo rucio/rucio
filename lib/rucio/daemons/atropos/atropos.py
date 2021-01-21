@@ -22,7 +22,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
@@ -33,27 +33,20 @@ import random
 import socket
 import threading
 import time
-from sys import exc_info, stdout
+from sys import exc_info
 from traceback import format_exception
 
 import rucio.core.lifetime_exception
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.config import config_get
 from rucio.common.exception import InvalidRSEExpression, RuleNotFound
+import rucio.common.logging
 from rucio.core import heartbeat
 from rucio.core.lock import get_dataset_locks
 from rucio.core.rse import get_rse_name, get_rse_vo
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_rules_beyond_eol, update_rule
 from rucio.db.sqla.constants import LifetimeExceptionsState
-
-logging.basicConfig(stream=stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 GRACEFUL_STOP = threading.Event()
 

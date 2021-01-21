@@ -17,7 +17,7 @@
 # - Dilaksun Bavarajan <dilaksun.bavarajan@cern.ch>, 2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 
@@ -34,7 +34,6 @@ import json
 import logging
 import os
 import socket
-import sys
 import threading
 import time
 import traceback
@@ -44,15 +43,9 @@ import requests
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get
+import rucio.common.logging
 from rucio.core import heartbeat
 from rucio.transfertool.fts3 import FTS3Transfertool
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 graceful_stop = threading.Event()
 
