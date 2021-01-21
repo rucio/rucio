@@ -1,4 +1,5 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2016-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +14,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2016
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2017
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2020
 
 ''' new table for lifetime model exceptions '''
 
@@ -46,11 +47,11 @@ def upgrade():
                      sa.Column('id', GUID()),
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
-                     sa.Column('did_type', DIDType.db_type()),
+                     sa.Column('did_type', sa.Enum(DIDType, name='LIFETIME_EXCEPT_TYPE_CHK', values_callable=lambda obj: [e.value for e in obj])),
                      sa.Column('account', sa.String(25)),
                      sa.Column('comments', sa.String(4000)),
                      sa.Column('pattern', sa.String(255)),
-                     sa.Column('state', LifetimeExceptionsState.db_type()),
+                     sa.Column('state', sa.Enum(LifetimeExceptionsState, name='LIFETIME_EXCEPT_STATE_CHK', values_callable=lambda obj: [e.value for e in obj])),
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
                      sa.Column('expires_at', sa.DateTime))

@@ -1,209 +1,212 @@
-# Copyright European Organization for Nuclear Research (CERN)
+# -*- coding: utf-8 -*-
+# Copyright 2015-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013-2017
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014, 2017
-# - Martin Barisits, <martin.barisits@cern.ch>, 2014-2019
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2015-2018
-# - Wen Guan, <wen.guan>, 2016
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
+# - Wen Guan <wen.guan@cern.ch>, 2015-2016
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2016
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
-#
-# PY3K COMPATIBLE
-
-"""
-Constants.
-
-Each constant is in the format:
-    CONSTANT_NAME = VALUE, DESCRIPTION
-VALUE is what will be stored in the DB.
-DESCRIPTION is the meaningful string for client
-"""
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from datetime import datetime
-
-from rucio.db.sqla.enum import DeclEnum
-
-
-class AccountStatus(DeclEnum):
-    ACTIVE = 'ACTIVE', 'ACTIVE'
-    SUSPENDED = 'SUSPENDED', 'SUSPENDED'
-    DELETED = 'DELETED', 'DELETED'
-
-
-class AccountType(DeclEnum):
-    USER = 'USER', 'USER'
-    GROUP = 'GROUP', 'GROUP'
-    SERVICE = 'SERVICE', 'SERVICE'
-
-
-class BadFilesStatus(DeclEnum):
-    BAD = 'B', 'BAD'
-    DELETED = 'D', 'DELETED'
-    LOST = 'L', 'LOST'
-    RECOVERED = 'R', 'RECOVERED'
-    SUSPICIOUS = 'S', 'SUSPICIOUS'
-    TEMPORARY_UNAVAILABLE = 'T', 'TEMPORARY_UNAVAILABLE'
-
-
-class BadPFNStatus(DeclEnum):
-    BAD = 'B', 'BAD'
-    SUSPICIOUS = 'S', 'SUSPICIOUS'
-    TEMPORARY_UNAVAILABLE = 'T', 'TEMPORARY_UNAVAILABLE'
-    AVAILABLE = 'A', 'AVAILABLE'
-
-
-class DIDAvailability(DeclEnum):
-    LOST = 'L', 'LOST'
-    DELETED = 'D', 'DELETED'
-    AVAILABLE = 'A', 'AVAILABLE'
-
-
-class DIDReEvaluation(DeclEnum):
-    ATTACH = 'A', 'ATTACH'
-    DETACH = 'D', 'DETACH'
-
-
-class DIDType(DeclEnum):
-    FILE = 'F', 'FILE'
-    DATASET = 'D', 'DATASET'
-    CONTAINER = 'C', 'CONTAINER'
-    ARCHIVE = 'A', 'ARCHIVE'
-    DELETED_FILE = 'X', 'DELETED_FILE'
-    DELETED_DATASET = 'Y', 'DELETED_DATASET'
-    DELETED_CONTAINER = 'Z', 'DELETED_CONTAINER'
-
-
-class FTSCompleteState(DeclEnum):
-    OK = 'O', 'Ok'
-    ERROR = 'E', 'Error'
-
-
-class FTSState(DeclEnum):
-    SUBMITTED = 'S', 'SUBMITTED'
-    READY = 'R', 'READY'
-    ACTIVE = 'A', 'ACTIVE'
-    FAILED = 'F', 'FAILED'
-    FINISHED = 'X', 'FINISHED'
-    FINISHEDDIRTY = 'D', 'FINISHEDDIRTY'
-    CANCELED = 'C', 'CANCELED'
-
-
-class IdentityType(DeclEnum):
-    X509 = 'X509', 'X509'
-    GSS = 'GSS', 'GSS'
-    USERPASS = 'USERPASS', 'USERPASS'
-    SSH = 'SSH', 'SSH'
-    SAML = 'SAML', 'SAML'
-    OIDC = 'OIDC', 'OIDC'
-
-
-class KeyType(DeclEnum):
-    ALL = 'ALL', 'ALL'
-    COLLECTION = 'COLLECTION', 'COLLECTION'
-    CONTAINER = 'CONTAINER', 'CONTAINER'
-    DATASET = 'DATASET', 'DATASET'
-    FILE = 'FILE', 'FILE'
-    DERIVED = 'DERIVED', 'DERIVED'
-
-
-class LifetimeExceptionsState(DeclEnum):
-    APPROVED = 'A', 'APPROVED'
-    REJECTED = 'R', 'REJECTED'
-    WAITING = 'W', 'WAITING'
-
-
-class LockState(DeclEnum):
-    REPLICATING = 'R', 'REPLICATING'
-    OK = 'O', 'OK'
-    STUCK = 'S', 'STUCK'
-
-
-class ReplicaState(DeclEnum):
-    AVAILABLE = 'A', 'AVAILABLE'
-    UNAVAILABLE = 'U', 'UNAVAILABLE'
-    COPYING = 'C', 'COPYING'
-    BEING_DELETED = 'B', 'BEING_DELETED'
-    BAD = 'D', 'BAD'
-    TEMPORARY_UNAVAILABLE = 'T', 'TEMPORARY_UNAVAILABLE'
-
-
-class RequestErrMsg(DeclEnum):
-    NO_SOURCES = 'NO_SOURCES', 'NO_SOURCES'
-    SUBMISSION_FAILED = 'SUBMISSION_FAILED', 'SUBMISSION_FAILED'
-    TRANSFER_FAILED = 'TRANSFER_FAILED', 'TRANSFER_FAILED'
-    MISMATCH_SCHEME = 'MISMATCH_SCHEME', 'MISMATCH_SCHEME'
-    OTHER = 'OTHER', 'OTHER'
-
-
-class RequestState(DeclEnum):
-    QUEUED = 'Q', 'QUEUED'
-    SUBMITTING = 'G', 'SUBMITTING'
-    SUBMITTED = 'S', 'SUBMITTED'
-    FAILED = 'F', 'FAILED'
-    DONE = 'D', 'DONE'
-    LOST = 'L', 'LOST'
-    NO_SOURCES = 'N', 'NO_SOURCES'
-    ONLY_TAPE_SOURCES = 'O', 'ONLY_TAPE_SOURCES'
-    SUBMISSION_FAILED = 'A', 'SUBMISSION_FAILED'
-    MISMATCH_SCHEME = 'M', 'MISMATCH_SCHEME'
-    SUSPEND = 'U', 'SUSPEND'
-    WAITING = 'W', 'WAITING'
-
-
-class RequestType(DeclEnum):
-    TRANSFER = 'T', 'TRANSFER'
-    UPLOAD = 'U', 'UPLOAD'
-    DOWNLOAD = 'D', 'DOWNLOAD'
-    STAGEIN = 'I', 'STAGEIN'
-    STAGEOUT = 'O', 'STAGEOUT'
-
-
-class RSEType(DeclEnum):
-    DISK = 'DISK', 'DISK'
-    TAPE = 'TAPE', 'TAPE'
-
-
-class RuleGrouping(DeclEnum):
-    ALL = 'A', 'ALL'
-    DATASET = 'D', 'DATASET'
-    NONE = 'N', 'NONE'
-
-
-class RuleNotification(DeclEnum):
-    YES = 'Y', 'YES'
-    NO = 'N', 'NO'
-    CLOSE = 'C', 'CLOSE'
-    PROGRESS = 'P', 'PROGRESS'
-
-
-class RuleState(DeclEnum):
-    REPLICATING = 'R', 'REPLICATING'
-    OK = 'O', 'OK'
-    STUCK = 'S', 'STUCK'
-    SUSPENDED = 'U', 'SUSPENDED'
-    WAITING_APPROVAL = 'W', 'WAITING_APPROVAL'
-    INJECT = 'I', 'INJECT'
-
-
-class ScopeStatus(DeclEnum):
-    OPEN = 'O', 'OPEN'
-    CLOSED = 'C', 'CLOSED'
-    DELETED = 'D', 'DELETED'
-
-
-class SubscriptionState(DeclEnum):
-    ACTIVE = 'A', 'ACTIVE'
-    INACTIVE = 'I', 'INACTIVE'
-    NEW = 'N', 'NEW'
-    UPDATED = 'U', 'UPDATED'
-    BROKEN = 'B', 'BROKEN'
-
+from enum import Enum
 
 # Individual constants
 
-OBSOLETE = datetime(year=1970, month=1, day=1)  # Tombstone value to mark obsolete replicas.
+OBSOLETE = datetime(year=1970, month=1, day=1)  # Tombstone value to mark obsolete replicas
+
+
+# The enum values below are the actual strings stored in the database -- these must be string types.
+# This is done explicitly via values_callable to SQLAlchemy enums in models.py and alembic scripts,
+# as overloading/overriding Python internal enums is discouraged.
+
+class AccountStatus(Enum):
+    ACTIVE = 'ACTIVE'
+    SUSPENDED = 'SUSPENDED'
+    DELETED = 'DELETED'
+
+
+class AccountType(Enum):
+    USER = 'USER'
+    GROUP = 'GROUP'
+    SERVICE = 'SERVICE'
+
+
+class BadFilesStatus(Enum):
+    BAD = 'B'
+    DELETED = 'D'
+    LOST = 'L'
+    RECOVERED = 'R'
+    SUSPICIOUS = 'S'
+    TEMPORARY_UNAVAILABLE = 'T'
+
+
+class BadPFNStatus(Enum):
+    BAD = 'B'
+    SUSPICIOUS = 'S'
+    TEMPORARY_UNAVAILABLE = 'T'
+    AVAILABLE = 'A'
+
+
+class DIDAvailability(Enum):
+    LOST = 'L'
+    DELETED = 'D'
+    AVAILABLE = 'A'
+
+
+class DIDReEvaluation(Enum):
+    ATTACH = 'A'
+    DETACH = 'D'
+
+
+class DIDType(Enum):
+    FILE = 'F'
+    DATASET = 'D'
+    CONTAINER = 'C'
+    ARCHIVE = 'A'
+    DELETED_FILE = 'X'
+    DELETED_DATASET = 'Y'
+    DELETED_CONTAINER = 'Z'
+
+
+class FTSCompleteState(Enum):
+    OK = 'O'
+    ERROR = 'E'
+
+
+class FTSState(Enum):
+    SUBMITTED = 'S'
+    READY = 'R'
+    ACTIVE = 'A'
+    FAILED = 'F'
+    FINISHED = 'X'
+    FINISHEDDIRTY = 'D'
+    CANCELED = 'C'
+
+
+class IdentityType(Enum):
+    X509 = 'X509'
+    GSS = 'GSS'
+    USERPASS = 'USERPASS'
+    SSH = 'SSH'
+    SAML = 'SAML'
+    OIDC = 'OIDC'
+
+
+class KeyType(Enum):
+    ALL = 'ALL'
+    COLLECTION = 'COLLECTION'
+    CONTAINER = 'CONTAINER'
+    DATASET = 'DATASET'
+    FILE = 'FILE'
+    DERIVED = 'DERIVED'
+
+
+class LifetimeExceptionsState(Enum):
+    APPROVED = 'A'
+    REJECTED = 'R'
+    WAITING = 'W'
+
+
+class LockState(Enum):
+    REPLICATING = 'R'
+    OK = 'O'
+    STUCK = 'S'
+
+
+class ReplicaState(Enum):
+    AVAILABLE = 'A'
+    UNAVAILABLE = 'U'
+    COPYING = 'C'
+    BEING_DELETED = 'B'
+    BAD = 'D'
+    TEMPORARY_UNAVAILABLE = 'T'
+
+
+class RequestErrMsg(Enum):
+    NO_SOURCES = 'NO_SOURCES'
+    SUBMISSION_FAILED = 'SUBMISSION_FAILED'
+    TRANSFER_FAILED = 'TRANSFER_FAILED'
+    MISMATCH_SCHEME = 'MISMATCH_SCHEME'
+    OTHER = 'OTHER'
+
+
+class RequestState(Enum):
+    QUEUED = 'Q'
+    SUBMITTING = 'G'
+    SUBMITTED = 'S'
+    FAILED = 'F'
+    DONE = 'D'
+    LOST = 'L'
+    NO_SOURCES = 'N'
+    ONLY_TAPE_SOURCES = 'O'
+    SUBMISSION_FAILED = 'A'
+    MISMATCH_SCHEME = 'M'
+    SUSPEND = 'U'
+    WAITING = 'W'
+    PREPARING = 'P'
+
+
+class RequestType(Enum):
+    TRANSFER = 'T'
+    UPLOAD = 'U'
+    DOWNLOAD = 'D'
+    STAGEIN = 'I'
+    STAGEOUT = 'O'
+
+
+class RSEType(Enum):
+    DISK = 'DISK'
+    TAPE = 'TAPE'
+
+
+class RuleGrouping(Enum):
+    ALL = 'A'
+    DATASET = 'D'
+    NONE = 'N'
+
+
+class RuleNotification(Enum):
+    YES = 'Y'
+    NO = 'N'
+    CLOSE = 'C'
+    PROGRESS = 'P'
+
+
+class RuleState(Enum):
+    REPLICATING = 'R'
+    OK = 'O'
+    STUCK = 'S'
+    SUSPENDED = 'U'
+    WAITING_APPROVAL = 'W'
+    INJECT = 'I'
+
+
+class ScopeStatus(Enum):
+    OPEN = 'O'
+    CLOSED = 'C'
+    DELETED = 'D'
+
+
+class SubscriptionState(Enum):
+    ACTIVE = 'A'
+    INACTIVE = 'I'
+    NEW = 'N'
+    UPDATED = 'U'
+    BROKEN = 'B'

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 # - Brandon White, <bjwhite@fnal.gov>, 2019
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import json as json_lib
 
@@ -42,6 +42,7 @@ from rucio.common import exception
 from rucio.core.did_meta_plugins.did_meta_plugin_interface import DidMetaPlugin
 from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
+from rucio.db.sqla.util import json_implemented
 
 
 class JSONDidMeta(DidMetaPlugin):
@@ -62,7 +63,7 @@ class JSONDidMeta(DidMetaPlugin):
         :param name: The data identifier name.
         :param session: The database session in use.
         """
-        if not self.json_implemented(session):
+        if not json_implemented(session=session):
             raise NotImplementedError
 
         try:
@@ -77,7 +78,7 @@ class JSONDidMeta(DidMetaPlugin):
 
     @transactional_session
     def set_metadata_bulk(self, scope, name, meta, recursive=False, session=None):
-        if not self.json_implemented(session):
+        if not json_implemented(session=session):
             raise NotImplementedError
 
         if session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one_or_none() is None:
@@ -120,7 +121,7 @@ class JSONDidMeta(DidMetaPlugin):
         :param name: the name of the did
         :param key: the key to be deleted
         """
-        if not self.json_implemented(session):
+        if not json_implemented(session=session):
             raise NotImplementedError
 
         try:
@@ -150,7 +151,7 @@ class JSONDidMeta(DidMetaPlugin):
     def list_dids(self, scope, filters, type='collection', ignore_case=False, limit=None,
                   offset=None, long=False, recursive=False, session=None):
         # Currently for sqlite only add, get and delete is implemented.
-        if not self.json_implemented(session):
+        if not json_implemented(session=session):
             raise NotImplementedError
 
         query = session.query(models.DidMeta)
@@ -176,14 +177,9 @@ class JSONDidMeta(DidMetaPlugin):
             for row in query.yield_per(5):
                 yield row.name
 
-    def manages_key(self, key):
-        """
-        Returns whether key is managed by this plugin or not.
-        JSON plugin should be considered a wildcard.
-        :param key: Key of the metadata.
-        :returns (Boolean)
-        """
-        return True
+    @read_session
+    def manages_key(self, key, session=None):
+        return json_implemented(session=session)
 
     def get_plugin_name(self):
         """
@@ -191,22 +187,3 @@ class JSONDidMeta(DidMetaPlugin):
         This can then be used when listing the metadata of did to only provide dids from this plugin.
         """
         return self.plugin_name
-
-    def json_implemented(self, session=None):
-        """
-        Checks if the database on the current server installation can support json fields.
-        Check if did meta json table exists.
-
-        :param session: (Optional) The active session of the database.
-
-        :returns: True, if json is supported, False otherwise.
-        """
-        # if session is None:
-        #     session = se.get_session()
-        if session.bind.dialect.name == 'oracle':
-            oracle_version = int(session.connection().connection.version.split('.')[0])
-            if oracle_version < 12:
-                return False
-        if session.bind.dialect.name == 'sqlite':
-            return False
-        return True

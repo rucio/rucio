@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,13 +14,12 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019-2020
-# - James Perry <j.perry@epcc.ed.ac.uk>, 2019
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
@@ -33,13 +32,12 @@ from xml.sax.saxutils import escape
 
 from flask import Flask, Blueprint, Response, request
 from flask.views import MethodView
-from geoip2.errors import AddressNotFoundError
 from six import string_types
 
 from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replicas,
                                list_dataset_replicas_bulk, delete_replicas,
                                get_did_from_pfns, update_replicas_states,
-                               declare_bad_file_replicas, add_bad_pfns, get_suspicious_files,
+                               declare_bad_file_replicas, add_bad_dids, add_bad_pfns, get_suspicious_files,
                                declare_suspicious_file_replicas, list_bad_replicas_status,
                                get_bad_replicas_summary, list_datasets_per_rse,
                                set_tombstone, list_dataset_replicas_vp)
@@ -50,9 +48,9 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
                                     ResourceTemporaryUnavailable, RucioException,
                                     RSENotFound, UnsupportedOperation, ReplicaNotFound,
                                     InvalidObject, ScopeNotFound)
-from rucio.common.replica_sorter import sort_random, sort_geoip, sort_closeness, sort_dynamic, sort_ranking
 from rucio.common.utils import parse_response, APIEncoder, render_json_list
-from rucio.db.sqla.constants import BadFilesStatus
+from rucio.core.replica_sorter import sort_replicas
+from rucio.db.sqla.constants import BadFilesStatus, ReplicaState
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, try_stream, parse_scope_name, request_auth_env, response_headers
 from rucio.web.rest.utils import generate_http_error_flask
 
@@ -104,6 +102,12 @@ class Replicas(MethodView):
 
         dids, schemes, select, limit = [{'scope': scope, 'name': name}], None, None, None
 
+        client_ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
+
+        client_location = {'ip': client_ip,
+                           'fqdn': None,
+                           'site': None}
+
         schemes = request.args.get('schemes', None)
         select = request.args.get('select', None)
         limit = request.args.get('limit', None)
@@ -115,8 +119,6 @@ class Replicas(MethodView):
             schemes = SUPPORTED_PROTOCOLS
 
         try:
-            client_ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
-
             def generate(vo):
                 # we need to call list_replicas before starting to reply
                 # otherwise the exceptions won't be propagated correctly
@@ -135,13 +137,9 @@ class Replicas(MethodView):
                         for replica in rfile['rses'][rse]:
                             replicas.append(replica)
                             dictreplica[replica] = rse
-                    if select == 'geoip':
-                        try:
-                            replicas = sort_geoip(dictreplica, client_ip)
-                        except AddressNotFoundError:
-                            pass
-                    else:
-                        replicas = sort_random(dictreplica)
+
+                    replicas = sort_replicas(dictreplica, client_location, selection=select)
+
                     if not metalink:
                         yield dumps(rfile) + '\n'
                     else:
@@ -317,14 +315,14 @@ class ListReplicas(MethodView):
 
         :reqheader HTTP_ACCEPT: application/metalink4+xml
         :query schemes: A list of schemes to filter the replicas.
-        :query sort: Requested sorting of the result, e.g., 'geoip', 'closeness', 'dynamic', 'ranking'.
+        :query sort: Requested sorting of the result, e.g., 'geoip', 'closeness', 'dynamic', 'ranking', 'random'.
         :<json list dids: list of DIDs.
         :<json list schemes: A list of schemes to filter the replicas.
         :<json bool unavailable: Also include unavailable replicas.
         :<json bool all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
         :<json string rse_expression: The RSE expression to restrict on a list of RSEs.
         :<json dict client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site'}.
-        :<json bool sort: Requested sorting of the result, e.g., 'geoip', 'closeness', 'dynamic', 'ranking'.
+        :<json bool sort: Requested sorting of the result, e.g., 'geoip', 'closeness', 'dynamic', 'ranking', 'random'.
         :<json string domain: The network domain for the call, either None, 'wan' or 'lan'. None is fallback to 'wan', 'all' is both ['lan','wan']
         :resheader Content-Type: application/x-json-stream
         :resheader Content-Type: application/metalink4+xml
@@ -347,7 +345,10 @@ class ListReplicas(MethodView):
         ignore_availability, rse_expression, all_states, domain = False, None, False, None
         signature_lifetime, resolve_archives, resolve_parents = None, True, False
         updated_after = None
-        client_location = {}
+
+        client_location = {'ip': client_ip,
+                           'fqdn': None,
+                           'site': None}
 
         try:
             params = parse_response(request.data)
@@ -363,8 +364,7 @@ class ListReplicas(MethodView):
             if 'rse_expression' in params:
                 rse_expression = params['rse_expression']
             if 'client_location' in params:
-                client_location = params['client_location']
-                client_location['ip'] = params['client_location'].get('ip', client_ip)
+                client_location.update(params['client_location'])
             if 'sort' in params:
                 select = params['sort']
             if 'domain' in params:
@@ -465,30 +465,19 @@ class ListReplicas(MethodView):
                                                                             rfile['scope'],
                                                                             rfile['name'])
 
-                        # TODO: deprecate this
-                        if select == 'geoip':
-                            replicas = sort_geoip(dictreplica, client_location['ip'])
-                        elif select == 'closeness':
-                            replicas = sort_closeness(dictreplica, client_location)
-                        elif select == 'dynamic':
-                            replicas = sort_dynamic(dictreplica, client_location)
-                        elif select == 'ranking':
-                            replicas = sort_ranking(dictreplica, client_location)
-                        elif select == 'random':
-                            replicas = sort_random(dictreplica)
-                        else:
-                            replicas = sorted(dictreplica, key=dictreplica.get)
+                        lanreplicas = [replica for replica, v in dictreplica.items() if v[0] == 'lan']
+                        replicas = lanreplicas + sort_replicas({k: v for k, v in dictreplica.items() if v[0] != 'lan'}, client_location, selection=select)
 
-                        idx = 0
+                        idx = 1
                         for replica in replicas:
                             yield '  <url location="' + str(dictreplica[replica][2]) \
                                 + '" domain="' + str(dictreplica[replica][0]) \
-                                + '" priority="' + str(dictreplica[replica][1]) \
+                                + '" priority="' + str(idx) \
                                 + '" client_extract="' + str(dictreplica[replica][3]).lower() \
                                 + '">' + escape(replica) + '</url>\n'
-                            idx += 1
                             if limit and limit == idx:
                                 break
+                            idx += 1
                         yield ' </file>\n'
 
                 if metalink:
@@ -719,7 +708,7 @@ class BadReplicasStates(MethodView):
             if 'state' in params:
                 state = params['state'][0]
             if isinstance(state, string_types):
-                state = BadFilesStatus.from_string(state)
+                state = BadFilesStatus(state)
             if 'rse' in params:
                 rse = params['rse'][0]
             if 'younger_than' in params:
@@ -943,6 +932,62 @@ class ReplicasRSE(MethodView):
             return str(error), 500
 
 
+class BadDIDs(MethodView):
+
+    def post(self):
+        """
+        Declare a list of bad replicas by DID.
+
+        .. :quickref: BadDIDs; Declare bad replicas by DID.
+
+        :<json string pfns: The list of PFNs.
+        :<json string reason: The reason of the loss.
+        :<json string state: The state is eiher BAD, SUSPICIOUS or TEMPORARY_UNAVAILABLE.
+        :<json string expires_at: The expiration date. Only apply to TEMPORARY_UNAVAILABLE.
+        :resheader Content-Type: application/x-json-string
+        :status 201: Created.
+        :status 400: Cannot decode json parameter list.
+        :status 401: Invalid auth token.
+        :status 404: Replica not found.
+        :status 500: Internal Error.
+        :returns: A list of not successfully declared files.
+        """
+
+        json_data = request.data
+        dids = []
+        rse = None
+        reason = None
+        state = None
+        expires_at = None
+        try:
+            params = parse_response(json_data)
+            if 'dids' in params:
+                dids = params['dids']
+            if 'rse' in params:
+                rse = params['rse']
+            if 'reason' in params:
+                reason = params['reason']
+            state = ReplicaState.BAD
+            if 'expires_at' in params and params['expires_at']:
+                expires_at = datetime.strptime(params['expires_at'], "%Y-%m-%dT%H:%M:%S.%f")
+            not_declared_files = add_bad_dids(dids=dids, rse=rse, issuer=request.environ.get('issuer'), state=state,
+                                              reason=reason, expires_at=expires_at, vo=request.environ.get('vo'))
+        except (ValueError, InvalidType) as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
+        except AccessDenied as error:
+            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+        except ReplicaNotFound as error:
+            return generate_http_error_flask(404, 'ReplicaNotFound', error.args[0])
+        except Duplicate as error:
+            return generate_http_error_flask(409, 'Duplicate', error.args[0])
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
+        return Response(dumps(not_declared_files), status=201, content_type='application/json')
+
+
 class BadPFNs(MethodView):
 
     def post(self):
@@ -1053,6 +1098,8 @@ def blueprint(no_doc=True):
     bp.add_url_rule('/bad/summary', view_func=bad_replicas_summary_view, methods=['get', ])
     bad_replicas_pfn_view = BadPFNs.as_view('add_bad_pfns')
     bp.add_url_rule('/bad/pfns', view_func=bad_replicas_pfn_view, methods=['post', ])
+    bad_replicas_dids_view = BadDIDs.as_view('add_bad_dids')
+    bp.add_url_rule('/bad/dids', view_func=bad_replicas_dids_view, methods=['post', ])
     replicas_rse_view = ReplicasRSE.as_view('replicas_rse')
     bp.add_url_rule('/rse/<rse>', view_func=replicas_rse_view, methods=['get', ])
     bad_replicas_view = BadReplicas.as_view('bad_replicas')
@@ -1074,6 +1121,7 @@ def blueprint(no_doc=True):
         bp.add_url_rule('/bad/states/', view_func=bad_replicas_states_view, methods=['get', ])
         bp.add_url_rule('/bad/summary/', view_func=bad_replicas_summary_view, methods=['get', ])
         bp.add_url_rule('/bad/pfns/', view_func=bad_replicas_pfn_view, methods=['post', ])
+        bp.add_url_rule('/bad/dids/', view_func=bad_replicas_dids_view, methods=['post', ])
         bp.add_url_rule('/rse/<rse>/', view_func=replicas_rse_view, methods=['get', ])
         bp.add_url_rule('/bad/', view_func=bad_replicas_view, methods=['post', ])
         bp.add_url_rule('/dids/', view_func=replicas_dids_view, methods=['post', ])

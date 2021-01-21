@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
@@ -29,7 +29,7 @@
 # - Ruturaj Gujar, <ruturaj.gujar23@gmail.com>, 2019
 # - Brandon White, <bjwhite@fnal.gov>, 2019
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from datetime import datetime, timedelta
 
@@ -49,19 +49,14 @@ from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import stream_session, read_session, transactional_session
 
 HARDCODED_KEYS = [
+    # specials (keys not backed by the did table)
     "lifetime",
+    # fields on the did table
+    "hidden",
+    "is_new",
+    "events",
     "guid",
-    "events",
-    "adler32",
-    "bytes",
-    "events",
-
-    # Fields on the did table
-    "length",
-    "md5",
-    # "expired_at",
-    # "purge_replicas",
-    "deleted_at",
+    "purge_replicas",
     "project",
     "datatype",
     "run_number",
@@ -81,17 +76,25 @@ HARDCODED_KEYS = [
     "is_archive",
     "constituent",
     "access_cnt",
+    # all keys in constants.RESERVED_KEYS should be read-only from the API,
+    # but could be used in internal calls to set_metadata_*
+    # fields in did table and constants.RESERVED_KEYS
+    "name"
+    "length",
+    "md5",
+    "expired_at",
+    "deleted_at",
+    # fields in did table and constants.RESERVED_KEYS, but special handling
+    "bytes",
+    "adler32",
 
     # Keys used while listing dids
     "created_before",
     "created_after",
-    "guid",
     "length.gt",
     "length.lt",
     "length.gte",
     "length.lte",
-    "length",
-    "name"
 ]
 
 
@@ -350,17 +353,8 @@ class DidColumnMeta(DidMetaPlugin):
         """
         raise NotImplementedError('The DidColumnMeta plugin does not currently support deleting metadata.')
 
-    def manages_key(self, key):
-        """
-        Returns wether key is managed by this plugin or not.
-
-        :param key: Key of the metadata.
-        :returns (Boolean)
-        """
-        if key in HARDCODED_KEYS:  # or hasattr(models.DataIdentifier, key):
-            return True
-
-        return False
+    def manages_key(self, key, session=None):
+        return key in HARDCODED_KEYS  # alternatively hasattr(models.DataIdentifier, key)
 
     def get_plugin_name(self):
         """

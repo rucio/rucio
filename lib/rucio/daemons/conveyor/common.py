@@ -1,4 +1,5 @@
-# Copyright 2014-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2014-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,15 +14,15 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2016
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2020
 # - Wen Guan <wen.guan@cern.ch>, 2014-2016
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2016
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2016
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2016
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
-# - Eric Vaandering <ericvaandering@gmail.com>, 2018
+# - Eric Vaandering <ewv@fnal.gov>, 2018-2020
 # - dciangot <diego.ciangottini@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
@@ -30,8 +31,6 @@
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
 
 """
 Methods common to different conveyor submitter daemons.
@@ -161,7 +160,7 @@ def submit_transfer(external_host, job, submitter='submitter', logging_prepend_s
 
     # This exception is raised if one job is already submitted for one file
     except DuplicateFileTransferSubmission as error:
-        logging.warn('%s Failed to submit a job because of duplicate file : %s', prepend_str, str(error))
+        logging.warning('%s Failed to submit a job because of duplicate file : %s', prepend_str, str(error))
         logging.info('%s Submitting files one by one', prepend_str)
 
         try:
@@ -335,8 +334,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                       'bring_online': transfer['bring_online'] if transfer['bring_online'] else None,
                       'job_metadata': {'issuer': 'rucio'},  # finaly job_meta will like this. currently job_meta will equal file_meta to include request_id and etc.
                       'overwrite': transfer['overwrite'],
-                      'priority': 3,
-                      's3alternate': True}
+                      'priority': 3}
         if transfer.get('archive_timeout', None):
             job_params['archive_timeout'] = transfer['archive_timeout']
         if multihop:

@@ -16,7 +16,7 @@
 #
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2020
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2020
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
@@ -167,7 +167,7 @@ def select_account_name(identitystr, identity_type, vo=None):
     if vo is not None:
         accounts = identity.list_accounts_for_identity(identitystr, identity_type)
     else:
-        internal_accounts = identity_core.list_accounts_for_identity(identitystr, IdentityType.from_sym(identity_type))
+        internal_accounts = identity_core.list_accounts_for_identity(identitystr, IdentityType[identity_type])
         accounts = [account.external for account in internal_accounts]
         vos = [account.vo for account in internal_accounts]
         if vos:

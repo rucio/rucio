@@ -46,8 +46,10 @@ def upgrade():
 
     elif context.get_context().dialect.name == 'postgresql':
         add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False), schema=schema[:-1])
-        drop_constraint('RULES_STATE_CHK', 'rules')
-        create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O', 'W', 'I')")
+        op.execute('ALTER TABLE ' + schema + 'rules DROP CONSTRAINT IF EXISTS "RULES_STATE_CHK", ALTER COLUMN state TYPE CHAR')
+        op.execute("DROP TYPE \"RULES_STATE_CHK\"")
+        op.execute("CREATE TYPE \"RULES_STATE_CHK\" AS ENUM('S', 'R', 'U', 'O', 'W', 'I')")
+        op.execute("ALTER TABLE %srules ALTER COLUMN state TYPE \"RULES_STATE_CHK\" USING state::\"RULES_STATE_CHK\"" % schema)
 
     elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
         add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK'), default=False), schema=schema[:-1])
@@ -73,8 +75,10 @@ def downgrade():
 
     elif context.get_context().dialect.name == 'postgresql':
         drop_column('rules', 'ignore_account_limit', schema=schema[:-1])
-        op.execute('ALTER TABLE ' + schema + 'rules DROP CONSTRAINT IF EXISTS "RULES_STATE_CHK", ALTER COLUMN state TYPE CHAR')  # pylint: disable=no-member
-        create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O')")
+        op.execute('ALTER TABLE ' + schema + 'rules DROP CONSTRAINT IF EXISTS "RULES_STATE_CHK", ALTER COLUMN state TYPE CHAR')
+        op.execute("DROP TYPE \"RULES_STATE_CHK\"")
+        op.execute("CREATE TYPE \"RULES_STATE_CHK\" AS ENUM('S', 'R', 'U', 'O')")
+        op.execute("ALTER TABLE %srules ALTER COLUMN state TYPE \"RULES_STATE_CHK\" USING state::\"RULES_STATE_CHK\"" % schema)
 
     elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
         drop_column('rules', 'ignore_account_limit', schema=schema[:-1])
@@ -82,5 +86,4 @@ def downgrade():
 
     elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
         drop_column('rules', 'ignore_account_limit', schema=schema[:-1])
-        op.execute('ALTER TABLE ' + schema + 'rules DROP CHECK RULES_STATE_CHK')  # pylint: disable=no-member
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O')")

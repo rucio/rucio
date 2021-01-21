@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2020 CERN
+# Copyright 2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,14 +14,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2020
-# - Wen Guan <wguan.icedew@gmail.com>, 2014-2015
-# - Vincent Garonne <vgaronne@gmail.com>, 2015-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
-# - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 
 '''
    Hermes2 is a daemon that get the messages and sends them to external services (influxDB, ES, ActiveMQ).
@@ -209,14 +204,14 @@ def deliver_to_activemq(messages, conns, destination, username, password, use_ss
             to_delete.append(message['id'])
             continue
         except stomp.exception.NotConnectedException as error:
-            logging.warn('%s [broker] Could not deliver message due to NotConnectedException: %s',
-                         prepend_str,
-                         str(error))
+            logging.warning('%s [broker] Could not deliver message due to NotConnectedException: %s',
+                            prepend_str,
+                            str(error))
             continue
         except stomp.exception.ConnectFailedException as error:
-            logging.warn('%s [broker] Could not deliver message due to ConnectFailedException: %s',
-                         prepend_str,
-                         str(error))
+            logging.warning('%s [broker] Could not deliver message due to ConnectFailedException: %s',
+                            prepend_str,
+                            str(error))
             continue
         except Exception as error:
             logging.error('%s [broker] Could not deliver message: %s',

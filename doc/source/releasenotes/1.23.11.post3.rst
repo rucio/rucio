@@ -1,0 +1,14 @@
+=============
+1.23.11.post3
+=============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Core & Internals: Trying to set is_new on dataset crashes `#4192 <https://github.com/rucio/rucio/issues/4192>`_
+- Transfers: Conveyor wrongly force tranfers to use IPv4 `#4200 <https://github.com/rucio/rucio/issues/4200>`_

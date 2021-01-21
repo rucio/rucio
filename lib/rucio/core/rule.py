@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2020
 # - David Cameron <david.cameron@cern.ch>, 2014
@@ -824,16 +824,16 @@ def list_rules(filters={}, session=None):
                 continue
             elif key == 'state':
                 if isinstance(value, string_types):
-                    value = RuleState.from_string(value)
+                    value = RuleState(value)
                 else:
                     try:
-                        value = RuleState.from_sym(value)
+                        value = RuleState[value]
                     except ValueError:
                         pass
             elif key == 'did_type' and isinstance(value, string_types):
-                value = DIDType.from_string(value)
+                value = DIDType(value)
             elif key == 'grouping' and isinstance(value, string_types):
-                value = RuleGrouping.from_string(value)
+                value = RuleGrouping(value)
             query = query.filter(getattr(models.ReplicationRule, key) == value)
 
     try:
@@ -3146,7 +3146,9 @@ def __create_recipents_list(rse_expression, filter=None, session=None):
 
     # DDMADMIN as default
     if not recipents:
-        recipents = [('atlas-adc-ddm-support@cern.ch', 'ddmadmin')]
+        default_mail_from = config_get('core', 'default_mail_from', raise_exception=False, default=None)
+        if default_mail_from:
+            recipents = [(default_mail_from, 'ddmadmin')]
 
     return list(set(recipents))
 

@@ -1,27 +1,44 @@
 #!/usr/bin/env python3
-# Copyright European Organization for Nuclear Research (CERN)
+# -*- coding: utf-8 -*-
+# Copyright 2013-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
+# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Authors:
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2014
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017
-# - Thomas Beermann, <thomas.beermann@cern.ch>, 2017
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2019
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2020
+# - Evangelia Liotiri <evangelia.liotiri@cern.ch>, 2014
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2017
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2017
+# - Stefan Prenner <stefan.prenner@cern.ch>, 2017-2018
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
+# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020
 
-from rucio.api.vo import add_vo
-from rucio.client import Client
-from rucio.common.config import config_get, config_get_bool
-from rucio.common.exception import Duplicate
-from rucio.core.account import add_account_attribute
-from rucio.common.types import InternalAccount
+import sys
+import os.path
+base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(base_path)
+os.chdir(base_path)
+
+from rucio.api.vo import add_vo  # noqa: E402
+from rucio.client import Client  # noqa: E402
+from rucio.common.config import config_get, config_get_bool  # noqa: E402
+from rucio.common.exception import Duplicate  # noqa: E402
+from rucio.core.account import add_account_attribute  # noqa: E402
+from rucio.common.types import InternalAccount  # noqa: E402
 
 
 if __name__ == '__main__':
@@ -66,7 +83,6 @@ if __name__ == '__main__':
                                 ('/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=barisits/CN=692443/CN=Martin Barisits', 'x509', 'martin.barisits@cern.ch'),
                                 ('/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=tbeerman/CN=722011/CN=Thomas Beermann', 'x509', 'thomas.beermann@cern.ch'),
                                 ('/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=ruciobuildbot/CN=692443/CN=Robot: Rucio build bot', 'x509', 'rucio.build.bot@cern.ch'),
-                                ('/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=sprenner/CN=822876/CN=Stefan Prenner', 'x509', 'stefan.prenner@cern.ch'),
                                 ('/CN=docker client', 'x509', 'dummy@cern.ch'),
                                 ('mlassnig@CERN.CH', 'GSS', 'mario.lassnig@cern.ch')]
 

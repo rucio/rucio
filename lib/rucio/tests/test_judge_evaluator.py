@@ -1,4 +1,5 @@
-# Copyright 2014-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2014-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +16,7 @@
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2016
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2015
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
@@ -91,7 +92,7 @@ class TestJudgeEvaluator(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
 
         # Add a first rule to the DS
         add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
@@ -114,11 +115,11 @@ class TestJudgeEvaluator(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         parent_container = 'dataset_' + str(uuid())
-        add_did(scope, parent_container, DIDType.from_sym('CONTAINER'), self.jdoe)
+        add_did(scope, parent_container, DIDType.CONTAINER, self.jdoe)
         # Add a first rule to the DS
         add_rule(dids=[{'scope': scope, 'name': parent_container}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
         attach_dids(scope, parent_container, [{'scope': scope, 'name': dataset}], self.jdoe)
@@ -141,7 +142,7 @@ class TestJudgeEvaluator(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
 
         # Add a first rule to the DS
         add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
@@ -165,7 +166,7 @@ class TestJudgeEvaluator(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         # Add a first rule to the DS
@@ -192,11 +193,11 @@ class TestJudgeEvaluator(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         container = 'container_' + str(uuid())
-        add_did(scope, container, DIDType.from_sym('CONTAINER'), self.jdoe)
+        add_did(scope, container, DIDType.CONTAINER, self.jdoe)
         attach_dids(scope, container, [{'scope': scope, 'name': dataset}], self.jdoe)
 
         # Add a rule to the Container
@@ -220,26 +221,26 @@ class TestJudgeEvaluator(unittest.TestCase):
 
         scope = InternalScope('mock', **self.vo)
         container = 'container_' + str(uuid())
-        add_did(scope, container, DIDType.from_sym('CONTAINER'), self.jdoe)
+        add_did(scope, container, DIDType.CONTAINER, self.jdoe)
 
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
         attach_dids(scope, container, [{'scope': scope, 'name': dataset}], self.jdoe)
 
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
         attach_dids(scope, container, [{'scope': scope, 'name': dataset}], self.jdoe)
 
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes=100)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
         attach_dids(scope, container, [{'scope': scope, 'name': dataset}], self.jdoe)
 
@@ -263,7 +264,7 @@ class TestJudgeEvaluator(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
 
         # Add a first rule to the DS
         add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse5, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
@@ -287,15 +288,15 @@ class TestJudgeEvaluator(unittest.TestCase):
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id)
         dataset = 'dataset_' + str(uuid())
-        add_did(scope, dataset, DIDType.from_sym('DATASET'), self.jdoe)
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
         attach_dids(scope, dataset, files, self.jdoe)
 
         parent_container = 'dataset_' + str(uuid())
-        add_did(scope, parent_container, DIDType.from_sym('CONTAINER'), self.jdoe)
+        add_did(scope, parent_container, DIDType.CONTAINER, self.jdoe)
         attach_dids(scope, parent_container, [{'scope': scope, 'name': dataset}], self.jdoe)
 
         parent_parent_container = 'dataset_' + str(uuid())
-        add_did(scope, parent_parent_container, DIDType.from_sym('CONTAINER'), self.jdoe)
+        add_did(scope, parent_parent_container, DIDType.CONTAINER, self.jdoe)
         attach_dids(scope, parent_parent_container, [{'scope': scope, 'name': parent_container}], self.jdoe)
 
         # Add a first rule to the DS
