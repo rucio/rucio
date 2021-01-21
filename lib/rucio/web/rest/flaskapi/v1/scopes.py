@@ -122,7 +122,7 @@ class AccountScopeList(MethodView):
 
 
 def blueprint():
-    bp = Blueprint('scope', __name__, url_prefix='/scopes')
+    bp = Blueprint('scopes', __name__, url_prefix='/scopes')
 
     scope_view = Scope.as_view('scope')
     bp.add_url_rule('/', view_func=scope_view, methods=['get', ])
