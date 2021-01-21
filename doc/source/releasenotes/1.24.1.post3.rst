@@ -1,0 +1,13 @@
+============
+1.24.1.post3
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Transfers: Messages created by core/transfer use the wrong type and state `#4251 <https://github.com/rucio/rucio/issues/4251>`_
