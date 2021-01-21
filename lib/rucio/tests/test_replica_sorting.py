@@ -282,7 +282,7 @@ def test_not_sorting_lan_replicas(vo, rest_client, auth_token, protocols_setup, 
     if rest_backend == 'webpy':
         sort_replicas_mock_target = 'rucio.web.rest.replica.sort_replicas'
     elif rest_backend == 'flask':
-        sort_replicas_mock_target = 'rucio.web.rest.flaskapi.v1.replica.sort_replicas'
+        sort_replicas_mock_target = 'rucio.web.rest.flaskapi.v1.replicas.sort_replicas'
     else:
         return pytest.xfail('unknown REST_BACKEND: ' + rest_backend)
 

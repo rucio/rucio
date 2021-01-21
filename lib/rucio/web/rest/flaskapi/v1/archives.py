@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2020 CERN
+# Copyright 2017-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,57 +14,63 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
-import json
+from __future__ import print_function
+
+from json import dumps
 from traceback import format_exc
 
-from flask import Flask, Blueprint, Response, request
+from flask import Flask, Blueprint, request
 from flask.views import MethodView
 
-from rucio.api.heartbeat import list_heartbeats
-from rucio.common.exception import RucioException
-from rucio.common.utils import APIEncoder
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask
+from rucio.api.did import list_archive_content
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, parse_scope_name, try_stream
 from rucio.web.rest.utils import generate_http_error_flask
 
 
-class Heartbeat(MethodView):
-    """ REST API for Heartbeats. """
+class Archive(MethodView):
+    """ REST APIs for archive. """
 
-    @check_accept_header_wrapper_flask(['application/json'])
-    def get(self):
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
+    def get(self, scope_name):
         """
-        List all heartbeats.
+        List archive content keys.
 
-        .. :quickref: Heartbeat; List heartbeats.
+        .. :quickref: Archive; list archive content keys.
 
-        :resheader Content-Type: application/json
+        :param scope_name: data identifier (scope)/(name).
+        :resheader Content-Type: application/x-json-stream
         :status 200: OK.
-        :status 401: Invalid Auth Token.
+        :status 400: Invalid value.
         :status 406: Not Acceptable.
-        :returns: List of heartbeats.
+        :status 500: Internal Error.
         """
         try:
-            return Response(json.dumps(list_heartbeats(issuer=request.environ.get('issuer'), vo=request.environ.get('vo')),
-                                       cls=APIEncoder), content_type='application/json')
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+
+            def generate(vo):
+                for file in list_archive_content(scope=scope, name=name, vo=vo):
+                    yield dumps(file) + '\n'
+
+            return try_stream(generate(vo=request.environ.get('vo')))
+        except ValueError as error:
+            return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
             print(format_exc())
             return str(error), 500
 
 
 def blueprint():
-    bp = Blueprint('heartbeat', __name__, url_prefix='/heartbeats')
+    bp = Blueprint('archives', __name__, url_prefix='/archives')
 
-    heartbeat_view = Heartbeat.as_view('heartbeat')
-    bp.add_url_rule('', view_func=heartbeat_view, methods=['get', ])
+    archive_view = Archive.as_view('archive')
+    bp.add_url_rule('/<path:scope_name>/files', view_func=archive_view, methods=['get', ])
 
     bp.before_request(request_auth_env)
     bp.after_request(response_headers)

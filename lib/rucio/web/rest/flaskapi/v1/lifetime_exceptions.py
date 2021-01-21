@@ -189,7 +189,7 @@ class LifetimeExceptionId(MethodView):
 
 
 def blueprint():
-    bp = Blueprint('lifetime_exception', __name__, url_prefix='/lifetime_exceptions')
+    bp = Blueprint('lifetime_exceptions', __name__, url_prefix='/lifetime_exceptions')
 
     lifetime_exception_view = LifetimeException.as_view('lifetime_exception')
     bp.add_url_rule('/', view_func=lifetime_exception_view, methods=['get', 'post'])

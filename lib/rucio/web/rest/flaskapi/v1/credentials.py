@@ -122,7 +122,7 @@ class SignURL(MethodView):
 
 
 def blueprint():
-    bp = Blueprint('credential', __name__, url_prefix='/credential')
+    bp = Blueprint('credentials', __name__, url_prefix='/credentials')
 
     signurl_view = SignURL.as_view('signurl')
     bp.add_url_rule('/signurl', view_func=signurl_view, methods=['get', 'options'])
