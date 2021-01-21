@@ -17,19 +17,26 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012
 # - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020
 
 """
 Installation script Rucio's development virtualenv
 """
 
-from __future__ import print_function
-
-import errno
-import optparse
-import os
-import shutil
-import subprocess
 import sys
+import os.path
+base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(base_path)
+os.chdir(base_path)
+
+from __future__ import print_function  # noqa: E402, F404
+
+import errno  # noqa: E402
+import optparse  # noqa: E402
+import os  # noqa: E402
+import shutil  # noqa: E402
+import subprocess  # noqa: E402
+import sys  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 VENV = os.path.join(ROOT, '.venv')

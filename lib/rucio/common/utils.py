@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2015-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
@@ -31,17 +31,23 @@
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from __future__ import print_function
+
+try:
+    import importlib
+    importlib.util.find_spec('')
+except AttributeError:
+    import imp
 
 import base64
 import copy
 import datetime
 import errno
+import functools
 import getpass
 import hashlib
-import imp
 import json
 import logging
 import os
@@ -49,13 +55,16 @@ import os.path
 import re
 import socket
 import subprocess
+import sys
 import tempfile
 import threading
 import time
 import zlib
+from enum import Enum
+from logging import getLogger, Formatter  # NOQA: F401
+from logging.handlers import RotatingFileHandler
 from uuid import uuid4 as uuid
 from xml.etree import ElementTree
-from logging.handlers import RotatingFileHandler
 
 import requests
 from six import string_types, text_type, PY3
@@ -92,18 +101,18 @@ except ImportError:
 # Extra modules: Only imported if available
 EXTRA_MODULES = {'paramiko': False}
 
-try:
-    from rucio.db.sqla.enum import EnumSymbol
-    EXTRA_MODULES['rucio.db.sqla.enum'] = True
-except ImportError:
-    EXTRA_MODULES['rucio.db.sqla.enum'] = False
-
 for extra_module in EXTRA_MODULES:
-    try:
-        imp.find_module(extra_module)
-        EXTRA_MODULES[extra_module] = True
-    except ImportError:
-        EXTRA_MODULES[extra_module] = False
+    if 'imp' in sys.modules:
+        try:
+            imp.find_module(extra_module)
+            EXTRA_MODULES[extra_module] = True
+        except ImportError:
+            EXTRA_MODULES[extra_module] = False
+    else:
+        if importlib.util.find_spec(extra_module):
+            EXTRA_MODULES[extra_module] = True
+        else:
+            EXTRA_MODULES[extra_module] = False
 
 if EXTRA_MODULES['paramiko']:
     try:
@@ -406,8 +415,8 @@ class APIEncoder(json.JSONEncoder):
             return obj.isoformat()
         elif isinstance(obj, datetime.timedelta):
             return obj.days * 24 * 60 * 60 + obj.seconds
-        elif isinstance(obj, EnumSymbol):
-            return obj.description
+        elif isinstance(obj, Enum):
+            return obj.name
         elif isinstance(obj, (InternalAccount, InternalScope)):
             return obj.external
         return json.JSONEncoder.default(self, obj)
@@ -667,6 +676,8 @@ def clean_surls(surls):
             surl = re.sub('/srm/managerv2\?SFN=', '', surl)  # NOQA: W605
         if surl.startswith('https://storage.googleapis.com'):
             surl = surl.split('?GoogleAccessId')[0]
+        if '?X-Amz' in surl:
+            surl = surl.split('?X-Amz')[0]
         res.append(surl)
     res.sort()
     return res
@@ -734,9 +745,9 @@ def extract_scope_belleii(did, scopes):
                 return 'user.%s' % split_did[3], did
         return 'user', did
     if did.startswith('/belle/group/'):
-        if len(split_did) > 3:
-            if 'group.%s' % (split_did[3]) in scopes:
-                return 'group.%s' % split_did[3], did
+        if len(split_did) > 4:
+            if 'group.%s' % (split_did[4]) in scopes:
+                return 'group.%s' % split_did[4], did
         return 'group', did
     if did.startswith('/belle/data/') or did.startswith('/belle/Data/'):
         if len(split_did) > 4:
@@ -758,8 +769,10 @@ def extract_scope_belleii(did, scopes):
                 if split_did[4].find('fab') > -1:  # /belle/Data/proc/fab* --> data_tmp
                     return 'data_tmp', did
         return 'data_tmp', did
-    if did.startswith('/belle/ddm/functional_tests/') or did.startswith('/belle/ddm/tests/'):
+    if did.startswith('/belle/ddm/functional_tests/') or did.startswith('/belle/ddm/tests/') or did.startswith('/belle/test/ddm_test'):
         return 'test', did
+    if did.startswith('/belle/BG/'):
+        return 'data', did
     return 'other', did
 
 
@@ -1438,3 +1451,19 @@ class retry:
                     logger.debug(str(e))
                 attempt -= 1
         return self.func(*self.args, **self.kwargs)
+
+
+def formatted_logger(innerfunc, formatstr="%s"):
+    """
+    Decorates the passed function, formatting log input by
+    the passed formatstr. The format string must always include a %s.
+
+    :param innerfunc: function to be decorated. Must take (level, msg) arguments.
+    :type innerfunc: Callable
+    :param formatstr: format string with %s as placeholder.
+    :type formatstr: str
+    """
+    @functools.wraps(innerfunc)
+    def log_format(level, msg, *args, **kwargs):
+        return innerfunc(level, formatstr % msg, *args, **kwargs)
+    return log_format

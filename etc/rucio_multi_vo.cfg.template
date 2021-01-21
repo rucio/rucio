@@ -44,6 +44,10 @@ protocol_stat_retries = 6
 [download]
 #transfer_timeout = 3600
 
+[core]
+geoip_licence_key = LICENCEKEYGOESHERE  # Get a free licence key at https://www.maxmind.com/en/geolite2/signup
+default_mail_from = spamspamspam@cern.ch
+
 [database]
 default = sqlite:////tmp/rucio.db
 #default = oracle://_____________:___________@(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=_________)(PORT=______))(ADDRESS=(PROTOCOL=TCP)(HOST=_________)(PORT=_____))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=__________)))
@@ -112,7 +116,7 @@ ssl_cert_file = /etc/grid-security/hostcert.pem
 destination = /topic/rucio.events
 brokers = atlas-test-mb.cern.ch
 voname = atlas
-email_from = Rucio <atlas-adc-ddm-support@cern.ch>
+email_from = Rucio <spamspamspam@cern.ch>
 email_test = spamspamspam@cern.ch
 
 [transmogrifier]

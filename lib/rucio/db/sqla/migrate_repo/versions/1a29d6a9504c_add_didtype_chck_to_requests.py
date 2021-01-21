@@ -1,4 +1,5 @@
-# Copyright 2013-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +14,15 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2019
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2017
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
+# - Martin Barisits <martin.barisits@cern.ch>, 2016
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2020
 
 ''' add didtype_chck to requests '''
 
 import sqlalchemy as sa
 
-from alembic import context
+from alembic import context, op
 from alembic.op import add_column, drop_column
 
 from rucio.db.sqla.constants import DIDType
@@ -35,13 +37,19 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''  # pylint: disable=no-member
+
+    if context.get_context().dialect.name in ['oracle', 'mysql']:  # pylint: disable=no-member
         add_column('requests', sa.Column('did_type',
-                                         DIDType.db_type(name='REQUESTS_DIDTYPE_CHK'),
-                                         default=DIDType.FILE), schema=schema)
+                                         sa.Enum(DIDType, name='REQUESTS_DIDTYPE_CHK', values_callable=lambda obj: [e.value for e in obj]),
+                                         default=DIDType.FILE), schema=schema[:-1])
         # we don't want checks on the history table, fake the DID type
-        add_column('requests_history', sa.Column('did_type', sa.String(1)), schema=schema)
+        add_column('requests_history', sa.Column('did_type', sa.String(1)), schema=schema[:-1])
+
+    elif context.get_context().dialect.name == 'postgresql':  # pylint: disable=no-member
+        op.execute("ALTER TABLE %srequests ADD COLUMN did_type \"REQUESTS_DIDTYPE_CHK\"" % schema)  # pylint: disable=no-member
+        # we don't want checks on the history table, fake the DID type
+        add_column('requests_history', sa.Column('did_type', sa.String(1)), schema=schema[:-1])
 
 
 def downgrade():
@@ -49,7 +57,8 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''  # pylint: disable=no-member
+
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:  # pylint: disable=no-member
         drop_column('requests', 'did_type', schema=schema)
         drop_column('requests_history', 'did_type', schema=schema)

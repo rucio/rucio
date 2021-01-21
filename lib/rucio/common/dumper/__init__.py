@@ -100,7 +100,7 @@ def cacert_config(config, rucio_home):
         cacert = None
 
     if cacert is None or not os.path.exists(cacert):
-        logger.warn('Configured CA Certificate file "%s" not found: Host certificate verification disabled', cacert)
+        logger.warning('Configured CA Certificate file "%s" not found: Host certificate verification disabled', cacert)
         cacert = False
 
     return cacert
@@ -163,7 +163,7 @@ def smart_open(filename):
 
 
 @contextlib.contextmanager
-def temp_file(directory, final_name=None):
+def temp_file(directory, final_name=None, binary=False):
     '''
     Allows to create a temporal file to store partial results, when the
     file is complete it is renamed to `final_name`.
@@ -172,6 +172,7 @@ def temp_file(directory, final_name=None):
     - `final_name`: Path of the final file, relative to `directory`.
        If the `final_name` is omitted or None the renaming step is ommited,
        leaving the temporal file with the results.
+    - `binary`: whether to open the file in binary mode (default: False).
 
     Important: `directory` and `final_name` must be in the same filesystem as
     a hardlink is used to rename the temporal file.
@@ -186,7 +187,7 @@ def temp_file(directory, final_name=None):
     logger = logging.getLogger('dumper.__init__')
 
     fd, tpath = tempfile.mkstemp(dir=directory)
-    tmp = os.fdopen(fd, 'w')
+    tmp = os.fdopen(fd, 'wb' if binary else 'w')
 
     try:
         yield tmp, os.path.basename(tpath)

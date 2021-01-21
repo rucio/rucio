@@ -1,4 +1,5 @@
-# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +14,12 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2017
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
 
 """
 Core tracer module
@@ -113,13 +112,13 @@ def trace(payload):
                     conn.start()
                     conn.connect(USERNAME, PASSWORD)
             except stomp.exception.NotConnectedException:
-                logging.warn('Could not connect to broker %s, try another one' %
-                             conn.transport._Transport__host_and_ports[0][0])
+                logging.warning('Could not connect to broker %s, try another one' %
+                                conn.transport._Transport__host_and_ports[0][0])
                 t_conns.remove(conn)
                 continue
             except stomp.exception.ConnectFailedException:
-                logging.warn('Could not connect to broker %s, try another one' %
-                             conn.transport._Transport__host_and_ports[0][0])
+                logging.warning('Could not connect to broker %s, try another one' %
+                                conn.transport._Transport__host_and_ports[0][0])
                 t_conns.remove(conn)
                 continue
 

@@ -1,0 +1,13 @@
+======
+1.24.1
+======
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Core & Internals: RSEType not migrated to new enum in list_replicas `#4225 <https://github.com/rucio/rucio/issues/4225>`_

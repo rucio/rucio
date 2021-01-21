@@ -1,4 +1,5 @@
-# Copyright 2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +17,7 @@
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 
 from __future__ import print_function
 
@@ -298,11 +300,11 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         self.adminClientSUB = str('adminclientSUB' + rndstr()).lower()
         self.adminClientSUB_otherISS = str('adminclientSUB_otherISS' + rndstr()).lower()
         try:
-            add_account(self.account, AccountType.from_sym('USER'), 'rucio@email.com', session=self.db_session)
+            add_account(self.account, AccountType.USER, 'rucio@email.com', session=self.db_session)
         except Duplicate:
             pass
         try:
-            add_account(self.adminaccount, AccountType.from_sym('SERVICE'), 'rucio@email.com', session=self.db_session)
+            add_account(self.adminaccount, AccountType.SERVICE, 'rucio@email.com', session=self.db_session)
         except Duplicate:
             pass
 

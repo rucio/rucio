@@ -1,4 +1,5 @@
-# Copyright 2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2019-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +15,7 @@
 #
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2020
 # - Robert Illingworth <illingwo@fnal.gov>, 2019
 
 ''' add new rule notification state progress '''
@@ -41,16 +42,16 @@ def upgrade():
                                 condition="notification in ('Y', 'N', 'C', 'P')")
 
     elif context.get_context().dialect.name == 'postgresql':
-        op.execute('ALTER TABLE ' + schema + 'rules DROP CONSTRAINT IF EXISTS "RULES_NOTIFICATION_CHK", ALTER COLUMN notification TYPE CHAR')  # pylint: disable=no-member
-        create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
-                                condition="notification in ('Y', 'N', 'C', 'P')")
+        op.execute('ALTER TABLE ' + schema + 'rules DROP CONSTRAINT IF EXISTS "RULES_NOTIFICATION_CHK", ALTER COLUMN notification TYPE CHAR')
+        op.execute('DROP TYPE \"RULES_NOTIFICATION_CHK\"')
+        op.execute("CREATE TYPE \"RULES_NOTIFICATION_CHK\" AS ENUM('Y', 'N', 'C', 'P')")
+        op.execute("ALTER TABLE %srules ALTER COLUMN notification TYPE \"RULES_NOTIFICATION_CHK\" USING notification::\"RULES_NOTIFICATION_CHK\"" % schema)
 
     elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
         create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
                                 condition="notification in ('Y', 'N', 'C', 'P')")
 
     elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
-        op.execute('ALTER TABLE ' + schema + 'rules DROP CHECK RULES_NOTIFICATION_CHK')  # pylint: disable=no-member
         create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
                                 condition="notification in ('Y', 'N', 'C', 'P')")
 
@@ -68,17 +69,15 @@ def downgrade():
                                 condition="notification in ('Y', 'N', 'C')")
 
     elif context.get_context().dialect.name == 'postgresql':
-        # PostgreSQL does not support reducing check types, so we must work around
-        # by changing it to the internal string type
-        op.execute('ALTER TABLE ' + schema + 'rules DROP CONSTRAINT IF EXISTS "RULES_NOTIFICATION_CHK", ALTER COLUMN notification TYPE CHAR')  # pylint: disable=no-member
-        create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
-                                condition="notification in ('Y', 'N', 'C')")
+        op.execute('ALTER TABLE ' + schema + 'rules DROP CONSTRAINT IF EXISTS "RULES_NOTIFICATION_CHK", ALTER COLUMN notification TYPE CHAR')
+        op.execute('DROP TYPE "RULES_NOTIFICATION_CHK"')
+        op.execute("CREATE TYPE \"RULES_NOTIFICATION_CHK\" AS ENUM('Y', 'N', 'C')")
+        op.execute("ALTER TABLE %srules ALTER COLUMN notification TYPE \"RULES_NOTIFICATION_CHK\" USING notification::\"RULES_NOTIFICATION_CHK\"" % schema)
 
     elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 5:
         create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
                                 condition="notification in ('Y', 'N', 'C')")
 
     elif context.get_context().dialect.name == 'mysql' and context.get_context().dialect.server_version_info[0] == 8:
-        op.execute('ALTER TABLE ' + schema + 'rules DROP CHECK RULES_NOTIFICATION_CHK')  # pylint: disable=no-member
         create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
                                 condition="notification in ('Y', 'N', 'C')")

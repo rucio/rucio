@@ -1,0 +1,13 @@
+=============
+1.23.11.post4
+=============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Database: Add query hint to reaper2 replica state update query `#4204 <https://github.com/rucio/rucio/issues/4204>`_

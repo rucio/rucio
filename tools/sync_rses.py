@@ -19,13 +19,20 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Gabriele Gaetano Fronze' <gabriele.fronze@to.infn.it>, 2020
 
-import json
 import sys
-import traceback
+import os.path
+base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(base_path)
+os.chdir(base_path)
 
-from rucio.client import Client
-from rucio.common.exception import Duplicate
+import json  # noqa: E402
+import sys  # noqa: E402
+import traceback  # noqa: E402
+
+from rucio.client import Client  # noqa: E402
+from rucio.common.exception import Duplicate  # noqa: E402
 
 UNKNOWN = 3
 CRITICAL = 2

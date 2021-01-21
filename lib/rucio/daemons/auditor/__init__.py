@@ -1,4 +1,5 @@
-# Copyright 2015-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,15 +14,13 @@
 # limitations under the License.
 #
 # Authors:
-# - Fernando Lopez <fernando.e.lopez@gmail.com>, 2015-2016
-# - Martin Barisits <martin.barisits@cern.ch>, 2017
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2017
-# - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Fernando López <felopez@cern.ch>, 2015-2016
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2017-2020
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018-2019
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-#
-# PY3K COMPATIBLE
 
 from __future__ import division
 
@@ -58,7 +57,7 @@ def consistency(rse, delta, configuration, cache_dir, results_dir):
     results_path = os.path.join(results_dir, '{0}_{1}'.format(rse, rsedate.strftime('%Y%m%d')))  # pylint: disable=no-member
 
     if os.path.exists(results_path + '.bz2') or os.path.exists(results_path):
-        logger.warn('Consistency check for "%s" (dump dated %s) already done, skipping check', rse, rsedate.strftime('%Y%m%d'))  # pylint: disable=no-member
+        logger.warning('Consistency check for "%s" (dump dated %s) already done, skipping check', rse, rsedate.strftime('%Y%m%d'))  # pylint: disable=no-member
         return None
 
     rrdump_prev = ReplicaFromHDFS.download(rse, rsedate - delta, cache_dir=cache_dir)

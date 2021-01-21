@@ -17,4 +17,4 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
 
-ALEMBIC_REVISION = '8ea9122275b1'  # the current alembic head revision
+ALEMBIC_REVISION = 'd23453595260'  # the current alembic head revision

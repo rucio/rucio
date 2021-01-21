@@ -1,4 +1,5 @@
-# Copyright 2018-2019 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +15,7 @@
 #
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2018-2019
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2020
 # - Robert Illingworth <illingwo@fnal.gov>, 2019
 
 ''' new bad_pfns table and bad_replicas changes '''
@@ -48,7 +49,7 @@ def upgrade():
         # Create new bad_pfns table
         create_table('bad_pfns',
                      sa.Column('path', sa.String(2048)),
-                     sa.Column('state', BadPFNStatus.db_type(name='BAD_PFNS_STATE_CHK'), default=BadPFNStatus.SUSPICIOUS),
+                     sa.Column('state', sa.Enum(BadPFNStatus, name='BAD_PFNS_STATE_CHK', values_callable=lambda obj: [e.value for e in obj]), default=BadPFNStatus.SUSPICIOUS),
                      sa.Column('reason', sa.String(255)),
                      sa.Column('account', sa.String(25)),
                      sa.Column('expires_at', sa.DateTime),
@@ -76,7 +77,7 @@ def upgrade():
         # Create new bad_pfns table
         create_table('bad_pfns',
                      sa.Column('path', sa.String(2048)),
-                     sa.Column('state', BadPFNStatus.db_type(name='BAD_PFNS_STATE_CHK'), default=BadPFNStatus.SUSPICIOUS),
+                     sa.Column('state', sa.Enum(BadPFNStatus, name='BAD_PFNS_STATE_CHK', values_callable=lambda obj: [e.value for e in obj]), default=BadPFNStatus.SUSPICIOUS),
                      sa.Column('reason', sa.String(255)),
                      sa.Column('account', sa.String(25)),
                      sa.Column('expires_at', sa.DateTime),
@@ -103,7 +104,7 @@ def upgrade():
         # Create new bad_pfns table
         create_table('bad_pfns',
                      sa.Column('path', sa.String(2048)),
-                     sa.Column('state', BadPFNStatus.db_type(name='BAD_PFNS_STATE_CHK'), default=BadPFNStatus.SUSPICIOUS),
+                     sa.Column('state', sa.Enum(BadPFNStatus, name='BAD_PFNS_STATE_CHK', values_callable=lambda obj: [e.value for e in obj]), default=BadPFNStatus.SUSPICIOUS),
                      sa.Column('reason', sa.String(255)),
                      sa.Column('account', sa.String(25)),
                      sa.Column('expires_at', sa.DateTime),
@@ -174,7 +175,6 @@ def downgrade():
         drop_table('bad_pfns')
         drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
 
-        op.execute('ALTER TABLE ' + schema + 'bad_replicas DROP CHECK BAD_REPLICAS_STATE_CHK')  # pylint: disable=no-member
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
                                 condition="state in ('B', 'D', 'L', 'R', 'S')")
 

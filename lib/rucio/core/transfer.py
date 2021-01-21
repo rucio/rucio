@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Igor Mandrichenko <rucio@fermicloud055.fnal.gov>, 2018
@@ -32,9 +32,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Nick Smith <nick.smith@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-#
-# PY3K COMPATIBLE
-
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import division
 
@@ -46,6 +44,7 @@ import logging
 import re
 import time
 import traceback
+from typing import TYPE_CHECKING
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
@@ -54,14 +53,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import false
 
 from rucio.common import constants
+from rucio.common.config import config_get
+from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.common.exception import (InvalidRSEExpression, NoDistance,
                                     RequestNotFound, RSEProtocolNotSupported,
                                     RucioException, UnsupportedOperation)
-from rucio.common.config import config_get
 from rucio.common.rse_attributes import get_rse_attributes
 from rucio.common.types import InternalAccount
 from rucio.common.utils import construct_surl
-from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.config import get as core_config_get
 from rucio.core.monitor import record_counter, record_timer
@@ -76,6 +75,8 @@ from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.fts3 import FTS3Transfertool
 
+if TYPE_CHECKING:
+    from typing import List, Tuple
 
 # Extra modules: Only imported if available
 EXTRA_MODULES = {'globus_sdk': False}
@@ -246,15 +247,16 @@ def set_transfers_state(transfers, submitted_at, session=None):
                 raise RucioException("Failed to set requests %s tansfer %s: request doesn't exist or is not in SUBMITTING state" % (request_id, transfers[request_id]))
 
             request_type = transfers[request_id].get('request_type', None)
+
             msg = {'request-id': request_id,
-                   'request-type': str(request_type).lower() if request_type else request_type,
+                   'request-type': request_type,
                    'scope': transfers[request_id]['scope'].external,
                    'name': transfers[request_id]['name'],
                    'src-rse-id': transfers[request_id]['metadata'].get('src_rse_id', None),
                    'src-rse': transfers[request_id]['metadata'].get('src_rse', None),
                    'dst-rse-id': transfers[request_id]['metadata'].get('dst_rse_id', None),
                    'dst-rse': transfers[request_id]['metadata'].get('dst_rse', None),
-                   'state': str(transfers[request_id]['state']),
+                   'state': transfers[request_id]['state'],
                    'activity': transfers[request_id]['metadata'].get('activity', None),
                    'file-size': transfers[request_id]['metadata'].get('filesize', None),
                    'bytes': transfers[request_id]['metadata'].get('filesize', None),
@@ -267,10 +269,11 @@ def set_transfers_state(transfers, submitted_at, session=None):
                 msg['vo'] = transfers[request_id]['scope'].vo
 
             if msg['request-type']:
-                transfer_status = '%s-%s' % (msg['request-type'], msg['state'])
+                transfer_status = '%s-%s' % (msg['request-type'].name, msg['state'].name)
             else:
                 transfer_status = 'transfer-%s' % msg['state']
             transfer_status = transfer_status.lower()
+
             message_core.add_message(transfer_status, msg, session=session)
 
     except IntegrityError as error:
@@ -301,11 +304,11 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeou
                 fts_resps[transfer_id] = Exception("Transfer id %s is not returned" % transfer_id)
             if fts_resps[transfer_id] and not isinstance(fts_resps[transfer_id], Exception):
                 for request_id in fts_resps[transfer_id]:
-                    if fts_resps[transfer_id][request_id]['file_state'] in (str(FTSState.FAILED),
-                                                                            str(FTSState.FINISHEDDIRTY),
-                                                                            str(FTSState.CANCELED)):
+                    if fts_resps[transfer_id][request_id]['file_state'] in (str(FTSState.FAILED.name),
+                                                                            str(FTSState.FINISHEDDIRTY.name),
+                                                                            str(FTSState.CANCELED.name)):
                         fts_resps[transfer_id][request_id]['new_state'] = RequestState.FAILED
-                    elif fts_resps[transfer_id][request_id]['file_state'] in str(FTSState.FINISHED):
+                    elif fts_resps[transfer_id][request_id]['file_state'] in str(FTSState.FINISHED.name):
                         fts_resps[transfer_id][request_id]['new_state'] = RequestState.DONE
         return fts_resps
     elif transfertool == 'globus':
@@ -650,6 +653,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                                                activity=activity,
                                                                older_than=older_than,
                                                                rses=rses,
+                                                               request_state=RequestState.QUEUED,
                                                                session=session)
 
     unavailable_read_rse_ids = __get_unavailable_rse_ids(operation='read', session=session)
@@ -837,6 +841,11 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     dest_url = re.sub('https', 'gclouds', dest_url)
                     if source_protocol in ['davs', 'https']:
                         source_url += '?copy_mode=push'
+                elif sign_url == 's3':
+                    dest_url = re.sub('davs', 's3s', dest_url)
+                    dest_url = re.sub('https', 's3s', dest_url)
+                    if source_protocol in ['davs', 'https']:
+                        source_url += '?copy_mode=push'
                 elif WEBDAV_TRANSFER_MODE:
                     if source_protocol in ['davs', 'https']:
                         source_url += '?copy_mode=%s' % WEBDAV_TRANSFER_MODE
@@ -845,6 +854,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 if source_sign_url == 'gcs':
                     source_url = re.sub('davs', 'gclouds', source_url)
                     source_url = re.sub('https', 'gclouds', source_url)
+                elif source_sign_url == 's3':
+                    source_url = re.sub('davs', 's3s', source_url)
+                    source_url = re.sub('https', 's3s', source_url)
 
                 use_ipv4 = rse_attrs[source_rse_id].get('use_ipv4', False) or rse_attrs[dest_rse_id].get('use_ipv4', False)
 
@@ -900,7 +912,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                  'scope': scope,
                                  'name': name,
                                  'activity': activity,
-                                 'request_type': str(RequestType.TRANSFER).lower(),
+                                 'request_type': RequestType.TRANSFER,
                                  'src_type': transfer_src_type,
                                  'dst_type': transfer_dst_type,
                                  'src_rse': rse,
@@ -940,8 +952,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     transfers[req_id]['strict_copy'] = strict_copy
                 if use_ipv4:
                     transfers[req_id]['use_ipv4'] = True
-                if archive_timeout and (rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE
-                                        or rses_info[dest_rse_id]['rse_type'] == 'TAPE'):
+                if archive_timeout and (rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE or rses_info[dest_rse_id]['rse_type'] == 'TAPE'):
                     try:
                         transfers[req_id]['archive_timeout'] = int(archive_timeout)
                         logging.debug('Added archive timeout to transfer.')
@@ -968,6 +979,11 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     dest_url = re.sub('https', 'gclouds', dest_url)
                     if source_protocol in ['davs', 'https']:
                         source_url += '?copy_mode=push'
+                elif sign_url == 's3':
+                    dest_url = re.sub('davs', 's3s', dest_url)
+                    dest_url = re.sub('https', 's3s', dest_url)
+                    if source_protocol in ['davs', 'https']:
+                        source_url += '?copy_mode=push'
                 elif WEBDAV_TRANSFER_MODE:
                     if source_protocol in ['davs', 'https']:
                         source_url += '?copy_mode=%s' % WEBDAV_TRANSFER_MODE
@@ -976,6 +992,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 if source_sign_url == 'gcs':
                     source_url = re.sub('davs', 'gclouds', source_url)
                     source_url = re.sub('https', 'gclouds', source_url)
+                elif source_sign_url == 's3':
+                    source_url = re.sub('davs', 's3s', source_url)
+                    source_url = re.sub('https', 's3s', source_url)
 
                 # III - The transfer queued previously is a multihop, but this one is direct.
                 # Reset the sources, remove the multihop flag
@@ -1052,7 +1071,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 # transfers[id]['src_urls'].append((source_rse_id, source_url))
                 transfers[req_id]['sources'].append((rse, source_url, source_rse_id, ranking, link_ranking))
                 # if one source has force IPv4, force IPv4 for the whole job
-                if rse_attrs[source_rse_id].get('use_ipv4', True):
+                use_ipv4 = rse_attrs[source_rse_id].get('use_ipv4', False)
+                if use_ipv4:
                     transfers[req_id]['use_ipv4'] = True
 
         except Exception:
@@ -1214,7 +1234,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                      'scope': scope,
                                      'name': name,
                                      'activity': transfers[req_id]['file_metadata']['activity'],
-                                     'request_type': str(RequestType.TRANSFER).lower(),
+                                     'request_type': RequestType.TRANSFER,
                                      'src_type': transfer_src_type,
                                      'dst_type': transfer_dst_type,
                                      'src_rse': source_rse_name,
@@ -1267,8 +1287,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
 
 @read_session
-def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=0,
-                                                 limit=None, activity=None, older_than=None, rses=None, session=None):
+def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, limit=None, activity=None,
+                                                 older_than=None, rses=None, request_state=None, session=None) -> "List[Tuple]":
     """
     List requests with source replicas
     :param total_workers:     Number of total workers.
@@ -1280,6 +1300,10 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
     :param session:          Database session to use.
     :returns:                List.
     """
+
+    if request_state is None:
+        request_state = RequestState.QUEUED
+
     sub_requests = session.query(models.Request.id,
                                  models.Request.rule_id,
                                  models.Request.scope,
@@ -1292,12 +1316,12 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
                                  models.Request.previous_attempt_id,
                                  models.Request.dest_rse_id,
                                  models.Request.retry_count,
-                                 models.Request.account)\
-        .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
-        .filter(models.Request.state == RequestState.QUEUED)\
-        .filter(models.Request.request_type == RequestType.TRANSFER)\
-        .join(models.RSE, models.RSE.id == models.Request.dest_rse_id)\
-        .filter(models.RSE.deleted == false())\
+                                 models.Request.account) \
+        .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle') \
+        .filter(models.Request.state == request_state) \
+        .filter(models.Request.request_type == RequestType.TRANSFER) \
+        .join(models.RSE, models.RSE.id == models.Request.dest_rse_id) \
+        .filter(models.RSE.deleted == false()) \
         .filter(models.RSE.availability.in_((2, 3, 6, 7)))
 
     if isinstance(older_than, datetime.datetime):
@@ -1333,19 +1357,19 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
                           sub_requests.c.retry_count,
                           models.Source.url,
                           models.Source.ranking,
-                          models.Distance.ranking)\
+                          models.Distance.ranking) \
         .outerjoin(models.RSEFileAssociation, and_(sub_requests.c.scope == models.RSEFileAssociation.scope,
                                                    sub_requests.c.name == models.RSEFileAssociation.name,
                                                    models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                                                   sub_requests.c.dest_rse_id != models.RSEFileAssociation.rse_id))\
-        .with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PK)", 'oracle')\
+                                                   sub_requests.c.dest_rse_id != models.RSEFileAssociation.rse_id)) \
+        .with_hint(models.RSEFileAssociation, "+ index(replicas REPLICAS_PK)", 'oracle') \
         .outerjoin(models.RSE, and_(models.RSE.id == models.RSEFileAssociation.rse_id,
-                                    models.RSE.deleted == false()))\
+                                    models.RSE.deleted == false())) \
         .outerjoin(models.Source, and_(sub_requests.c.id == models.Source.request_id,
-                                       models.RSE.id == models.Source.rse_id))\
-        .with_hint(models.Source, "+ index(sources SOURCES_PK)", 'oracle')\
+                                       models.RSE.id == models.Source.rse_id)) \
+        .with_hint(models.Source, "+ index(sources SOURCES_PK)", 'oracle') \
         .outerjoin(models.Distance, and_(sub_requests.c.dest_rse_id == models.Distance.dest_rse_id,
-                                         models.RSEFileAssociation.rse_id == models.Distance.src_rse_id))\
+                                         models.RSEFileAssociation.rse_id == models.Distance.src_rse_id)) \
         .with_hint(models.Distance, "+ index(distances DISTANCES_PK)", 'oracle')
 
     if rses:

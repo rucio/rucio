@@ -78,7 +78,7 @@ if [ $? != 0 ]; then
     exit 1
 fi
 
-echo 'Bootstrap tests: Create jdoe account/mock scope'
+echo 'Bootstrapping tests'
 tools/bootstrap_tests.py
 if [ $? != 0 ]; then
     echo 'Failed to bootstrap!'
@@ -99,18 +99,10 @@ if [ $? != 0 ]; then
     exit 1
 fi
 
-echo 'Bootstrap tests: Create jdoe account/mock scope'
-tools/bootstrap_tests.py
-if [ $? != 0 ]; then
-    echo 'Failed to bootstrap!'
-    exit 1
-fi
-
 if test ${activate_rse}; then
     echo 'Activating default RSEs (XRD1, XRD2, XRD3)'
     tools/docker_activate_rses.sh
 fi
-
 
 if test ${init_only}; then
     exit
@@ -129,7 +121,7 @@ export RUCIO_HOME=/opt/rucio/etc/multi_vo/ts2
 echo 'Clearing memcache'
 echo flush_all > /dev/tcp/127.0.0.1/11211
 
-echo 'Bootstrap tests: Create jdoe account/mock scope'
+echo 'Bootstrapping tests'
 tools/bootstrap_tests.py
 if [ $? != 0 ]; then
     echo 'Failed to bootstrap!'
@@ -147,13 +139,6 @@ echo 'Sync metadata keys'
 tools/sync_meta.py
 if [ $? != 0 ]; then
     echo 'Failed to sync!'
-    exit 1
-fi
-
-echo 'Bootstrap tests: Create jdoe account/mock scope'
-tools/bootstrap_tests.py
-if [ $? != 0 ]; then
-    echo 'Failed to bootstrap!'
     exit 1
 fi
 

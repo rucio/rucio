@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2020 CERN
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from __future__ import print_function
 
@@ -31,6 +31,7 @@ from datetime import datetime
 from hashlib import sha256
 from os import urandom
 from traceback import format_exc
+from typing import TYPE_CHECKING
 
 from alembic import command
 from alembic.config import Config
@@ -44,14 +45,18 @@ from rucio import alembicrevision
 from rucio.common.config import config_get
 from rucio.common.types import InternalAccount
 from rucio.core.account_counter import create_counters_for_new_account
-from rucio.db.sqla import session, models
+from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, AccountType, IdentityType
-from rucio.db.sqla.session import get_engine
+from rucio.db.sqla.session import get_engine, get_session, get_dump_engine
+
+if TYPE_CHECKING:
+    from typing import Optional  # noqa: F401
+    from sqlalchemy.orm import Session  # noqa: F401
 
 
 def build_database(echo=True):
     """ Applies the schema to the database. Run this command once to build the database. """
-    engine = session.get_engine(echo=echo)
+    engine = get_engine(echo=echo)
 
     schema = config_get('database', 'schema', raise_exception=False)
     if schema:
@@ -70,13 +75,13 @@ def build_database(echo=True):
 
 def dump_schema():
     """ Creates a schema dump to a specific database. """
-    engine = session.get_dump_engine()
+    engine = get_dump_engine()
     models.register_models(engine)
 
 
 def destroy_database(echo=True):
     """ Removes the schema from the database. Only useful for test cases or malicious intents. """
-    engine = session.get_engine(echo=echo)
+    engine = get_engine(echo=echo)
 
     try:
         models.unregister_models(engine)
@@ -89,7 +94,7 @@ def drop_everything(echo=True):
         metadata.drop_all() as it handles cyclical constraints between tables.
         Ref. http://www.sqlalchemy.org/trac/wiki/UsageRecipes/DropEverything
     """
-    engine = session.get_engine(echo=echo)
+    engine = get_engine(echo=echo)
     conn = engine.connect()
 
     # the transaction only applies if the DB supports
@@ -136,7 +141,7 @@ def drop_everything(echo=True):
 def create_base_vo():
     """ Creates the base VO """
 
-    s = session.get_session()
+    s = get_session()
 
     vo = models.VO(vo='def', description='Default base VO', email='N/A')
 
@@ -181,7 +186,7 @@ def create_root_account(create_counters=True):
         pass
         # print 'Config values are missing (check rucio.cfg{.template}). Using hardcoded defaults.'
 
-    s = session.get_session()
+    s = get_session()
 
     if multi_vo:
         access = 'super_root'
@@ -228,7 +233,7 @@ def create_root_account(create_counters=True):
 
 def get_db_time():
     """ Gives the utc time on the db. """
-    s = session.get_session()
+    s = get_session()
     try:
         storage_date_format = None
         if s.bind.dialect.name == 'oracle':
@@ -273,6 +278,27 @@ def is_old_db():
     if not get_engine().has_table(models.AlembicVersion.__tablename__, schema):
         return False
 
-    s = session.get_session()
+    s = get_session()
     query = s.query(models.AlembicVersion.version_num)
     return query.count() != 0 and str(query.first()[0]) != alembicrevision.ALEMBIC_REVISION
+
+
+def json_implemented(session=None):
+    """
+    Checks if the database on the current server installation can support json fields.
+
+    :param session: The active session of the database.
+    :type session: Optional[Session]
+    :returns: True, if json is supported, False otherwise.
+    """
+    if session is None:
+        session = get_session()
+
+    if session.bind.dialect.name == 'oracle':
+        oracle_version = int(session.connection().connection.version.split('.')[0])
+        if oracle_version < 12:
+            return False
+    elif session.bind.dialect.name == 'sqlite':
+        return False
+
+    return True

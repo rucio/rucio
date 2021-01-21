@@ -29,6 +29,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 
 from __future__ import print_function
 
@@ -324,10 +325,12 @@ class TestBinRucio(unittest.TestCase):
         if environ.get('SUITE', 'all') != 'client':
             from rucio.db.sqla import session, models
             db_session = session.get_session()
-            db_session.query(models.RSEFileAssociation).filter_by(name=tmp_file1_name, scope=InternalScope(self.user, **self.vo)).delete()
+            internal_scope = InternalScope(self.user, **self.vo)
+            db_session.query(models.RSEFileAssociation).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
             db_session.query(models.ReplicaLock).delete()
-            db_session.query(models.ReplicationRule).filter_by(name=tmp_file1_name, scope=InternalScope(self.user, **self.vo)).delete()
-            db_session.query(models.DataIdentifier).filter_by(name=tmp_file1_name, scope=InternalScope(self.user, **self.vo)).delete()
+            db_session.query(models.ReplicationRule).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
+            db_session.query(models.DidMeta).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
+            db_session.query(models.DataIdentifier).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
             db_session.commit()
             tmp_file4 = file_generator()
             checksum_tmp_file4 = md5(tmp_file4)
@@ -735,11 +738,13 @@ class TestBinRucio(unittest.TestCase):
         # Use filter and metalink option
         cmd = 'rucio download --scope mock --filter size=1 --metalink=test'
         exitcode, out, err = execute(cmd)
+        print(out, err)
         assert 'Arguments filter and metalink cannot be used together' in err
 
         # Use did and metalink option
         cmd = 'rucio download --metalink=test mock:test'
         exitcode, out, err = execute(cmd)
+        print(out, err)
         assert 'Arguments dids and metalink cannot be used together' in err
 
         # Download only with metalink file
@@ -747,14 +752,17 @@ class TestBinRucio(unittest.TestCase):
         tmp_file_name = tmp_file[5:]
         cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, scope, tmp_file)
         exitcode, out, err = execute(cmd)
+        print(out, err)
         replica_file = ReplicaClient().list_replicas([{'scope': scope, 'name': tmp_file_name}], metalink=True)
         with open(metalink_file_path, 'w+') as metalink_file:
             metalink_file.write(replica_file)
         cmd = 'rucio download --dir /tmp --metalink {0}'.format(metalink_file_path)
         exitcode, out, err = execute(cmd)
+        print(out, err)
         remove(metalink_file_path)
         cmd = 'ls /tmp/{0}'.format(scope)
         exitcode, out, err = execute(cmd)
+        print(out, err)
         assert re.search(tmp_file_name, out) is not None
 
     def test_download_succeeds_md5only(self):

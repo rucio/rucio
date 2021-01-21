@@ -49,6 +49,8 @@ Individual contributors to the source code
 - Rob Barnsley <R.Barnsley@skatelescope.org>, 2020
 - Alan Malta Rodrigues <alan.malta@cern.ch>, 2020
 - Mayank Sharma <mayank.sharma@cern.ch>, 2020
+- Ian Johnson, <ian.johnson@stfc.ac.uk>, 2021
+
 
 Organisations employing contributors
 ------------------------------------

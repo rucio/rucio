@@ -64,7 +64,7 @@ The module you develop needs to extend the [DidMetaPlugin](/) Abstract class. Th
     For long = False return should be a list of strings containing the did names.
     """
 
-    manages_key(key)
+    manages_key(key, session=None)
     """
     Returns if Plugin is willing to manage metadata with given KEY.
     Some Plugins might decide to accept only specific hardcoded keys, others might match against a particular regex while other might accept all possible keys.

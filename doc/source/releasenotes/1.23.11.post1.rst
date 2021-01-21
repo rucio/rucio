@@ -1,0 +1,14 @@
+=============
+1.23.11.post1
+=============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Core & Internals: Clean URLs coming from AWS `#4159 <https://github.com/rucio/rucio/issues/4159>`_
+- Core & Internals: S3 endpoints in TPC must use s3s:// instead of s3:// `#4173 <https://github.com/rucio/rucio/issues/4173>`_

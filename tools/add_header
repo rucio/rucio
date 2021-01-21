@@ -193,6 +193,7 @@ def main(arguments):
                 header += '# - %(name)s %(mail)s, %(min)s\n' % authors[author]
             else:
                 header += '# - %(name)s %(mail)s, %(min)s-%(max)s\n' % authors[author]
+        header += '\n'
 
         if not arguments.dry_run:
             if not arguments.in_place:
@@ -217,16 +218,12 @@ def main(arguments):
                         modified.write(lines[0])
                     modified.write(header)
 
-                    first = True
                     count = 50  # only deletes old comments in the first n lines or until the first non-comment
                     for line in lines:
                         not_comment_line = not line.startswith('#') and len(line.lstrip()) != 0
                         if count != 0 and not_comment_line:
                             count = 0
                         if count == 0 or not_comment_line:
-                            if first:
-                                first = False
-                                modified.write('\n')
                             modified.write(line)
 
         else:
