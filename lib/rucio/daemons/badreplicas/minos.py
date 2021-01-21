@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2020 CERN
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2021
 
 from __future__ import division
 
@@ -107,12 +108,12 @@ def minos(bulk=1000, once=False, sleep_time=60):
                 account = pfn['account']
                 reason = pfn['reason']
                 expires_at = pfn['expires_at']
-                state = pfn['state']
-                if states_mapping[state] in [BadFilesStatus.BAD, BadFilesStatus.SUSPICIOUS]:
+                state = states_mapping[pfn['state']]
+                if state in [BadFilesStatus.BAD, BadFilesStatus.SUSPICIOUS]:
                     if (account, reason, state) not in bad_replicas:
                         bad_replicas[(account, reason, state)] = []
                     bad_replicas[(account, reason, state)].append(path)
-                if states_mapping[state] == BadFilesStatus.TEMPORARY_UNAVAILABLE:
+                elif state == BadFilesStatus.TEMPORARY_UNAVAILABLE:
                     if (account, reason, expires_at) not in temporary_unvailables:
                         temporary_unvailables[(account, reason, expires_at)] = []
                     temporary_unvailables[(account, reason, expires_at)].append(path)
