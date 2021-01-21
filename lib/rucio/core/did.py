@@ -20,7 +20,7 @@
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
 # - Yun-Pin Sun <winter0128@gmail.com>, 2013
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2021
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2015
 # - Wen Guan <wen.guan@cern.ch>, 2015
 # - asket <asket.agarwal96@gmail.com>, 2018
@@ -37,7 +37,6 @@
 
 import logging
 import random
-import sys
 from datetime import datetime, timedelta
 from enum import Enum
 from hashlib import md5
@@ -53,7 +52,6 @@ from sqlalchemy.sql.expression import bindparam, case, select, true
 import rucio.core.replica  # import add_replicas
 import rucio.core.rule
 from rucio.common import exception
-from rucio.common.config import config_get
 from rucio.common.utils import str_to_date, is_archive, chunks
 from rucio.core import did_meta_plugins, config as config_core
 from rucio.core.message import add_message
@@ -62,13 +60,6 @@ from rucio.core.naming_convention import validate_name
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, RuleState
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 @read_session
@@ -564,7 +555,7 @@ def attach_dids_to_dids(attachments, account, ignore_duplicate=False, session=No
 
 
 @transactional_session
-def delete_dids(dids, account, expire_rules=False, session=None):
+def delete_dids(dids, account, expire_rules=False, session=None, logger=logging.log):
     """
     Delete data identifiers
 
@@ -583,7 +574,7 @@ def delete_dids(dids, account, expire_rules=False, session=None):
     metadata_to_delete = []
 
     for did in dids:
-        logging.info('Removing did %(scope)s:%(name)s (%(did_type)s)' % did)
+        logger(logging.INFO, 'Removing did %(scope)s:%(name)s (%(did_type)s)' % did)
         if did['did_type'] == DIDType.FILE:
             file_clause.append(and_(models.DataIdentifier.scope == did['scope'], models.DataIdentifier.name == did['name']))
         else:
@@ -639,7 +630,7 @@ def delete_dids(dids, account, expire_rules=False, session=None):
                                                                                                                               models.ReplicationRule.locks_ok_cnt,
                                                                                                                               models.ReplicationRule.locks_replicating_cnt,
                                                                                                                               models.ReplicationRule.locks_stuck_cnt).filter(or_(*rule_id_clause)):
-                logging.debug('Removing rule %s for did %s:%s on RSE-Expression %s' % (str(rule_id), scope, name, rse_expression))
+                logger(logging.DEBUG, 'Removing rule %s for did %s:%s on RSE-Expression %s' % (str(rule_id), scope, name, rse_expression))
 
                 # Propagate purge_replicas from did to rules
                 if (scope, name) in not_purge_replicas:
@@ -695,7 +686,7 @@ def delete_dids(dids, account, expire_rules=False, session=None):
     # remove data identifier
     if existing_parent_dids:
         # Exit method early to give Judge time to remove locks (Otherwise, due to foreign keys, did removal does not work
-        logging.debug('Leaving delete_dids early for Judge-Evaluator checks')
+        logger(logging.DEBUG, 'Leaving delete_dids early for Judge-Evaluator checks')
         return
 
     if did_clause:

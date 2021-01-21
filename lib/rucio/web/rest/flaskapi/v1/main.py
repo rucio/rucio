@@ -21,43 +21,60 @@ import importlib
 
 from flask import Flask
 
-BLUEPRINT_MODULES = (
-    '.account',
-    '.account_limit',
-    '.archive',
-    '.authentication',
-    '.config',
-    '.credential',
-    '.did',
-    '.dirac',
-    '.exporter',
-    '.heartbeat',
-    '.identity',
-    '.importer',
-    '.lifetime_exception',
-    '.lock',
-    '.meta',
-    # '.nongrid_trace',  # loads optional config values
-    '.ping',
-    '.redirect',
-    '.replica',
-    '.request',
-    '.rse',
-    '.rule',
-    '.scope',
-    '.subscription',
-    '.temporary_did',
-    '.trace',
-    '.vo',
-)
+import rucio.common.logging  # NOQA: F401
+from rucio.common.config import config_get
+from rucio.common.exception import ConfigurationError
+
+DEFAULT_ENDPOINTS = [
+    'accountlimits',
+    'accounts',
+    'config',
+    'credentials',
+    'dids',
+    'export',
+    'heartbeats',
+    'identities',
+    'import',
+    'lifetime_exceptions',
+    'locks',
+    'meta',
+    'ping',
+    'redirect',
+    'replicas',
+    'requests',
+    'rses',
+    'rules',
+    'scopes',
+    'subscriptions',
+]
+
+
+def apply_endpoints(app, modules):
+    for blueprint_module in modules:
+        try:
+            # searches for module names locally
+            blueprint_module = importlib.import_module('.' + blueprint_module,
+                                                       package='rucio.web.rest.flaskapi.v1')
+        except ImportError:
+            raise ConfigurationError(f'Could not load "{blueprint_module}" provided in the endpoints configuration value')
+
+        if hasattr(blueprint_module, 'blueprint'):
+            app.register_blueprint(blueprint_module.blueprint())
+        else:
+            raise ConfigurationError(f'"{blueprint_module}" from the endpoints configuration value did not have a blueprint')
+
+
+try:
+    endpoints = config_get('api', 'endpoints', raise_exception=False, default=None)
+    endpoints = list(filter(bool, map(str.strip, endpoints.split(sep=','))))
+except RuntimeError:
+    endpoints = None
+
+if not endpoints:
+    endpoints = DEFAULT_ENDPOINTS
 
 application = Flask(__name__)
-for bpmod in BLUEPRINT_MODULES:
-    bpmod = importlib.import_module(bpmod, package='rucio.web.rest.flaskapi.v1')
-    if hasattr(bpmod, 'blueprint'):
-        application.register_blueprint(bpmod.blueprint())
-    else:
-        raise RuntimeError('Module has no blueprint')
+apply_endpoints(application, endpoints)
 
 
 if __name__ == '__main__':

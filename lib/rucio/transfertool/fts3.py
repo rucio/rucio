@@ -38,7 +38,6 @@ try:
 except ImportError:
     JSONDecodeError = ValueError
 import logging
-import sys
 import time
 import traceback
 try:
@@ -64,13 +63,6 @@ from rucio.transfertool.transfertool import Transfertool
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 disable_warnings()
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 REGION_SHORT = make_region().configure('dogpile.cache.memory',
                                        expiration_time=1800)

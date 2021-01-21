@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2020 CERN
+# Copyright 2016-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2021
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
@@ -33,13 +33,12 @@
 Reaper is a daemon to manage file deletion.
 '''
 
-from __future__ import print_function, division
+from __future__ import division
 
 import logging
 import os
 import random
 import socket
-import sys
 import threading
 import time
 import traceback
@@ -50,7 +49,7 @@ from operator import itemgetter
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
-from prometheus_client import Counter
+from prometheus_client import Counter, Gauge
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
 import rucio.db.sqla.util
@@ -59,6 +58,7 @@ from rucio.common.exception import (DatabaseException, RSENotFound, ConfigNotFou
                                     ReplicaUnAvailable, ReplicaNotFound, ServiceUnavailable,
                                     RSEAccessDenied, ResourceTemporaryUnavailable, SourceNotFound,
                                     VONotFound)
+from rucio.common.logging import formatted_logger
 from rucio.common.utils import chunks
 from rucio.core import monitor
 from rucio.core.config import get
@@ -72,15 +72,6 @@ from rucio.core.rule import get_evaluation_backlog
 from rucio.core.vo import list_vos
 from rucio.rse import rsemanager as rsemgr
 
-logging.getLogger("reaper").setLevel(logging.CRITICAL)
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
-
 GRACEFUL_STOP = threading.Event()
 
 REGION = make_region().configure('dogpile.cache.memcached',
@@ -89,6 +80,7 @@ REGION = make_region().configure('dogpile.cache.memcached',
                                             'distributed_lock': True})
 
 DELETION_COUNTER = Counter('rucio_daemons_reaper_deletion_done', 'Number of deleted replicas')
+EXCLUDED_RSE_GAUGE = Gauge('rucio_daemons_reaper_excluded_rses', 'Temporarly excluded RSEs', labelnames=('rse',))
 
 
 def get_rses_to_process(rses, include_rses, exclude_rses, vos):
@@ -152,10 +144,11 @@ def get_rses_to_process(rses, include_rses, exclude_rses, vos):
     return rses
 
 
-def delete_from_storage(replicas, prot, rse_info, staging_areas, prepend_str):
+def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_threshold, logger):
     deleted_files = []
     rse_name = rse_info['rse']
     rse_id = rse_info['id']
+    noaccess_attempts = 0
     try:
         prot.connect()
         for replica in replicas:
@@ -170,11 +163,11 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, prepend_str):
                                  'protocol': prot.attributes['scheme']}
                 if replica['scope'].vo != 'def':
                     deletion_dict['vo'] = replica['scope'].vo
-                logging.info('%s Deletion ATTEMPT of %s:%s as %s on %s', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name)
+                logger(logging.INFO, 'Deletion ATTEMPT of %s:%s as %s on %s', replica['scope'], replica['name'], replica['pfn'], rse_name)
                 start = time.time()
                 # For STAGING RSEs, no physical deletion
                 if rse_id in staging_areas:
-                    logging.warning('%s Deletion STAGING of %s:%s as %s on %s, will only delete the catalog and not do physical deletion', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name)
+                    logger(logging.WARNING, 'Deletion STAGING of %s:%s as %s on %s, will only delete the catalog and not do physical deletion', replica['scope'], replica['name'], replica['pfn'], rse_name)
                     deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
                     continue
 
@@ -185,7 +178,7 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, prepend_str):
                         pfn = get_signed_url(rse_id, rse_info['sign_url'], 'delete', pfn)
                     prot.delete(pfn)
                 else:
-                    logging.warning('%s Deletion UNAVAILABLE of %s:%s as %s on %s', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name)
+                    logger(logging.WARNING, 'Deletion UNAVAILABLE of %s:%s as %s on %s', replica['scope'], replica['name'], replica['pfn'], rse_name)
 
                 monitor.record_timer('daemons.reaper.delete.%s.%s' % (prot.attributes['scheme'], rse_name), (time.time() - start) * 1000)
                 duration = time.time() - start
@@ -194,26 +187,33 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, prepend_str):
 
                 deletion_dict['duration'] = duration
                 add_message('deletion-done', deletion_dict)
-                logging.info('%s Deletion SUCCESS of %s:%s as %s on %s in %s seconds', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name, duration)
+                logger(logging.INFO, 'Deletion SUCCESS of %s:%s as %s on %s in %s seconds', replica['scope'], replica['name'], replica['pfn'], rse_name, duration)
 
             except SourceNotFound:
                 err_msg = 'Deletion NOTFOUND of %s:%s as %s on %s' % (replica['scope'], replica['name'], replica['pfn'], rse_name)
-                logging.warning('%s %s', prepend_str, err_msg)
+                logger(logging.WARNING, '%s', err_msg)
                 deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
 
             except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
-                logging.warning('%s Deletion NOACCESS of %s:%s as %s on %s: %s', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name, str(error))
+                logger(logging.WARNING, 'Deletion NOACCESS of %s:%s as %s on %s: %s', replica['scope'], replica['name'], replica['pfn'], rse_name, str(error))
                 deletion_dict['reason'] = str(error)
                 add_message('deletion-failed', deletion_dict)
+                noaccess_attempts += 1
+                if noaccess_attempts >= auto_exclude_threshold:
+                    logging.info('%s Too many (%d) NOACCESS attempts for %s. RSE will be temporarly excluded.', prepend_str, noaccess_attempts, rse_name)
+                    REGION.set('temporary_exclude_%s' % rse_id, True)
+                    labels = {'rse': rse_name}
+                    EXCLUDED_RSE_GAUGE.labels(**labels).set(1)
+                    break
 
             except Exception as error:
-                logging.critical('%s Deletion CRITICAL of %s:%s as %s on %s: %s', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name, str(traceback.format_exc()))
+                logger(logging.CRITICAL, 'Deletion CRITICAL of %s:%s as %s on %s: %s', replica['scope'], replica['name'], replica['pfn'], rse_name, str(traceback.format_exc()))
                 deletion_dict['reason'] = str(error)
                 add_message('deletion-failed', deletion_dict)
 
     except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
         for replica in replicas:
-            logging.warning('%s Deletion NOACCESS of %s:%s as %s on %s: %s', prepend_str, replica['scope'], replica['name'], replica['pfn'], rse_name, str(error))
+            logger(logging.WARNING, 'Deletion NOACCESS of %s:%s as %s on %s: %s', replica['scope'], replica['name'], replica['pfn'], rse_name, str(error))
             payload = {'scope': replica['scope'].external,
                        'name': replica['name'],
                        'rse': rse_name,
@@ -225,7 +225,10 @@ def delete_from_storage(replicas, prot, rse_info, staging_areas, prepend_str):
             if replica['scope'].vo != 'def':
                 payload['vo'] = replica['scope'].vo
             add_message('deletion-failed', payload)
-
+        logging.info('%s Cannot connect to %s. RSE will be temporarly excluded.', prepend_str, rse_name)
+        REGION.set('temporary_exclude_%s' % rse_id, True)
+        labels = {'rse': rse_name}
+        EXCLUDED_RSE_GAUGE.labels(**labels).set(1)
     finally:
         prot.close()
     return deleted_files
@@ -278,7 +281,7 @@ def get_max_deletion_threads_by_hostname(hostname):
     return result
 
 
-def __check_rse_usage(rse, rse_id, prepend_str):
+def __check_rse_usage(rse, rse_id, logger):
     """
     Internal method to check RSE usage and limits.
 
@@ -315,8 +318,8 @@ def __check_rse_usage(rse, rse_id, prepend_str):
         source_for_total_space = attributes.get('source_for_total_space', 'storage')
         source_for_used_space = attributes.get('source_for_used_space', 'storage')
 
-        logging.debug('%s RSE: %s, source_for_total_space: %s, source_for_used_space: %s',
-                      prepend_str, rse, source_for_total_space, source_for_used_space)
+        logger(logging.DEBUG, 'RSE: %s, source_for_total_space: %s, source_for_used_space: %s',
+               rse, source_for_total_space, source_for_used_space)
 
         # Get total, used and obsolete space
         rse_usage = get_rse_usage(rse_id=rse_id)
@@ -368,21 +371,23 @@ def __check_rse_usage(rse, rse_id, prepend_str):
 
 
 def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=False, greedy=False,
-           scheme=None, delay_seconds=0, sleep_time=60):
+           scheme=None, delay_seconds=0, sleep_time=60, auto_exclude_threshold=100, auto_exclude_timeout=600):
     """
     Main loop to select and delete files.
 
-    :param rses:           List of RSEs the reaper should work against. If empty, it considers all RSEs.
-    :param include_rses:   RSE expression to include RSEs.
-    :param exclude_rses:   RSE expression to exclude RSEs from the Reaper.
-    :param vos:            VOs on which to look for RSEs. Only used in multi-VO mode.
-                           If None, we either use all VOs if run from "def", or the current VO otherwise.
-    :param chunk_size:     The size of chunk for deletion.
-    :param once:           If True, only runs one iteration of the main loop.
-    :param greedy:         If True, delete right away replicas with tombstone.
-    :param scheme:         Force the reaper to use a particular protocol, e.g., mock.
-    :param delay_seconds:  The delay to query replicas in BEING_DELETED state.
-    :param sleep_time:     Time between two cycles.
+    :param rses:                   List of RSEs the reaper should work against. If empty, it considers all RSEs.
+    :param include_rses:           RSE expression to include RSEs.
+    :param exclude_rses:           RSE expression to exclude RSEs from the Reaper.
+    :param vos:                    VOs on which to look for RSEs. Only used in multi-VO mode.
+                                   If None, we either use all VOs if run from "def", or the current VO otherwise.
+    :param chunk_size:             The size of chunk for deletion.
+    :param once:                   If True, only runs one iteration of the main loop.
+    :param greedy:                 If True, delete right away replicas with tombstone.
+    :param scheme:                 Force the reaper to use a particular protocol, e.g., mock.
+    :param delay_seconds:          The delay to query replicas in BEING_DELETED state.
+    :param sleep_time:             Time between two cycles.
+    :param auto_exclude_threshold: Number of service unavailable exceptions after which the RSE gets temporarily excluded.
+    :param auto_exclude_timeout:   Timeout for temporarily excluded RSEs.
     """
     hostname = socket.getfqdn()
     executable = 'reaper2'
@@ -390,16 +395,25 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
     hb_thread = threading.current_thread()
     sanity_check(executable=executable, hostname=hostname)
     heart_beat = live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-    logging.info('%s Reaper starting', prepend_str)
+    prepend_str = 'reaper2[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+    logger = formatted_logger(logging.log, prepend_str + '%s')
+
+    logger(logging.INFO, 'Reaper starting')
 
     if not once:
         GRACEFUL_STOP.wait(10)  # To prevent running on the same partition if all the reapers restart at the same time
     heart_beat = live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-    logging.info('%s Reaper started', prepend_str)
+    prepend_str = 'reaper2[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+    logger = formatted_logger(logging.log, prepend_str + '%s')
+    logger(logging.INFO, 'Reaper started')
 
     while not GRACEFUL_STOP.is_set():
+        # try to get auto exclude parameters from the config table. Otherwise use CLI parameters.
+        try:
+            auto_exclude_threshold = get('reaper', 'auto_exclude_threshold', default=auto_exclude_threshold)
+            auto_exclude_timeout = get('reaper', 'auto_exclude_timeout', default=auto_exclude_timeout)
+        except ConfigNotFound:
+            pass
 
         # Check if there is a Judge Evaluator backlog
         try:
@@ -418,21 +432,21 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                backlog[1] and \
                backlog[0] > max_evaluator_backlog_count and \
                backlog[1] < datetime.utcnow() - timedelta(minutes=max_evaluator_backlog_duration):
-                logging.error('%s Reaper: Judge evaluator backlog count and duration hit, stopping operation', prepend_str)
+                logger(logging.ERROR, 'Reaper: Judge evaluator backlog count and duration hit, stopping operation')
                 GRACEFUL_STOP.wait(30)
                 continue
             elif max_evaluator_backlog_count and backlog[0] and backlog[0] > max_evaluator_backlog_count:
-                logging.error('%s Reaper: Judge evaluator backlog count hit, stopping operation', prepend_str)
+                logger(logging.ERROR, 'Reaper: Judge evaluator backlog count hit, stopping operation')
                 GRACEFUL_STOP.wait(30)
                 continue
             elif max_evaluator_backlog_duration and backlog[1] and backlog[1] < datetime.utcnow() - timedelta(minutes=max_evaluator_backlog_duration):
-                logging.error('%s Reaper: Judge evaluator backlog duration hit, stopping operation', prepend_str)
+                logger(logging.ERROR, 'Reaper: Judge evaluator backlog duration hit, stopping operation')
                 GRACEFUL_STOP.wait(30)
                 continue
 
         rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses, vos)
         if not rses_to_process:
-            logging.error('%s Reaper: No RSEs found. Will sleep for 30 seconds', prepend_str)
+            logger(logging.ERROR, 'Reaper: No RSEs found. Will sleep for 30 seconds')
             GRACEFUL_STOP.wait(30)
             continue
         start_time = time.time()
@@ -440,7 +454,8 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
             staging_areas = []
             dict_rses = {}
             heart_beat = live(executable, hostname, pid, hb_thread, older_than=3600)
-            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+            prepend_str = 'reaper2[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+            logger = formatted_logger(logging.log, prepend_str + '%s')
             tot_needed_free_space = 0
             for rse in rses_to_process:
                 # Check if the RSE is a staging area
@@ -448,9 +463,9 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                     staging_areas.append(rse['rse'])
                 # Check if RSE is blacklisted
                 if rse['availability'] % 2 == 0:
-                    logging.debug('%s RSE %s is blacklisted for delete', prepend_str, rse['rse'])
+                    logger(logging.DEBUG, 'RSE %s is blacklisted for delete', rse['rse'])
                     continue
-                max_being_deleted_files, needed_free_space, used, free, only_delete_obsolete = __check_rse_usage(rse['rse'], rse['id'], prepend_str)
+                max_being_deleted_files, needed_free_space, used, free, only_delete_obsolete = __check_rse_usage(rse['rse'], rse['id'], logger)
                 # Check if greedy mode
                 if greedy:
                     dict_rses[(rse['rse'], rse['id'])] = [1000000000000, max_being_deleted_files, only_delete_obsolete]
@@ -460,11 +475,11 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                         dict_rses[(rse['rse'], rse['id'])] = [needed_free_space, max_being_deleted_files, only_delete_obsolete]
                         tot_needed_free_space += needed_free_space
                     else:
-                        logging.debug('%s Nothing to delete on %s', prepend_str, rse['rse'])
+                        logger(logging.DEBUG, 'Nothing to delete on %s', rse['rse'])
 
             # Ordering the RSEs based on the needed free space
             sorted_dict_rses = OrderedDict(sorted(dict_rses.items(), key=itemgetter(1), reverse=True))
-            logging.debug('%s List of RSEs to process ordered by needed space desc : %s', prepend_str, str(sorted_dict_rses))
+            logger(logging.DEBUG, 'List of RSEs to process ordered by needed space desc: %s', str(sorted_dict_rses))
 
             # Get the mapping between the RSE and the hostname used for deletion. The dictionary has RSE as key and (hostanme, rse_info) as value
             rses_hostname_mapping = get_rses_to_hostname_mapping()
@@ -484,9 +499,17 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
             for rse_name, rse_id, needed_free_space, max_being_deleted_files in list_rses_mult:
                 result = REGION.get('pause_deletion_%s' % rse_id, expiration_time=120)
                 if result is not NO_VALUE:
-                    logging.info('%s Not enough replicas to delete on %s during the previous cycle. Deletion paused for a while', prepend_str, rse_name)
+                    logger(logging.INFO, 'Not enough replicas to delete on %s during the previous cycle. Deletion paused for a while', rse_name)
                     continue
-                logging.debug('%s Working on %s. Percentage of the total space needed %.2f', prepend_str, rse_name, needed_free_space / tot_needed_free_space * 100)
+                result = REGION.get('temporary_exclude_%s' % rse_id, expiration_time=auto_exclude_timeout)
+                if result is not NO_VALUE:
+                    logger(logging.WARNING, 'Too many failed attempts for %s in last cycle. RSE is temporarly excluded.', rse_name)
+                    labels = {'rse': rse_name}
+                    EXCLUDED_RSE_GAUGE.labels(**labels).set(1)
+                    continue
+                labels = {'rse': rse_name}
+                EXCLUDED_RSE_GAUGE.labels(**labels).set(0)
+                logger(logging.DEBUG, 'Working on %s. Percentage of the total space needed %.2f', rse_name, needed_free_space / tot_needed_free_space * 100)
                 rse_hostname, rse_info = rses_hostname_mapping[rse_id]
                 rse_hostname_key = '%s,%s' % (rse_id, rse_hostname)
                 payload_cnt = list_payload_counts(executable, older_than=600, hash_executable=None, session=None)
@@ -502,29 +525,29 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
 
                 max_deletion_thread = get_max_deletion_threads_by_hostname(rse_hostname)
                 if rse_hostname_key in payload_cnt and tot_threads_for_hostname >= max_deletion_thread:
-                    logging.debug('%s Too many deletion threads for %s on RSE %s. Back off', prepend_str, rse_hostname, rse_name)
+                    logger(logging.DEBUG, 'Too many deletion threads for %s on RSE %s. Back off', rse_hostname, rse_name)
                     # Might need to reschedule a try on this RSE later in the same cycle
                     continue
 
-                logging.info('%s Nb workers on %s smaller than the limit (current %i vs max %i). Starting new worker on RSE %s', prepend_str, rse_hostname, tot_threads_for_hostname, max_deletion_thread, rse_name)
+                logger(logging.INFO, 'Nb workers on %s smaller than the limit (current %i vs max %i). Starting new worker on RSE %s', rse_hostname, tot_threads_for_hostname, max_deletion_thread, rse_name)
                 live(executable, hostname, pid, hb_thread, older_than=600, hash_executable=None, payload=rse_hostname_key, session=None)
-                logging.debug('%s Total deletion workers for %s : %i', prepend_str, rse_hostname, tot_threads_for_hostname + 1)
+                logger(logging.DEBUG, 'Total deletion workers for %s : %i', rse_hostname, tot_threads_for_hostname + 1)
                 # List and mark BEING_DELETED the files to delete
                 del_start_time = time.time()
                 only_delete_obsolete = dict_rses[(rse_name, rse_id)][2]
                 try:
                     with monitor.record_timer_block('reaper.list_unlocked_replicas'):
                         if only_delete_obsolete:
-                            logging.debug('%s Will run list_and_mark_unlocked_replicas on %s. No space needed, will only delete EPOCH tombstoned replicas', prepend_str, rse_name)
+                            logger(logging.DEBUG, 'Will run list_and_mark_unlocked_replicas on %s. No space needed, will only delete EPOCH tombstoned replicas', rse_name)
                         replicas = list_and_mark_unlocked_replicas(limit=chunk_size,
                                                                    bytes=needed_free_space,
                                                                    rse_id=rse_id,
                                                                    delay_seconds=delay_seconds,
                                                                    only_delete_obsolete=only_delete_obsolete,
                                                                    session=None)
-                    logging.debug('%s list_and_mark_unlocked_replicas on %s for %s bytes in %s seconds: %s replicas', prepend_str, rse_name, needed_free_space, time.time() - del_start_time, len(replicas))
+                    logger(logging.DEBUG, 'list_and_mark_unlocked_replicas on %s for %s bytes in %s seconds: %s replicas', rse_name, needed_free_space, time.time() - del_start_time, len(replicas))
                     if len(replicas) < chunk_size:
-                        logging.info('%s Not enough replicas to delete on %s (%s requested vs %s returned). Will skip any new attempts on this RSE until next cycle', prepend_str, rse_name, chunk_size, len(replicas))
+                        logger(logging.DEBUG, 'Not enough replicas to delete on %s (%s requested vs %s returned). Will skip any new attempts on this RSE until next cycle', rse_name, chunk_size, len(replicas))
                         REGION.set('pause_deletion_%s' % rse_id, True)
 
                 except (DatabaseException, IntegrityError, DatabaseError) as error:
@@ -552,7 +575,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                             except Exception:
                                 logging.critical('%s %s', prepend_str, str(traceback.format_exc()))
 
-                        deleted_files = delete_from_storage(file_replicas, prot, rse_info, staging_areas, prepend_str)
+                        deleted_files = delete_from_storage(file_replicas, prot, rse_info, staging_areas, auto_exclude_threshold, logger)
                         logging.info('%s %i files processed in %s seconds', prepend_str, len(file_replicas), time.time() - del_start_time)
 
                         # Then finally delete the replicas
@@ -594,31 +617,32 @@ def stop(signum=None, frame=None):
     GRACEFUL_STOP.set()
 
 
-def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=None, exclude_rses=None, include_rses=None, vos=None, delay_seconds=0, sleep_time=60):
+def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=None, exclude_rses=None, include_rses=None, vos=None, delay_seconds=0, sleep_time=60, auto_exclude_threshold=100, auto_exclude_timeout=600):
     """
     Starts up the reaper threads.
 
-    :param threads:            The total number of workers.
-    :param chunk_size:         The size of chunk for deletion.
-    :param threads_per_worker: Total number of threads created by each worker.
-    :param once:               If True, only runs one iteration of the main loop.
-    :param greedy:             If True, delete right away replicas with tombstone.
-    :param rses:               List of RSEs the reaper should work against.
-                               If empty, it considers all RSEs.
-    :param scheme:             Force the reaper to use a particular protocol/scheme, e.g., mock.
-    :param exclude_rses:       RSE expression to exclude RSEs from the Reaper.
-    :param include_rses:       RSE expression to include RSEs.
-    :param vos:                VOs on which to look for RSEs. Only used in multi-VO mode.
-                               If None, we either use all VOs if run from "def",
-                               or the current VO otherwise.
-    :param delay_seconds:      The delay to query replicas in BEING_DELETED state.
-    :param sleep_time:         Time between two cycles.
+    :param threads:                The total number of workers.
+    :param chunk_size:             The size of chunk for deletion.
+    :param threads_per_worker:     Total number of threads created by each worker.
+    :param once:                   If True, only runs one iteration of the main loop.
+    :param greedy:                 If True, delete right away replicas with tombstone.
+    :param rses:                   List of RSEs the reaper should work against.
+                                   If empty, it considers all RSEs.
+    :param scheme:                 Force the reaper to use a particular protocol/scheme, e.g., mock.
+    :param exclude_rses:           RSE expression to exclude RSEs from the Reaper.
+    :param include_rses:           RSE expression to include RSEs.
+    :param vos:                    VOs on which to look for RSEs. Only used in multi-VO mode.
+                                   If None, we either use all VOs if run from "def",
+                                   or the current VO otherwise.
+    :param delay_seconds:          The delay to query replicas in BEING_DELETED state.
+    :param sleep_time:             Time between two cycles.
+    :param auto_exclude_threshold: Number of service unavailable exceptions after which the RSE gets temporarily excluded.
+    :param auto_exclude_timeout:   Timeout for temporarily excluded RSEs.
     """
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 
     logging.info('main: starting processes')
-
     rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses, vos)
     if not rses_to_process:
         logging.error('Reaper: No RSEs found. Exiting.')
@@ -639,7 +663,9 @@ def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=N
                                                             'greedy': greedy,
                                                             'sleep_time': sleep_time,
                                                             'delay_seconds': delay_seconds,
-                                                            'scheme': scheme}) for _ in range(0, threads)]
+                                                            'scheme': scheme,
+                                                            'auto_exclude_threshold': auto_exclude_threshold,
+                                                            'auto_exclude_timeout': auto_exclude_timeout}) for _ in range(0, threads)]
 
     for thread in threads_list:
         thread.start()

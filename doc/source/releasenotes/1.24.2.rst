@@ -1,0 +1,43 @@
+======
+1.24.2
+======
+
+-------
+General
+-------
+
+********
+Features
+********
+
+- Transfers: Add deadline for Globus Online transfers to complete `#4110 <https://github.com/rucio/rucio/issues/4110>`_
+
+************
+Enhancements
+************
+
+- Database: remove unnecessary prints from session.py `#4234 <https://github.com/rucio/rucio/issues/4234>`_
+- Deletion: Temporarily exclude RSEs with a timeout to not impact general deletion rate `#528 <https://github.com/rucio/rucio/issues/528>`_
+
+****
+Bugs
+****
+
+- Consistency checks: Auditor does not work with Python 3 `#4247 <https://github.com/rucio/rucio/issues/4247>`_
+- Consistency checks: Dark Reaper does not work with Python 3 `#4256 <https://github.com/rucio/rucio/issues/4256>`_
+- Core & Internals: Minos does not work for non-deterministic RSEs `#4209 <https://github.com/rucio/rucio/issues/4209>`_
+- Core & Internals: Cannot declare bad PFNs `#4265 <https://github.com/rucio/rucio/issues/4265>`_
+- Multi VO: Rucio single-VO should not check for permission on access_rule_vo `#4253 <https://github.com/rucio/rucio/issues/4253>`_
+- Protocols: delete/rename function of rsemanager broken `#4246 <https://github.com/rucio/rucio/issues/4246>`_
+- Recovery: PFNs that canât be matched to an RSE remain in the BadPFNs table forever `#4208 <https://github.com/rucio/rucio/issues/4208>`_
+- Testing: Throttler tests have a weird understanding of time `#4232 <https://github.com/rucio/rucio/issues/4232>`_
+
+-------
+Clients
+-------
+
+********
+Features
+********
+
+- Clients: Tape replicas when downloading. `#4193 <https://github.com/rucio/rucio/issues/4193>`_

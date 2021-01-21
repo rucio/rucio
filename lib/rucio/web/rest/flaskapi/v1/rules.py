@@ -16,7 +16,7 @@
 # Authors:
 # - Vincent Garonne <vgaronne@gmail.com>, 2012-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2013-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2017
 # - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
@@ -27,10 +27,8 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
-from __future__ import print_function
-
 from json import dumps, loads
-from traceback import format_exc
+import logging
 
 from flask import Flask, Blueprint, request, Response
 from flask.views import MethodView
@@ -78,7 +76,7 @@ class Rule(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return Response(render_json(**rule), content_type="application/json")
@@ -142,7 +140,7 @@ class Rule(MethodView):
         except RuleNotFound as error:
             return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         return '', 200
 
@@ -173,7 +171,7 @@ class AllRule(MethodView):
         except RuleNotFound as error:
             return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
     def post(self):
@@ -319,7 +317,7 @@ class AllRule(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return Response(dumps(rule_ids), status=201)
@@ -348,7 +346,7 @@ class ReplicaLocks(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -392,7 +390,7 @@ class ReduceRule(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return Response(dumps(rule_ids), status=201)
@@ -433,7 +431,7 @@ class MoveRule(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return Response(dumps(rule_ids), status=201)
@@ -463,7 +461,7 @@ class RuleHistory(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -496,7 +494,7 @@ class RuleHistoryFull(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -521,12 +519,12 @@ class RuleAnalysis(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
 def blueprint():
-    bp = Blueprint('rule', __name__, url_prefix='/rules')
+    bp = Blueprint('rules', __name__, url_prefix='/rules')
 
     rule_view = Rule.as_view('rule')
     bp.add_url_rule('/<rule_id>', view_func=rule_view, methods=['get', 'put', 'delete'])

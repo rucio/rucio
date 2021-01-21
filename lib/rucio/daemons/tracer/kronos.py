@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2021
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2014
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015
@@ -36,7 +36,6 @@ import socket
 from datetime import datetime
 from json import loads as jloads, dumps as jdumps
 from os import getpid
-from sys import stdout
 from threading import Event, Thread, current_thread
 from time import sleep, time
 from traceback import format_exc
@@ -46,6 +45,7 @@ from stomp import Connection
 import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import ConfigNotFound, RSENotFound, DatabaseException
+import rucio.common.logging
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.config import get
 from rucio.core.did import touch_dids, list_parent_dids
@@ -63,13 +63,6 @@ except ImportError:
 
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
-
-logging.basicConfig(stream=stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 graceful_stop = Event()
 

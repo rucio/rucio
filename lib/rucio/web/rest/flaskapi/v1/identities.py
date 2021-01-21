@@ -16,14 +16,12 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2021
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
-from __future__ import print_function
-
-from traceback import format_exc
+import logging
 
 from flask import Flask, Blueprint, request, jsonify
 from flask.views import MethodView
@@ -60,7 +58,7 @@ class UserPass(MethodView):
         try:
             add_identity(username, 'userpass', email, password)
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         try:
@@ -69,7 +67,7 @@ class UserPass(MethodView):
                                  issuer=request.environ.get('issuer'),
                                  vo=request.environ.get('vo'))
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return 'Created', 201
@@ -96,7 +94,7 @@ class X509(MethodView):
         try:
             add_identity(dn, 'x509', email=email)
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         try:
@@ -105,7 +103,7 @@ class X509(MethodView):
                                  issuer=request.environ.get('issuer'),
                                  vo=request.environ.get('vo'))
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return 'Created', 201
@@ -132,7 +130,7 @@ class GSS(MethodView):
         try:
             add_identity(gsscred, 'gss', email=email)
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         try:
@@ -141,7 +139,7 @@ class GSS(MethodView):
                                  issuer=request.environ.get('issuer'),
                                  vo=request.environ.get('vo'))
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return 'Created', 201
@@ -170,12 +168,12 @@ class Accounts(MethodView):
             accounts = list_accounts_for_identity(identity_key, type)
             return jsonify(accounts)
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
 def blueprint():
-    bp = Blueprint('identity', __name__, url_prefix='/identities')
+    bp = Blueprint('identities', __name__, url_prefix='/identities')
 
     userpass_view = UserPass.as_view('userpass')
     bp.add_url_rule('/<account>/userpass', view_func=userpass_view, methods=['put', ])

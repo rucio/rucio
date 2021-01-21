@@ -3,10 +3,10 @@ Exporter Rest API
 
 **Overview**
 
-.. qrefflask:: rucio.web.rest.flaskapi.v1.exporter:make_doc()
+.. qrefflask:: rucio.web.rest.flaskapi.v1.export:make_doc()
      :undoc-static:
 
 **Details**
      
-.. autoflask:: rucio.web.rest.flaskapi.v1.exporter:make_doc()
+.. autoflask:: rucio.web.rest.flaskapi.v1.export:make_doc()
      :undoc-static:

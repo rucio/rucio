@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2015-2020 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,36 +14,31 @@
 # limitations under the License.
 #
 # Authors:
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2018
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2015-2021
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
-from __future__ import print_function
-
-import calendar
-import datetime
 import json
-import traceback
-import uuid
+import logging
+import time
 
 from flask import Flask, Blueprint, request
 from flask.views import MethodView
 from werkzeug.datastructures import Headers
 
-from rucio.core.trace import trace
+from rucio.core.nongrid_trace import trace
 from rucio.web.rest.flaskapi.v1.common import response_headers
 from rucio.web.rest.utils import generate_http_error_flask
 
 
-class Trace(MethodView):
+class XAODTrace(MethodView):
 
     def post(self):
         """
-        Trace endpoint used by the pilot and CLI clients to post data access information.
+        Trace endpoint used by the XAOD framework to post data access information.
 
-        .. :quickref: Trace; Send trace.
+        .. :quickref: XAODTrace; Send XAOD trace.
 
         :<json dict payload: Dictionary contain the trace information.
         :status 201: Created.
@@ -61,31 +56,27 @@ class Trace(MethodView):
             payload = json.loads(request.data)
 
             # generate entry timestamp
-            payload['traceTimeentry'] = datetime.datetime.utcnow()
-            payload['traceTimeentryUnix'] = calendar.timegm(payload['traceTimeentry'].timetuple()) + payload['traceTimeentry'].microsecond / 1e6
+            payload['timeentry'] = int(time.time())
 
             # guess client IP
-            payload['traceIp'] = request.headers.get('X-Forwarded-For', default=request.remote_addr)
-
-            # generate unique ID
-            payload['traceId'] = str(uuid.uuid4()).replace('-', '').lower()
+            payload['ip'] = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
             trace(payload=payload)
 
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list', headers=headers)
         except Exception as error:
-            print(traceback.format_exc())
+            logging.exception("Internal Error")
             return str(error), 500, headers
 
         return 'Created', 201, headers
 
 
 def blueprint():
-    bp = Blueprint('trace', __name__, url_prefix='/traces')
+    bp = Blueprint('nongrid_traces', __name__, url_prefix='/nongrid_traces')
 
-    trace_view = Trace.as_view('trace')
-    bp.add_url_rule('/', view_func=trace_view, methods=['post', ])
+    xaod_trace_view = XAODTrace.as_view('xaod_trace')
+    bp.add_url_rule('/', view_func=xaod_trace_view, methods=['post', ])
 
     bp.after_request(response_headers)
     return bp

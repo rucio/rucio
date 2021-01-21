@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -26,10 +26,8 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
-from __future__ import print_function
-
 from json import dumps, loads
-from traceback import format_exc
+import logging
 
 from flask import Flask, Blueprint, Response, request
 from flask.views import MethodView
@@ -107,7 +105,7 @@ class Scope(MethodView):
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -190,7 +188,7 @@ class Search(MethodView):
         except KeyNotFound as error:
             return generate_http_error_flask(404, 'KeyNotFound', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -274,7 +272,7 @@ class SearchExtended(MethodView):
         except KeyNotFound as error:
             return generate_http_error_flask(404, 'KeyNotFound', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -343,7 +341,7 @@ class BulkDIDS(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         return 'Created', 201
 
@@ -385,7 +383,7 @@ class Attachments(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return 'Created', 201
@@ -441,7 +439,7 @@ class DIDs(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
     def post(self, scope_name):
@@ -483,7 +481,7 @@ class DIDs(MethodView):
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         statuses, meta, rules, lifetime, dids, rse = {}, {}, [], None, [], None
@@ -524,7 +522,7 @@ class DIDs(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         return 'Created', 201
 
@@ -561,7 +559,7 @@ class DIDs(MethodView):
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         json_data = request.data
@@ -583,7 +581,7 @@ class DIDs(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return '', 200
@@ -640,7 +638,7 @@ class Attachment(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
     def post(self, scope_name):
@@ -680,7 +678,7 @@ class Attachment(MethodView):
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         try:
@@ -703,7 +701,7 @@ class Attachment(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return 'Created', 201
@@ -726,7 +724,7 @@ class Attachment(MethodView):
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         try:
@@ -745,7 +743,7 @@ class Attachment(MethodView):
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return '', 200
@@ -784,7 +782,7 @@ class AttachmentHistory(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -823,7 +821,7 @@ class Files(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -859,7 +857,7 @@ class Parents(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -886,7 +884,7 @@ class Meta(MethodView):
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         try:
@@ -898,7 +896,7 @@ class Meta(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
     def post(self, scope_name):
@@ -920,7 +918,7 @@ class Meta(MethodView):
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         json_data = request.data
@@ -946,7 +944,7 @@ class Meta(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return error, 500
 
         return "Created", 201
@@ -969,7 +967,7 @@ class Meta(MethodView):
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         if 'key' in request.args:
@@ -988,7 +986,7 @@ class Meta(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         return '', 200
 
@@ -1019,7 +1017,7 @@ class SingleMeta(MethodView):
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         json_data = request.data
@@ -1045,7 +1043,7 @@ class SingleMeta(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return 'Created', 201
@@ -1084,7 +1082,7 @@ class Rules(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -1126,7 +1124,7 @@ class BulkMeta(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -1163,7 +1161,7 @@ class AssociatedRules(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -1196,7 +1194,7 @@ class GUIDLookup(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -1241,7 +1239,7 @@ class Sample(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         return 'Created', 201
 
@@ -1272,7 +1270,7 @@ class NewDIDs(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -1318,7 +1316,7 @@ class Resurrect(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         return 'Created', 201
 
@@ -1353,7 +1351,7 @@ class Follow(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
     def post(self, scope_name):
@@ -1377,7 +1375,7 @@ class Follow(MethodView):
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         try:
@@ -1396,7 +1394,7 @@ class Follow(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
     def delete(self, scope_name):
@@ -1419,7 +1417,7 @@ class Follow(MethodView):
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         try:
@@ -1434,14 +1432,14 @@ class Follow(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return '', 200
 
 
 def blueprint():
-    bp = Blueprint('did', __name__, url_prefix='/dids')
+    bp = Blueprint('dids', __name__, url_prefix='/dids')
 
     scope_view = Scope.as_view('scope')
     bp.add_url_rule('/<scope>/', view_func=scope_view, methods=['get', ])

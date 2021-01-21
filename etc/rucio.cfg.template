@@ -1,6 +1,7 @@
 [common]
 logdir = /var/log/rucio
 loglevel = DEBUG
+logformat = %%(asctime)s\t%%(process)d\t%%(levelname)s\t%%(message)s
 mailtemplatedir=/opt/rucio/etc/mail_templates
 
 [client]
@@ -214,3 +215,6 @@ config_path = /opt/rucio/lib/rucio/web/ui/common/saml/
 [oidc]
 idpsecrets = /opt/rucio/etc/idpsecrets.json
 admin_issuer = wlcg
+
+[api]
+#endpoints = accountlimits, accounts, config, credentials, dids, export, heartbeats, identities, import, lifetime_exceptions, locks, meta, ping, redirect, replicas, requests, rses, rules, scopes, subscriptions

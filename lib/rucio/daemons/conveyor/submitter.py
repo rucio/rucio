@@ -26,7 +26,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - maatthias <maatthias@gmail.com>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Nick Smith <nick.smith@cern.ch>, 2020
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
@@ -42,7 +42,6 @@ import logging
 import os
 import random
 import socket
-import sys
 import threading
 import time
 import traceback
@@ -54,6 +53,7 @@ from six import iteritems
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool
+import rucio.common.logging
 from rucio.common.schema import get_schema_value
 from rucio.core import heartbeat, request as request_core, transfer as transfer_core
 from rucio.core.monitor import record_counter, record_timer
@@ -64,14 +64,6 @@ try:
     from ConfigParser import NoOptionError  # py2
 except Exception:
     from configparser import NoOptionError  # py3
-
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 graceful_stop = threading.Event()
 
@@ -197,13 +189,13 @@ def submitter(once=False, rses=None, mock=False,
                             for job in grouped_jobs[external_host]:
                                 # submit transfers
                                 submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter',
-                                                logging_prepend_str=prepend_str, timeout=timeout)
+                                                timeout=timeout)  # TODO: add logger
                         else:
                             for _, jobs in iteritems(grouped_jobs[external_host]):
                                 # submit transfers
                                 for job in jobs:
                                     submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter',
-                                                    logging_prepend_str=prepend_str, timeout=timeout, user_transfer_job=user_transfer)
+                                                    timeout=timeout, user_transfer_job=user_transfer)   # TODO: add logger
                 elif TRANSFER_TOOL == 'globus':
                     if TRANSFER_TYPE == 'bulk':
                         # build bulk job file list per external host to send to submit_transfer
@@ -213,7 +205,7 @@ def submitter(once=False, rses=None, mock=False,
                             for job in grouped_jobs[external_host]:
                                 submitjob.get('files').append(job.get('files')[0])
                             logging.debug('submitjob: %s' % submitjob)
-                            submit_transfer(external_host=external_host, job=submitjob, submitter='transfer_submitter', logging_prepend_str=prepend_str, timeout=timeout)
+                            submit_transfer(external_host=external_host, job=submitjob, submitter='transfer_submitter', timeout=timeout)   # TODO: add logger
                     else:
                         # build single job files and individually send to submit_transfer
                         job_params = grouped_jobs[''][0].get('job_params') if grouped_jobs else None
@@ -222,7 +214,7 @@ def submitter(once=False, rses=None, mock=False,
                                 for file in job['files']:
                                     singlejob = {'files': [file], 'job_params': job_params}
                                     logging.debug('singlejob: %s' % singlejob)
-                                    submit_transfer(external_host=external_host, job=singlejob, submitter='transfer_submitter', logging_prepend_str=prepend_str, timeout=timeout)
+                                    submit_transfer(external_host=external_host, job=singlejob, submitter='transfer_submitter', timeout=timeout)   # TODO: add logger
                 else:
                     logging.error(prepend_str + 'Unknown transfer tool')
 

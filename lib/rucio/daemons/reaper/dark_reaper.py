@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2020 CERN
+# Copyright 2016-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,14 +16,14 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2019
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2021
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2020
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2020-2021
 
 '''
 Dark Reaper is a daemon to manage quarantined file deletion.
@@ -41,10 +41,11 @@ import traceback
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.common.exception import (SourceNotFound, DatabaseException, ServiceUnavailable,
                                     RSEAccessDenied, ResourceTemporaryUnavailable,
                                     RSENotFound, VONotFound)
+import rucio.common.logging
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import add_message
 from rucio.core.quarantined_replica import (list_quarantined_replicas,
@@ -55,13 +56,6 @@ from rucio.core.vo import list_vos
 from rucio.rse import rsemanager as rsemgr
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 GRACEFUL_STOP = threading.Event()
 
@@ -83,7 +77,7 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
     thread = threading.current_thread()
     hostname = socket.gethostname()
     executable = ' '.join(sys.argv)
-    hash_executable = hashlib.sha256(sys.argv[0] + ''.join(rses)).hexdigest()
+    hash_executable = hashlib.sha256((sys.argv[0] + ''.join(rses)).encode()).hexdigest()
     sanity_check(executable=None, hostname=hostname)
 
     while not GRACEFUL_STOP.is_set():
@@ -111,9 +105,12 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
                         if replica['scope']:
                             scope = replica['scope'].external
                         try:
-                            pfn = str(rsemgr.lfns2pfns(rse_settings=rse_info,
-                                                       lfns=[{'scope': scope, 'name': replica['name'], 'path': replica['path']}],
-                                                       operation='delete', scheme=scheme).values()[0])
+                            pfn = str(list(rsemgr.lfns2pfns(rse_settings=rse_info,
+                                                            lfns=[{'scope': scope,
+                                                                   'name': replica['name'],
+                                                                   'path': replica['path']}],
+                                                            operation='delete',
+                                                            scheme=scheme).values())[0])
                             logging.info('Dark Reaper %s-%s: Deletion ATTEMPT of %s:%s as %s on %s', worker_number, total_workers, scope, replica['name'], pfn, rse)
                             start = time.time()
                             prot.delete(pfn)

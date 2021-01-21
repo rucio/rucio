@@ -33,6 +33,7 @@
 # - Nick Smith <nick.smith@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 
 from __future__ import division
 
@@ -109,7 +110,7 @@ REQUEST_OIDC_AUDIENCE = config_get('conveyor', 'request_oidc_audience', False, '
 WEBDAV_TRANSFER_MODE = config_get('conveyor', 'webdav_transfer_mode', False, None)
 
 
-def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None, user_transfer_job=False):
+def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params={}, timeout=None, user_transfer_job=False, logger=logging.log):
     """
     Submit transfer request to a transfertool.
     :param external_host:  External host name as string
@@ -142,23 +143,23 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
         use_oidc = job_params.get('use_oidc', False)
         transfer_token = None
         if use_oidc:
-            logging.debug('OAuth2/OIDC available at RSEs')
+            logger(logging.DEBUG, 'OAuth2/OIDC available at RSEs')
             account = job_params.get('account', None)
             getadmintoken = False
             if ALLOW_USER_OIDC_TOKENS is False:
                 getadmintoken = True
-            logging.debug('Attempting to get a token for account %s. Admin token option set to %s' % (account, getadmintoken))
+            logger(logging.DEBUG, 'Attempting to get a token for account %s. Admin token option set to %s' % (account, getadmintoken))
             # find the appropriate OIDC token and exchange it (for user accounts) if necessary
             token_dict = get_token_for_account_operation(account, req_audience=REQUEST_OIDC_AUDIENCE, req_scope=REQUEST_OIDC_SCOPE, admin=getadmintoken)
             if token_dict is not None:
-                logging.debug('Access token has been granted.')
+                logger(logging.DEBUG, 'Access token has been granted.')
                 if 'token' in token_dict:
-                    logging.debug('Access token used as transfer token.')
+                    logger(logging.DEBUG, 'Access token used as transfer token.')
                     transfer_token = token_dict['token']
         transfer_id = FTS3Transfertool(external_host=external_host, token=transfer_token).submit(files=job_files, job_params=job_params, timeout=timeout)
         record_timer('core.request.submit_transfers_fts3', (time.time() - start_time) * 1000 / len(files))
     elif transfertool == 'globus':
-        logging.debug('... Starting globus xfer ...')
+        logger(logging.DEBUG, '... Starting globus xfer ...')
         job_files = []
         for file in files:
             job_file = {}
@@ -171,7 +172,7 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
                 else:
                     job_file[key] = file[key]
             job_files.append(job_file)
-        logging.debug('job_files: %s' % job_files)
+        logger(logging.DEBUG, 'job_files: %s' % job_files)
         transfer_id = GlobusTransferTool(external_host=None).bulk_submit(submitjob=job_files, timeout=timeout)
     elif transfertool == 'mock':
         import uuid
@@ -280,7 +281,7 @@ def set_transfers_state(transfers, submitted_at, session=None):
         raise RucioException(error.args)
 
 
-def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeout=None):
+def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeout=None, logger=logging.log):
     """
     Query the status of a transfer.
     :param request_host:  Name of the external host.
@@ -314,7 +315,7 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeou
     elif transfertool == 'globus':
         try:
             start_time = time.time()
-            logging.debug('transfer_ids: %s' % transfer_ids)
+            logger(logging.DEBUG, 'transfer_ids: %s' % transfer_ids)
             responses = GlobusTransferTool(external_host=None).bulk_query(transfer_ids=transfer_ids, timeout=timeout)
             record_timer('core.request.bulk_query_transfers', (time.time() - start_time) * 1000 / len(transfer_ids))
         except Exception:
@@ -355,7 +356,7 @@ def set_transfer_update_time(external_host, transfer_id, update_time=datetime.da
         raise UnsupportedOperation("Transfer %s doesn't exist or its status is not submitted." % (transfer_id))
 
 
-def query_latest(external_host, state, last_nhours=1):
+def query_latest(external_host, state, last_nhours=1, logger=logging.log):
     """
     Query the latest transfers in last n hours with state.
     :param external_host:  FTS host name as a string.
@@ -381,10 +382,10 @@ def query_latest(external_host, state, last_nhours=1):
         if 'request_id' not in resp['job_metadata']:
             # submitted by new submitter
             try:
-                logging.debug("Transfer %s on %s is %s, decrease its updated_at." % (resp['job_id'], external_host, resp['job_state']))
+                logger(logging.DEBUG, "Transfer %s on %s is %s, decrease its updated_at." % (resp['job_id'], external_host, resp['job_state']))
                 set_transfer_update_time(external_host, resp['job_id'], datetime.datetime.utcnow() - datetime.timedelta(hours=24))
             except Exception as error:
-                logging.debug("Exception happened when updating transfer updatetime: %s" % str(error).replace('\n', ''))
+                logger(logging.DEBUG, "Exception happened when updating transfer updatetime: %s" % str(error).replace('\n', ''))
 
     return ret_resps
 
@@ -412,26 +413,22 @@ def touch_transfer(external_host, transfer_id, session=None):
 
 
 @transactional_session
-def update_transfer_state(external_host, transfer_id, state, logging_prepend_str=None, session=None):
+def update_transfer_state(external_host, transfer_id, state, session=None, logger=logging.log):
     """
     Used by poller to update the internal state of transfer,
     after the response by the external transfertool.
     :param request_host:          Name of the external host.
     :param transfer_id:           External transfer job id as a string.
     :param state:                 Request state as a string.
-    :param logging_prepend_str:   String to prepend to the logging
     :param session:               The database session to use.
     :returns commit_or_rollback:  Boolean.
     """
 
-    prepend_str = ''
-    if logging_prepend_str:
-        prepend_str = logging_prepend_str
     try:
         if state == RequestState.LOST:
             reqs = request_core.get_requests_by_transfer(external_host, transfer_id, session=session)
             for req in reqs:
-                logging.info(prepend_str + 'REQUEST %s OF TRANSFER %s ON %s STATE %s' % (str(req['request_id']), external_host, transfer_id, str(state)))
+                logger(logging.INFO, 'REQUEST %s OF TRANSFER %s ON %s STATE %s' % (str(req['request_id']), external_host, transfer_id, str(state)))
                 src_rse_id = req.get('source_rse_id', None)
                 dst_rse_id = req.get('dest_rse_id', None)
                 src_rse = None
@@ -479,7 +476,7 @@ def update_transfer_state(external_host, transfer_id, state, logging_prepend_str
             __set_transfer_state(external_host, transfer_id, state, session=session)
         return True
     except UnsupportedOperation as error:
-        logging.warning(prepend_str + "Transfer %s on %s doesn't exist - Error: %s" % (transfer_id, external_host, str(error).replace('\n', '')))
+        logger(logging.WARNING, "Transfer %s on %s doesn't exist - Error: %s" % (transfer_id, external_host, str(error).replace('\n', '')))
         return False
 
 
@@ -630,7 +627,7 @@ def get_dsn(scope, name, dsn):
 
 @transactional_session
 def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, limit=None, activity=None, older_than=None, rses=None, schemes=None,
-                                              bring_online=43200, retry_other_fts=False, failover_schemes=None, session=None):
+                                              bring_online=43200, retry_other_fts=False, failover_schemes=None, session=None, logger=logging.log):
     """
     Get transfer requests and the associated source replicas
     :param total_workers:         Number of total workers.
@@ -698,7 +695,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         if source_rse_id in unavailable_read_rse_ids:
             continue
         if dest_rse_id in unavailable_write_rse_ids:
-            logging.warning('RSE %s is blocked for write. Will skip the submission of new jobs', dest_rse_name)
+            logger(logging.WARNING, 'RSE %s is blocked for write. Will skip the submission of new jobs', dest_rse_name)
             continue
 
         # parse source expression
@@ -707,7 +704,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
             try:
                 parsed_rses = parse_expression(source_replica_expression, session=session)
             except InvalidRSEExpression as error:
-                logging.error("Invalid RSE exception %s: %s", source_replica_expression, str(error))
+                logger(logging.ERROR, "Invalid RSE exception %s: %s", source_replica_expression, str(error))
                 continue
             else:
                 allowed_rses = [x['id'] for x in parsed_rses]
@@ -726,18 +723,18 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                  limit_dest_schemes=transfers.get(req_id, {}).get('schemes', None),
                                  session=session)
             if len(list_hops) > 1:
-                logging.debug('From %s to %s requires multihop: %s', source_rse_id, dest_rse_id, list_hops)
+                logger(logging.DEBUG, 'From %s to %s requires multihop: %s', source_rse_id, dest_rse_id, list_hops)
                 multihop = True
                 multi_hop_dict[req_id] = (list_hops, dict_attributes, retry_count)
         except NoDistance:
-            logging.warning("Request %s: no link from %s to %s", req_id, source_rse_name, dest_rse_name)
+            logger(logging.WARNING, "Request %s: no link from %s to %s", req_id, source_rse_name, dest_rse_name)
             if req_id in reqs_scheme_mismatch:
                 reqs_scheme_mismatch.remove(req_id)
             if req_id not in reqs_no_source:
                 reqs_no_source.append(req_id)
             continue
         except RSEProtocolNotSupported:
-            logging.warning("Request %s: no matching protocol between %s and %s", req_id, source_rse_name, dest_rse_name)
+            logger(logging.WARNING, "Request %s: no matching protocol between %s and %s", req_id, source_rse_name, dest_rse_name)
             if req_id in reqs_no_source:
                 reqs_no_source.remove(req_id)
             if req_id not in reqs_scheme_mismatch:
@@ -870,10 +867,10 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 dest_globus_endpoint_id = rse_attrs[dest_rse_id].get('globus_endpoint_id', None)
 
                 if TRANSFER_TOOL == 'fts3' and not fts_hosts:
-                    logging.error('Destination RSE %s FTS attribute not defined - SKIP REQUEST %s', dest_rse_name, req_id)
+                    logger(logging.ERROR, 'Destination RSE %s FTS attribute not defined - SKIP REQUEST %s', dest_rse_name, req_id)
                     continue
                 if TRANSFER_TOOL == 'globus' and (not dest_globus_endpoint_id or not source_globus_endpoint_id):
-                    logging.error('Destination RSE %s Globus endpoint attributes not defined - SKIP REQUEST %s', dest_rse_name, req_id)
+                    logger(logging.ERROR, 'Destination RSE %s Globus endpoint attributes not defined - SKIP REQUEST %s', dest_rse_name, req_id)
                     continue
                 if retry_count is None:
                     retry_count = 0
@@ -904,7 +901,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 common_checksum_names = set(source_rse_checksums).intersection(dest_rse_checksums)
 
                 if len(common_checksum_names) == 0:
-                    logging.info('No common checksum method. Verifying destination only.')
+                    logger(logging.INFO, 'No common checksum method. Verifying destination only.')
                     verify_checksum = 'destination'
 
                 # VI - Fill the transfer dictionary including file_metadata
@@ -955,9 +952,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                 if archive_timeout and (rses_info[dest_rse_id]['rse_type'] == RSEType.TAPE or rses_info[dest_rse_id]['rse_type'] == 'TAPE'):
                     try:
                         transfers[req_id]['archive_timeout'] = int(archive_timeout)
-                        logging.debug('Added archive timeout to transfer.')
+                        logger(logging.DEBUG, 'Added archive timeout to transfer.')
                     except ValueError:
-                        logging.warning('Could not set archive_timeout for %s. Must be integer.', dest_url)
+                        logger(logging.WARNING, 'Could not set archive_timeout for %s. Must be integer.', dest_url)
                         pass
             else:
                 # parse allow tape source expression, not finally version.
@@ -1076,7 +1073,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     transfers[req_id]['use_ipv4'] = True
 
         except Exception:
-            logging.critical("Exception happened when trying to get transfer for request %s: %s" % (req_id, traceback.format_exc()))
+            logger(logging.CRITICAL, "Exception happened when trying to get transfer for request %s: %s" % (req_id, traceback.format_exc()))
             break
 
     # checking OIDC AuthN/Z support per destination and soucre RSEs;
@@ -1143,7 +1140,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                      dataset_meta=None,
                                      session=session)
                     except Exception as error:
-                        logging.error('Problem adding replicas %s:%s on %s : %s', scope, name, dest_rse_name, str(error))
+                        logger(logging.ERROR, 'Problem adding replicas %s:%s on %s : %s', scope, name, dest_rse_name, str(error))
 
                     req_attributes = {'activity': transfers[req_id]['file_metadata']['activity'],
                                       'source_replica_expression': None,
@@ -1167,12 +1164,12 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     # If a request already exists, new_req will be an empty list.
                     if not new_req:
                         # Need to fail all the intermediate requests + the initial one and exit the multihop loop
-                        logging.warning('Multihop : A request already exists for the transfer between %s and %s. Will cancel all the parent requests', source_rse_name, dest_rse_name)
+                        logger(logging.WARNING, 'Multihop : A request already exists for the transfer between %s and %s. Will cancel all the parent requests', source_rse_name, dest_rse_name)
                         parent_requests.append(req_id)
                         try:
                             set_requests_state(request_ids=parent_requests, new_state=RequestState.FAILED, session=session)
                         except UnsupportedOperation:
-                            logging.error('Multihop : Cannot cancel all the parent requests : %s', str(parent_requests))
+                            logger(logging.ERROR, 'Multihop : Cannot cancel all the parent requests : %s', str(parent_requests))
 
                         # Remove from the transfer dictionary all the requests
                         for cur_req_id in parent_requests:
@@ -1181,7 +1178,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     new_req_id = new_req[0]['id']
                     parent_requests.append(new_req_id)
                     set_requests_state(request_ids=[new_req_id, ], new_state=RequestState.QUEUED, session=session)
-                    logging.debug('New request created for the transfer between %s and %s : %s', source_rse_name, dest_rse_name, new_req_id)
+                    logger(logging.DEBUG, 'New request created for the transfer between %s and %s : %s', source_rse_name, dest_rse_name, new_req_id)
 
                     # I - Here we will compute the destination URL
                     # I.1 - Get destination protocol
@@ -1404,26 +1401,26 @@ def __set_transfer_state(external_host, transfer_id, new_state, session=None):
 
 
 @read_session
-def __get_unavailable_rse_ids(operation, session=None):
+def __get_unavailable_rse_ids(operation, session=None, logger=logging.log):
     """
     Get unavailable rse ids for a given operation : read, write, delete
     """
 
     if operation not in ['read', 'write', 'delete']:
-        logging.error("Wrong operation specified : %s" % (operation))
+        logger(logging.ERROR, "Wrong operation specified : %s" % (operation))
         return []
     key = 'unavailable_%s_rse_ids' % operation
     result = REGION_SHORT.get(key)
     if isinstance(result, NoValue):
         try:
-            logging.debug("Refresh unavailable %s rses" % operation)
+            logger(logging.DEBUG, "Refresh unavailable %s rses" % operation)
             availability_key = 'availability_%s' % operation
             unavailable_rses = list_rses(filters={availability_key: False}, session=session)
             unavailable_rse_ids = [rse['id'] for rse in unavailable_rses]
             REGION_SHORT.set(key, unavailable_rse_ids)
             return unavailable_rse_ids
         except Exception:
-            logging.warning("Failed to refresh unavailable %s rses, error: %s" % (operation, traceback.format_exc()))
+            logger(logging.WARNING, "Failed to refresh unavailable %s rses, error: %s" % (operation, traceback.format_exc()))
             return []
     return result
 

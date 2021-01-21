@@ -19,11 +19,10 @@
 import imp
 import logging
 import os
-import sys
 
-from rucio.common.config import config_get, get_config_dirs
+from rucio.common.config import config_get, config_get_int, get_config_dirs
 from rucio.core.monitor import record_counter
-from datetime import datetime
+import datetime
 
 # Extra modules: Only imported if available
 EXTRA_MODULES = {'globus_sdk': False}
@@ -38,14 +37,6 @@ for extra_module in EXTRA_MODULES:
 if EXTRA_MODULES['globus_sdk']:
     from globus_sdk import NativeAppAuthClient, RefreshTokenAuthorizer, TransferClient, TransferData, DeleteData  # pylint: disable=import-error
     import yaml  # pylint: disable=import-error
-
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 GLOBUS_AUTH_APP = config_get('conveyor', 'globus_auth_app', False, None)
 
@@ -119,26 +110,21 @@ def bulk_submit_xfer(submitjob, recursive=False):
     destination_endpoint_id = submitjob[0].get('metadata').get('dest_globus_endpoint_id')
     authorizer = RefreshTokenAuthorizer(refresh_token=refresh_token, auth_client=auth_client)
     tc = TransferClient(authorizer=authorizer)
-    # as both endpoints are expected to be Globus Server endpoints, send auto-activate commands for both globus endpoints
-    a = auto_activate_endpoint(tc, source_endpoint_id)
-    logging.debug('a: %s' % a)
-    if a != 'AlreadyActivated':
-        return None
-
-    b = auto_activate_endpoint(tc, destination_endpoint_id)
-    logging.debug('b: %s' % b)
-    if b != 'AlreadyActivated':
-        return None
 
     # make job_label for task a timestamp
-    x = datetime.now()
-    job_label = x.strftime('%Y%m%d%H%M%s')
+    now = datetime.datetime.now()
+    job_label = now.strftime('%Y%m%d%H%M%s')
+
+    # retrieve globus_task_deadline value to enforce time window to complete transfers
+    # default is 2880 minutes or 48 hours
+    globus_task_deadline = config_get_int('conveyor', 'globus_task_deadline', False, 2880)
+    deadline = now + datetime.timedelta(minutes=globus_task_deadline)
 
     # from Globus... sync_level=checksum means that before files are transferred, Globus will compute checksums on the source
     # and destination files, and only transfer files that have different checksums are transferred. verify_checksum=True means
     # that after a file is transferred, Globus will compute checksums on the source and destination files to verify that the
     # file was transferred correctly.  If the checksums do not match, it will redo the transfer of that file.
-    tdata = TransferData(tc, source_endpoint_id, destination_endpoint_id, label=job_label, sync_level="checksum")
+    tdata = TransferData(tc, source_endpoint_id, destination_endpoint_id, label=job_label, sync_level="checksum", deadline=str(deadline))
 
     for file in submitjob:
         source_path = file.get('sources')[0]

@@ -23,7 +23,7 @@
 # - maatthias <maatthias@gmail.com>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Nick Smith <nick.smith@cern.ch>, 2020
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
@@ -38,7 +38,6 @@ import logging
 import os
 import re
 import socket
-import sys
 import threading
 import time
 import traceback
@@ -50,6 +49,7 @@ from sqlalchemy.exc import DatabaseError
 import rucio.db.sqla.util
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, TransferToolTimeout, TransferToolWrongAnswer
+import rucio.common.logging
 from rucio.common.utils import chunks
 from rucio.core import heartbeat, transfer as transfer_core, request as request_core
 from rucio.core.monitor import record_timer, record_counter
@@ -59,14 +59,6 @@ try:
     from ConfigParser import NoOptionError  # py2
 except Exception:
     from configparser import NoOptionError  # py3
-
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 graceful_stop = threading.Event()
 
@@ -292,7 +284,7 @@ def poll_transfers(external_host, xfers, prepend_str='', request_ids=None, timeo
                     #             is {}: No terminated jobs.
                     #             is {request_id: {file_status}}: terminated jobs.
                     if transf_resp is None:
-                        transfer_core.update_transfer_state(external_host, transfer_id, RequestState.LOST, logging_prepend_str=prepend_str)
+                        transfer_core.update_transfer_state(external_host, transfer_id, RequestState.LOST)  # TODO: add logger
                         record_counter('daemons.conveyor.poller.transfer_lost')
                     elif isinstance(transf_resp, Exception):
                         logging.warning(prepend_str + "Failed to poll FTS(%s) job (%s): %s" % (external_host, transfer_id, transf_resp))
@@ -300,7 +292,7 @@ def poll_transfers(external_host, xfers, prepend_str='', request_ids=None, timeo
                     else:
                         for request_id in transf_resp:
                             if request_id in request_ids:
-                                ret = request_core.update_request_state(transf_resp[request_id], logging_prepend_str=prepend_str)
+                                ret = request_core.update_request_state(transf_resp[request_id])  # TODO: add logger
                                 # if True, really update request content; if False, only touch request
                                 if ret:
                                     cnt += 1

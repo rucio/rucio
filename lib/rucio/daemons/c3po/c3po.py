@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2015-2017
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2015-2021
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
@@ -29,7 +29,6 @@ import logging
 from datetime import datetime
 from hashlib import md5
 from json import dumps
-from sys import stdout
 from threading import Event, Thread
 from time import sleep
 from uuid import uuid4
@@ -43,6 +42,7 @@ import rucio.db.sqla.util
 from rucio.client import Client
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_options
+import rucio.common.logging
 from rucio.common.types import InternalScope
 from rucio.daemons.c3po.collectors.free_space import FreeSpaceCollector
 from rucio.daemons.c3po.collectors.jedi_did import JediDIDCollector
@@ -52,13 +52,6 @@ try:
     from Queue import Queue
 except ImportError:
     from queue import Queue
-
-logging.basicConfig(stream=stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 GRACEFUL_STOP = Event()
 

@@ -11,6 +11,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 #
 # PY3K COMPATIBLE
 
@@ -35,7 +36,7 @@ from rucio.rse import rsemanager as rsemgr
 
 @read_session
 def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, failover_schemes=None, limit=None, activity=None, older_than=None,
-                                             rses=None, mock=False, schemes=None, bring_online=43200, retry_other_fts=False, logging_prepend_str='', session=None):
+                                             rses=None, mock=False, schemes=None, bring_online=43200, retry_other_fts=False, session=None, logger=logging.log):
     """
     Get staging requests and the associated source replicas
 
@@ -54,10 +55,6 @@ def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, f
     :session:                     The database session in use.
     :returns:                     transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
     """
-
-    prepend_str = ''
-    if logging_prepend_str:
-        prepend_str = logging_prepend_str
 
     req_sources = request.list_stagein_requests_and_source_replicas(total_workers=total_workers,
                                                                     worker_number=worker_number,
@@ -108,7 +105,7 @@ def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, f
                         try:
                             parsed_rses = parse_expression(source_replica_expression, filter={'vo': scope.vo}, session=session)
                         except InvalidRSEExpression as error:
-                            logging.error(prepend_str + "Invalid RSE exception %s: %s" % (source_replica_expression, error))
+                            logger(logging.ERROR, "Invalid RSE exception %s: %s" % (source_replica_expression, error))
                             continue
                         else:
                             allowed_rses = [x['id'] for x in parsed_rses]
@@ -168,7 +165,7 @@ def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, f
 
                 fts_hosts = rse_attrs[source_rse_id].get('fts', None)
                 if not fts_hosts:
-                    logging.error(prepend_str + 'Source RSE %s FTS attribute not defined - SKIP REQUEST %s' % (rse, req_id))
+                    logger(logging.ERROR, 'Source RSE %s FTS attribute not defined - SKIP REQUEST %s' % (rse, req_id))
                     continue
                 if not retry_count:
                     retry_count = 0
@@ -211,9 +208,9 @@ def get_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, f
                                      'selection_strategy': 'auto',
                                      'rule_id': rule_id,
                                      'file_metadata': file_metadata}
-                logging.debug(prepend_str + "Transfer for request(%s): %s" % (req_id, transfers[req_id]))
+                logger(logging.DEBUG, "Transfer for request(%s): %s" % (req_id, transfers[req_id]))
         except Exception:
-            logging.critical(prepend_str + "Exception happened when trying to get transfer for request %s: %s" % (req_id, traceback.format_exc()))
+            logger(logging.CRITICAL, "Exception happened when trying to get transfer for request %s: %s" % (req_id, traceback.format_exc()))
             break
 
     return transfers, reqs_no_source

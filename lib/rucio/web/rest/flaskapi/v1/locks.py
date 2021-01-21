@@ -16,14 +16,14 @@
 # Authors:
 # - Martin Barisits <martin.barisits@cern.ch>, 2014
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
-from traceback import format_exc
+import logging
 
 from flask import Flask, Blueprint, request
 from flask.views import MethodView
@@ -67,7 +67,7 @@ class LockByRSE(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -103,12 +103,12 @@ class LockByScopeName(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
 def blueprint():
-    bp = Blueprint('lock', __name__, url_prefix='/locks')
+    bp = Blueprint('locks', __name__, url_prefix='/locks')
 
     lock_by_rse_view = LockByRSE.as_view('lock_by_rse')
     bp.add_url_rule('/<rse>', view_func=lock_by_rse_view, methods=['get', ])

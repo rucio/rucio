@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2020 CERN
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,10 +18,11 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2021
 
 from __future__ import division
 
@@ -33,11 +34,10 @@ import threading
 import time
 import traceback
 from datetime import datetime
-from sys import stdout
 
 import rucio.db.sqla.util
-from rucio.common.config import config_get
 from rucio.common.exception import UnsupportedOperation, DataIdentifierNotFound, ReplicaNotFound, DatabaseException
+import rucio.common.logging
 from rucio.common.utils import chunks
 from rucio.core import heartbeat
 from rucio.core.did import get_metadata
@@ -47,14 +47,6 @@ from rucio.core.replica import (get_bad_pfns, get_pfn_to_rse, declare_bad_file_r
 from rucio.core.rse import get_rse_name
 from rucio.db.sqla.constants import BadFilesStatus, BadPFNStatus, ReplicaState
 from rucio.db.sqla.session import get_session
-
-logging.basicConfig(stream=stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
-
 
 graceful_stop = threading.Event()
 
@@ -107,12 +99,12 @@ def minos(bulk=1000, once=False, sleep_time=60):
                 account = pfn['account']
                 reason = pfn['reason']
                 expires_at = pfn['expires_at']
-                state = pfn['state']
-                if states_mapping[state] in [BadFilesStatus.BAD, BadFilesStatus.SUSPICIOUS]:
+                state = states_mapping[pfn['state']]
+                if state in [BadFilesStatus.BAD, BadFilesStatus.SUSPICIOUS]:
                     if (account, reason, state) not in bad_replicas:
                         bad_replicas[(account, reason, state)] = []
                     bad_replicas[(account, reason, state)].append(path)
-                if states_mapping[state] == BadFilesStatus.TEMPORARY_UNAVAILABLE:
+                elif state == BadFilesStatus.TEMPORARY_UNAVAILABLE:
                     if (account, reason, expires_at) not in temporary_unvailables:
                         temporary_unvailables[(account, reason, expires_at)] = []
                     temporary_unvailables[(account, reason, expires_at)].append(path)
@@ -140,7 +132,7 @@ def minos(bulk=1000, once=False, sleep_time=60):
                             if rse_id not in dict_rse:
                                 dict_rse[rse_id] = []
                             dict_rse[rse_id].extend(tmp_dict_rse[rse_id])
-                            unknown_replicas.extend(tmp_unknown_replicas.get('unknown', []))
+                        unknown_replicas.extend(tmp_unknown_replicas.get('unknown', []))
                     # The replicas in unknown_replicas do not exist, so we flush them from bad_pfns
                     if unknown_replicas:
                         logging.info(prepend_str + 'The following replicas are unknown and will be removed : %s' % str(unknown_replicas))

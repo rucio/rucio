@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
@@ -23,7 +23,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 import json
-from traceback import format_exc
+import logging
 
 from flask import Flask, Blueprint, Response, request as f_request
 from flask.views import MethodView
@@ -64,7 +64,7 @@ class RequestGet(MethodView):
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         try:
@@ -138,12 +138,12 @@ class RequestList(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
 def blueprint():
-    bp = Blueprint('request', __name__, url_prefix='/requests')
+    bp = Blueprint('requests', __name__, url_prefix='/requests')
 
     request_get_view = RequestGet.as_view('request_get')
     bp.add_url_rule('/<path:scope_name>/<rse>', view_func=request_get_view, methods=['get', ])

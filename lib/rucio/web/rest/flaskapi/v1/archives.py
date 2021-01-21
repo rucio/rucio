@@ -15,16 +15,14 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
-from __future__ import print_function
-
 from json import dumps
-from traceback import format_exc
+import logging
 
 from flask import Flask, Blueprint, request
 from flask.views import MethodView
@@ -62,12 +60,12 @@ class Archive(MethodView):
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
 def blueprint():
-    bp = Blueprint('archive', __name__, url_prefix='/archives')
+    bp = Blueprint('archives', __name__, url_prefix='/archives')
 
     archive_view = Archive.as_view('archive')
     bp.add_url_rule('/<path:scope_name>/files', view_func=archive_view, methods=['get', ])

@@ -9,6 +9,7 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2017
 # - Vincent Garonne, <vgaronne@gmail.com>, 2018
 # - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 #
 # PY3K COMPATIBLE
 
@@ -38,7 +39,7 @@ REGION_SHORT = make_region().configure('dogpile.cache.memory',
                                        expiration_time=cache_time)
 
 
-def get_transfer_limits(activity, rse_id):
+def get_transfer_limits(activity, rse_id, logger=logging.log):
     """
     Get RSE transfer limits.
 
@@ -57,11 +58,11 @@ def get_transfer_limits(activity, rse_id):
         else:
             return get_transfer_limits_default(activity, rse_id)
     except:
-        logging.warning("Failed to get transfer limits: %s" % traceback.format_exc())
+        logger(logging.WARNING, "Failed to get transfer limits: %s" % traceback.format_exc())
         return None
 
 
-def get_transfer_limits_default(activity, rse_id):
+def get_transfer_limits_default(activity, rse_id, logger=logging.log):
     """
     Get RSE transfer limits in default mode.
 
@@ -75,11 +76,11 @@ def get_transfer_limits_default(activity, rse_id):
         result = REGION_SHORT.get(key)
         if type(result) is NoValue:
             try:
-                logging.debug("Refresh rse transfer limits")
+                logger(logging.DEBUG, "Refresh rse transfer limits")
                 result = get_rse_transfer_limits()
                 REGION_SHORT.set(key, result)
             except:
-                logging.warning("Failed to retrieve rse transfer limits: %s" % (traceback.format_exc()))
+                logger(logging.WARNING, "Failed to retrieve rse transfer limits: %s" % (traceback.format_exc()))
                 result = None
         if result and activity in result and rse_id in result[activity]:
             return result[activity][rse_id]
@@ -91,7 +92,7 @@ def get_transfer_limits_default(activity, rse_id):
         return None
 
 
-def get_config_limits():
+def get_config_limits(logger=logging.log):
     """
     Get config limits.
 
@@ -114,11 +115,11 @@ def get_config_limits():
                 config_limits[activity] = {}
             config_limits[activity][rse_id] = int(value)
         except:
-            logging.warning("Failed to parse throttler config %s:%s, error: %s" % (opt, value, traceback.format_exc()))
+            logger(logging.WARNING, "Failed to parse throttler config %s:%s, error: %s" % (opt, value, traceback.format_exc()))
     return config_limits
 
 
-def get_config_limit(activity, rse_id):
+def get_config_limit(activity, rse_id, logger=logging.log):
     """
     Get RSE transfer limits in strict mode.
 
@@ -133,11 +134,11 @@ def get_config_limit(activity, rse_id):
         result = REGION_SHORT.get(key)
     if type(result) is NoValue:
         try:
-            logging.debug("Refresh rse config limits")
+            logger(logging.DEBUG, "Refresh rse config limits")
             result = get_config_limits()
             REGION_SHORT.set(key, result)
         except:
-            logging.warning("Failed to retrieve rse transfer limits: %s" % (traceback.format_exc()))
+            logger(logging.WARNING, "Failed to retrieve rse transfer limits: %s" % (traceback.format_exc()))
             result = None
 
     threshold = None
