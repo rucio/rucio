@@ -1057,6 +1057,15 @@ class DownloadClient:
         """
         logger = self.logger
         merged_items_with_sources = []
+
+        # if excluding tapes, we need to list them first
+        tape_rses = []
+        if self.is_tape_excluded:
+            try:
+                tape_rses = [endp['rse'] for endp in self.client.list_rses(rse_expression='istape=true')]
+            except:
+                logger.debug('No tapes found.')
+
         for item in merged_items:
             # since we're using metalink we need to explicitly give all schemes
             schemes = item.get('force_scheme')
@@ -1064,10 +1073,8 @@ class DownloadClient:
                 schemes = schemes if isinstance(schemes, list) else [schemes]
             logger.debug('schemes: %s' % schemes)
 
-            # extend RSE expression to exclude tape RSEs for non-admin accounts
+            # RSE expression, still with tape endpoints included
             rse_expression = item.get('rse')
-            if self.is_tape_excluded:
-                rse_expression = '*\istape=true' if not rse_expression else '(%s)\istape=true' % rse_expression  # NOQA: W605
             logger.debug('rse_expression: %s' % rse_expression)
 
             # get PFNs of files and datasets
@@ -1093,6 +1100,16 @@ class DownloadClient:
                     logger.error('DID does not exist: %s' % input_did)
                     # TODO: store did directly as DIDType object
                     file_items.append({'did': str(input_did), 'adler32': None, 'md5': None, 'sources': [], 'parent_dids': set()})
+
+            # filtering out tape sources
+            if self.is_tape_excluded:
+                for item in file_items:
+                    sources = item['sources']
+                    for src in item['sources']:
+                        if src in tape_rses:
+                            sources.remove(src)
+                    if not sources:
+                        logger.warning('Requested did {} has only replicas on tape. No files will be download.'.format(item['did']))
 
             nrandom = item.get('nrandom')
             if nrandom:
