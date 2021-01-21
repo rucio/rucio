@@ -225,17 +225,18 @@ def queue_requests(requests, session=None):
                                 'is_using': source['is_using']})
 
         if request['request_type']:
-            transfer_status = '%s-%s' % (request['request_type'], request['state'])
+            transfer_status = '%s-%s' % (request['request_type'].name, request['state'].name)
         else:
-            transfer_status = 'transfer-%s' % request['state']
+            transfer_status = 'transfer-%s' % request['state'].name
+        transfer_status = transfer_status.lower()
 
         payload = {'request-id': new_request['id'],
-                   'request-type': str(request['request_type']).lower(),
+                   'request-type': request['request_type'].name.lower(),
                    'scope': request['scope'].external,
                    'name': request['name'],
                    'dst-rse-id': request['dest_rse_id'],
                    'dst-rse': dest_rse_name,
-                   'state': str(request['state']),
+                   'state': request['state'].name.lower(),
                    'retry-count': request['retry_count'],
                    'rule-id': str(request['rule_id']),
                    'activity': request['attributes']['activity'],
@@ -245,7 +246,7 @@ def queue_requests(requests, session=None):
                    'checksum-adler': request['attributes']['adler32'],
                    'queued_at': str(datetime.datetime.utcnow())}
 
-        messages.append({'event_type': transfer_status.lower(),
+        messages.append({'event_type': transfer_status,
                          'payload': json.dumps(payload)})
 
     for requests_chunk in chunks(new_requests, 1000):
@@ -1336,9 +1337,9 @@ def add_monitor_message(request, response, session=None):
     """
 
     if request['request_type']:
-        transfer_status = '%s-%s' % (request['request_type'], response['new_state'])
+        transfer_status = '%s-%s' % (request['request_type'].name, response['new_state'].name)
     else:
-        transfer_status = 'transfer-%s' % (response['new_state'])
+        transfer_status = 'transfer-%s' % (response['new_state'].name)
     transfer_status = transfer_status.lower()
 
     activity = response.get('activity', None)
