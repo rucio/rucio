@@ -61,11 +61,12 @@ jobs:
       - name: Prepare Docker Compose
         shell: bash
         run: |
-          IMG=$(docker image ls -q --filter "reference=docker.pkg.github.com/${{ github.repository }}/rucio-integration-test" | head -1)
-          echo "$IMG"
-          sed -i "s/image: rucio\/rucio-dev.*/image: $IMG/" $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml
+          docker image ls
+          sed -i "s;image: rucio/rucio-dev.*;image: docker\.pkg\.github\.com/${{ github.repository }}/rucio-integration-test:centos7-python3.6;" $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml
       - name: Start containers
-        run: docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml up -d
+        run: |
+          docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml up -d
       - name: Initialize tests
         shell: bash
         run: |
