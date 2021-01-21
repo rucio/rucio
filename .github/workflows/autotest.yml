@@ -44,9 +44,6 @@ jobs:
           docker logout https://docker.pkg.github.com
           if [[ -z $IMAGES ]]; then exit 1; fi
           echo "::set-output name=images::$IMAGES"
-      - name: Test output
-        run: |
-          echo '{"matrix": ${{ toJson(matrix.cfg) }}, "images": ${{ steps.images.outputs.images }} }'
       - name: Run test with cfg
         run: 'echo ''{"matrix": ${{ toJson(matrix.cfg) }}, "images": ${{ steps.images.outputs.images }} }'' | ./tools/test/run_tests.py'
   release-patch-setup:
