@@ -141,7 +141,7 @@ def minos(bulk=1000, once=False, sleep_time=60):
                             if rse_id not in dict_rse:
                                 dict_rse[rse_id] = []
                             dict_rse[rse_id].extend(tmp_dict_rse[rse_id])
-                            unknown_replicas.extend(tmp_unknown_replicas.get('unknown', []))
+                        unknown_replicas.extend(tmp_unknown_replicas.get('unknown', []))
                     # The replicas in unknown_replicas do not exist, so we flush them from bad_pfns
                     if unknown_replicas:
                         logging.info(prepend_str + 'The following replicas are unknown and will be removed : %s' % str(unknown_replicas))
