@@ -20,6 +20,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Eric Vaandering <ewv@fnal.gov>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 
 """
 Daemon for sending Sonar tests to available RSE's.
@@ -30,7 +31,6 @@ from __future__ import division
 import itertools
 import logging
 import random
-import sys
 import threading
 import time
 
@@ -41,14 +41,8 @@ from rucio.client.client import Client
 from rucio.common.config import config_get
 from rucio.common.exception import (AccessDenied, DatabaseException, DuplicateRule, RSEBlacklisted, RSEWriteBlocked,
                                     ReplicationRuleCreationTemporaryFailed, RuleNotFound)
+import rucio.common.logging
 from rucio.daemons.sonar.sonar.get_current_traffic import get_link_traffic
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 GRACEFUL_STOP = threading.Event()

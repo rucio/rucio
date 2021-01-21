@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2020
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2017
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2021
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -37,18 +37,35 @@ import stomp
 from rucio.common.config import config_get, config_get_int
 from rucio.core.monitor import record_counter
 
-ERRLOG = logging.getLogger('errlog')
-ERRLOG.setLevel(logging.ERROR)
+
+CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
+CONFIG_COMMON_LOGFORMAT = config_get('common', 'logformat', raise_exception=False, default='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
+
+CONFIG_TRACE_LOGLEVEL = getattr(logging, config_get('trace', 'loglevel', raise_exception=False, default='DEBUG').upper())
+CONFIG_TRACE_LOGFORMAT = config_get('trace', 'logformat', raise_exception=False, default='%(message)s')
+CONFIG_TRACE_TRACEDIR = config_get('trace', 'tracedir', raise_exception=False, default='/var/log/rucio')
+CONFIG_TRACE_MAXBYTES = config_get_int('trace', 'maxbytes', raise_exception=False, default=1000000000)
+CONFIG_TRACE_BACKUPCOUNT = config_get_int('trace', 'backupCount', raise_exception=False, default=10)
+
+# reset root logger handlers. Otherwise everything from ROTATING_LOGGER will also end up in the apache logs.
+logging.getLogger().handlers = []
 
 LOGGER = logging.getLogger('trace')
-LOGGER.setLevel(logging.INFO)
+LOGGER.setLevel(CONFIG_COMMON_LOGLEVEL)
+
+ROTATING_LOGGER = logging.getLogger('trace_buffer')
+ROTATING_LOGGER.setLevel(CONFIG_TRACE_LOGLEVEL)
 
 try:
-    HANDLER = logging.handlers.RotatingFileHandler(filename='%s/trace' % config_get('trace', 'tracedir'), maxBytes=1000000000, backupCount=10)
-    LOGFORMATTER = logging.Formatter('%(message)s')
-    HANDLER.setFormatter(LOGFORMATTER)
-    HANDLER.suffix = "%Y-%m-%d"
+    HANDLER = logging.StreamHandler()
+    FORMATTER = logging.Formatter(CONFIG_COMMON_LOGFORMAT)
+    HANDLER.setFormatter(FORMATTER)
     LOGGER.addHandler(HANDLER)
+
+    ROTATING_HANDLER = logging.handlers.RotatingFileHandler(filename='%s/trace' % CONFIG_TRACE_TRACEDIR, maxBytes=CONFIG_TRACE_MAXBYTES, backupCount=CONFIG_TRACE_BACKUPCOUNT)
+    ROTATING_LOGFORMATTER = logging.Formatter(CONFIG_TRACE_LOGFORMAT)
+    ROTATING_HANDLER.setFormatter(ROTATING_LOGFORMATTER)
+    ROTATING_LOGGER.addHandler(ROTATING_HANDLER)
 except:
     if 'sphinx' not in sys.modules:
         raise
@@ -92,15 +109,14 @@ def date_handler(obj):
 
 def trace(payload):
     """
-    Write a trace to log file and send it to active mq.
+    Write a trace to the buffer log file and send it to active mq.
 
     :param payload: Python dictionary with trace report.
     """
 
     record_counter('trace.trace')
     report = json.dumps(payload, default=date_handler)
-    LOGGER.debug(report)
-
+    ROTATING_LOGGER.debug(report)
     t_conns = CONNS[:]
 
     try:
@@ -108,23 +124,23 @@ def trace(payload):
             try:
                 conn = random.sample(t_conns, 1)[0]
                 if not conn.is_connected():
-                    logging.info('reconnect to ' + conn.transport._Transport__host_and_ports[0][0])
+                    LOGGER.info('reconnect to ' + conn.transport._Transport__host_and_ports[0][0])
                     conn.start()
                     conn.connect(USERNAME, PASSWORD)
             except stomp.exception.NotConnectedException:
-                logging.warning('Could not connect to broker %s, try another one' %
-                                conn.transport._Transport__host_and_ports[0][0])
+                LOGGER.warning('Could not connect to broker %s, try another one' %
+                               conn.transport._Transport__host_and_ports[0][0])
                 t_conns.remove(conn)
                 continue
             except stomp.exception.ConnectFailedException:
-                logging.warning('Could not connect to broker %s, try another one' %
-                                conn.transport._Transport__host_and_ports[0][0])
+                LOGGER.warning('Could not connect to broker %s, try another one' %
+                               conn.transport._Transport__host_and_ports[0][0])
                 t_conns.remove(conn)
                 continue
 
         if conn.is_connected:
             conn.send(body=report, destination=TOPIC, headers={'persistent': 'true', 'appversion': 'rucio'})
         else:
-            logging.error("Unable to connect to broker. Could not send trace: %s" % report)
+            LOGGER.error("Unable to connect to broker. Could not send trace: %s" % report)
     except Exception as error:
-        logging.error(error)
+        LOGGER.error(error)

@@ -21,7 +21,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
@@ -32,7 +32,6 @@ Undertaker is a daemon to manage expired did.
 import logging
 import os
 import socket
-import sys
 import threading
 import time
 import traceback
@@ -44,8 +43,8 @@ from re import match
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
-from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, UnsupportedOperation, RuleNotFound
+import rucio.common.logging
 from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks
 from rucio.core.did import list_expired_dids, delete_dids
@@ -53,13 +52,6 @@ from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 GRACEFUL_STOP = threading.Event()
 

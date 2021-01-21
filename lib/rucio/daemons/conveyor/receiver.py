@@ -22,7 +22,7 @@
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
@@ -36,7 +36,6 @@ import json
 import logging
 import os
 import socket
-import sys
 import threading
 import time
 import traceback
@@ -46,6 +45,7 @@ import stomp
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int
+import rucio.common.logging
 from rucio.common.policy import get_policy
 from rucio.core import heartbeat, request
 from rucio.core.monitor import record_counter
@@ -53,13 +53,6 @@ from rucio.core.transfer import set_transfer_update_time
 from rucio.db.sqla.constants import RequestState, FTSCompleteState
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 graceful_stop = threading.Event()
 

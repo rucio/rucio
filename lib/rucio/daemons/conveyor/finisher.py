@@ -24,7 +24,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
@@ -38,18 +38,16 @@ import logging
 import os
 import re
 import socket
-import sys
 import threading
 import time
-import traceback
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
-from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, ConfigNotFound, UnsupportedOperation, ReplicaNotFound, RequestNotFound
+from rucio.common.logging import formatted_logger
 from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks
 from rucio.core import request as request_core, heartbeat, replica as replica_core
@@ -65,14 +63,6 @@ try:
 except ImportError:
     from urllib.parse import urlparse  # py3
 
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
-
 graceful_stop = threading.Event()
 
 region = make_region().configure('dogpile.cache.memory', expiration_time=3600)
@@ -85,7 +75,7 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000)
     try:
         conveyor_config = {item[0]: item[1] for item in items('conveyor')}
     except ConfigNotFound:
-        logging.info('No configuration found for conveyor')
+        logging.log(logging.INFO, 'No configuration found for conveyor')
         conveyor_config = {}
 
     # Get suspicious patterns
@@ -108,8 +98,9 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000)
     heartbeat.sanity_check(executable=executable, hostname=hostname)
     # Make an initial heartbeat so that all finishers have the correct worker number on the next try
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-    logging.info('%s Finisher starting - db_bulk(%i) bulk (%i)', prepend_str, db_bulk, bulk)
+    prefix = 'conveyor-finisher[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+    logger = formatted_logger(logging.log, prefix + '%s')
+    logger(logging.INFO, 'Finisher starting - db_bulk(%i) bulk (%i)', db_bulk, bulk)
 
     graceful_stop.wait(10)
     while not graceful_stop.is_set():
@@ -117,13 +108,14 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000)
         start_time = time.time()
         try:
             heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
-            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-            logging.debug('%s Starting new cycle', prepend_str)
+            prefix = 'conveyor-finisher[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+            logger = formatted_logger(logging.log, prefix + '%s')
+            logger(logging.DEBUG, 'Starting new cycle')
             if activities is None:
                 activities = [None]
 
             for activity in activities:
-                logging.debug('%s Working on activity %s', prepend_str, activity)
+                logger(logging.DEBUG, 'Working on activity %s', activity)
                 time1 = time.time()
                 reqs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                              state=[RequestState.DONE, RequestState.FAILED,
@@ -139,26 +131,26 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000)
                 record_timer('daemons.conveyor.finisher.000-get_next', (time.time() - time1) * 1000)
                 time2 = time.time()
                 if reqs:
-                    logging.debug('%s Updating %i requests for activity %s', prepend_str, len(reqs), activity)
+                    logger(logging.DEBUG, 'Updating %i requests for activity %s', len(reqs), activity)
 
                 for chunk in chunks(reqs, bulk):
                     try:
                         time3 = time.time()
-                        __handle_requests(chunk, suspicious_patterns, retry_protocol_mismatches, prepend_str)
+                        __handle_requests(chunk, suspicious_patterns, retry_protocol_mismatches, logger=logger)
                         record_timer('daemons.conveyor.finisher.handle_requests', (time.time() - time3) * 1000 / (len(chunk) if chunk else 1))
                         record_counter('daemons.conveyor.finisher.handle_requests', len(chunk))
                     except Exception as error:
-                        logging.warning('%s %s', prepend_str, str(error))
+                        logger(logging.WARNING, '%s', str(error))
                 if reqs:
-                    logging.debug('%s Finish to update %s finished requests for activity %s in %s seconds', prepend_str, len(reqs), activity, time.time() - time2)
+                    logger(logging.DEBUG, '%s Finish to update %s finished requests for activity %s in %s seconds', len(reqs), activity, time.time() - time2)
 
         except (DatabaseException, DatabaseError) as error:
             if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
-                logging.warning('%s Lock detected when handling request - skipping: %s', prepend_str, str(error))
+                logger(logging.WARNING, 'Lock detected when handling request - skipping: %s', str(error))
             else:
-                logging.error('%s %s', prepend_str, traceback.format_exc())
-        except Exception as error:
-            logging.critical('%s %s', prepend_str, str(error))
+                logger(logging.ERROR, 'Exception', exc_info=True)
+        except Exception:
+            logger(logging.CRITICAL, 'Exception', exc_info=True)
 
         if once:
             return
@@ -166,14 +158,14 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000)
         end_time = time.time()
         time_diff = end_time - start_time
         if time_diff < sleep_time:
-            logging.info('%s Sleeping for a while :  %s seconds', prepend_str, (sleep_time - time_diff))
+            logger(logging.INFO, 'Sleeping for a while :  %s seconds', (sleep_time - time_diff))
             graceful_stop.wait(sleep_time - time_diff)
 
-    logging.info('%s Graceful stop requests', prepend_str)
+    logger(logging.INFO, 'Graceful stop requests')
 
     heartbeat.die(executable, hostname, pid, hb_thread)
 
-    logging.info('%s Graceful stop done', prepend_str)
+    logger(logging.INFO, 'Graceful stop done')
 
 
 def stop(signum=None, frame=None):
@@ -212,7 +204,7 @@ def run(once=False, total_threads=1, sleep_time=60, activities=None, bulk=100, d
             threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.isAlive()]
 
 
-def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, prepend_str=''):
+def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logger=logging.log):
     """
     Used by finisher to handle terminated requests,
 
@@ -224,7 +216,7 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, prep
 
     failed_during_submission = [RequestState.SUBMITTING, RequestState.SUBMISSION_FAILED, RequestState.LOST]
     failed_no_submission_attempts = [RequestState.NO_SOURCES, RequestState.ONLY_TAPE_SOURCES, RequestState.MISMATCH_SCHEME]
-    undeterministic_rses = __get_undeterministic_rses()
+    undeterministic_rses = __get_undeterministic_rses(logger=logger)
     rses_info, protocols = {}, {}
     replicas = {}
     for req in reqs:
@@ -261,28 +253,28 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, prep
 
             # Standard failure from the transfer tool
             elif req['state'] == RequestState.FAILED:
-                __check_suspicious_files(req, suspicious_patterns)
+                __check_suspicious_files(req, suspicious_patterns, logger=logger)
                 tss = time.time()
                 try:
                     if request_core.should_retry_request(req, retry_protocol_mismatches):
-                        new_req = request_core.requeue_and_archive(req, retry_protocol_mismatches)
+                        new_req = request_core.requeue_and_archive(req, retry_protocol_mismatches, logger=logger)
                         # should_retry_request and requeue_and_archive are not in one session,
                         # another process can requeue_and_archive and this one will return None.
                         record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time() - tss) * 1000)
-                        logging.warning(prepend_str + 'REQUEUED DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
-                                                                                                      req['name'],
-                                                                                                      req['request_id'],
-                                                                                                      new_req['request_id'],
-                                                                                                      new_req['retry_count']))
+                        logger(logging.WARNING, 'REQUEUED DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
+                                                                                                req['name'],
+                                                                                                req['request_id'],
+                                                                                                new_req['request_id'],
+                                                                                                new_req['retry_count']))
                     else:
                         # No new_req is return if should_retry_request returns False
-                        logging.warning('%s EXCEEDED SUBMITTING DID %s:%s REQUEST %s in state %s', prepend_str, req['scope'], req['name'], req['request_id'], req['state'])
+                        logger(logging.WARNING, 'EXCEEDED SUBMITTING DID %s:%s REQUEST %s in state %s', req['scope'], req['name'], req['request_id'], req['state'])
                         replica['state'] = ReplicaState.UNAVAILABLE
                         replica['archived'] = False
                         replica['error_message'] = req['err_msg'] if req['err_msg'] else request_core.get_transfer_error(req['state'])
                         replicas[req['request_type']][req['rule_id']].append(replica)
                 except RequestNotFound:
-                    logging.warning('%s Cannot find request %s anymore', prepend_str, req['request_id'])
+                    logger(logging.WARNING, 'Cannot find request %s anymore', req['request_id'])
 
             # All other failures
             elif req['state'] in failed_during_submission or req['state'] in failed_no_submission_attempts:
@@ -292,34 +284,34 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, prep
                 try:
                     tss = time.time()
                     if request_core.should_retry_request(req, retry_protocol_mismatches):
-                        new_req = request_core.requeue_and_archive(req, retry_protocol_mismatches)
+                        new_req = request_core.requeue_and_archive(req, retry_protocol_mismatches, logger=logger)
                         record_timer('daemons.conveyor.common.update_request_state.request-requeue_and_archive', (time.time() - tss) * 1000)
-                        logging.warning(prepend_str + 'REQUEUED SUBMITTING DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
-                                                                                                                 req['name'],
-                                                                                                                 req['request_id'],
-                                                                                                                 new_req['request_id'],
-                                                                                                                 new_req['retry_count']))
+                        logger(logging.WARNING, 'REQUEUED SUBMITTING DID %s:%s REQUEST %s AS %s TRY %s' % (req['scope'],
+                                                                                                           req['name'],
+                                                                                                           req['request_id'],
+                                                                                                           new_req['request_id'],
+                                                                                                           new_req['retry_count']))
                     else:
                         # No new_req is return if should_retry_request returns False
-                        logging.warning('%s EXCEEDED SUBMITTING DID %s:%s REQUEST %s in state %s', prepend_str, req['scope'], req['name'], req['request_id'], req['state'])
+                        logger(logging.WARNING, 'EXCEEDED SUBMITTING DID %s:%s REQUEST %s in state %s', req['scope'], req['name'], req['request_id'], req['state'])
                         replica['state'] = ReplicaState.UNAVAILABLE
                         replica['archived'] = False
                         replica['error_message'] = req['err_msg'] if req['err_msg'] else request_core.get_transfer_error(req['state'])
                         replicas[req['request_type']][req['rule_id']].append(replica)
                 except RequestNotFound:
-                    logging.warning('%s Cannot find request %s anymore', prepend_str, req['request_id'])
+                    logger(logging.WARNING, 'Cannot find request %s anymore', req['request_id'])
 
         except Exception as error:
-            logging.error(prepend_str + "Something unexpected happened when handling request %s(%s:%s) at %s: %s" % (req['request_id'],
-                                                                                                                     req['scope'],
-                                                                                                                     req['name'],
-                                                                                                                     req['dest_rse_id'],
-                                                                                                                     str(error)))
+            logger(logging.error, "Something unexpected happened when handling request %s(%s:%s) at %s: %s" % (req['request_id'],
+                                                                                                               req['scope'],
+                                                                                                               req['name'],
+                                                                                                               req['dest_rse_id'],
+                                                                                                               str(error)))
 
-    __handle_terminated_replicas(replicas, prepend_str)
+    __handle_terminated_replicas(replicas, logger=logger)
 
 
-def __get_undeterministic_rses():
+def __get_undeterministic_rses(logger=logging.log):
     """
     Get the undeterministic rses from the database
 
@@ -333,11 +325,11 @@ def __get_undeterministic_rses():
         try:
             region.set(key, result)
         except Exception as error:
-            logging.warning("Failed to set dogpile cache, error: %s", str(error))
+            logger(logging.WARNING, "Failed to set dogpile cache, error: %s", str(error))
     return result
 
 
-def __check_suspicious_files(req, suspicious_patterns):
+def __check_suspicious_files(req, suspicious_patterns, logger=logging.log):
     """
     Check suspicious files when a transfer failed.
 
@@ -349,7 +341,7 @@ def __check_suspicious_files(req, suspicious_patterns):
         return is_suspicious
 
     try:
-        logging.debug("Checking suspicious file for request: %s, transfer error: %s", req['request_id'], req['err_msg'])
+        logger(logging.DEBUG, "Checking suspicious file for request: %s, transfer error: %s", req['request_id'], req['err_msg'])
         for pattern in suspicious_patterns:
             if pattern.match(req['err_msg']):
                 is_suspicious = True
@@ -363,14 +355,14 @@ def __check_suspicious_files(req, suspicious_patterns):
                 for url in urls:
                     pfns.append(url['url'])
                 if pfns:
-                    logging.debug("Found suspicious urls: %s", str(pfns))
+                    logger(logging.DEBUG, "Found suspicious urls: %s", str(pfns))
                     replica_core.declare_bad_file_replicas(pfns, reason=reason, issuer=InternalAccount('root', vo=req['scope'].vo), status=BadFilesStatus.SUSPICIOUS)
     except Exception as error:
-        logging.warning("Failed to check suspicious file with request: %s - %s", req['request_id'], str(error))
+        logger(logging.WARNING, "Failed to check suspicious file with request: %s - %s", req['request_id'], str(error))
     return is_suspicious
 
 
-def __handle_terminated_replicas(replicas, prepend_str=''):
+def __handle_terminated_replicas(replicas, logger=logging.log):
     """
     Used by finisher to handle available and unavailable replicas.
 
@@ -381,35 +373,35 @@ def __handle_terminated_replicas(replicas, prepend_str=''):
     for req_type in replicas:
         for rule_id in replicas[req_type]:
             try:
-                __update_bulk_replicas(replicas[req_type][rule_id])
+                __update_bulk_replicas(replicas[req_type][rule_id], logger=logger)
             except (UnsupportedOperation, ReplicaNotFound):
                 # one replica in the bulk cannot be found. register it one by one
-                logging.warning('%s Problem to bulk update the replicas states. Will try one by one', prepend_str)
+                logger(logging.WARNING, 'Problem to bulk update the replicas states. Will try one by one')
                 for replica in replicas[req_type][rule_id]:
                     try:
-                        __update_replica(replica)
+                        __update_replica(replica, logger=logger)
                     except (DatabaseException, DatabaseError) as error:
                         if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
-                            logging.warning("%s Locks detected when handling replica %s:%s at RSE %s", prepend_str, replica['scope'], replica['name'], replica['rse_id'])
+                            logger(logging.WARNING, "Locks detected when handling replica %s:%s at RSE %s", replica['scope'], replica['name'], replica['rse_id'])
                         else:
-                            logging.error("%s Could not finish handling replicas %s:%s at RSE %s (%s)", prepend_str, replica['scope'], replica['name'], replica['rse_id'], traceback.format_exc())
+                            logger(logging.error, "Could not finish handling replicas %s:%s at RSE %s", replica['scope'], replica['name'], replica['rse_id'], exc_info=True)
                     except Exception as error:
-                        logging.error("%s Something unexpected happened when updating replica state for transfer %s:%s at %s (%s)", prepend_str, replica['scope'], replica['name'], replica['rse_id'], str(error))
+                        logger(logging.error, "Something unexpected happened when updating replica state for transfer %s:%s at %s (%s)", replica['scope'], replica['name'], replica['rse_id'], str(error))
             except (DatabaseException, DatabaseError) as error:
                 if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
-                    logging.warning("%s Locks detected when handling replicas on %s rule %s, update updated time.", prepend_str, req_type, rule_id)
+                    logger(logging.WARNING, "Locks detected when handling replicas on %s rule %s, update updated time.", req_type, rule_id)
                     try:
                         request_core.touch_requests_by_rule(rule_id)
                     except (DatabaseException, DatabaseError):
-                        logging.error("%s Failed to touch requests by rule(%s): %s", prepend_str, rule_id, traceback.format_exc())
+                        logger(logging.error, "Failed to touch requests by rule(%s)", rule_id, exc_info=True)
                 else:
-                    logging.error("%s Could not finish handling replicas on %s rule %s: %s", prepend_str, req_type, rule_id, traceback.format_exc())
+                    logger(logging.error, "Could not finish handling replicas on %s rule %s", req_type, rule_id, exc_info=True)
             except Exception as error:
-                logging.error("%s Something unexpected happened when handling replicas on %s rule %s: %s", prepend_str, req_type, rule_id, str(error))
+                logger(logging.error, "Something unexpected happened when handling replicas on %s rule %s: %s", req_type, rule_id, str(error))
 
 
 @transactional_session
-def __update_bulk_replicas(replicas, session=None):
+def __update_bulk_replicas(replicas, session=None, logger=logging.log):
     """
     Used by finisher to handle available and unavailable replicas blongs to same rule in bulk way.
 
@@ -420,18 +412,18 @@ def __update_bulk_replicas(replicas, session=None):
     try:
         replica_core.update_replicas_states(replicas, nowait=True, add_tombstone=True, session=session)
     except ReplicaNotFound as error:
-        logging.warning('Failed to bulk update replicas, will do it one by one: %s', str(error))
+        logger(logging.WARNING, 'Failed to bulk update replicas, will do it one by one: %s', str(error))
         raise ReplicaNotFound(error)
 
     for replica in replicas:
         if not replica['archived']:
             request_core.archive_request(replica['request_id'], session=session)
-        logging.info("HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s", replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']))
+        logger(logging.INFO, "HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s", replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']))
     return True
 
 
 @transactional_session
-def __update_replica(replica, session=None):
+def __update_replica(replica, session=None, logger=logging.log):
     """
     Used by finisher to update a replica to a finished state.
 
@@ -445,13 +437,13 @@ def __update_replica(replica, session=None):
         replica_core.update_replicas_states([replica], nowait=True, add_tombstone=True, session=session)
         if not replica['archived']:
             request_core.archive_request(replica['request_id'], session=session)
-        logging.info("HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s", replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']))
+        logger(logging.INFO, "HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s", replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']))
     except (UnsupportedOperation, ReplicaNotFound) as error:
-        logging.warning("ERROR WHEN HANDLING REQUEST %s DID %s:%s AT RSE %s STATE %s: %s", replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']), str(error))
+        logger(logging.WARNING, "ERROR WHEN HANDLING REQUEST %s DID %s:%s AT RSE %s STATE %s: %s", replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']), str(error))
         # replica cannot be found. register it and schedule it for deletion
         try:
             if replica['state'] == ReplicaState.AVAILABLE and replica['request_type'] != RequestType.STAGEIN:
-                logging.info("Replica cannot be found. Adding a replica %s:%s AT RSE %s with tombstone=utcnow", replica['scope'], replica['name'], replica['rse_id'])
+                logger(logging.INFO, "Replica cannot be found. Adding a replica %s:%s AT RSE %s with tombstone=utcnow", replica['scope'], replica['name'], replica['rse_id'])
                 replica_core.add_replica(replica['rse_id'],
                                          replica['scope'],
                                          replica['name'],
@@ -463,9 +455,9 @@ def __update_replica(replica, session=None):
                                          session=session)
             if not replica['archived']:
                 request_core.archive_request(replica['request_id'], session=session)
-            logging.info("HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s", replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']))
+            logger(logging.INFO, "HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s", replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']))
         except Exception as error:
-            logging.error('Cannot register replica for DID %s:%s at RSE %s - potential dark data - %s', replica['scope'], replica['name'], replica['rse_id'], str(error))
+            logger(logging.error, 'Cannot register replica for DID %s:%s at RSE %s - potential dark data - %s', replica['scope'], replica['name'], replica['rse_id'], str(error))
             raise
 
     return True

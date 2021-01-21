@@ -23,7 +23,7 @@
 # - maatthias <maatthias@gmail.com>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Nick Smith <nick.smith@cern.ch>, 2020
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
@@ -38,10 +38,8 @@ import logging
 import os
 import re
 import socket
-import sys
 import threading
 import time
-import traceback
 from collections import defaultdict
 
 from requests.exceptions import RequestException
@@ -50,6 +48,7 @@ from sqlalchemy.exc import DatabaseError
 import rucio.db.sqla.util
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, TransferToolTimeout, TransferToolWrongAnswer
+from rucio.common.logging import formatted_logger
 from rucio.common.utils import chunks
 from rucio.core import heartbeat, transfer as transfer_core, request as request_core
 from rucio.core.monitor import record_timer, record_counter
@@ -59,14 +58,6 @@ try:
     from ConfigParser import NoOptionError  # py2
 except Exception:
     from configparser import NoOptionError  # py3
-
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 graceful_stop = threading.Event()
 
@@ -100,14 +91,16 @@ def poller(once=False, activities=None, sleep_time=60,
     hb_thread = threading.current_thread()
     heartbeat.sanity_check(executable=executable, hostname=hostname)
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-    logging.info(prepend_str + 'Poller starting - db_bulk (%i) fts_bulk (%i) timeout (%s)' % (db_bulk, fts_bulk, timeout))
+    prefix = 'conveyor-poller[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+    logger = formatted_logger(logging.log, prefix + '%s')
+    logger(logging.INFO, 'Poller starting - db_bulk (%i) fts_bulk (%i) timeout (%s)' % (db_bulk, fts_bulk, timeout))
 
     time.sleep(10)  # To prevent running on the same partition if all the poller restart at the same time
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+    prefix = 'conveyor-poller[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+    logger = formatted_logger(logging.log, prefix + '%s')
 
-    logging.info(prepend_str + 'Poller started')
+    logger(logging.INFO, 'Poller started')
 
     activity_next_exe_time = defaultdict(time.time)
 
@@ -115,7 +108,8 @@ def poller(once=False, activities=None, sleep_time=60,
 
         try:
             heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
-            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+            prefix = 'conveyor-poller[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+            logger = formatted_logger(logging.log, prefix + '%s')
 
             if activities is None:
                 activities = [None]
@@ -125,7 +119,7 @@ def poller(once=False, activities=None, sleep_time=60,
                     continue
 
                 start_time = time.time()
-                logging.debug(prepend_str + 'Start to poll transfers older than %i seconds for activity %s' % (older_than, activity))
+                logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s' % (older_than, activity))
                 transfs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                                 state=[RequestState.SUBMITTED],
                                                 limit=db_bulk,
@@ -138,7 +132,7 @@ def poller(once=False, activities=None, sleep_time=60,
                 record_timer('daemons.conveyor.poller.000-get_next', (time.time() - start_time) * 1000)
 
                 if transfs:
-                    logging.debug(prepend_str + 'Polling %i transfers for activity %s' % (len(transfs), activity))
+                    logger(logging.DEBUG, 'Polling %i transfers for activity %s' % (len(transfs), activity))
 
                 xfers_ids = {}
                 for transf in transfs:
@@ -151,23 +145,23 @@ def poller(once=False, activities=None, sleep_time=60,
                     request_ids = [trf[1] for trf in xfers_ids[external_host]]
                     for xfers in chunks(external_ids, fts_bulk):
                         # poll transfers
-                        poll_transfers(external_host=external_host, xfers=xfers, prepend_str=prepend_str, request_ids=request_ids, timeout=timeout)
+                        poll_transfers(external_host=external_host, xfers=xfers, request_ids=request_ids, timeout=timeout, logger=logger)
 
                 if len(transfs) < fts_bulk / 2:
-                    logging.info(prepend_str + "Only %s transfers for activity %s, which is less than half of the bulk %s, will sleep %s seconds" % (len(transfs), activity, fts_bulk, sleep_time))
+                    logger(logging.INFO, "Only %s transfers for activity %s, which is less than half of the bulk %s, will sleep %s seconds" % (len(transfs), activity, fts_bulk, sleep_time))
                     if activity_next_exe_time[activity] < time.time():
                         activity_next_exe_time[activity] = time.time() + sleep_time
         except Exception:
-            logging.critical(prepend_str + "%s" % (traceback.format_exc()))
+            logger(logging.CRITICAL, "Exception", exc_info=True)
 
         if once:
             break
 
-    logging.info(prepend_str + 'Graceful stop requested')
+    logger(logging.INFO, 'Graceful stop requested')
 
     heartbeat.die(executable, hostname, pid, hb_thread)
 
-    logging.info(prepend_str + 'Graceful stop done')
+    logger(logging.INFO, 'Graceful stop done')
 
 
 def stop(signum=None, frame=None):
@@ -229,7 +223,7 @@ def run(once=False, sleep_time=60, activities=None,
             threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.isAlive()]
 
 
-def poll_transfers(external_host, xfers, prepend_str='', request_ids=None, timeout=None):
+def poll_transfers(external_host, xfers, request_ids=None, timeout=None, logger=logging.log):
     """
     Poll a list of transfers from an FTS server
 
@@ -238,45 +232,46 @@ def poll_transfers(external_host, xfers, prepend_str='', request_ids=None, timeo
     :param process:          Process number.
     :param thread:           Thread number.
     :param timeout:          Timeout.
+    :param logger:           Optional decorated logger that can be passed from the calling daemons or servers.
     """
     try:
         if TRANSFER_TOOL == 'mock':
-            logging.debug(prepend_str + 'Setting %s transfer requests status to DONE per mock tool' % (len(xfers)))
+            logger(logging.DEBUG, 'Setting %s transfer requests status to DONE per mock tool' % (len(xfers)))
             for task_id in xfers:
                 ret = transfer_core.update_transfer_state(external_host=None, transfer_id=task_id, state=RequestState.DONE)
                 record_counter('daemons.conveyor.poller.update_request_state.%s' % ret)
             return
         try:
             tss = time.time()
-            logging.info(prepend_str + 'Polling %i transfers against %s with timeout %s' % (len(xfers), external_host, timeout))
+            logger(logging.INFO, 'Polling %i transfers against %s with timeout %s' % (len(xfers), external_host, timeout))
             resps = transfer_core.bulk_query_transfers(external_host, xfers, TRANSFER_TOOL, timeout)
             record_timer('daemons.conveyor.poller.bulk_query_transfers', (time.time() - tss) * 1000 / len(xfers))
         except TransferToolTimeout as error:
-            logging.error(prepend_str + str(error))
+            logger(logging.ERROR, str(error))
             return
         except TransferToolWrongAnswer as error:
-            logging.error(prepend_str + str(error))
-            logging.error(prepend_str + 'Problem querying %s on %s. All jobs are being checked individually' % (str(xfers), external_host))
+            logger(logging.ERROR, str(error))
+            logger(logging.ERROR, 'Problem querying %s on %s. All jobs are being checked individually' % (str(xfers), external_host))
             for xfer in xfers:
                 try:
-                    logging.debug(prepend_str + 'Checking %s on %s' % (xfer, external_host))
+                    logger(logging.DEBUG, 'Checking %s on %s' % (xfer, external_host))
                     status = transfer_core.bulk_query_transfers(external_host, [xfer, ], TRANSFER_TOOL, timeout)
                     if xfer in status and isinstance(status[xfer], Exception):
-                        logging.error(prepend_str + 'Problem querying %s on %s . Error returned : %s' % (xfer, external_host, str(status[xfer])))
+                        logger(logging.ERROR, 'Problem querying %s on %s . Error returned : %s' % (xfer, external_host, str(status[xfer])))
                 except Exception as err:
-                    logging.error(prepend_str + 'Problem querying %s on %s . Error returned : %s' % (xfer, external_host, str(err)))
+                    logger(logging.ERROR, 'Problem querying %s on %s . Error returned : %s' % (xfer, external_host, str(err)))
                     break
             return
         except RequestException as error:
-            logging.error(prepend_str + "Failed to contact FTS server: %s" % (str(error)))
+            logger(logging.ERROR, "Failed to contact FTS server: %s" % (str(error)))
             return
         except Exception:
-            logging.error(prepend_str + "Failed to query FTS info: %s" % (traceback.format_exc()))
+            logger(logging.ERROR, "Failed to query FTS info", exc_info=True)
             return
 
-        logging.debug(prepend_str + 'Polled %s transfer requests status in %s seconds' % (len(xfers), (time.time() - tss)))
+        logger(logging.DEBUG, 'Polled %s transfer requests status in %s seconds' % (len(xfers), (time.time() - tss)))
         tss = time.time()
-        logging.debug(prepend_str + 'Updating %s transfer requests status' % (len(xfers)))
+        logger(logging.DEBUG, 'Updating %s transfer requests status' % (len(xfers)))
         cnt = 0
 
         if TRANSFER_TOOL == 'globus':
@@ -292,15 +287,15 @@ def poll_transfers(external_host, xfers, prepend_str='', request_ids=None, timeo
                     #             is {}: No terminated jobs.
                     #             is {request_id: {file_status}}: terminated jobs.
                     if transf_resp is None:
-                        transfer_core.update_transfer_state(external_host, transfer_id, RequestState.LOST, logging_prepend_str=prepend_str)
+                        transfer_core.update_transfer_state(external_host, transfer_id, RequestState.LOST, logger=logger)
                         record_counter('daemons.conveyor.poller.transfer_lost')
                     elif isinstance(transf_resp, Exception):
-                        logging.warning(prepend_str + "Failed to poll FTS(%s) job (%s): %s" % (external_host, transfer_id, transf_resp))
+                        logger(logging.WARNING, "Failed to poll FTS(%s) job (%s): %s" % (external_host, transfer_id, transf_resp))
                         record_counter('daemons.conveyor.poller.query_transfer_exception')
                     else:
                         for request_id in transf_resp:
                             if request_id in request_ids:
-                                ret = request_core.update_request_state(transf_resp[request_id], logging_prepend_str=prepend_str)
+                                ret = request_core.update_request_state(transf_resp[request_id], logger=logger)
                                 # if True, really update request content; if False, only touch request
                                 if ret:
                                     cnt += 1
@@ -311,9 +306,9 @@ def poll_transfers(external_host, xfers, prepend_str='', request_ids=None, timeo
                     transfer_core.touch_transfer(external_host, transfer_id)
                 except (DatabaseException, DatabaseError) as error:
                     if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
-                        logging.warning(prepend_str + "Lock detected when handling request %s - skipping" % request_id)
+                        logger(logging.WARNING, "Lock detected when handling request %s - skipping" % request_id)
                     else:
-                        logging.error(traceback.format_exc())
-            logging.debug(prepend_str + 'Finished updating %s transfer requests status (%i requests state changed) in %s seconds' % (len(xfers), cnt, (time.time() - tss)))
+                        logger(logging.ERROR, 'Exception', exc_info=True)
+            logger(logging.DEBUG, 'Finished updating %s transfer requests status (%i requests state changed) in %s seconds' % (len(xfers), cnt, (time.time() - tss)))
     except Exception:
-        logging.error(traceback.format_exc())
+        logger(logging.ERROR, 'Exception', exc_info=True)

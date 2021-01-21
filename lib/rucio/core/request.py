@@ -85,13 +85,14 @@ def should_retry_request(req, retry_protocol_mismatches):
 
 
 @transactional_session
-def requeue_and_archive(request, retry_protocol_mismatches=False, session=None):
+def requeue_and_archive(request, retry_protocol_mismatches=False, session=None, logger=logging.log):
     """
     Requeue and archive a failed request.
     TODO: Multiple requeue.
 
     :param request:     Original request.
     :param session:     Database session to use.
+    :param logger:      Optional decorated logger that can be passed from the calling daemons or servers.
     """
 
     record_counter('core.request.requeue_request')
@@ -119,7 +120,7 @@ def requeue_and_archive(request, retry_protocol_mismatches=False, session=None):
                         else:
                             new_req['sources'][i]['ranking'] -= 1
                         new_req['sources'][i]['is_using'] = False
-            queue_requests([new_req], session=session)
+            queue_requests([new_req], session=session, logger=logger)
             return new_req
     else:
         raise RequestNotFound
@@ -127,17 +128,18 @@ def requeue_and_archive(request, retry_protocol_mismatches=False, session=None):
 
 
 @transactional_session
-def queue_requests(requests, session=None):
+def queue_requests(requests, session=None, logger=logging.log):
     """
     Submit transfer requests on destination RSEs for data identifiers.
 
     :param requests:  List of dictionaries containing request metadata.
     :param session:   Database session to use.
+    :param logger:    Optional decorated logger that can be passed from the calling daemons or servers.
     :returns:         List of Request-IDs as 32 character hex strings.
     """
     record_counter('core.request.queue_requests')
 
-    logging.debug("queue requests")
+    logger(logging.DEBUG, "queue requests")
 
     request_clause = []
     rses = {}
@@ -176,10 +178,10 @@ def queue_requests(requests, session=None):
     for request in requests:
         dest_rse_name = get_rse_name(rse_id=request['dest_rse_id'], session=session)
         if req['request_type'] == RequestType.TRANSFER and (request['scope'], request['name'], request['dest_rse_id']) in existing_requests:
-            logging.warning('Request TYPE %s for DID %s:%s at RSE %s exists - ignoring' % (request['request_type'],
-                                                                                           request['scope'],
-                                                                                           request['name'],
-                                                                                           dest_rse_name))
+            logger(logging.WARNING, 'Request TYPE %s for DID %s:%s at RSE %s exists - ignoring' % (request['request_type'],
+                                                                                                   request['scope'],
+                                                                                                   request['name'],
+                                                                                                   dest_rse_name))
             continue
 
         def temp_serializer(obj):
@@ -348,13 +350,14 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
 
 
 @read_session
-def query_request(request_id, transfertool='fts3', session=None):
+def query_request(request_id, transfertool='fts3', session=None, logger=logging.log):
     """
     Query the status of a request.
 
     :param request_id:    Request-ID as a 32 character hex string.
     :param transfertool:  Transfertool name as a string.
     :param session:       Database session to use.
+    :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
     :returns:             Request status information as a dictionary.
     """
 
@@ -396,7 +399,7 @@ def query_request(request_id, transfertool='fts3', session=None):
 
 
 @read_session
-def query_request_details(request_id, transfertool='fts3', session=None):
+def query_request_details(request_id, transfertool='fts3', session=None, logger=logging.log):
     """
     Query the detailed status of a request. Can also be done after the
     external transfer has finished.
@@ -404,6 +407,7 @@ def query_request_details(request_id, transfertool='fts3', session=None):
     :param request_id:    Request-ID as a 32 character hex string.
     :param transfertool:  Transfertool name as a string.
     :param session:       Database session to use.
+    :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
     :returns:             Detailed request status information as a dictionary.
     """
 
@@ -424,18 +428,19 @@ def query_request_details(request_id, transfertool='fts3', session=None):
 
 
 @transactional_session
-def set_request_state(request_id, new_state, transfer_id=None, transferred_at=None, started_at=None, staging_started_at=None, staging_finished_at=None, src_rse_id=None, err_msg=None, session=None):
+def set_request_state(request_id, new_state, transfer_id=None, transferred_at=None, started_at=None, staging_started_at=None, staging_finished_at=None, src_rse_id=None, err_msg=None, session=None, logger=logging.log):
     """
     Update the state of a request. Fails silently if the request_id does not exist.
 
-    :param request_id:   Request-ID as a 32 character hex string.
-    :param new_state:    New state as string.
-    :param transfer_id:  External transfer job id as a string.
-    :param transferred_at: Transferred at timestamp
-    :param started_at: Started at timestamp
-    :param staging_started_at: Timestamp indicating the moment the stage beggins
-    :param staging_finished_at: Timestamp indicating the moment the stage ends
-    :param session:      Database session to use.
+    :param request_id:           Request-ID as a 32 character hex string.
+    :param new_state:            New state as string.
+    :param transfer_id:          External transfer job id as a string.
+    :param transferred_at:       Transferred at timestamp
+    :param started_at:           Started at timestamp
+    :param staging_started_at:   Timestamp indicating the moment the stage beggins
+    :param staging_finished_at:  Timestamp indicating the moment the stage ends
+    :param logger:               Optional decorated logger that can be passed from the calling daemons or servers.
+    :param session:              Database session to use.
     """
 
     # TODO: Should this be a private method?
@@ -462,7 +467,7 @@ def set_request_state(request_id, new_state, transfer_id=None, transferred_at=No
             rowcount = session.query(models.Request).filter_by(id=request_id, external_id=transfer_id).update(update_items, synchronize_session=False)
         else:
             if new_state in [RequestState.FAILED, RequestState.DONE, RequestState.LOST]:
-                logging.error("Request %s should not be updated to 'Failed' or 'Done' without external transfer_id" % request_id)
+                logger(logging.ERROR, "Request %s should not be updated to 'Failed' or 'Done' without external transfer_id" % request_id)
             else:
                 rowcount = session.query(models.Request).filter_by(id=request_id).update(update_items, synchronize_session=False)
     except IntegrityError as error:
@@ -473,20 +478,21 @@ def set_request_state(request_id, new_state, transfer_id=None, transferred_at=No
 
 
 @transactional_session
-def set_requests_state(request_ids, new_state, session=None):
+def set_requests_state(request_ids, new_state, session=None, logger=logging.log):
     """
     Bulk update the state of requests. Fails silently if the request_id does not exist.
 
     :param request_ids:  List of (Request-ID as a 32 character hex string).
     :param new_state:    New state as string.
     :param session:      Database session to use.
+    :param logger:       Optional decorated logger that can be passed from the calling daemons or servers.
     """
 
     record_counter('core.request.set_requests_state')
 
     try:
         for request_id in request_ids:
-            set_request_state(request_id, new_state, session=session)
+            set_request_state(request_id, new_state, session=session, logger=logger)
     except IntegrityError as error:
         raise RucioException(error.args)
 
@@ -656,7 +662,7 @@ def archive_request(request_id, session=None):
 
 
 @transactional_session
-def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSFER, session=None):
+def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSFER, session=None, logger=logging.log):
     """
     Cancel a request based on a DID and request type.
 
@@ -665,6 +671,7 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
     :param dest_rse_id:   RSE id as a string.
     :param request_type:  Type of the request.
     :param session:       Database session to use.
+    :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
     """
 
     record_counter('core.request.cancel_request_did')
@@ -678,7 +685,7 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
                                                                      dest_rse_id=dest_rse_id,
                                                                      request_type=request_type).all()
         if not reqs:
-            logging.warning('Tried to cancel non-existant request for DID %s:%s at RSE %s' % (scope, name, get_rse_name(rse_id=dest_rse_id, session=session)))
+            logger(logging.WARNING, 'Tried to cancel non-existant request for DID %s:%s at RSE %s' % (scope, name, get_rse_name(rse_id=dest_rse_id, session=session)))
     except IntegrityError as error:
         raise RucioException(error.args)
 
@@ -691,7 +698,7 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
                     transfertool_map[req[2]] = FTS3Transfertool(external_host=req[2])
                 transfertool_map[req[2]].cancel(transfer_ids=[req[1]])
             except Exception as error:
-                logging.warning('Could not cancel FTS3 transfer %s on %s: %s' % (req[1], req[2], str(error)))
+                logger(logging.WARNING, 'Could not cancel FTS3 transfer %s on %s: %s' % (req[1], req[2], str(error)))
         archive_request(request_id=req[0], session=session)
 
 
@@ -1211,12 +1218,13 @@ def release_all_waiting_requests(rse_id, activity=None, account=None, direction=
 
 
 @read_session
-def update_requests_priority(priority, filter, session=None):
+def update_requests_priority(priority, filter, session=None, logger=logging.log):
     """
     Update priority of requests.
 
     :param priority:  The priority as an integer from 1 to 5.
     :param filter:    Dictionary such as {'rule_id': rule_id, 'request_id': request_id, 'older_than': time_stamp, 'activities': [activities]}.
+    :param logger:    Optional decorated logger that can be passed from the calling daemons or servers.
     """
     try:
         query = session.query(models.Request.id, models.Request.external_id, models.Request.external_host)\
@@ -1243,15 +1251,15 @@ def update_requests_priority(priority, filter, session=None):
                     transfertool_map[item[2]] = FTS3Transfertool(external_host=item[2])
                 res = transfertool_map[item[2]].update_priority(transfer_id=item[1], priority=priority)
             except Exception:
-                logging.debug("Failed to boost request %s priority: %s" % (item[0], traceback.format_exc()))
+                logger(logging.DEBUG, "Failed to boost request %s priority: %s" % (item[0], traceback.format_exc()))
             else:
-                logging.debug("Update request %s priority to %s: %s" % (item[0], priority, res['http_message']))
+                logger(logging.DEBUG, "Update request %s priority to %s: %s" % (item[0], priority, res['http_message']))
     except IntegrityError as error:
         raise RucioException(error.args)
 
 
 @transactional_session
-def update_request_state(response, logging_prepend_str=None, session=None):
+def update_request_state(response, session=None, logger=logging.log):
     """
     Used by poller and consumer to update the internal state of requests,
     after the response by the external transfertool.
@@ -1259,12 +1267,10 @@ def update_request_state(response, logging_prepend_str=None, session=None):
     :param response:              The transfertool response dictionary, retrieved via request.query_request().
     :param logging_prepend_str:   String to prepend to the logging
     :param session:               The database session to use.
+    :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
     :returns commit_or_rollback:  Boolean.
     """
 
-    prepend_str = ''
-    if logging_prepend_str:
-        prepend_str = logging_prepend_str
     try:
         if not response['new_state']:
             __touch_request(response['request_id'], session=session)
@@ -1275,7 +1281,7 @@ def update_request_state(response, logging_prepend_str=None, session=None):
                 response['submitted_at'] = request.get('submitted_at', None)
                 response['external_host'] = request['external_host']
                 transfer_id = response['transfer_id'] if 'transfer_id' in response else None
-                logging.info(prepend_str + 'UPDATING REQUEST %s FOR TRANSFER %s STATE %s' % (str(response['request_id']), transfer_id, str(response['new_state'])))
+                logger(logging.INFO, 'UPDATING REQUEST %s FOR TRANSFER %s STATE %s' % (str(response['request_id']), transfer_id, str(response['new_state'])))
 
                 job_m_replica = response.get('job_m_replica', None)
                 src_url = response.get('src_url', None)
@@ -1289,12 +1295,12 @@ def update_request_state(response, logging_prepend_str=None, session=None):
                     try:
                         src_rse_name, src_rse_id = __get_source_rse(response['request_id'], src_url, session=session)
                     except Exception:
-                        logging.warning(prepend_str + 'Cannot get correct RSE for source url: %s(%s)' % (src_url, traceback.format_exc()))
+                        logger(logging.WARNING, 'Cannot get correct RSE for source url: %s(%s)' % (src_url, traceback.format_exc()))
                         src_rse_name = None
                     if src_rse_name and src_rse_name != src_rse:
                         response['src_rse'] = src_rse_name
                         response['src_rse_id'] = src_rse_id
-                        logging.debug(prepend_str + 'Correct RSE: %s for source surl: %s' % (src_rse_name, src_url))
+                        logger(logging.DEBUG, 'Correct RSE: %s for source surl: %s' % (src_rse_name, src_url))
                 err_msg = get_transfer_error(response['new_state'], response['reason'] if 'reason' in response else None)
 
                 set_request_state(response['request_id'],
@@ -1306,24 +1312,25 @@ def update_request_state(response, logging_prepend_str=None, session=None):
                                   transferred_at=transferred_at,
                                   src_rse_id=src_rse_id,
                                   err_msg=err_msg,
-                                  session=session)
+                                  session=session,
+                                  logger=logger)
 
                 add_monitor_message(request, response, session=session)
                 return True
             elif not request:
-                logging.debug(prepend_str + "Request %s doesn't exist, will not update" % (response['request_id']))
+                logger(logging.DEBUG, "Request %s doesn't exist, will not update" % (response['request_id']))
                 return False
             elif request['external_id'] != response['transfer_id']:
-                logging.warning(prepend_str + "Response %s with transfer id %s is different from the request transfer id %s, will not update" % (response['request_id'], response['transfer_id'], request['external_id']))
+                logger(logging.WARNING, "Response %s with transfer id %s is different from the request transfer id %s, will not update" % (response['request_id'], response['transfer_id'], request['external_id']))
                 return False
             else:
-                logging.debug(prepend_str + "Request %s is already in %s state, will not update" % (response['request_id'], response['new_state']))
+                logger(logging.DEBUG, "Request %s is already in %s state, will not update" % (response['request_id'], response['new_state']))
                 return False
     except UnsupportedOperation as error:
-        logging.warning(prepend_str + "Request %s doesn't exist - Error: %s" % (response['request_id'], str(error).replace('\n', '')))
+        logger(logging.WARNING, "Request %s doesn't exist - Error: %s" % (response['request_id'], str(error).replace('\n', '')))
         return False
     except Exception:
-        logging.critical(prepend_str + traceback.format_exc())
+        logger(logging.CRITICAL, "Exception", exc_info=True)
 
 
 @read_session
@@ -1448,7 +1455,7 @@ def __touch_request(request_id, session=None):
 
 
 @read_session
-def __get_source_rse(request_id, src_url, session=None):
+def __get_source_rse(request_id, src_url, session=None, logger=logging.log):
     """
     Based on a request, scope, name and src_url extract the source rse name and id.
 
@@ -1457,6 +1464,7 @@ def __get_source_rse(request_id, src_url, session=None):
     :param name:        The name of the request file.
     :param src_url:     The src_url of the request.
     :param session:     The database session to use.
+    :param logger:      Optional decorated logger that can be passed from the calling daemons or servers.
     """
 
     try:
@@ -1468,13 +1476,13 @@ def __get_source_rse(request_id, src_url, session=None):
             if source['url'] == src_url:
                 src_rse_id = source['rse_id']
                 src_rse_name = get_rse_name(src_rse_id, session=session)
-                logging.debug("Find rse name %s for %s" % (src_rse_name, src_url))
+                logger(logging.DEBUG, "Find rse name %s for %s" % (src_rse_name, src_url))
                 return src_rse_name, src_rse_id
         # cannot find matched surl
-        logging.warning('Cannot get correct RSE for source url: %s' % (src_url))
+        logger(logging.WARNING, 'Cannot get correct RSE for source url: %s' % (src_url))
         return None, None
     except Exception:
-        logging.error('Cannot get correct RSE for source url: %s(%s)' % (src_url, traceback.format_exc()))
+        logger(logging.ERROR, 'Cannot get correct RSE for source url: %s' % (src_url), exc_info=True)
         return None, None
 
 

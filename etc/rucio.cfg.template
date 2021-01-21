@@ -1,6 +1,7 @@
 [common]
 logdir = /var/log/rucio
 loglevel = DEBUG
+logformat = %%(asctime)s\t%%(process)d\t%%(levelname)s\t%%(message)s
 mailtemplatedir=/opt/rucio/etc/mail_templates
 
 [client]

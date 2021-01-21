@@ -21,7 +21,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
@@ -31,7 +31,6 @@ Judge-Evaluator is a daemon to re-evaluate and execute replication rules.
 import logging
 import os
 import socket
-import sys
 import threading
 import time
 import traceback
@@ -44,21 +43,14 @@ from sqlalchemy.exc import DatabaseError
 from sqlalchemy.orm.exc import FlushError
 
 import rucio.db.sqla.util
-from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed
+import rucio.common.logging
 from rucio.common.types import InternalScope
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
 from rucio.core.rule import re_evaluate_did, get_updated_dids, delete_updated_did
 
 graceful_stop = threading.Event()
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 def re_evaluator(once=False):
