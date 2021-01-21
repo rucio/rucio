@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
@@ -23,7 +23,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from json import loads, dumps
-from traceback import format_exc
+import logging
 
 from flask import Flask, Blueprint, Response, request
 from flask.views import MethodView
@@ -65,7 +65,7 @@ class Subscription(MethodView):
         except SubscriptionNotFound as error:
             return generate_http_error_flask(404, 'SubscriptionNotFound', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
     def put(self, account, name):
@@ -107,7 +107,7 @@ class Subscription(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         return 'Created', 201
 
@@ -162,7 +162,7 @@ class Subscription(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return Response(subscription_id, status=201)
@@ -195,7 +195,7 @@ class SubscriptionName(MethodView):
         except SubscriptionNotFound as error:
             return generate_http_error_flask(404, 'SubscriptionNotFound', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -240,7 +240,7 @@ class Rules(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -271,7 +271,7 @@ class States(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -300,7 +300,7 @@ class SubscriptionId(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return Response(render_json(**subscription), content_type="application/json")

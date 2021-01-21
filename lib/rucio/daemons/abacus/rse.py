@@ -28,26 +28,18 @@ Abacus-RSE is a daemon to update RSE counters.
 import logging
 import os
 import socket
-import sys
 import threading
 import time
 import traceback
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.config import config_get
+import rucio.common.logging
 from rucio.common.utils import get_thread_with_periodic_running_function
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.rse_counter import get_updated_rse_counters, update_rse_counter, fill_rse_counter_history_table
 
 graceful_stop = threading.Event()
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 def rse_update(once=False):

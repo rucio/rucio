@@ -21,6 +21,7 @@
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 
 """
 Suspicious-Replica-Recoverer is a daemon that declares suspicious replicas as bad if they are found available on other RSE.
@@ -37,13 +38,14 @@ import time
 import traceback
 from datetime import datetime, timedelta
 from re import match
-from sys import stdout, argv
+from sys import argv
 
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.common.exception import DatabaseException, VONotFound, InvalidRSEExpression
+import rucio.common.logging
 from rucio.common.types import InternalAccount
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
@@ -52,13 +54,6 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.vo import list_vos
 from rucio.db.sqla.constants import BadFilesStatus
 from rucio.db.sqla.util import get_db_time
-
-logging.basicConfig(stream=stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 GRACEFUL_STOP = threading.Event()
 

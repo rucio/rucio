@@ -17,8 +17,6 @@
 # PY3K COMPATIBLE
 
 import logging
-import sys
-
 from datetime import datetime
 
 from sqlalchemy.exc import DatabaseError
@@ -27,19 +25,11 @@ from sqlalchemy.sql.expression import and_, or_
 import rucio.core.rule
 import rucio.core.did
 
-from rucio.common.config import config_get
 from rucio.core.lifetime_exception import define_eol
 from rucio.core.rse import get_rse_name
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import LockState, RuleState, RuleGrouping, DIDType, RuleNotification
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 @stream_session

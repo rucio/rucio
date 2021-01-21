@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2019
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2019-2021
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
@@ -37,9 +37,10 @@ import time
 import traceback
 
 import rucio.db.sqla.util
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.common.exception import (SourceNotFound, DatabaseException, ServiceUnavailable,
                                     RSEAccessDenied, RSENotFound, ResourceTemporaryUnavailable, VONotFound)
+import rucio.common.logging
 from rucio.core import rse as rse_core
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import add_message
@@ -49,13 +50,6 @@ from rucio.core.vo import list_vos
 from rucio.rse import rsemanager as rsemgr
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 GRACEFUL_STOP = threading.Event()
 

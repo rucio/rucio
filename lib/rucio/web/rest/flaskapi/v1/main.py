@@ -21,6 +21,7 @@ import importlib
 
 from flask import Flask
 
+import rucio.common.logging  # NOQA: F401
 from rucio.common.config import config_get
 from rucio.common.exception import ConfigurationError
 

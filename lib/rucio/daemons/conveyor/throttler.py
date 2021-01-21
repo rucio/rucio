@@ -21,7 +21,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
@@ -34,27 +34,19 @@ import logging
 import math
 import os
 import socket
-import sys
 import threading
 import time
 import traceback
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.config import config_get
+import rucio.common.logging
 from rucio.common.utils import get_parsed_throttler_mode
 from rucio.core import heartbeat, config as config_core
 from rucio.core.monitor import record_counter, record_gauge
 from rucio.core.request import get_stats_by_activity_direction_state, release_all_waiting_requests, release_waiting_requests_fifo, release_waiting_requests_grouped_fifo
 from rucio.core.rse import get_rse, set_rse_transfer_limits, delete_rse_transfer_limits, get_rse_transfer_limits
 from rucio.db.sqla.constants import RequestState
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 graceful_stop = threading.Event()
 

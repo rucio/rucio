@@ -19,7 +19,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
@@ -29,7 +29,6 @@ Judge-Repairer is a daemon to repair stuck replication rules.
 import logging
 import os
 import socket
-import sys
 import threading
 import time
 import traceback
@@ -42,20 +41,13 @@ from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException
+import rucio.common.logging
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
 from rucio.core.rule import repair_rule, get_stuck_rules
 
 graceful_stop = threading.Event()
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 def rule_repairer(once=False):

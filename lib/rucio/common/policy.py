@@ -12,14 +12,13 @@
  - Vincent Garonne <vgaronne@gmail.com>, 2017-2018
  - Brian Bockelman <bbockelm@cse.unl.edu>, 2017
  - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
+ - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 
  PY3K COMPATIBLE
 """
 
 import json
 import os
-import logging
-import sys
 
 from functools import wraps
 
@@ -37,14 +36,6 @@ from rucio.common.exception import UndefinedPolicy
 
 REGION = make_region().configure('dogpile.cache.memory',
                                  expiration_time=1800)
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common',
-                                             'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 def get_policy():

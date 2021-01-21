@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
@@ -40,24 +40,16 @@ import threading
 import time
 import traceback
 from re import match
-from sys import stdout
 
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
-from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException
+import rucio.common.logging
 from rucio.core.authentication import delete_expired_tokens
 from rucio.core.heartbeat import die, live, sanity_check
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.oidc import delete_expired_oauthrequests, refresh_jwt_tokens
-
-logging.basicConfig(stream=stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 GRACEFUL_STOP = threading.Event()
 

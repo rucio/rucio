@@ -26,7 +26,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - maatthias <maatthias@gmail.com>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Nick Smith <nick.smith@cern.ch>, 2020
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
@@ -42,10 +42,8 @@ import logging
 import os
 import random
 import socket
-import sys
 import threading
 import time
-import traceback
 from collections import defaultdict
 
 from prometheus_client import Counter
@@ -54,6 +52,7 @@ from six import iteritems
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool
+from rucio.common.logging import formatted_logger
 from rucio.common.schema import get_schema_value
 from rucio.core import heartbeat, request as request_core, transfer as transfer_core
 from rucio.core.monitor import record_counter, record_timer
@@ -64,14 +63,6 @@ try:
     from ConfigParser import NoOptionError  # py2
 except Exception:
     from configparser import NoOptionError  # py3
-
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 graceful_stop = threading.Event()
 
@@ -133,13 +124,15 @@ def submitter(once=False, rses=None, mock=False,
     hb_thread = threading.current_thread()
     heartbeat.sanity_check(executable=executable, hostname=hostname)
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-    logging.info('%s Submitter starting with timeout %s', prepend_str, timeout)
+    prefix = 'conveyor-submitter[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+    logger = formatted_logger(logging.log, prefix + '%s')
+    logger(logging.INFO, 'Submitter starting with timeout %s', timeout)
 
     time.sleep(10)  # To prevent running on the same partition if all the poller restart at the same time
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-    logging.info('%s Transfer submitter started', prepend_str)
+    prefix = 'conveyor-submitter[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+    logger = formatted_logger(logging.log, prefix + '%s')
+    logger(logging.INFO, 'Transfer submitter started')
 
     while not graceful_stop.is_set():
         if activities is None:
@@ -155,15 +148,16 @@ def submitter(once=False, rses=None, mock=False,
                     continue
 
                 heart_beat = heartbeat.live(executable, hostname, pid, hb_thread, older_than=3600)
-                prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+                prefix = 'conveyor-submitter[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+                logger = formatted_logger(logging.log, prefix + '%s')
 
                 user_transfer = False
 
                 if activity in USER_ACTIVITY and USER_TRANSFERS in ['cms']:
-                    logging.info('%s CMS user transfer activity', prepend_str)
+                    logger(logging.INFO, 'CMS user transfer activity')
                     user_transfer = True
 
-                logging.info('%s Starting to get transfer transfers for %s', prepend_str, activity)
+                logger(logging.INFO, 'Starting to get transfer transfers for %s', activity)
                 start_time = time.time()
                 transfers = __get_transfers(total_workers=heart_beat['nr_threads'],
                                             worker_number=heart_beat['assign_thread'],
@@ -175,21 +169,22 @@ def submitter(once=False, rses=None, mock=False,
                                             mock=mock,
                                             max_sources=max_sources,
                                             bring_online=bring_online,
-                                            retry_other_fts=retry_other_fts)
+                                            retry_other_fts=retry_other_fts,
+                                            logger=logger)
                 record_timer('daemons.conveyor.transfer_submitter.get_transfers.per_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
                 record_counter('daemons.conveyor.transfer_submitter.get_transfers', len(transfers))
                 GET_TRANSFERS_COUNTER.inc(len(transfers))
                 record_timer('daemons.conveyor.transfer_submitter.get_transfers.transfers', len(transfers))
-                logging.info('%s Got %s transfers for %s in %s seconds', prepend_str, len(transfers), activity, time.time() - start_time)
+                logger(logging.INFO, 'Got %s transfers for %s in %s seconds', len(transfers), activity, time.time() - start_time)
 
                 # group transfers
-                logging.info('%s Starting to group transfers for %s', prepend_str, activity)
+                logger(logging.INFO, 'Starting to group transfers for %s', activity)
                 start_time = time.time()
 
                 grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, source_strategy, max_time_in_queue)
                 record_timer('daemons.conveyor.transfer_submitter.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
 
-                logging.info('%s Starting to submit transfers for %s', prepend_str, activity)
+                logger(logging.INFO, 'Starting to submit transfers for %s', activity)
 
                 if TRANSFER_TOOL in ['fts3', 'mock']:
                     for external_host in grouped_jobs:
@@ -197,13 +192,13 @@ def submitter(once=False, rses=None, mock=False,
                             for job in grouped_jobs[external_host]:
                                 # submit transfers
                                 submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter',
-                                                logging_prepend_str=prepend_str, timeout=timeout)
+                                                timeout=timeout, logger=logger)
                         else:
                             for _, jobs in iteritems(grouped_jobs[external_host]):
                                 # submit transfers
                                 for job in jobs:
                                     submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter',
-                                                    logging_prepend_str=prepend_str, timeout=timeout, user_transfer_job=user_transfer)
+                                                    timeout=timeout, user_transfer_job=user_transfer, logger=logger)
                 elif TRANSFER_TOOL == 'globus':
                     if TRANSFER_TYPE == 'bulk':
                         # build bulk job file list per external host to send to submit_transfer
@@ -212,8 +207,8 @@ def submitter(once=False, rses=None, mock=False,
                             submitjob = {'files': [], 'job_params': grouped_jobs[''][0].get('job_params')}
                             for job in grouped_jobs[external_host]:
                                 submitjob.get('files').append(job.get('files')[0])
-                            logging.debug('submitjob: %s' % submitjob)
-                            submit_transfer(external_host=external_host, job=submitjob, submitter='transfer_submitter', logging_prepend_str=prepend_str, timeout=timeout)
+                            logger(logging.DEBUG, 'submitjob: %s' % submitjob)
+                            submit_transfer(external_host=external_host, job=submitjob, submitter='transfer_submitter', timeout=timeout, logger=logger)
                     else:
                         # build single job files and individually send to submit_transfer
                         job_params = grouped_jobs[''][0].get('job_params') if grouped_jobs else None
@@ -221,26 +216,26 @@ def submitter(once=False, rses=None, mock=False,
                             for job in grouped_jobs[external_host]:
                                 for file in job['files']:
                                     singlejob = {'files': [file], 'job_params': job_params}
-                                    logging.debug('singlejob: %s' % singlejob)
-                                    submit_transfer(external_host=external_host, job=singlejob, submitter='transfer_submitter', logging_prepend_str=prepend_str, timeout=timeout)
+                                    logger(logging.DEBUG, 'singlejob: %s' % singlejob)
+                                    submit_transfer(external_host=external_host, job=singlejob, submitter='transfer_submitter', timeout=timeout, logger=logger)
                 else:
-                    logging.error(prepend_str + 'Unknown transfer tool')
+                    logger(logging.ERROR, 'Unknown transfer tool')
 
                 if len(transfers) < group_bulk:
-                    logging.info('%s Only %s transfers for %s which is less than group bulk %s, sleep %s seconds', prepend_str, len(transfers), activity, group_bulk, sleep_time)
+                    logger(logging.INFO, 'Only %s transfers for %s which is less than group bulk %s, sleep %s seconds', len(transfers), activity, group_bulk, sleep_time)
                     if activity_next_exe_time[activity] < time.time():
                         activity_next_exe_time[activity] = time.time() + sleep_time
             except Exception:
-                logging.critical('%s %s', prepend_str, str(traceback.format_exc()))
+                logger(logging.CRITICAL, 'Exception', exc_info=True)
 
         if once:
             break
 
-    logging.info('%s Graceful stop requested', prepend_str)
+    logger(logging.INFO, 'Graceful stop requested')
 
     heartbeat.die(executable, hostname, pid, hb_thread)
 
-    logging.info('%s Graceful stop done', prepend_str)
+    logger(logging.INFO, 'Graceful stop done')
     return
 
 
@@ -316,7 +311,7 @@ def run(once=False, group_bulk=1, group_policy='rule', mock=False,
 
 def __get_transfers(total_workers=0, worker_number=0, failover_schemes=None, limit=None, activity=None, older_than=None,
                     rses=None, schemes=None, mock=False, max_sources=4, bring_online=43200,
-                    retry_other_fts=False):
+                    retry_other_fts=False, logger=logging.log):
     """
     Get transfers to process
 
@@ -331,6 +326,7 @@ def __get_transfers(total_workers=0, worker_number=0, failover_schemes=None, lim
     :param mock:             Mock testing.
     :param max_sources:      Max sources.
     :bring_online:           Bring online timeout.
+    :param logger:           Optional decorated logger that can be passed from the calling daemons or servers.
     :retry_other_fts:        Retry other fts servers if needed
     :returns:                List of transfers
     """
@@ -345,13 +341,13 @@ def __get_transfers(total_workers=0, worker_number=0, failover_schemes=None, lim
                                                                                                                                      bring_online=bring_online,
                                                                                                                                      retry_other_fts=retry_other_fts,
                                                                                                                                      failover_schemes=failover_schemes)
-    request_core.set_requests_state(reqs_no_source, RequestState.NO_SOURCES)
-    request_core.set_requests_state(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES)
-    request_core.set_requests_state(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME)
+    request_core.set_requests_state(reqs_no_source, RequestState.NO_SOURCES, logger=logger)
+    request_core.set_requests_state(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES, logger=logger)
+    request_core.set_requests_state(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME, logger=logger)
 
     for request_id in transfers:
         sources = transfers[request_id]['sources']
-        sources = __sort_ranking(sources)
+        sources = __sort_ranking(sources, logger=logger)
         if len(sources) > max_sources:
             sources = sources[:max_sources]
         if not mock:
@@ -367,7 +363,7 @@ def __get_transfers(total_workers=0, worker_number=0, failover_schemes=None, lim
 
         transfers[request_id]['file_metadata']['src_rse'] = sources[0][0]
         transfers[request_id]['file_metadata']['src_rse_id'] = sources[0][2]
-        logging.debug("Transfer for request(%s): %s", request_id, transfers[request_id])
+        logger(logging.DEBUG, "Transfer for request(%s): %s", request_id, transfers[request_id])
     return transfers
 
 
@@ -395,15 +391,16 @@ def __sort_link_ranking(sources):
     return ret_sources
 
 
-def __sort_ranking(sources):
+def __sort_ranking(sources, logger=logging.log):
     """
     Sort a list of sources based on ranking
 
     :param sources:  List of sources
+    :param logger:   Optional decorated logger that can be passed from the calling daemons or servers.
     :return:         Sorted list
     """
 
-    logging.debug("Sources before sorting: %s", str(sources))
+    logger(logging.DEBUG, "Sources before sorting: %s", str(sources))
     rank_sources = {}
     ret_sources = []
     for source in sources:
@@ -421,7 +418,7 @@ def __sort_ranking(sources):
     for rank_key in rank_keys:
         sources_list = __sort_link_ranking(rank_sources[rank_key])
         ret_sources = ret_sources + sources_list
-    logging.debug("Sources after sorting: %s", str(ret_sources))
+    logger(logging.DEBUG, "Sources after sorting: %s", str(ret_sources))
     return ret_sources
 
 

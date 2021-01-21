@@ -18,7 +18,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 """
@@ -28,26 +28,18 @@ Abacus-Account is a daemon to update Account counters.
 import logging
 import os
 import socket
-import sys
 import threading
 import time
 import traceback
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.config import config_get
+import rucio.common.logging
 from rucio.common.utils import get_thread_with_periodic_running_function
 from rucio.core.account_counter import get_updated_account_counters, update_account_counter, fill_account_counter_history_table
 from rucio.core.heartbeat import live, die, sanity_check
 
 graceful_stop = threading.Event()
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 def account_update(once=False):
