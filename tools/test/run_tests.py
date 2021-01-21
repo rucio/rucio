@@ -68,6 +68,7 @@ def find_image(images: typing.Dict, case: typing.Dict):
 
 def case_id(case: typing.Dict) -> str:
     parts = [
+
         case["DIST"],
         'py' + case["PYTHON"],
         case["SUITE"],

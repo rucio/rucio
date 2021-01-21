@@ -6,13 +6,7 @@ dists:
         - "3.6"
         - "3.7"
 python:
-  - id: "2.7"
-    allow:
-      suites:
-        - integration-test
   - "3.6"
-  - "3.7"
-  - "3.8"
 suites:
   - id: integration-test
 image_identifier:

@@ -41,7 +41,6 @@ def add_image_identifier(grouped_args):
 
 
 def build_images(matrix, script_args):
-
     grouped_args = itertools.groupby(matrix, lambda d: d[DIST_KEY])
     add_image_identifier(grouped_args)
     filter_build_args = partial(map,
@@ -70,11 +69,19 @@ def build_images(matrix, script_args):
                 print("Running", " ".join(args), file=sys.stderr)
                 subprocess.run(args, stdout=sys.stderr, check=False)
                 cache_args = ('--cache-from', imagetag)
-
-            buildfile = pathlib.Path(script_args.buildfiles_dir) / f'{dist}.Dockerfile'
-            args = ('docker', 'build', *cache_args, '--file', str(buildfile), '--tag', imagetag,
-                    *itertools.chain(*map(lambda x: ('--build-arg', f'{x[0]}={x[1]}'), filtered_buildargs.items())),
-                    '.')
+            if buildargs.IMAGE_IDENTIFIER == 'integration-test':
+                if buildargs.PYTHON == '3.6':
+                    buildfile = pathlib.Path(script_args.buildfiles_dir) / 'Dockerfile_py3'
+                    args = ('docker', 'build', *cache_args, '--file', str(buildfile), '--tag', imagetag,
+                            *itertools.chain(
+                                *map(lambda x: ('--build-arg', f'{x[0]}={x[1]}'), filtered_buildargs.items())),
+                            f'{script_args.buildfiles_dir}')
+            elif buildargs.IMAGE_IDENTIFIER == 'autotest':
+                buildfile = pathlib.Path(script_args.buildfiles_dir) / f'{dist}.Dockerfile'
+                args = ('docker', 'build', *cache_args, '--file', str(buildfile), '--tag', imagetag,
+                        *itertools.chain(
+                            *map(lambda x: ('--build-arg', f'{x[0]}={x[1]}'), buildargs._asdict().items())),
+                        '.')
 
             print("Running", " ".join(args), file=sys.stderr)
             subprocess.run(args, stdout=sys.stderr, check=True)

@@ -37,23 +37,30 @@ jobs:
   build_integration_tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout rucio containers repository
+        uses: actions/checkout@v2
+        with:
+          repository: rucio/containers
+      - name: Checkout rucio source
+        uses: actions/checkout@v2
+        with:
+          path: dev/rucio
       - name: Update pip
         run: python3 -m pip install -U pip setuptools
       - name: Install python requirements for matrix_parser.py
         run: python3 -m pip install -U PyYAML
       - name: Identify Matrix
         id: matrix
-        run: echo "::set-output name=matrix::$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix_integration_tests.yml)"
+        run: echo "::set-output name=matrix::$(${{ github.workspace }}/dev/rucio/tools/test/matrix_parser.py < ${{ github.workspace }}/dev/rucio/etc/docker/test/matrix_integration_tests.yml)"
       - name: Build and upload images
         id: images
         shell: bash
         run: |
           docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
           i=0; until [ "$i" -ge 3 ]; do
-            IMAGES=$(echo '${{ steps.matrix.outputs.matrix }}' | ./tools/test/build_images.py --output list \
+            IMAGES=$(echo '${{ steps.matrix.outputs.matrix }}' | ${{ github.workspace }}/dev/rucio/tools/test/build_images.py --output list \
                 --build-no-cache --cache-repo docker.pkg.github.com/${{ github.repository }} --push-cache \
-                ./etc/docker/test || echo "")
+                ${{ github.workspace }}/dev || echo "")
             if [[ -n $IMAGES ]]; then break;
             else
               i=$((i+1)); sleep 5;

@@ -29,15 +29,26 @@ jobs:
       matrix:
         cfg: ${{ fromJson(needs.setup.outputs.matrix) }}
     steps:
+      - name: Checkout rucio containers repository
+        uses: actions/checkout@v2
+        with:
+          repository: rucio/containers
       - uses: actions/checkout@v2
+        name: Checkout rucio source
+        with:
+          path: dev/rucio
+      - name: Use rucio/containers Dockerfile for integration tests
+        shell: bash
+        run: |
+          sed -i "s/RUN git clone .*/COPY .\/rucio \/tmp\/rucio/" $GITHUB_WORKSPACE/dev/Dockerfile_py3
       - name: Build rucio-dev images
         id: images
         shell: bash
         run: |
           docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
           i=0; until [ "$i" -ge 3 ]; do
-            IMAGES=$(echo '${{ toJson(matrix.cfg) }}' | ./tools/test/build_images.py \
-                --cache-repo docker.pkg.github.com/${{ github.repository }} ./etc/docker/test || echo "")
+            IMAGES=$(echo '${{ toJson(matrix.cfg) }}' | $GITHUB_WORKSPACE/dev/rucio/tools/test/build_images.py \
+                --cache-repo docker.pkg.github.com/${{ github.repository }} $GITHUB_WORKSPACE/dev || echo "")
             if [[ -n $IMAGES ]]; then break;
             else
               i=$((i+1)); sleep 5;
@@ -50,12 +61,11 @@ jobs:
       - name: Prepare Docker Compose
         shell: bash
         run: |
-          docker image ls
           IMG=$(docker image ls -q --filter "reference=docker.pkg.github.com/${{ github.repository }}/rucio-integration-test" | head -1)
           echo "$IMG"
-          sed -i "s/image: rucio\/rucio-dev.*/image: $IMG/" $GITHUB_WORKSPACE/etc/docker/dev/docker-compose-storage.yml
+          sed -i "s/image: rucio\/rucio-dev.*/image: $IMG/" $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml
       - name: Start containers
-        run: docker-compose -f $GITHUB_WORKSPACE/etc/docker/dev/docker-compose-storage.yml up -d
+        run: docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml up -d
       - name: Initialize tests
         shell: bash
         run: |
@@ -66,4 +76,4 @@ jobs:
       - name: Test Protocol XrootD
         run: docker exec -t dev_rucio_1 python -bb -m pytest -vvvrxs lib/rucio/tests/test_rse_protocol_xrootd.py
       - name: Stop containers
-        run: docker-compose -f $GITHUB_WORKSPACE/etc/docker/dev/docker-compose-storage.yml down
+        run: docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose-storage.yml down
