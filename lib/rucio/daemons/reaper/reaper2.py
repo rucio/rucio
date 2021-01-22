@@ -414,6 +414,12 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
     logging.info('%s Reaper started', prepend_str)
 
     while not GRACEFUL_STOP.is_set():
+        # try to get auto exclude parameters from the config table. Otherwise use CLI parameters.
+        try:
+            auto_exclude_threshold = get('reaper', 'auto_exclude_threshold', default=auto_exclude_threshold)
+            auto_exclude_timeout = get('reaper', 'auto_exclude_timeout', default=auto_exclude_timeout)
+        except ConfigNotFound:
+            pass
 
         # Check if there is a Judge Evaluator backlog
         try:
