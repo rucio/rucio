@@ -69,12 +69,15 @@ RUN curl https://www.sqlite.org/2019/sqlite-autoconf-3290000.tar.gz | tar xzv &&
     make install && \
     cd .. && rm -rf ./sqlite-autoconf-3290000
 
-RUN python -m pip --no-cache-dir install --upgrade pip && \
-    python -m pip --no-cache-dir install --upgrade setuptools wheel && \
-    if [ "$PYTHON" == "2.7" ] ; then \
+RUN if [ "$PYTHON" == "2.7" ] ; then \
+        python2 -m pip --no-cache-dir install --upgrade 'pip<21' && \
+        python2 -m pip --no-cache-dir install --upgrade setuptools wheel && \
         python3 -m pip --no-cache-dir install --upgrade pip && \
         python3 -m pip --no-cache-dir install --upgrade setuptools wheel && \
         ln -sf python2.7 /usr/bin/python && ln -sf pip2.7 /usr/bin/pip && rm -f /usr/local/bin/pip ; \
+    else \
+        python -m pip --no-cache-dir install --upgrade pip && \
+        python -m pip --no-cache-dir install --upgrade setuptools wheel ; \
     fi
 
 WORKDIR /usr/local/src/rucio
