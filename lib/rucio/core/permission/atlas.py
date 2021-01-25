@@ -1139,10 +1139,10 @@ def perm_add_bad_pfns(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    if kwargs['state'] in [str(BadPFNStatus.BAD), str(BadPFNStatus.TEMPORARY_UNAVAILABLE)]:
+    if kwargs['state'] in [BadPFNStatus.BAD.name, BadPFNStatus.TEMPORARY_UNAVAILABLE.name]:
         is_cloud_admin = bool([acc_attr for acc_attr in list_account_attributes(account=issuer) if (acc_attr['key'].startswith('cloud-')) and (acc_attr['value'] == 'admin')])
         return _is_root(issuer) or has_account_attribute(account=issuer, key='admin') or is_cloud_admin
-    elif kwargs['state'] == str(BadPFNStatus.SUSPICIOUS):
+    elif kwargs['state'] == BadPFNStatus.SUSPICIOUS.name:
         return True
     return _is_root(issuer)
 
