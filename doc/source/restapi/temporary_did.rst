@@ -3,10 +3,10 @@ Temporary DID Rest API
 
 **Overview**
 
-.. qrefflask:: rucio.web.rest.flaskapi.v1.temporary_did:make_doc()
+.. qrefflask:: rucio.web.rest.flaskapi.v1.tmp_dids:make_doc()
      :undoc-static:
 
 **Details**
      
-.. autoflask:: rucio.web.rest.flaskapi.v1.temporary_did:make_doc()
+.. autoflask:: rucio.web.rest.flaskapi.v1.tmp_dids:make_doc()
      :undoc-static:

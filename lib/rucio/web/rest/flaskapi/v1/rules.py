@@ -526,7 +526,7 @@ class RuleAnalysis(MethodView):
 
 
 def blueprint():
-    bp = Blueprint('rule', __name__, url_prefix='/rules')
+    bp = Blueprint('rules', __name__, url_prefix='/rules')
 
     rule_view = Rule.as_view('rule')
     bp.add_url_rule('/<rule_id>', view_func=rule_view, methods=['get', 'put', 'delete'])

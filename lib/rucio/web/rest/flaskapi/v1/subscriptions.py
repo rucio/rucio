@@ -307,7 +307,7 @@ class SubscriptionId(MethodView):
 
 
 def blueprint():
-    bp = Blueprint('subscription', __name__, url_prefix='/subscriptions')
+    bp = Blueprint('subscriptions', __name__, url_prefix='/subscriptions')
 
     subscription_id_view = SubscriptionId.as_view('subscription_id')
     bp.add_url_rule('/Id/<subscription_id>', view_func=subscription_id_view, methods=['get', ])
