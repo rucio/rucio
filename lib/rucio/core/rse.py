@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2017
@@ -998,7 +998,7 @@ def get_rse_protocols(rse_id, schemes=None, session=None):
             'protocols': list(),
             'qos_class': _rse.qos_class,
             'rse': _rse.rse,
-            'rse_type': str(_rse.rse_type),
+            'rse_type': _rse.rse_type.name,
             'sign_url': sign_url[0] if sign_url else None,
             'staging_area': _rse.staging_area,
             'verify_checksum': verify_checksum[0] if verify_checksum else True,
