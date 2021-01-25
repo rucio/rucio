@@ -998,7 +998,7 @@ def get_rse_protocols(rse_id, schemes=None, session=None):
             'protocols': list(),
             'qos_class': _rse.qos_class,
             'rse': _rse.rse,
-            'rse_type': _rse.rse_type,
+            'rse_type': _rse.rse_type.name,
             'sign_url': sign_url[0] if sign_url else None,
             'staging_area': _rse.staging_area,
             'verify_checksum': verify_checksum[0] if verify_checksum else True,
