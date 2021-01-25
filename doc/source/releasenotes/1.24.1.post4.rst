@@ -1,0 +1,13 @@
+============
+1.24.1.post4
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Database: Rucio not able to correctly identify tape RSEs `#4266 <https://github.com/rucio/rucio/issues/4266>`_
