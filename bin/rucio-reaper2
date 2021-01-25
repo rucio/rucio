@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2014-2019 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2014-2021 CERN for the benefit of the ATLAS collaboration.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 # Authors:
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 #
 # PY3K COMPATIBLE
 
@@ -55,6 +56,10 @@ def get_parser():
                         help='The delay (seconds) to query replicas in BEING_DELETED state.')
     parser.add_argument('--scheme', action="store", default=None, type=str,
                         help='Force the reaper to use a particular protocol/scheme, e.g., mock')
+    parser.add_argument("--auto_exclude_threshold", action="store", default=100, type=int,
+                        help='Number of service unavailable exceptions after which the RSE gets temporarily excluded.')
+    parser.add_argument("--auto_exclude_timeout", action="store", default=600, type=int,
+                        help='Timeout for temporarily excluded RSEs.')
 
     return parser
 
@@ -77,6 +82,8 @@ if __name__ == "__main__":
             greedy=args.greedy,
             scheme=args.scheme,
             delay_seconds=args.delay_seconds,
-            sleep_time=args.sleep_time)
+            sleep_time=args.sleep_time,
+            auto_exclude_threshold=args.auto_exclude_threshold,
+            auto_exclude_timeout=args.auto_exclude_timeout)
     except KeyboardInterrupt:
         stop()
