@@ -36,7 +36,7 @@ suites:
       - webpy
       - flask
     deny:
-      REST_BACKEND: flask
+      REST_BACKEND: webpy
       RDBMS:
         - mysql5
         - postgres9

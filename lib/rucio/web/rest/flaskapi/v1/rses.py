@@ -1037,7 +1037,7 @@ class QoSPolicy(MethodView):
 
 
 def blueprint():
-    bp = Blueprint('rse', __name__, url_prefix='/rses')
+    bp = Blueprint('rses', __name__, url_prefix='/rses')
 
     attributes_view = Attributes.as_view('attributes')
     bp.add_url_rule('/<rse>/attr/<key>', view_func=attributes_view, methods=['post', 'delete'])

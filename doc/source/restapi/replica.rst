@@ -3,10 +3,10 @@ Replica Rest API
 
 **Overview**
 
-.. qrefflask:: rucio.web.rest.flaskapi.v1.replica:make_doc()
+.. qrefflask:: rucio.web.rest.flaskapi.v1.replicas:make_doc()
      :undoc-static:
 
 **Details**
      
-.. autoflask:: rucio.web.rest.flaskapi.v1.replica:make_doc()
+.. autoflask:: rucio.web.rest.flaskapi.v1.replicas:make_doc()
      :undoc-static:

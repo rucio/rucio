@@ -143,7 +143,7 @@ class RequestList(MethodView):
 
 
 def blueprint():
-    bp = Blueprint('request', __name__, url_prefix='/requests')
+    bp = Blueprint('requests', __name__, url_prefix='/requests')
 
     request_get_view = RequestGet.as_view('request_get')
     bp.add_url_rule('/<path:scope_name>/<rse>', view_func=request_get_view, methods=['get', ])

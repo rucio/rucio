@@ -69,7 +69,7 @@ class BulkDIDS(MethodView):
 
 
 def blueprint():
-    bp = Blueprint('temporary_did', __name__, url_prefix='/tmp_dids')
+    bp = Blueprint('tmp_dids', __name__, url_prefix='/tmp_dids')
 
     bulk_dids_view = BulkDIDS.as_view('bulk_dids')
     bp.add_url_rule('', view_func=bulk_dids_view, methods=['post', ])

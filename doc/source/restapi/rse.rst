@@ -3,10 +3,10 @@ RSE Rest API
 
 **Overview**
 
-.. qrefflask:: rucio.web.rest.flaskapi.v1.rse:make_doc()
+.. qrefflask:: rucio.web.rest.flaskapi.v1.rses:make_doc()
      :undoc-static:
 
 **Details**
      
-.. autoflask:: rucio.web.rest.flaskapi.v1.rse:make_doc()
+.. autoflask:: rucio.web.rest.flaskapi.v1.rses:make_doc()
      :undoc-static:
