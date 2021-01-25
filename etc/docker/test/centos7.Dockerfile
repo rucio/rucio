@@ -68,7 +68,7 @@ RUN curl https://www.sqlite.org/2019/sqlite-autoconf-3290000.tar.gz | tar xzv &&
     make install && \
     cd .. && rm -rf ./sqlite-autoconf-3290000
 
-RUN python -m pip --no-cache-dir install --upgrade pip && \
+RUN python -m pip --no-cache-dir install --upgrade 'pip<21' && \
     python -m pip --no-cache-dir install --upgrade setuptools wheel
 
 RUN mkdir -p /var/log/rucio/trace && \
