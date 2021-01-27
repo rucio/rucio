@@ -1489,6 +1489,38 @@ def list_rses(args):
 
 
 @exception_handler
+def list_suspicious_replicas(args):
+    """
+    %(prog)s list-suspicious-replicas [options] <field1=value1 field2=value2 ...>
+
+    List replicas marked as suspicious.
+
+    """
+    client = get_client(args)
+    rse_expression = None
+    younger_than = None
+    nattempts = None
+    if args.rse_expression:
+        rse_expression = args.rse_expression
+    if args.younger_than:
+        younger_than = args.younger_than
+    if args.nattempts:
+        nattempts = args.nattempts
+    replicas = client.list_suspicious_replicas(rse_expression, younger_than, nattempts)
+
+    data = [['', '', ''], ['RSE Expression:', 'Scope:', 'File Name:'], ['', '', '']]
+    for rep in replicas:
+        data.append([rep['rse'], rep['scope'], rep['name']])
+    data.append(['', '', ''])
+
+    col_width = max(len(str(word)) for row in data for word in [row[0], row[1]]) + 8
+    for row in data:
+        print("".join(str(word).ljust(col_width) for word in row))
+
+    return SUCCESS
+
+
+@exception_handler
 def list_rse_attributes(args):
     """
     %(prog)s list-rse-attributes [options] <field1=value1 field2=value2 ...>
@@ -2266,6 +2298,14 @@ You can filter by account::
     list_rses_parser.set_defaults(function=list_rses)
     list_rses_parser.add_argument('--expression', dest='rse_expression', action='store', help='The RSE filter expression. A comprehensive help about RSE expressions \
 can be found in ' + Color.BOLD + 'http://rucio.cern.ch/client_tutorial.html#adding-rules-for-replication' + Color.END)
+
+    # The list-suspicoius-replicas command
+    list_suspicious_replicas_parser = subparsers.add_parser('list-suspicious-replicas', help='Show the list of all replicas marked "suspicious".')
+    list_suspicious_replicas_parser.set_defaults(function=list_suspicious_replicas)
+    list_suspicious_replicas_parser.add_argument('--expression', dest='rse_expression', action='store', help='The RSE filter expression. A comprehensive help about RSE expressions \
+can be found in ' + Color.BOLD + 'http://rucio.cern.ch/client_tutorial.html#adding-rules-for-replication' + Color.END)
+    list_suspicious_replicas_parser.add_argument('--younger_than', dest='younger_than', action='store', help='List files that have been marked suspicious within younger_than days.')
+    list_suspicious_replicas_parser.add_argument('--nattempts', dest='nattempts', action='store', help='Minimum number of failed attempts to access a suspicious file.')
 
     # The list-rses-attributes command
     list_rse_attributes_parser = subparsers.add_parser('list-rse-attributes', help='List the attributes of an RSE.', description='This command is useful to create RSE filter expressions.')

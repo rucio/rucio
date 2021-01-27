@@ -38,6 +38,8 @@ from requests.status_codes import codes
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
 from rucio.common.utils import build_url, render_json
+from rucio.core.replica import get_suspicious_files
+
 
 
 class ReplicaClient(BaseClient):
@@ -185,6 +187,23 @@ class ReplicaClient(BaseClient):
             return r.text
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
+
+    def list_suspicious_replicas(self, rse_expression=None, younger_than=None, nattempts=None):
+        """
+        List file replicas tagged as suspicious.
+
+        :param rse_expression: The RSE expression to restrict replicas on a set of RSEs.
+        :param younger_than: Datetime object to select the replicas which were declared since younger_than date. Default value = 10 days ago.
+        :param nattempts: The minimum number of replica appearances in the bad_replica DB table from younger_than date. Default value = 0.
+
+        """
+        result = []
+        try:
+            result = get_suspicious_files(rse_expression=rse_expression, younger_than=younger_than, nattempts=nattempts)
+        except Exception as error:
+            print(format_exc())
+            return str(error), 500
+        return result
 
     def add_replica(self, rse, scope, name, bytes, adler32, pfn=None, md5=None, meta={}):
         """
