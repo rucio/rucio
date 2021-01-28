@@ -27,14 +27,15 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import datetime
 import json
 import logging
 import time
 import traceback
-from typing import TYPE_CHECKING
+from itertools import filterfalse
+from typing import TYPE_CHECKING, Set
 
 from six import string_types
 from sqlalchemy import and_, or_, func, update
@@ -48,15 +49,18 @@ from rucio.common.utils import generate_uuid, chunks, get_parsed_throttler_mode
 from rucio.core.config import get
 from rucio.core.message import add_message
 from rucio.core.monitor import record_counter, record_timer
-from rucio.core.rse import get_rse_name, get_rse_vo, get_rse_transfer_limits
+from rucio.core.rse import get_rse_name, get_rse_vo, get_rse_transfer_limits, get_rse_attribute
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import RequestState, RequestType, FTSState, ReplicaState, LockState, RequestErrMsg
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 from rucio.transfertool.fts3 import FTS3Transfertool
 
 if TYPE_CHECKING:
-    from typing import List, Tuple, Iterable, Iterator, Optional
+    from typing import List, Tuple, Iterable, Iterator, Optional, Callable, Sequence
     from sqlalchemy.orm import Session
+
+    RowIterator = Iterator[Sequence]
+    ReduceFunction = Callable[[RowIterator], RowIterator]
 
 """
 The core request.py is specifically for handling requests.
@@ -1510,21 +1514,31 @@ dest_rse_id_col = 10
 source_rse_id_col = 12
 distance_col = 20
 
+extra_transfertool_col = 21
+
 
 @transactional_session
-def preparer_update_requests(source_iter: "Iterable[Tuple]", session: "Optional[Session]" = None) -> int:
+def preparer_update_requests(source_iter: "Iterable[Sequence]", session: "Optional[Session]" = None) -> int:
     count = 0
     for req_source in source_iter:
-        new_state = __throttler_request_state(
-            activity=req_source[activity_col],
-            source_rse_id=req_source[source_rse_id_col],
-            dest_rse_id=req_source[dest_rse_id_col],
-            session=session,
-        )
-        session.query(models.Request).filter_by(id=req_source[request_id_col]).update({
-            models.Request.state: new_state,
-            models.Request.source_rse_id: req_source[source_rse_id_col],
-        }, synchronize_session=False)
+        update_dict = dict()
+        if len(req_source) == 2:
+            # special case where the first entry is the request id and the second is the new state
+            # (see handling of RequestState.NO_SOURCES in reduce_requests)
+            update_dict[models.Request.state] = req_source[1]
+        else:
+            update_dict[models.Request.state] = __throttler_request_state(
+                activity=req_source[activity_col],
+                source_rse_id=req_source[source_rse_id_col],
+                dest_rse_id=req_source[dest_rse_id_col],
+                session=session,
+            )
+            update_dict[models.Request.source_rse_id] = req_source[source_rse_id_col]
+
+        if len(req_source) > extra_transfertool_col:
+            update_dict[models.Request.transfertool] = req_source[extra_transfertool_col]
+
+        session.query(models.Request).filter_by(id=req_source[request_id_col]).update(update_dict, synchronize_session=False)
         count += 1
     return count
 
@@ -1564,18 +1578,97 @@ def __throttler_request_state(activity, source_rse_id, dest_rse_id, session: "Op
     return RequestState.WAITING if limit_found else RequestState.QUEUED
 
 
-def minimum_distance_requests(req_sources: "List[Tuple]") -> "Iterator[Tuple]":
-    # sort by Request.id, should be pretty quick since the database should return it this way (tim sort)
+def reduce_requests(req_sources: "List[Tuple]", sort_reduce_funcs: "List[ReduceFunction]", logger: "Callable") -> "RowIterator":
+    """
+    Reduces the passed request sources tuples by using the sort-reduce functions,
+    returning the first of the remaining items or a simple
+    (request_id, RequestState.NO_SOURCES) tuple, if no sources were found.
+    """
+    assert len(req_sources) != 0, 'parameter request sources must be non-empty'
+
+    # sort by Request.id for partitioning later
     req_sources.sort(key=lambda t: t[request_id_col])
 
-    # req_sources must be non-empty and sorted by ids at this point, see above
+    def pick_result(items: "List[Sequence]") -> "Optional[Sequence]":
+        result = items
+        debug_log = []
+        for sort_reduce in sort_reduce_funcs:
+            newresult = list(sort_reduce(result))
+            debug_log.append('filter %s removed %s' % (sort_reduce.__name__, list(filterfalse(newresult.__contains__, result))))
+            result = newresult
+
+        if len(result) == 0:
+            logger(logging.WARNING, 'all available sources were filtered for requests with id %s', items[0][request_id_col])
+            logger(logging.DEBUG, 'the following filters ran:\n' + '\n'.join(debug_log))
+        else:
+            return result[0]
+
+    def result_or_no_sources(result: "Optional[Sequence]") -> "Sequence":
+        if result is None:
+            return (cur_request_id, RequestState.NO_SOURCES)
+        else:
+            return result
+
     cur_request_id = req_sources[0][request_id_col]
-    shortest_item = req_sources[0]
+
+    # partition the req_sources by request_id and yield the best result from each group
+    current_items = [req_sources[0]]
     for idx in range(1, len(req_sources)):
         if cur_request_id != req_sources[idx][request_id_col]:
-            yield shortest_item
+            yield result_or_no_sources(pick_result(current_items))
             cur_request_id = req_sources[idx][request_id_col]
-            shortest_item = req_sources[idx]
-        elif req_sources[idx][distance_col] < shortest_item[distance_col]:
-            shortest_item = req_sources[idx]
-    yield shortest_item
+            current_items.clear()
+        current_items.append(req_sources[idx])
+    yield result_or_no_sources(pick_result(current_items))
+
+
+def get_supported_transfertools(rse_id: str, session=None) -> "Set[str]":
+    transfertool_attr = get_rse_attribute('transfertool', rse_id=rse_id, session=session)
+    if transfertool_attr:
+        result = set()
+        for attr in transfertool_attr:
+            if attr:
+                assert type(attr) == str
+                # split attribute values by comma
+                for transfertool in filter(bool, map(str.strip, attr.split(sep=','))):
+                    result.add(transfertool)
+        if result:
+            return result
+    return {'fts3', 'globus'}
+
+
+def get_transfertool_filter(
+        get_transfertools: "Callable[[str], Set[str]]" = get_supported_transfertools
+) -> "ReduceFunction":
+    def filter_requests_for_transfertools(items: "RowIterator") -> "RowIterator":
+        first = True
+        first_request_id, first_dest_rse_id, dest_rse_transfertools = None, None, None
+        for t in items:
+            if first:
+                first = False
+                first_request_id = t[request_id_col]
+                first_dest_rse_id = t[dest_rse_id_col]
+                dest_rse_transfertools = get_transfertools(first_dest_rse_id)
+            else:
+                # same request id, same request destination rse in items per call
+                assert first_request_id == t[request_id_col]
+                assert first_dest_rse_id == t[dest_rse_id_col]
+
+            src_rse_transfertools = get_transfertools(t[source_rse_id_col])
+            common_transfertools = dest_rse_transfertools.intersection(src_rse_transfertools)
+            if common_transfertools:
+                if 'fts3' in common_transfertools and 'globus' in common_transfertools:
+                    transfertool = 'fts3'
+                else:
+                    transfertool = common_transfertools.pop()
+                yield (*t, transfertool)
+
+    return filter_requests_for_transfertools
+
+
+def sort_requests_minimum_distance(items: "RowIterator") -> "RowIterator":
+    yield from sorted(items, key=lambda t: t[distance_col])
+
+
+def rse_lookup_filter(items: "RowIterator") -> "RowIterator":
+    yield from filter(lambda row: row[source_rse_id_col] is not None and row[dest_rse_id_col] is not None, items)

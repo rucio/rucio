@@ -29,7 +29,8 @@ from rucio.common import exception
 from rucio.common.exception import RucioException
 from rucio.common.logging import formatted_logger, setup_logging
 from rucio.core import heartbeat
-from rucio.core.request import preparer_update_requests, minimum_distance_requests
+from rucio.core.request import preparer_update_requests, reduce_requests, sort_requests_minimum_distance, \
+    get_transfertool_filter, get_supported_transfertools, rse_lookup_filter
 from rucio.core.transfer import __list_transfer_requests_and_source_replicas
 from rucio.db.sqla.constants import RequestState
 
@@ -143,5 +144,7 @@ def run_once(total_workers: int = 0, worker_number: int = 0, limit: "Optional[in
     if not req_sources:
         return 'had nothing to do'
 
-    count = preparer_update_requests(minimum_distance_requests(req_sources), session=session)
+    transfertool_filter = get_transfertool_filter(lambda rse_id: get_supported_transfertools(rse_id=rse_id, session=session))
+    requests = reduce_requests(req_sources, [rse_lookup_filter, sort_requests_minimum_distance, transfertool_filter], logger=logger)
+    count = preparer_update_requests(requests, session=session)
     return f'updated {count}/{limit} requests'
