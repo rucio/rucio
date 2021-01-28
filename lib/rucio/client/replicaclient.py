@@ -39,7 +39,7 @@ from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
 from rucio.common.utils import build_url, render_json
 from rucio.core.replica import get_suspicious_files
-
+from traceback import format_exc
 
 
 class ReplicaClient(BaseClient):

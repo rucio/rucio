@@ -111,7 +111,7 @@ REGION = make_region(function_key_generator=my_key_generator).configure(
 @REGION.cache_on_arguments(namespace='host_to_choose')
 def choice(hosts):
     """
-    Select a host randomly
+    Select randomly a host
 
     :param hosts: List of hosts
     :return: A randomly selected host.
