@@ -1,4 +1,5 @@
-# Copyright 2013-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,17 +14,16 @@
 # limitations under the License.
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2013-2019
-# - Vincent Garonne, <vincent.garonne@cern.ch>, 2013
-# - Mario Lassnig, <mario.lassnig@cern.ch>, 2013
-# - Cedric Serfon, <cedric.serfon@cern.ch>, 2014
-# - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Brandon White, <bjwhite@fnal.gov>, 2019
-# - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-# - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2015
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020
-#
-# PY3K COMPATIBLE
 
 import abc
 import re
@@ -39,7 +39,7 @@ from rucio.core.rse import list_rses, get_rses_with_attribute, get_rse_attribute
 from rucio.db.sqla.session import transactional_session
 
 
-DEFAULT_RSE_ATTRIBUTE = r'([A-Z0-9]+([_-][A-Z0-9]+)*)'
+DEFAULT_RSE_ATTRIBUTE = r'([A-Z0-9]+([_-][A-Za-z0-9]+)*)'
 RSE_ATTRIBUTE = r'([A-Za-z0-9\._-]+[=<>][A-Za-z0-9_-]+)'
 PRIMITIVE = r'(\(*(%s|%s|%s)\)*)' % (RSE_ATTRIBUTE, DEFAULT_RSE_ATTRIBUTE, r'\*')
 UNION = r'(\|%s)' % (PRIMITIVE)
