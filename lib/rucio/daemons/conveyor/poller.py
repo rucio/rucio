@@ -48,7 +48,7 @@ from sqlalchemy.exc import DatabaseError
 import rucio.db.sqla.util
 from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, TransferToolTimeout, TransferToolWrongAnswer
-from rucio.common.logging import formatted_logger
+from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.utils import chunks
 from rucio.core import heartbeat, transfer as transfer_core, request as request_core
 from rucio.core.monitor import record_timer, record_counter
@@ -177,6 +177,8 @@ def run(once=False, sleep_time=60, activities=None,
     """
     Starts up the conveyer threads.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 

@@ -41,7 +41,7 @@ from rucio.client.client import Client
 from rucio.common.config import config_get
 from rucio.common.exception import (AccessDenied, DatabaseException, DuplicateRule, RSEBlacklisted, RSEWriteBlocked,
                                     ReplicationRuleCreationTemporaryFailed, RuleNotFound)
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 from rucio.daemons.sonar.sonar.get_current_traffic import get_link_traffic
 
 
@@ -414,6 +414,8 @@ def run():
     """
     Starts the Sonar thread.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 

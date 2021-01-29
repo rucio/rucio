@@ -40,7 +40,7 @@ import traceback
 
 import rucio.db.sqla.util
 from rucio.common import exception
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 from rucio.common.utils import get_parsed_throttler_mode
 from rucio.core import heartbeat, config as config_core
 from rucio.core.monitor import record_counter, record_gauge
@@ -118,6 +118,8 @@ def run(once=False, sleep_time=600):
     """
     Starts up the conveyer threads.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 

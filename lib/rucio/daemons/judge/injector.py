@@ -39,7 +39,7 @@ from re import match
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
-from rucio.common.logging import formatted_logger
+from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.exception import (DatabaseException, RuleNotFound, RSEBlacklisted, RSEWriteBlocked,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientAccountLimit)
 from rucio.core.heartbeat import live, die, sanity_check
@@ -162,6 +162,8 @@ def run(once=False, threads=1):
     """
     Starts up the Judge-Injector threads.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 

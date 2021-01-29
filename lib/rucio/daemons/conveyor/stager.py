@@ -40,7 +40,7 @@ from collections import defaultdict
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.logging import formatted_logger
+from rucio.common.logging import formatted_logger, setup_logging
 from rucio.core import heartbeat
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.request import set_requests_state
@@ -191,6 +191,8 @@ def run(once=False, total_threads=1, group_bulk=1, group_policy='rule', mock=Fal
     """
     Starts up the conveyer threads.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 

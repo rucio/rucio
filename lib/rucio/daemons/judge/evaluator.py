@@ -44,7 +44,7 @@ from sqlalchemy.orm.exc import FlushError
 
 import rucio.db.sqla.util
 from rucio.common.exception import DatabaseException, DataIdentifierNotFound, ReplicationRuleCreationTemporaryFailed
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 from rucio.common.types import InternalScope
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
@@ -174,6 +174,8 @@ def run(once=False, threads=1):
     """
     Starts up the Judge-Eval threads.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 

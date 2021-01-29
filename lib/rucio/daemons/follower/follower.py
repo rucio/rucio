@@ -26,7 +26,7 @@ import time
 
 import rucio.db.sqla.util
 from rucio.common import exception
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 from rucio.common.utils import get_thread_with_periodic_running_function
 from rucio.core.did import create_reports
 from rucio.core.heartbeat import live, die, sanity_check
@@ -73,6 +73,8 @@ def run(once=False, threads=1):
     """
     Starts up the follower threads
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 

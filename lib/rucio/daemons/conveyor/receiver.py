@@ -45,7 +45,7 @@ import stomp
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 from rucio.common.policy import get_policy
 from rucio.core import heartbeat, request
 from rucio.core.monitor import record_counter
@@ -285,6 +285,8 @@ def run(once=False, total_threads=1, full_mode=False):
     """
     Starts up the receiver thread
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
