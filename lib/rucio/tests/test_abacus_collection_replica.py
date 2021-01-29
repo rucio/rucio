@@ -91,11 +91,11 @@ class TestAbacusCollectionReplica(unittest.TestCase):
         models.CollectionReplica(scope=scope, name=dataset, rse_id=rse_id1, state=ReplicaState.AVAILABLE, bytes=1).save(session=db_session, flush=False)
         models.CollectionReplica(scope=scope, name=dataset, rse_id=rse_id2, state=ReplicaState.AVAILABLE, bytes=1).save(session=db_session, flush=False)
 
-        models.UpdatedCollectionReplica(scope=scope, name=dataset, rse_id=rse_id1).save(session=db_session, flush=False)
-        models.UpdatedCollectionReplica(scope=scope, name=dataset, rse_id=rse_id1).save(session=db_session, flush=False)
-        models.UpdatedCollectionReplica(scope=scope, name=dataset, rse_id=rse_id2).save(session=db_session, flush=False)
-        models.UpdatedCollectionReplica(scope=scope, name=dataset, rse_id=rse_id2).save(session=db_session, flush=False)
-        models.UpdatedCollectionReplica(scope=scope, name=dataset, rse_id=None).save(session=db_session, flush=False)
+        models.UpdatedCollectionReplica(scope=scope, name=dataset, rse_id=rse_id1, did_type=DIDType.DATASET).save(session=db_session, flush=False)
+        models.UpdatedCollectionReplica(scope=scope, name=dataset, rse_id=rse_id1, did_type=DIDType.DATASET).save(session=db_session, flush=False)
+        models.UpdatedCollectionReplica(scope=scope, name=dataset, rse_id=rse_id2, did_type=DIDType.DATASET).save(session=db_session, flush=False)
+        models.UpdatedCollectionReplica(scope=scope, name=dataset, rse_id=rse_id2, did_type=DIDType.DATASET).save(session=db_session, flush=False)
+        models.UpdatedCollectionReplica(scope=scope, name=dataset, rse_id=None, did_type=DIDType.DATASET).save(session=db_session, flush=False)
         db_session.commit()
         assert len(get_cleaned_updated_collection_replicas(1, 1)) == 3
 
