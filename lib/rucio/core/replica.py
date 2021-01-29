@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2021
 # - David Cameron <david.cameron@cern.ch>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2020
@@ -69,7 +69,7 @@ from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import (DIDType, ReplicaState, OBSOLETE, DIDAvailability,
                                      BadFilesStatus, RuleState, BadPFNStatus)
 from rucio.db.sqla.session import (read_session, stream_session, transactional_session,
-                                   DEFAULT_SCHEMA_NAME)
+                                   DEFAULT_SCHEMA_NAME, BASE)
 from rucio.rse import rsemanager as rsemgr
 
 
@@ -2675,11 +2675,16 @@ def get_cleaned_updated_collection_replicas(total_workers, worker_number, limit=
     """
     # Delete duplicates
     if session.bind.dialect.name == 'oracle':
-        subquery = session.query(func.max(models.UpdatedCollectionReplica.id)).\
-            group_by(models.UpdatedCollectionReplica.scope,
-                     models.UpdatedCollectionReplica.name,
-                     models.UpdatedCollectionReplica.rse_id).subquery()
-        session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.id.notin_(subquery)).delete(synchronize_session=False)
+        if BASE.metadata.schema:
+            schema = BASE.metadata.schema + '.'
+        else:
+            schema = ''
+        session.execute('DELETE FROM {schema}UPDATED_COL_REP A WHERE A.rowid > ANY (SELECT B.rowid FROM {schema}updated_col_rep B WHERE A.scope = B.scope AND A.name=B.name AND A.did_type=B.did_type AND (A.rse_id=B.rse_id OR (A.rse_id IS NULL and B.rse_id IS NULL)))'.format(schema=schema))
+        # subquery = session.query(func.max(models.UpdatedCollectionReplica.id)).\
+        #     group_by(models.UpdatedCollectionReplica.scope,
+        #              models.UpdatedCollectionReplica.name,
+        #              models.UpdatedCollectionReplica.rse_id).subquery()
+        # session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.id.notin_(subquery)).delete(synchronize_session=False)
     elif session.bind.dialect.name == 'mysql':
         subquery1 = session.query(func.max(models.UpdatedCollectionReplica.id).label('max_id')).\
             group_by(models.UpdatedCollectionReplica.scope,
