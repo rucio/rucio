@@ -39,7 +39,7 @@ import stomp
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_int
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 from rucio.common.types import InternalScope
 from rucio.core.monitor import record_counter
 from rucio.core.rse import get_rse_id
@@ -173,6 +173,8 @@ def run(num_thread=1):
     """
     Starts up the rucio cache consumer thread
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 

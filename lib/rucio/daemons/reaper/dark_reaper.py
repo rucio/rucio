@@ -46,7 +46,7 @@ from rucio.common.config import config_get_bool
 from rucio.common.exception import (SourceNotFound, DatabaseException, ServiceUnavailable,
                                     RSEAccessDenied, ResourceTemporaryUnavailable,
                                     RSENotFound, VONotFound)
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import add_message
 from rucio.core.quarantined_replica import (list_quarantined_replicas,
@@ -206,6 +206,8 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
     :param vos: VOs on which to look for RSEs. Only used in multi-VO mode.
                 If None, we either use all VOs if run from "def", or the current VO otherwise.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 

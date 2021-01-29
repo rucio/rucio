@@ -45,7 +45,7 @@ from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
 from rucio.common.exception import DatabaseException
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 from rucio.core.authentication import delete_expired_tokens
 from rucio.core.heartbeat import die, live, sanity_check
 from rucio.core.monitor import record_counter, record_timer
@@ -177,6 +177,8 @@ def run(once=False, threads=1, loop_rate=300, max_rows=100):
     """
     Starts up the OAuth Manager threads.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 

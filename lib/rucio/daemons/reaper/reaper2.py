@@ -58,7 +58,7 @@ from rucio.common.exception import (DatabaseException, RSENotFound, ConfigNotFou
                                     ReplicaUnAvailable, ReplicaNotFound, ServiceUnavailable,
                                     RSEAccessDenied, ResourceTemporaryUnavailable, SourceNotFound,
                                     VONotFound)
-from rucio.common.logging import formatted_logger
+from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.utils import chunks
 from rucio.core import monitor
 from rucio.core.config import get
@@ -648,6 +648,8 @@ def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=N
     :param auto_exclude_threshold: Number of service unavailable exceptions after which the RSE gets temporarily excluded.
     :param auto_exclude_timeout:   Timeout for temporarily excluded RSEs.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 

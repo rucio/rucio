@@ -42,7 +42,7 @@ import rucio.db.sqla.util
 from rucio.client import Client
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_options
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 from rucio.common.types import InternalScope
 from rucio.daemons.c3po.collectors.free_space import FreeSpaceCollector
 from rucio.daemons.c3po.collectors.jedi_did import JediDIDCollector
@@ -285,6 +285,8 @@ def run(once=False,
     """
     Starts up the main thread
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 

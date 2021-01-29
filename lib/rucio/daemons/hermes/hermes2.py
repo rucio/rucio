@@ -48,7 +48,7 @@ from six import PY2
 import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_int, config_get_bool
 from rucio.common.exception import ConfigNotFound, DatabaseException
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 from rucio.core import heartbeat
 from rucio.core.config import get
 from rucio.core.message import retrieve_messages, delete_messages, update_messages_services
@@ -562,6 +562,8 @@ def run(once=False, threads=1, bulk=1000, sleep_time=10, broker_timeout=3):
     '''
     Starts up the hermes2 threads.
     '''
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 

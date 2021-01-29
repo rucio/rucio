@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.exception import RucioException
-from rucio.common.logging import formatted_logger
+from rucio.common.logging import formatted_logger, setup_logging
 from rucio.core import heartbeat
 from rucio.core.request import preparer_update_requests, minimum_distance_requests
 from rucio.core.transfer import __list_transfer_requests_and_source_replicas
@@ -51,6 +51,8 @@ def run(once=False, threads=1, sleep_time=10, bulk=100):
     """
     Running the preparer daemon either once or by default in a loop until stop is called.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 

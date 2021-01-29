@@ -32,7 +32,7 @@ import traceback
 
 import rucio.db.sqla.util
 from rucio.common import exception
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.replica import get_cleaned_updated_collection_replicas, update_collection_replica
 
@@ -103,6 +103,8 @@ def run(once=False, threads=1):
     """
     Starts up the Abacus-Collection-Replica threads.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 

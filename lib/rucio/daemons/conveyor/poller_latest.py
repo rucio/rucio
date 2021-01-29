@@ -38,7 +38,7 @@ from requests.exceptions import RequestException
 
 import rucio.db.sqla.util
 from rucio.common import exception
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 from rucio.core import heartbeat, transfer, request
 from rucio.core.monitor import record_timer, record_counter
 from rucio.db.sqla.constants import FTSState
@@ -133,6 +133,8 @@ def run(once=False, last_nhours=1, external_hosts=None, fts_wait=1800, total_thr
     """
     Starts up the conveyer threads.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 

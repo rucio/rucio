@@ -25,13 +25,18 @@ import sys
 
 from rucio.common.config import config_get
 
-config_loglevel = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
-config_logformat = config_get('common', 'logformat', raise_exception=False, default='%(asctime)s\t%(name)s\t%(process)d\t%(levelname)s\t%(message)s')
 
+def setup_logging():
+    """
+    Configures the logging by setting the output stream to stdout and
+    configures log level and log format.
+    """
+    config_loglevel = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
+    config_logformat = config_get('common', 'logformat', raise_exception=False, default='%(asctime)s\t%(name)s\t%(process)d\t%(levelname)s\t%(message)s')
 
-logging.basicConfig(stream=sys.stdout,
-                    level=config_loglevel,
-                    format=config_logformat)
+    logging.basicConfig(stream=sys.stdout,
+                        level=config_loglevel,
+                        format=config_logformat)
 
 
 def formatted_logger(innerfunc, formatstr="%s"):

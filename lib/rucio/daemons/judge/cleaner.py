@@ -41,7 +41,7 @@ from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.logging import formatted_logger
+from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.exception import DatabaseException, UnsupportedOperation, RuleNotFound
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
@@ -150,6 +150,8 @@ def run(once=False, threads=1):
     """
     Starts up the Judge-Clean threads.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 

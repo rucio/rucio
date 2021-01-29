@@ -46,7 +46,7 @@ from rucio.common.exception import (DatabaseException, DataIdentifierNotFound, I
                                     InsufficientAccountLimit, InputValidationError, RSEOverQuota,
                                     ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight,
                                     StagingAreaRuleRequiresLifetime, SubscriptionWrongParameter, SubscriptionNotFound)
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 from rucio.common.schema import validate_schema
 from rucio.common.utils import chunks
 from rucio.core import monitor, heartbeat
@@ -468,6 +468,8 @@ def run(threads=1, bulk=100, once=False, sleep_time=60):
     """
     Starts up the transmogrifier threads.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 

@@ -21,9 +21,9 @@ import importlib
 
 from flask import Flask
 
-import rucio.common.logging  # NOQA: F401
 from rucio.common.config import config_get
 from rucio.common.exception import ConfigurationError
+from rucio.common.logging import setup_logging
 
 DEFAULT_ENDPOINTS = [
     'accountlimits',
@@ -78,4 +78,5 @@ apply_endpoints(application, endpoints)
 
 
 if __name__ == '__main__':
+    setup_logging()
     application.run()

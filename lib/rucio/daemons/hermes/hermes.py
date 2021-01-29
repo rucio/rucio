@@ -47,7 +47,7 @@ from sqlalchemy.orm.exc import NoResultFound
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_int, config_get_bool
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import retrieve_messages, delete_messages
 from rucio.core.monitor import record_counter
@@ -394,6 +394,8 @@ def run(once=False, send_email=True, threads=1, bulk=1000, delay=10, broker_time
     '''
     Starts up the hermes threads.
     '''
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 

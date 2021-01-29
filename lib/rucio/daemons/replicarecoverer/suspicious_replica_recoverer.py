@@ -45,7 +45,7 @@ from sqlalchemy.exc import DatabaseError
 import rucio.db.sqla.util
 from rucio.common.config import config_get_bool
 from rucio.common.exception import DatabaseException, VONotFound, InvalidRSEExpression
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 from rucio.common.types import InternalAccount
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.monitor import record_counter
@@ -236,6 +236,8 @@ def run(once=False, younger_than=3, nattempts=10, rse_expression='MOCK', vos=Non
     """
     Starts up the Suspicious-Replica-Recoverer threads.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 

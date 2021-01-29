@@ -40,7 +40,7 @@ import rucio.core.lifetime_exception
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.exception import InvalidRSEExpression, RuleNotFound
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 from rucio.core import heartbeat
 from rucio.core.lock import get_dataset_locks
 from rucio.core.rse import get_rse_name, get_rse_vo
@@ -199,6 +199,8 @@ def run(threads=1, bulk=100, date_check=None, dry_run=True, grace_period=86400,
     """
     Starts up the atropos threads.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
