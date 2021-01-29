@@ -34,7 +34,7 @@ import traceback
 
 import rucio.db.sqla.util
 from rucio.common import exception
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 from rucio.common.utils import get_thread_with_periodic_running_function
 from rucio.core.account_counter import get_updated_account_counters, update_account_counter, fill_account_counter_history_table
 from rucio.core.heartbeat import live, die, sanity_check
@@ -103,6 +103,8 @@ def run(once=False, threads=1, fill_history_table=False):
     """
     Starts up the Abacus-Account threads.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 

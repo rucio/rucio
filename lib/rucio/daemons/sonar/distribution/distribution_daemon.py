@@ -37,7 +37,7 @@ from rucio.client.client import Client
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.exception import DuplicateRule, InsufficientAccountLimit, RSEBlacklisted, RSEWriteBlocked, ReplicationRuleCreationTemporaryFailed
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 
 GRACEFUL_STOP = threading.Event()
 
@@ -130,6 +130,8 @@ def run():
     """
     Runs the distribution daemon
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 

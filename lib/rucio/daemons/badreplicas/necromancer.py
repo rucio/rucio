@@ -38,7 +38,7 @@ from traceback import format_exception
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.exception import DatabaseException
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 from rucio.common.utils import chunks
 from rucio.core import monitor, heartbeat
 from rucio.core.replica import list_bad_replicas, get_replicas_state, list_bad_replicas_history, update_bad_replicas_history
@@ -144,6 +144,8 @@ def run(threads=1, bulk=100, once=False):
     """
     Starts up the necromancer threads.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 

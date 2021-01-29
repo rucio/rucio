@@ -45,7 +45,7 @@ from stomp import Connection
 import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import ConfigNotFound, RSENotFound, DatabaseException
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.config import get
 from rucio.core.did import touch_dids, list_parent_dids
@@ -500,6 +500,8 @@ def run(once=False, threads=1, sleep_time_datasets=60, sleep_time_files=60):
     """
     Starts up the consumer threads
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 

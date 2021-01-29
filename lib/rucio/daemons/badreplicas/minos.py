@@ -37,7 +37,7 @@ from datetime import datetime
 
 import rucio.db.sqla.util
 from rucio.common.exception import UnsupportedOperation, DataIdentifierNotFound, ReplicaNotFound, DatabaseException
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 from rucio.common.utils import chunks
 from rucio.core import heartbeat
 from rucio.core.did import get_metadata
@@ -259,6 +259,8 @@ def run(threads=1, bulk=100, once=False, sleep_time=60):
     """
     Starts up the minos threads.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 

@@ -44,7 +44,7 @@ from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
 from rucio.common.exception import DatabaseException, UnsupportedOperation, RuleNotFound
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks
 from rucio.core.did import list_expired_dids, delete_dids
@@ -129,6 +129,8 @@ def run(once=False, total_workers=1, chunk_size=10):
     """
     Starts up the undertaker threads.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 

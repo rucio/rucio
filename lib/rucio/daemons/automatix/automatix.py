@@ -46,7 +46,7 @@ import rucio.db.sqla.util
 from rucio.client import Client
 from rucio.common import exception
 from rucio.common.exception import FileReplicaAlreadyExists, ConfigNotFound
-import rucio.common.logging
+from rucio.common.logging import setup_logging
 from rucio.common.types import InternalScope
 from rucio.common.utils import adler32
 from rucio.common.utils import execute, generate_uuid
@@ -291,6 +291,8 @@ def run(total_workers=1, once=False, inputfile=None):
     """
     Starts up the automatix threads.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
