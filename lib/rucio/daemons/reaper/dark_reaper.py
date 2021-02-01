@@ -24,6 +24,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2020-2021
+# - Eric Vaandering <ewv@fnal.gov>, 2021
 
 '''
 Dark Reaper is a daemon to manage quarantined file deletion.
@@ -240,11 +241,11 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
         rses = all_rses
 
     if exclude_rses:
-        excluded_rses = parse_expression(exclude_rses)
+        excluded_rses = [rse['id'] for rse in parse_expression(exclude_rses)]
         rses = [rse for rse in rses if rse not in excluded_rses]
 
     if include_rses:
-        included_rses = parse_expression(include_rses)
+        included_rses = [rse['id'] for rse in parse_expression(include_rses)]
         rses = [rse for rse in rses if rse in included_rses]
 
     if not rses:
