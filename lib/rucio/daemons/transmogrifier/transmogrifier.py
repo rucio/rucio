@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2020 CERN
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,6 +25,8 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020
+# - James Perry <j.perry@epcc.ed.ac.uk>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2021
 
 import logging
 import os
@@ -137,6 +139,16 @@ def is_matching_subscription(subscription, did, metadata):
                     match_account = True
                     break
             if not match_account:
+                return False
+        elif key == 'did_type':
+            match_did_type = False
+            if not isinstance(values, list):
+                values = [values]
+            for did_type in values:
+                if did_type == metadata['did_type'].name:
+                    match_did_type = True
+                    break
+            if not match_did_type:
                 return False
         else:
             if not isinstance(values, list):
