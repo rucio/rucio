@@ -173,7 +173,7 @@ class GlobalAccountLimit(MethodView):
 
 
 def blueprint(no_doc=True):
-    bp = Blueprint('account_limit', __name__, url_prefix='/accountlimits')
+    bp = Blueprint('accountlimits', __name__, url_prefix='/accountlimits')
 
     local_account_limit_view = LocalAccountLimit.as_view('local_account_limit')
     bp.add_url_rule('/local/<account>/<rse>', view_func=local_account_limit_view, methods=['post', 'delete'])

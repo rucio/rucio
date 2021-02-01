@@ -175,7 +175,7 @@ class Accounts(MethodView):
 
 
 def blueprint():
-    bp = Blueprint('identity', __name__, url_prefix='/identities')
+    bp = Blueprint('identities', __name__, url_prefix='/identities')
 
     userpass_view = UserPass.as_view('userpass')
     bp.add_url_rule('/<account>/userpass', view_func=userpass_view, methods=['put', ])

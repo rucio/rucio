@@ -713,7 +713,7 @@ class GlobalUsage(MethodView):
 
 
 def blueprint(no_doc=True):
-    bp = Blueprint('account', __name__, url_prefix='/accounts')
+    bp = Blueprint('accounts', __name__, url_prefix='/accounts')
 
     attributes_view = Attributes.as_view('attributes')
     bp.add_url_rule('/<account>/attr/', view_func=attributes_view, methods=['get', ])

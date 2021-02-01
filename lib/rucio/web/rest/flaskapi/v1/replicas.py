@@ -1081,7 +1081,7 @@ class Tombstone(MethodView):
 
 
 def blueprint(no_doc=True):
-    bp = Blueprint('replica', __name__, url_prefix='/replicas')
+    bp = Blueprint('replicas', __name__, url_prefix='/replicas')
 
     list_replicas_view = ListReplicas.as_view('list_replicas')
     bp.add_url_rule('/list', view_func=list_replicas_view, methods=['post', ])
