@@ -1480,7 +1480,7 @@ def list_dids(scope, filters, type='collection', ignore_case=False, limit=None,
         for scope, name, did_type, bytes, length in query.yield_per(5):
             yield {'scope': scope,
                    'name': name,
-                   'did_type': str(did_type),
+                   'did_type': did_type.name,
                    'bytes': bytes,
                    'length': length}
     else:

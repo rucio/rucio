@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2017
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014
-# - Martin Barisits <martin.barisits@cern.ch>, 2015-2016
+# - Martin Barisits <martin.barisits@cern.ch>, 2015-2021
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
@@ -385,6 +385,26 @@ class TestSubscriptionClient(unittest.TestCase):
         add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
 
         subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'scope': [tmp_scope.external, ], 'pattern': 'dataset-.*', 'split_rule': True},
+                                                 replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK-POSIX|MOCK2|MOCK3', 'copies': 2, 'activity': 'Data Brokering'}],
+                                                 lifetime=None, retroactive=0, dry_run=0, comments='Ni ! Ni!', priority=1)
+        run(threads=1, bulk=1000000, once=True)
+        rules = [rule for rule in self.did_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
+        assert len(rules) == 2
+        set_new_dids([{'scope': tmp_scope, 'name': dsn}, ], 1)
+        run(threads=1, bulk=1000000, once=True)
+        rules = [rule for rule in self.did_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
+        assert len(rules) == 2
+
+    def test_run_transmogrifier_did_type(self):
+        """ SUBSCRIPTION (DAEMON): Test the transmogrifier with did_type subscriptions """
+        tmp_scope = InternalScope('mock_' + uuid()[:8], **self.vo)
+        root = InternalAccount('root', **self.vo)
+        add_scope(tmp_scope, root)
+        subscription_name = uuid()
+        dsn = 'dataset-%s' % uuid()
+        add_did(scope=tmp_scope, name=dsn, type=DIDType.DATASET, account=root)
+
+        subid = self.sub_client.add_subscription(name=subscription_name, account='root', filter={'scope': [tmp_scope.external, ], 'pattern': 'dataset-.*', 'split_rule': True, 'did_type': ['DATASET', ]},
                                                  replication_rules=[{'lifetime': 86400, 'rse_expression': 'MOCK-POSIX|MOCK2|MOCK3', 'copies': 2, 'activity': 'Data Brokering'}],
                                                  lifetime=None, retroactive=0, dry_run=0, comments='Ni ! Ni!', priority=1)
         run(threads=1, bulk=1000000, once=True)
