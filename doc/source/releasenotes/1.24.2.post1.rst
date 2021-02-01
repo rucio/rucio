@@ -1,0 +1,13 @@
+============
+1.24.2.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Database: Recent sqlalchemy change broke subscription evaluation `#4283 <https://github.com/rucio/rucio/issues/4283>`_
