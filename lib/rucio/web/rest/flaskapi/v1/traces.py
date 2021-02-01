@@ -82,7 +82,7 @@ class Trace(MethodView):
 
 
 def blueprint():
-    bp = Blueprint('trace', __name__, url_prefix='/traces')
+    bp = Blueprint('traces', __name__, url_prefix='/traces')
 
     trace_view = Trace.as_view('trace')
     bp.add_url_rule('/', view_func=trace_view, methods=['post', ])

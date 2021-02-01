@@ -108,7 +108,7 @@ class LockByScopeName(MethodView):
 
 
 def blueprint():
-    bp = Blueprint('lock', __name__, url_prefix='/locks')
+    bp = Blueprint('locks', __name__, url_prefix='/locks')
 
     lock_by_rse_view = LockByRSE.as_view('lock_by_rse')
     bp.add_url_rule('/<rse>', view_func=lock_by_rse_view, methods=['get', ])

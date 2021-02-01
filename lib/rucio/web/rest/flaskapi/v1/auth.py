@@ -988,7 +988,7 @@ class Validate(MethodView):
 
 
 def blueprint():
-    bp = Blueprint('authentication', __name__, url_prefix='/auth')
+    bp = Blueprint('auth', __name__, url_prefix='/auth')
 
     user_pass_view = UserPass.as_view('user_pass')
     bp.add_url_rule('/userpass', view_func=user_pass_view, methods=['get', 'options'])

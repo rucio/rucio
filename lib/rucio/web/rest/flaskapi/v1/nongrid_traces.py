@@ -75,7 +75,7 @@ class XAODTrace(MethodView):
 
 
 def blueprint():
-    bp = Blueprint('nongrid_trace', __name__, url_prefix='/nongrid_traces')
+    bp = Blueprint('nongrid_traces', __name__, url_prefix='/nongrid_traces')
 
     xaod_trace_view = XAODTrace.as_view('xaod_trace')
     bp.add_url_rule('/', view_func=xaod_trace_view, methods=['post', ])

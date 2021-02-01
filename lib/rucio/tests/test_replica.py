@@ -1091,9 +1091,9 @@ def test_list_replicas_streaming_error(content_type, vo, did_client, replica_cli
                 remote_addr = '127.0.0.1'
 
             with mock.patch('rucio.web.rest.flaskapi.v1.common.request', new=FakeRequest()), \
-                    mock.patch('rucio.web.rest.flaskapi.v1.replica.request', new=FakeRequest()), \
-                    mock.patch('rucio.web.rest.flaskapi.v1.replica.list_replicas', side_effect=api_returns):
-                from rucio.web.rest.flaskapi.v1.replica import ListReplicas
+                    mock.patch('rucio.web.rest.flaskapi.v1.replicas.request', new=FakeRequest()), \
+                    mock.patch('rucio.web.rest.flaskapi.v1.replicas.list_replicas', side_effect=api_returns):
+                from rucio.web.rest.flaskapi.v1.replicas import ListReplicas
                 list_replicas_restapi = ListReplicas()
                 result = list_replicas_restapi.post()
                 # since we're directly accessing the generator for Flask, there is no error handling

@@ -1441,7 +1441,7 @@ class Follow(MethodView):
 
 
 def blueprint():
-    bp = Blueprint('did', __name__, url_prefix='/dids')
+    bp = Blueprint('dids', __name__, url_prefix='/dids')
 
     scope_view = Scope.as_view('scope')
     bp.add_url_rule('/<scope>/', view_func=scope_view, methods=['get', ])

@@ -215,7 +215,7 @@ class RecoverVO(MethodView):
 
 
 def blueprint():
-    bp = Blueprint('vo', __name__, url_prefix='/vos')
+    bp = Blueprint('vos', __name__, url_prefix='/vos')
 
     recover_view = RecoverVO.as_view('recover')
     bp.add_url_rule('/<vo>/recover', view_func=recover_view, methods=['post', ])
