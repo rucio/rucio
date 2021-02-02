@@ -21,7 +21,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-# - Eric Vaandering <ewv@fnal.gov>, 2019
+# - Eric Vaandering <ewv@fnal.gov>, 2019-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 '''
