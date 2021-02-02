@@ -90,8 +90,10 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
     while not GRACEFUL_STOP.is_set():
         try:
             # heartbeat
-            heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=thread, hash_executable=hash_executable)
-            logging.info('Dark Reaper({0[worker_number]}/{0[total_workers]}): Live gives {0[heartbeat]}'.format(locals()))
+            heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=thread,
+                             hash_executable=hash_executable)
+            logging.info('Dark Reaper({0[worker_number]}/{0[total_workers]}): Live gives {0[heartbeat]}'
+                         .format(locals()))
             nothing_to_do = True
 
             random.shuffle(rses)
@@ -118,11 +120,13 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
                                                                    'path': replica['path']}],
                                                             operation='delete',
                                                             scheme=scheme).values())[0])
-                            logging.info('Dark Reaper %s-%s: Deletion ATTEMPT of %s:%s as %s on %s', worker_number, total_workers, scope, replica['name'], pfn, rse)
+                            logging.info('Dark Reaper %s-%s: Deletion ATTEMPT of %s:%s as %s on %s',
+                                         worker_number, total_workers, scope, replica['name'], pfn, rse)
                             start = time.time()
                             prot.delete(pfn)
                             duration = time.time() - start
-                            logging.info('Dark Reaper %s-%s: Deletion SUCCESS of %s:%s as %s on %s in %s seconds', worker_number, total_workers, scope, replica['name'], pfn, rse, duration)
+                            logging.info('Dark Reaper %s-%s: Deletion SUCCESS of %s:%s as %s on %s in %s seconds',
+                                         worker_number, total_workers, scope, replica['name'], pfn, rse, duration)
                             payload = {'scope': scope,
                                        'name': replica['name'],
                                        'rse': rse,
@@ -137,11 +141,13 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
                             add_message('deletion-done', payload)
                             deleted_replicas.append(replica)
                         except SourceNotFound:
-                            err_msg = 'Dark Reaper %s-%s: Deletion NOTFOUND of %s:%s as %s on %s' % (worker_number, total_workers, scope, replica['name'], pfn, rse)
+                            err_msg = ('Dark Reaper %s-%s: Deletion NOTFOUND of %s:%s as %s on %s'
+                                       % (worker_number, total_workers, scope, replica['name'], pfn, rse))
                             logging.warning(err_msg)
                             deleted_replicas.append(replica)
                         except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
-                            err_msg = 'Dark Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s' % (worker_number, total_workers, scope, replica['name'], pfn, rse, str(error))
+                            err_msg = ('Dark Reaper %s-%s: Deletion NOACCESS of %s:%s as %s on %s: %s'
+                                       % (worker_number, total_workers, scope, replica['name'], pfn, rse, str(error)))
                             logging.warning(err_msg)
                             payload = {'scope': scope,
                                        'name': replica['name'],
@@ -220,11 +226,13 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
         if vos:
             invalid = set(vos) - set([v['vo'] for v in list_vos()])
             if invalid:
-                msg = 'VO{} {} cannot be found'.format('s' if len(invalid) > 1 else '', ', '.join([repr(v) for v in invalid]))
+                msg = 'VO{} {} cannot be found'.format('s' if len(invalid) > 1 else '',
+                                                       ', '.join([repr(v) for v in invalid]))
                 raise VONotFound(msg)
         else:
             vos = [v['vo'] for v in list_vos()]
-        logging.info('Dark Reaper: This instance will work on VO%s: %s' % ('s' if len(vos) > 1 else '', ', '.join([v for v in vos])))
+        logging.info('Dark Reaper: This instance will work on VO%s: %s'
+                     % ('s' if len(vos) > 1 else '', ', '.join([v for v in vos])))
 
     all_rses = []
     for vo in vos:
@@ -260,7 +268,8 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
                   'once': once,
                   'chunk_size': chunk_size,
                   'scheme': scheme}
-        threads.append(threading.Thread(target=reaper, kwargs=kwargs, name='Worker: %s, Total_Workers: %s' % (worker, total_workers)))
+        threads.append(threading.Thread(target=reaper, kwargs=kwargs,
+                                        name='Worker: %s, Total_Workers: %s' % (worker, total_workers)))
     [t.start() for t in threads]
     while threads[0].is_alive():
         [t.join(timeout=3.14) for t in threads]
