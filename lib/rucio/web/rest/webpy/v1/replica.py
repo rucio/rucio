@@ -932,7 +932,7 @@ class BadDIDs(RucioController):
                 rse = params['rse']
             if 'reason' in params:
                 reason = params['reason']
-            state = ReplicaState.BAD
+            state = BadFilesStatus.BAD
             if 'expires_at' in params and params['expires_at']:
                 expires_at = datetime.strptime(params['expires_at'], "%Y-%m-%dT%H:%M:%S.%f")
             not_declared_files = add_bad_dids(dids=dids, rse=rse, issuer=ctx.env.get('issuer'), state=state,
