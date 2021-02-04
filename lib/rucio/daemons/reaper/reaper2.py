@@ -20,7 +20,7 @@
 # - Wen Guan <wguan.icedew@gmail.com>, 2016
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2019-2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2019-2021
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
@@ -302,7 +302,7 @@ def __check_rse_usage(rse, rse_id, prepend_str):
 
     result = REGION.get('rse_usage_%s' % rse_id)
     if result is NO_VALUE:
-        max_being_deleted_files, needed_free_space, used, free, obsolete = None, None, None, None, None
+        max_being_deleted_files, needed_free_space, used, free, obsolete = 0, 0, 0, 0, None
 
         # First of all check if greedy mode is enabled for this RSE
         attributes = list_rse_attributes(rse_id=rse_id)
@@ -356,7 +356,7 @@ def __check_rse_usage(rse, rse_id, prepend_str):
         if source_for_total_space != source_for_used_space:
             usage = [entry for entry in rse_usage if entry['source'] == source_for_used_space]
             if not usage:
-                result = (max_being_deleted_files, needed_free_space, None, free, False)
+                result = (max_being_deleted_files, needed_free_space, 0, free, False)
                 REGION.set('rse_usage_%s' % rse_id, result)
                 return result
             for var in usage:
@@ -479,6 +479,8 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                     if needed_free_space:
                         dict_rses[(rse['rse'], rse['id'])] = [needed_free_space, max_being_deleted_files, only_delete_obsolete]
                         tot_needed_free_space += needed_free_space
+                    elif only_delete_obsolete:
+                        dict_rses[(rse['rse'], rse['id'])] = [needed_free_space, max_being_deleted_files, only_delete_obsolete]
                     else:
                         logging.debug('%s Nothing to delete on %s', prepend_str, rse['rse'])
 
@@ -497,7 +499,11 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                 rse_name, rse_id = rse_key
                 # The length of the deletion queue scales inversily with the number of workers
                 # The ceil increase the weight of the RSE with small amount of files to delete
-                max_workers = ceil(dict_rses[rse_key][0] / tot_needed_free_space * 1000 / heart_beat['nr_threads'])
+                if tot_needed_free_space:
+                    max_workers = ceil(dict_rses[rse_key][0] / tot_needed_free_space * 1000 / heart_beat['nr_threads'])
+                else:
+                    max_workers = 1
+
                 list_rses_mult.extend([(rse_name, rse_id, dict_rses[rse_key][0], dict_rses[rse_key][1]) for _ in range(int(max_workers))])
             random.shuffle(list_rses_mult)
 
@@ -514,7 +520,10 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                     continue
                 labels = {'rse': rse_name}
                 EXCLUDED_RSE_GAUGE.labels(**labels).set(0)
-                logging.debug('%s Working on %s. Percentage of the total space needed %.2f', prepend_str, rse_name, needed_free_space / tot_needed_free_space * 100)
+                percent = 0
+                if tot_needed_free_space:
+                    percent = needed_free_space / tot_needed_free_space * 100
+                logging.debug('%s Working on %s. Percentage of the total space needed %.2f', prepend_str, rse_name, percent)
                 rse_hostname, rse_info = rses_hostname_mapping[rse_id]
                 rse_hostname_key = '%s,%s' % (rse_id, rse_hostname)
                 payload_cnt = list_payload_counts(executable, older_than=600, hash_executable=None, session=None)
