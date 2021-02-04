@@ -17,6 +17,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
+# - Eric Vaandering <ewv@fnal.gov>, 2021
 
 '''
    Hermes2 is a daemon that get the messages and sends them to external services (influxDB, ES, ActiveMQ).
@@ -279,7 +280,10 @@ def deliver_emails(messages, prepend_str):
 
             msg['From'] = email_from
             msg['To'] = ', '.join(message['payload']['to'])
-            msg['Subject'] = message['payload']['subject'].encode('utf-8')
+            if PY2:
+                msg['Subject'] = message['payload']['subject'].encode('utf-8')
+            else:
+                msg['Subject'] = message['payload']['subject']
 
             try:
                 smtp = smtplib.SMTP()

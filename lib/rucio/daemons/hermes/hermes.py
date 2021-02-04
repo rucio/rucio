@@ -21,7 +21,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2019
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-# - Eric Vaandering <ewv@fnal.gov>, 2019
+# - Eric Vaandering <ewv@fnal.gov>, 2019-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 '''
@@ -112,7 +112,10 @@ def deliver_emails(once=False, send_email=True, thread=0, bulk=1000, delay=10):
 
                 msg['From'] = email_from
                 msg['To'] = ', '.join(message['payload']['to'])
-                msg['Subject'] = message['payload']['subject'].encode('utf-8')
+                if PY2:
+                    msg['Subject'] = message['payload']['subject'].encode('utf-8')
+                else:
+                    msg['Subject'] = message['payload']['subject']
 
                 if send_email:
                     smtp = smtplib.SMTP()
