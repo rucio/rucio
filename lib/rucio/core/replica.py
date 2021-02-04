@@ -34,7 +34,7 @@
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Eric Vaandering <ewv@fnal.gov>, 2020
+# - Eric Vaandering <ewv@fnal.gov>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
@@ -403,7 +403,7 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
 
 
 @transactional_session
-def add_bad_dids(dids, rse_id, reason, issuer, state=ReplicaState.BAD, session=None):
+def add_bad_dids(dids, rse_id, reason, issuer, state=BadFilesStatus.BAD, session=None):
     """
     Declare a list of bad replicas.
 
@@ -411,11 +411,11 @@ def add_bad_dids(dids, rse_id, reason, issuer, state=ReplicaState.BAD, session=N
     :param rse_id: The RSE id.
     :param reason: The reason of the loss.
     :param issuer: The issuer account.
-    :param state: ReplicaState.BAD
+    :param state: BadFilesStatus.BAD
     :param session: The database session in use.
     """
     unknown_replicas = []
-    replicas = []
+    replicas_for_update = []
 
     for did in dids:
         scope = InternalScope(did['scope'], vo=issuer.vo)
@@ -423,7 +423,7 @@ def add_bad_dids(dids, rse_id, reason, issuer, state=ReplicaState.BAD, session=N
         replica_exists, _scope, _name, already_declared, size = __exists_replicas(rse_id, scope, name, path=None,
                                                                                   session=session)
         if replica_exists and not already_declared:
-            replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
+            replicas_for_update.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
             new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=state,
                                                  account=issuer, bytes=size)
             new_bad_replica.save(session=session, flush=False)
@@ -435,9 +435,9 @@ def add_bad_dids(dids, rse_id, reason, issuer, state=ReplicaState.BAD, session=N
             else:
                 unknown_replicas.append('%s:%s %s' % (did['scope'], name, 'Unknown replica'))
 
-    if str(state) == str(ReplicaState.BAD):
+    if state == BadFilesStatus.BAD:
         try:
-            update_replicas_states(replicas, session=session)
+            update_replicas_states(replicas_for_update, session=session)
         except exception.UnsupportedOperation:
             raise exception.ReplicaNotFound("One or several replicas don't exist.")
 
