@@ -21,6 +21,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 
 """
 Fax consumer is a daemon to retrieve rucio cache operation information to synchronize rucio catalog.
@@ -29,7 +30,6 @@ Fax consumer is a daemon to retrieve rucio cache operation information to synchr
 import json
 import logging
 import socket
-import sys
 import threading
 import time
 from traceback import format_exc
@@ -39,19 +39,13 @@ import stomp
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_int
+from rucio.common.logging import setup_logging
 from rucio.common.types import InternalScope
 from rucio.core.monitor import record_counter
 from rucio.core.rse import get_rse_id
 from rucio.core.volatile_replica import add_volatile_replicas, delete_volatile_replicas
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 GRACEFUL_STOP = threading.Event()
 
@@ -179,6 +173,8 @@ def run(num_thread=1):
     """
     Starts up the rucio cache consumer thread
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
