@@ -14,18 +14,17 @@
 # - Robert Illingworth, <illingwo@fnal.gov>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 #
 # PY3K COMPATIBLE
 
 import logging
-import sys
 
 from datetime import datetime
 
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy import func
 
-from rucio.common.config import config_get
 from rucio.common.exception import InsufficientTargetRSEs
 from rucio.core import account_counter, rse_counter, request as request_core
 from rucio.core.config import get as core_config_get
@@ -36,13 +35,6 @@ from rucio.core.rse import get_rse
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import LockState, RuleGrouping, ReplicaState, RequestType, DIDType, OBSOLETE
 from rucio.db.sqla.session import transactional_session
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 @transactional_session
@@ -524,7 +516,7 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, source
 
 
 @transactional_session
-def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, session=None):
+def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, session=None, logger=logging.log):
     """
     Apply a rule to files with NONE grouping.
 
@@ -536,6 +528,7 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, sourc
     :param rule:               The rule object.
     :param source_rses:        RSE ids of eglible source replicas.
     :param session:            Session of the db.
+    :param logger:             Optional decorated logger that can be passed from the calling daemons or servers.
     :returns:                  replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
     :raises:                   InsufficientAccountLimit, InsufficientTargetRSEs
     :attention:                This method modifies the contents of the locks and replicas input parameters.
@@ -556,7 +549,7 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, sourc
                 # Check if there are actually already enough locks
                 if len([good_lock for good_lock in locks[(file['scope'], file['name'])] if good_lock.rule_id == rule.id and good_lock.state != LockState.STUCK]) >= rule.copies:
                     # Remove the lock
-                    logging.debug('There are too many locks for %s:%s for rule %s. Deleting lock', file['scope'], file['name'], str(rule.id))
+                    logger(logging.DEBUG, 'There are too many locks for %s:%s for rule %s. Deleting lock', file['scope'], file['name'], str(rule.id))
                     if lock.rse_id in locks_to_delete:
                         locks_to_delete[lock.rse_id].append(lock)
                     else:
@@ -630,7 +623,7 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, sourc
 
 
 @transactional_session
-def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, session=None):
+def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, session=None, logger=logging.log):
     """
     Apply a rule to files with ALL grouping.
 
@@ -642,6 +635,7 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, source
     :param rule:               The rule object.
     :param source_rses:        RSE ids of eglible source replicas.
     :param session:            Session of the db.
+    :param logger:             Optional decorated logger that can be passed from the calling daemons or servers.
     :returns:                  replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
     :raises:                   InsufficientAccountLimit, InsufficientTargetRSEs
     :attention:                This method modifies the contents of the locks and replicas input parameters.
@@ -662,7 +656,7 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, source
                 # Check if there are actually already enough locks
                 if len([good_lock for good_lock in locks[(file['scope'], file['name'])] if good_lock.rule_id == rule.id and good_lock.state != LockState.STUCK]) >= rule.copies:
                     # Remove the lock
-                    logging.debug('There are too many locks for %s:%s for rule %s. Deleting lock', file['scope'], file['name'], str(rule.id))
+                    logger(logging.DEBUG, 'There are too many locks for %s:%s for rule %s. Deleting lock', file['scope'], file['name'], str(rule.id))
                     if lock.rse_id in locks_to_delete:
                         locks_to_delete[lock.rse_id].append(lock)
                     else:
@@ -705,7 +699,7 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, source
 
 
 @transactional_session
-def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, session=None):
+def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, session=None, logger=logging.log):
     """
     Apply a rule to files with DATASET grouping.
 
@@ -717,6 +711,7 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, so
     :param rule:               The rule object.
     :param source_rses:        RSE ids of eglible source replicas.
     :param session:            Session of the db.
+    :param logger:             Optional decorated logger that can be passed from the calling daemons or servers.
     :returns:                  replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
     :raises:                   InsufficientAccountLimit, InsufficientTargetRSEs
     :attention:                This method modifies the contents of the locks and replicas input parameters.
@@ -737,7 +732,7 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, so
                 # Check if there are actually already enough locks
                 if len([good_lock for good_lock in locks[(file['scope'], file['name'])] if good_lock.rule_id == rule.id and good_lock.state != LockState.STUCK]) >= rule.copies:
                     # Remove the lock
-                    logging.debug('There are too many locks for %s:%s for rule %s. Deleting lock', file['scope'], file['name'], str(rule.id))
+                    logger(logging.DEBUG, 'There are too many locks for %s:%s for rule %s. Deleting lock', file['scope'], file['name'], str(rule.id))
                     if lock.rse_id in locks_to_delete:
                         locks_to_delete[lock.rse_id].append(lock)
                     else:
@@ -812,7 +807,7 @@ def __is_retry_required(lock, activity):
 
 
 @transactional_session
-def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availability_write, locks_to_create, locks, source_rses, replicas_to_create, replicas, source_replicas, transfers_to_create, session=None):
+def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availability_write, locks_to_create, locks, source_rses, replicas_to_create, replicas, source_replicas, transfers_to_create, session=None, logger=logging.log):
     """
     This method creates a lock and if necessary a new replica and fills the corresponding dictionaries.
 
@@ -830,6 +825,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
     :param source_replicas:      Dictionary of the source replicas.
     :param transfers_to_create:  List of transfers to create.
     :param session:              The db session in use.
+    :param logger:               Optional decorated logger that can be passed from the calling daemons or servers.
     :returns:                    True, if the created lock is replicating, False otherwise.
     :attention:                  This method modifies the contents of the locks, locks_to_create, replicas_to_create and replicas input parameters.
     """
@@ -968,7 +964,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
         return False
 
 
-def __create_lock(rule, rse_id, scope, name, bytes, state, existing_replica):
+def __create_lock(rule, rse_id, scope, name, bytes, state, existing_replica, logger=logging.log):
     """
     Create and return a new SQLAlchemy Lock object.
 
@@ -979,6 +975,7 @@ def __create_lock(rule, rse_id, scope, name, bytes, state, existing_replica):
     :param bytes:             Bytes of the lock.
     :param state:             State of the lock.
     :param existing_replica:  Replica object.
+    :param logger:            Optional decorated logger that can be passed from the calling daemons or servers.
     """
 
     new_lock = models.ReplicaLock(rule_id=rule.id,
@@ -992,22 +989,22 @@ def __create_lock(rule, rse_id, scope, name, bytes, state, existing_replica):
         existing_replica.lock_cnt += 1
         existing_replica.tombstone = None
         rule.locks_ok_cnt += 1
-        logging.debug('Creating OK Lock %s:%s on %s for rule %s', scope, name, rse_id, str(rule.id))
+        logger(logging.DEBUG, 'Creating OK Lock %s:%s on %s for rule %s', scope, name, rse_id, str(rule.id))
     elif state == LockState.REPLICATING:
         existing_replica.state = ReplicaState.COPYING
         existing_replica.lock_cnt += 1
         existing_replica.tombstone = None
         rule.locks_replicating_cnt += 1
-        logging.debug('Creating REPLICATING Lock %s:%s on %s for rule %s', scope, rse_id, name, str(rule.id))
+        logger(logging.DEBUG, 'Creating REPLICATING Lock %s:%s on %s for rule %s', scope, rse_id, name, str(rule.id))
     elif state == LockState.STUCK:
         existing_replica.lock_cnt += 1
         existing_replica.tombstone = None
         rule.locks_stuck_cnt += 1
-        logging.debug('Creating STUCK Lock %s:%s on %s for rule %s', scope, name, rse_id, str(rule.id))
+        logger(logging.DEBUG, 'Creating STUCK Lock %s:%s on %s for rule %s', scope, name, rse_id, str(rule.id))
     return new_lock
 
 
-def __create_replica(rse_id, scope, name, bytes, state, md5, adler32):
+def __create_replica(rse_id, scope, name, bytes, state, md5, adler32, logger=logging.log):
     """
     Create and return a new SQLAlchemy replica object.
 
@@ -1018,6 +1015,7 @@ def __create_replica(rse_id, scope, name, bytes, state, md5, adler32):
     :param state:         State of the replica.
     :param md5:           MD5 checksum of the replica.
     :param adler32:       ADLER32 checksum of the replica.
+    :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
     """
 
     new_replica = models.RSEFileAssociation(rse_id=rse_id,
@@ -1029,12 +1027,12 @@ def __create_replica(rse_id, scope, name, bytes, state, md5, adler32):
                                             tombstone=None,
                                             state=state,
                                             lock_cnt=0)
-    logging.debug('Creating %s replica for %s:%s on %s', state, scope, name, rse_id)
+    logger(logging.DEBUG, 'Creating %s replica for %s:%s on %s', state, scope, name, rse_id)
     return new_replica
 
 
 @transactional_session
-def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, transfers_to_create, session=None):
+def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, transfers_to_create, session=None, logger=logging.log):
     """
     This method updates a lock and replica and fills the corresponding dictionaries.
 
@@ -1044,10 +1042,11 @@ def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, tran
     :param dataset:              Dataset dictionary holding the dataset information.
     :param transfers_to_create:  List of transfers to create.
     :param session:              The db session in use.
+    :param logger:               Optional decorated logger that can be passed from the calling daemons or servers.
     :attention:                  This method modifies the contents of the transfers_to_create input parameters.
     """
 
-    logging.debug('Updating Lock %s:%s for rule %s', lock.scope, lock.name, str(rule.id))
+    logger(logging.DEBUG, 'Updating Lock %s:%s for rule %s', lock.scope, lock.name, str(rule.id))
     lock.state = LockState.REPLICATING
     rule.locks_stuck_cnt -= 1
     rule.locks_replicating_cnt += 1
@@ -1133,7 +1132,7 @@ def __set_replica_unavailable(replica, session=None):
 
 
 @transactional_session
-def apply_rule(did, rule, rses, source_rses, rseselector, session=None):
+def apply_rule(did, rule, rses, source_rses, rseselector, session=None, logger=logging.log):
     """
     Apply a replication rule to one did.
 
@@ -1142,6 +1141,7 @@ def apply_rule(did, rule, rses, source_rses, rseselector, session=None):
     :param rses:         target rses_ids
     :param source_rses:  source rses_ids
     :param rseselector:  the rseselector object
+    :param logger:       Optional decorated logger that can be passed from the calling daemons or servers.
     :param session:      the database session in use
     """
 
@@ -1199,7 +1199,7 @@ def apply_rule(did, rule, rses, source_rses, rseselector, session=None):
             for rse_id, staging_area, availability_write in rse_tuples:
                 # check for bug ????
                 if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id and lock.rse_id == rse_id]) == 1:
-                    logging.debug('>>> WARNING unexpected duplicate lock for file %s at RSE %s' % (file, rse_id))
+                    logger(logging.DEBUG, '>>> WARNING unexpected duplicate lock for file %s at RSE %s' % (file, rse_id))
                     continue
                 # proceed
                 __create_lock_and_replica(file=file, dataset={'scope': None, 'name': None}, rule=rule,
@@ -1336,7 +1336,7 @@ def apply_rule(did, rule, rses, source_rses, rseselector, session=None):
                 for file in files:
                     # check for duplicate due to dataset overlap within container
                     if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]) == rule.copies:
-                        logging.debug('>>> WARNING skipping (shared?) file %s' % file)
+                        logger(logging.DEBUG, '>>> WARNING skipping (shared?) file %s' % file)
                         continue
 
                     if rule.grouping == RuleGrouping.NONE:
@@ -1356,7 +1356,7 @@ def apply_rule(did, rule, rses, source_rses, rseselector, session=None):
                     for rse_id, staging_area, availability_write in rse_tuples:
                         # check for bug ????
                         if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id and lock.rse_id == rse_id]) == 1:
-                            logging.debug('>>> WARNING unexpected duplicate lock for file %s at RSE %s' % (file, rse_id))
+                            logger(logging.DEBUG, '>>> WARNING unexpected duplicate lock for file %s at RSE %s' % (file, rse_id))
                             continue
                         # proceed
                         __create_lock_and_replica(file=file, dataset={'scope': ds_scope, 'name': ds_name}, rule=rule,

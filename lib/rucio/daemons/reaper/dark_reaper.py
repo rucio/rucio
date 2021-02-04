@@ -16,7 +16,7 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2019
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2021
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
@@ -42,10 +42,11 @@ import traceback
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get_bool
 from rucio.common.exception import (SourceNotFound, DatabaseException, ServiceUnavailable,
                                     RSEAccessDenied, ResourceTemporaryUnavailable,
                                     RSENotFound, VONotFound)
+from rucio.common.logging import setup_logging
 from rucio.core.heartbeat import live, die, sanity_check
 from rucio.core.message import add_message
 from rucio.core.quarantined_replica import (list_quarantined_replicas,
@@ -56,13 +57,6 @@ from rucio.core.vo import list_vos
 from rucio.rse import rsemanager as rsemgr
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 GRACEFUL_STOP = threading.Event()
 
@@ -212,6 +206,8 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
     :param vos: VOs on which to look for RSEs. Only used in multi-VO mode.
                 If None, we either use all VOs if run from "def", or the current VO otherwise.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
