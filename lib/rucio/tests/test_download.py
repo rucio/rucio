@@ -19,6 +19,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 #
 # PY3K COMPATIBLE
 
@@ -47,8 +48,8 @@ class TestDownloadClient(unittest.TestCase):
         logger.addHandler(logging.StreamHandler())
         logger.setLevel(logging.DEBUG)
         self.client = Client()
-        self.upload_client = UploadClient(_client=self.client, logger=logger)
-        self.download_client = DownloadClient(client=self.client, logger=logger)
+        self.upload_client = UploadClient(_client=self.client, logger=logger.log)
+        self.download_client = DownloadClient(client=self.client, logger=logger.log)
 
         self.file_path = file_generator()
         self.scope = 'mock'
