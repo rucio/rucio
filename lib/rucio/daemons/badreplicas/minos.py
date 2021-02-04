@@ -18,7 +18,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
@@ -34,11 +34,10 @@ import threading
 import time
 import traceback
 from datetime import datetime
-from sys import stdout
 
 import rucio.db.sqla.util
-from rucio.common.config import config_get
 from rucio.common.exception import UnsupportedOperation, DataIdentifierNotFound, ReplicaNotFound, DatabaseException
+from rucio.common.logging import setup_logging
 from rucio.common.utils import chunks
 from rucio.core import heartbeat
 from rucio.core.did import get_metadata
@@ -48,14 +47,6 @@ from rucio.core.replica import (get_bad_pfns, get_pfn_to_rse, declare_bad_file_r
 from rucio.core.rse import get_rse_name
 from rucio.db.sqla.constants import BadFilesStatus, BadPFNStatus, ReplicaState
 from rucio.db.sqla.session import get_session
-
-logging.basicConfig(stream=stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
-
 
 graceful_stop = threading.Event()
 
@@ -268,6 +259,8 @@ def run(threads=1, bulk=100, once=False, sleep_time=60):
     """
     Starts up the minos threads.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 

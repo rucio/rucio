@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2021
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2019
@@ -27,11 +27,9 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
-from __future__ import print_function
-
 from datetime import datetime
 from json import dumps, loads
-from traceback import format_exc
+import logging
 
 from flask import Flask, Blueprint, Response, request, redirect, jsonify
 from flask.views import MethodView
@@ -71,7 +69,7 @@ class Attributes(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         return jsonify(attribs)
 
@@ -115,7 +113,7 @@ class Attributes(MethodView):
         except AccountNotFound as error:
             return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return 'Created', 201
@@ -139,7 +137,7 @@ class Attributes(MethodView):
         except AccountNotFound as error:
             return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return '', 200
@@ -169,7 +167,7 @@ class Scopes(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         if not len(scopes):
@@ -201,7 +199,7 @@ class Scopes(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return 'Created', 201
@@ -241,7 +239,7 @@ class AccountParameter(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         accdict = acc.to_dict()
@@ -281,7 +279,7 @@ class AccountParameter(MethodView):
             except AccountNotFound as error:
                 return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
             except Exception as error:
-                print(format_exc())
+                logging.exception("Internal Error")
                 return str(error), 500
 
         return '', 200
@@ -331,7 +329,7 @@ class AccountParameter(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return 'Created', 201
@@ -354,7 +352,7 @@ class AccountParameter(MethodView):
         except AccountNotFound as error:
             return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return '', 200
@@ -486,7 +484,7 @@ class Identities(MethodView):
         except IdentityError as error:
             return generate_http_error_flask(400, 'IdentityError', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return 'Created', 201
@@ -517,7 +515,7 @@ class Identities(MethodView):
         except AccountNotFound as error:
             return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
     def delete(self, account):
@@ -557,7 +555,7 @@ class Identities(MethodView):
         except IdentityError as error:
             return generate_http_error_flask(404, 'IdentityError', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return '', 200
@@ -594,7 +592,7 @@ class Rules(MethodView):
         except RuleNotFound as error:
             return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -627,7 +625,7 @@ class UsageHistory(MethodView):
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         for entry in usage:
@@ -671,7 +669,7 @@ class LocalUsage(MethodView):
         except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -708,7 +706,7 @@ class GlobalUsage(MethodView):
         except AccessDenied as error:
             return generate_http_error_flask(401, 'AccessDenied', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 

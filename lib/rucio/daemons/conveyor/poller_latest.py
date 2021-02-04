@@ -18,7 +18,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2016-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2021
 
@@ -30,7 +30,6 @@ import datetime
 import logging
 import os
 import socket
-import sys
 import threading
 import time
 import traceback
@@ -39,17 +38,10 @@ from requests.exceptions import RequestException
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.config import config_get
+from rucio.common.logging import setup_logging
 from rucio.core import heartbeat, transfer, request
 from rucio.core.monitor import record_timer, record_counter
 from rucio.db.sqla.constants import FTSState
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 graceful_stop = threading.Event()
 
@@ -141,6 +133,8 @@ def run(once=False, last_nhours=1, external_hosts=None, fts_wait=1800, total_thr
     """
     Starts up the conveyer threads.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 

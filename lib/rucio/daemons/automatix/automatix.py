@@ -25,11 +25,10 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import division
-from __future__ import print_function
 
 import logging
 import random
@@ -41,14 +40,13 @@ from datetime import datetime
 from json import load
 from math import exp
 from os import remove, rmdir, stat, getpid
-from sys import stdout
 from time import sleep, time
 
 import rucio.db.sqla.util
 from rucio.client import Client
 from rucio.common import exception
-from rucio.common.config import config_get
 from rucio.common.exception import FileReplicaAlreadyExists, ConfigNotFound
+from rucio.common.logging import setup_logging
 from rucio.common.types import InternalScope
 from rucio.common.utils import adler32
 from rucio.common.utils import execute, generate_uuid
@@ -56,14 +54,6 @@ from rucio.core import monitor, heartbeat
 from rucio.core.config import get
 from rucio.core.scope import list_scopes
 from rucio.rse import rsemanager as rsemgr
-
-logging.basicConfig(stream=stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
-
 
 SUCCESS = 0
 FAILURE = 1
@@ -301,6 +291,8 @@ def run(total_workers=1, once=False, inputfile=None):
     """
     Starts up the automatix threads.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 

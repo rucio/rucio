@@ -19,7 +19,6 @@
 import imp
 import logging
 import os
-import sys
 
 from rucio.common.config import config_get, config_get_int, get_config_dirs
 from rucio.core.monitor import record_counter
@@ -38,14 +37,6 @@ for extra_module in EXTRA_MODULES:
 if EXTRA_MODULES['globus_sdk']:
     from globus_sdk import NativeAppAuthClient, RefreshTokenAuthorizer, TransferClient, TransferData, DeleteData  # pylint: disable=import-error
     import yaml  # pylint: disable=import-error
-
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 GLOBUS_AUTH_APP = config_get('conveyor', 'globus_auth_app', False, None)
 

@@ -19,10 +19,9 @@
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch, 2021
 
-from __future__ import print_function
-
-from traceback import format_exc
+import logging
 
 from flask import Flask, Blueprint, request, Response
 from flask.views import MethodView
@@ -112,7 +111,7 @@ class SignURL(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         if not result:

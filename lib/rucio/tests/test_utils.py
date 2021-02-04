@@ -28,7 +28,8 @@ from re import match
 import pytest
 
 from rucio.common.exception import InvalidType
-from rucio.common.utils import md5, adler32, parse_did_filter_from_string, formatted_logger
+from rucio.common.utils import md5, adler32, parse_did_filter_from_string
+from rucio.common.logging import formatted_logger
 
 
 class TestUtils(unittest.TestCase):

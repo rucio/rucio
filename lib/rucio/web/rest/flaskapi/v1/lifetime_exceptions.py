@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2016-2017
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
@@ -23,7 +23,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from json import loads, dumps
-from traceback import format_exc
+import logging
 
 from flask import Flask, Blueprint, Response, request
 from flask.views import MethodView
@@ -63,7 +63,7 @@ class LifetimeException(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
     def post(self):
@@ -111,7 +111,7 @@ class LifetimeException(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         return Response(dumps(exception_id), status=201, content_type="application/json")
 
@@ -146,7 +146,7 @@ class LifetimeExceptionId(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
     def put(self, exception_id):
@@ -183,7 +183,7 @@ class LifetimeExceptionId(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         return 'Created', 201
 
