@@ -15,6 +15,7 @@
 #
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 
 import logging
 import os
@@ -109,7 +110,7 @@ def preparer(once, sleep_time, bulk):
             daemon_logger = formatted_logger(logging.log, prefix + '%s')
 
             try:
-                updated_msg = run_once(total_workers=total_workers, worker_number=worker_number, limit=bulk)
+                updated_msg = run_once(total_workers=total_workers, worker_number=worker_number, limit=bulk, logger=daemon_logger)
             except RucioException:
                 daemon_logger(logging.ERROR, 'errored with a RucioException, retrying later', exc_info=True)
                 updated_msg = 'errored'
@@ -131,7 +132,7 @@ def preparer(once, sleep_time, bulk):
         heartbeat.die(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
 
 
-def run_once(total_workers: int = 0, worker_number: int = 0, limit: "Optional[int]" = None, session: "Optional[Session]" = None) -> str:
+def run_once(total_workers: int = 0, worker_number: int = 0, limit: "Optional[int]" = None, logger=logging.log, session: "Optional[Session]" = None) -> str:
     req_sources = __list_transfer_requests_and_source_replicas(
         total_workers=total_workers,
         worker_number=worker_number,
