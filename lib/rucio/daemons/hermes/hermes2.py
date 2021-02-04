@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 
@@ -354,8 +354,8 @@ def aggregate_to_influx(messages, bin_size, endpoint, prepend_str):
         elif event_type in ['deletion-failed', 'deletion-done']:
             created_at = message['created_at']
             if bin_size == '1m':
-                created_at = created_at.replace(second=0, microsecond=0)
-            created_at = int(created_at.strftime('%s')) * 1000000000
+                created_at = created_at.replace(second=0, microsecond=0, tzinfo=datetime.timezone.utc).timestamp()
+            created_at = int(created_at) * 1000000000
             created_at += microsecond
             if created_at not in bins:
                 bins[created_at] = {}
