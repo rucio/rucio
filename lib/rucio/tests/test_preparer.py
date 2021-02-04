@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020 CERN
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import pytest
 
@@ -110,7 +110,7 @@ def test_listing_preparing_transfers(db_session, mock_request):
 
 @pytest.mark.usefixtures('dest_throttler')
 def test_preparer_setting_request_state_waiting(db_session, mock_request):
-    preparer.run_once(session=db_session)
+    preparer.run_once(session=db_session, logger=print)
     db_session.commit()
 
     updated_mock_request = db_session.query(models.Request).filter_by(id=mock_request.id).one()  # type: models.Request
@@ -119,7 +119,7 @@ def test_preparer_setting_request_state_waiting(db_session, mock_request):
 
 
 def test_preparer_setting_request_state_queued(db_session, mock_request):
-    preparer.run_once(session=db_session)
+    preparer.run_once(session=db_session, logger=print)
     db_session.commit()
 
     updated_mock_request = db_session.query(models.Request).filter_by(id=mock_request.id).one()  # type: models.Request
@@ -128,7 +128,7 @@ def test_preparer_setting_request_state_queued(db_session, mock_request):
 
 
 def test_preparer_setting_request_source(db_session, vo, source_rse, mock_request):
-    preparer.run_once(session=db_session)
+    preparer.run_once(session=db_session, logger=print)
     db_session.commit()
 
     updated_mock_request = db_session.query(models.Request).filter_by(id=mock_request.id).one()  # type: models.Request
@@ -161,7 +161,7 @@ def test_two_sources_one_destination(db_session, vo, file, source_rse, source2_r
         assert src1_distance and len(src1_distance) == 1 and src1_distance[0]['ranking'] == 5
         assert src2_distance and len(src2_distance) == 1 and src2_distance[0]['ranking'] == 2
 
-        preparer.run_once(session=db_session)
+        preparer.run_once(session=db_session, logger=print)
         db_session.commit()
 
         updated_mock_request = db_session.query(models.Request).filter_by(id=mock_request.id).one()  # type: models.Request
