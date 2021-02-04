@@ -32,8 +32,6 @@ from xml.sax.saxutils import escape
 
 from flask import Flask, Blueprint, Response, request
 from flask.views import MethodView
-from six import string_types
-
 from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replicas,
                                list_dataset_replicas_bulk, delete_replicas,
                                get_did_from_pfns, update_replicas_states,
@@ -50,9 +48,11 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
                                     InvalidObject, ScopeNotFound)
 from rucio.common.utils import parse_response, APIEncoder, render_json_list
 from rucio.core.replica_sorter import sort_replicas
-from rucio.db.sqla.constants import BadFilesStatus, ReplicaState
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, try_stream, parse_scope_name, request_auth_env, response_headers
+from rucio.db.sqla.constants import BadFilesStatus
+from rucio.web.rest.flaskapi.v1.common import (check_accept_header_wrapper_flask, try_stream, parse_scope_name,
+                                               request_auth_env, response_headers)
 from rucio.web.rest.utils import generate_http_error_flask
+from six import string_types
 
 try:
     from urllib import unquote
