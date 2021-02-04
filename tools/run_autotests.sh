@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 set -euo pipefail
 IFS=$'\n\t'
@@ -33,19 +33,22 @@ if [ "x$PARALLEL_AUTOTESTS" != "xfalse" -a "x$PARALLEL_AUTOTESTS" != "x0" ]; the
     export PARALLEL_AUTOTESTS=1
 fi
 
-# change directory to main repository directory
-cd `dirname $0`/..
+# fetch project directory relatively to this file
+PROJECT_DIR="$(dirname $0)/.."
+MATRIX_FILE=${1:-"$PROJECT_DIR/etc/docker/test/matrix.yml"}
 
-MATRIX=`./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml`
+MATRIX=`"$PROJECT_DIR/tools/test/matrix_parser.py" < $MATRIX_FILE`
 if [ -z "$MATRIX" ]; then
     echo "Matrix could not be determined"
     exit 1
 fi
 
-IMAGES=`echo $MATRIX | nice ./tools/test/build_images.py ./etc/docker/test`
+IMAGES=`echo $MATRIX | nice "$PROJECT_DIR/tools/test/build_images.py" "$PROJECT_DIR/etc/docker/test"`
 if [ -z "$IMAGES" ]; then
     echo "Images could not be built"
     exit 1
 fi
 
-echo "{\"matrix\": $MATRIX, \"images\": $IMAGES}" | nice ./tools/test/run_tests.py
+RUN_TESTS_JSON="{\"matrix\": $MATRIX, \"images\": $IMAGES}"
+echo "$RUN_TESTS_JSON"
+echo "$RUN_TESTS_JSON" | nice "$PROJECT_DIR/tools/test/run_tests.py"
