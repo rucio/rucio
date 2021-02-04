@@ -22,13 +22,11 @@
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 #
 # PY3K COMPATIBLE
 
 from __future__ import print_function, division
-
-import logging
-import sys
 
 from datetime import datetime, date, timedelta
 from string import Template
@@ -50,13 +48,6 @@ from rucio.db.sqla.session import transactional_session
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import (DIDType, RuleState, RuleGrouping)
 from requests import get
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 def rebalance_rule(parent_rule, activity, rse_expression, priority, source_replica_expression='*\\bb8-enabled=false', comment=None):

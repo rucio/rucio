@@ -42,7 +42,6 @@ from json import loads
 import datetime
 import logging
 import time
-import traceback
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import (InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound,
@@ -63,21 +62,17 @@ USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
 TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)
 
 
-def submit_transfer(external_host, job, submitter='submitter', logging_prepend_str='', timeout=None, user_transfer_job=False):
+def submit_transfer(external_host, job, submitter='submitter', timeout=None, user_transfer_job=False, logger=logging.log):
     """
     Submit a transfer or staging request
 
     :param external_host:         FTS server to submit to.
     :param job:                   Job dictionary.
     :param submitter:             Name of the submitting entity.
-    :param logging_prepend_str:   String to prepend to the logging
     :param timeout:               Timeout
     :param user_transfer_job:     Parameter for transfer with user credentials
+    :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
     """
-
-    prepend_str = ''
-    if logging_prepend_str:
-        prepend_str = logging_prepend_str
 
     # Prepare submitting
     xfers_ret = {}
@@ -86,24 +81,24 @@ def submit_transfer(external_host, job, submitter='submitter', logging_prepend_s
         for t_file in job['files']:
             file_metadata = t_file['metadata']
             request_id = file_metadata['request_id']
-            log_str = prepend_str + 'PREPARING REQUEST %s DID %s:%s TO SUBMITTING STATE PREVIOUS %s FROM %s TO %s USING %s ' % (file_metadata['request_id'],
-                                                                                                                                file_metadata['scope'],
-                                                                                                                                file_metadata['name'],
-                                                                                                                                file_metadata['previous_attempt_id'] if 'previous_attempt_id' in file_metadata else None,
-                                                                                                                                t_file['sources'],
-                                                                                                                                t_file['destinations'],
-                                                                                                                                external_host)
+            log_str = 'PREPARING REQUEST %s DID %s:%s TO SUBMITTING STATE PREVIOUS %s FROM %s TO %s USING %s ' % (file_metadata['request_id'],
+                                                                                                                  file_metadata['scope'],
+                                                                                                                  file_metadata['name'],
+                                                                                                                  file_metadata['previous_attempt_id'] if 'previous_attempt_id' in file_metadata else None,
+                                                                                                                  t_file['sources'],
+                                                                                                                  t_file['destinations'],
+                                                                                                                  external_host)
             xfers_ret[request_id] = {'state': RequestState.SUBMITTING, 'external_host': external_host, 'external_id': None, 'dest_url': t_file['destinations'][0]}
-            logging.info("%s", log_str)
+            logger(logging.INFO, "%s", log_str)
             xfers_ret[request_id]['file'] = t_file
-        logging.debug('%s Start to prepare transfer', prepend_str)
+        logger(logging.DEBUG, 'Start to prepare transfer')
         transfer_core.prepare_sources_for_transfers(xfers_ret)
-        logging.debug('%s Finished to prepare transfer', prepend_str)
+        logger(logging.DEBUG, 'Finished to prepare transfer')
     except RequestNotFound as error:
-        logging.error(prepend_str + str(error))
+        logger(logging.ERROR, str(error))
         return
     except Exception:
-        logging.error(prepend_str + 'Failed to prepare requests %s state to SUBMITTING (Will not submit jobs but return directly) with error: %s' % (list(xfers_ret.keys()), traceback.format_exc()))
+        logger(logging.ERROR, 'Failed to prepare requests %s state to SUBMITTING (Will not submit jobs but return directly) with error: %s' % (list(xfers_ret.keys())), exc_info=True)
         return
 
     # Prepare the dictionary for xfers results
@@ -124,7 +119,7 @@ def submit_transfer(external_host, job, submitter='submitter', logging_prepend_s
     # Submit the job
     try:
         start_time = time.time()
-        logging.info(prepend_str + 'About to submit job to %s with timeout %s' % (external_host, timeout))
+        logger(logging.INFO, 'About to submit job to %s with timeout %s' % (external_host, timeout))
         # A eid is returned if the job is properly submitted otherwise an exception is raised
         eid = transfer_core.submit_bulk_transfers(external_host,
                                                   files=job['files'],
@@ -133,7 +128,7 @@ def submit_transfer(external_host, job, submitter='submitter', logging_prepend_s
                                                   timeout=timeout,
                                                   user_transfer_job=user_transfer_job)
         duration = time.time() - start_time
-        logging.info(prepend_str + 'Submit job %s to %s in %s seconds' % (eid, external_host, duration))
+        logger(logging.INFO, 'Submit job %s to %s in %s seconds' % (eid, external_host, duration))
         record_timer('daemons.conveyor.%s.submit_bulk_transfer.per_file' % submitter, (time.time() - start_time) * 1000 / len(job['files']))
         record_counter('daemons.conveyor.%s.submit_bulk_transfer' % submitter, len(job['files']))
         record_timer('daemons.conveyor.%s.submit_bulk_transfer.files' % submitter, len(job['files']))
@@ -145,23 +140,23 @@ def submit_transfer(external_host, job, submitter='submitter', logging_prepend_s
                 request_id = file_metadata['request_id']
                 xfers_ret[request_id]['state'] = RequestState.SUBMITTED
                 xfers_ret[request_id]['external_id'] = eid
-                logging.info(prepend_str + 'COPYING REQUEST %s DID %s:%s USING %s with state(%s) with eid(%s)' % (file_metadata['request_id'], file_metadata['scope'], file_metadata['name'], external_host, RequestState.SUBMITTED, eid))
-            logging.debug(prepend_str + 'Start to bulk register transfer state for eid %s' % eid)
+                logger(logging.INFO, 'COPYING REQUEST %s DID %s:%s USING %s with state(%s) with eid(%s)' % (file_metadata['request_id'], file_metadata['scope'], file_metadata['name'], external_host, RequestState.SUBMITTED, eid))
+            logger(logging.DEBUG, 'Start to bulk register transfer state for eid %s' % eid)
             transfer_core.set_transfers_state(xfers_ret, datetime.datetime.utcnow())
-            logging.debug('%s Finished to register transfer state', prepend_str)
+            logger(logging.DEBUG, 'Finished to register transfer state',)
         except Exception:
-            logging.error('%s Failed to register transfer state with error: %s', prepend_str, traceback.format_exc())
+            logger(logging.ERROR, 'Failed to register transfer state with error', exc_info=True)
             try:
-                logging.info('%s Cancel transfer %s on %s', prepend_str, eid, external_host)
+                logger(logging.INFO, 'Cancel transfer %s on %s', eid, external_host)
                 request.cancel_request_external_id(eid, external_host)
             except Exception:
                 # The job is still submitted in the file transfer service but the request is not updated. Possibility to have a double submission during the next cycle
-                logging.error(prepend_str + 'Failed to cancel transfers %s on %s with error: %s' % (eid, external_host, traceback.format_exc()))
+                logger(logging.ERROR, 'Failed to cancel transfers %s on %s with error' % (eid, external_host), exc_info=True)
 
     # This exception is raised if one job is already submitted for one file
     except DuplicateFileTransferSubmission as error:
-        logging.warning('%s Failed to submit a job because of duplicate file : %s', prepend_str, str(error))
-        logging.info('%s Submitting files one by one', prepend_str)
+        logger(logging.WARNING, 'Failed to submit a job because of duplicate file : %s', str(error))
+        logger(logging.INFO, 'Submitting files one by one')
 
         try:
             # In this loop we submit the jobs and update the requests state one by one
@@ -172,7 +167,7 @@ def submit_transfer(external_host, job, submitter='submitter', logging_prepend_s
                 file_metadata = t_file['metadata']
                 request_id = file_metadata['request_id']
                 start_time = time.time()
-                logging.info('%s About to submit job to %s with timeout %s', prepend_str, external_host, timeout)
+                logger(logging.INFO, 'About to submit job to %s with timeout %s', external_host, timeout)
                 eid = transfer_core.submit_bulk_transfers(external_host,
                                                           files=[t_file],
                                                           transfertool=TRANSFER_TOOL,
@@ -180,58 +175,58 @@ def submit_transfer(external_host, job, submitter='submitter', logging_prepend_s
                                                           timeout=timeout,
                                                           user_transfer_job=user_transfer_job)
                 duration = time.time() - start_time
-                logging.info(prepend_str + 'Submit job %s to %s in %s seconds' % (eid, external_host, duration))
+                logger(logging.INFO, 'Submit job %s to %s in %s seconds' % (eid, external_host, duration))
                 record_timer('daemons.conveyor.%s.submit_bulk_transfer.per_file' % submitter, (time.time() - start_time) * 1000)
                 record_counter('daemons.conveyor.%s.submit_bulk_transfer' % submitter, 1)
                 record_timer('daemons.conveyor.%s.submit_bulk_transfer.files' % submitter, 1)
                 single_xfers_ret[request_id]['state'] = RequestState.SUBMITTED
                 single_xfers_ret[request_id]['external_id'] = eid
-                logging.info(prepend_str + 'COPYING REQUEST %s DID %s:%s USING %s with state(%s) with eid(%s)' % (file_metadata['request_id'], file_metadata['scope'], file_metadata['name'], external_host, RequestState.SUBMITTED, eid))
+                logger(logging.INFO, 'COPYING REQUEST %s DID %s:%s USING %s with state(%s) with eid(%s)' % (file_metadata['request_id'], file_metadata['scope'], file_metadata['name'], external_host, RequestState.SUBMITTED, eid))
                 try:
-                    logging.debug('%s Start to register transfer state', prepend_str)
+                    logger(logging.DEBUG, 'Start to register transfer state')
                     transfer_core.set_transfers_state(single_xfers_ret, datetime.datetime.utcnow())
-                    logging.debug('%s Finished to register transfer state', prepend_str)
+                    logger(logging.DEBUG, 'Finished to register transfer state')
                 except Exception:
-                    logging.error('%s Failed to register transfer state with error: %s', prepend_str, traceback.format_exc())
+                    logger(logging.ERROR, 'Failed to register transfer state with error', exc_info=True)
                     try:
-                        logging.info('%s Cancel transfer %s on %s', prepend_str, eid, external_host)
+                        logger(logging.INFO, 'Cancel transfer %s on %s', eid, external_host)
                         request.cancel_request_external_id(eid, external_host)
                     except Exception:
-                        logging.error(prepend_str + 'Failed to cancel transfers %s on %s with error: %s' % (eid, external_host, traceback.format_exc()))
+                        logger(logging.ERROR, 'Failed to cancel transfers %s on %s with error' % (eid, external_host), exc_info=True)
 
         except (DuplicateFileTransferSubmission, TransferToolTimeout, TransferToolWrongAnswer, Exception) as error:
             request_id = single_xfers_ret.keys()[0]
             single_xfers_ret[request_id]['state'] = RequestState.SUBMISSION_FAILED
-            logging.error('%s Cannot submit the job for request %s : %s', prepend_str, request_id, str(error))
+            logger(logging.ERROR, 'Cannot submit the job for request %s : %s', request_id, str(error))
             try:
-                logging.debug('%s Update the transfer state to fail', prepend_str)
+                logger(logging.DEBUG, 'Update the transfer state to fail')
                 transfer_core.set_transfers_state(single_xfers_ret, datetime.datetime.utcnow())
-                logging.debug('%s Finished to register transfer state', prepend_str)
+                logger(logging.DEBUG, 'Finished to register transfer state')
             except Exception:
-                logging.error('%s Failed to register transfer state with error: %s', prepend_str, traceback.format_exc())
+                logger(logging.ERROR, 'Failed to register transfer state with error', exc_info=True)
                 # No need to cancel the job here
 
     # The following exceptions are raised if the job failed to be submitted
     except (TransferToolTimeout, TransferToolWrongAnswer) as error:
-        logging.error(prepend_str + str(error))
+        logger(logging.ERROR, str(error))
         try:
             for t_file in job['files']:
                 file_metadata = t_file['metadata']
                 request_id = file_metadata['request_id']
                 xfers_ret[request_id]['state'] = RequestState.SUBMISSION_FAILED
-            logging.debug('%s Start to register transfer state', prepend_str)
+            logger(logging.DEBUG, 'Start to register transfer state')
             transfer_core.set_transfers_state(xfers_ret, datetime.datetime.utcnow())
-            logging.debug('%s Finished to register transfer state', prepend_str)
+            logger(logging.DEBUG, 'Finished to register transfer state')
         except Exception:
-            logging.error('%s Failed to register transfer state with error: %s', prepend_str, traceback.format_exc())
+            logger(logging.ERROR, 'Failed to register transfer state with error', exc_info=True)
             # No need to cancel the job here
 
     except Exception as error:
-        logging.error('%s Failed to submit a job with error %s: %s', prepend_str, str(error), traceback.format_exc())
+        logger(logging.ERROR, 'Failed to submit a job with error %s', str(error), exc_info=True)
 
 
 @read_session
-def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strategy=None, max_time_in_queue=None, session=None):
+def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strategy=None, max_time_in_queue=None, session=None, logger=logging.log):
     """
     Group transfers in bulk based on certain criterias
 
@@ -240,6 +235,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
     :param group_bulk:            Bulk sizes.
     :param source_strategy:       Strategy to group sources
     :param max_time_in_queue:     Maximum time in queue
+    :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
     :return:                      List of grouped transfers.
     """
 
@@ -257,7 +253,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
     except ConfigNotFound:
         activity_source_strategy = {}
     except ValueError:
-        logging.warning('activity_source_strategy not properly defined')
+        logger(logging.WARNING, 'activity_source_strategy not properly defined')
         activity_source_strategy = {}
 
     for request_id in transfers:
@@ -450,7 +446,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
     return grouped_jobs
 
 
-def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None, vos=None):
+def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None, vos=None, logger=logging.log):
     """
     Get a list of rses for conveyor
 
@@ -459,12 +455,13 @@ def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None, vos=None)
     :param exclude_rses:  RSEs to exclude
     :param vos:           VOs on which to look for RSEs. Only used in multi-VO mode.
                           If None, we either use all VOs if run from "def", or the current VO otherwise.
+    :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
     :return:              List of working rses
     """
     multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
     if not multi_vo:
         if vos:
-            logging.warning('Ignoring argument vos, this is only applicable in a multi-VO setup.')
+            logger(logging.WARNING, 'Ignoring argument vos, this is only applicable in a multi-VO setup.')
         vos = ['def']
     else:
         if vos:
@@ -474,7 +471,7 @@ def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None, vos=None)
                 raise VONotFound(msg)
         else:
             vos = [v['vo'] for v in list_vos()]
-        logging.info('This instance will work on VO%s: %s' % ('s' if len(vos) > 1 else '', ', '.join([v for v in vos])))
+        logger(logging.INFO, 'This instance will work on VO%s: %s' % ('s' if len(vos) > 1 else '', ', '.join([v for v in vos])))
 
     working_rses = []
     rses_list = []
@@ -488,7 +485,7 @@ def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None, vos=None)
             try:
                 parsed_rses = parse_expression(include_rses, filter={'vo': vo}, session=None)
             except InvalidRSEExpression:
-                logging.error("Invalid RSE exception %s to include RSEs", include_rses)
+                logger(logging.ERROR, "Invalid RSE exception %s to include RSEs", include_rses)
             else:
                 for rse in parsed_rses:
                     if rse not in working_rses:
@@ -501,7 +498,7 @@ def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None, vos=None)
         try:
             parsed_rses = parse_expression(exclude_rses, session=None)
         except InvalidRSEExpression as error:
-            logging.error("Invalid RSE exception %s to exclude RSEs: %s", exclude_rses, error)
+            logger(logging.ERROR, "Invalid RSE exception %s to exclude RSEs: %s", exclude_rses, error)
         else:
             working_rses = [rse for rse in working_rses if rse not in parsed_rses]
 

@@ -17,7 +17,7 @@
 # - Wen Guan <wen.guan@cern.ch>, 2015-2016
 # - Martin Barisits <martin.barisits@cern.ch>, 2015-2017
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Brandon White <bjwhite@fnal.gov>, 2019
@@ -33,15 +33,14 @@ from __future__ import division
 import logging
 import os
 import socket
-import sys
 import threading
 import time
-import traceback
 from collections import defaultdict
 
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool
+from rucio.common.logging import formatted_logger, setup_logging
 from rucio.core import heartbeat
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.request import set_requests_state
@@ -53,14 +52,6 @@ try:
     from ConfigParser import NoOptionError  # py2
 except Exception:
     from configparser import NoOptionError  # py3
-
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 graceful_stop = threading.Event()
 
@@ -109,19 +100,22 @@ def stager(once=False, rses=None, mock=False, bulk=100, group_bulk=1, group_poli
     hb_thread = threading.current_thread()
     heartbeat.sanity_check(executable=executable, hostname=hostname)
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-    logging.info(prepend_str + 'Stager starting with bring_online %s seconds' % (bring_online))
+    prefix = 'conveyor-stager[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+    logger = formatted_logger(logging.log, prefix + '%s')
+    logger(logging.INFO, 'Stager starting with bring_online %s seconds' % (bring_online))
 
     time.sleep(10)  # To prevent running on the same partition if all the poller restart at the same time
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-    prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
-    logging.info(prepend_str + 'Stager started')
+    prefix = 'conveyor-stager[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+    logger = formatted_logger(logging.log, prefix + '%s')
+    logger(logging.INFO, 'Stager started')
 
     while not graceful_stop.is_set():
 
         try:
             heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
-            prepend_str = 'Thread [%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+            prefix = 'conveyor-stager[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+            logger = formatted_logger(logging.log, prefix + '%s')
 
             if activities is None:
                 activities = [None]
@@ -135,7 +129,7 @@ def stager(once=False, rses=None, mock=False, bulk=100, group_bulk=1, group_poli
                     graceful_stop.wait(1)
                     continue
 
-                logging.info(prepend_str + 'Starting to get stagein transfers for %s' % (activity))
+                logger(logging.INFO, 'Starting to get stagein transfers for %s' % (activity))
                 start_time = time.time()
                 transfers = __get_stagein_transfers(total_workers=heart_beat['nr_threads'],
                                                     worker_number=heart_beat['assign_thread'],
@@ -146,40 +140,41 @@ def stager(once=False, rses=None, mock=False, bulk=100, group_bulk=1, group_poli
                                                     mock=mock,
                                                     schemes=scheme,
                                                     bring_online=bring_online,
-                                                    retry_other_fts=retry_other_fts)
+                                                    retry_other_fts=retry_other_fts,
+                                                    logger=logger)
                 record_timer('daemons.conveyor.stager.get_stagein_transfers.per_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
                 record_counter('daemons.conveyor.stager.get_stagein_transfers', len(transfers))
                 record_timer('daemons.conveyor.stager.get_stagein_transfers.transfers', len(transfers))
-                logging.info(prepend_str + 'Got %s stagein transfers for %s' % (len(transfers), activity))
+                logger(logging.INFO, 'Got %s stagein transfers for %s' % (len(transfers), activity))
 
                 # group transfers
-                logging.info(prepend_str + 'Starting to group transfers for %s' % (activity))
+                logger(logging.INFO, 'Starting to group transfers for %s' % (activity))
                 start_time = time.time()
                 grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, source_strategy, max_time_in_queue)
                 record_timer('daemons.conveyor.stager.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
 
-                logging.info(prepend_str + 'Starting to submit transfers for %s' % (activity))
+                logger(logging.INFO, 'Starting to submit transfers for %s' % (activity))
                 # submit transfers
                 for external_host in grouped_jobs:
                     for job in grouped_jobs[external_host]:
                         # submit transfers
-                        submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter', logging_prepend_str=prepend_str)
+                        submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter', logger=logger)
 
                 if len(transfers) < group_bulk:
-                    logging.info(prepend_str + 'Only %s transfers for %s which is less than group bulk %s, sleep %s seconds' % (len(transfers), activity, group_bulk, sleep_time))
+                    logger(logging.INFO, 'Only %s transfers for %s which is less than group bulk %s, sleep %s seconds' % (len(transfers), activity, group_bulk, sleep_time))
                     if activity_next_exe_time[activity] < time.time():
                         activity_next_exe_time[activity] = time.time() + sleep_time
         except Exception:
-            logging.critical(prepend_str + '%s' % (traceback.format_exc()))
+            logger(logging.CRITICAL, "Exception", exc_info=True)
 
         if once:
             break
 
-    logging.info(prepend_str + 'Graceful stop requested')
+    logger(logging.INFO, 'Graceful stop requested')
 
     heartbeat.die(executable, hostname, pid, hb_thread)
 
-    logging.info(prepend_str + 'Graceful stop done')
+    logger(logging.INFO, 'Graceful stop done')
 
 
 def stop(signum=None, frame=None):
@@ -196,6 +191,8 @@ def run(once=False, total_threads=1, group_bulk=1, group_policy='rule', mock=Fal
     """
     Starts up the conveyer threads.
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
@@ -249,7 +246,7 @@ def run(once=False, total_threads=1, group_bulk=1, group_policy='rule', mock=Fal
 
 
 def __get_stagein_transfers(total_workers=0, worker_number=0, failover_schemes=None, limit=None, activity=None, older_than=None,
-                            rses=None, mock=False, schemes=None, bring_online=43200, retry_other_fts=False, session=None):
+                            rses=None, mock=False, schemes=None, bring_online=43200, retry_other_fts=False, session=None, logger=logging.log):
 
     transfers, reqs_no_source = get_stagein_requests_and_source_replicas(total_workers=total_workers,
                                                                          worker_number=worker_number,
@@ -262,7 +259,8 @@ def __get_stagein_transfers(total_workers=0, worker_number=0, failover_schemes=N
                                                                          bring_online=bring_online,
                                                                          retry_other_fts=retry_other_fts,
                                                                          failover_schemes=failover_schemes,
-                                                                         session=session)
+                                                                         session=session,
+                                                                         logger=logger)
 
-    set_requests_state(reqs_no_source, RequestState.NO_SOURCES)
+    set_requests_state(reqs_no_source, RequestState.NO_SOURCES, logger=logger)
     return transfers

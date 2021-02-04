@@ -16,6 +16,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2016
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 
 """
 BB8 is a daemon the re-balance data between RSEs.
@@ -23,22 +24,12 @@ BB8 is a daemon the re-balance data between RSEs.
 
 import logging
 import socket
-import sys
 import threading
 import os
 
-
 from rucio.core.heartbeat import live, die, sanity_check
-from rucio.common.config import config_get
 
 GRACEFUL_STOP = threading.Event()
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 def rule_rebalancer(once=False):

@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2019
@@ -25,9 +25,9 @@ from __future__ import print_function
 
 import base64
 import imp
+import logging
 import time
 from re import search
-from traceback import format_exc
 
 from flask import Flask, Blueprint, request, Response, redirect
 from flask.views import MethodView
@@ -133,7 +133,7 @@ class UserPass(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0], headers=headers)
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500, headers
 
         if not result:
@@ -212,7 +212,7 @@ class OIDC(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0], headers=headers)
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500, headers
 
         if not result:
@@ -274,7 +274,7 @@ class RedirectOIDC(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0], headers=headers)
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500, headers
 
         if not result:
@@ -345,7 +345,7 @@ class CodeOIDC(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0], headers=headers)
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500, headers
 
         if not result:
@@ -410,7 +410,7 @@ class TokenOIDC(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0], headers=headers)
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500, headers
 
         if not result:
@@ -488,7 +488,7 @@ class RefreshOIDC(MethodView):
         except AccessDenied:
             return generate_http_error_flask(401, 'CannotAuthorize', 'Cannot authorize token request.', headers=headers)
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500, headers
 
         if result is not None and len(result) > 1:
@@ -743,7 +743,7 @@ class SSH(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0], headers=headers)
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         if not result:
@@ -818,7 +818,7 @@ class SSHChallengeToken(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0], headers=headers)
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500, headers
 
         if not result:
@@ -891,7 +891,7 @@ class SAML(MethodView):
             except RucioException as error:
                 return generate_http_error_flask(500, error.__class__.__name__, error.args[0], headers=headers)
             except Exception as error:
-                print(format_exc())
+                logging.exception("Internal Error")
                 return str(error), 500, headers
 
             if not result:

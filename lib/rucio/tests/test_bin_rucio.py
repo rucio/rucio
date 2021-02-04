@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2019
 # - Angelos Molfetas <Angelos.Molfetas@cern.ch>, 2012
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2012
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2021
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2014-2018
 # - Cheng-Hsi Chao <cheng-hsi.chao@cern.ch>, 2014
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2015
@@ -339,7 +339,7 @@ class TestBinRucio(unittest.TestCase):
             exitcode, out, err = execute(cmd)
             print(out)
             print(err)
-            assert (self.upload_success_str % path.basename(tmp_file4)) in out
+            assert (self.upload_success_str % path.basename(tmp_file4)) in out or (self.upload_success_str % path.basename(tmp_file4)) in err
             assert checksum_tmp_file4 == [replica for replica in self.replica_client.list_replicas(dids=[{'name': tmp_file1_name, 'scope': self.user}])][0]['md5']
 
             # try to upload file that already exists on RSE and is already registered -> no overwrite
@@ -349,7 +349,7 @@ class TestBinRucio(unittest.TestCase):
             print(out)
             print(err)
             remove(tmp_file4)
-            assert 'File already registered' in out
+            assert 'File already registered' in out or 'File already registered' in err
 
     def test_upload_file_guid(self):
         """CLIENT(USER): Rucio upload file with guid"""

@@ -17,17 +17,15 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2014
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2021
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
-from __future__ import print_function
-
 from json import loads
-from traceback import format_exc
+import logging
 
 from flask import Flask, Blueprint, request
 from flask.views import MethodView
@@ -74,7 +72,7 @@ class LocalAccountLimit(MethodView):
         except AccountNotFound as error:
             return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return 'Created', 201
@@ -100,7 +98,7 @@ class LocalAccountLimit(MethodView):
         except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         return '', 200
 
@@ -141,7 +139,7 @@ class GlobalAccountLimit(MethodView):
         except AccountNotFound as error:
             return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return 'Created', 201
@@ -167,7 +165,7 @@ class GlobalAccountLimit(MethodView):
         except RSENotFound as error:
             return generate_http_error_flask(404, 'RSENotFound', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         return '', 200
 
