@@ -35,7 +35,6 @@ import random
 import socket
 import tempfile
 import threading
-import traceback
 from datetime import datetime
 from json import load
 from math import exp
@@ -46,7 +45,7 @@ import rucio.db.sqla.util
 from rucio.client import Client
 from rucio.common import exception
 from rucio.common.exception import FileReplicaAlreadyExists, ConfigNotFound
-from rucio.common.logging import setup_logging
+from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.types import InternalScope
 from rucio.common.utils import adler32
 from rucio.common.utils import execute, generate_uuid
@@ -62,8 +61,8 @@ FAILURE = 1
 GRACEFUL_STOP = threading.Event()
 
 
-def upload(files, scope, metadata, rse, account, source_dir, worker_number, total_workers, dataset_lifetime, did=None, set_metadata=False, prepend_str=''):
-    logging.debug('In upload')
+def upload(files, scope, metadata, rse, account, source_dir, dataset_lifetime, did=None, set_metadata=False, logger=logging.log):
+    logger(logging.DEBUG, 'In upload')
     dsn = None
     if did:
         dsn = {'scope': did.split(':')[0], 'name': did.split(':')[1]}
@@ -71,8 +70,6 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
 
     list_files = []
     lfns = []
-    prepend_str = 'Thread [%i/%i] : ' % (worker_number, total_workers)
-    logging.debug('%s Looping over the files', prepend_str)
     for filename in files:
         physical_fname = filename
         if physical_fname.find('/') > -1:
@@ -80,41 +77,41 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
         fullpath = '%s/%s' % (source_dir, physical_fname)
         size = stat(fullpath).st_size
         checksum = adler32(fullpath)
-        logging.info('%s File %s : Size %s , adler32 %s', prepend_str, fullpath, str(size), checksum)
+        logger(logging.INFO, 'File %s : Size %s , adler32 %s', fullpath, str(size), checksum)
         list_files.append({'scope': scope, 'name': filename, 'bytes': size, 'adler32': checksum, 'meta': {'guid': generate_uuid()}})
         lfns.append({'name': filename, 'scope': scope, 'filesize': size, 'adler32': checksum, 'filename': physical_fname})
 
     # Physical upload
-    logging.info('%s Uploading physically the files %s on %s', prepend_str, str(lfns), rse)
+    logger(logging.INFO, 'Uploading physically the files %s on %s', str(lfns), rse)
     rse_info = rsemgr.get_rse_info(rse, vo=client.vo)
     try:
         success_upload = True
         for cnt in range(0, 3):
-            rows = rsemgr.upload(rse_info, lfns=lfns, source_dir=source_dir)
+            rows = rsemgr.upload(rse_info, lfns=lfns, source_dir=source_dir, logger=logger)
             # temporary hack
             global_status, ret = rows['success'], rows[1]
-            logging.info('%s Returned global status : %s, Returned : %s', prepend_str, str(global_status), str(ret))
+            logger(logging.INFO, 'Returned global status : %s, Returned : %s', str(global_status), str(ret))
             if not global_status:
                 for item in ret:
                     if (not isinstance(ret[item], FileReplicaAlreadyExists)) and ret[item] is not True:
                         sleep(exp(cnt))
                         success_upload = False
-                        logging.error('%s Problem to upload file %s with error %s', prepend_str, item, str(ret[item]))
+                        logger(logging.ERROR, 'Problem to upload file %s with error %s', item, str(ret[item]))
                         break
             else:
                 break
         if not success_upload:
-            logging.error('%s Upload operation to %s failed, removing leftovers', prepend_str, rse)
+            logger(logging.ERROR, 'Upload operation to %s failed, removing leftovers', rse)
             rsemgr.delete(rse_info, lfns=lfns)
             return False
     except Exception as error:
-        logging.debug(traceback.format_exc())
-        logging.error('%s %s', prepend_str, str(error))
+        logger(logging.DEBUG, "Exception", exc_info=True)
+        logger(logging.ERROR, '%s', str(error))
         return False
-    logging.info('%s Files successfully copied on %s', prepend_str, rse)
+    logger(logging.INFO, 'Files successfully copied on %s', rse)
 
     # Registering DIDs and replicas in Rucio
-    logging.info('%s Registering DIDs and replicas in Rucio', prepend_str)
+    logger(logging.INFO, 'Registering DIDs and replicas in Rucio')
     meta = metadata
     if not set_metadata:
         meta = None
@@ -122,25 +119,25 @@ def upload(files, scope, metadata, rse, account, source_dir, worker_number, tota
         try:
             client.add_dataset(scope=dsn['scope'], name=dsn['name'], rules=[{'account': account, 'copies': 1, 'rse_expression': rse, 'grouping': 'DATASET', 'activity': 'Functional Test'}], meta=meta, lifetime=dataset_lifetime)
             client.add_files_to_dataset(scope=dsn['scope'], name=dsn['name'], files=list_files, rse=rse)
-            logging.info('%s Upload operation for %s:%s done', prepend_str, dsn['scope'], dsn['name'])
+            logger(logging.INFO, 'Upload operation for %s:%s done', dsn['scope'], dsn['name'])
         except Exception as error:
-            logging.debug(traceback.format_exc())
-            logging.error('%s Failed to upload %s', prepend_str, str(list_files))
-            logging.error('%s %s', prepend_str, str(error))
-            logging.error('%s Removing files from the Storage', prepend_str)
+            logger(logging.DEBUG, "Exception", exc_info=True)
+            logger(logging.ERROR, 'Failed to upload %s', str(list_files))
+            logger(logging.ERROR, '%s', str(error))
+            logger(logging.ERROR, 'removing files from the Storage')
             rsemgr.delete(rse_info, lfns=lfns)
             return False
     else:
-        logging.warning('%s No dsn is specified', prepend_str)
+        logger(logging.WARNING, 'No dsn is specified')
         try:
             client.add_replicas(files=list_files, rse=rse)
             client.add_replication_rule(list_files, copies=1, rse_expression=rse, activity='Functional Test')
-            logging.info('%s Upload operation for %s done', prepend_str, str(list_files))
+            logger(logging.INFO, 'Upload operation for %s done', str(list_files))
         except Exception as error:
-            logging.debug(traceback.format_exc())
-            logging.error('%s Failed to upload %s', prepend_str, str(list_files))
-            logging.error('%s %s', prepend_str, str(error))
-            logging.error('%s Removing files from the Storage', prepend_str)
+            logger(logging.DEBUG, "Exception", exc_info=True)
+            logger(logging.ERROR, 'Failed to upload %s', str(list_files))
+            logger(logging.ERROR, '%s', str(error))
+            logger(logging.ERROR, 'Removing files from the Storage')
             rsemgr.delete(rse_info, lfns=lfns)
             return False
     return True
@@ -169,11 +166,11 @@ def choose_element(probabilities, data):
     return data[key]
 
 
-def generate_file(fname, size):
+def generate_file(fname, size, logger=logging.log):
     cmd = '/bin/dd if=/dev/urandom of=%s bs=%s count=1' % (fname, size)
     exitcode, out, err = execute(cmd)
-    logging.debug(out)
-    logging.debug(err)
+    logger(logging.DEBUG, out)
+    logger(logging.DEBUG, err)
     return exitcode
 
 
@@ -217,14 +214,16 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
     pid = getpid()
     hb_thread = threading.current_thread()
     heartbeat.sanity_check(executable=executable, hostname=hostname)
-    prepend_str = 'Thread [%i/%i] : ' % (worker_number, total_workers)
+    prefix = 'automatix[%i/%i] : ' % (worker_number, total_workers)
+    logger = formatted_logger(logging.log, prefix + '%s')
     while not GRACEFUL_STOP.is_set():
         heartbeat.live(executable, hostname, pid, hb_thread)
         starttime = time()
-        prepend_str = 'Thread [%i/%i] : ' % (worker_number, total_workers)
-        logging.info('%s Getting data distribution', prepend_str)
+        prefix = 'automatix[%i/%i] : ' % (worker_number, total_workers)
+        logger = formatted_logger(logging.log, prefix + '%s')
+        logger(logging.INFO, 'Getting data distribution')
         probabilities, data = get_data_distribution(inputfile)
-        logging.debug('%s Probabilities %s', prepend_str, probabilities)
+        logger(logging.DEBUG, 'Probabilities %s', probabilities)
         totretries = 3
         status = False
 
@@ -233,19 +232,19 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
             for retry in range(0, totretries):
                 start_time = time()
                 tmpdir = tempfile.mkdtemp()
-                logging.info('%s Running on site %s', prepend_str, site)
+                logger(logging.INFO, 'Running on site %s', site)
                 dic = choose_element(probabilities, data)
                 metadata = dic['metadata']
                 try:
                     nbfiles = dic['nbfiles']
                 except KeyError:
                     nbfiles = 2
-                    logging.warning('%s No nbfiles defined in the configuration, will use 2', prepend_str)
+                    logger(logging.WARNING, 'No nbfiles defined in the configuration, will use 2')
                 try:
                     filesize = dic['filesize']
                 except KeyError:
                     filesize = 1000000
-                    logging.warning('%s No filesize defined in the configuration, will use 1M files', prepend_str)
+                    logger(logging.WARNING, 'No filesize defined in the configuration, will use 1M files')
                 dsn = generate_didname(metadata, None, 'dataset')
                 fnames = []
                 lfns = []
@@ -253,14 +252,14 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
                 for _ in range(nbfiles):
                     fname = generate_didname(metadata=metadata, dsn=dsn, did_type='file')
                     lfns.append(fname)
-                    logging.info('%s Generating file %s in dataset %s', prepend_str, fname, dsn)
+                    logger(logging.INFO, 'Generating file %s in dataset %s', fname, dsn)
                     physical_fname = '%s/%s' % (tmpdir, "".join(fname.split('/')))
                     physical_fnames.append(physical_fname)
-                    generate_file(physical_fname, filesize)
+                    generate_file(physical_fname, filesize, logger=logger)
                     fnames.append(fname)
-                logging.info('%s Upload %s to %s', prepend_str, dsn, site)
+                logger(logging.INFO, 'Upload %s to %s', dsn, site)
                 dsn = '%s:%s' % (scope, dsn)
-                status = upload(files=lfns, scope=scope, metadata=metadata, rse=site, account=account, source_dir=tmpdir, worker_number=worker_number, total_workers=total_workers, dataset_lifetime=dataset_lifetime, did=dsn, set_metadata=set_metadata)
+                status = upload(files=lfns, scope=scope, metadata=metadata, rse=site, account=account, source_dir=tmpdir, dataset_lifetime=dataset_lifetime, did=dsn, set_metadata=set_metadata, logger=logger)
                 for physical_fname in physical_fnames:
                     remove(physical_fname)
                 rmdir(tmpdir)
@@ -270,21 +269,21 @@ def automatix(sites, inputfile, sleep_time, account, worker_number=1, total_work
                     monitor.record_timer('automatix.datasetinjection', (time() - start_time) * 1000)
                     break
                 else:
-                    logging.info('%s Failed to upload files. Will retry another time (attempt %s/%s)', prepend_str, str(retry + 1), str(totretries))
+                    logger(logging.INFO, 'Failed to upload files. Will retry another time (attempt %s/%s)', str(retry + 1), str(totretries))
         if once is True:
-            logging.info('%s Run with once mode. Exiting', prepend_str)
+            logger(logging.INFO, 'Run with once mode. Exiting')
             break
         tottime = time() - starttime
         if status:
-            logging.info('%s It took %s seconds to upload one dataset on %s', prepend_str, str(tottime), str(sites))
+            logger(logging.INFO, 'It took %s seconds to upload one dataset on %s', str(tottime), str(sites))
             if sleep_time > tottime:
-                logging.info('%s Will sleep for %s seconds', prepend_str, str(sleep_time - tottime))
+                logger(logging.INFO, 'Will sleep for %s seconds', str(sleep_time - tottime))
                 sleep(sleep_time - tottime)
         else:
-            logging.info('%s Retrying a new upload', prepend_str)
+            logger(logging.INFO, 'Retrying a new upload')
     heartbeat.die(executable, hostname, pid, hb_thread)
-    logging.info('%s Graceful stop requested', prepend_str)
-    logging.info('%s Graceful stop done', prepend_str)
+    logger(logging.INFO, 'Graceful stop requested')
+    logger(logging.INFO, 'Graceful stop done')
 
 
 def run(total_workers=1, once=False, inputfile=None):
@@ -324,7 +323,7 @@ def run(total_workers=1, once=False, inputfile=None):
         client = Client()
         filters = {'scope': InternalScope('*', vo=client.vo)}
         if InternalScope(scope, vo=client.vo) not in list_scopes(filter=filters):
-            logging.error('Scope %s does not exist. Exiting', scope)
+            logging.log(logging.ERROR, 'Scope %s does not exist. Exiting', scope)
             GRACEFUL_STOP.set()
     except Exception:
         scope = False
@@ -344,7 +343,7 @@ def run(total_workers=1, once=False, inputfile=None):
         threads.append(threading.Thread(target=automatix, kwargs=kwargs))
     [thread.start() for thread in threads]
     while threads[0].is_alive():
-        logging.debug('Still %i active threads', len(threads))
+        logging.log(logging.DEBUG, 'Still %i active threads', len(threads))
         [thread.join(timeout=3.14) for thread in threads]
 
 
