@@ -16,3 +16,9 @@ paramiko==2.7.2                                   # SSH2 protocol library
 Flask==1.1.2                                      # Python web framework
 oic==1.2.1                                        # for authentication via OpenID Connect protocol
 prometheus_client==0.9.0                          # Python client for the Prometheus monitoring system
+python-magic>=0.4.15,<0.5.0                       # File type identification using libmagic
+futures>=3.2.0; python_version < '3.0'            # Clean single-source support for Python 3 and 2
+boto>=2.49.0,<2.50.0                              # S3 boto protocol
+boto3>=1.9.130,<1.17.0                            # S3 boto protocol (new version)
+pysftp>=0.2.9,<0.3                                # Used by sftp protocol
+tabulate>=0.8.0,<0.9.0                            # Pretty-print tabular data

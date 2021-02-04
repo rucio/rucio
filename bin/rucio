@@ -57,9 +57,6 @@ import unittest
 import uuid
 from functools import wraps
 
-import argcomplete
-import tabulate
-
 # rucio module has the same name as this executable module, so this rule fails. pylint: disable=no-name-in-module
 from rucio import version
 from rucio.client import Client
@@ -76,6 +73,35 @@ try:
     from ConfigParser import NoOptionError, NoSectionError
 except ImportError:
     from configparser import NoOptionError, NoSectionError
+
+try:
+    from tabulate import tabulate
+except ImportError:
+    # make tabulate an optional dependency
+    def tabulate(table, tablefmt='plain', headers=None):
+        result = ""
+        collens = []
+        for i in range(0, len(table[0])):
+            collen = 0
+            for j in range(0, len(table)):
+                collen = max(collen, len(str(table[j][i])))
+            if headers:
+                collen = max(collen, len(headers[i]))
+            collens.append(collen)
+        if headers:
+            for i in range(0, len(headers)):
+                result += headers[i] + (" " * ((collens[i] + 2) - len(headers[i])))
+            result += "\n"
+            for i in range(0, len(headers)):
+                result += ("-" * collens[i]) + "  "
+            result += "\n"
+        for row in table:
+            for i in range(0, len(row)):
+                val = str(row[i])
+                result += val + (" " * ((collens[i] + 2) - len(val)))
+            result += "\n"
+        return result
+
 
 SUCCESS = 0
 FAILURE = 1
@@ -340,7 +366,7 @@ def list_dataset_replicas(args):
     else:
         for dsn in result:
             print('\nDATASET: %s' % (dsn))
-            print(tabulate.tabulate(list(result[dsn].values()), tablefmt=tablefmt, headers=['RSE', 'FOUND', 'TOTAL']))
+            print(tabulate(list(result[dsn].values()), tablefmt=tablefmt, headers=['RSE', 'FOUND', 'TOTAL']))
     return SUCCESS
 
 
@@ -389,7 +415,7 @@ def list_file_replicas(args):
             for replica in replicas:
                 if replica['states'].get(args.selected_rse) != 'AVAILABLE':
                     table.append([replica['scope'], replica['name']])
-            print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME']))
+            print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME']))
         elif args.link:
             pfn_dir, dst_dir = args.link.split(':')
             for replica in replicas:
@@ -423,7 +449,7 @@ def list_file_replicas(args):
                                     table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], '{0}: {1}'.format(rse, pfn)])
                             else:
                                 table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], '{0}: {1}'.format(rse, pfn)])
-            print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA']))
+            print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA']))
 
     return SUCCESS
 
@@ -569,7 +595,7 @@ def list_dids(args):
         for did, dummy in table:
             print(did)
     else:
-        print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
+        print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
     return SUCCESS
 
 
@@ -623,7 +649,7 @@ def list_dids_extended(args):
         for did, dummy in table:
             print(did)
     else:
-        print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
+        print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
     return SUCCESS
 
 
@@ -706,7 +732,7 @@ def list_files(args):
                 else:
                     guid = '(None)'
                 table.append(['%s:%s' % (file['scope'], file['name']), guid, 'ad:%s' % file['adler32'], sizefmt(file['bytes'], args.human), file['events']])
-            print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', 'GUID', 'ADLER32', 'FILESIZE', 'EVENTS']))
+            print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', 'GUID', 'ADLER32', 'FILESIZE', 'EVENTS']))
             print('Total files : %s' % totfiles)
             print('Total size : %s' % sizefmt(totsize, args.human))
             if totevents:
@@ -731,7 +757,7 @@ def list_content(args):
         for did, dummy in table:
             print(did)
     else:
-        print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
+        print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
     return SUCCESS
 
 
@@ -748,7 +774,7 @@ def list_content_history(args):
         scope, name = get_scope(did, client)
         for content in client.list_content_history(scope=scope, name=name):
             table.append(['%s:%s' % (content['scope'], content['name']), content['type'].upper()])
-    print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
+    print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
     return SUCCESS
 
 
@@ -795,7 +821,7 @@ def list_parent_dids(args):
         scope, name = get_scope(args.did, client)
         for dataset in client.list_parent_dids(scope=scope, name=name):
             table.append(['%s:%s' % (dataset['scope'], dataset['name']), dataset['type']])
-        print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
+        print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
     else:
         print('At least one option has to be given. Use -h to list the options.')
         return FAILURE
@@ -846,7 +872,7 @@ def stat(args):
         scope, name = get_scope(did, client)
         info = client.get_did(scope=scope, name=name)
         table = [(k + ':', str(v)) for (k, v) in sorted(info.items())]
-        print(tabulate.tabulate(table, tablefmt='plain'))
+        print(tabulate(table, tablefmt='plain'))
     return SUCCESS
 
 
@@ -1107,7 +1133,7 @@ def get_metadata(args):
         scope, name = get_scope(did, client)
         meta = client.get_metadata(scope=scope, name=name, plugin=plugin)
         table = [(k + ':', str(v)) for (k, v) in sorted(meta.items())]
-        print(tabulate.tabulate(table, tablefmt='plain'))
+        print(tabulate(table, tablefmt='plain'))
     return SUCCESS
 
 
@@ -1438,7 +1464,7 @@ def list_rules(args):
                           rule['copies'],
                           rule['expires_at'],
                           rule['created_at']])
-        print(tabulate.tabulate(table, tablefmt='simple', headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE_EXPRESSION', 'COPIES', 'EXPIRES (UTC)', 'CREATED (UTC)']))
+        print(tabulate(table, tablefmt='simple', headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE_EXPRESSION', 'COPIES', 'EXPIRES (UTC)', 'CREATED (UTC)']))
     return SUCCESS
 
 
@@ -1499,7 +1525,7 @@ def list_rse_attributes(args):
     client = get_client(args)
     attributes = client.list_rse_attributes(rse=args.rse)
     table = [(k + ':', str(v)) for (k, v) in sorted(attributes.items())]
-    print(tabulate.tabulate(table, tablefmt='plain'))
+    print(tabulate(table, tablefmt='plain'))
     return SUCCESS
 
 
@@ -1560,7 +1586,7 @@ def list_account_limits(args):
     for limit in list(limits.items()):
         table.append([limit[0], sizefmt(limit[1], args.human)])
     table.sort()
-    print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'LIMIT']))
+    print(tabulate(table, tablefmt=tablefmt, headers=['RSE', 'LIMIT']))
 
     table = []
     limits = client.get_global_account_limits(account=args.limit_account)
@@ -1568,7 +1594,7 @@ def list_account_limits(args):
         if (args.rse and args.rse in limit[1]['resolved_rses']) or not args.rse:
             table.append([limit[0], sizefmt(limit[1]['limit'], args.human)])
     table.sort()
-    print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE EXPRESSION', 'LIMIT']))
+    print(tabulate(table, tablefmt=tablefmt, headers=['RSE EXPRESSION', 'LIMIT']))
 
     return SUCCESS
 
@@ -1591,7 +1617,7 @@ def list_account_usage(args):
         remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
         table.append([item['rse'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
     table.sort()
-    print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
+    print(tabulate(table, tablefmt=tablefmt, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
 
     table = []
     usage = client.get_global_account_usage(account=args.usage_account)
@@ -1600,7 +1626,7 @@ def list_account_usage(args):
             remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
             table.append([item['rse_expression'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
     table.sort()
-    print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['RSE EXPRESSION', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
+    print(tabulate(table, tablefmt=tablefmt, headers=['RSE EXPRESSION', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
 
     return SUCCESS
 
@@ -1619,7 +1645,7 @@ def list_datasets_rse(args):
         for dsn in client.list_datasets_per_rse(args.rse):
             table.append(['%s:%s' % (dsn['scope'], dsn['name']), '%s/%s' % (str(dsn['available_length']), str(dsn['length'])), '%s/%s' % (str(dsn['available_bytes']), str(dsn['bytes']))])
         table.sort()
-        print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['DID', 'LOCAL FILES/TOTAL FILES', 'LOCAL BYTES/TOTAL BYTES']))
+        print(tabulate(table, tablefmt=tablefmt, headers=['DID', 'LOCAL FILES/TOTAL FILES', 'LOCAL BYTES/TOTAL BYTES']))
     else:
         dsns = list(set(['%s:%s' % (dsn['scope'], dsn['name']) for dsn in client.list_datasets_per_rse(args.rse)]))
         dsns.sort()
@@ -2300,7 +2326,11 @@ if __name__ == '__main__':
             os.environ['RUCIO_CONFIG'] = arguments[argi + 1]
 
     oparser = get_parser()
-    argcomplete.autocomplete(oparser)
+    try:
+        import argcomplete
+        argcomplete.autocomplete(oparser)
+    except ImportError:
+        pass
 
     if len(sys.argv) == 1:
         oparser.print_help()
