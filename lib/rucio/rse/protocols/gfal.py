@@ -29,7 +29,7 @@
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 #
 # PY3K COMPATIBLE
 
@@ -72,8 +72,6 @@ class Default(protocol.RSEProtocol):
         :returns: Fully qualified PFN.
         """
         lfns = [lfns] if type(lfns) == dict else lfns
-        # logging is commented out due to the log overload on server, TODO
-        # self.logger.debug('getting pfn for {} lfns'.format(len(list(lfns))))
 
         pfns = {}
         prefix = self.attributes['prefix']
@@ -90,7 +88,6 @@ class Default(protocol.RSEProtocol):
         hostname = self.attributes['hostname']
         if '://' in hostname:
             hostname = hostname.split("://")[1]
-        # self.logger.debug('hostname: {} prefix: {}'.format(hostname, prefix))
 
         if self.attributes['port'] == 0:
             for lfn in lfns:
@@ -107,8 +104,6 @@ class Default(protocol.RSEProtocol):
                     path = path[1:]
                 pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', hostname, ':', str(self.attributes['port']), web_service_path, prefix, path])
 
-        # self.logger.debug('count of pfns: {}'.format(len(list(pfns))))
-
         return pfns
 
     def parse_pfns(self, pfns):
@@ -123,7 +118,7 @@ class Default(protocol.RSEProtocol):
         :raises RSEFileNameNotSupported: if the provided PFN doesn't match with the protocol settings
         """
 
-        self.logger.debug('count pfns {}'.format(len(list(pfns))))
+        self.logger(logging.DEBUG, 'parsing {} pfns'.format(len(list(pfns))))
         ret = dict()
         pfns = [pfns] if isinstance(pfns, STRING_TYPES) else pfns
         for pfn in pfns:
@@ -169,7 +164,7 @@ class Default(protocol.RSEProtocol):
 
         :returns: Fully qualified PFN.
         """
-        self.logger.debug('path {}'.format(path))
+        self.logger(logging.DEBUG, 'getting pfn for {}'.format(path))
 
         if '://' in path:
             return path
@@ -198,7 +193,7 @@ class Default(protocol.RSEProtocol):
 
         :raises RSEAccessDenied
         """
-        self.logger.debug('connecting')
+        self.logger(logging.DEBUG, 'connecting to storage')
 
         gfal2.set_verbose(gfal2.verbose_level.verbose)
 
@@ -221,7 +216,7 @@ class Default(protocol.RSEProtocol):
         :raises ServiceUnavailable: if some generic error occured in the library.
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
-        self.logger.debug('path {}'.format(path))
+        self.logger(logging.DEBUG, 'downloading file from {} to {}'.format(path, dest))
 
         dest = os.path.abspath(dest)
         if ':' not in dest:
@@ -251,7 +246,7 @@ class Default(protocol.RSEProtocol):
         :raises ServiceUnavailable: if some generic error occured in the library.
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
-        self.logger.debug('source {} target {}'.format(source, target))
+        self.logger(logging.DEBUG, 'uploading file from {} to {}'.format(source, target))
 
         source_url = '%s/%s' % (source_dir, source) if source_dir else source
         source_url = os.path.abspath(source_url)
@@ -284,7 +279,7 @@ class Default(protocol.RSEProtocol):
         :raises ServiceUnavailable: if some generic error occured in the library.
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
-        self.logger.debug('path {}'.format(path))
+        self.logger(logging.DEBUG, 'deleting file {}'.format(path))
 
         pfns = [path] if isinstance(path, STRING_TYPES) else path
 
@@ -308,7 +303,7 @@ class Default(protocol.RSEProtocol):
         :raises ServiceUnavailable: if some generic error occured in the library.
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
-        self.logger.debug('path: {} new_path: {}'.format(path, new_path))
+        self.logger(logging.DEBUG, 'renaming file from {} to {}'.format(path, new_path))
 
         try:
             status = self.__gfal2_rename(path, new_path)
@@ -331,7 +326,7 @@ class Default(protocol.RSEProtocol):
 
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
-        self.logger.debug('path {}'.format(path))
+        self.logger(logging.DEBUG, 'checking if file exists {}'.format(path))
 
         try:
             status = self.__gfal2_exist(path)
@@ -347,7 +342,7 @@ class Default(protocol.RSEProtocol):
         """
         Closes the connection to RSE.
         """
-        self.logger.debug('closing protocol connection')
+        self.logger(logging.DEBUG, 'closing protocol connection')
         del self.__ctx
         self.__ctx = None
 
@@ -361,7 +356,7 @@ class Default(protocol.RSEProtocol):
 
             :returns: a dict with two keys, filesize and an element of GLOBALLY_SUPPORTED_CHECKSUMS.
         """
-        self.logger.debug('path {}'.format(path))
+        self.logger(logging.DEBUG, 'getting stats of file {}'.format(path))
 
         ret = {}
         ctx = self.__ctx
@@ -403,7 +398,7 @@ class Default(protocol.RSEProtocol):
         """
         Cancel all gfal operations in progress.
         """
-        self.logger.debug('cancelling gfal proc.')
+        self.logger(logging.DEBUG, 'gfal: cancelling all operations')
 
         ctx = self.__ctx
         if ctx:
@@ -424,8 +419,6 @@ class Default(protocol.RSEProtocol):
         :raises SourceNotFound: if source file cannot be found.
         :raises RucioException: if it failed to copy the file.
         """
-        self.logger.debug('src: {} dest: {}'.format(src, dest))
-
         ctx = self.__ctx
         params = ctx.transfer_parameters()
         if src_spacetoken:
@@ -496,8 +489,6 @@ class Default(protocol.RSEProtocol):
 
         :raises RucioException: if the error is not source not found.
         """
-        self.logger.debug('path {}'.format(path))
-
         ctx = self.__ctx
         try:
             if ctx.stat(str(path)):
@@ -519,8 +510,6 @@ class Default(protocol.RSEProtocol):
 
         :raises RucioException: if failed.
         """
-        self.logger.debug('path: {} new_path: {}'.format(path, new_path))
-
         ctx = self.__ctx
 
         try:
@@ -546,7 +535,7 @@ class Default(protocol.RSEProtocol):
         :raises ServiceUnavailable: if some generic error occured in the library.
         """
         endpoint_basepath = self.path2pfn(self.attributes['prefix'])
-        self.logger.debug('endpoint_basepath {}'.format(endpoint_basepath))
+        self.logger(logging.DEBUG, 'getting space usage from {}'.format(endpoint_basepath))
 
         space_token = None
         if self.attributes['extended_attributes'] is not None and 'space_token' in list(self.attributes['extended_attributes'].keys()):
@@ -572,8 +561,6 @@ class Default(protocol.RSEProtocol):
 
         :raises ServiceUnavailable: if failed.
         """
-        self.logger.debug('path: {} space_token: {}'.format(path, space_token))
-
         ctx = self.__ctx
 
         try:
@@ -590,10 +577,12 @@ class NoRename(Default):
 
     """ Do not rename files on upload/download. Necessary for some storage endpoints. """
 
-    def __init__(self, protocol_attr, rse_settings, logger=None):
+    def __init__(self, protocol_attr, rse_settings, logger=logging.log):
         """ Initializes the object with information about the referred RSE.
 
-            :param props Properties derived from the RSE Repository
+            :param protocol_attr:  Properties of the requested protocol.
+            :param rse_settting:   The RSE settings.
+            :param logger:         Optional decorated logger that can be passed from the calling daemons or servers.
         """
         super(NoRename, self).__init__(protocol_attr, rse_settings, logger=logger)
         self.renaming = False
@@ -613,7 +602,7 @@ class NoRename(Default):
 
 class CLI(Default):
 
-    def __init__(self, protocol_attr, rse_settings, logger=None):
+    def __init__(self, protocol_attr, rse_settings, logger=logging.log):
         """ Initializes the object with information about the referred RSE.
 
             :param props Properties derived from the RSE Repository
@@ -640,15 +629,15 @@ class CLI(Default):
             dest = "file://" + dest
 
         cmd = 'gfal-copy -vf -p -t %s -T %s %s %s' % (transfer_timeout, transfer_timeout, path, dest)
-        self.logger.debug('Command: ' + cmd)
+        self.logger(logging.DEBUG, 'Command: ' + cmd)
         cmd = cmd.split()
 
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = p.communicate()
 
         if p.returncode:
-            self.logger.debug('Error STDOUT: ' + str(stdout))
-            self.logger.debug('Error STDERR: ' + str(stderr))
+            self.logger(logging.DEBUG, 'Error STDOUT: ' + str(stdout))
+            self.logger(logging.DEBUG, 'Error STDERR: ' + str(stderr))
             raise exception.RucioException(str(stderr))
 
     def put(self, source, target, source_dir, transfer_timeout=None):
@@ -665,7 +654,7 @@ class CLI(Default):
 
         source_dir = source_dir or '.'
         source_url = '%s/%s' % (source_dir, source)
-        self.logger.debug('source: ' + str(source_url))
+        self.logger(logging.DEBUG, 'source: ' + str(source_url))
         source_url = os.path.abspath(source_url)
         if not os.path.exists(source_url):
             raise exception.SourceNotFound()
@@ -679,13 +668,13 @@ class CLI(Default):
             space_token = self.attributes['extended_attributes']['space_token']
             cmd = 'gfal-copy -vf -p -t %s -T %s -S %s %s %s ' % (transfer_timeout, transfer_timeout, space_token, source, target)
 
-        self.logger.debug('Command: ' + cmd)
+        self.logger(logging.DEBUG, 'Command: ' + cmd)
         cmd = cmd.split()
 
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = p.communicate()
 
         if p.returncode:
-            self.logger.debug('Error STDOUT: ' + str(stdout))
-            self.logger.debug('Error STDERR: ' + str(stderr))
+            self.logger(logging.DEBUG, 'Error STDOUT: ' + str(stdout))
+            self.logger(logging.DEBUG, 'Error STDERR: ' + str(stderr))
             raise exception.RucioException(str(stderr))

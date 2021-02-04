@@ -567,7 +567,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
 
                 # Physical  deletion will take place there
                 try:
-                    prot = rsemgr.create_protocol(rse_info, 'delete', scheme=scheme)
+                    prot = rsemgr.create_protocol(rse_info, 'delete', scheme=scheme, logger=logger)
                     for file_replicas in chunks(replicas, 100):
                         # Refresh heartbeat
                         live(executable, hostname, pid, hb_thread, older_than=600, hash_executable=None, payload=rse_hostname_key, session=None)
