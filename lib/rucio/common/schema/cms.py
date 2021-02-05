@@ -60,7 +60,7 @@ SCOPE_LENGTH = 25
 
 SCOPE = {"description": "Scope name",
          "type": "string",
-         "pattern": r"^(cms)|(user\.[a-z0-9-_]{1,%s})$" % (SCOPE_LENGTH - len('user.'))}
+         "pattern": r"^(cms)|(logs)|(user\.[a-z0-9-_]{1,%s})$" % (SCOPE_LENGTH - len('user.'))}
 
 R_SCOPE = {"description": "Scope name",
            "type": "string",
@@ -265,13 +265,6 @@ DID = {"description": "Data Identifier(DID)",
             "then": {"properties": {"name": {"pattern": CMS_LFN}}}},
            {"if": {"properties": {"type": {"const": "F"}}},
             "then": {"properties": {"name": {"pattern": CMS_LFN}}}},
-           {"if": {"allOf": [
-               {"properties": {"scope": {"pattern": "^user\\."}}},
-               {"properties": {"type": {"const": "FILE"}}},
-           ], },
-               "then": {"properties": {"name": {"pattern": "^/store/user/rucio/"}}}},
-           {"if": {"properties": {"scope": {"const": "cms"}}},
-            "then": {"properties": {"name": {"not": {"pattern": "^/store/user/"}}}}},
        ],
        "required": ["scope", "name", "type"],
        "additionalProperties": False}
@@ -301,13 +294,13 @@ DIDS = {"description": "Array of Data Identifiers(DIDs)",
         "type": "array",
         "items": DID,
         "minItems": 1,
-        "maxItems": 1000}
+        "maxItems": 3000}  # Was 1000
 
 R_DIDS = {"description": "Array of Data Identifiers(DIDs)",
           "type": "array",
           "items": R_DID,
           "minItems": 1,
-          "maxItems": 1000}
+          "maxItems": 30000}
 
 ATTACHMENT = {"description": "Attachement",
               "type": "object",
@@ -324,7 +317,7 @@ ATTACHMENTS = {"description": "Array of attachments",
                "type": "array",
                "items": ATTACHMENT,
                "minItems": 1,
-               "maxItems": 1000}
+               "maxItems": 3000}  # Was 1000
 
 SUBSCRIPTION_FILTER = {"type": "object",
                        "properties": {"datatype": {"type": "array"},
@@ -474,3 +467,10 @@ def validate_cms_did(obj):
         _, user = scope.split('.', 1)
         if not lfn.startswith('/store/user/rucio/%s/' % user):
             raise InvalidObject("Problem with LFN %(lfn)s : Not allowed for user %(user)s" % locals())
+    if lfn.startswith('/store/user') and not lfn.startswith('/store/user/rucio/'):
+        raise InvalidObject("Problem with LFN %(lfn)s : Legacy user files are not managed with Rucio")
+    if lfn.startswith('/store/user/rucio') and not scope.startswith('user.'):
+        raise InvalidObject("Problem with LFN %(lfn)s : Only user scopes allowed in /store/user/rucio")
+    if scope == 'logs' and did_type == 'FILE':
+        if not lfn.startswith('/store/logs/'):
+            raise InvalidObject("Problem with LFN %(lfn)s : Logs must start with /store/logs" % locals())
