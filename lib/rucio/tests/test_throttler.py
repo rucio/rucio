@@ -1378,7 +1378,7 @@ class TestRequestCoreRelease(unittest.TestCase):
         self.db_session.query(models.Request).delete()
         self.db_session.commit()
         name1 = generate_uuid()
-        add_replica(self.dest_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
         volume = 0
         set_rse_transfer_limits(self.dest_rse_id, self.all_activities, volume=volume, max_transfers=1, session=self.db_session)
         requests = [{
