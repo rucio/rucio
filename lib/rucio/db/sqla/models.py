@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2020 CERN
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import datetime
 import sys
@@ -1166,6 +1166,7 @@ class Request(BASE, ModelBase, Versioned):
     account = Column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
     requested_at = Column(DateTime)
     priority = Column(Integer)
+    transfertool = Column(String(64))
     _table_args = (PrimaryKeyConstraint('id', name='REQUESTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REQUESTS_DID_FK'),
                    ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='REQUESTS_RSES_FK'),
