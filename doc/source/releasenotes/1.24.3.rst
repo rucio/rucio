@@ -1,0 +1,23 @@
+======
+1.24.3
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Database: Oracle optimisation for abacus-collection-replicas `#4279 <https://github.com/rucio/rucio/issues/4279>`_
+- Policies: Too restrictive RSE Expression regular expressions for RSE names `#4277 <https://github.com/rucio/rucio/issues/4277>`_
+
+****
+Bugs
+****
+
+- Consistency checks: Dark reaper mismatch between RSE ID and dictionary. `#4285 <https://github.com/rucio/rucio/issues/4285>`_
+- Deletion: The deletion of replicas with Epoch tombstone doesn't start if no space is needed `#4288 <https://github.com/rucio/rucio/issues/4288>`_
+- Messaging: Hermes2: Submission of deletion events in local time `#4287 <https://github.com/rucio/rucio/issues/4287>`_
+- Messaging: Hermes throwing exception on python3 `#4289 <https://github.com/rucio/rucio/issues/4289>`_
