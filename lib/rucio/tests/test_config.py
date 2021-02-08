@@ -17,6 +17,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 import unittest
 
@@ -65,7 +66,6 @@ class TestConfigCore:
         assert value == expected_value
 
 
-@pytest.mark.xfail(reason='ConfigClient bug https://github.com/rucio/rucio/issues/3916')
 def test_config_section_contextless():
     config = ConfigClient()
     test_section_1 = generate_uuid()
@@ -76,7 +76,8 @@ def test_config_section_contextless():
     value = config.get_config(None, None)
 
     assert isinstance(value, dict)
-    assert list(value.keys()) == [test_section_1, test_section_2]
+    assert test_section_1 in value.keys()
+    assert test_section_2 in value.keys()
 
 
 class TestConfigClients(unittest.TestCase):
@@ -101,7 +102,6 @@ class TestConfigClients(unittest.TestCase):
     def tearDown(self):
         self.c = None
 
-    @pytest.mark.xfail(reason='ConfigClient bug https://github.com/rucio/rucio/issues/3916')
     def test_get_config_all(self):
         """ CONFIG (CLIENT): Retrieve configuration values and check for correctness """
         tmp = self.c.get_config(None, None)
