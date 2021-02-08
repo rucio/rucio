@@ -21,12 +21,13 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 import json
 from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
 
-from web import application, ctx, Created, loadhook, header, InternalError
+from web import application, ctx, data, Created, loadhook, header, InternalError
 
 from rucio.api import config
 from rucio.common.exception import ConfigurationError
@@ -38,8 +39,8 @@ SH = StreamHandler()
 SH.setLevel(DEBUG)
 LOGGER.addHandler(SH)
 
-URLS = ('/(.+)/(.+)/(.*)', 'OptionSet',
-        '/(.+)/(.+)', 'OptionGetDel',
+URLS = ('/(.+)/(.+)/(.*)', 'OptionSetByPath',
+        '/(.+)/(.+)', 'Option',
         '/(.+)', 'Section',
         '', 'Config')
 
@@ -102,7 +103,7 @@ class Section(RucioController):
         return json.dumps(res)
 
 
-class OptionGetDel(RucioController):
+class Option(RucioController):
     """ REST API for reading or deleting the options in the configuration. """
 
     @exception_wrapper
@@ -145,8 +146,46 @@ class OptionGetDel(RucioController):
 
         config.remove_option(section=section, option=option, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
 
+    @exception_wrapper
+    def PUT(self, section, option):
+        """
+        Set the value of an option.
+        If the option does not exist, create it.
 
-class OptionSet(RucioController):
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            400 The input data is invalid or incomplete
+            500 ConfigurationError
+
+        :param Rucio-Auth-Account: Account identifier.
+        :param Rucio-Auth-Token: 32 character hex string.
+        """
+
+        json_data = data().decode()
+        try:
+            parameter = json.loads(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
+
+        try:
+            value = parameter['value']
+        except KeyError as error:
+            raise generate_http_error(400, 'KeyError', '%s not defined' % str(error))
+
+        try:
+            config.set(section=section, option=option, value=value, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
+        except ConfigurationError:
+            raise generate_http_error(500, 'ConfigurationError', 'Could not set value \'%s\' for section \'%s\' option \'%s\'' % (value, section, option))
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+        raise Created()
+
+
+class OptionSetByPath(RucioController):
     """ REST API for setting the options in the configuration. """
 
     @exception_wrapper
@@ -154,6 +193,7 @@ class OptionSet(RucioController):
         """
         Set the value of an option.
         If the option does not exist, create it.
+        TODO: remove this endpoint after migrating all clients to pass 'value' via a json body
 
         HTTP Success:
             200 OK

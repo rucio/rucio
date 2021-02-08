@@ -22,8 +22,11 @@
 # - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 import logging
+
+from json import loads
 
 from flask import Flask, Blueprint, request as request, jsonify
 from flask.views import MethodView
@@ -99,7 +102,7 @@ class Section(MethodView):
             return str(error), 500
 
 
-class OptionGetDel(MethodView):
+class Option(MethodView):
     """ REST API for reading or deleting the options in the configuration. """
 
     @check_accept_header_wrapper_flask(['application/json'])
@@ -107,7 +110,7 @@ class OptionGetDel(MethodView):
         """
         Retrieve the value of an option.
 
-        .. :quickref: OptionGetDel; get config value.
+        .. :quickref: Option; get config value.
 
         :param section: The section name.
         :resheader Content-Type: application/json
@@ -134,7 +137,7 @@ class OptionGetDel(MethodView):
         """
         Delete an option.
 
-        .. :quickref: OptionGetDel; delete an option.
+        .. :quickref: Option; delete an option.
 
         :status 200: OK.
         :status 401: Invalid Auth Token.
@@ -148,14 +151,49 @@ class OptionGetDel(MethodView):
             logging.exception("Internal Error")
             return str(error), 500
 
+    def put(self, section, option):
+        """
+        Create or set the configuration option in the requested section.
+        The request body is expected to contain a json {"value": "..."}.
 
-class OptionSet(MethodView):
+        .. :quickref: Option; set config value.
+
+        :status 201: Option successfully created or updated.
+        :status 400: The input data is invalid or incomplete.
+        :status 401: Invalid Auth Token.
+        :status 500: Configuration Error.
+        """
+        json_data = request.data.decode()
+        try:
+            parameter = loads(json_data)
+        except ValueError:
+            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
+
+        try:
+            value = parameter['value']
+        except KeyError as error:
+            return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(error))
+
+        try:
+            config.set(section=section, option=option, value=value, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            return 'Created', 201
+        except ConfigurationError:
+            return generate_http_error_flask(500, 'ConfigurationError', 'Could not set value \'%s\' for section \'%s\' option \'%s\'' % (value, section, option))
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            logging.exception("Internal Error")
+            return str(error), 500
+
+
+class OptionSetByPath(MethodView):
     """ REST API for setting the options in the configuration. """
 
     def put(self, section, option, value):
         """
         Set the value of an option.
         If the option does not exist, create it.
+        TODO: remove this endpoint after migrating all clients to pass 'value' via a json body
 
         .. :quickref: OptionSet; set config value.
 
@@ -178,10 +216,10 @@ class OptionSet(MethodView):
 def blueprint():
     bp = Blueprint('config', __name__, url_prefix='/config')
 
-    option_set_view = OptionSet.as_view('option_set')
+    option_set_view = OptionSetByPath.as_view('option_set')
     bp.add_url_rule('/<section>/<option>/<value>', view_func=option_set_view, methods=['put', ])
-    option_get_del_view = OptionGetDel.as_view('option_get_del')
-    bp.add_url_rule('/<section>/<option>', view_func=option_get_del_view, methods=['get', 'delete'])
+    option_get_del_view = Option.as_view('option_get_del')
+    bp.add_url_rule('/<section>/<option>', view_func=option_get_del_view, methods=['get', 'delete', 'put'])
     section_view = Section.as_view('section')
     bp.add_url_rule('/<section>', view_func=section_view, methods=['get', ])
     config_view = Config.as_view('config')

@@ -20,10 +20,12 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 #
 # PY3K COMPATIBLE
 
 from requests.status_codes import codes
+from json import dumps
 
 try:
     from exceptions import ValueError
@@ -71,19 +73,34 @@ class ConfigClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def set_config_option(self, section, option, value):
+    def set_config_option(self, section, option, value, use_body_for_value=True):
         """
         Sends the request to create or set an option within a section. Missing sections will be created.
 
         :param section: the name of the section.
         :param option: the name of the option.
+        :param value: the value to set on the config option
+        :param use_body_for_value: send value in a json-encoded request body instead of url-encoded
+        TODO: remove this parameter
+        The format of the /config endpoint was recently changed. We migrated from setting values
+        inside the request path ("/config/<section>/<option>/<value>") to sending the value using a json-
+        encoded body. This was done to fix multiple un-wanted side effects related to how the middleware
+        treats values encoded in a path.
+        For a smooth transition, we allow both cases for now, but we should migrate to only passing
+        values via the request body.
         :return: True if option was removed successfully. False otherwise.
         """
 
-        path = '/'.join([self.CONFIG_BASEURL, section, option, value])
-        url = build_url(choice(self.list_hosts), path=path)
+        data = None
+        if use_body_for_value:
+            data = dumps({'value': value})
+            path = '/'.join([self.CONFIG_BASEURL, section, option])
+            url = build_url(choice(self.list_hosts), path=path)
+        else:
+            path = '/'.join([self.CONFIG_BASEURL, section, option, value])
+            url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type='PUT')
+        r = self._send_request(url, type='PUT', data=data)
         if r.status_code == codes.created:
             return True
         else:

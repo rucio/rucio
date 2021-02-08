@@ -30,7 +30,7 @@ from rucio.web.rest.account import (Attributes as AAttributes, Scopes as AScopes
                                     AAccount)  # NOQA: F401
 from rucio.web.rest.account_limit import LocalAccountLimit as ALLocalAccountLimit, GlobalAccountLimit as ALGlobalAccountLimit  # NOQA: F401
 from rucio.web.rest.archive import Archive as AVArchive  # NOQA: F401
-from rucio.web.rest.config import OptionSet as COptionSet, OptionGetDel as COptionGetDel, Section as CSection, Config as CConfig  # NOQA: F401
+from rucio.web.rest.config import OptionSetByPath as COptionSetByPath, Option as COption, Section as CSection, Config as CConfig  # NOQA: F401
 from rucio.web.rest.did import (Scope as DScope, GUIDLookup as DGUIDLookup, Search as DSearch, Files as DFiles,  # NOQA: F401
                                     AttachmentHistory as DAttachmentHistory, Attachment as DAttachment,  # NOQA: F401
                                     Meta as DMeta, DIDs as DDIDs, Rules as DRules, Parents as DParents,  # NOQA: F401
@@ -98,8 +98,8 @@ URLS += [
 URLS += insert_scope_name(('/archives%s/files', 'AVArchive'))
 
 URLS += [
-    '/config/(.+)/(.+)/(.*)', 'COptionSet',
-    '/config/(.+)/(.+)', 'COptionGetDel',
+    '/config/(.+)/(.+)/(.*)', 'COptionSetByPath',
+    '/config/(.+)/(.+)', 'COption',
     '/config/(.+)', 'CSection',
     '/config', 'CConfig'
 ]
