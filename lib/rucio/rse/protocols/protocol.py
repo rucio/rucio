@@ -27,6 +27,7 @@
 # - James Clark <james.clark@physics.gatech.edu>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+# - Luca Scotto Lavina, <scotto@lpnhe.in2p3.fr>, 2021
 #
 # PY3K COMPATIBLE
 
