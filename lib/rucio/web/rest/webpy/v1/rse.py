@@ -16,7 +16,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2021
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
@@ -31,7 +31,7 @@ from __future__ import print_function
 from json import dumps, loads
 from traceback import format_exc
 
-from web import (application, ctx, data, header, Created, InternalError, OK,
+from web import (application, ctx, data, header, Created, InternalError, OK, NotFound,
                  input, loadhook)
 
 from rucio.api.account_limit import get_rse_account_usage
@@ -464,6 +464,8 @@ class LFNS2PFNS(RucioController):
             raise InternalError(error)
 
         pfns = rsemanager.lfns2pfns(rse_settings, lfns, operation=operation, scheme=scheme, domain=domain)
+        if not pfns:
+            raise NotFound("No replicas found")
         return dumps(pfns)
 
 
