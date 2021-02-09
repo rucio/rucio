@@ -142,6 +142,7 @@ class OptionGetDel(MethodView):
         """
         try:
             config.remove_option(section=section, option=option, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            return 'OK', 200
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
