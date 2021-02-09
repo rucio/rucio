@@ -293,7 +293,7 @@ def __check_rse_usage(rse, rse_id, logger):
 
     result = REGION.get('rse_usage_%s' % rse_id)
     if result is NO_VALUE:
-        max_being_deleted_files, needed_free_space, used, free, obsolete = 0, 0, 0, 0, None
+        max_being_deleted_files, needed_free_space, used, free, obsolete = 0, 0, 0, 0, 0
 
         # First of all check if greedy mode is enabled for this RSE
         attributes = list_rse_attributes(rse_id=rse_id)
