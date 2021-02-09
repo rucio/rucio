@@ -216,8 +216,8 @@ class RSEDeterministicTranslation(object):
         del rse_attrs
         del protocol_attrs
 
-        return '%s/%s/%s/%s' % (scope[0:7], scope[4:len(scope)], name.split('-')[0]+"-"+name.split('-')[1], name)
-    
+        return '%s/%s/%s/%s' % (scope[0:7], scope[4:len(scope)], name.split('-')[0] + "-" + name.split('-')[1], name)
+
     @classmethod
     def _module_init_(cls):
         """
