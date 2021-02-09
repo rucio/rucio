@@ -1464,3 +1464,36 @@ def formatted_logger(innerfunc, formatstr="%s"):
     def log_format(level, msg, *args, **kwargs):
         return innerfunc(level, formatstr % msg, *args, **kwargs)
     return log_format
+
+
+def tabulate(table, tablefmt='plain', headers=None):
+    """
+    A very basic implementation of tabulate so that the package can be made an
+    optional dependency for the client.
+
+    :param table: data table, which must be a list of lists or tuples
+    :param tablefmt: format specifier for compatibility. Ignored
+    :param headers: optional list of column headings
+    """
+    result = ""
+    collens = []
+    for i in range(0, len(table[0])):
+        collen = 0
+        for j in range(0, len(table)):
+            collen = max(collen, len(str(table[j][i])))
+        if headers:
+            collen = max(collen, len(headers[i]))
+        collens.append(collen)
+    if headers:
+        for i in range(0, len(headers)):
+            result += headers[i] + (" " * ((collens[i] + 2) - len(headers[i])))
+        result += "\n"
+        for i in range(0, len(headers)):
+            result += ("-" * collens[i]) + "  "
+        result += "\n"
+    for row in table:
+        for i in range(0, len(row)):
+            val = str(row[i])
+            result += val + (" " * ((collens[i] + 2) - len(val)))
+        result += "\n"
+    return result

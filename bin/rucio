@@ -77,30 +77,7 @@ except ImportError:
 try:
     from tabulate import tabulate
 except ImportError:
-    # make tabulate an optional dependency
-    def tabulate(table, tablefmt='plain', headers=None):
-        result = ""
-        collens = []
-        for i in range(0, len(table[0])):
-            collen = 0
-            for j in range(0, len(table)):
-                collen = max(collen, len(str(table[j][i])))
-            if headers:
-                collen = max(collen, len(headers[i]))
-            collens.append(collen)
-        if headers:
-            for i in range(0, len(headers)):
-                result += headers[i] + (" " * ((collens[i] + 2) - len(headers[i])))
-            result += "\n"
-            for i in range(0, len(headers)):
-                result += ("-" * collens[i]) + "  "
-            result += "\n"
-        for row in table:
-            for i in range(0, len(row)):
-                val = str(row[i])
-                result += val + (" " * ((collens[i] + 2) - len(val)))
-            result += "\n"
-        return result
+    from rucio.common.utils import tabulate
 
 
 SUCCESS = 0
