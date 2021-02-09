@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
@@ -33,7 +33,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 
 try:
     import importlib
@@ -45,7 +45,6 @@ import base64
 import copy
 import datetime
 import errno
-import functools
 import getpass
 import hashlib
 import json
@@ -61,8 +60,6 @@ import threading
 import time
 import zlib
 from enum import Enum
-from logging import getLogger, Formatter  # NOQA: F401
-from logging.handlers import RotatingFileHandler
 from uuid import uuid4 as uuid
 from xml.etree import ElementTree
 
@@ -518,16 +515,6 @@ def my_key_generator(namespace, fn, **kw):
         return namespace + "_" + fname + "_".join(str(s) for s in filter(None, arg))
 
     return generate_key
-
-
-def get_logger(name):
-    logger = logging.getLogger(name)
-    hdlr = RotatingFileHandler('%s/%s.log' % (config_get('common', 'logdir'), name), maxBytes=1000000000, backupCount=10)
-    formatter = logging.Formatter('%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
-    hdlr.setFormatter(formatter)
-    logger.addHandler(hdlr)
-    logger.setLevel(config_get('common', 'loglevel').upper())
-    return logger
 
 
 def construct_surl_DQ2(dsn, filename):
@@ -1448,22 +1435,6 @@ class retry:
                     logger.debug(str(e))
                 attempt -= 1
         return self.func(*self.args, **self.kwargs)
-
-
-def formatted_logger(innerfunc, formatstr="%s"):
-    """
-    Decorates the passed function, formatting log input by
-    the passed formatstr. The format string must always include a %s.
-
-    :param innerfunc: function to be decorated. Must take (level, msg) arguments.
-    :type innerfunc: Callable
-    :param formatstr: format string with %s as placeholder.
-    :type formatstr: str
-    """
-    @functools.wraps(innerfunc)
-    def log_format(level, msg, *args, **kwargs):
-        return innerfunc(level, formatstr % msg, *args, **kwargs)
-    return log_format
 
 
 def tabulate(table, tablefmt='plain', headers=None):

@@ -16,29 +16,22 @@
 # Authors:
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 
 import logging
 import os
 import socket
-import sys
 import threading
 import time
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.config import config_get
+from rucio.common.logging import setup_logging
 from rucio.common.utils import get_thread_with_periodic_running_function
 from rucio.core.did import create_reports
 from rucio.core.heartbeat import live, die, sanity_check
 
 graceful_stop = threading.Event()
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 def aggregate_events(once=False):
@@ -80,6 +73,8 @@ def run(once=False, threads=1):
     """
     Starts up the follower threads
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 

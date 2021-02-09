@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2021
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
@@ -22,7 +22,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from json import loads
-from traceback import format_exc
+import logging
 
 from flask import Flask, Blueprint, request, jsonify
 from flask.views import MethodView
@@ -89,7 +89,7 @@ class Meta(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return 'Created', 201
@@ -147,7 +147,7 @@ class Values(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         return 'Created', 201

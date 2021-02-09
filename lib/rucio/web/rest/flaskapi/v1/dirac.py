@@ -16,10 +16,9 @@
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch, 2021
 
-from __future__ import print_function
-
-from traceback import format_exc
+import logging
 
 from flask import Flask, Blueprint, request
 from flask.views import MethodView
@@ -82,10 +81,10 @@ class AddFiles(MethodView):
         except ResourceTemporaryUnavailable as error:
             return generate_http_error_flask(503, 'ResourceTemporaryUnavailable', error.args[0])
         except RucioException as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         return 'Created', 201
 

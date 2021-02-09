@@ -17,7 +17,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2020
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013-2014
-# - Martin Barisits <martin.barisits@cern.ch>, 2013-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2021
 # - David Cameron <david.cameron@cern.ch>, 2014
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2020
@@ -34,7 +34,7 @@
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Eric Vaandering <ewv@fnal.gov>, 2020
+# - Eric Vaandering <ewv@fnal.gov>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
 from __future__ import print_function
@@ -69,7 +69,7 @@ from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import (DIDType, ReplicaState, OBSOLETE, DIDAvailability,
                                      BadFilesStatus, RuleState, BadPFNStatus)
 from rucio.db.sqla.session import (read_session, stream_session, transactional_session,
-                                   DEFAULT_SCHEMA_NAME)
+                                   DEFAULT_SCHEMA_NAME, BASE)
 from rucio.rse import rsemanager as rsemgr
 
 
@@ -403,7 +403,7 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
 
 
 @transactional_session
-def add_bad_dids(dids, rse_id, reason, issuer, state=ReplicaState.BAD, session=None):
+def add_bad_dids(dids, rse_id, reason, issuer, state=BadFilesStatus.BAD, session=None):
     """
     Declare a list of bad replicas.
 
@@ -411,11 +411,11 @@ def add_bad_dids(dids, rse_id, reason, issuer, state=ReplicaState.BAD, session=N
     :param rse_id: The RSE id.
     :param reason: The reason of the loss.
     :param issuer: The issuer account.
-    :param state: ReplicaState.BAD
+    :param state: BadFilesStatus.BAD
     :param session: The database session in use.
     """
     unknown_replicas = []
-    replicas = []
+    replicas_for_update = []
 
     for did in dids:
         scope = InternalScope(did['scope'], vo=issuer.vo)
@@ -423,7 +423,7 @@ def add_bad_dids(dids, rse_id, reason, issuer, state=ReplicaState.BAD, session=N
         replica_exists, _scope, _name, already_declared, size = __exists_replicas(rse_id, scope, name, path=None,
                                                                                   session=session)
         if replica_exists and not already_declared:
-            replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
+            replicas_for_update.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
             new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=state,
                                                  account=issuer, bytes=size)
             new_bad_replica.save(session=session, flush=False)
@@ -435,9 +435,9 @@ def add_bad_dids(dids, rse_id, reason, issuer, state=ReplicaState.BAD, session=N
             else:
                 unknown_replicas.append('%s:%s %s' % (did['scope'], name, 'Unknown replica'))
 
-    if str(state) == str(ReplicaState.BAD):
+    if state == BadFilesStatus.BAD:
         try:
-            update_replicas_states(replicas, session=session)
+            update_replicas_states(replicas_for_update, session=session)
         except exception.UnsupportedOperation:
             raise exception.ReplicaNotFound("One or several replicas don't exist.")
 
@@ -2673,13 +2673,27 @@ def get_cleaned_updated_collection_replicas(total_workers, worker_number, limit=
     :param session:            Database session in use.
     :returns:                  List of update requests for collection replicas.
     """
+
+    # Delete update requests which do not have collection_replicas
+    session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.rse_id.is_(None)
+                                                          & ~exists().where(and_(models.CollectionReplica.name == models.UpdatedCollectionReplica.name,  # NOQA: W503
+                                                                                 models.CollectionReplica.scope == models.UpdatedCollectionReplica.scope))).delete(synchronize_session=False)
+    session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.rse_id.isnot(None)
+                                                          & ~exists().where(and_(models.CollectionReplica.name == models.UpdatedCollectionReplica.name,  # NOQA: W503
+                                                                                 models.CollectionReplica.scope == models.UpdatedCollectionReplica.scope,
+                                                                                 models.CollectionReplica.rse_id == models.UpdatedCollectionReplica.rse_id))).delete(synchronize_session=False)
+
     # Delete duplicates
     if session.bind.dialect.name == 'oracle':
-        subquery = session.query(func.max(models.UpdatedCollectionReplica.id)).\
-            group_by(models.UpdatedCollectionReplica.scope,
-                     models.UpdatedCollectionReplica.name,
-                     models.UpdatedCollectionReplica.rse_id).subquery()
-        session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.id.notin_(subquery)).delete(synchronize_session=False)
+        schema = ''
+        if BASE.metadata.schema:
+            schema = BASE.metadata.schema + '.'
+        session.execute('DELETE FROM {schema}updated_col_rep A WHERE A.rowid > ANY (SELECT B.rowid FROM {schema}updated_col_rep B WHERE A.scope = B.scope AND A.name=B.name AND A.did_type=B.did_type AND (A.rse_id=B.rse_id OR (A.rse_id IS NULL and B.rse_id IS NULL)))'.format(schema=schema))
+        # subquery = session.query(func.max(models.UpdatedCollectionReplica.id)).\
+        #     group_by(models.UpdatedCollectionReplica.scope,
+        #              models.UpdatedCollectionReplica.name,
+        #              models.UpdatedCollectionReplica.rse_id).subquery()
+        # session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.id.notin_(subquery)).delete(synchronize_session=False)
     elif session.bind.dialect.name == 'mysql':
         subquery1 = session.query(func.max(models.UpdatedCollectionReplica.id).label('max_id')).\
             group_by(models.UpdatedCollectionReplica.scope,
@@ -2709,15 +2723,6 @@ def get_cleaned_updated_collection_replicas(total_workers, worker_number, limit=
                     continue
         for chunk in chunks(duplicate_request_ids, 100):
             session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.id.in_(chunk)).delete(synchronize_session=False)
-
-    # Delete update requests which do not have collection_replicas
-    session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.rse_id.is_(None)
-                                                          & ~exists().where(and_(models.CollectionReplica.name == models.UpdatedCollectionReplica.name,  # NOQA: W503
-                                                                                 models.CollectionReplica.scope == models.UpdatedCollectionReplica.scope))).delete(synchronize_session=False)
-    session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.rse_id.isnot(None)
-                                                          & ~exists().where(and_(models.CollectionReplica.name == models.UpdatedCollectionReplica.name,  # NOQA: W503
-                                                                                 models.CollectionReplica.scope == models.UpdatedCollectionReplica.scope,
-                                                                                 models.CollectionReplica.rse_id == models.UpdatedCollectionReplica.rse_id))).delete(synchronize_session=False)
 
     query = session.query(models.UpdatedCollectionReplica)
     if limit:

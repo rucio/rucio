@@ -15,22 +15,22 @@
 #
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 
 import logging
 import os
 import socket
-import sys
 import threading
 from time import time
 from typing import TYPE_CHECKING
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.config import config_get
 from rucio.common.exception import RucioException
-from rucio.common.utils import formatted_logger
+from rucio.common.logging import formatted_logger, setup_logging
 from rucio.core import heartbeat
-from rucio.core.request import preparer_update_requests, minimum_distance_requests
+from rucio.core.request import preparer_update_requests, reduce_requests, sort_requests_minimum_distance, \
+    get_transfertool_filter, get_supported_transfertools, rse_lookup_filter
 from rucio.core.transfer import __list_transfer_requests_and_source_replicas
 from rucio.db.sqla.constants import RequestState
 
@@ -53,10 +53,7 @@ def run(once=False, threads=1, sleep_time=10, bulk=100):
     """
     Running the preparer daemon either once or by default in a loop until stop is called.
     """
-    config_loglevel = config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper()
-    logging.basicConfig(stream=sys.stdout,
-                        level=config_loglevel,
-                        format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
+    setup_logging()
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
@@ -114,7 +111,7 @@ def preparer(once, sleep_time, bulk):
             daemon_logger = formatted_logger(logging.log, prefix + '%s')
 
             try:
-                updated_msg = run_once(total_workers=total_workers, worker_number=worker_number, limit=bulk)
+                updated_msg = run_once(total_workers=total_workers, worker_number=worker_number, limit=bulk, logger=daemon_logger)
             except RucioException:
                 daemon_logger(logging.ERROR, 'errored with a RucioException, retrying later', exc_info=True)
                 updated_msg = 'errored'
@@ -136,7 +133,7 @@ def preparer(once, sleep_time, bulk):
         heartbeat.die(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
 
 
-def run_once(total_workers: int = 0, worker_number: int = 0, limit: "Optional[int]" = None, session: "Optional[Session]" = None) -> str:
+def run_once(total_workers: int = 0, worker_number: int = 0, limit: "Optional[int]" = None, logger=logging.log, session: "Optional[Session]" = None) -> str:
     req_sources = __list_transfer_requests_and_source_replicas(
         total_workers=total_workers,
         worker_number=worker_number,
@@ -147,5 +144,7 @@ def run_once(total_workers: int = 0, worker_number: int = 0, limit: "Optional[in
     if not req_sources:
         return 'had nothing to do'
 
-    count = preparer_update_requests(minimum_distance_requests(req_sources), session=session)
+    transfertool_filter = get_transfertool_filter(lambda rse_id: get_supported_transfertools(rse_id=rse_id, session=session))
+    requests = reduce_requests(req_sources, [rse_lookup_filter, sort_requests_minimum_distance, transfertool_filter], logger=logger)
+    count = preparer_update_requests(requests, session=session)
     return f'updated {count}/{limit} requests'

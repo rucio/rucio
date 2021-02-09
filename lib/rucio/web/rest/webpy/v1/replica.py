@@ -33,9 +33,6 @@ from json import dumps, loads
 from traceback import format_exc
 from xml.sax.saxutils import escape
 
-from six import string_types
-from web import application, ctx, Created, data, header, InternalError, loadhook, OK, unloadhook
-
 from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replicas, list_dataset_replicas_bulk,
                                delete_replicas, list_dataset_replicas_vp,
                                get_did_from_pfns, update_replicas_states,
@@ -53,9 +50,11 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
 from rucio.common.schema import insert_scope_name
 from rucio.common.utils import parse_response, APIEncoder, render_json_list
 from rucio.core.replica_sorter import sort_replicas
-from rucio.db.sqla.constants import BadFilesStatus, ReplicaState
+from rucio.db.sqla.constants import BadFilesStatus
 from rucio.web.rest.common import rucio_loadhook, rucio_unloadhook, RucioController, check_accept_header_wrapper
 from rucio.web.rest.utils import generate_http_error
+from six import string_types
+from web import application, ctx, Created, data, header, InternalError, loadhook, OK, unloadhook
 
 try:
     from urllib import unquote
@@ -932,7 +931,7 @@ class BadDIDs(RucioController):
                 rse = params['rse']
             if 'reason' in params:
                 reason = params['reason']
-            state = ReplicaState.BAD
+            state = BadFilesStatus.BAD
             if 'expires_at' in params and params['expires_at']:
                 expires_at = datetime.strptime(params['expires_at'], "%Y-%m-%dT%H:%M:%S.%f")
             not_declared_files = add_bad_dids(dids=dids, rse=rse, issuer=ctx.env.get('issuer'), state=state,

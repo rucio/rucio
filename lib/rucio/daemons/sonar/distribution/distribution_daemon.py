@@ -19,6 +19,7 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Eric Vaandering <ewv@fnal.gov>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 
 """
 Daemon for distributing sonar test files to available RSE's
@@ -28,7 +29,6 @@ import glob
 import logging
 import os
 import subprocess
-import sys
 import threading
 import time
 
@@ -37,14 +37,9 @@ from rucio.client.client import Client
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.exception import DuplicateRule, InsufficientAccountLimit, RSEBlacklisted, RSEWriteBlocked, ReplicationRuleCreationTemporaryFailed
+from rucio.common.logging import setup_logging
 
 GRACEFUL_STOP = threading.Event()
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 def rename_files(tdir, pattern, new_name):
@@ -135,6 +130,8 @@ def run():
     """
     Runs the distribution daemon
     """
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 

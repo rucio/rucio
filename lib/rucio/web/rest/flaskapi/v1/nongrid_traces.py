@@ -14,16 +14,14 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2015-2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2015-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
-from __future__ import print_function
-
 import json
+import logging
 import time
-import traceback
 
 from flask import Flask, Blueprint, request
 from flask.views import MethodView
@@ -68,7 +66,7 @@ class XAODTrace(MethodView):
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list', headers=headers)
         except Exception as error:
-            print(traceback.format_exc())
+            logging.exception("Internal Error")
             return str(error), 500, headers
 
         return 'Created', 201, headers

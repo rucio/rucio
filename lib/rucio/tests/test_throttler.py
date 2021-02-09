@@ -166,7 +166,9 @@ class TestThrottlerGroupedFIFO(unittest.TestCase):
         queue_requests(requests, session=self.db_session)
         self.db_session.commit()
 
-        preparer.run(once=True, bulk=None)
+        preparer.run_once(session=self.db_session, logger=print)
+        self.db_session.commit()
+
         request_1 = get_request_by_did(self.scope, name1, self.dest_rse_id)
         assert request_1['state'] == RequestState.WAITING
         request_2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
@@ -179,7 +181,9 @@ class TestThrottlerGroupedFIFO(unittest.TestCase):
         self.db_session.query(models.RSETransferLimit).delete()
         self.db_session.commit()
 
-        throttler.run(once=True, sleep_time=1)
+        throttler.run_once(logger=print, session=self.db_session)
+        self.db_session.commit()
+
         request_1 = get_request_by_did(self.scope, name1, self.dest_rse_id)
         assert request_1['state'] == RequestState.QUEUED
         request_2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
@@ -281,8 +285,10 @@ class TestThrottlerGroupedFIFO(unittest.TestCase):
 
         queue_requests(requests, session=self.db_session)
         self.db_session.commit()
-        preparer.run(once=True, bulk=None)
-        throttler.run(once=True, sleep_time=1)
+        preparer.run_once(session=self.db_session, logger=print)
+        self.db_session.commit()
+        throttler.run_once(logger=print, session=self.db_session)
+        self.db_session.commit()
         request_1 = get_request_by_did(self.scope, name1, self.dest_rse_id)
         assert request_1['state'] == RequestState.WAITING
         request_2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
@@ -380,8 +386,10 @@ class TestThrottlerGroupedFIFO(unittest.TestCase):
 
         queue_requests(requests, session=self.db_session)
         self.db_session.commit()
-        preparer.run(once=True, bulk=None)
-        throttler.run(once=True, sleep_time=1)
+        preparer.run_once(session=self.db_session, logger=print)
+        self.db_session.commit()
+        throttler.run_once(logger=print, session=self.db_session)
+        self.db_session.commit()
         # released because it got requested first
         request_1 = get_request_by_did(self.scope, name1, self.dest_rse_id)
         assert request_1['state'] == RequestState.QUEUED
@@ -481,8 +489,10 @@ class TestThrottlerFIFO(unittest.TestCase):
         queue_requests(requests, session=self.db_session)
         self.db_session.query(models.RSETransferLimit).delete()
         self.db_session.commit()
-        preparer.run(once=True, bulk=None)
-        throttler.run(once=True, sleep_time=1)
+        preparer.run_once(session=self.db_session, logger=print)
+        self.db_session.commit()
+        throttler.run_once(logger=print, session=self.db_session)
+        self.db_session.commit()
         request = get_request_by_did(self.scope, name1, self.dest_rse_id)
         assert request['state'] == RequestState.QUEUED
         request2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
@@ -516,8 +526,10 @@ class TestThrottlerFIFO(unittest.TestCase):
         }]
         queue_requests(requests, session=self.db_session)
         self.db_session.commit()
-        preparer.run(once=True, bulk=None)
-        throttler.run(once=True, sleep_time=1)
+        preparer.run_once(session=self.db_session, logger=print)
+        self.db_session.commit()
+        throttler.run_once(logger=print, session=self.db_session)
+        self.db_session.commit()
         request = get_request_by_did(self.scope, name1, self.dest_rse_id)
         assert request['state'] == RequestState.QUEUED
 
@@ -572,8 +584,10 @@ class TestThrottlerFIFO(unittest.TestCase):
         }]
         queue_requests(requests, session=self.db_session)
         self.db_session.commit()
-        preparer.run(once=True, bulk=None)
-        throttler.run(once=True, sleep_time=1)
+        preparer.run_once(session=self.db_session, logger=print)
+        self.db_session.commit()
+        throttler.run_once(logger=print, session=self.db_session)
+        self.db_session.commit()
         request = get_request_by_did(self.scope, name1, self.dest_rse_id)
         assert request['state'] == RequestState.WAITING
         request2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
@@ -627,8 +641,10 @@ class TestThrottlerFIFO(unittest.TestCase):
         }]
         queue_requests(requests, session=self.db_session)
         self.db_session.commit()
-        preparer.run(once=True, bulk=None)
-        throttler.run(once=True, sleep_time=1)
+        preparer.run_once(session=self.db_session, logger=print)
+        self.db_session.commit()
+        throttler.run_once(logger=print, session=self.db_session)
+        self.db_session.commit()
         request = get_request_by_did(self.scope, name1, self.dest_rse_id)
         assert request['state'] == RequestState.QUEUED
         request2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
@@ -746,8 +762,10 @@ class TestThrottlerFIFOSRCACT(unittest.TestCase):
         }]
         queue_requests(requests, session=self.db_session)
         self.db_session.commit()
-        preparer.run(once=True, bulk=None)
-        throttler.run(once=True, sleep_time=1)
+        preparer.run_once(session=self.db_session, logger=print)
+        self.db_session.commit()
+        throttler.run_once(logger=print, session=self.db_session)
+        self.db_session.commit()
         request = get_request_by_did(self.scope, name1, self.dest_rse_id)
         assert request['state'] == RequestState.QUEUED
         request2 = get_request_by_did(self.scope, name2, self.dest_rse_id2)
@@ -841,8 +859,10 @@ class TestThrottlerFIFOSRCALLACT(unittest.TestCase):
         }]
         queue_requests(requests, session=self.db_session)
         self.db_session.commit()
-        preparer.run(once=True, bulk=None)
-        throttler.run(once=True, sleep_time=1)
+        preparer.run_once(session=self.db_session, logger=print)
+        self.db_session.commit()
+        throttler.run_once(logger=print, session=self.db_session)
+        self.db_session.commit()
         request = get_request_by_did(self.scope, name1, self.dest_rse_id)
         assert request['state'] == RequestState.QUEUED
         request2 = get_request_by_did(self.scope, name2, self.dest_rse_id)
@@ -960,8 +980,10 @@ class TestThrottlerFIFODESTALLACT(unittest.TestCase):
         }]
         queue_requests(requests, session=self.db_session)
         self.db_session.commit()
-        preparer.run(once=True, bulk=None)
-        throttler.run(once=True, sleep_time=1)
+        preparer.run_once(session=self.db_session, logger=print)
+        self.db_session.commit()
+        throttler.run_once(logger=print, session=self.db_session)
+        self.db_session.commit()
         # release because max_transfers=1
         request = get_request_by_did(self.scope, name1, self.dest_rse_id)
         assert request['state'] == RequestState.QUEUED
@@ -1103,7 +1125,8 @@ class TestThrottlerGroupedFIFOSRCALLACT(unittest.TestCase):
         queue_requests(requests, session=self.db_session)
         self.db_session.commit()
 
-        preparer.run(once=True, bulk=None)
+        preparer.run_once(session=self.db_session, logger=print)
+        self.db_session.commit()
         request_1 = get_request_by_did(self.scope, name1, self.dest_rse_id, session=self.db_session)
         assert request_1['state'] == RequestState.WAITING
         request_2 = get_request_by_did(self.scope, name2, self.dest_rse_id_2, session=self.db_session)
@@ -1113,7 +1136,8 @@ class TestThrottlerGroupedFIFOSRCALLACT(unittest.TestCase):
         request_4 = get_request_by_did(self.scope, name4, self.dest_rse_id_2, session=self.db_session)
         assert request_4['state'] == RequestState.WAITING
 
-        throttler.run(once=True, sleep_time=1)
+        throttler.run_once(logger=print, session=self.db_session)
+        self.db_session.commit()
         # released because it got requested first
         request_1 = get_request_by_did(self.scope, name1, self.dest_rse_id)
         assert request_1['state'] == RequestState.QUEUED
@@ -1236,7 +1260,7 @@ class TestRequestCoreRelease(unittest.TestCase):
             }
         }]
         queue_requests(requests, session=self.db_session)
-        preparer.run_once(session=self.db_session)
+        preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_per_free_volume(self.dest_rse_id, volume=volume, session=self.db_session)
         # released because small enough
@@ -1336,7 +1360,7 @@ class TestRequestCoreRelease(unittest.TestCase):
             }
         }]
         queue_requests(requests, session=self.db_session)
-        preparer.run_once(session=self.db_session)
+        preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_per_free_volume(self.dest_rse_id, volume=volume, session=self.db_session)
         # released because dataset fits in volume
@@ -1354,7 +1378,7 @@ class TestRequestCoreRelease(unittest.TestCase):
         self.db_session.query(models.Request).delete()
         self.db_session.commit()
         name1 = generate_uuid()
-        add_replica(self.dest_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
+        add_replica(self.source_rse_id, self.scope, name1, 1, self.account, session=self.db_session)
         volume = 0
         set_rse_transfer_limits(self.dest_rse_id, self.all_activities, volume=volume, max_transfers=1, session=self.db_session)
         requests = [{
@@ -1375,7 +1399,7 @@ class TestRequestCoreRelease(unittest.TestCase):
             }
         }]
         queue_requests(requests, session=self.db_session)
-        preparer.run_once(session=self.db_session)
+        preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_per_free_volume(self.dest_rse_id, volume=volume, session=self.db_session)
         # waiting because no available volume
@@ -1410,7 +1434,7 @@ class TestRequestCoreRelease(unittest.TestCase):
             }
         }]
         queue_requests(requests, session=self.db_session)
-        preparer.run_once(session=self.db_session)
+        preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_grouped_fifo(self.dest_rse_id, count=1, volume=0, deadline=0, session=self.db_session)
         request = get_request_by_did(self.scope, name, self.dest_rse_id, session=self.db_session)
@@ -1441,7 +1465,7 @@ class TestRequestCoreRelease(unittest.TestCase):
             }
         }]
         queue_requests(requests, session=self.db_session)
-        preparer.run_once(session=self.db_session)
+        preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_grouped_fifo(self.dest_rse_id, count=1, volume=0, deadline=0, session=self.db_session)
         request = get_request_by_did(self.scope, name, self.dest_rse_id, session=self.db_session)
@@ -1549,7 +1573,7 @@ class TestRequestCoreRelease(unittest.TestCase):
             }
         }]
         queue_requests(requests, session=self.db_session)
-        preparer.run_once(session=self.db_session)
+        preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_grouped_fifo(self.dest_rse_id, count=1, deadline=0, volume=0, session=self.db_session)
         request_1 = get_request_by_did(self.scope, name1, self.dest_rse_id, session=self.db_session)
@@ -1649,7 +1673,7 @@ class TestRequestCoreRelease(unittest.TestCase):
         }]
 
         queue_requests(requests, session=self.db_session)
-        preparer.run_once(session=self.db_session)
+        preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         amount_updated_requests = release_waiting_requests_grouped_fifo(self.dest_rse_id, count=1, deadline=0, volume=10, session=self.db_session)
         assert amount_updated_requests == 3
@@ -1755,7 +1779,7 @@ class TestRequestCoreRelease(unittest.TestCase):
         }]
 
         queue_requests(requests, session=self.db_session)
-        preparer.run_once(session=self.db_session)
+        preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_grouped_fifo(self.dest_rse_id, count=1, deadline=0, volume=5, session=self.db_session)
         # released because it got requested first
@@ -1812,7 +1836,7 @@ class TestRequestCoreRelease(unittest.TestCase):
             }
         }]
         queue_requests(requests, session=self.db_session)
-        preparer.run_once(session=self.db_session)
+        preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_grouped_fifo(self.source_rse_id, count=0, deadline=1, volume=0, session=self.db_session)
         # queued because of deadline
@@ -1864,7 +1888,7 @@ class TestRequestCoreRelease(unittest.TestCase):
             }
         }]
         queue_requests(requests, session=self.db_session)
-        preparer.run_once(session=self.db_session)
+        preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_fifo(self.dest_rse_id, count=1, session=self.db_session)
         request = get_request_by_did(self.scope, name1, self.dest_rse_id, session=self.db_session)
@@ -1954,7 +1978,7 @@ class TestRequestCoreRelease(unittest.TestCase):
             }
         }]
         queue_requests(requests, session=self.db_session)
-        preparer.run_once(session=self.db_session)
+        preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_fifo(self.dest_rse_id, count=2, account=self.account, activity=self.user_activity, session=self.db_session)
         request = get_request_by_did(self.scope, name1, self.dest_rse_id, session=self.db_session)
@@ -2006,7 +2030,7 @@ class TestRequestCoreRelease(unittest.TestCase):
             }
         }]
         queue_requests(requests, session=self.db_session)
-        preparer.run_once(session=self.db_session)
+        preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_all_waiting_requests(self.dest_rse_id, session=self.db_session)
         request = get_request_by_did(self.scope, name1, self.dest_rse_id, session=self.db_session)
@@ -2058,7 +2082,7 @@ class TestRequestCoreRelease(unittest.TestCase):
             }
         }]
         queue_requests(requests, session=self.db_session)
-        preparer.run_once(session=self.db_session)
+        preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_per_deadline(self.source_rse_id, deadline=1, session=self.db_session)
         request = get_request_by_did(self.scope, name1, self.dest_rse_id, session=self.db_session)
@@ -2126,7 +2150,7 @@ class TestRequestCoreRelease(unittest.TestCase):
             }
         }]
         queue_requests(requests, session=self.db_session)
-        preparer.run_once(session=self.db_session)
+        preparer.run_once(session=self.db_session, logger=print)
         self.db_session.commit()
         release_waiting_requests_per_deadline(self.source_rse_id, deadline=1, session=self.db_session)
         request = get_request_by_did(self.scope, name1, self.dest_rse_id, session=self.db_session)

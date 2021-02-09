@@ -18,6 +18,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2021
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 
 '''
    Hermes2 is a daemon that get the messages and sends them to external services (influxDB, ES, ActiveMQ).
@@ -47,19 +48,13 @@ from six import PY2
 import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_int, config_get_bool
 from rucio.common.exception import ConfigNotFound, DatabaseException
+from rucio.common.logging import setup_logging
 from rucio.core import heartbeat
 from rucio.core.config import get
 from rucio.core.message import retrieve_messages, delete_messages, update_messages_services
 from rucio.core.monitor import record_counter
 
 logging.getLogger('requests').setLevel(logging.CRITICAL)
-
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='DEBUG').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 GRACEFUL_STOP = threading.Event()
 
@@ -567,6 +562,8 @@ def run(once=False, threads=1, bulk=1000, sleep_time=10, broker_timeout=3):
     '''
     Starts up the hermes2 threads.
     '''
+    setup_logging()
+
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 

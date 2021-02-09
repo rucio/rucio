@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2018
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2018-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018-2020
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2019
@@ -23,17 +23,13 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
-from __future__ import print_function
-
 from datetime import datetime
 from json import dumps, loads
-from traceback import format_exc
+import logging
 from xml.sax.saxutils import escape
 
 from flask import Flask, Blueprint, Response, request
 from flask.views import MethodView
-from six import string_types
-
 from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replicas,
                                list_dataset_replicas_bulk, delete_replicas,
                                get_did_from_pfns, update_replicas_states,
@@ -50,9 +46,11 @@ from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, I
                                     InvalidObject, ScopeNotFound)
 from rucio.common.utils import parse_response, APIEncoder, render_json_list
 from rucio.core.replica_sorter import sort_replicas
-from rucio.db.sqla.constants import BadFilesStatus, ReplicaState
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, try_stream, parse_scope_name, request_auth_env, response_headers
+from rucio.db.sqla.constants import BadFilesStatus
+from rucio.web.rest.flaskapi.v1.common import (check_accept_header_wrapper_flask, try_stream, parse_scope_name,
+                                               request_auth_env, response_headers)
 from rucio.web.rest.utils import generate_http_error_flask
+from six import string_types
 
 try:
     from urllib import unquote
@@ -94,7 +92,7 @@ class Replicas(MethodView):
         except ValueError as error:
             return generate_http_error_flask(400, 'ValueError', error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
         content_type = request.accept_mimetypes.best_match(['application/x-json-stream', 'application/metalink4+xml'], 'application/x-json-stream')
@@ -178,7 +176,7 @@ class Replicas(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
     def post(self):
@@ -226,7 +224,7 @@ class Replicas(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         return 'Created', 201
 
@@ -258,7 +256,7 @@ class Replicas(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         return '', 200
 
@@ -299,7 +297,7 @@ class Replicas(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         return '', 200
 
@@ -497,7 +495,7 @@ class ListReplicas(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -542,7 +540,7 @@ class ReplicasDIDs(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -590,7 +588,7 @@ class BadReplicas(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         return Response(dumps(not_declared_files), status=201, content_type='application/json')
 
@@ -633,7 +631,7 @@ class SuspiciousReplicas(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         return Response(dumps(not_declared_files), status=201, content_type='application/json')
 
@@ -671,7 +669,7 @@ class SuspiciousReplicas(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         return Response(render_json_list(result), 200, content_type='application/json')
 
@@ -731,7 +729,7 @@ class BadReplicasStates(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -778,7 +776,7 @@ class BadReplicasSummary(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -813,7 +811,7 @@ class DatasetReplicas(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -848,7 +846,7 @@ class DatasetReplicasBulk(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         if didslength == 0:
             return generate_http_error_flask(400, 'ValueError', 'List of DIDs is empty')
@@ -863,7 +861,7 @@ class DatasetReplicasBulk(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -899,7 +897,7 @@ class DatasetReplicasVP(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -928,7 +926,7 @@ class ReplicasRSE(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
 
 
@@ -967,7 +965,7 @@ class BadDIDs(MethodView):
                 rse = params['rse']
             if 'reason' in params:
                 reason = params['reason']
-            state = ReplicaState.BAD
+            state = BadFilesStatus.BAD
             if 'expires_at' in params and params['expires_at']:
                 expires_at = datetime.strptime(params['expires_at'], "%Y-%m-%dT%H:%M:%S.%f")
             not_declared_files = add_bad_dids(dids=dids, rse=rse, issuer=request.environ.get('issuer'), state=state,
@@ -983,7 +981,7 @@ class BadDIDs(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         return Response(dumps(not_declared_files), status=201, content_type='application/json')
 
@@ -1036,7 +1034,7 @@ class BadPFNs(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         return 'Created', 201
 
@@ -1075,7 +1073,7 @@ class Tombstone(MethodView):
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
-            print(format_exc())
+            logging.exception("Internal Error")
             return str(error), 500
         return 'Created', 201
 
