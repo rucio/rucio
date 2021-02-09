@@ -20,7 +20,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2013-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2021
 # - David Cameron <david.cameron@cern.ch>, 2014
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2021
 # - Wen Guan <wen.guan@cern.ch>, 2014-2015
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019-2021
@@ -1687,11 +1687,14 @@ def get_replica(rse_id, scope, name, session=None):
 
     :returns: A dictionary with the list of replica attributes.
     """
-    row = session.query(models.RSEFileAssociation).filter_by(rse_id=rse_id, scope=scope, name=name).one()
-    result = {}
-    for column in row.__table__.columns:
-        result[column.name] = getattr(row, column.name)
-    return result
+    try:
+        row = session.query(models.RSEFileAssociation).filter_by(rse_id=rse_id, scope=scope, name=name).one()
+        result = {}
+        for column in row.__table__.columns:
+            result[column.name] = getattr(row, column.name)
+        return result
+    except NoResultFound:
+        raise exception.ReplicaNotFound("No row found for scope: %s name: %s rse: %s" % (scope, name, get_rse_name(rse_id=rse_id, session=session)))
 
 
 @read_session
