@@ -31,7 +31,7 @@ def upgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        create_index('REQUESTS_TYP_STA_TRANS_ACT_IDX', 'requests', ['request_type', 'state', 'transfertool'])
+        create_index('REQUESTS_TYP_STA_TRA_ACT_IDX', 'requests', ['request_type', 'state', 'transfertool', 'activity'])
 
 
 def downgrade():
@@ -40,4 +40,4 @@ def downgrade():
     '''
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_index('REQUESTS_TYP_STA_TRANS_ACT_IDX', 'requests')
+        drop_index('REQUESTS_TYP_STA_TRA_ACT_IDX', 'requests')

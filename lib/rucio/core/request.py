@@ -311,7 +311,7 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
     for share in activity_shares:
 
         if transfertool:
-            query = session.query(models.Request).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_TRANS_ACT_IDX)", 'oracle')\
+            query = session.query(models.Request).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_TRA_ACT_IDX)", 'oracle')\
                                                  .filter(models.Request.state.in_(state))\
                                                  .filter(models.Request.request_type.in_(request_type))\
                                                  .filter(models.Request.transfertool == transfertool)\

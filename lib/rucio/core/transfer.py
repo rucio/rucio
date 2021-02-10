@@ -1294,7 +1294,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
 @read_session
 def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, limit=None, activity=None,
-                                                 older_than=None, rses=None, request_state=None, session=None, transfertool=None) -> "List[Tuple]":
+                                                 older_than=None, rses=None, request_state=None, transfertool=None, session=None) -> "List[Tuple]":
     """
     List requests with source replicas
     :param total_workers:     Number of total workers.
@@ -1327,7 +1327,6 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
         .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle') \
         .filter(models.Request.state == request_state) \
         .filter(models.Request.request_type == RequestType.TRANSFER) \
-        .filter(models.Request.transfertool == transfertool) \
         .join(models.RSE, models.RSE.id == models.Request.dest_rse_id) \
         .filter(models.RSE.deleted == false()) \
         .filter(models.RSE.availability.in_((2, 3, 6, 7)))
@@ -1337,6 +1336,9 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
 
     if activity:
         sub_requests = sub_requests.filter(models.Request.activity == activity)
+
+    if transfertool:
+        sub_requests = sub_requests.filter(models.Request.transfertool == transfertool)
 
     sub_requests = filter_thread_work(session=session, query=sub_requests, total_threads=total_workers, thread_id=worker_number, hash_variable='requests.id')
 
@@ -1383,11 +1385,10 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
     # if transfertool specified, select only the requests where the source rses are set up for the transfer tool
     if transfertool:
         query = query.subquery()
-        subq = session.query(query) \
+        query = session.query(query) \
             .join(models.RSEAttrAssociation, models.RSEAttrAssociation.rse_id == query.c.rse_id) \
             .filter(models.RSEAttrAssociation.key == 'transfertool',
-                    models.RSEAttrAssociation.value == transfertool)
-        return subq.all()
+                    models.RSEAttrAssociation.value.like(transfertool))
 
     if rses:
         result = []

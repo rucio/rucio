@@ -121,7 +121,7 @@ def poller(once=False, activities=None, sleep_time=60,
                     continue
 
                 start_time = time.time()
-                logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s' % (older_than, activity))
+                logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s using transfer tool: %s' % (older_than, activity, TRANSFER_TOOL))
                 transfs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                                 state=[RequestState.SUBMITTED],
                                                 limit=db_bulk,

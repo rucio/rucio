@@ -331,10 +331,10 @@ def __get_transfers(total_workers=0, worker_number=0, failover_schemes=None, lim
     :param schemes:          Schemes to process.
     :param mock:             Mock testing.
     :param max_sources:      Max sources.
-    :bring_online:           Bring online timeout.
+    :param bring_online:     Bring online timeout.
     :param logger:           Optional decorated logger that can be passed from the calling daemons or servers.
-    :retry_other_fts:        Retry other fts servers if needed
-    :transfertool:           The transfer tool as specified in rucio.cfg
+    :param retry_other_fts:  Retry other fts servers if needed
+    :param transfertool:     The transfer tool as specified in rucio.cfg
     :returns:                List of transfers
     """
 
