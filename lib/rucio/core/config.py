@@ -18,11 +18,13 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Brandon White <bjwhite@fnal.gov>, 2019-2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 #
 # PY3K COMPATIBLE
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
+from sqlalchemy import func
 
 from rucio.common.exception import ConfigNotFound
 from rucio.common.config import config_get
@@ -33,6 +35,28 @@ from rucio.db.sqla.session import read_session, transactional_session
 REGION = make_region().configure('dogpile.cache.memcached',
                                  expiration_time=3600,
                                  arguments={'url': config_get('cache', 'url', False, '127.0.0.1:11211'), 'distributed_lock': True})
+
+SECTIONS_CACHE_KEY = 'sections'
+
+
+def _has_section_cache_key(section):
+    return 'has_section_%s' % section
+
+
+def _options_cache_key(section):
+    return 'options_%s' % section
+
+
+def _has_option_cache_key(section, option):
+    return 'has_option_%s_%s' % (section, option)
+
+
+def _items_cache_key(section):
+    return 'items_%s' % section
+
+
+def _value_cache_key(section, option):
+    return 'get_%s_%s' % (section, option)
 
 
 @read_session
@@ -46,14 +70,13 @@ def sections(use_cache=True, expiration_time=3600, session=None):
     :returns: ['section_name', ...]
     """
 
-    sections_key = 'sections'
     all_sections = NoValue()
     if use_cache:
-        all_sections = read_from_cache(sections_key, expiration_time)
+        all_sections = read_from_cache(SECTIONS_CACHE_KEY, expiration_time)
     if isinstance(all_sections, NoValue):
         query = session.query(models.Config.section).distinct().all()
         all_sections = [section[0] for section in query]
-        write_to_cache(sections_key, all_sections)
+        write_to_cache(SECTIONS_CACHE_KEY, all_sections)
 
     return all_sections
 
@@ -102,7 +125,7 @@ def options(section, use_cache=True, expiration_time=3600, session=None):
     :param session: The database session in use.
     :returns: ['option', ...]
     """
-    options_key = 'options'
+    options_key = _options_cache_key(section)
     options = NoValue()
     if use_cache:
         options = read_from_cache(options_key, expiration_time)
@@ -125,7 +148,7 @@ def has_option(section, option, use_cache=True, expiration_time=3600, session=No
     :param session: The database session in use.
     :returns: True/False
     """
-    has_option_key = 'has_option_%s_%s' % (section, option)
+    has_option_key = _has_option_cache_key(section, option)
     has_option = NoValue()
     if use_cache:
         has_option = read_from_cache(has_option_key, expiration_time)
@@ -152,7 +175,7 @@ def get(section, option, default=None, use_cache=True, expiration_time=3600, ses
     :param session: The database session in use.
     :returns: The auto-coerced value.
     """
-    value_key = 'get_%s_%s' % (section, option)
+    value_key = _value_cache_key(section, option)
     value = NoValue()
     if use_cache:
         value = read_from_cache(value_key, expiration_time)
@@ -182,7 +205,7 @@ def items(section, use_cache=True, expiration_time=3600, session=None):
     :param session: The database session in use.
     :returns: [('option', auto-coerced value), ...]
     """
-    items_key = 'items_%s' % section
+    items_key = _items_cache_key(section)
     items = NoValue()
     if use_cache:
         items = read_from_cache(items_key, expiration_time)
@@ -204,15 +227,28 @@ def set(section, option, value, session=None):
     """
 
     if not has_option(section=section, option=option, use_cache=False, session=session):
+        section_existed = has_section(section=section)
+
         new_option = models.Config(section=section, opt=option, value=value)
         new_option.save(session=session)
+
+        delete_from_cache(key=_value_cache_key(section, option))
+        delete_from_cache(key=_has_option_cache_key(section, option))
+        delete_from_cache(key=_items_cache_key(section))
+        if not section_existed:
+            delete_from_cache(key=SECTIONS_CACHE_KEY)
+            delete_from_cache(key=_has_section_cache_key(section))
     else:
-        old_option = models.Config.__history_mapper__.class_(section=section,
-                                                             opt=option,
-                                                             value=session.query(models.Config.value).filter_by(section=section,
-                                                                                                                opt=option).first()[0])
-        old_option.save(session=session)
-        session.query(models.Config).filter_by(section=section, opt=option).update({'value': str(value)})
+        old_value = session.query(models.Config.value).filter_by(section=section,
+                                                                 opt=option).first()[0]
+        if old_value != str(value):
+            old_option = models.Config.__history_mapper__.class_(section=section,
+                                                                 opt=option,
+                                                                 value=old_value)
+            old_option.save(session=session)
+            session.query(models.Config).filter_by(section=section, opt=option).update({'value': str(value)})
+            delete_from_cache(key=_value_cache_key(section, option))
+            delete_from_cache(key=_items_cache_key(section))
 
 
 @transactional_session
@@ -233,7 +269,12 @@ def remove_section(section, session=None):
                                                                  opt=old[1],
                                                                  value=old[2])
             old_option.save(session=session)
+            delete_from_cache(key=_has_option_cache_key(old[0], old[1]))
+            delete_from_cache(key=_value_cache_key(old[0], old[1]))
+
         session.query(models.Config).filter_by(section=section).delete()
+        delete_from_cache(key=SECTIONS_CACHE_KEY)
+        delete_from_cache(key=_items_cache_key(section))
         return True
 
 
@@ -257,6 +298,14 @@ def remove_option(section, option, session=None):
                                                                                                                 opt=option).first()[0])
         old_option.save(session=session)
         session.query(models.Config).filter_by(section=section, opt=option).delete()
+
+        if not session.query(func.count('*')).select_from(models.Config).filter_by(section=section).scalar():
+            # we deleted the last config entry in the section. Invalidate the section cache
+            delete_from_cache(key=SECTIONS_CACHE_KEY)
+            delete_from_cache(key=_has_section_cache_key(section))
+        delete_from_cache(key=_items_cache_key(section))
+        delete_from_cache(key=_has_option_cache_key(section, option))
+        delete_from_cache(key=_value_cache_key(section, option))
         return True
 
 
@@ -299,3 +348,13 @@ def write_to_cache(key, value):
     """
     key = key.replace(' ', '')
     REGION.set(key, value)
+
+
+def delete_from_cache(key):
+    """
+    Delete from cache any data stored for the given key
+
+    :param key: Key that stores the value.
+    """
+    key = key.replace(' ', '')
+    REGION.delete(key)
