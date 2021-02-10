@@ -3,7 +3,6 @@ services:
   rucio:
     image: rucio/rucio-dev:py3
     hostname: rucio
-    container_name: rucio
     ports:
       - "443:443"
     links:
@@ -19,8 +18,6 @@ services:
       - RDBMS=postgres11
   ruciodb:
     image: postgres:11
-    hostname: ruciodb
-    container_name: ruciodb
     environment:
       - POSTGRES_USER=rucio
       - POSTGRES_DB=rucio
@@ -29,8 +26,6 @@ services:
       - "5432:5432"
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
   graphite:
-    hostname: graphite
-    container_name: graphite
     image: graphiteapp/graphite-statsd
     ports:
       - "80:80"

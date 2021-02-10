@@ -20,7 +20,7 @@
 import sqlalchemy as sa
 
 from alembic import context
-from alembic.op import add_column, drop_column
+from alembic.op import add_column, drop_column, create_index, drop_index
 
 # Alembic revision identifiers
 revision = 'f85a2962b021'
@@ -35,6 +35,7 @@ def upgrade():
     if context.get_context().dialect.name in ['oracle', 'postgresql', 'mysql']:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         add_column('requests', sa.Column('transfertool', sa.String(64)), schema=schema)
+        create_index('REQUESTS_TYP_STA_TRA_ACT_IDX', 'requests', ['request_type', 'state', 'transfertool', 'activity'])
 
 
 def downgrade():
@@ -45,3 +46,4 @@ def downgrade():
     if context.get_context().dialect.name in ['oracle', 'postgresql', 'mysql']:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         drop_column('requests', 'transfertool', schema=schema)
+        drop_index('REQUESTS_TYP_STA_TRA_ACT_IDX', 'requests')

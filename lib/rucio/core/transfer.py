@@ -655,8 +655,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                                                older_than=older_than,
                                                                rses=rses,
                                                                request_state=RequestState.QUEUED,
-                                                               session=session,
-                                                               transfertool=transfertool)
+                                                               transfertool=transfertool,
+                                                               session=session)
 
     unavailable_read_rse_ids = __get_unavailable_rse_ids(operation='read', session=session)
     unavailable_write_rse_ids = __get_unavailable_rse_ids(operation='write', session=session)
