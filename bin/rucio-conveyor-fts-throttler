@@ -19,7 +19,7 @@
 """
 Conveyor FTS Throttler is a daemon that will configure a fts storage's transfer settings
 depending on how many time out errors occur at the storage. If a storage has substantial amount
-of tranfser failures due to time outs, it is usually due to bad connectivity and the amount of failures can be
+of transfer failures due to time outs, it is usually due to bad connectivity and the amount of failures can be
 alleviated by limiting the transfer settings of FTS transfers on the particular fts storage.
 """
 
