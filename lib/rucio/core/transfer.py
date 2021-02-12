@@ -642,9 +642,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
     :param bring_online:          Bring online timeout.
     :param retry_other_fts:       Retry other fts servers.
     :param failover_schemes:      Failover schemes.
+    :param transfertool:          The transfer tool as specified in rucio.cfg.
     :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
     :param session:               The database session in use.
-    :param transfertool:          The transfer tool as specified in rucio.cfg.
     :returns:                     transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
     """
 
@@ -1303,8 +1303,8 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
     :param activity:         Activity to be selected.
     :param older_than:       Only select requests older than this DateTime.
     :param rses:             List of rse_id to select requests.
-    :param session:          Database session to use.
     :param transfertool:     The transfer tool as specified in rucio.cfg.
+    :param session:          Database session to use.
     :returns:                List.
     """
 

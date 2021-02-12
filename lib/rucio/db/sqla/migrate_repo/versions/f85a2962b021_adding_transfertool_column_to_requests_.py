@@ -15,7 +15,7 @@
 # Authors:
 # - Matt Snyder <msnyder@bnl.gov>, 2021
 
-''' adding transfertool column to requests table '''
+''' adding transfertool column and index to requests table'''
 
 import sqlalchemy as sa
 
