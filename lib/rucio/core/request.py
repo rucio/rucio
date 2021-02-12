@@ -271,7 +271,7 @@ def queue_requests(requests, session=None, logger=logging.log):
 @read_session
 def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activity=None,
              total_workers=0, worker_number=0, mode_all=False, hash_variable='id',
-             activity_shares=None, session=None, transfertool=None):
+             activity_shares=None, transfertool=None, session=None):
     """
     Retrieve the next requests matching the request type and state.
     Workers are balanced via hashing to reduce concurrency on database.
@@ -287,8 +287,8 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
     :param mode_all:          If set to True the function returns everything, if set to False returns list of dictionaries  {'request_id': x, 'external_host': y, 'external_id': z}.
     :param hash_variable:     The variable to use to perform the partitioning. By default it uses the request id.
     :param activity_shares:   Activity shares dictionary, with number of requests
-    :param session:           Database session to use.
     :param transfertool:      The transfer tool as specified in rucio.cfg.
+    :param session:           Database session to use.
     :returns:                 Request as a dictionary.
     """
 

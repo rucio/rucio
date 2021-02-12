@@ -18,4 +18,4 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
 # - Matt Snyder <msnyder@bnl.gov>, 2021
 
-ALEMBIC_REVISION = '7df670114c42'  # the current alembic head revision
+ALEMBIC_REVISION = 'f85a2962b021'  # the current alembic head revision
