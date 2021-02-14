@@ -28,15 +28,15 @@ Version           Code name                Release date     Supported until
 1.12              Captain Donkey           2017-07          2017-09
 1.11              Batdonkey                2017-05          2017-07
 1.10              Irondonkey               2017-02          2017-05
-1.9               Superdonkey              2016-10          2017-02
-1.8               Spiderdonkey             2016-09          2016-10
-1.7               Donkey One               2016-08          2016-09
-1.6               The Donkey awakens       2016-05          2016-08
-1.5               Return of the Donkey     2016-04          2016-05
-1.4               The Donkey strikes back  2016-02          2016-04
-1.3                                        2016-01          2016-02
-1.2                                        2015-10          2016-01
-1.1                                        2015-08          2016-10
+1.09              Superdonkey              2016-10          2017-02
+1.08              Spiderdonkey             2016-09          2016-10
+1.07              Donkey One               2016-08          2016-09
+1.06              The Donkey awakens       2016-05          2016-08
+1.05              Return of the Donkey     2016-04          2016-05
+1.04              The Donkey strikes back  2016-02          2016-04
+1.03                                       2016-01          2016-02
+1.02                                       2015-10          2016-01
+1.01                                       2015-08          2016-10
 1.0                                        2015-07          2015-08
 (0.3)                                      2015-03          2015-07
 (0.2)                                      2014-10          2015-03
