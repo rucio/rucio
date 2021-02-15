@@ -1,0 +1,13 @@
+============
+1.24.3.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Deletion: RSE sorting in reaper2 failing if there is no obsolete rse usage source `#4307 <https://github.com/rucio/rucio/issues/4307>`_
