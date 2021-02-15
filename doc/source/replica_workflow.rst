@@ -40,7 +40,7 @@ Non-Deterministic algorithm based on parent dataset
 
 If the file is part of a dataset, e.g. ``data:dataset1234`` the dataset can be used in the path of the filename. This is useful for e.g. tape storage systems, to keep the files belonging to the same dataset on the same tape.
 
-For the data identifier ``user.jdoe:test.file.1`` which is part of the datset ``data:dataset1234`` the generated path is: ``/data/dataset1234/user.jdoe/test.file.1``
+For the data identifier ``user.jdoe:test.file.1`` which is part of the dataset ``data:dataset1234`` the generated path is: ``/data/dataset1234/user.jdoe/test.file.1``
 
 
 Replica is uploaded with the command line client
@@ -82,7 +82,7 @@ This is a typical workflow if a file already exists in Rucio but the user wants 
 
 5. The transfer service then submits the transfer job to the connected transfer tool (e.g. FTS)
 
-6. Once the transfers are finished the transfer tool notifies Rucio about the transfer success and the transfer services marks the replicas as ``AVAILABLE``.
+6. Once the transfers are finished the transfer tool notifies Rucio about the transfer success and the transfer services mark the replicas as ``AVAILABLE``.
 
 
 
