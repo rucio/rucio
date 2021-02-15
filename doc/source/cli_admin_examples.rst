@@ -91,7 +91,10 @@ To create a new RSE::
 To add a RSE attribute::
 
   $ rucio-admin rse set-attribute --rse SITE2_SCRATCH --key country --value xyz
-  $ rse get-attribute SITE2_SCRATCH
+
+To check an RSE attribute::
+
+  $ rucio-admin rse get-attribute SITE2_SCRATCH
   country: xyz
 
 
