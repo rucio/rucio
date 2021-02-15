@@ -312,7 +312,7 @@ class RSEProtocol(object):
                                                              self._get_path(scope=scope, name=name)
                                                              ])
                 except exception.ReplicaNotFound as e:
-                    self.logger.warning(str(e))
+                    self.logger(logging.WARNING, str(e))
         return pfns
 
     def __lfns2pfns_client(self, lfns):
