@@ -1,0 +1,24 @@
+======
+1.24.4
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Core & Internals: Problem with config endpoint `#3916 <https://github.com/rucio/rucio/issues/3916>`_
+- Documentation: cli-admin example not running `#4315 <https://github.com/rucio/rucio/issues/4315>`_
+- Documentation: Fix small typos and grammatical errors `#4321 <https://github.com/rucio/rucio/issues/4321>`_
+- Documentation: Fix typos in replica_workflow.rst `#4324 <https://github.com/rucio/rucio/issues/4324>`_
+- REST & API: OIDC authentication endpoint on Flask `#4042 <https://github.com/rucio/rucio/issues/4042>`_
+
+****
+Bugs
+****
+
+- Core & Internals: lfns2pfns in rsemanager throws ORM exception when no replica can be found `#4311 <https://github.com/rucio/rucio/issues/4311>`_
+- Deletion: RSE sorting in reaper2 failing if there is no obsolete rse usage source `#4307 <https://github.com/rucio/rucio/issues/4307>`_
