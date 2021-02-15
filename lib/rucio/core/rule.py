@@ -30,7 +30,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - Eric Vaandering <ewv@fnal.gov>, 2020
+# - Eric Vaandering <ewv@fnal.gov>, 2020-2021
 
 from __future__ import division
 
@@ -240,11 +240,12 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
             # 4. Create the replication rule
             with record_timer_block('rule.add_rule.create_rule'):
+                meta_json = None
                 if meta is not None:
                     try:
-                        meta = json.dumps(meta)
+                        meta_json = json.dumps(meta)
                     except Exception:
-                        meta = None
+                        meta_json = None
 
                 new_rule = models.ReplicationRule(account=account,
                                                   name=elem['name'],
@@ -266,7 +267,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                                                   ignore_account_limit=ignore_account_limit,
                                                   priority=priority,
                                                   split_container=split_container,
-                                                  meta=meta,
+                                                  meta=meta_json,
                                                   eol_at=eol_at)
                 try:
                     new_rule.save(session=session)
