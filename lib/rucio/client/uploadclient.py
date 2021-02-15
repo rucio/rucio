@@ -14,7 +14,7 @@
 #
 # Authors:
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2012-2015
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2012
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2021
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
 # - Tobias Wegner <twegner@cern.ch>, 2018
@@ -62,17 +62,13 @@ from rucio import version
 
 class UploadClient:
 
-    def __init__(self, _client=None, logger=None, tracing=True):
+    def __init__(self, _client=None, logger=logging.log, tracing=True):
         """
         Initialises the basic settings for an UploadClient object
 
         :param _client:     - Optional: rucio.client.client.Client object. If None, a new object will be created.
-        :param logger:      - logging.Logger object to use for uploads. If None nothing will be logged.
+        :param logger:      - Optional: decorated logging.log object that can be passed from the calling daemon or client.
         """
-        if not logger:
-            logger = logging.getLogger('%s.null' % __name__)
-            logger.disabled = True
-
         self.logger = logger
 
         self.client = _client if _client else Client()
@@ -81,7 +77,7 @@ class UploadClient:
         self.auth_token = self.client.auth_token if len(self.client.auth_token.split(".")) == 3 else None
         self.tracing = tracing
         if not self.tracing:
-            logger.debug('Tracing is turned off.')
+            logger(logging.DEBUG, 'Tracing is turned off.')
         self.default_file_scope = 'user.' + self.client.account
         self.rses = {}
         self.rse_expressions = {}
@@ -131,7 +127,7 @@ class UploadClient:
 
         # check given sources, resolve dirs into files, and collect meta infos
         files = self._collect_and_validate_file_info(items)
-        logger.debug('Num. of files that upload client is processing: {}'.format(len(files)))
+        logger(logging.DEBUG, 'Num. of files that upload client is processing: {}'.format(len(files)))
 
         # check if RSE of every file is available for writing
         # and cache rse settings
@@ -159,7 +155,7 @@ class UploadClient:
         wrong_dids = registered_file_dids.intersection(registered_dataset_dids)
         if len(wrong_dids):
             raise InputValidationError('DIDs used to address both files and datasets: %s' % str(wrong_dids))
-        logger.debug('Input validation done.')
+        logger(logging.DEBUG, 'Input validation done.')
 
         # clear this set again to ensure that we only try to register datasets once
         registered_dataset_dids = set()
@@ -167,7 +163,7 @@ class UploadClient:
         summary = []
         for file in files:
             basename = file['basename']
-            logger.info('Preparing upload for file %s' % basename)
+            logger(logging.INFO, 'Preparing upload for file %s' % basename)
 
             no_register = file.get('no_register')
             register_after_upload = file.get('register_after_upload') and not no_register
@@ -193,10 +189,10 @@ class UploadClient:
             rse_sign_service = rse_settings.get('sign_url', None)
             is_deterministic = rse_settings.get('deterministic', True)
             if not is_deterministic and not pfn:
-                logger.error('PFN has to be defined for NON-DETERMINISTIC RSE.')
+                logger(logging.ERROR, 'PFN has to be defined for NON-DETERMINISTIC RSE.')
                 continue
             if pfn and is_deterministic:
-                logger.warning('Upload with given pfn implies that no_register is True, except non-deterministic RSEs')
+                logger(logging.WARNING, 'Upload with given pfn implies that no_register is True, except non-deterministic RSEs')
                 no_register = True
 
             # resolving local area networks
@@ -205,11 +201,11 @@ class UploadClient:
             try:
                 rse_attributes = self.client.list_rse_attributes(rse)
             except:
-                logger.warning('Attributes of the RSE: %s not available.' % rse)
+                logger(logging.WARNING, 'Attributes of the RSE: %s not available.' % rse)
             if (self.client_location and 'lan' in rse_settings['domain'] and 'site' in rse_attributes):
                 if self.client_location['site'] == rse_attributes['site']:
                     domain = 'lan'
-            logger.debug('{} domain is used for the upload'.format(domain))
+            logger(logging.DEBUG, '{} domain is used for the upload'.format(domain))
 
             if not no_register and not register_after_upload:
                 self._register_file(file, registered_dataset_dids)
@@ -219,24 +215,24 @@ class UploadClient:
                 if rsemgr.exists(rse_settings, pfn if pfn else file_did, domain=domain, auth_token=self.auth_token, logger=logger):
                     try:
                         self.client.get_did(file['did_scope'], file['did_name'])
-                        logger.info('File already registered. Skipping upload.')
+                        logger(logging.INFO, 'File already registered. Skipping upload.')
                         trace['stateReason'] = 'File already exists'
                         continue
                     except DataIdentifierNotFound:
-                        logger.info('File already exists on RSE. Previous left overs will be overwritten.')
+                        logger(logging.INFO, 'File already exists on RSE. Previous left overs will be overwritten.')
                         delete_existing = True
             elif not is_deterministic and not no_register:
                 if rsemgr.exists(rse_settings, pfn, domain=domain, auth_token=self.auth_token, logger=logger):
-                    logger.info('File already exists on RSE with given pfn. Skipping upload. Existing replica has to be removed first.')
+                    logger(logging.INFO, 'File already exists on RSE with given pfn. Skipping upload. Existing replica has to be removed first.')
                     trace['stateReason'] = 'File already exists'
                     continue
                 elif rsemgr.exists(rse_settings, file_did, domain=domain, auth_token=self.auth_token, logger=logger):
-                    logger.info('File already exists on RSE with different pfn. Skipping upload.')
+                    logger(logging.INFO, 'File already exists on RSE with different pfn. Skipping upload.')
                     trace['stateReason'] = 'File already exists'
                     continue
             else:
                 if rsemgr.exists(rse_settings, pfn if pfn else file_did, domain=domain, auth_token=self.auth_token, logger=logger):
-                    logger.info('File already exists on RSE. Skipping upload')
+                    logger(logging.INFO, 'File already exists on RSE. Skipping upload')
                     trace['stateReason'] = 'File already exists'
                     continue
 
@@ -245,11 +241,11 @@ class UploadClient:
             protocols.reverse()
             success = False
             state_reason = ''
-            logger.debug(str(protocols))
+            logger(logging.DEBUG, str(protocols))
             while not success and len(protocols):
                 protocol = protocols.pop()
                 cur_scheme = protocol['scheme']
-                logger.info('Trying upload with %s to %s' % (cur_scheme, rse))
+                logger(logging.INFO, 'Trying upload with %s to %s' % (cur_scheme, rse))
                 lfn = {}
                 lfn['filename'] = basename
                 lfn['scope'] = file['did_scope']
@@ -267,7 +263,7 @@ class UploadClient:
 
                 trace['protocol'] = cur_scheme
                 trace['transferStart'] = time.time()
-                logger.debug('Processing upload with the domain: {}'.format(domain))
+                logger(logging.DEBUG, 'Processing upload with the domain: {}'.format(domain))
                 try:
                     pfn = self._upload_item(rse_settings=rse_settings,
                                             rse_attributes=rse_attributes,
@@ -278,12 +274,12 @@ class UploadClient:
                                             transfer_timeout=file.get('transfer_timeout'),
                                             delete_existing=delete_existing,
                                             sign_service=sign_service)
-                    logger.debug('Upload done.')
+                    logger(logging.DEBUG, 'Upload done.')
                     success = True
                     file['upload_result'] = {0: True, 1: None, 'success': True, 'pfn': pfn}  # needs to be removed
                 except (ServiceUnavailable, ResourceTemporaryUnavailable, RSEOperationNotSupported, RucioException) as error:
-                    logger.warning('Upload attempt failed')
-                    logger.info('Exception: %s' % str(error))
+                    logger(logging.WARNING, 'Upload attempt failed')
+                    logger(logging.INFO, 'Exception: %s' % str(error), exc_info=True)
                     state_reason = str(error)
 
             if success:
@@ -291,7 +287,7 @@ class UploadClient:
                 trace['transferEnd'] = time.time()
                 trace['clientState'] = 'DONE'
                 file['state'] = 'A'
-                logger.info('Successfully uploaded file %s' % basename)
+                logger(logging.INFO, 'Successfully uploaded file %s' % basename)
                 self._send_trace(trace)
 
                 if summary_file_path:
@@ -302,23 +298,23 @@ class UploadClient:
                         self._register_file(file, registered_dataset_dids)
                     replica_for_api = self._convert_file_for_api(file)
                     if not self.client.update_replicas_states(rse, files=[replica_for_api]):
-                        logger.warning('Failed to update replica state')
+                        logger(logging.WARNING, 'Failed to update replica state')
 
                 # add file to dataset if needed
                 if dataset_did_str and not no_register:
                     try:
                         self.client.attach_dids(file['dataset_scope'], file['dataset_name'], [file_did])
                     except Exception as error:
-                        logger.warning('Failed to attach file to the dataset')
-                        logger.debug('Attaching to dataset {}'.format(str(error)))
+                        logger(logging.WARNING, 'Failed to attach file to the dataset')
+                        logger(logging.DEBUG, 'Attaching to dataset {}'.format(str(error)))
             else:
                 trace['clientState'] = 'FAILED'
                 trace['stateReason'] = state_reason
                 self._send_trace(trace)
-                logger.error('Failed to upload file %s' % basename)
+                logger(logging.ERROR, 'Failed to upload file %s' % basename)
 
         if summary_file_path:
-            logger.debug('Summary will be available at {}'.format(summary_file_path))
+            logger(logging.DEBUG, 'Summary will be available at {}'.format(summary_file_path))
             final_summary = {}
             for file in summary:
                 file_scope = file['did_scope']
@@ -357,7 +353,7 @@ class UploadClient:
         :raises DataIdentifierAlreadyExists: if file DID is already registered and the checksums do not match
         """
         logger = self.logger
-        logger.debug('Registering file')
+        logger(logging.DEBUG, 'Registering file')
 
         # verification whether the scope exists
         account_scopes = []
@@ -366,7 +362,7 @@ class UploadClient:
         except ScopeNotFound:
             pass
         if account_scopes and file['did_scope'] not in account_scopes:
-            logger.warning('Scope {} not found for the account {}.'.format(file['did_scope'], self.client.account))
+            logger(logging.WARNING, 'Scope {} not found for the account {}.'.format(file['did_scope'], self.client.account))
 
         rse = file['rse']
         dataset_did_str = file.get('dataset_did_str')
@@ -374,7 +370,7 @@ class UploadClient:
         if dataset_did_str and dataset_did_str not in registered_dataset_dids:
             registered_dataset_dids.add(dataset_did_str)
             try:
-                logger.debug('Trying to create dataset: %s' % dataset_did_str)
+                logger(logging.DEBUG, 'Trying to create dataset: %s' % dataset_did_str)
                 self.client.add_dataset(scope=file['dataset_scope'],
                                         name=file['dataset_name'],
                                         rules=[{'account': self.client.account,
@@ -382,11 +378,11 @@ class UploadClient:
                                                 'rse_expression': rse,
                                                 'grouping': 'DATASET',
                                                 'lifetime': file.get('lifetime')}])
-                logger.info('Successfully created dataset %s' % dataset_did_str)
+                logger(logging.INFO, 'Successfully created dataset %s' % dataset_did_str)
             except DataIdentifierAlreadyExists:
-                logger.debug('Dataset %s already exists' % dataset_did_str)
+                logger(logging.DEBUG, 'Dataset %s already exists' % dataset_did_str)
         else:
-            logger.debug('Skipping dataset registration')
+            logger(logging.DEBUG, 'Skipping dataset registration')
 
         file_scope = file['did_scope']
         file_name = file['did_name']
@@ -395,11 +391,11 @@ class UploadClient:
         try:
             # if the remote checksum is different this did must not be used
             meta = self.client.get_metadata(file_scope, file_name)
-            logger.info('File DID already exists')
-            logger.debug('local checksum: %s, remote checksum: %s' % (file['adler32'], meta['adler32']))
+            logger(logging.INFO, 'File DID already exists')
+            logger(logging.DEBUG, 'local checksum: %s, remote checksum: %s' % (file['adler32'], meta['adler32']))
 
             if meta['adler32'] != file['adler32']:
-                logger.error('Local checksum %s does not match remote checksum %s' % (file['adler32'], meta['adler32']))
+                logger(logging.ERROR, 'Local checksum %s does not match remote checksum %s' % (file['adler32'], meta['adler32']))
 
                 raise DataIdentifierAlreadyExists
 
@@ -407,15 +403,15 @@ class UploadClient:
             replicastate = list(self.client.list_replicas([file_did], all_states=True))
             if rse not in replicastate[0]['rses']:
                 self.client.add_replicas(rse=rse, files=[replica_for_api])
-                logger.info('Successfully added replica in Rucio catalogue at %s' % rse)
+                logger(logging.INFO, 'Successfully added replica in Rucio catalogue at %s' % rse)
         except DataIdentifierNotFound:
-            logger.debug('File DID does not exist')
+            logger(logging.DEBUG, 'File DID does not exist')
             self.client.add_replicas(rse=rse, files=[replica_for_api])
-            logger.info('Successfully added replica in Rucio catalogue at %s' % rse)
+            logger(logging.INFO, 'Successfully added replica in Rucio catalogue at %s' % rse)
             if not dataset_did_str:
                 # only need to add rules for files if no dataset is given
                 self.client.add_replication_rule([file_did], copies=1, rse_expression=rse, lifetime=file.get('lifetime'))
-                logger.info('Successfully added replication rule at %s' % rse)
+                logger(logging.INFO, 'Successfully added replication rule at %s' % rse)
 
     def _get_file_guid(self, file):
         """
@@ -489,10 +485,10 @@ class UploadClient:
             path = item.get('path')
             pfn = item.get('pfn')
             if not path:
-                logger.warning('Skipping source entry because the key "path" is missing')
+                logger(logging.WARNING, 'Skipping source entry because the key "path" is missing')
                 continue
             if not item.get('rse'):
-                logger.warning('Skipping file %s because no rse was given' % path)
+                logger(logging.WARNING, 'Skipping file %s because no rse was given' % path)
                 continue
             if pfn:
                 item['force_scheme'] = pfn.split(':')[0]
@@ -502,14 +498,14 @@ class UploadClient:
                     file = self._collect_file_info(os.path.join(dname, fname), item)
                     files.append(file)
                 if not len(fnames) and not len(subdirs):
-                    logger.warning('Skipping %s because it is empty.' % dname)
+                    logger(logging.WARNING, 'Skipping %s because it is empty.' % dname)
                 elif not len(fnames):
-                    logger.warning('Skipping %s because it has no files in it. Subdirectories are not supported.' % dname)
+                    logger(logging.WARNING, 'Skipping %s because it has no files in it. Subdirectories are not supported.' % dname)
             elif os.path.isfile(path):
                 file = self._collect_file_info(path, item)
                 files.append(file)
             else:
-                logger.warning('No such file or directory: %s' % path)
+                logger(logging.WARNING, 'No such file or directory: %s' % path)
 
         if not len(files):
             raise InputValidationError('No valid input files given')
@@ -569,7 +565,7 @@ class UploadClient:
 
         # Conditional lfn properties
         if 'adler32' not in lfn:
-            logger.warning('Missing checksum for file %s:%s' % (lfn['scope'], name))
+            logger(logging.WARNING, 'Missing checksum for file %s:%s' % (lfn['scope'], name))
 
         # Getting pfn
         pfn = None
@@ -577,14 +573,14 @@ class UploadClient:
         try:
             pfn = list(protocol_write.lfns2pfns(make_valid_did(lfn)).values())[0]
             readpfn = list(protocol_read.lfns2pfns(make_valid_did(lfn)).values())[0]
-            logger.debug('The PFN created from the LFN: {}'.format(pfn))
+            logger(logging.DEBUG, 'The PFN created from the LFN: {}'.format(pfn))
         except Exception as error:
-            logger.warning('Failed to create PFN for LFN: %s' % lfn)
-            logger.debug(str(error))
+            logger(logging.WARNING, 'Failed to create PFN for LFN: %s' % lfn)
+            logger(logging.DEBUG, str(error), exc_info=True)
         if force_pfn:
             pfn = force_pfn
             readpfn = pfn
-            logger.debug('The given PFN is used: {}'.format(pfn))
+            logger(logging.DEBUG, 'The given PFN is used: {}'.format(pfn))
 
         # Auth. mostly for object stores
         if sign_service:
@@ -601,7 +597,7 @@ class UploadClient:
 
         # Removing tmp from earlier attempts
         if protocol_read.exists(readpfn_tmp):
-            logger.debug('Removing remains of previous upload attemtps.')
+            logger(logging.DEBUG, 'Removing remains of previous upload attemtps.')
             try:
                 # Construct protocol for delete operation.
                 protocol_delete = self._create_protocol(rse_settings, 'delete')
@@ -612,7 +608,7 @@ class UploadClient:
 
         # Removing not registered files from earlier attempts
         if delete_existing:
-            logger.debug('Removing not-registered remains of previous upload attemtps.')
+            logger(logging.DEBUG, 'Removing not-registered remains of previous upload attemtps.')
             try:
                 # Construct protocol for delete operation.
                 protocol_delete = self._create_protocol(rse_settings, 'delete')
@@ -624,13 +620,13 @@ class UploadClient:
         # Process the upload of the tmp file
         try:
             retry(protocol_write.put, base_name, pfn_tmp, source_dir, transfer_timeout=transfer_timeout)(mtries=2, logger=logger)
-            logger.info('Successful upload of temporary file. {}'.format(pfn_tmp))
+            logger(logging.INFO, 'Successful upload of temporary file. {}'.format(pfn_tmp))
         except Exception as error:
             raise RSEOperationNotSupported(str(error))
 
         # Is stat after that upload allowed?
         skip_upload_stat = rse_attributes.get('skip_upload_stat', False)
-        self.logger.debug('skip_upload_stat=%s', skip_upload_stat)
+        self.logger(logging.DEBUG, 'skip_upload_stat=%s', skip_upload_stat)
 
         # Checksum verification, obsolete, see Gabriele changes.
         if not skip_upload_stat:
@@ -641,12 +637,12 @@ class UploadClient:
 
                 # The checksum and filesize check
                 if ('filesize' in stats) and ('filesize' in lfn):
-                    self.logger.debug('Filesize: Expected=%s Found=%s' % (lfn['filesize'], stats['filesize']))
+                    self.logger(logging.DEBUG, 'Filesize: Expected=%s Found=%s' % (lfn['filesize'], stats['filesize']))
                     if int(stats['filesize']) != int(lfn['filesize']):
                         raise RucioException('Filesize mismatch. Source: %s Destination: %s' % (lfn['filesize'], stats['filesize']))
                 if rse_settings['verify_checksum'] is not False:
                     if ('adler32' in stats) and ('adler32' in lfn):
-                        self.logger.debug('Checksum: Expected=%s Found=%s' % (lfn['adler32'], stats['adler32']))
+                        self.logger(logging.DEBUG, 'Checksum: Expected=%s Found=%s' % (lfn['adler32'], stats['adler32']))
                         if stats['adler32'] != lfn['adler32']:
                             raise RucioException('Checksum mismatch. Source: %s Destination: %s' % (lfn['adler32'], stats['adler32']))
 
@@ -656,7 +652,7 @@ class UploadClient:
         # The upload finished successful and the file can be renamed
         try:
             if protocol_write.renaming:
-                logger.debug('Renaming file %s to %s' % (pfn_tmp, pfn))
+                logger(logging.DEBUG, 'Renaming file %s to %s' % (pfn_tmp, pfn))
                 protocol_write.rename(pfn_tmp, pfn)
         except Exception:
             raise RucioException('Unable to rename the tmp file %s.' % pfn_tmp)
@@ -675,7 +671,7 @@ class UploadClient:
         retries = config_get_int('client', 'protocol_stat_retries', raise_exception=False, default=6)
         for attempt in range(retries):
             try:
-                self.logger.debug('stat: pfn=%s' % pfn)
+                self.logger(logging.DEBUG, 'stat: pfn=%s' % pfn)
                 stats = protocol.stat(pfn)
 
                 if int(stats['filesize']) == 0:
@@ -686,11 +682,11 @@ class UploadClient:
                 # The stat succeeded here, but the checksum failed
                 raise error
             except Exception as error:
-                self.logger.debug('stat: unexpected error=%s' % error)
+                self.logger(logging.DEBUG, 'stat: unexpected error=%s' % error)
                 fail_str = ['The requested service is not available at the moment', 'Permission refused']
                 if any(x in str(error) for x in fail_str):
                     raise error
-                self.logger.debug('stat: unknown edge case, retrying in %ss' % 2**attempt)
+                self.logger(logging.DEBUG, 'stat: unknown edge case, retrying in %ss' % 2**attempt)
                 time.sleep(2**attempt)
         return protocol.stat(pfn)
 
@@ -703,11 +699,11 @@ class UploadClient:
         :param auth_token: Optionally passing JSON Web Token (OIDC) string for authentication
         """
         try:
-            protocol = rsemgr.create_protocol(rse_settings, operation, scheme=force_scheme, auth_token=self.auth_token)
+            protocol = rsemgr.create_protocol(rse_settings, operation, scheme=force_scheme, auth_token=self.auth_token, logger=self.logger)
             protocol.connect()
         except Exception as error:
-            self.logger.warning('Failed to create protocol for operation: %s' % operation)
-            self.logger.debug('scheme: %s, exception: %s' % (force_scheme, error))
+            self.logger(logging.WARNING, 'Failed to create protocol for operation: %s' % operation)
+            self.logger(logging.DEBUG, 'scheme: %s, exception: %s' % (force_scheme, error))
             raise error
         return protocol
 

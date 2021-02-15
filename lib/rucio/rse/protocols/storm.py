@@ -19,7 +19,9 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 
+import logging
 import os
 import requests
 
@@ -173,7 +175,7 @@ class Default(protocol.RSEProtocol):
         # make the symlink
         try:
             os.symlink(target, dest)
-            self.logger.info('StoRM protocol: {}->{}'.format(target, dest))
+            self.logger(logging.INFO, 'StoRM protocol: {}->{}'.format(target, dest))
         except Exception as e:
             exception.ServiceUnavailable('Could not create symlink: %s for target %s' % (str(e), str(target)))
 

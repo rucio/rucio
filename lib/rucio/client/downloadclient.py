@@ -21,6 +21,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 #
 # PY3K COMPATIBLE
 
@@ -53,14 +54,14 @@ from rucio import version
 
 class BaseExtractionTool:
 
-    def __init__(self, program_name, useability_check_args, extract_args, logger):
+    def __init__(self, program_name, useability_check_args, extract_args, logger=logging.log):
         """
         Initialises a extraction tool object
 
         :param program_name: the name of the archive extraction program, e.g., unzip
         :param useability_check_args: the arguments of the extraction program to test if its installed, e.g., --version
         :param extract_args: the arguments that will be passed to the program for extraction
-        :param logger: logging.Logger object
+        :param logger: optional decorated logging.log object that can be passed from the calling daemon or client.
         """
         self.program_name = program_name
         self.useability_check_args = useability_check_args
@@ -81,11 +82,11 @@ class BaseExtractionTool:
         try:
             exitcode, out, err = execute(cmd)
             exitcode = int(exitcode)
-            self.logger.debug('"%s" returned with exitcode %d' % (cmd, exitcode))
+            self.logger(logging.DEBUG, '"%s" returned with exitcode %d' % (cmd, exitcode))
             self.is_usable_result = (exitcode == 0)
         except Exception as error:
-            self.logger.debug('Failed to execute: "%s"' % exitcode)
-            self.logger.debug(error)
+            self.logger(logging.DEBUG, 'Failed to execute: "%s"' % exitcode)
+            self.logger(logging.DEBUG, error)
         return self.is_usable_result
 
     def try_extraction(self, archive_file_path, file_to_extract, dest_dir_path):
@@ -108,33 +109,29 @@ class BaseExtractionTool:
         try:
             exitcode, out, err = execute(cmd)
             exitcode = int(exitcode)
-            self.logger.debug('"%s" returned with exitcode %d' % (cmd, exitcode))
+            self.logger(logging.DEBUG, '"%s" returned with exitcode %d' % (cmd, exitcode))
             return (exitcode == 0)
         except Exception as error:
-            self.logger.debug('Failed to execute: "%s"' % exitcode)
-            self.logger.debug(error)
+            self.logger(logging.DEBUG, 'Failed to execute: "%s"' % exitcode)
+            self.logger(logging.DEBUG, error)
         return False
 
 
 class DownloadClient:
 
-    def __init__(self, client=None, logger=None, tracing=True, check_admin=False, check_pcache=False):
+    def __init__(self, client=None, logger=logging.log, tracing=True, check_admin=False, check_pcache=False):
         """
         Initialises the basic settings for an DownloadClient object
 
-        :param client: Optional: rucio.client.client.Client object. If None, a new object will be created.
-        :param external_traces: Optional: reference to a list where traces can be added
-        :param logger: Optional: logging.Logger object to use for downloads. If None nothing will be logged.
+        :param client:           Optional: rucio.client.client.Client object. If None, a new object will be created.
+        :param external_traces:  Optional: reference to a list where traces can be added
+        :param logger:           Optional: decorated logging.log object that can be passed from the calling daemon or client.
         """
-        if not logger:
-            logger = logging.getLogger('%s.null' % __name__)
-            logger.disabled = True
-
         self.check_pcache = check_pcache
         self.logger = logger
         self.tracing = tracing
         if not self.tracing:
-            logger.debug('Tracing is turned off.')
+            logger(logging.DEBUG, 'Tracing is turned off.')
         self.is_human_readable = True
         self.client = client if client else Client()
         # if token should be used, use only JWT tokens
@@ -152,7 +149,7 @@ class DownloadClient:
                     break
         if self.is_admin:
             self.is_tape_excluded = False
-            logger.debug('Admin mode enabled')
+            logger(logging.DEBUG, 'Admin mode enabled')
 
         self.trace_tpl = {}
         self.trace_tpl['hostname'] = self.client_location['fqdn']
@@ -168,11 +165,11 @@ class DownloadClient:
 
         # unzip <archive_file_path> <did_name> -d <dest_dir_path>
         extract_args = '%(archive_file_path)s %(file_to_extract)s -d %(dest_dir_path)s'
-        self.extraction_tools.append(BaseExtractionTool('unzip', '-v', extract_args, logger))
+        self.extraction_tools.append(BaseExtractionTool('unzip', '-v', extract_args, logger=self.logger))
 
         # tar -C <dest_dir_path> -xf <archive_file_path>  <did_name>
         extract_args = '-C %(dest_dir_path)s -xf %(archive_file_path)s %(file_to_extract)s'
-        self.extraction_tools.append(BaseExtractionTool('tar', '--version', extract_args, logger))
+        self.extraction_tools.append(BaseExtractionTool('tar', '--version', extract_args, logger=self.logger))
 
     def download_pfns(self, items, num_threads=2, trace_custom_fields={}, traces_copy_out=None):
         """
@@ -202,7 +199,7 @@ class DownloadClient:
         logger = self.logger
         trace_custom_fields['uuid'] = generate_uuid()
 
-        logger.info('Processing %d item(s) for input' % len(items))
+        logger(logging.INFO, 'Processing %d item(s) for input' % len(items))
         input_items = []
         for item in items:
             did_str = item.get('did')
@@ -210,13 +207,13 @@ class DownloadClient:
             rse = item.get('rse')
 
             if not did_str or not pfn or not rse:
-                logger.debug(item)
+                logger(logging.DEBUG, item)
                 raise InputValidationError('The keys did, pfn, and rse are mandatory')
 
-            logger.debug('Preparing PFN download of %s (%s) from %s' % (did_str, pfn, rse))
+            logger(logging.DEBUG, 'Preparing PFN download of %s (%s) from %s' % (did_str, pfn, rse))
 
             if '*' in did_str:
-                logger.debug(did_str)
+                logger(logging.DEBUG, did_str)
                 raise InputValidationError('Cannot use PFN download with wildcard in DID')
 
             did_scope, did_name = self._split_did_str(did_str)
@@ -273,14 +270,14 @@ class DownloadClient:
         logger = self.logger
         trace_custom_fields['uuid'] = generate_uuid()
 
-        logger.info('Processing %d item(s) for input' % len(items))
+        logger(logging.INFO, 'Processing %d item(s) for input' % len(items))
         download_info = self._resolve_and_merge_input_items(copy.deepcopy(items))
         did_to_options = download_info['did_to_options']
         merged_items = download_info['merged_items']
 
-        self.logger.debug('num_unmerged_items=%d; num_dids=%d; num_merged_items=%d' % (len(items), len(did_to_options), len(merged_items)))
+        self.logger(logging.DEBUG, 'num_unmerged_items=%d; num_dids=%d; num_merged_items=%d' % (len(items), len(did_to_options), len(merged_items)))
 
-        logger.info('Getting sources of DIDs')
+        logger(logging.INFO, 'Getting sources of DIDs')
         # if one item wants to resolve archives we enable it for all items
         resolve_archives = not all(item.get('no_resolve_archives') for item in merged_items)
         merged_items_with_sources = self._get_sources(merged_items, resolve_archives=resolve_archives)
@@ -317,7 +314,7 @@ class DownloadClient:
         """
         logger = self.logger
 
-        logger.info('Getting sources from metalink file')
+        logger(logging.INFO, 'Getting sources from metalink file')
         metalinks = parse_replicas_from_file(metalink_file_path)
 
         trace_custom_fields['uuid'] = generate_uuid()
@@ -363,11 +360,11 @@ class DownloadClient:
         input_queue.queue = deque(input_items)
 
         if num_threads < 2:
-            logger.info('Using main thread to download %d file(s)' % num_files)
+            logger(logging.INFO, 'Using main thread to download %d file(s)' % num_files)
             self._download_worker(input_queue, output_queue, trace_custom_fields, traces_copy_out, '')
             return list(output_queue.queue)
 
-        logger.info('Using %d threads to download %d files' % (num_threads, num_files))
+        logger(logging.INFO, 'Using %d threads to download %d files' % (num_threads, num_files))
         threads = []
         for thread_num in range(0, num_threads):
             log_prefix = 'Thread %s/%s: ' % (thread_num, num_threads)
@@ -381,15 +378,15 @@ class DownloadClient:
                 thread.start()
                 threads.append(thread)
             except Exception as error:
-                logger.warning('Failed to start thread %d' % thread_num)
-                logger.debug(error)
+                logger(logging.WARNING, 'Failed to start thread %d' % thread_num)
+                logger(logging.DEBUG, error)
 
         try:
-            logger.debug('Waiting for threads to finish')
+            logger(logging.DEBUG, 'Waiting for threads to finish')
             for thread in threads:
                 thread.join()
         except KeyboardInterrupt:
-            logger.warning('You pressed Ctrl+C! Exiting gracefully')
+            logger(logging.WARNING, 'You pressed Ctrl+C! Exiting gracefully')
             for thread in threads:
                 thread.kill_received = True
         return list(output_queue.queue)
@@ -408,7 +405,7 @@ class DownloadClient:
         """
         logger = self.logger
 
-        logger.debug('%sStart processing queued downloads' % log_prefix)
+        logger(logging.DEBUG, '%sStart processing queued downloads' % log_prefix)
         while True:
             try:
                 item = input_queue.get_nowait()
@@ -420,12 +417,12 @@ class DownloadClient:
                 download_result = self._download_item(item, trace, traces_copy_out, log_prefix)
                 output_queue.put(download_result)
             except KeyboardInterrupt:
-                logger.warning('You pressed Ctrl+C! Exiting gracefully')
+                logger(logging.WARNING, 'You pressed Ctrl+C! Exiting gracefully')
                 os.kill(os.getpgid(), signal.SIGINT)
                 break
             except Exception as error:
-                logger.error('%sFailed to download item' % log_prefix)
-                logger.debug(error)
+                logger(logging.ERROR, '%sFailed to download item' % log_prefix)
+                logger(logging.DEBUG, error)
 
     def _download_item(self, item, trace, traces_copy_out, log_prefix=''):
         """
@@ -444,7 +441,7 @@ class DownloadClient:
         did_scope = item['scope']
         did_name = item['name']
         did_str = '%s:%s' % (did_scope, did_name)
-        logger.info('%sPreparing download of %s' % (log_prefix, did_str))
+        logger(logging.INFO, '%sPreparing download of %s' % (log_prefix, did_str))
 
         trace['scope'] = did_scope
         trace['filename'] = did_name
@@ -463,10 +460,10 @@ class DownloadClient:
         # if file already exists make sure it exists at all destination paths, set state, send trace, and return
         for dest_file_path in dest_file_paths:
             if os.path.isfile(dest_file_path):
-                logger.info('%sFile exists already locally: %s' % (log_prefix, did_str))
+                logger(logging.INFO, '%sFile exists already locally: %s' % (log_prefix, did_str))
                 for missing_file_path in dest_file_paths:
                     if not os.path.isfile(missing_file_path):
-                        logger.debug("copying '%s' to '%s'" % (dest_file_path, missing_file_path))
+                        logger(logging.DEBUG, "copying '%s' to '%s'" % (dest_file_path, missing_file_path))
                         shutil.copy2(dest_file_path, missing_file_path)
                 item['clientState'] = 'ALREADY_DONE'
                 trace['transferStart'] = time.time()
@@ -478,7 +475,7 @@ class DownloadClient:
         # check if file has replicas
         sources = item.get('sources')
         if not sources or not len(sources):
-            logger.warning('%sNo available source found for file: %s' % (log_prefix, did_str))
+            logger(logging.WARNING, '%sNo available source found for file: %s' % (log_prefix, did_str))
             item['clientState'] = 'FILE_NOT_FOUND'
             trace['clientState'] = 'FILE_NOT_FOUND'
             trace['stateReason'] = 'No available sources'
@@ -502,17 +499,17 @@ class DownloadClient:
                     storage_prefix = prot['prefix']
 
             # proceed with the actual check
-            logger.info('Checking whether %s is in pcache' % dest_file_path)
+            logger(logging.INFO, 'Checking whether %s is in pcache' % dest_file_path)
             pcache_state = None
             hardlink_state = None
             try:
                 pcache_state, hardlink_state = pcache.check_and_link(src=pfn, storage_root=storage_prefix, dst=dest_file_path)
             except Exception as e:
-                logger.warning('Pcache failure: %s' % str(e))
+                logger(logging.WARNING, 'Pcache failure: %s' % str(e))
 
             # if file found in pcache, send trace and return
             if pcache_state == 0 and hardlink_state == 1:
-                logger.info('File found in pcache.')
+                logger(logging.INFO, 'File found in pcache.')
                 item['clientState'] = 'FOUND_IN_PCACHE'
                 trace['transferStart'] = time.time()
                 trace['transferEnd'] = time.time()
@@ -520,7 +517,7 @@ class DownloadClient:
                 self._send_trace(trace)
                 return item
             else:
-                logger.info('File not found in pcache.')
+                logger(logging.INFO, 'File not found in pcache.')
 
         # try different PFNs until one succeeded
         temp_file_path = item['temp_file_path']
@@ -536,7 +533,7 @@ class DownloadClient:
             try:
                 rse = rsemgr.get_rse_info(rse_name, vo=self.client.vo)
             except RucioException as error:
-                logger.warning('%sCould not get info of RSE %s: %s' % (log_prefix, rse_name, error))
+                logger(logging.WARNING, '%sCould not get info of RSE %s: %s' % (log_prefix, rse_name, error))
                 trace['stateReason'] = str(error)
                 continue
 
@@ -544,14 +541,14 @@ class DownloadClient:
             trace['clientState'] = 'DOWNLOAD_ATTEMPT'
             trace['protocol'] = scheme
 
-            logger.info('%sTrying to download with %s from %s: %s ' % (log_prefix, scheme, rse_name, did_str))
+            logger(logging.INFO, '%sTrying to download with %s from %s: %s ' % (log_prefix, scheme, rse_name, did_str))
 
             try:
                 protocol = rsemgr.create_protocol(rse, operation='read', scheme=scheme, auth_token=self.auth_token, logger=logger)
                 protocol.connect()
             except Exception as error:
-                logger.warning('%sFailed to create protocol for PFN: %s' % (log_prefix, pfn))
-                logger.debug('scheme: %s, exception: %s' % (scheme, error))
+                logger(logging.WARNING, '%sFailed to create protocol for PFN: %s' % (log_prefix, pfn))
+                logger(logging.DEBUG, 'scheme: %s, exception: %s' % (scheme, error))
                 trace['stateReason'] = str(error)
                 continue
 
@@ -563,7 +560,7 @@ class DownloadClient:
                 item['attemptnr'] = attempt
 
                 if os.path.isfile(temp_file_path):
-                    logger.debug('%sDeleting existing temporary file: %s' % (log_prefix, temp_file_path))
+                    logger(logging.DEBUG, '%sDeleting existing temporary file: %s' % (log_prefix, temp_file_path))
                     os.unlink(temp_file_path)
 
                 start_time = time.time()
@@ -572,7 +569,7 @@ class DownloadClient:
                     protocol.get(pfn, temp_file_path, transfer_timeout=item.get('merged_options', {}).get('transfer_timeout'))
                     success = True
                 except Exception as error:
-                    logger.debug(error)
+                    logger(logging.DEBUG, error)
                     trace['clientState'] = str(type(error).__name__)
                     trace['stateReason'] = str(error)
 
@@ -583,37 +580,37 @@ class DownloadClient:
                     if not verified:
                         success = False
                         os.unlink(temp_file_path)
-                        logger.warning('%sChecksum validation failed for file: %s' % (log_prefix, did_str))
-                        logger.debug('Local checksum: %s, Rucio checksum: %s' % (local_checksum, rucio_checksum))
+                        logger(logging.WARNING, '%sChecksum validation failed for file: %s' % (log_prefix, did_str))
+                        logger(logging.DEBUG, 'Local checksum: %s, Rucio checksum: %s' % (local_checksum, rucio_checksum))
                         trace['clientState'] = 'FAIL_VALIDATE'
                         trace['stateReason'] = 'Checksum validation failed: Local checksum: %s, Rucio checksum: %s' % (local_checksum, rucio_checksum)
                 if not success:
-                    logger.warning('%sDownload attempt failed. Try %s/%s' % (log_prefix, attempt, retries))
+                    logger(logging.WARNING, '%sDownload attempt failed. Try %s/%s' % (log_prefix, attempt, retries))
                     self._send_trace(trace)
 
             protocol.close()
 
         if not success:
-            logger.error('%sFailed to download file %s' % (log_prefix, did_str))
+            logger(logging.ERROR, '%sFailed to download file %s' % (log_prefix, did_str))
             item['clientState'] = 'FAILED'
             return item
 
         dest_file_path_iter = iter(dest_file_paths)
         first_dest_file_path = next(dest_file_path_iter)
-        logger.debug("renaming '%s' to '%s'" % (temp_file_path, first_dest_file_path))
+        logger(logging.DEBUG, "renaming '%s' to '%s'" % (temp_file_path, first_dest_file_path))
         os.rename(temp_file_path, first_dest_file_path)
 
         # if the file was downloaded with success, it can be linked to pcache
         if pcache:
-            logger.info('File %s is going to be registerred into pcache.' % dest_file_path)
+            logger(logging.INFO, 'File %s is going to be registerred into pcache.' % dest_file_path)
             try:
                 pcache_state, hardlink_state = pcache.check_and_link(src=pfn, storage_root=storage_prefix, local_src=first_dest_file_path)
-                logger.info('File %s is now registerred into pcache.' % first_dest_file_path)
+                logger(logging.INFO, 'File %s is now registerred into pcache.' % first_dest_file_path)
             except Exception as e:
-                logger.warning('Failed to load file to pcache: %s' % str(e))
+                logger(logging.WARNING, 'Failed to load file to pcache: %s' % str(e))
 
         for cur_dest_file_path in dest_file_path_iter:
-            logger.debug("copying '%s' to '%s'" % (first_dest_file_path, cur_dest_file_path))
+            logger(logging.DEBUG, "copying '%s' to '%s'" % (first_dest_file_path, cur_dest_file_path))
             shutil.copy2(first_dest_file_path, cur_dest_file_path)
 
         trace['transferStart'] = start_time
@@ -628,13 +625,13 @@ class DownloadClient:
         size_str = sizefmt(size, self.is_human_readable)
         if size and duration:
             rate = round((size / duration) * 1e-6, 2)
-            logger.info('%sFile %s successfully downloaded. %s in %s seconds = %s MBps' % (log_prefix, did_str, size_str, duration, rate))
+            logger(logging.INFO, '%sFile %s successfully downloaded. %s in %s seconds = %s MBps' % (log_prefix, did_str, size_str, duration, rate))
         else:
-            logger.info('%sFile %s successfully downloaded in %s seconds' % (log_prefix, did_str, duration))
+            logger(logging.INFO, '%sFile %s successfully downloaded in %s seconds' % (log_prefix, did_str, duration))
 
         file_items_in_archive = item.get('archive_items', [])
         if len(file_items_in_archive) > 0:
-            logger.info('%sExtracting %d file(s) from %s' % (log_prefix, len(file_items_in_archive), did_name))
+            logger(logging.INFO, '%sExtracting %d file(s) from %s' % (log_prefix, len(file_items_in_archive), did_name))
 
             archive_file_path = first_dest_file_path
             for file_item in file_items_in_archive:
@@ -643,23 +640,23 @@ class DownloadClient:
                 dest_file_path_iter = iter(file_item['dest_file_paths'])
                 first_dest_file_path = next(dest_file_path_iter)
                 dest_dir = os.path.dirname(first_dest_file_path)
-                logger.debug('%sExtracting %s to %s' % (log_prefix, extract_file_name, dest_dir))
+                logger(logging.DEBUG, '%sExtracting %s to %s' % (log_prefix, extract_file_name, dest_dir))
                 for extraction_tool in self.extraction_tools:
                     if extraction_tool.try_extraction(archive_file_path, extract_file_name, dest_dir):
                         extraction_ok = True
                         break
 
                 if not extraction_ok:
-                    logger.error('Extraction of file %s from archive %s failed.' % (extract_file_name, did_name))
+                    logger(logging.ERROR, 'Extraction of file %s from archive %s failed.' % (extract_file_name, did_name))
                     continue
 
                 first_dest_file_path = os.path.join(dest_dir, extract_file_name)
                 for cur_dest_file_path in dest_file_path_iter:
-                    logger.debug("copying '%s' to '%s'" % (first_dest_file_path, cur_dest_file_path))
+                    logger(logging.DEBUG, "copying '%s' to '%s'" % (first_dest_file_path, cur_dest_file_path))
                     shutil.copy2(first_dest_file_path, cur_dest_file_path)
 
             if not item.get('shall_keep_archive'):
-                logger.debug('%sDeleting archive %s' % (log_prefix, did_name))
+                logger(logging.DEBUG, '%sDeleting archive %s' % (log_prefix, did_name))
                 os.remove(archive_file_path)
 
         return item
@@ -697,22 +694,22 @@ class DownloadClient:
         for item in items:
             item['force_scheme'] = ['https', 'davs']
 
-        logger.info('Processing %d item(s) for input' % len(items))
+        logger(logging.INFO, 'Processing %d item(s) for input' % len(items))
         download_info = self._resolve_and_merge_input_items(copy.deepcopy(items))
         did_to_options = download_info['did_to_options']
         merged_items = download_info['merged_items']
 
-        self.logger.debug('num_unmerged_items=%d; num_dids=%d; num_merged_items=%d' % (len(items), len(did_to_options), len(merged_items)))
+        self.logger(logging.DEBUG, 'num_unmerged_items=%d; num_dids=%d; num_merged_items=%d' % (len(items), len(did_to_options), len(merged_items)))
 
-        logger.info('Getting sources of DIDs')
+        logger(logging.INFO, 'Getting sources of DIDs')
         merged_items_with_sources = self._get_sources(merged_items)
         input_items = self._prepare_items_for_download(did_to_options, merged_items_with_sources, resolve_archives=False)
 
         try:
             output_items = self._download_items_aria2c(input_items, aria_rpc, rpc_auth, trace_custom_fields)
         except Exception as error:
-            self.logger.error('Unknown exception during aria2c download')
-            self.logger.debug(error)
+            self.logger(logging.ERROR, 'Unknown exception during aria2c download')
+            self.logger(logging.DEBUG, error)
         finally:
             try:
                 aria_rpc.aria2.forceShutdown(rpc_auth)
@@ -754,15 +751,15 @@ class DownloadClient:
               '--connect-timeout=5 '\
               '--rpc-listen-port=%d'
 
-        logger.info('Starting aria2c rpc server...')
+        logger(logging.INFO, 'Starting aria2c rpc server...')
 
         # trying up to 3 random ports
         for attempt in range(3):
             port = random.randint(1024, 65534)
-            logger.debug('Trying to start rpc server on port: %d' % port)
+            logger(logging.DEBUG, 'Trying to start rpc server on port: %d' % port)
             try:
                 to_exec = cmd % (os.getpid(), rpc_secret, port)
-                logger.debug(to_exec)
+                logger(logging.DEBUG, to_exec)
                 rpcproc = execute(to_exec, False)
             except Exception as error:
                 raise RucioException('Failed to execute aria2c!', error)
@@ -773,8 +770,8 @@ class DownloadClient:
             # did it fail?
             if rpcproc.poll() is not None:
                 (out, err) = rpcproc.communicate()
-                logger.debug('Failed to start aria2c with port: %d' % port)
-                logger.debug('aria2c output: %s' % out)
+                logger(logging.DEBUG, 'Failed to start aria2c with port: %d' % port)
+                logger(logging.DEBUG, 'aria2c output: %s' % out)
             else:
                 break
 
@@ -843,12 +840,12 @@ class DownloadClient:
                 # workaround: only consider first dest file path for aria2c download
                 dest_file_path = next(iter(item['dest_file_paths']))
                 if os.path.isfile(dest_file_path):
-                    logger.info('File exists already locally: %s' % file_did_str)
+                    logger(logging.INFO, 'File exists already locally: %s' % file_did_str)
                     item['clientState'] = 'ALREADY_DONE'
                     trace['clientState'] = 'ALREADY_DONE'
                     self._send_trace(trace)
                 elif len(pfns) == 0:
-                    logger.warning('No available source found for file: %s' % file_did_str)
+                    logger(logging.WARNING, 'No available source found for file: %s' % file_did_str)
                     item['clientState'] = 'FILE_NOT_FOUND'
                     trace['clientState'] = 'FILE_NOT_FOUND'
                     self._send_trace(trace)
@@ -859,7 +856,7 @@ class DownloadClient:
                     gid = aria_rpc.aria2.addUri(rpc_auth, pfns, options)
                     gid_to_item[gid] = item
                     num_queued += 1
-                    logger.debug('Queued file: %s' % file_did_str)
+                    logger(logging.DEBUG, 'Queued file: %s' % file_did_str)
 
             # get some statistics
             aria_stat = aria_rpc.aria2.getGlobalStat(rpc_auth)
@@ -918,19 +915,19 @@ class DownloadClient:
                         size = item.get('bytes', 0)
                         rate = round((size / duration) * 1e-6, 2)
                         size_str = sizefmt(size, self.is_human_readable)
-                        logger.info('File %s successfully downloaded. %s in %s seconds = %s MBps' % (file_did_str,
-                                                                                                     size_str,
-                                                                                                     duration,
-                                                                                                     rate))
+                        logger(logging.INFO, 'File %s successfully downloaded. %s in %s seconds = %s MBps' % (file_did_str,
+                                                                                                              size_str,
+                                                                                                              duration,
+                                                                                                              rate))
                     else:
                         os.unlink(temp_file_path)
-                        logger.warning('Checksum validation failed for file: %s' % file_did_str)
-                        logger.debug('Local checksum: %s, Rucio checksum: %s' % (local_checksum, rucio_checksum))
+                        logger(logging.WARNING, 'Checksum validation failed for file: %s' % file_did_str)
+                        logger(logging.DEBUG, 'Local checksum: %s, Rucio checksum: %s' % (local_checksum, rucio_checksum))
                         item['clientState'] = 'FAIL_VALIDATE'
                         trace['clientState'] = 'FAIL_VALIDATE'
                 else:
-                    logger.error('Failed to download file: %s' % file_did_str)
-                    logger.debug('Aria2c status: %s' % status)
+                    logger(logging.ERROR, 'Failed to download file: %s' % file_did_str)
+                    logger(logging.DEBUG, 'Aria2c status: %s' % status)
                     item['clientState'] = 'FAILED'
                     trace['clientState'] = 'DOWNLOAD_ATTEMPT'
 
@@ -941,7 +938,7 @@ class DownloadClient:
                 del gid_to_item[gid]
 
             if len(stopped) > 0:
-                logger.info('Active: %d, Waiting: %d, Stopped: %d' % (num_active, num_waiting, num_stopped))
+                logger(logging.INFO, 'Active: %d, Waiting: %d, Stopped: %d' % (num_active, num_waiting, num_stopped))
 
         return items
 
@@ -963,13 +960,13 @@ class DownloadClient:
         # check mandatory options before doing any server calls
         for item in items:
             if item.get('resolve_archives') is not None:
-                logger.warning('resolve_archives option is deprecated and will be removed in a future release.')
+                logger(logging.WARNING, 'resolve_archives option is deprecated and will be removed in a future release.')
                 item.setdefault('no_resolve_archives', not item.pop('resolve_archives'))
 
             did = item.get('did', [])
             if len(did) == 0:
                 if not item.get('filters', {}).get('scope'):
-                    logger.debug(item)
+                    logger(logging.DEBUG, item)
                     raise InputValidationError('Item without did and filter/scope')
                 item['did'] = [None]
             elif not isinstance(did, list):
@@ -989,7 +986,7 @@ class DownloadClient:
             filters = item.get('filters', {})
             item_dids = item.pop('did')
             if item_dids[0] is None:
-                logger.debug('Resolving DIDs by using filter options')
+                logger(logging.DEBUG, 'Resolving DIDs by using filter options')
                 item_dids = []
                 scope = filters.pop('scope')
                 for did_name in self.client.list_dids(scope, filters=filters, type='all'):
@@ -1018,7 +1015,7 @@ class DownloadClient:
                         # in this case the DID was already given in another item
                         # the options of this DID will be ignored and the options of the first item that contained the DID will be used
                         # another approach would be to compare the options and apply the more relaxed options
-                        logger.debug('Ignoring further options of DID: %s' % resolved_did_str)
+                        logger(logging.DEBUG, 'Ignoring further options of DID: %s' % resolved_did_str)
                         continue
 
                     options['ignore_checksum'] = (options.get('ignore_checksum') or ignore_checksum)
@@ -1032,8 +1029,8 @@ class DownloadClient:
                     all_resolved_did_strs.add(resolved_did_str)
 
             if len(resolved_dids) == 0:
-                logger.warning('An item didnt have any DIDs after resolving the input. Ignoring it.')
-                logger.debug(item)
+                logger(logging.WARNING, 'An item didnt have any DIDs after resolving the input. Ignoring it.')
+                logger(logging.DEBUG, item)
                 continue
 
             was_merged = False
@@ -1064,21 +1061,21 @@ class DownloadClient:
             try:
                 tape_rses = [endp['rse'] for endp in self.client.list_rses(rse_expression='istape=true')]
             except:
-                logger.debug('No tapes found.')
+                logger(logging.DEBUG, 'No tapes found.')
 
         for item in merged_items:
             # since we're using metalink we need to explicitly give all schemes
             schemes = item.get('force_scheme')
             if schemes:
                 schemes = schemes if isinstance(schemes, list) else [schemes]
-            logger.debug('schemes: %s' % schemes)
+            logger(logging.DEBUG, 'schemes: %s' % schemes)
 
             # RSE expression, still with tape endpoints included
             rse_expression = item.get('rse')
-            logger.debug('rse_expression: %s' % rse_expression)
+            logger(logging.DEBUG, 'rse_expression: %s' % rse_expression)
 
             # get PFNs of files and datasets
-            logger.debug('num DIDs for list_replicas call: %d' % len(item['dids']))
+            logger(logging.DEBUG, 'num DIDs for list_replicas call: %d' % len(item['dids']))
 
             metalink_str = self.client.list_replicas(item['dids'],
                                                      schemes=schemes,
@@ -1089,7 +1086,7 @@ class DownloadClient:
                                                      metalink=True)
             file_items = parse_replicas_from_string(metalink_str)
 
-            logger.debug('num resolved files: %s' % len(file_items))
+            logger(logging.DEBUG, 'num resolved files: %s' % len(file_items))
 
             # list_replicas returns nothing if the DID does not exist and we dont want to
             # do another server call so we check if there is a result from list_replicas
@@ -1097,7 +1094,7 @@ class DownloadClient:
             for input_did in item['dids']:
                 input_did = DIDType(input_did)
                 if not any([input_did == f['did'] or str(input_did) in f['parent_dids'] for f in file_items]):
-                    logger.error('DID does not exist: %s' % input_did)
+                    logger(logging.ERROR, 'DID does not exist: %s' % input_did)
                     # TODO: store did directly as DIDType object
                     file_items.append({'did': str(input_did), 'adler32': None, 'md5': None, 'sources': [], 'parent_dids': set()})
 
@@ -1109,11 +1106,11 @@ class DownloadClient:
                         if src in tape_rses:
                             sources.remove(src)
                     if not sources:
-                        logger.warning('Requested did {} has only replicas on tape. No files will be download.'.format(item['did']))
+                        logger(logging.WARNING, 'Requested did {} has only replicas on tape. No files will be download.'.format(item['did']))
 
             nrandom = item.get('nrandom')
             if nrandom:
-                logger.info('Selecting %d random replicas from DID(s): %s' % (nrandom, item['dids']))
+                logger(logging.INFO, 'Selecting %d random replicas from DID(s): %s' % (nrandom, item['dids']))
                 random.shuffle(file_items)
                 file_items = file_items[0:nrandom]
                 merged_items_with_sources.append(file_items)
@@ -1139,8 +1136,8 @@ class DownloadClient:
             # perhaps we'll need an extraction tool so check what is installed
             self.extraction_tools = [tool for tool in self.extraction_tools if tool.is_useable()]
             if len(self.extraction_tools) < 1:
-                logger.warning('Archive resolution is enabled but no extraction tool is available. '
-                               'Sources whose protocol doesnt support extraction wont be considered for download.')
+                logger(logging.WARNING, 'Archive resolution is enabled but no extraction tool is available. '
+                                        'Sources whose protocol doesnt support extraction wont be considered for download.')
 
         # maps file item IDs (fiid) to the file item object
         fiid_to_file_item = {}
@@ -1171,9 +1168,9 @@ class DownloadClient:
                 file_item['scope'] = file_did_scope
                 file_item['name'] = file_did_name
 
-                logger.debug('Queueing file: %s' % file_did_str)
-                logger.debug('real parents: %s' % dataset_did_strs)
-                logger.debug('options: %s' % did_to_options)
+                logger(logging.DEBUG, 'Queueing file: %s' % file_did_str)
+                logger(logging.DEBUG, 'real parents: %s' % dataset_did_strs)
+                logger(logging.DEBUG, 'options: %s' % did_to_options)
 
                 # prepare destinations:
                 # if datasets were given: prepare the destination paths for each dataset
@@ -1182,7 +1179,7 @@ class DownloadClient:
                 for dataset_did_str in dataset_did_strs:
                     options = did_to_options.get(dataset_did_str)
                     if not options:
-                        logger.error('No input options available for %s' % dataset_did_str)
+                        logger(logging.ERROR, 'No input options available for %s' % dataset_did_str)
                         continue
 
                     destinations = options['destinations']
@@ -1202,7 +1199,7 @@ class DownloadClient:
                 if len(dataset_did_strs) == 0:
                     options = did_to_options.get(file_did_str)
                     if not options:
-                        logger.error('No input options available for %s' % file_did_str)
+                        logger(logging.ERROR, 'No input options available for %s' % file_did_str)
                         continue
                     destinations = options['destinations']
                     paths = [os.path.join(self._prepare_dest_dir(dest[0], file_did_scope, dest[1]), file_did_name) for dest in destinations]
@@ -1249,10 +1246,10 @@ class DownloadClient:
                             sources.append(source)
                         else:
                             # no extraction tool
-                            logger.debug('client_extract=True; ignoring source: %s' % source['pfn'])
+                            logger(logging.DEBUG, 'client_extract=True; ignoring source: %s' % source['pfn'])
 
-                    logger.debug('Prepared sources: num_sources=%d/%d; num_non_cea_sources=%d; num_cea_ids=%d'
-                                 % (len(sources), len(file_item['sources']), num_non_cea_sources, len(cea_ids)))
+                    logger(logging.DEBUG, 'Prepared sources: num_sources=%d/%d; num_non_cea_sources=%d; num_cea_ids=%d'
+                                          % (len(sources), len(file_item['sources']), num_non_cea_sources, len(cea_ids)))
 
                     file_item['sources'] = sources
 
@@ -1262,17 +1259,17 @@ class DownloadClient:
                     # decide if file item belongs to the pure or mixed map
                     # if no non-archive src exists or the highest prio src is an archive src we put it in the pure map
                     elif num_non_cea_sources == 0 or min_cea_priority == 1:
-                        logger.debug('Adding fiid to cea pure map: '
-                                     'num_non_cea_sources=%d; min_cea_priority=%d; num_cea_sources=%d'
-                                     % (num_non_cea_sources, min_cea_priority, len(cea_ids)))
+                        logger(logging.DEBUG, 'Adding fiid to cea pure map: '
+                                              'num_non_cea_sources=%d; min_cea_priority=%d; num_cea_sources=%d'
+                                              % (num_non_cea_sources, min_cea_priority, len(cea_ids)))
                         for cea_id in cea_ids:
                             cea_id_pure_to_fiids.setdefault(cea_id, set()).add(fiid)
                             file_item.setdefault('cea_ids_pure', set()).add(cea_id)
                     # if there are non-archive sources and archive sources we put it in the mixed map
                     elif len(cea_ids) > 0:
-                        logger.debug('Adding fiid to cea mixed map: '
-                                     'num_non_cea_sources=%d; min_cea_priority=%d; num_cea_sources=%d'
-                                     % (num_non_cea_sources, min_cea_priority, len(cea_ids)))
+                        logger(logging.DEBUG, 'Adding fiid to cea mixed map: '
+                                              'num_non_cea_sources=%d; min_cea_priority=%d; num_cea_sources=%d'
+                                              % (num_non_cea_sources, min_cea_priority, len(cea_ids)))
                         for cea_id in cea_ids:
                             cea_id_mixed_to_fiids.setdefault(cea_id, set()).add(fiid)
                             file_item.setdefault('cea_ids_mixed', set()).add(cea_id)
@@ -1283,14 +1280,14 @@ class DownloadClient:
             fiids_mixed = cea_id_mixed_to_fiids[cea_id_mixed]
             if cea_id_mixed in cea_id_pure_to_fiids:
                 # file from mixed list is already in a pure list
-                logger.debug('Mixed ID is already in cea pure map: '
-                             'cea_id_mixed=%s; num_fiids_mixed=%d; num_cea_pure_fiids=%d'
-                             % (cea_id_mixed, len(fiids_mixed), len(cea_id_pure_to_fiids[cea_id_mixed])))
+                logger(logging.DEBUG, 'Mixed ID is already in cea pure map: '
+                                      'cea_id_mixed=%s; num_fiids_mixed=%d; num_cea_pure_fiids=%d'
+                                      % (cea_id_mixed, len(fiids_mixed), len(cea_id_pure_to_fiids[cea_id_mixed])))
             elif len(fiids_mixed) >= self.use_cea_threshold:
                 # more than use_cea_threshold files are in a common archive
-                logger.debug('Number of needed files in cea reached threshold: '
-                             'cea_id_mixed=%s; num_fiids_mixed=%d; threshold=%d'
-                             % (cea_id_mixed, len(fiids_mixed), self.use_cea_threshold))
+                logger(logging.DEBUG, 'Number of needed files in cea reached threshold: '
+                                      'cea_id_mixed=%s; num_fiids_mixed=%d; threshold=%d'
+                                      % (cea_id_mixed, len(fiids_mixed), self.use_cea_threshold))
             else:
                 # dont move from mixed list to pure list
                 continue
@@ -1317,10 +1314,10 @@ class DownloadClient:
             cea_ids_mixed = file_item.get('cea_ids_mixed', set())
 
             if len(cea_ids_pure) > 0:
-                logger.debug('Removing all non-cea sources of file %s' % file_item['did'])
+                logger(logging.DEBUG, 'Removing all non-cea sources of file %s' % file_item['did'])
                 file_item['sources'] = [s for s in file_item['sources'] if s.get('client_extract', False)]
             elif len(cea_ids_mixed) > 0:
-                logger.debug('Removing all cea sources of file %s' % file_item['did'])
+                logger(logging.DEBUG, 'Removing all cea sources of file %s' % file_item['did'])
                 file_item['sources'] = [s for s in file_item['sources'] if not s.get('client_extract', False)]
 
         # reduce the amount of archives to download by removing
@@ -1330,7 +1327,7 @@ class DownloadClient:
             if all(len(fiid_to_file_item[fiid_pure]['cea_ids_pure']) > 1 for fiid_pure in cea_id_pure_to_fiids[cea_id_pure]):
                 for fiid_pure in cea_id_pure_to_fiids[cea_id_pure]:
                     fiid_to_file_item[fiid_pure]['cea_ids_pure'].discard(cea_id_pure)
-                logger.debug('Removing redundant archive %s' % cea_id_pure)
+                logger(logging.DEBUG, 'Removing redundant archive %s' % cea_id_pure)
                 cea_id_pure_to_fiids.pop(cea_id_pure)
 
         # remove all archives of a file except a single one so
