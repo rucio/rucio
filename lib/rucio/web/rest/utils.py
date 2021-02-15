@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020 CERN
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 # Authors:
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import six
 from flask import Response
@@ -24,7 +24,7 @@ from werkzeug.datastructures import Headers
 from rucio.common.utils import codes, render_json
 
 
-def _error_response(exc_cls, exc_msg):
+def error_headers(exc_cls, exc_msg):
     def strip_newlines(msg):
         if msg is None:
             return None
@@ -35,9 +35,6 @@ def _error_response(exc_cls, exc_msg):
             msg = six.ensure_text(str(msg), errors='replace')
         return msg.replace('\n', ' ').replace('\r', ' ')
 
-    data = {'ExceptionClass': exc_cls,
-            'ExceptionMessage': exc_msg}
-
     exc_msg = strip_newlines(exc_msg)
     if exc_msg:
         # Truncate too long exc_msg
@@ -45,10 +42,17 @@ def _error_response(exc_cls, exc_msg):
         exc_msg = exc_msg[:min(oldlen, 125)]
         if len(exc_msg) != oldlen:
             exc_msg = exc_msg + '...'
-    headers = {'Content-Type': 'application/octet-stream',
-               'ExceptionClass': strip_newlines(exc_cls),
-               'ExceptionMessage': exc_msg}
+    return {
+        'ExceptionClass': strip_newlines(exc_cls),
+        'ExceptionMessage': exc_msg
+    }
 
+
+def _error_response(exc_cls, exc_msg):
+    data = {'ExceptionClass': exc_cls,
+            'ExceptionMessage': exc_msg}
+    headers = {'Content-Type': 'application/octet-stream'}
+    headers.update(error_headers(exc_cls=exc_cls, exc_msg=exc_msg))
     return data, headers
 
 

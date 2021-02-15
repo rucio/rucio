@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2020 CERN
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from __future__ import print_function
 
@@ -29,7 +29,7 @@ import logging
 import time
 from re import search
 
-from flask import Flask, Blueprint, request, Response, redirect
+from flask import Flask, Blueprint, request, Response, redirect, render_template
 from flask.views import MethodView
 from werkzeug.datastructures import Headers
 
@@ -39,7 +39,7 @@ from rucio.common.config import config_get
 from rucio.common.exception import AccessDenied, IdentityError, RucioException
 from rucio.common.utils import date_to_str, urlparse
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask
-from rucio.web.rest.utils import generate_http_error_flask
+from rucio.web.rest.utils import generate_http_error_flask, error_headers
 
 # Extra modules: Only imported if available
 EXTRA_MODULES = {'onelogin': False}
@@ -267,18 +267,18 @@ class RedirectOIDC(MethodView):
             fetchtoken = (request.headers.get('X-Rucio-Client-Fetch-Token', default=None) == 'True')
             query_string = request.query_string.decode(encoding='utf-8')
             result = redirect_auth_oidc(query_string, fetchtoken)
-
-            # FIXME: render auth template on error
         except AccessDenied:
-            return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot get authentication URL from Rucio Authentication Server for account %(account)s' % locals(), headers=headers)
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0], headers=headers)
+            headers.extend(error_headers('CannotAuthenticate', 'Cannot authorize your access, please check your access credentials'))
+            return render_template('auth_crash.html', crashtype='contact'), 401, headers
         except Exception as error:
             logging.exception("Internal Error")
-            return str(error), 500, headers
+            headers.extend(error_headers(error.__class__.__name__, str(error.args[0])))
+            return render_template('auth_crash.html', crashtype='internal_error'), 500, headers
 
         if not result:
-            return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot get authentication URL from Rucio Authentication Server for account %(account)s' % locals(), headers=headers)
+            headers.extend(error_headers('CannotAuthenticate', 'Cannot finalize your token request, no authorization content returned from the auth server'))
+            return render_template('auth_crash.html', crashtype='no_result'), 401, headers
+
         if fetchtoken:
             # this is only a case of returning the final token to the Rucio Client polling
             # or requesting token after copy-pasting the Rucio code from the web page page
@@ -341,22 +341,24 @@ class CodeOIDC(MethodView):
         try:
             result = get_token_oidc(query_string, ip)
         except AccessDenied:
-            return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot get authentication code from Rucio Authentication Server for account %(account)s' % locals(), headers=headers)
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0], headers=headers)
+            headers.extend(error_headers('CannotAuthenticate', 'Cannot authorize your access, please check your access credentials'))
+            return render_template('auth_crash.html', crashtype='contact'), 401, headers
         except Exception as error:
             logging.exception("Internal Error")
-            return str(error), 500, headers
+            headers.extend(error_headers(error.__class__.__name__, str(error.args[0])))
+            return render_template('auth_crash.html', crashtype='internal_error'), 500, headers
 
         if not result:
-            return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot get authentication code from Rucio Authentication Server for account %(account)s' % locals(), headers=headers)
+            headers.extend(error_headers('CannotAuthenticate', 'Cannot finalize your token request, no authorization content returned from the auth server'))
+            return render_template('auth_crash.html', crashtype='no_result'), 401, headers
+
         if 'fetchcode' in result:
-            msg = 'Please copy-paste the following code to the open terminal session with Rucio Client in order to get your access token: <b>' + result['fetchcode'] + '</b>'
-            return msg, 200, headers
+            return render_template('auth_granted.html', authcode=result['fetchcode']), 200, headers
         elif 'polling' in result and result['polling'] is True:
-            return 'Rucio Client should now be able to fetch your token automatically.', 200, headers
+            return render_template('auth_granted.html', authcode='allok'), 200, headers
         else:
-            return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot get authentication code from Rucio Authentication Server for account %(account)s' % locals(), headers=headers)
+            headers.extend(error_headers('InvalidRequest', 'Cannot recognize and process your request'))
+            return render_template('auth_crash.html', crashtype='bad_request'), 400, headers
 
 
 class TokenOIDC(MethodView):
@@ -422,7 +424,9 @@ class TokenOIDC(MethodView):
         elif 'webhome' in result:
             webhome = result['webhome']
             if webhome is None:
-                return generate_http_error_flask(401, 'CannotAuthorize', 'Unknown identity.', headers=headers)
+                headers.extend(error_headers('CannotAuthenticate', 'Cannot find your OIDC identity linked to any Rucio account'))
+                headers.set('Content-Type', 'text/html')
+                return render_template('auth_crash.html', crashtype='unknown_identity'), 401, headers
             # domain setting is necessary so that the token gets distributed also to the webui server
             domain = '.'.join(urlparse.urlparse(webhome).netloc.split('.')[1:])
             response = redirect(webhome, code=303)

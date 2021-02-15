@@ -1,0 +1,83 @@
+<!--
+ Copyright 2019-2021 CERN
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+
+ Authors:
+ - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
+ - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
+-->
+
+<style>
+
+    table {
+        text-align: center;
+        background-color: white;
+        vertical-align: center;
+        border-spacing: 5px 15px;
+        font-family: sans-serif;
+        font-size: 18px;
+    }
+
+    td th {
+        text-align: center;
+        border: 0px solid transparent;
+    }
+
+    div {
+        left: 50%;
+        top: 50%;
+        width: 600px;
+        margin: 0 auto;
+    }
+
+    img {
+        width: 350px;
+    }
+
+</style>
+
+
+<div>
+    <table>
+        <tbody>
+        <tr>
+            <!-- Logo placeholder - possible only after Rucio Auth
+                  servers are configured to serve media files
+                  <th> <img src="/media/logo.png"> </th> -->
+            <th> RUCIO</th>
+        </tr>
+        <tr>
+            <th> SCIENTIFIC DATA MANAGEMENT</th>
+        </tr>
+        {% if authcode == "allok" %}
+        <tr>
+            <td>
+                Rucio authorization server has been granted access to your information.
+                Rucio Client should now be able to fetch your token automatically.
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td>Please copy-paste the following code to the open terminal session with Rucio Client in order to get your access token:</td>
+        </tr>
+        <tr>
+            <td style="border: #0033A0 solid 2px">
+                <b>{{ authcode }}</b>
+            </td>
+        </tr>
+        {% endif %}
+        </tbody>
+    </table>
+</div>
+
