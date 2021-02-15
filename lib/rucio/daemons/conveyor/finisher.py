@@ -84,7 +84,7 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000)
         pattern = str(suspicious_patterns)
         patterns = pattern.split(",")
         suspicious_patterns = [re.compile(pat.strip()) for pat in patterns]
-    logging.debug("Suspicious patterns: %s" % [pat.pattern for pat in suspicious_patterns])
+    logging.log(logging.DEBUG, "Suspicious patterns: %s" % [pat.pattern for pat in suspicious_patterns])
 
     retry_protocol_mismatches = conveyor_config.get('retry_protocol_mismatches', False)
 
@@ -142,7 +142,7 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000)
                     except Exception as error:
                         logger(logging.WARNING, '%s', str(error))
                 if reqs:
-                    logger(logging.DEBUG, '%s Finish to update %s finished requests for activity %s in %s seconds', len(reqs), activity, time.time() - time2)
+                    logger(logging.DEBUG, 'Finish to update %s finished requests for activity %s in %s seconds', len(reqs), activity, time.time() - time2)
 
         except (DatabaseException, DatabaseError) as error:
             if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
@@ -186,12 +186,12 @@ def run(once=False, total_threads=1, sleep_time=60, activities=None, bulk=100, d
         raise DatabaseException('Database was not updated, daemon won\'t start')
 
     if once:
-        logging.info('executing one finisher iteration only')
+        logging.log(logging.INFO, 'executing one finisher iteration only')
         finisher(once=once, activities=activities, bulk=bulk, db_bulk=db_bulk)
 
     else:
 
-        logging.info('starting finisher threads')
+        logging.log(logging.INFO, 'starting finisher threads')
         threads = [threading.Thread(target=finisher, kwargs={'sleep_time': sleep_time,
                                                              'activities': activities,
                                                              'db_bulk': db_bulk,
@@ -199,7 +199,7 @@ def run(once=False, total_threads=1, sleep_time=60, activities=None, bulk=100, d
 
         [thread.start() for thread in threads]
 
-        logging.info('waiting for interrupts')
+        logging.log(logging.INFO, 'waiting for interrupts')
 
         # Interruptible joins require a timeout.
         while threads:
@@ -304,7 +304,7 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logg
                     logger(logging.WARNING, 'Cannot find request %s anymore', req['request_id'])
 
         except Exception as error:
-            logger(logging.error, "Something unexpected happened when handling request %s(%s:%s) at %s: %s" % (req['request_id'],
+            logger(logging.ERROR, "Something unexpected happened when handling request %s(%s:%s) at %s: %s" % (req['request_id'],
                                                                                                                req['scope'],
                                                                                                                req['name'],
                                                                                                                req['dest_rse_id'],
@@ -386,20 +386,20 @@ def __handle_terminated_replicas(replicas, logger=logging.log):
                         if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
                             logger(logging.WARNING, "Locks detected when handling replica %s:%s at RSE %s", replica['scope'], replica['name'], replica['rse_id'])
                         else:
-                            logger(logging.error, "Could not finish handling replicas %s:%s at RSE %s", replica['scope'], replica['name'], replica['rse_id'], exc_info=True)
+                            logger(logging.ERROR, "Could not finish handling replicas %s:%s at RSE %s", replica['scope'], replica['name'], replica['rse_id'], exc_info=True)
                     except Exception as error:
-                        logger(logging.error, "Something unexpected happened when updating replica state for transfer %s:%s at %s (%s)", replica['scope'], replica['name'], replica['rse_id'], str(error))
+                        logger(logging.ERROR, "Something unexpected happened when updating replica state for transfer %s:%s at %s (%s)", replica['scope'], replica['name'], replica['rse_id'], str(error))
             except (DatabaseException, DatabaseError) as error:
                 if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
                     logger(logging.WARNING, "Locks detected when handling replicas on %s rule %s, update updated time.", req_type, rule_id)
                     try:
                         request_core.touch_requests_by_rule(rule_id)
                     except (DatabaseException, DatabaseError):
-                        logger(logging.error, "Failed to touch requests by rule(%s)", rule_id, exc_info=True)
+                        logger(logging.ERROR, "Failed to touch requests by rule(%s)", rule_id, exc_info=True)
                 else:
-                    logger(logging.error, "Could not finish handling replicas on %s rule %s", req_type, rule_id, exc_info=True)
+                    logger(logging.ERROR, "Could not finish handling replicas on %s rule %s", req_type, rule_id, exc_info=True)
             except Exception as error:
-                logger(logging.error, "Something unexpected happened when handling replicas on %s rule %s: %s", req_type, rule_id, str(error))
+                logger(logging.ERROR, "Something unexpected happened when handling replicas on %s rule %s: %s", req_type, rule_id, str(error))
 
 
 @transactional_session
@@ -459,7 +459,7 @@ def __update_replica(replica, session=None, logger=logging.log):
                 request_core.archive_request(replica['request_id'], session=session)
             logger(logging.INFO, "HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s", replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']))
         except Exception as error:
-            logger(logging.error, 'Cannot register replica for DID %s:%s at RSE %s - potential dark data - %s', replica['scope'], replica['name'], replica['rse_id'], str(error))
+            logger(logging.ERROR, 'Cannot register replica for DID %s:%s at RSE %s - potential dark data - %s', replica['scope'], replica['name'], replica['rse_id'], str(error))
             raise
 
     return True
