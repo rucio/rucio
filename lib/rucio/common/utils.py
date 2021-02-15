@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2018
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2020
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2021
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
@@ -1418,7 +1418,7 @@ class retry:
         '''
         self.func, self.args, self.kwargs = func, args, kwargs
 
-    def __call__(self, mtries=3, logger=None):
+    def __call__(self, mtries=3, logger=logging.log):
         '''
         :param mtries: maximum number of attempts to execute the function
         :param logger: preferred logger
@@ -1427,11 +1427,11 @@ class retry:
         while attempt > 1:
             try:
                 if logger:
-                    logger.debug('{}: Attempt {}'.format(self.func.__name__, mtries - attempt + 1))
+                    logger(logging.DEBUG, '{}: Attempt {}'.format(self.func.__name__, mtries - attempt + 1))
                 return self.func(*self.args, **self.kwargs)
             except Exception as e:
                 if logger:
-                    logger.debug('{}: Attempt failed {}'.format(self.func.__name__, mtries - attempt + 1))
-                    logger.debug(str(e))
+                    logger(logging.DEBUG, '{}: Attempt failed {}'.format(self.func.__name__, mtries - attempt + 1))
+                    logger(logging.DEBUG, str(e))
                 attempt -= 1
         return self.func(*self.args, **self.kwargs)
