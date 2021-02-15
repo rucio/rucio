@@ -27,7 +27,7 @@
 # - James Clark <james.clark@physics.gatech.edu>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2021
 #
 # PY3K COMPATIBLE
 
@@ -302,14 +302,17 @@ class RSEProtocol(object):
                                                          lfn['path'] if not lfn['path'].startswith('/') else lfn['path'][1:]
                                                          ])
             else:
-                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'],
-                                                         '://',
-                                                         self.attributes['hostname'],
-                                                         ':',
-                                                         str(self.attributes['port']),
-                                                         prefix,
-                                                         self._get_path(scope=scope, name=name)
-                                                         ])
+                try:
+                    pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'],
+                                                             '://',
+                                                             self.attributes['hostname'],
+                                                             ':',
+                                                             str(self.attributes['port']),
+                                                             prefix,
+                                                             self._get_path(scope=scope, name=name)
+                                                             ])
+                except exception.ReplicaNotFound as e:
+                    self.logger.warning(str(e))
         return pfns
 
     def __lfns2pfns_client(self, lfns):

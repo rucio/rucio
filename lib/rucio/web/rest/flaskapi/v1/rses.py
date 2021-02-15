@@ -447,6 +447,8 @@ class LFNS2PFNS(MethodView):
             return str(error), 500
 
         pfns = rsemanager.lfns2pfns(rse_settings, lfns, operation=operation, scheme=scheme, domain=domain)
+        if not pfns:
+            return "No replicas found", 404
         return jsonify(pfns)
 
 
