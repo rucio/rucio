@@ -84,10 +84,9 @@ class LifetimeException(MethodView):
         :status 500: Internal Error.
         :returns: The id for the newly created execption.
         """
-        json_data = request.data
         dids, pattern, comments, expires_at = [], None, None, None
         try:
-            params = loads(json_data)
+            params = loads(request.get_data(as_text=True))
             if 'dids' in params:
                 dids = params['dids']
             if 'pattern' in params:
@@ -163,9 +162,8 @@ class LifetimeExceptionId(MethodView):
         :status 404: Lifetime Exception Not Found.
         :Status 500: Internal Error.
         """
-        json_data = request.data
         try:
-            params = loads(json_data)
+            params = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
         try:

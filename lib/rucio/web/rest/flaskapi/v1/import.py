@@ -61,9 +61,8 @@ class Import(MethodView):
         :status 401: Invalid Auth Token
         :returns: dictionary with rucio data
         """
-        json_data = request.data
         try:
-            data_to_import = json_data and parse_response(json_data)
+            data_to_import = parse_response(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
 

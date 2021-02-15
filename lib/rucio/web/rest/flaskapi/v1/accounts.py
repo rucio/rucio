@@ -88,9 +88,8 @@ class Attributes(MethodView):
         :status 404: Account not found.
         :status 500: Database Exception.
         """
-        json_data = request.data.decode()
         try:
-            parameter = loads(json_data)
+            parameter = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'cannot decode json parameter dictionary')
 
@@ -264,9 +263,8 @@ class AccountParameter(MethodView):
         :status 404: Account not found.
         :status 500: Database exception.
         """
-        json_data = request.data.decode()
         try:
-            parameter = loads(json_data)
+            parameter = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'cannot decode json parameter dictionary')
         for key, value in parameter.items():
@@ -298,7 +296,7 @@ class AccountParameter(MethodView):
         :status 500: Database exception.
         """
         try:
-            parameter = loads(request.data.decode())
+            parameter = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'cannot decode json parameter dictionary')
 
@@ -454,9 +452,8 @@ class Identities(MethodView):
         :status 404: Account not found.
         :status 500: Database exception.
         """
-        json_data = request.data.decode()
         try:
-            parameter = loads(json_data)
+            parameter = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'cannot decode json parameter dictionary')
 
@@ -469,6 +466,7 @@ class Identities(MethodView):
         except KeyError as error:
             if error.args[0] == 'authtype' or error.args[0] == 'identity' or error.args[0] == 'email':
                 return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(error))
+            raise
         except TypeError:
             return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
 
@@ -533,9 +531,8 @@ class Identities(MethodView):
         :status 404: Identity not found.
         :status 500: Database exception.
         """
-        json_data = request.data.decode()
         try:
-            parameter = loads(json_data)
+            parameter = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'cannot decode json parameter dictionary')
         try:
@@ -544,6 +541,7 @@ class Identities(MethodView):
         except KeyError as error:
             if error.args[0] == 'authtype' or error.args[0] == 'identity':
                 return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(error))
+            raise
         except TypeError:
             return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
         try:
