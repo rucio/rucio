@@ -28,6 +28,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
 # - Luca Scotto Lavina, <scotto@lpnhe.in2p3.fr>, 2021
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2021
 #
 # PY3K COMPATIBLE
 
@@ -264,10 +265,12 @@ RSEDeterministicTranslation._module_init_()  # pylint: disable=protected-access
 class RSEProtocol(object):
     """ This class is virtual and acts as a base to inherit new protocols from. It further provides some common functionality which applies for the amjority of the protocols."""
 
-    def __init__(self, protocol_attr, rse_settings, logger=None):
+    def __init__(self, protocol_attr, rse_settings, logger=logging.log):
         """ Initializes the object with information about the referred RSE.
 
-            :param props: Properties of the requested protocol
+            :param protocol_attr:  Properties of the requested protocol.
+            :param rse_settting:   The RSE settings.
+            :param logger:         Optional decorated logger that can be passed from the calling daemons or servers.
         """
         self.auth_token = protocol_attr['auth_token']
         protocol_attr.pop('auth_token')
@@ -288,9 +291,6 @@ class RSEProtocol(object):
                 setattr(self, 'lfns2pfns', self.__lfns2pfns_client)
             if getattr(rsemanager, 'SERVER_MODE', None):
                 setattr(self, '_get_path', self._get_path_nondeterministic_server)
-        if not self.logger:
-            self.logger = logging.getLogger('%s.null' % __name__)
-            self.logger.disabled = True
 
     def lfns2pfns(self, lfns):
         """
@@ -321,14 +321,17 @@ class RSEProtocol(object):
                                                          lfn['path'] if not lfn['path'].startswith('/') else lfn['path'][1:]
                                                          ])
             else:
-                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'],
-                                                         '://',
-                                                         self.attributes['hostname'],
-                                                         ':',
-                                                         str(self.attributes['port']),
-                                                         prefix,
-                                                         self._get_path(scope=scope, name=name)
-                                                         ])
+                try:
+                    pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'],
+                                                             '://',
+                                                             self.attributes['hostname'],
+                                                             ':',
+                                                             str(self.attributes['port']),
+                                                             prefix,
+                                                             self._get_path(scope=scope, name=name)
+                                                             ])
+                except exception.ReplicaNotFound as e:
+                    self.logger(logging.WARNING, str(e))
         return pfns
 
     def __lfns2pfns_client(self, lfns):

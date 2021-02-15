@@ -144,7 +144,7 @@ def get_rses_to_process(rses, include_rses, exclude_rses, vos):
     return rses
 
 
-def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_threshold, logger):
+def delete_from_storage(replicas, prot, rse_info, staging_areas, auto_exclude_threshold, logger=logging.log):
     deleted_files = []
     rse_name = rse_info['rse']
     rse_id = rse_info['id']
@@ -281,7 +281,7 @@ def get_max_deletion_threads_by_hostname(hostname):
     return result
 
 
-def __check_rse_usage(rse, rse_id, logger):
+def __check_rse_usage(rse, rse_id, logger=logging.log):
     """
     Internal method to check RSE usage and limits.
 
@@ -293,7 +293,7 @@ def __check_rse_usage(rse, rse_id, logger):
 
     result = REGION.get('rse_usage_%s' % rse_id)
     if result is NO_VALUE:
-        max_being_deleted_files, needed_free_space, used, free, obsolete = 0, 0, 0, 0, None
+        max_being_deleted_files, needed_free_space, used, free, obsolete = 0, 0, 0, 0, 0
 
         # First of all check if greedy mode is enabled for this RSE
         attributes = list_rse_attributes(rse_id=rse_id)
@@ -465,7 +465,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                 if rse['availability'] % 2 == 0:
                     logger(logging.DEBUG, 'RSE %s is blacklisted for delete', rse['rse'])
                     continue
-                max_being_deleted_files, needed_free_space, used, free, only_delete_obsolete = __check_rse_usage(rse['rse'], rse['id'], logger)
+                max_being_deleted_files, needed_free_space, used, free, only_delete_obsolete = __check_rse_usage(rse['rse'], rse['id'], logger=logger)
                 # Check if greedy mode
                 if greedy:
                     dict_rses[(rse['rse'], rse['id'])] = [1000000000000, max_being_deleted_files, only_delete_obsolete]
@@ -567,7 +567,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
 
                 # Physical  deletion will take place there
                 try:
-                    prot = rsemgr.create_protocol(rse_info, 'delete', scheme=scheme)
+                    prot = rsemgr.create_protocol(rse_info, 'delete', scheme=scheme, logger=logger)
                     for file_replicas in chunks(replicas, 100):
                         # Refresh heartbeat
                         live(executable, hostname, pid, hb_thread, older_than=600, hash_executable=None, payload=rse_hostname_key, session=None)
@@ -584,7 +584,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                             except Exception:
                                 logger(logging.CRITICAL, 'Exception', exc_info=True)
 
-                        deleted_files = delete_from_storage(file_replicas, prot, rse_info, staging_areas, auto_exclude_threshold, logger)
+                        deleted_files = delete_from_storage(file_replicas, prot, rse_info, staging_areas, auto_exclude_threshold, logger=logger)
                         logger(logging.INFO, '%i files processed in %s seconds', len(file_replicas), time.time() - del_start_time)
 
                         # Then finally delete the replicas
