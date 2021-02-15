@@ -82,9 +82,8 @@ class Subscription(MethodView):
         :status 404: Subscription Not Found.
         :status 500: Internal Error.
         """
-        json_data = request.data.decode()
         try:
-            params = loads(json_data)
+            params = loads(request.get_data(as_text=True))
             params = params['options']
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
@@ -127,9 +126,8 @@ class Subscription(MethodView):
         :returns: ID if newly created subscription.
         """
         dry_run = 0
-        json_data = request.data
         try:
-            params = loads(json_data)
+            params = loads(request.get_data(as_text=True))
             params = params['options']
             filter = params['filter']
             replication_rules = params['replication_rules']

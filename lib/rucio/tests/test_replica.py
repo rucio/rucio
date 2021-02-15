@@ -1036,7 +1036,7 @@ def test_list_replicas_streaming_error(content_type, vo, did_client, replica_cli
         # raise after yielding an element
         raise DatabaseException('Database error for testing')
 
-    dids_arg = dumps({'dids': [{'scope': 'mock', 'name': generate_uuid()}]})
+    json_data = dumps({'dids': [{'scope': 'mock', 'name': generate_uuid()}]})
     rest_backend = os.environ.get('REST_BACKEND', 'webpy')
     if rest_backend == 'webpy':
         def list_replicas_on_api():
@@ -1060,7 +1060,7 @@ def test_list_replicas_streaming_error(content_type, vo, did_client, replica_cli
 
             with mock.patch('rucio.web.rest.common.ctx', new=FakeCtx()), \
                     mock.patch('rucio.web.rest.replica.ctx', new=FakeCtx()), \
-                    mock.patch('rucio.web.rest.replica.data', return_value=dids_arg), \
+                    mock.patch('rucio.web.rest.replica.data', return_value=json_data), \
                     mock.patch('rucio.web.rest.replica.header'), \
                     mock.patch('rucio.web.rest.replica.generate_http_error', side_effect=MockedHTTPError.generate), \
                     mock.patch('rucio.web.rest.replica.list_replicas', side_effect=api_returns):
@@ -1085,7 +1085,8 @@ def test_list_replicas_streaming_error(content_type, vo, did_client, replica_cli
                     'request_id': generate_uuid(),
                 }
                 query_string = None
-                data = dids_arg
+                data = json_data
+                get_data = mock.MagicMock(return_value=json_data)
                 headers = Headers()
                 accept_mimetypes = FakeAcceptMimetypes()
                 remote_addr = '127.0.0.1'

@@ -53,7 +53,7 @@ class XAODTrace(MethodView):
         headers.set('Access-Control-Allow-Credentials', 'true')
 
         try:
-            payload = json.loads(request.data)
+            payload = json.loads(request.get_data(as_text=True))
 
             # generate entry timestamp
             payload['timeentry'] = int(time.time())
