@@ -23,8 +23,15 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
+# - Brandon White <bjwhite@fnal.gov>, 2019
+# - Luc Goossens <luc.goossens@cern.ch>, 2020
+# - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Eric Vaandering <ewv@fnal.gov>, 2020-2021
 #
 # PY3K COMPATIBLE
+
 
 from __future__ import division
 
@@ -213,11 +220,12 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             with record_timer_block('rule.add_rule.create_rule'):
                 grouping = {'ALL': RuleGrouping.ALL, 'NONE': RuleGrouping.NONE}.get(grouping, RuleGrouping.DATASET)
 
+                meta_json = None
                 if meta is not None:
                     try:
-                        meta = json.dumps(meta)
+                        meta_json = json.dumps(meta)
                     except Exception:
-                        meta = None
+                        meta_json = None
 
                 new_rule = models.ReplicationRule(account=account,
                                                   name=elem['name'],
@@ -239,7 +247,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                                                   ignore_account_limit=ignore_account_limit,
                                                   priority=priority,
                                                   split_container=split_container,
-                                                  meta=meta,
+                                                  meta=meta_json,
                                                   eol_at=eol_at)
                 try:
                     new_rule.save(session=session)
