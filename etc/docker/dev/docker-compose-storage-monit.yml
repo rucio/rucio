@@ -1,105 +1,106 @@
-version: "2"
 services:
   rucio:
-    image: rucio/rucio-dev:py3
-    hostname: rucio
+    image: docker.io/rucio/rucio-dev:py3
+    extra_hosts:
+      - "ruciodb:127.0.0.1"
+      - "graphite:127.0.0.1"
+      - "fts:127.0.0.1"
+      - "ftsdb:127.0.0.1"
+      - "xrd1:127.0.0.1"
+      - "xrd2:127.0.0.1"
+      - "xrd3:127.0.0.1"
+      - "minio:127.0.0.1"
+      - "activemq:127.0.0.1"
+      - "elasticsearch:127.0.0.1"
+      - "logstash:127.0.0.1"
+      - "kibana:127.0.0.1"
+      - "grafana:127.0.0.1"
     ports:
-      - "443:443"
-    links:
-      - ruciodb:ruciodb
-      - graphite:graphite
-      - fts:fts
-      - ftsdb:ftsdb
-      - xrd1:xrd1
-      - xrd2:xrd2
-      - xrd3:xrd3
-      - minio:minio
-      - activemq:activemq
-      - kibana:kibana
-      - grafana:grafana
+      - "8443:443"
+      - "5432:5432"
+      - "8080:80"
+      - "8446:8446"
+      - "8449:8449"
+      - "3306:3306"
+      - "1094:1094"
+      - "1095:1095"
+      - "1096:1096"
+      - "9000:9000"
+      - "61613:61613"
+      - "8161:8161"
+      - "9200:9200"
+      - "9300:9300"
+      - "5044:5044"
+      - "5601:5601"
+      - "3000:3000"
     volumes:
-      - ../../../tools:/opt/rucio/tools
-      - ../../../bin:/opt/rucio/bin
-      - ../../../lib:/opt/rucio/lib
+      - ../../../tools:/opt/rucio/tools:Z
+      - ../../../bin:/opt/rucio/bin:Z
+      - ../../../lib:/opt/rucio/lib:Z
     environment:
       - X509_USER_CERT=/opt/rucio/etc/usercert.pem
       - X509_USER_KEY=/opt/rucio/etc/userkey.pem
       - RDBMS=postgres11
     command: ["/monit-entrypoint.sh"]
   ruciodb:
-    image: postgres:11
+    image: docker.io/postgres:11
+    network_mode: "service:rucio"
     environment:
       - POSTGRES_USER=rucio
       - POSTGRES_DB=rucio
       - POSTGRES_PASSWORD=secret
-    ports:
-      - "5432:5432"
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
   graphite:
-    image: graphiteapp/graphite-statsd
-    ports:
-      - "80:80"
+    image: docker.io/graphiteapp/graphite-statsd
+    network_mode: "service:rucio"
   fts:
-    image: rucio/fts
-    hostname: fts
-    ports:
-      - "8446:8446"
-      - "8449:8449"
+    image: docker.io/rucio/fts
+    network_mode: "service:rucio"
   ftsdb:
-    image: mysql:5
-    hostname: ftsdb
+    image: docker.io/mysql:5
+    network_mode: "service:rucio"
     environment:
       - MYSQL_USER=fts
       - MYSQL_PASSWORD=fts
       - MYSQL_ROOT_PASSWORD=fts
       - MYSQL_DATABASE=fts
-    ports:
-      - "3306:3306"
   xrd1:
-    image: rucio/xrootd
-    hostname: xrd1
+    image: docker.io/rucio/xrootd
+    network_mode: "service:rucio"
     environment:
       - XRDPORT=1094
-    ports:
-      - "1094:1094"
     volumes:
-      - ../../certs/hostcert_xrd1.pem:/tmp/xrdcert.pem
-      - ../../certs/hostcert_xrd1.key.pem:/tmp/xrdkey.pem
+      - ../../certs/hostcert_xrd1.pem:/tmp/xrdcert.pem:Z
+      - ../../certs/hostcert_xrd1.key.pem:/tmp/xrdkey.pem:Z
   xrd2:
-    image: rucio/xrootd
-    hostname: xrd2
+    image: docker.io/rucio/xrootd
+    network_mode: "service:rucio"
     environment:
       - XRDPORT=1095
-    ports:
-      - "1095:1095"
     volumes:
-      - ../../certs/hostcert_xrd2.pem:/tmp/xrdcert.pem
-      - ../../certs/hostcert_xrd2.key.pem:/tmp/xrdkey.pem
+      - ../../certs/hostcert_xrd2.pem:/tmp/xrdcert.pem:Z
+      - ../../certs/hostcert_xrd2.key.pem:/tmp/xrdkey.pem:Z
   xrd3:
-    image: rucio/xrootd
-    hostname: xrd3
+    image: docker.io/rucio/xrootd
+    network_mode: "service:rucio"
     environment:
       - XRDPORT=1096
-    ports:
-      - "1096:1096"
     volumes:
-      - ../../certs/hostcert_xrd3.pem:/tmp/xrdcert.pem
-      - ../../certs/hostcert_xrd3.key.pem:/tmp/xrdkey.pem
+      - ../../certs/hostcert_xrd3.pem:/tmp/xrdcert.pem:Z
+      - ../../certs/hostcert_xrd3.key.pem:/tmp/xrdkey.pem:Z
   minio:
-    image: minio/minio
-    hostname: minio
+    image: docker.io/minio/minio
+    network_mode: "service:rucio"
     environment:
       - MINIO_ACCESS_KEY=admin
       - MINIO_SECRET_KEY=password
-    ports:
-      - "9000:9000"
     volumes:
-      - ../../certs/hostcert_minio.pem:/root/.minio/certs/public.crt
-      - ../../certs/hostcert_minio.key.pem:/root/.minio/certs/private.key
+      - ../../certs/hostcert_minio.pem:/root/.minio/certs/public.crt:Z
+      - ../../certs/hostcert_minio.key.pem:/root/.minio/certs/private.key:Z
     command: ["server", "/data"]
   activemq:
-    image: webcenter/activemq:latest
-    hostname: activemq
+    image: docker.io/webcenter/activemq:latest
+    network_mode: "service:rucio"
     environment:
        - ACTIVEMQ_CONFIG_NAME=activemq
        - ACTIVEMQ_CONFIG_DEFAULTACCOUNT=false
@@ -108,39 +109,20 @@ services:
        - ACTIVEMQ_USERS_logstash=supersecret
        - ACTIVEMQ_GROUPS_reads=logstash
        - ACTIVEMQ_CONFIG_SCHEDULERENABLED=true
-    ports:
-      - "61613:61613"
-      - "8161:8161"
   elasticsearch:
-    image: elasticsearch:7.4.0
-    hostname: elasticsearch
+    image: docker.io/elasticsearch:7.4.0
+    network_mode: "service:rucio"
     environment:
       - discovery.type=single-node
-    ports:
-      - "9200:9200"
-      - "9300:9300"
   logstash:
     image: docker.elastic.co/logstash/logstash-oss:7.3.2
-    hostname: logstash
+    network_mode: "service:rucio"
     command: bash -c "logstash-plugin install logstash-input-stomp ; /usr/local/bin/docker-entrypoint"
-    ports:
-      - "5044:5044"
-    links:
-      - "activemq:activemq"
-      - "elasticsearch:elasticsearch"
     volumes:
-      - ./pipeline.conf:/usr/share/logstash/pipeline/pipeline.conf
+      - ./pipeline.conf:/usr/share/logstash/pipeline/pipeline.conf:Z
   kibana:
-    image: kibana:7.4.0
-    hostname: kibana
-    ports:
-      - "5601:5601"
-    links:
-      - "elasticsearch:elasticsearch"
+    image: docker.io/kibana:7.4.0
+    network_mode: "service:rucio"
   grafana:
-    image: grafana/grafana:latest
-    hostname: grafana
-    ports:
-      - "3000:3000"
-    links:
-      - "elasticsearch:elasticsearch"
+    image: docker.io/grafana/grafana:latest
+    network_mode: "service:rucio"
