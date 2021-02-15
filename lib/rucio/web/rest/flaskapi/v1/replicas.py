@@ -197,9 +197,8 @@ class Replicas(MethodView):
         :status 409: DID already exists.
         :status 503: Resource Temporary Unavailable.
         """
-        json_data = request.data
         try:
-            parameters = parse_response(json_data)
+            parameters = parse_response(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -241,9 +240,8 @@ class Replicas(MethodView):
         :status 401: Invalid auth token.
         :status 500: Internal Error.
         """
-        json_data = request.data
         try:
-            parameters = parse_response(json_data)
+            parameters = parse_response(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -276,9 +274,8 @@ class Replicas(MethodView):
         :status 404: Replica not found.
         :status 500: Internal Error.
         """
-        json_data = request.data
         try:
-            parameters = parse_response(json_data)
+            parameters = parse_response(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -349,7 +346,7 @@ class ListReplicas(MethodView):
                            'site': None}
 
         try:
-            params = parse_response(request.data)
+            params = parse_response(request.get_data(as_text=True))
             if 'dids' in params:
                 dids = params['dids']
             if 'schemes' in params:
@@ -517,11 +514,10 @@ class ReplicasDIDs(MethodView):
         :status 500: Internal Error.
         :returns: A list of dictionaries containing the mapping PFNs to DIDs.
         """
-        json_data = request.data
         rse, pfns = None, []
         rse = None
         try:
-            params = parse_response(json_data)
+            params = parse_response(request.get_data(as_text=True))
             if 'pfns' in params:
                 pfns = params['pfns']
             if 'rse' in params:
@@ -564,11 +560,10 @@ class BadReplicas(MethodView):
         :status 500: Internal Error.
         :returns: A list of not successfully declared files.
         """
-        json_data = request.data
         pfns = []
 
         try:
-            params = parse_response(json_data)
+            params = parse_response(request.get_data(as_text=True))
             if 'pfns' in params:
                 pfns = params['pfns']
             if 'reason' in params:
@@ -612,10 +607,9 @@ class SuspiciousReplicas(MethodView):
         :status 500: Internal Error.
         :returns: A list of not successfully declared files.
         """
-        json_data = request.data
         pfns = []
         try:
-            params = parse_response(json_data)
+            params = parse_response(request.get_data(as_text=True))
             if 'pfns' in params:
                 pfns = params['pfns']
             if 'reason' in params:
@@ -834,9 +828,8 @@ class DatasetReplicasBulk(MethodView):
         :returns: A dictionary containing all replicas information.
         """
 
-        json_data = request.data
         try:
-            params = parse_response(json_data)
+            params = parse_response(request.get_data(as_text=True))
             dids = params['dids']
             didslength = len(dids)
         except KeyError as error:
@@ -951,14 +944,13 @@ class BadDIDs(MethodView):
         :returns: A list of not successfully declared files.
         """
 
-        json_data = request.data
         dids = []
         rse = None
         reason = None
         state = None
         expires_at = None
         try:
-            params = parse_response(json_data)
+            params = parse_response(request.get_data(as_text=True))
             if 'dids' in params:
                 dids = params['dids']
             if 'rse' in params:
@@ -1007,13 +999,12 @@ class BadPFNs(MethodView):
         :returns: A list of not successfully declared files.
         """
 
-        json_data = request.data
         pfns = []
         reason = None
         state = None
         expires_at = None
         try:
-            params = parse_response(json_data)
+            params = parse_response(request.get_data(as_text=True))
             if 'pfns' in params:
                 pfns = params['pfns']
             if 'reason' in params:
@@ -1055,11 +1046,10 @@ class Tombstone(MethodView):
         :status 500: Internal Error.
         """
 
-        json_data = request.data
         replicas = []
 
         try:
-            params = parse_response(json_data)
+            params = parse_response(request.get_data(as_text=True))
             if 'replicas' in params:
                 replicas = params['replicas']
         except ValueError:

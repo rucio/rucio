@@ -64,7 +64,7 @@ class Rule(MethodView):
         """
         try:
             estimate_ttc = False
-            params = loads(request.data)
+            params = loads(request.get_data(as_text=True))
             if 'estimate_ttc' in params:
                 estimate_ttc = params['estimate_ttc']
         except ValueError:
@@ -91,9 +91,8 @@ class Rule(MethodView):
         :status 401: Invalid Auth Token
         :status 404: no rule found for id
         """
-        json_data = request.data
         try:
-            params = loads(json_data)
+            params = loads(request.get_data(as_text=True))
             options = params['options']
             update_replication_rule(rule_id=rule_id, options=options, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:
@@ -122,10 +121,9 @@ class Rule(MethodView):
         :status 401: Invalid Auth Token
         :status 404: no rule found for id
         """
-        json_data = request.data
         try:
             purge_replicas = None
-            params = loads(json_data)
+            params = loads(request.get_data(as_text=True))
             if 'purge_replicas' in params:
                 purge_replicas = params['purge_replicas']
         except ValueError:
@@ -218,14 +216,13 @@ class AllRule(MethodView):
         :status 409: Invalid Object
         :returns: List of ids for created rules
         """
-        json_data = request.data
         try:
             grouping, weight, lifetime, locked, subscription_id, source_replica_expression, activity, notify,\
                 purge_replicas, ignore_availability, comment, ask_approval, asynchronous, priority,\
                 split_container, meta = 'DATASET', None, None, False, None, None, None, None, False, False, None,\
                 False, False, 3, False, None
 
-            params = loads(json_data)
+            params = loads(request.get_data(as_text=True))
             dids = params['dids']
             account = params['account']
             copies = params['copies']
@@ -365,11 +362,10 @@ class ReduceRule(MethodView):
         :status 409: Rule replace failed.
         :returns: List of rule ids
         """
-        json_data = request.data
         try:
             exclude_expression = None
 
-            params = loads(json_data)
+            params = loads(request.get_data(as_text=True))
             copies = params['copies']
             if 'exclude_expression' in params:
                 exclude_expression = params['exclude_expression']
@@ -411,9 +407,8 @@ class MoveRule(MethodView):
         :status 409: Rule replace failed.
         :returns: List of rule ids.
         """
-        json_data = request.data
         try:
-            params = loads(json_data)
+            params = loads(request.get_data(as_text=True))
             rule_id = params['rule_id']
             rse_expression = params['rse_expression']
         except ValueError:

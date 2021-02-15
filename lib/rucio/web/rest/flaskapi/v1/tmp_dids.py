@@ -51,9 +51,8 @@ class BulkDIDS(MethodView):
         :status 500: Internal Error.
         """
 
-        json_data = request.data
         try:
-            dids = loads(json_data)
+            dids = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 

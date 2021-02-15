@@ -120,7 +120,6 @@ class RSE(MethodView):
         :status 500: Internal Error.
 
         """
-        json_data = request.data.decode()
         kwargs = {'deterministic': True,
                   'volatile': False, 'city': None, 'staging_area': False,
                   'region_code': None, 'country_name': None,
@@ -128,11 +127,15 @@ class RSE(MethodView):
                   'rse_type': None, 'latitude': None, 'longitude': None,
                   'ASN': None, 'availability': None}
         try:
-            parameters = json_data and loads(json_data)
-            if parameters:
-                for param in kwargs:
-                    if param in parameters:
-                        kwargs[param] = parameters[param]
+            data = request.get_data(as_text=True)
+            if data:
+                parameters = loads(data)
+            else:
+                parameters = {}
+
+            for param in kwargs:
+                if param in parameters:
+                    kwargs[param] = parameters[param]
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
         kwargs['issuer'] = request.environ.get('issuer')
@@ -170,11 +173,14 @@ class RSE(MethodView):
         :status 500: Internal Error.
 
         """
-        json_data = request.data
         kwargs = {}
 
         try:
-            parameters = json_data and loads(json_data)
+            data = request.get_data(as_text=True)
+            if data:
+                parameters = loads(data)
+            else:
+                parameters = {}
             kwargs['parameters'] = parameters
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
@@ -266,9 +272,8 @@ class Attributes(MethodView):
         :status 500: Internal Error.
 
         """
-        json_data = request.data.decode()
         try:
-            parameter = loads(json_data)
+            parameter = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
 
@@ -473,9 +478,8 @@ class Protocol(MethodView):
         :status 500: Internal Error.
 
         """
-        json_data = request.data.decode()
         try:
-            parameters = loads(json_data)
+            parameters = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
 
@@ -557,9 +561,8 @@ class Protocol(MethodView):
         :status 500: Internal Error.
 
         """
-        json_data = request.data.decode()
         try:
-            parameter = loads(json_data)
+            parameter = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
 
@@ -666,9 +669,8 @@ class Usage(MethodView):
         :status 500: Internal Error.
 
         """
-        json_data = request.data.decode()
         try:
-            parameter = loads(json_data)
+            parameter = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
 
@@ -766,9 +768,8 @@ class Limits(MethodView):
         :status 500: Internal Error.
 
         """
-        json_data = request.data
         try:
-            parameter = loads(json_data)
+            parameter = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
         try:
@@ -798,9 +799,8 @@ class Limits(MethodView):
         :status 500: Internal Error.
 
         """
-        json_data = request.data
         try:
-            parameter = loads(json_data)
+            parameter = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
         try:
@@ -898,9 +898,8 @@ class Distance(MethodView):
         :status 404: RSE Not Found.
         :status 500: Internal Error.
         """
-        json_data = request.data.decode()
         try:
-            parameter = loads(json_data)
+            parameter = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
         try:
@@ -933,9 +932,8 @@ class Distance(MethodView):
         :status 404: RSE Not Found.
         :status 500: Internal Error.
         """
-        json_data = request.data.decode()
         try:
-            parameters = loads(json_data)
+            parameters = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
         try:

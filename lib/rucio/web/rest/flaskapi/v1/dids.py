@@ -320,7 +320,7 @@ class BulkDIDS(MethodView):
         :status 500: Database Exception
         """
         try:
-            json_data = loads(request.data)
+            json_data = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -359,7 +359,7 @@ class Attachments(MethodView):
 
         attachments, ignore_duplicate = [], False
         try:
-            json_data = loads(request.data)
+            json_data = loads(request.get_data(as_text=True))
             if type(json_data) is dict:
                 attachments = json_data.get('attachments')
                 ignore_duplicate = json_data.get('ignore_duplicate')
@@ -486,7 +486,7 @@ class DIDs(MethodView):
 
         statuses, meta, rules, lifetime, dids, rse = {}, {}, [], None, [], None
         try:
-            json_data = loads(request.data)
+            json_data = loads(request.get_data(as_text=True))
             type = json_data['type']
             if 'statuses' in json_data:
                 statuses = json_data['statuses']
@@ -562,9 +562,8 @@ class DIDs(MethodView):
             logging.exception("Internal Error")
             return str(error), 500
 
-        json_data = request.data
         try:
-            kwargs = loads(json_data)
+            kwargs = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json data parameter')
 
@@ -682,7 +681,7 @@ class Attachment(MethodView):
             return str(error), 500
 
         try:
-            json_data = loads(request.data)
+            json_data = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -728,7 +727,7 @@ class Attachment(MethodView):
             return str(error), 500
 
         try:
-            json_data = loads(request.data)
+            json_data = loads(request.get_data(as_text=True))
             if 'dids' in json_data:
                 dids = json_data['dids']
         except ValueError:
@@ -921,9 +920,8 @@ class Meta(MethodView):
             logging.exception("Internal Error")
             return str(error), 500
 
-        json_data = request.data
         try:
-            params = loads(json_data)
+            params = loads(request.get_data(as_text=True))
             meta = params['meta']
             recursive = params.get('recursive', False)
         except ValueError:
@@ -1020,9 +1018,8 @@ class SingleMeta(MethodView):
             logging.exception("Internal Error")
             return str(error), 500
 
-        json_data = request.data
         try:
-            params = loads(json_data)
+            params = loads(request.get_data(as_text=True))
             value = params['value']
             recursive = params.get('recursive', False)
         except ValueError:
@@ -1104,7 +1101,7 @@ class BulkMeta(MethodView):
         :returns: A list of dictionaries containing all meta.
         """
         try:
-            params = parse_response(request.data)
+            params = parse_response(request.get_data(as_text=True))
             dids = params['dids']
         except KeyError as error:
             return generate_http_error_flask(400, 'ValueError', 'Cannot find mandatory parameter : %s' % str(error))
@@ -1293,9 +1290,8 @@ class Resurrect(MethodView):
             500 Internal Error
 
         """
-        json_data = request.data
         try:
-            dids = loads(json_data)
+            dids = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -1379,7 +1375,7 @@ class Follow(MethodView):
             return str(error), 500
 
         try:
-            json_data = loads(request.data)
+            json_data = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 
@@ -1421,7 +1417,7 @@ class Follow(MethodView):
             return str(error), 500
 
         try:
-            json_data = loads(request.data)
+            json_data = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 

@@ -58,7 +58,7 @@ class AddFiles(MethodView):
         :status 503: Temporary error.
         """
         try:
-            parameters = parse_response(request.data)
+            parameters = parse_response(request.get_data(as_text=True))
         except (ValueError, InvalidType):
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
 

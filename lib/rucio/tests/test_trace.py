@@ -38,3 +38,12 @@ def test_submit_trace(rest_client):
 
     response = rest_client.post('/traces/', json=payload, content_type=[('Content-Type', 'application/octet-stream')])
     assert response.status_code == 201
+
+
+def test_submit_trace_wrong_content_type(rest_client):
+    """
+    TRACE (REST): submit data with wrong Content-Type to check backwards-compatibility.
+    This emulates the Content-Type default of a curl POST.
+    """
+    response = rest_client.post('/traces/', data='{"a": "b"}', content_type=[('Content-Type', 'application/x-www-form-urlencoded')])
+    assert response.status_code == 201

@@ -447,13 +447,10 @@ def parse_response(data):
     """
     JSON render function
     """
-    ret_obj = None
-    try:
-        ret_obj = data.decode('utf-8')
-    except AttributeError:
-        ret_obj = data
+    if hasattr(data, 'decode'):
+        data = data.decode('utf-8')
 
-    return json.loads(ret_obj, object_hook=datetime_parser)
+    return json.loads(data, object_hook=datetime_parser)
 
 
 def execute(cmd, blocking=True):
