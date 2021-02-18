@@ -27,6 +27,8 @@
 # - James Clark <james.clark@physics.gatech.edu>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
+# - Luca Scotto Lavina, <scotto@lpnhe.in2p3.fr>, 2021
+# - Thomas Beermann, <thomas.beermann@cern.ch>, 2021
 #
 # PY3K COMPATIBLE
 
@@ -198,6 +200,24 @@ class RSEDeterministicTranslation(object):
         del protocol_attrs
         from ligo_rucio import lfn2pfn as ligo_lfn2pfn  # pylint: disable=import-error
         return ligo_lfn2pfn.ligo_lab(scope, name, None, None, None)
+
+    @staticmethod
+    def __xenon(scope, name, rse, rse_attrs, protocol_attrs):
+        """
+        Given a LFN, turn it into a two level sub-directory structure based on the scope
+        plus a third level based on the name
+        :param scope: Scope of the LFN.
+        :param name: File name of the LFN.
+        :param rse: RSE for PFN (ignored)
+        :param rse_attrs: RSE attributes for PFN (ignored)
+        :param protocol_attrs: RSE protocol attributes for PFN (ignored)
+        :returns: Path for use in the PFN generation.
+        """
+        del rse
+        del rse_attrs
+        del protocol_attrs
+
+        return '%s/%s/%s/%s' % (scope[0:7], scope[4:len(scope)], name.split('-')[0] + "-" + name.split('-')[1], name)
 
     @classmethod
     def _module_init_(cls):
