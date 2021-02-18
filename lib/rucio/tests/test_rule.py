@@ -27,6 +27,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 import json
 import random
@@ -995,6 +996,23 @@ class TestReplicationRuleCore(unittest.TestCase):
         update_rule(rule_id_1, options={'child_rule_id': rule_id_3})
         with pytest.raises(UnsupportedOperation):
             delete_rule(rule_id_1)
+
+    def test_rule_priority_set_and_update(self):
+        scope = InternalScope('mock', **self.vo)
+        files = create_files(1, scope, self.rse1_id)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='NONE',
+                           weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+        assert get_rule(rule_id)['priority'] == 3
+        request = get_request_by_did(scope=files[0]['scope'], name=files[0]['name'], rse_id=self.rse3_id)
+        assert request['priority'] == 3
+
+        update_rule(rule_id, {'priority': 5})
+        assert get_rule(rule_id)['priority'] == 5
+        assert get_request_by_did(scope=files[0]['scope'], name=files[0]['name'], rse_id=self.rse3_id)['priority'] == 5
 
     def test_release_rule(self):
         """ REPLICATION RULE (CORE): Test to release a parent rule after child rule is OK"""

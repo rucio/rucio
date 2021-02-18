@@ -28,6 +28,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 import datetime
 import json
@@ -1221,7 +1222,7 @@ def release_all_waiting_requests(rse_id, activity=None, account=None, direction=
         raise RucioException(error.args)
 
 
-@read_session
+@transactional_session
 def update_requests_priority(priority, filter, session=None, logger=logging.log):
     """
     Update priority of requests.
@@ -1231,12 +1232,10 @@ def update_requests_priority(priority, filter, session=None, logger=logging.log)
     :param logger:    Optional decorated logger that can be passed from the calling daemons or servers.
     """
     try:
-        query = session.query(models.Request.id, models.Request.external_id, models.Request.external_host)\
+        query = session.query(models.Request.id, models.Request.external_id, models.Request.external_host, models.Request.state, models.ReplicaLock.state)\
             .join(models.ReplicaLock, and_(models.ReplicaLock.scope == models.Request.scope,
                                            models.ReplicaLock.name == models.Request.name,
-                                           models.ReplicaLock.rse_id == models.Request.dest_rse_id))\
-            .filter(models.Request.state == RequestState.SUBMITTED,
-                    models.ReplicaLock.state == LockState.REPLICATING)
+                                           models.ReplicaLock.rse_id == models.Request.dest_rse_id))
         if 'rule_id' in filter:
             query = query.filter(models.ReplicaLock.rule_id == filter['rule_id'])
         if 'request_id' in filter:
@@ -1251,13 +1250,17 @@ def update_requests_priority(priority, filter, session=None, logger=logging.log)
         transfertool_map = {}
         for item in query.all():
             try:
-                if item[2] not in transfertool_map:
-                    transfertool_map[item[2]] = FTS3Transfertool(external_host=item[2])
-                res = transfertool_map[item[2]].update_priority(transfer_id=item[1], priority=priority)
+                session.query(models.Request) \
+                    .filter_by(id=item[0]) \
+                    .update({'priority': priority, 'updated_at': datetime.datetime.utcnow()}, synchronize_session=False)
+                logger(logging.DEBUG, "Updated request %s priority to %s in rucio." % (item[0], priority))
+                if item[3] == RequestState.SUBMITTED and item[4] == LockState.REPLICATING:
+                    if item[2] not in transfertool_map:
+                        transfertool_map[item[2]] = FTS3Transfertool(external_host=item[2])
+                    res = transfertool_map[item[2]].update_priority(transfer_id=item[1], priority=priority)
+                    logger(logging.DEBUG, "Updated request %s priority in transfertool to %s: %s" % (item[0], priority, res['http_message']))
             except Exception:
                 logger(logging.DEBUG, "Failed to boost request %s priority: %s" % (item[0], traceback.format_exc()))
-            else:
-                logger(logging.DEBUG, "Update request %s priority to %s: %s" % (item[0], priority, res['http_message']))
     except IntegrityError as error:
         raise RucioException(error.args)
 
