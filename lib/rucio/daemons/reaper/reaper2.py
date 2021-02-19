@@ -45,7 +45,6 @@ import traceback
 from collections import OrderedDict
 from datetime import datetime, timedelta
 from math import ceil
-from operator import itemgetter
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
@@ -265,7 +264,7 @@ def get_max_deletion_threads_by_hostname(hostname):
 
     :param hostname: the hostname of the SE
 
-    :returns : The maximum deletion thread for the SE.
+    :returns: The maximum deletion thread for the SE.
     """
     result = REGION.get('max_deletion_threads_%s' % hostname)
     if result is NO_VALUE:
@@ -281,37 +280,37 @@ def get_max_deletion_threads_by_hostname(hostname):
     return result
 
 
-def __check_rse_usage(rse, rse_id, logger=logging.log):
+def __check_rse_usage(rse, rse_id, greedy=False, logger=logging.log):
     """
     Internal method to check RSE usage and limits.
 
-    :param rse_id: the rse name.
-    :param rse_id: the rse id.
+    :param rse:     The RSE name.
+    :param rse_id:  The RSE id.
+    :param greedy:  If True, needed_free_space will be set to 1TB regardless of actual rse usage.
 
-    :returns : max_being_deleted_files, needed_free_space, used, free, only_delete_obsolete.
+    :returns: needed_free_space, only_delete_obsolete.
     """
 
     result = REGION.get('rse_usage_%s' % rse_id)
     if result is NO_VALUE:
-        max_being_deleted_files, needed_free_space, used, free, obsolete = 0, 0, 0, 0, 0
+        needed_free_space, used, free, obsolete = 0, 0, 0, 0
 
-        # First of all check if greedy mode is enabled for this RSE
+        # First of all check if greedy mode is enabled for this RSE or generally
         attributes = list_rse_attributes(rse_id=rse_id)
-        greedy = attributes.get('greedyDeletion', False)
-        if greedy:
-            result = (max_being_deleted_files, 1000000000000, used, free, False)
+        rse_attr_greedy = attributes.get('greedyDeletion', False)
+        if greedy or rse_attr_greedy:
+            result = (1000000000000, False)
             REGION.set('rse_usage_%s' % rse_id, result)
             return result
 
         # Get RSE limits
         limits = get_rse_limits(rse_id=rse_id)
-        if not limits and 'MinFreeSpace' not in limits and 'MaxBeingDeletedFiles' not in limits:
-            result = (max_being_deleted_files, needed_free_space, used, free, False)
+        if not limits and 'MinFreeSpace' not in limits:
+            result = (needed_free_space, False)
             REGION.set('rse_usage_%s' % rse_id, result)
             return result
 
         min_free_space = limits.get('MinFreeSpace')
-        max_being_deleted_files = limits.get('MaxBeingDeletedFiles')
 
         # Check from which sources to get used and total spaces
         # Default is storage
@@ -332,10 +331,10 @@ def __check_rse_usage(rse, rse_id, logger=logging.log):
         # If no information is available about disk space, do nothing except if there are replicas with Epoch tombstone
         if not usage:
             if not obsolete:
-                result = (max_being_deleted_files, needed_free_space, used, free, False)
+                result = (needed_free_space, False)
                 REGION.set('rse_usage_%s' % rse_id, result)
                 return result
-            result = (max_being_deleted_files, obsolete, used, free, True)
+            result = (obsolete, True)
             REGION.set('rse_usage_%s' % rse_id, result)
             return result
 
@@ -347,7 +346,7 @@ def __check_rse_usage(rse, rse_id, logger=logging.log):
         if source_for_total_space != source_for_used_space:
             usage = [entry for entry in rse_usage if entry['source'] == source_for_used_space]
             if not usage:
-                result = (max_being_deleted_files, needed_free_space, 0, free, False)
+                result = (needed_free_space, False)
                 REGION.set('rse_usage_%s' % rse_id, result)
                 return result
             for var in usage:
@@ -360,10 +359,9 @@ def __check_rse_usage(rse, rse_id, logger=logging.log):
 
         # If needed_free_space negative, nothing to delete except if some Epoch tombstoned replicas
         if needed_free_space <= 0:
-            needed_free_space = 0 or obsolete
-            result = (max_being_deleted_files, needed_free_space, used, free, True)
+            result = (obsolete, True)
         else:
-            result = (max_being_deleted_files, needed_free_space, used, free, False)
+            result = (needed_free_space, False)
         REGION.set('rse_usage_%s' % rse_id, result)
         return result
 
@@ -465,22 +463,17 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                 if rse['availability'] % 2 == 0:
                     logger(logging.DEBUG, 'RSE %s is blacklisted for delete', rse['rse'])
                     continue
-                max_being_deleted_files, needed_free_space, used, free, only_delete_obsolete = __check_rse_usage(rse['rse'], rse['id'], logger=logger)
-                # Check if greedy mode
-                if greedy:
-                    dict_rses[(rse['rse'], rse['id'])] = [1000000000000, max_being_deleted_files, only_delete_obsolete]
-                    tot_needed_free_space += 1000000000000
+                needed_free_space, only_delete_obsolete = __check_rse_usage(rse['rse'], rse['id'], greedy=greedy, logger=logger)
+                if needed_free_space:
+                    dict_rses[(rse['rse'], rse['id'])] = [needed_free_space, only_delete_obsolete]
+                    tot_needed_free_space += needed_free_space
+                elif only_delete_obsolete:
+                    dict_rses[(rse['rse'], rse['id'])] = [needed_free_space, only_delete_obsolete]
                 else:
-                    if needed_free_space:
-                        dict_rses[(rse['rse'], rse['id'])] = [needed_free_space, max_being_deleted_files, only_delete_obsolete]
-                        tot_needed_free_space += needed_free_space
-                    elif only_delete_obsolete:
-                        dict_rses[(rse['rse'], rse['id'])] = [needed_free_space, max_being_deleted_files, only_delete_obsolete]
-                    else:
-                        logger(logging.DEBUG, 'Nothing to delete on %s', rse['rse'])
+                    logger(logging.DEBUG, 'Nothing to delete on %s', rse['rse'])
 
             # Ordering the RSEs based on the needed free space
-            sorted_dict_rses = OrderedDict(sorted(dict_rses.items(), key=itemgetter(1), reverse=True))
+            sorted_dict_rses = OrderedDict(sorted(dict_rses.items(), key=lambda x: x[1][0], reverse=True))
             logger(logging.DEBUG, 'List of RSEs to process ordered by needed space desc: %s', str(sorted_dict_rses))
 
             # Get the mapping between the RSE and the hostname used for deletion. The dictionary has RSE as key and (hostanme, rse_info) as value
@@ -543,7 +536,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                 logger(logging.DEBUG, 'Total deletion workers for %s : %i', rse_hostname, tot_threads_for_hostname + 1)
                 # List and mark BEING_DELETED the files to delete
                 del_start_time = time.time()
-                only_delete_obsolete = dict_rses[(rse_name, rse_id)][2]
+                only_delete_obsolete = dict_rses[(rse_name, rse_id)][1]
                 try:
                     with monitor.record_timer_block('reaper.list_unlocked_replicas'):
                         if only_delete_obsolete:
