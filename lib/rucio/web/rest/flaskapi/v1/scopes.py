@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,20 +20,17 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-
-import logging
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from flask import Flask, Blueprint, request, jsonify
-from flask.views import MethodView
 
 from rucio.api.scope import add_scope, list_scopes, get_scopes
-from rucio.common.exception import AccountNotFound, Duplicate, RucioException
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, request_auth_env, response_headers
-from rucio.web.rest.utils import generate_http_error_flask
+from rucio.common.exception import AccountNotFound, Duplicate, ScopeNotFound
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, request_auth_env, response_headers, \
+    generate_http_error_flask, ErrorHandlingMethodView
 
 
-class Scope(MethodView):
+class Scope(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
@@ -75,24 +72,18 @@ class Scope(MethodView):
         :status 404: account does not exist
         :status 401: unauthorized
         :status 409: scope already exists
-        :status 500: internal server error
         """
         try:
             add_scope(scope, account, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except Duplicate as error:
-            return generate_http_error_flask(409, 'Duplicate', error.args[0])
+            return generate_http_error_flask(409, error)
         except AccountNotFound as error:
-            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
         return 'Created', 201
 
 
-class AccountScopeList(MethodView):
+class AccountScopeList(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account):
@@ -110,13 +101,10 @@ class AccountScopeList(MethodView):
         try:
             scopes = get_scopes(account, vo=request.environ.get('vo'))
         except AccountNotFound as error:
-            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
         if not len(scopes):
-            return generate_http_error_flask(404, 'ScopeNotFound', 'no scopes found for account ID \'%s\'' % account)
+            return generate_http_error_flask(404, ScopeNotFound.__name__, f"no scopes found for account '{account}'")
 
         return jsonify(scopes)
 

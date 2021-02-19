@@ -20,7 +20,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2020
 # - Wen Guan <wen.guan@cern.ch>, 2014-2016
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2015-2019
-# - Thomas Beermann <thomas.beermann@cern.ch>, 2016
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2016-2021
 # - Joaquin Bogado <jbogadog@cern.ch>, 2017
 # - Igor Mandrichenko <rucio@fermicloud055.fnal.gov>, 2018
 # - Robert Illingworth <illingwo@fnal.gov>, 2018
@@ -598,7 +598,7 @@ def get_request_by_did(scope, name, rse_id, request_type=None, session=None):
 
         tmp = tmp.first()
         if not tmp:
-            raise RequestNotFound()
+            raise RequestNotFound(f'No request found for DID {scope}:{name} at RSE {rse_id}')
         else:
             tmp = dict(tmp)
             tmp.pop('_sa_instance_state')

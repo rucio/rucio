@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2020 CERN
+# Copyright 2016-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,22 +20,21 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
-from json import loads, dumps
-import logging
+from json import dumps
 
 from flask import Flask, Blueprint, Response, request
-from flask.views import MethodView
 
 from rucio.api.lifetime_exception import list_exceptions, add_exception, update_exception
-from rucio.common.exception import LifetimeExceptionNotFound, UnsupportedOperation, InvalidObject, RucioException, AccessDenied, LifetimeExceptionDuplicate
+from rucio.common.exception import LifetimeExceptionNotFound, UnsupportedOperation, InvalidObject, AccessDenied, \
+    LifetimeExceptionDuplicate
 from rucio.common.utils import APIEncoder
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, try_stream
-from rucio.web.rest.utils import generate_http_error_flask
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, \
+    try_stream, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
 
 
-class LifetimeException(MethodView):
+class LifetimeException(ErrorHandlingMethodView):
     """ REST APIs for Lifetime Model exception. """
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
@@ -50,7 +49,6 @@ class LifetimeException(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: Lifetime Exception Not Found.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         """
         try:
             def generate(vo):
@@ -59,12 +57,7 @@ class LifetimeException(MethodView):
 
             return try_stream(generate(vo=request.environ.get('vo')))
         except LifetimeExceptionNotFound as error:
-            return generate_http_error_flask(404, 'LifetimeExceptionNotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
     def post(self):
         """
@@ -81,41 +74,29 @@ class LifetimeException(MethodView):
         :status 400: Cannot decode json parameter list.
         :status 401: Invalid Auth Token.
         :status 409: Lifetime Exception already exists.
-        :status 500: Internal Error.
         :returns: The id for the newly created execption.
         """
-        dids, pattern, comments, expires_at = [], None, None, None
+        parameters = json_parameters()
         try:
-            params = loads(request.get_data(as_text=True))
-            if 'dids' in params:
-                dids = params['dids']
-            if 'pattern' in params:
-                pattern = params['pattern']
-            if 'comments' in params:
-                comments = params['comments']
-            if 'expires_at' in params:
-                expires_at = params['expires_at']
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
-
-        try:
-            exception_id = add_exception(dids=dids, account=request.environ.get('issuer'), vo=request.environ.get('vo'),
-                                         pattern=pattern, comments=comments, expires_at=expires_at)
+            exception_id = add_exception(
+                dids=param_get(parameters, 'dids', default=[]),
+                account=request.environ.get('issuer'),
+                vo=request.environ.get('vo'),
+                pattern=param_get(parameters, 'pattern', default=None),
+                comments=param_get(parameters, 'comments', default=None),
+                expires_at=param_get(parameters, 'expires_at', default=None),
+            )
         except InvalidObject as error:
-            return generate_http_error_flask(400, 'InvalidObject', error.args[0])
+            return generate_http_error_flask(400, error)
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, error)
         except LifetimeExceptionDuplicate as error:
-            return generate_http_error_flask(409, 'LifetimeExceptionDuplicate', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(409, error)
+
         return Response(dumps(exception_id), status=201, content_type="application/json")
 
 
-class LifetimeExceptionId(MethodView):
+class LifetimeExceptionId(ErrorHandlingMethodView):
     """ REST APIs for Lifetime Model exception. """
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
@@ -131,7 +112,6 @@ class LifetimeExceptionId(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: Lifetime Exception Not Found.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: List of exceptions.
         """
         try:
@@ -141,12 +121,7 @@ class LifetimeExceptionId(MethodView):
 
             return try_stream(generate(vo=request.environ.get('vo')))
         except LifetimeExceptionNotFound as error:
-            return generate_http_error_flask(404, 'LifetimeExceptionNotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
     def put(self, exception_id):
         """
@@ -160,29 +135,19 @@ class LifetimeExceptionId(MethodView):
         :status 400: Cannot decode json parameter list.
         :status 401: Invalid Auth Token.
         :status 404: Lifetime Exception Not Found.
-        :Status 500: Internal Error.
         """
-        try:
-            params = loads(request.get_data(as_text=True))
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
-        try:
-            state = params['state']
-        except KeyError:
-            state = None
+        parameters = json_parameters()
+        state = param_get(parameters, 'state', default=None)
+
         try:
             update_exception(exception_id=exception_id, state=state, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except UnsupportedOperation as error:
-            return generate_http_error_flask(400, 'UnsupportedOperation', error.args[0])
+            return generate_http_error_flask(400, error)
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, error)
         except LifetimeExceptionNotFound as error:
-            return generate_http_error_flask(404, 'LifetimeExceptionNotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
+
         return 'Created', 201
 
 

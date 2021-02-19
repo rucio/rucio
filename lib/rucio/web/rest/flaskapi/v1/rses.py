@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2020 CERN
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,36 +20,27 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
-from json import dumps, loads
-import logging
+from json import dumps
 
 from flask import Flask, Blueprint, Response, request, jsonify
-from flask.views import MethodView
 
 from rucio.api.account_limit import get_rse_account_usage
-from rucio.api.rse import (add_rse, update_rse, list_rses, del_rse, add_rse_attribute,
-                           list_rse_attributes, del_rse_attribute,
-                           add_protocol, get_rse_protocols, del_protocols,
-                           update_protocols, get_rse, set_rse_usage,
-                           get_rse_usage, list_rse_usage_history,
-                           set_rse_limits, get_rse_limits, delete_rse_limits,
-                           parse_rse_expression,
-                           add_distance, get_distance, update_distance,
-                           list_qos_policies, add_qos_policy, delete_qos_policy)
-from rucio.common.exception import (Duplicate, AccessDenied, RSENotFound, RucioException,
-                                    RSEOperationNotSupported, RSEProtocolNotSupported,
-                                    InvalidObject, RSEProtocolDomainNotSupported,
-                                    RSEProtocolPriorityError, InvalidRSEExpression,
-                                    RSEAttributeNotFound, CounterNotFound)
+from rucio.api.rse import add_rse, update_rse, list_rses, del_rse, add_rse_attribute, list_rse_attributes, \
+    del_rse_attribute, add_protocol, get_rse_protocols, del_protocols, update_protocols, get_rse, set_rse_usage, \
+    get_rse_usage, list_rse_usage_history, set_rse_limits, get_rse_limits, delete_rse_limits, parse_rse_expression, \
+    add_distance, get_distance, update_distance, list_qos_policies, add_qos_policy, delete_qos_policy
+from rucio.common.exception import Duplicate, AccessDenied, RSENotFound, RSEOperationNotSupported, \
+    RSEProtocolNotSupported, InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError, \
+    InvalidRSEExpression, RSEAttributeNotFound, CounterNotFound, InvalidPath, ReplicaNotFound
 from rucio.common.utils import render_json, APIEncoder
 from rucio.rse import rsemanager
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, try_stream
-from rucio.web.rest.utils import generate_http_error_flask
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, \
+    try_stream, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
 
 
-class RSEs(MethodView):
+class RSEs(ErrorHandlingMethodView):
     """ List all RSEs in the database. """
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
@@ -64,10 +55,10 @@ class RSEs(MethodView):
         :status 400: Invalid RSE Expression.
         :status 401: Invalid Auth Token.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: A list containing all RSEs.
         """
-        expression = request.args.get('expression')
+        expression = request.args.get('expression', default=None)
+
         if expression:
             try:
                 def generate(vo):
@@ -75,12 +66,8 @@ class RSEs(MethodView):
                         yield render_json(rse=rse) + '\n'
 
                 return try_stream(generate(vo=request.environ.get('vo')))
-            except InvalidRSEExpression as error:
-                return generate_http_error_flask(400, 'InvalidRSEExpression', error.args[0])
-            except InvalidObject as error:
-                return generate_http_error_flask(400, 'InvalidObject', error.args[0])
-            except RucioException as error:
-                return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+            except (InvalidRSEExpression, InvalidObject) as error:
+                return generate_http_error_flask(400, error)
         else:
             def generate(vo):
                 for rse in list_rses(vo=vo):
@@ -89,7 +76,7 @@ class RSEs(MethodView):
             return try_stream(generate(vo=request.environ.get('vo')))
 
 
-class RSE(MethodView):
+class RSE(ErrorHandlingMethodView):
     """ Create, update, get and disable RSE. """
 
     def post(self, rse):
@@ -117,44 +104,39 @@ class RSE(MethodView):
         :status 401: Invalid Auth Token.
         :status 409: RSE already exists.
         :status 409: RSE not found.
-        :status 500: Internal Error.
-
         """
-        kwargs = {'deterministic': True,
-                  'volatile': False, 'city': None, 'staging_area': False,
-                  'region_code': None, 'country_name': None,
-                  'continent': None, 'time_zone': None, 'ISP': None,
-                  'rse_type': None, 'latitude': None, 'longitude': None,
-                  'ASN': None, 'availability': None}
-        try:
-            data = request.get_data(as_text=True)
-            if data:
-                parameters = loads(data)
-            else:
-                parameters = {}
-
-            for param in kwargs:
-                if param in parameters:
-                    kwargs[param] = parameters[param]
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
+        kwargs = {
+            'deterministic': True,
+            'volatile': False,
+            'city': None,
+            'staging_area': False,
+            'region_code': None,
+            'country_name': None,
+            'continent': None,
+            'time_zone': None,
+            'ISP': None,
+            'rse_type': None,
+            'latitude': None,
+            'longitude': None,
+            'ASN': None,
+            'availability': None,
+        }
+        if request.get_data(as_text=True):
+            parameters = json_parameters()
+            for keyword in kwargs.keys():
+                kwargs[keyword] = param_get(parameters, keyword, default=kwargs[keyword])
         kwargs['issuer'] = request.environ.get('issuer')
         kwargs['vo'] = request.environ.get('vo')
         try:
             add_rse(rse, **kwargs)
         except InvalidObject as error:
-            return generate_http_error_flask(400, 'InvalidObject', error.args[0])
+            return generate_http_error_flask(400, error)
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, error)
         except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
+            return generate_http_error_flask(404, error)
         except Duplicate as error:
-            return generate_http_error_flask(409, 'Duplicate', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(409, error)
 
         return 'Created', 201
 
@@ -170,37 +152,23 @@ class RSE(MethodView):
         :status 401: Invalid Auth Token.
         :status 409: RSE not found.
         :status 409: RSE already exists.
-        :status 500: Internal Error.
 
         """
-        kwargs = {}
-
-        try:
-            data = request.get_data(as_text=True)
-            if data:
-                parameters = loads(data)
-            else:
-                parameters = {}
-            kwargs['parameters'] = parameters
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
-        kwargs['issuer'] = request.environ.get('issuer')
-        kwargs['vo'] = request.environ.get('vo')
+        kwargs = {
+            'parameters': json_parameters(optional=True),
+            'issuer': request.environ.get('issuer'),
+            'vo': request.environ.get('vo'),
+        }
         try:
             update_rse(rse, **kwargs)
         except InvalidObject as error:
-            return generate_http_error_flask(400, 'InvalidObject', error.args[0])
+            return generate_http_error_flask(400, error)
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, error)
         except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
+            return generate_http_error_flask(404, error)
         except Duplicate as error:
-            return generate_http_error_flask(409, 'Duplicate', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(409, error)
 
         return 'Created', 201
 
@@ -216,7 +184,6 @@ class RSE(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: RSE not found.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: A list containing all RSEs.
 
         """
@@ -224,9 +191,7 @@ class RSE(MethodView):
             rse_prop = get_rse(rse=rse, vo=request.environ.get('vo'))
             return Response(render_json(**rse_prop), content_type="application/json")
         except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+            return generate_http_error_flask(404, error)
 
     def delete(self, rse):
         """ Disable RSE with given RSE name.
@@ -237,23 +202,18 @@ class RSE(MethodView):
         :status 200: OK.
         :status 401: Invalid Auth Token.
         :status 404: RSE not found.
-        :status 500: Internal Error.
         """
         try:
             del_rse(rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
-        except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RSEOperationNotSupported as error:
-            return generate_http_error_flask(404, 'RSEOperationNotSupported', error.args[0])
+        except (RSENotFound, RSEOperationNotSupported, CounterNotFound) as error:
+            return generate_http_error_flask(404, error)
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except CounterNotFound as error:
-            return generate_http_error_flask(404, 'CounterNotFound', error.args[0])
+            return generate_http_error_flask(401, error)
 
         return '', 200
 
 
-class Attributes(MethodView):
+class Attributes(ErrorHandlingMethodView):
     """ Create, update, get and disable RSE attribute."""
 
     def post(self, rse, key):
@@ -269,30 +229,17 @@ class Attributes(MethodView):
         :status 400: Key not defined.
         :status 401: Invalid Auth Token.
         :status 409: Attribute already exists.
-        :status 500: Internal Error.
-
         """
-        try:
-            parameter = loads(request.get_data(as_text=True))
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
-
-        try:
-            value = parameter['value']
-        except KeyError as error:
-            return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(error))
-
+        parameters = json_parameters()
+        value = param_get(parameters, 'value')
         try:
             add_rse_attribute(rse=rse, key=key, value=value, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, error)
         except Duplicate as error:
-            return generate_http_error_flask(409, 'Duplicate', error.args[0])
+            return generate_http_error_flask(409, error)
         except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
         return 'Created', 201
 
@@ -308,18 +255,14 @@ class Attributes(MethodView):
         :status 200: OK.
         :status 401: Invalid Auth Token.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: A list containing all RSE attributes.
         """
         try:
             rse_attr = list_rse_attributes(rse, vo=request.environ.get('vo'))
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, error)
         except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
         return jsonify(rse_attr)
 
@@ -333,25 +276,19 @@ class Attributes(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: RSE not found.
         :status 404: RSE attribute not found.
-        :status 500: Internal Error.
 
         """
         try:
             del_rse_attribute(rse=rse, key=key, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RSEAttributeNotFound as error:
-            return generate_http_error_flask(404, 'RSEAttributeNotFound', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(401, error)
+        except (RSENotFound, RSEAttributeNotFound) as error:
+            return generate_http_error_flask(404, error)
 
         return '', 200
 
 
-class ProtocolList(MethodView):
+class ProtocolList(ErrorHandlingMethodView):
     """ List supported protocols. """
 
     @check_accept_header_wrapper_flask(['application/json'])
@@ -369,30 +306,20 @@ class ProtocolList(MethodView):
         :status 404: RSE Protocol Domain Not Supported.
         :status 404: RSE Protocol Not Supported.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: A list containing all supported protocols and all their attributes.
         """
-        p_list = None
         try:
             p_list = get_rse_protocols(rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
-        except RSEOperationNotSupported as error:
-            return generate_http_error_flask(404, 'RSEOperationNotSupported', error.args[0])
-        except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RSEProtocolNotSupported as error:
-            return generate_http_error_flask(404, 'RSEProtocolNotSupported', error.args[0])
-        except RSEProtocolDomainNotSupported as error:
-            return generate_http_error_flask(404, 'RSEProtocolDomainNotSupported', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        except (RSEOperationNotSupported, RSENotFound, RSEProtocolNotSupported, RSEProtocolDomainNotSupported) as error:
+            return generate_http_error_flask(404, error)
+
         if len(p_list['protocols']):
             return jsonify(p_list['protocols'])
         else:
-            return generate_http_error_flask(404, 'RSEProtocolNotSupported', 'No protocols found for this RSE')
+            return generate_http_error_flask(404, RSEProtocolNotSupported.__name__, 'No protocols found for this RSE')
 
 
-class LFNS2PFNS(MethodView):
+class LFNS2PFNS(ErrorHandlingMethodView):
     """ Translate one-or-more LFNs to corresponding PFNs. """
 
     @check_accept_header_wrapper_flask(['application/json'])
@@ -405,7 +332,7 @@ class LFNS2PFNS(MethodView):
 
         :param rse: The RSE name.
         :param scheme: The protocol identifier.
-        :query lfn: One or moref LFN to translate.
+        :query lfn: One or more LFN to translate.
         :query scheme: Optional argument to help with the protocol selection (e.g., http / gsiftp / srm)
         :query domain: Optional argument used to select the protocol for wan or lan use cases.
         :query operation: Optional query argument to select the protoco for read-vs-writes.
@@ -416,48 +343,31 @@ class LFNS2PFNS(MethodView):
         :status 404: RSE Protocol Not Supported.
         :status 404: RSE Protocol Domain Not Supported.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: A list with detailed PFN information.
         """
-        lfns = []
-        scheme = None
-        domain = 'wan'
-        operation = 'write'
-        if request.query_string:
-            for key, val in request.args.items():
-                if key == 'lfn':
-                    info = val.split(":", 1)
-                    if len(info) != 2:
-                        return generate_http_error_flask(400, 'InvalidPath', 'LFN in invalid format')
-                    lfn_dict = {'scope': info[0], 'name': info[1]}
-                    lfns.append(lfn_dict)
-                elif key == 'scheme':
-                    scheme = val
-                elif key == 'domain':
-                    domain = val
-                elif key == 'operation':
-                    operation = val
+        lfns = request.args.getlist('lfn')
+        lfns = list(map(lambda lfn: lfn.split(":", 1), lfns))
+        if any(filter(lambda info: len(info) != 2, lfns)):
+            invalid_lfns = ', '.join(filter(lambda info: len(info) != 2, lfns))
+            return generate_http_error_flask(400, InvalidPath.__name__, 'LFN(s) in invalid format: ' + invalid_lfns)
+        lfns = list(map(lambda info: {'scope': info[0], 'name': info[1]}, lfns))
+        scheme = request.args.get('scheme', default=None)
+        domain = request.args.get('domain', default='wan')
+        operation = request.args.get('operation', default='write')
 
-        rse_settings = None
         try:
             rse_settings = get_rse_protocols(rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
-        except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RSEProtocolNotSupported as error:
-            return generate_http_error_flask(404, 'RSEProtocolNotSupported', error.args[0])
-        except RSEProtocolDomainNotSupported as error:
-            return generate_http_error_flask(404, 'RSEProtocolDomainNotSupported', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        except (RSENotFound, RSEProtocolNotSupported, RSEProtocolDomainNotSupported) as error:
+            return generate_http_error_flask(404, error)
 
         pfns = rsemanager.lfns2pfns(rse_settings, lfns, operation=operation, scheme=scheme, domain=domain)
         if not pfns:
-            return "No replicas found", 404
+            return generate_http_error_flask(404, ReplicaNotFound.__name__, 'No replicas found')
+
         return jsonify(pfns)
 
 
-class Protocol(MethodView):
+class Protocol(ErrorHandlingMethodView):
     """ Create, Update, Read and delete a specific protocol. """
 
     def post(self, rse, scheme):
@@ -475,36 +385,24 @@ class Protocol(MethodView):
         :status 404: RSE not found.
         :status 404: RSE Protocol Domain Not Supported.
         :status 409: RSE Protocol Priority Error.
-        :status 500: Internal Error.
 
         """
-        try:
-            parameters = loads(request.get_data(as_text=True))
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
+        parameters = json_parameters()
 
         # Fill defaults and check mandatory parameters
         parameters['scheme'] = scheme
 
         try:
             add_protocol(rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'), data=parameters)
-        except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
+        except (RSENotFound, RSEProtocolDomainNotSupported) as error:
+            return generate_http_error_flask(404, error)
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except Duplicate as error:
-            return generate_http_error_flask(409, 'Duplicate', error.args[0])
+            return generate_http_error_flask(401, error)
+        except (Duplicate, RSEProtocolPriorityError) as error:
+            return generate_http_error_flask(409, error)
         except InvalidObject as error:
-            return generate_http_error_flask(400, 'InvalidObject', error.args[0])
-        except RSEProtocolDomainNotSupported as error:
-            return generate_http_error_flask(404, 'RSEProtocolDomainNotSupported', error.args[0])
-        except RSEProtocolPriorityError as error:
-            return generate_http_error_flask(409, 'RSEProtocolPriorityError', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(400, error)
+
         return 'Created', 201
 
     @check_accept_header_wrapper_flask(['application/json'])
@@ -525,18 +423,11 @@ class Protocol(MethodView):
         :returns: A list with detailed protocol information.
 
         """
-        p_list = None
         try:
             p_list = get_rse_protocols(rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
-        except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RSEProtocolNotSupported as error:
-            return generate_http_error_flask(404, 'RSEProtocolNotSupported', error.args[0])
-        except RSEProtocolDomainNotSupported as error:
-            return generate_http_error_flask(404, 'RSEProtocolDomainNotSupported', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        except (RSENotFound, RSEProtocolNotSupported, RSEProtocolDomainNotSupported) as error:
+            return generate_http_error_flask(404, error)
+
         return jsonify(p_list)
 
     def put(self, rse, scheme, hostname=None, port=None):
@@ -558,31 +449,25 @@ class Protocol(MethodView):
         :status 404: RSE Protocol Not Supported.
         :status 404: RSE Protocol Domain Not Supported.
         :status 409: RSE Protocol Priority Error.
-        :status 500: Internal Error.
 
         """
+        parameters = json_parameters()
         try:
-            parameter = loads(request.get_data(as_text=True))
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
-
-        try:
-            update_protocols(rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'), scheme=scheme, hostname=hostname, port=port, data=parameter)
+            update_protocols(
+                rse,
+                issuer=request.environ.get('issuer'),
+                vo=request.environ.get('vo'),
+                scheme=scheme,
+                hostname=hostname,
+                port=port,
+                data=parameters,
+            )
         except InvalidObject as error:
-            return generate_http_error_flask(400, 'InvalidObject', error.args[0])
-        except RSEProtocolNotSupported as error:
-            return generate_http_error_flask(404, 'RSEProtocolNotSupported', error.args[0])
-        except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RSEProtocolDomainNotSupported as error:
-            return generate_http_error_flask(404, 'RSEProtocolDomainNotSupported', error.args[0])
-        except RSEProtocolPriorityError as error:
-            return generate_http_error_flask(409, 'RSEProtocolPriorityError', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(400, error)
+        except (RSEProtocolNotSupported, RSENotFound, RSEProtocolDomainNotSupported) as error:
+            return generate_http_error_flask(404, error)
+        except (RSEProtocolPriorityError, Duplicate) as error:
+            return generate_http_error_flask(409, error)
 
         return '', 200
 
@@ -600,25 +485,17 @@ class Protocol(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: RSE not found.
         :status 404: RSE Protocol Not Supported.
-        :status 500: Internal Error.
 
         """
         try:
             del_protocols(rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'), scheme=scheme, hostname=hostname, port=port)
-        except RSEProtocolNotSupported as error:
-            return generate_http_error_flask(404, 'RSEProtocolNotSupported', error.args[0])
-        except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        except (RSEProtocolNotSupported, RSENotFound) as error:
+            return generate_http_error_flask(404, error)
 
         return '', 200
 
 
-class Usage(MethodView):
+class Usage(ErrorHandlingMethodView):
     """ Update and read RSE space usage information. """
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
@@ -636,24 +513,25 @@ class Usage(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: RSE Not Found.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: A list of dictionaries with the usage information.
 
         """
+        per_account = request.args.get('per_account') == 'True'
         try:
             def generate(issuer, source, per_account, vo):
                 for usage in get_rse_usage(rse, issuer=issuer, source=source, per_account=per_account, vo=vo):
                     yield render_json(**usage) + '\n'
 
-            return try_stream(generate(issuer=request.environ.get('issuer'), source=request.args.get('source'),
-                                       per_account=(request.args.get('per_account') == 'True'), vo=request.environ.get('vo')))
+            return try_stream(
+                generate(
+                    issuer=request.environ.get('issuer'),
+                    source=request.args.get('source'),
+                    per_account=per_account,
+                    vo=request.environ.get('vo'),
+                )
+            )
         except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
     def put(self, rse):
         """ Update RSE usage information.
@@ -666,30 +544,24 @@ class Usage(MethodView):
         :status 400: Cannot decode json parameter dictionary.
         :status 401: Invalid Auth Token.
         :status 404: RSE not found.
-        :status 500: Internal Error.
 
         """
-        try:
-            parameter = loads(request.get_data(as_text=True))
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
+        parameters = json_parameters()
+        kwargs = {'source': None, 'used': None, 'free': None}
+        for keyword in kwargs.keys():
+            kwargs[keyword] = param_get(parameters, keyword, default=kwargs[keyword])
 
         try:
-            set_rse_usage(rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'), **parameter)
+            set_rse_usage(rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'), **kwargs)
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, error)
         except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
         return '', 200
 
 
-class UsageHistory(MethodView):
+class UsageHistory(ErrorHandlingMethodView):
     """ Read RSE space usage history information. """
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
@@ -705,7 +577,6 @@ class UsageHistory(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: RSE Not Found.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: Line separated list of dictionary with RSE usage information.
 
         """
@@ -716,15 +587,10 @@ class UsageHistory(MethodView):
 
             return try_stream(generate(issuer=request.environ.get('issuer'), source=request.args.get('source'), vo=request.environ.get('vo')))
         except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
 
-class Limits(MethodView):
+class Limits(ErrorHandlingMethodView):
     """ Create, Update, Read and delete RSE limits. """
 
     @check_accept_header_wrapper_flask(['application/json'])
@@ -740,7 +606,6 @@ class Limits(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: RSE Not Found.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: List of dictionaries with RSE limits.
 
         """
@@ -748,12 +613,7 @@ class Limits(MethodView):
             limits = get_rse_limits(rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
             return Response(render_json(**limits), content_type="application/json")
         except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
     def put(self, rse):
         """ Update RSE limits.
@@ -765,24 +625,18 @@ class Limits(MethodView):
         :status 400: Cannot decode json parameter dictionary.
         :status 401: Invalid Auth Token.
         :status 404: RSE Not Found.
-        :status 500: Internal Error.
-
         """
+        parameters = json_parameters()
+        kwargs = {'name': None, 'value': None}
+        for keyword in kwargs.keys():
+            kwargs[keyword] = param_get(parameters, keyword, default=kwargs[keyword])
+
         try:
-            parameter = loads(request.get_data(as_text=True))
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
-        try:
-            set_rse_limits(rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'), **parameter)
+            set_rse_limits(rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'), **kwargs)
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, error)
         except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
         return '', 200
 
@@ -796,29 +650,22 @@ class Limits(MethodView):
         :status 400: Cannot decode json parameter dictionary.
         :status 401: Invalid Auth Token.
         :status 404: RSE Not Found.
-        :status 500: Internal Error.
 
         """
+        parameters = json_parameters()
+        name = param_get(parameters, 'name')
+
         try:
-            parameter = loads(request.get_data(as_text=True))
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
-        try:
-            delete_rse_limits(rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'), **parameter)
+            delete_rse_limits(rse=rse, name=name, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, error)
         except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
         return '', 200
 
 
-class RSEAccountUsageLimit(MethodView):
+class RSEAccountUsageLimit(ErrorHandlingMethodView):
     """ Read and delete RSE limits for accounts. """
 
     @check_accept_header_wrapper_flask(['application/json'])
@@ -834,7 +681,6 @@ class RSEAccountUsageLimit(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: RSE Not Found.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: Line separated list of dict with account usage and limits.
         """
         try:
@@ -844,15 +690,10 @@ class RSEAccountUsageLimit(MethodView):
 
             return try_stream(generate(vo=request.environ.get('vo')), content_type='application/json')
         except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
 
-class Distance(MethodView):
+class Distance(ErrorHandlingMethodView):
     """ Create/Update and read distances between RSEs. """
 
     @check_accept_header_wrapper_flask(['application/json'])
@@ -868,22 +709,13 @@ class Distance(MethodView):
         :status 200: OK.
         :status 401: Invalid Auth Token.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: List of dictionaries with RSE distances.
         """
         try:
-            distance = get_distance(source=source,
-                                    destination=destination,
-                                    issuer=request.environ.get('issuer'),
-                                    vo=request.environ.get('vo'))
+            distance = get_distance(source=source, destination=destination, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
             return Response(dumps(distance, cls=APIEncoder), content_type="application/json")
         except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
     def post(self, source, destination):
         """ Create distance information between source RSE and destination RSE.
@@ -896,27 +728,36 @@ class Distance(MethodView):
         :status 400: Cannot decode json parameter dictionary.
         :status 401: Invalid Auth Token.
         :status 404: RSE Not Found.
-        :status 500: Internal Error.
         """
+        parameters = json_parameters()
+        kwargs = {
+            'ranking': None,
+            'distance': None,
+            'geoip_distance': None,
+            'active': None,
+            'submitted': None,
+            'finished': None,
+            'failed': None,
+            'transfer_speed': None,
+        }
+        for keyword in kwargs.keys():
+            kwargs[keyword] = param_get(parameters, keyword, default=kwargs[keyword])
+
         try:
-            parameter = loads(request.get_data(as_text=True))
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
-        try:
-            add_distance(source=source,
-                         destination=destination,
-                         issuer=request.environ.get('issuer'),
-                         vo=request.environ.get('vo'),
-                         **parameter)
+            add_distance(
+                source=source,
+                destination=destination,
+                issuer=request.environ.get('issuer'),
+                vo=request.environ.get('vo'),
+                **kwargs,
+            )
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, error)
         except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
+        except Duplicate as error:
+            return generate_http_error_flask(409, error)
+
         return 'Created', 201
 
     def put(self, source, destination):
@@ -930,30 +771,25 @@ class Distance(MethodView):
         :status 400: Cannot decode json parameter dictionary.
         :status 401: Invalid Auth Token.
         :status 404: RSE Not Found.
-        :status 500: Internal Error.
         """
+        parameters = json_parameters()
         try:
-            parameters = loads(request.get_data(as_text=True))
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
-        try:
-            update_distance(source=source, destination=destination,
-                            issuer=request.environ.get('issuer'),
-                            vo=request.environ.get('vo'),
-                            parameters=parameters)
+            update_distance(
+                source=source,
+                destination=destination,
+                issuer=request.environ.get('issuer'),
+                vo=request.environ.get('vo'),
+                parameters=parameters,
+            )
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, error)
         except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
+
         return '', 200
 
 
-class QoSPolicy(MethodView):
+class QoSPolicy(ErrorHandlingMethodView):
     """ Add/Delete/List QoS policies on an RSE. """
 
     @check_accept_header_wrapper_flask(['application/json'])
@@ -968,17 +804,11 @@ class QoSPolicy(MethodView):
         :status 201: Created.
         :status 401: Invalid Auth Token.
         :status 404: RSE Not Found.
-        :status 500: Internal Error.
         """
         try:
             add_qos_policy(rse=rse, qos_policy=policy, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
         return 'Created', 201
 
@@ -994,17 +824,11 @@ class QoSPolicy(MethodView):
         :status 200: OK.
         :status 401: Invalid Auth Token.
         :status 404: RSE not found.
-        :status 500: Internal Error.
         """
         try:
             delete_qos_policy(rse=rse, qos_policy=policy, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
         return '', 200
 
@@ -1019,19 +843,13 @@ class QoSPolicy(MethodView):
         :resheader Content-Type: application/json
         :status 200: OK.
         :status 401: Invalid Auth Token.
-        :status 500: Internal Error.
         :returns: List of QoS policies
         """
         try:
             qos_policies = list_qos_policies(rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
             return Response(dumps(qos_policies, cls=APIEncoder), content_type='application/json')
         except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
 
 def blueprint():

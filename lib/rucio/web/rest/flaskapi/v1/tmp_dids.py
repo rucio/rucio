@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2020 CERN
+# Copyright 2016-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,22 +21,15 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-
-
-from json import loads
-import logging
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from flask import Flask, Blueprint, request
-from flask.views import MethodView
 
-from rucio.api.temporary_did import (add_temporary_dids)
-from rucio.common.exception import RucioException
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers
-from rucio.web.rest.utils import generate_http_error_flask
+from rucio.api.temporary_did import add_temporary_dids
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, ErrorHandlingMethodView, json_list
 
 
-class BulkDIDS(MethodView):
+class BulkDIDS(ErrorHandlingMethodView):
 
     def post(self):
         """
@@ -48,21 +41,9 @@ class BulkDIDS(MethodView):
         :status 201: Created.
         :status 400: Cannot decode json parameter list.
         :status 401: Invalid Auth Token.
-        :status 500: Internal Error.
         """
-
-        try:
-            dids = loads(request.get_data(as_text=True))
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
-
-        try:
-            add_temporary_dids(dids=dids, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        dids = json_list()
+        add_temporary_dids(dids=dids, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         return 'Created', 201
 
 
