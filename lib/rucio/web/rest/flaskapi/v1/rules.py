@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,29 +25,26 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
-from json import dumps, loads
-import logging
+from json import dumps
 
 from flask import Flask, Blueprint, request, Response
-from flask.views import MethodView
 
 from rucio.api.lock import get_replica_locks_for_rule_id
-from rucio.api.rule import (add_replication_rule, delete_replication_rule, get_replication_rule, update_replication_rule,
-                            reduce_replication_rule, list_replication_rule_history, list_replication_rule_full_history,
-                            list_replication_rules, examine_replication_rule, move_replication_rule)
-from rucio.common.exception import (InsufficientAccountLimit, RuleNotFound, AccessDenied, InvalidRSEExpression,
-                                    InvalidReplicationRule, RucioException, DataIdentifierNotFound, InsufficientTargetRSEs,
-                                    ReplicationRuleCreationTemporaryFailed, InvalidRuleWeight, StagingAreaRuleRequiresLifetime,
-                                    DuplicateRule, InvalidObject, AccountNotFound, RuleReplaceFailed, ScratchDiskLifetimeConflict,
-                                    ManualRuleApprovalBlocked, UnsupportedOperation)
+from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule, \
+    update_replication_rule, reduce_replication_rule, list_replication_rule_history, \
+    list_replication_rule_full_history, list_replication_rules, examine_replication_rule, move_replication_rule
+from rucio.common.exception import InsufficientAccountLimit, RuleNotFound, AccessDenied, InvalidRSEExpression, \
+    InvalidReplicationRule, DataIdentifierNotFound, InsufficientTargetRSEs, ReplicationRuleCreationTemporaryFailed, \
+    InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule, InvalidObject, AccountNotFound, \
+    RuleReplaceFailed, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked, UnsupportedOperation
 from rucio.common.utils import render_json, APIEncoder
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream, request_auth_env, response_headers
-from rucio.web.rest.utils import generate_http_error_flask
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream, \
+    request_auth_env, response_headers, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
 
 
-class Rule(MethodView):
+class Rule(ErrorHandlingMethodView):
     """ REST APIs for replication rules. """
 
     @check_accept_header_wrapper_flask(['application/json'])
@@ -62,22 +59,12 @@ class Rule(MethodView):
         :status 410: Invalid Auth Token
         :status 404: no rule found for id
         """
-        try:
-            estimate_ttc = False
-            params = loads(request.get_data(as_text=True))
-            if 'estimate_ttc' in params:
-                estimate_ttc = params['estimate_ttc']
-        except ValueError:
-            estimate_ttc = False
+        parameters = json_parameters(optional=True)
+        estimate_ttc = param_get(parameters, 'estimate_ttc', default=False)
         try:
             rule = get_replication_rule(rule_id, estimate_ttc=estimate_ttc, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except RuleNotFound as error:
-            return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
         return Response(render_json(**rule), content_type="application/json")
 
@@ -91,24 +78,17 @@ class Rule(MethodView):
         :status 401: Invalid Auth Token
         :status 404: no rule found for id
         """
+        parameters = json_parameters()
+        options = param_get(parameters, 'options')
         try:
-            params = loads(request.get_data(as_text=True))
-            options = params['options']
             update_replication_rule(rule_id=rule_id, options=options, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except RuleNotFound as error:
-            return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
-        except AccountNotFound as error:
-            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
-        except ScratchDiskLifetimeConflict as error:
-            return generate_http_error_flask(409, 'ScratchDiskLifetimeConflict', error.args[0])
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
-        except UnsupportedOperation as error:
-            return generate_http_error_flask(409, 'UnsupportedOperation', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+            return generate_http_error_flask(401, error)
+        except (RuleNotFound, AccountNotFound) as error:
+            return generate_http_error_flask(404, error)
+        except (ScratchDiskLifetimeConflict, UnsupportedOperation) as error:
+            return generate_http_error_flask(409, error)
+
         return '', 200
 
     def delete(self, rule_id):
@@ -121,29 +101,19 @@ class Rule(MethodView):
         :status 401: Invalid Auth Token
         :status 404: no rule found for id
         """
-        try:
-            purge_replicas = None
-            params = loads(request.get_data(as_text=True))
-            if 'purge_replicas' in params:
-                purge_replicas = params['purge_replicas']
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
-
+        parameters = json_parameters()
+        purge_replicas = param_get(parameters, 'purge_replicas', default=None)
         try:
             delete_replication_rule(rule_id=rule_id, purge_replicas=purge_replicas, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
-        except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except UnsupportedOperation as error:
-            return generate_http_error_flask(401, 'UnsupportedOperation', error.args[0])
+        except (AccessDenied, UnsupportedOperation) as error:
+            return generate_http_error_flask(401, error)
         except RuleNotFound as error:
-            return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
+
         return '', 200
 
 
-class AllRule(MethodView):
+class AllRule(ErrorHandlingMethodView):
     """ REST APIs for all rules. """
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
@@ -167,10 +137,7 @@ class AllRule(MethodView):
 
             return try_stream(generate(filters=dict(request.args.items(multi=False)), vo=request.environ.get('vo')))
         except RuleNotFound as error:
-            return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
     def post(self):
         """
@@ -216,111 +183,57 @@ class AllRule(MethodView):
         :status 409: Invalid Object
         :returns: List of ids for created rules
         """
+        parameters = json_parameters()
+        dids = param_get(parameters, 'dids')
+        account = param_get(parameters, 'account')
+        copies = param_get(parameters, 'copies')
+        rse_expression = param_get(parameters, 'rse_expression')
         try:
-            grouping, weight, lifetime, locked, subscription_id, source_replica_expression, activity, notify,\
-                purge_replicas, ignore_availability, comment, ask_approval, asynchronous, priority,\
-                split_container, meta = 'DATASET', None, None, False, None, None, None, None, False, False, None,\
-                False, False, 3, False, None
-
-            params = loads(request.get_data(as_text=True))
-            dids = params['dids']
-            account = params['account']
-            copies = params['copies']
-            rse_expression = params['rse_expression']
-            if 'grouping' in params:
-                grouping = params['grouping']
-            if 'weight' in params:
-                weight = params['weight']
-            if 'lifetime' in params:
-                lifetime = params['lifetime']
-            if 'locked' in params:
-                locked = params['locked']
-            if 'subscription_id' in params:
-                subscription_id = params['subscription_id']
-            if 'source_replica_expression' in params:
-                source_replica_expression = params['source_replica_expression']
-            if 'activity' in params:
-                activity = params['activity']
-            if 'notify' in params:
-                notify = params['notify']
-            if 'purge_replicas' in params:
-                purge_replicas = params['purge_replicas']
-            if 'ignore_availability' in params:
-                ignore_availability = params['ignore_availability']
-            if 'comment' in params:
-                comment = params['comment']
-            if 'ask_approval' in params:
-                ask_approval = params['ask_approval']
-            if 'asynchronous' in params:
-                asynchronous = params['asynchronous']
-            if 'priority' in params:
-                priority = params['priority']
-            if 'split_container' in params:
-                split_container = params['split_container']
-            if 'meta' in params:
-                meta = params['meta']
-
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
-
-        try:
-            rule_ids = add_replication_rule(dids=dids,
-                                            copies=copies,
-                                            rse_expression=rse_expression,
-                                            weight=weight,
-                                            lifetime=lifetime,
-                                            grouping=grouping,
-                                            account=account,
-                                            locked=locked,
-                                            subscription_id=subscription_id,
-                                            source_replica_expression=source_replica_expression,
-                                            activity=activity,
-                                            notify=notify,
-                                            purge_replicas=purge_replicas,
-                                            ignore_availability=ignore_availability,
-                                            comment=comment,
-                                            ask_approval=ask_approval,
-                                            asynchronous=asynchronous,
-                                            priority=priority,
-                                            split_container=split_container,
-                                            meta=meta,
-                                            issuer=request.environ.get('issuer'),
-                                            vo=request.environ.get('vo'))
-        # TODO: Add all other error cases here
-        except InvalidReplicationRule as error:
-            return generate_http_error_flask(409, 'InvalidReplicationRule', error.args[0])
-        except DuplicateRule as error:
-            return generate_http_error_flask(409, 'DuplicateRule', error.args[0])
-        except InsufficientTargetRSEs as error:
-            return generate_http_error_flask(409, 'InsufficientTargetRSEs', error.args[0])
-        except InsufficientAccountLimit as error:
-            return generate_http_error_flask(409, 'InsufficientAccountLimit', error.args[0])
-        except InvalidRSEExpression as error:
-            return generate_http_error_flask(409, 'InvalidRSEExpression', error.args[0])
+            rule_ids = add_replication_rule(
+                dids=dids,
+                copies=copies,
+                rse_expression=rse_expression,
+                weight=param_get(parameters, 'weight', default=None),
+                lifetime=param_get(parameters, 'lifetime', default=None),
+                grouping=param_get(parameters, 'grouping', default='DATASET'),
+                account=account,
+                locked=param_get(parameters, 'locked', default=False),
+                subscription_id=param_get(parameters, 'subscription_id', default=None),
+                source_replica_expression=param_get(parameters, 'source_replica_expression', default=None),
+                activity=param_get(parameters, 'activity', default=None),
+                notify=param_get(parameters, 'notify', default=None),
+                purge_replicas=param_get(parameters, 'purge_replicas', default=False),
+                ignore_availability=param_get(parameters, 'ignore_availability', default=False),
+                comment=param_get(parameters, 'comment', default=None),
+                ask_approval=param_get(parameters, 'ask_approval', default=False),
+                asynchronous=param_get(parameters, 'asynchronous', default=False),
+                priority=param_get(parameters, 'priority', default=3),
+                split_container=param_get(parameters, 'split_container', default=False),
+                meta=param_get(parameters, 'meta', default=None),
+                issuer=request.environ.get('issuer'),
+                vo=request.environ.get('vo'),
+            )
+        except (
+            InvalidReplicationRule,
+            DuplicateRule,
+            InsufficientTargetRSEs,
+            InsufficientAccountLimit,
+            InvalidRSEExpression,
+            ReplicationRuleCreationTemporaryFailed,
+            InvalidRuleWeight,
+            StagingAreaRuleRequiresLifetime,
+            ScratchDiskLifetimeConflict,
+            ManualRuleApprovalBlocked,
+            InvalidObject,
+        ) as error:
+            return generate_http_error_flask(409, error)
         except DataIdentifierNotFound as error:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
-        except ReplicationRuleCreationTemporaryFailed as error:
-            return generate_http_error_flask(409, 'ReplicationRuleCreationTemporaryFailed', error.args[0])
-        except InvalidRuleWeight as error:
-            return generate_http_error_flask(409, 'InvalidRuleWeight', error.args[0])
-        except StagingAreaRuleRequiresLifetime as error:
-            return generate_http_error_flask(409, 'StagingAreaRuleRequiresLifetime', error.args[0])
-        except ScratchDiskLifetimeConflict as error:
-            return generate_http_error_flask(409, 'ScratchDiskLifetimeConflict', error.args[0])
-        except ManualRuleApprovalBlocked as error:
-            return generate_http_error_flask(409, 'ManualRuleApprovalBlocked', error.args[0])
-        except InvalidObject as error:
-            return generate_http_error_flask(409, 'InvalidObject', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
         return Response(dumps(rule_ids), status=201)
 
 
-class ReplicaLocks(MethodView):
+class ReplicaLocks(ErrorHandlingMethodView):
     """ REST APIs for replica locks. """
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
@@ -331,23 +244,17 @@ class ReplicaLocks(MethodView):
 
         :status 200: Rule found
         :status 406: Not Acceptable
-        :status 500: Database Exception
         :returns: JSON dict containing informations about the requested user.
         """
-        try:
-            def generate(vo):
-                for lock in get_replica_locks_for_rule_id(rule_id, vo=vo):
-                    yield render_json(**lock) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        def generate(vo):
+            for lock in get_replica_locks_for_rule_id(rule_id, vo=vo):
+                yield render_json(**lock) + '\n'
+
+        return try_stream(generate(vo=request.environ.get('vo')))
 
 
-class ReduceRule(MethodView):
+class ReduceRule(ErrorHandlingMethodView):
     """ REST APIs for reducing rules. """
 
     def post(self, rule_id):
@@ -362,16 +269,9 @@ class ReduceRule(MethodView):
         :status 409: Rule replace failed.
         :returns: List of rule ids
         """
-        try:
-            exclude_expression = None
-
-            params = loads(request.get_data(as_text=True))
-            copies = params['copies']
-            if 'exclude_expression' in params:
-                exclude_expression = params['exclude_expression']
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
-
+        parameters = json_parameters()
+        copies = param_get(parameters, 'copies')
+        exclude_expression = param_get(parameters, 'exclude_expression', default=None)
         try:
             rule_ids = reduce_replication_rule(rule_id=rule_id,
                                                copies=copies,
@@ -380,19 +280,14 @@ class ReduceRule(MethodView):
                                                vo=request.environ.get('vo'))
         # TODO: Add all other error cases here
         except RuleReplaceFailed as error:
-            return generate_http_error_flask(409, 'RuleReplaceFailed', error.args[0])
+            return generate_http_error_flask(409, error)
         except RuleNotFound as error:
-            return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
         return Response(dumps(rule_ids), status=201)
 
 
-class MoveRule(MethodView):
+class MoveRule(ErrorHandlingMethodView):
     """ REST APIs for moving rules. """
 
     def post(self, rule_id):
@@ -407,32 +302,23 @@ class MoveRule(MethodView):
         :status 409: Rule replace failed.
         :returns: List of rule ids.
         """
-        try:
-            params = loads(request.get_data(as_text=True))
-            rule_id = params['rule_id']
-            rse_expression = params['rse_expression']
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
-
+        parameters = json_parameters()
+        rse_expression = param_get(parameters, 'rse_expression')
+        rule_id = param_get(parameters, 'rule_id', default=rule_id)
         try:
             rule_ids = move_replication_rule(rule_id=rule_id,
                                              rse_expression=rse_expression,
                                              issuer=request.environ.get('issuer'),
                                              vo=request.environ.get('vo'))
         except RuleReplaceFailed as error:
-            return generate_http_error_flask(409, 'RuleReplaceFailed', error.args[0])
+            return generate_http_error_flask(409, error)
         except RuleNotFound as error:
-            return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
         return Response(dumps(rule_ids), status=201)
 
 
-class RuleHistory(MethodView):
+class RuleHistory(ErrorHandlingMethodView):
     """ REST APIs for rule history. """
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
@@ -444,23 +330,16 @@ class RuleHistory(MethodView):
         :resheader Content-Type: application/x-json-stream
         :status 200: Rule found
         :status 406: Not Acceptable
-        :status 500: Database Exception
         :returns: JSON dict containing informations about the requested user.
         """
-        try:
-            def generate(issuer, vo):
-                for history in list_replication_rule_history(rule_id, issuer=issuer, vo=vo):
-                    yield render_json(**history) + '\n'
+        def generate(issuer, vo):
+            for history in list_replication_rule_history(rule_id, issuer=issuer, vo=vo):
+                yield render_json(**history) + '\n'
 
-            return try_stream(generate(issuer=request.environ.get('issuer'), vo=request.environ.get('vo')))
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        return try_stream(generate(issuer=request.environ.get('issuer'), vo=request.environ.get('vo')))
 
 
-class RuleHistoryFull(MethodView):
+class RuleHistoryFull(ErrorHandlingMethodView):
     """ REST APIs for rule history for DIDs. """
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
@@ -473,7 +352,6 @@ class RuleHistoryFull(MethodView):
         :param scope_name: data identifier (scope)/(name).
         :status 200: Rule found
         :status 406: Not Acceptable
-        :status 500: Database Exception
         :returns: JSON dict containing informations about the requested user.
         """
         try:
@@ -485,15 +363,10 @@ class RuleHistoryFull(MethodView):
 
             return try_stream(generate(vo=request.environ.get('vo')))
         except ValueError as error:
-            return generate_http_error_flask(400, 'ValueError', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(400, error)
 
 
-class RuleAnalysis(MethodView):
+class RuleAnalysis(ErrorHandlingMethodView):
     """ REST APIs for rule analysis. """
 
     @check_accept_header_wrapper_flask(['application/json'])
@@ -505,17 +378,10 @@ class RuleAnalysis(MethodView):
         :resheader Content-Type: application/json
         :status 200: Rule found
         :status 406: Not Acceptable
-        :status 500: Database Exception
         :returns: JSON dict containing informations about the requested user.
         """
-        try:
-            analysis = examine_replication_rule(rule_id, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
-            return Response(render_json(**analysis), content_type='application/json')
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        analysis = examine_replication_rule(rule_id, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+        return Response(render_json(**analysis), content_type='application/json')
 
 
 def blueprint():

@@ -17,14 +17,12 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import six
-from flask import Response
 from web import HTTPError
-from werkzeug.datastructures import Headers
 
 from rucio.common.utils import codes, render_json
 
 
-def error_headers(exc_cls, exc_msg):
+def error_headers(exc_cls: str, exc_msg):
     def strip_newlines(msg):
         if msg is None:
             return None
@@ -67,25 +65,6 @@ def generate_http_error(status_code, exc_cls, exc_msg):
     data, headers = _error_response(exc_cls, exc_msg)
     try:
         return HTTPError(status=codes[status_code], headers=headers, data=render_json(**data))
-    except Exception:
-        print(data)
-        raise
-
-
-def generate_http_error_flask(status_code, exc_cls, exc_msg, headers=None):
-    """
-    utitily function to generate a complete HTTP error response.
-    :param status_code: The HTTP status code to generate a response for.
-    :param exc_cls: The name of the exception class to send with the response.
-    :param exc_msg: The error message.
-    :returns: a Flask HTTP response object.
-    :param headers: any default headers to send along.
-    """
-    data, prioheaders = _error_response(exc_cls, exc_msg)
-    headers = Headers(headers)
-    headers.extend(prioheaders)
-    try:
-        return Response(status=status_code, headers=headers, content_type=prioheaders['Content-Type'], response=render_json(**data))
     except Exception:
         print(data)
         raise

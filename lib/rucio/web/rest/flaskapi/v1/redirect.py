@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2020 CERN
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,29 +22,35 @@
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
 
 import itertools
-import logging
+from typing import TYPE_CHECKING
 
 from flask import Flask, Blueprint, request, redirect
-from flask.views import MethodView
 from werkzeug.datastructures import Headers
 
 from rucio.api.replica import list_replicas
-from rucio.common.exception import RucioException, DataIdentifierNotFound, ReplicaNotFound
+from rucio.common.exception import DataIdentifierNotFound, ReplicaNotFound
 from rucio.core.replica_sorter import site_selector, sort_replicas
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream
-from rucio.web.rest.utils import generate_http_error_flask
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream, \
+    generate_http_error_flask, ErrorHandlingMethodView
 
-try:
-    from urlparse import parse_qs
-except ImportError:
-    from urllib.parse import parse_qs
+if TYPE_CHECKING:
+    from typing import Optional
+    from rucio.web.rest.flaskapi.v1.common import HeadersType
 
 
-class MetaLinkRedirector(MethodView):
+class MetaLinkRedirector(ErrorHandlingMethodView):
+
+    def get_headers(self) -> "Optional[HeadersType]":
+        headers = Headers()
+        headers.set('Access-Control-Allow-Origin', request.environ.get('HTTP_ORIGIN'))
+        headers.set('Access-Control-Allow-Headers', request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        headers.set('Access-Control-Allow-Methods', '*')
+        headers.set('Access-Control-Allow-Credentials', 'true')
+        return headers
 
     @check_accept_header_wrapper_flask(['application/metalink4+xml'])
     def get(self, scope_name):
@@ -60,48 +66,28 @@ class MetaLinkRedirector(MethodView):
         :status 404: RSE Not Found.
         :status 404: DID Not Found.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: Metalink file
         """
-        headers = Headers()
-        headers.set('Access-Control-Allow-Origin', request.environ.get('HTTP_ORIGIN'))
-        headers.set('Access-Control-Allow-Headers', request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
-        headers.set('Access-Control-Allow-Methods', '*')
-        headers.set('Access-Control-Allow-Credentials', 'true')
+        headers = self.get_headers()
 
         try:
             scope, name = parse_scope_name(scope_name, request.headers.get('X-Rucio-VO', default='def'))
         except ValueError as error:
-            return generate_http_error_flask(400, 'ValueError', error.args[0], headers=headers)
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500, headers
-
-        dids, schemes, sortby = [{'scope': scope, 'name': name}], ['http', 'https', 'root', 'gsiftp', 'srm', 'davs'], None
+            return generate_http_error_flask(400, error, headers=headers)
 
         # set the correct client IP
         client_ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
-        client_location = {'ip': client_ip,
-                           'fqdn': None,
-                           'site': None}
+        client_location = {
+            'ip': request.args.get('ip', default=client_ip),
+            'fqdn': request.args.get('fqdn', default=None),
+            'site': request.args.get('site', default=None),
+        }
 
-        if request.query_string:
-            query_string = request.query_string.decode(encoding='utf-8')
-            params = parse_qs(query_string)
-            if 'schemes' in params:
-                schemes = params['schemes']
-            if 'select' in params:
-                sortby = params['select'][0]
-            if 'sort' in params:
-                sortby = params['sort'][0]
-
-            if 'ip' in params:
-                client_location['ip'] = params['ip'][0]
-            if 'fqdn' in params:
-                client_location['fqdn'] = params['fqdn'][0]
-            if 'site' in params:
-                client_location['site'] = params['site'][0]
+        dids = [{'scope': scope, 'name': name}]
+        schemes = request.args.getlist('schemes') or ['http', 'https', 'root', 'gsiftp', 'srm', 'davs']
+        sortby = request.args.get('select', default=None)
+        sortby = request.args.get('sort', default=sortby)
 
         # get vo if given
         vo = request.headers.get('X-Rucio-VO', default='def')
@@ -118,7 +104,7 @@ class MetaLinkRedirector(MethodView):
                 yield '<?xml version="1.0" encoding="UTF-8"?>\n<metalink xmlns="urn:ietf:params:xml:ns:metalink">\n'
 
                 # iteratively stream the XML per file
-                for rfile in itertools.chain((first, ), replicas_iter):
+                for rfile in itertools.chain((first,), replicas_iter):
                     replicas = []
                     dictreplica = {}
                     for rse in rfile['rses']:
@@ -137,7 +123,7 @@ class MetaLinkRedirector(MethodView):
 
                     yield '  <size>' + str(rfile['bytes']) + '</size>\n'
 
-                    yield '  <glfn name="/atlas/rucio/%s:%s">' % (rfile['scope'], rfile['name'])
+                    yield f'  <glfn name="/atlas/rucio/{rfile["scope"]}:{rfile["name"]}">'
                     yield '</glfn>\n'
 
                     replicas = sort_replicas(dictreplica, client_location, selection=sortby)
@@ -154,18 +140,19 @@ class MetaLinkRedirector(MethodView):
                 yield '</metalink>\n'
 
             return try_stream(generate(), content_type='application/metalink4+xml')
-        except DataIdentifierNotFound as error:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0], headers=headers)
-        except ReplicaNotFound as error:
-            return generate_http_error_flask(404, 'ReplicaNotFound', error.args[0], headers=headers)
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0], headers=headers)
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500, headers
+        except (DataIdentifierNotFound, ReplicaNotFound) as error:
+            return generate_http_error_flask(404, error, headers=headers)
 
 
-class HeaderRedirector(MethodView):
+class HeaderRedirector(ErrorHandlingMethodView):
+
+    def get_headers(self) -> "Optional[HeadersType]":
+        headers = Headers()
+        headers.set('Access-Control-Allow-Origin', request.environ.get('HTTP_ORIGIN'))
+        headers.set('Access-Control-Allow-Headers', request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        headers.set('Access-Control-Allow-Methods', '*')
+        headers.set('Access-Control-Allow-Credentials', 'true')
+        return headers
 
     def get(self, scope_name):
         """
@@ -179,69 +166,45 @@ class HeaderRedirector(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: RSE Not Found.
         :status 404: DID Not Found.
-        :status 500: Internal Error.
         """
-        headers = Headers()
-        headers.set('Access-Control-Allow-Origin', request.environ.get('HTTP_ORIGIN'))
-        headers.set('Access-Control-Allow-Headers', request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
-        headers.set('Access-Control-Allow-Methods', '*')
-        headers.set('Access-Control-Allow-Credentials', 'true')
+        headers = self.get_headers()
 
         try:
             scope, name = parse_scope_name(scope_name, request.headers.get('X-Rucio-VO', default='def'))
         except ValueError as error:
-            return generate_http_error_flask(400, 'ValueError', error.args[0], headers=headers)
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500, headers
+            return generate_http_error_flask(400, error, headers=headers)
 
         try:
-
-            # use the default HTTP protocols if no scheme is given
-            select, rse, site, schemes = 'random', None, None, ['davs', 'http', 'https']
-
             client_ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
-            client_location = {'ip': client_ip,
-                               'fqdn': None,
-                               'site': None}
-
-            if request.query_string:
-                query_string = request.query_string.decode(encoding='utf-8')
-                params = parse_qs(query_string)
-                if 'select' in params:
-                    select = params['select'][0]
-                if 'sort' in params:
-                    select = params['sort'][0]
-                if 'rse' in params:
-                    rse = params['rse'][0]
-                if 'site' in params:
-                    site = params['site'][0]
-                if 'schemes' in params:
-                    schemes = params['schemes'][0]
-                else:
-                    schemes = ['davs', 'https', 's3']
-
-                if 'ip' in params:
-                    client_location['ip'] = params['ip'][0]
-                if 'fqdn' in params:
-                    client_location['fqdn'] = params['fqdn'][0]
-                if 'site' in params:
-                    client_location['site'] = params['site'][0]
+            client_location = {
+                'ip': request.args.get('ip', default=client_ip),
+                'fqdn': request.args.get('fqdn', default=None),
+                'site': request.args.get('site', default=None),
+            }
+            # use the default HTTP protocols if no scheme is given
+            schemes = request.args.getlist('schemes') or ['davs', 'https', 's3']
+            sortby = request.args.get('select', default='random')
+            sortby = request.args.get('sort', default=sortby)
+            rse = request.args.get('rse', default=None)
+            site = request.args.get('site', default=None)
 
             # correctly forward the schemes and select to potential metalink followups
             cleaned_url = request.environ.get('REQUEST_URI').split('?')[0]
-            if isinstance(schemes, list):
-                headers.set('Link', '<%s/metalink?schemes=%s&select=%s>; rel=describedby; type="application/metalink+xml"' % (cleaned_url, ','.join(schemes), select))
-            else:
-                headers.set('Link', '<%s/metalink?schemes=%s&select=%s>; rel=describedby; type="application/metalink+xml"' % (cleaned_url, schemes, select))
-                schemes = [schemes]  # list_replicas needs a list
+
+            headers.set('Link', f'<{cleaned_url}/metalink?schemes={",".join(schemes)}&select={sortby}>; rel=describedby; type="application/metalink+xml"')
 
             # get vo if given
             vo = request.headers.get('X-Rucio-VO', default='def')
 
-            replicas = [r for r in list_replicas(dids=[{'scope': scope, 'name': name, 'type': 'FILE'}],
-                                                 schemes=schemes, client_location=client_location, vo=vo)]
+            replicas = list(
+                list_replicas(
+                    dids=[{'scope': scope, 'name': name, 'type': 'FILE'}],
+                    schemes=schemes,
+                    client_location=client_location,
+                    vo=vo
+                )
+            )
 
             selected_url = None
             for r in replicas:
@@ -272,7 +235,7 @@ class HeaderRedirector(MethodView):
                             else:
                                 return 'no redirection possible - no valid RSE for HTTP redirection found', 404, headers
                         else:
-                            rep = sort_replicas(dictreplica, client_location, selection=select)
+                            rep = sort_replicas(dictreplica, client_location, selection=sortby)
                             selected_url = rep[0]
 
             if selected_url:
@@ -282,12 +245,7 @@ class HeaderRedirector(MethodView):
 
             return 'no redirection possible - file does not exist', 404, headers
         except ReplicaNotFound as error:
-            return generate_http_error_flask(404, 'ReplicaNotFound', error.args[0], headers=headers)
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0], headers=headers)
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500, headers
+            return generate_http_error_flask(404, error, headers=headers)
 
 
 def blueprint(no_doc=True):

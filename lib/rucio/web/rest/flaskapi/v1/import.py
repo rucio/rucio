@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2020 CERN
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,19 +18,16 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from flask import Flask, Blueprint, request
-from flask.views import MethodView
 
 from rucio.api.importer import import_data
-from rucio.common.exception import RucioException
 from rucio.common.utils import parse_response
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers
-from rucio.web.rest.utils import generate_http_error_flask
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, ErrorHandlingMethodView, json_parameters
 
 
-class Import(MethodView):
+class Import(ErrorHandlingMethodView):
     """ Import data. """
 
     def post(self):
@@ -61,16 +58,8 @@ class Import(MethodView):
         :status 401: Invalid Auth Token
         :returns: dictionary with rucio data
         """
-        try:
-            data_to_import = parse_response(request.get_data(as_text=True))
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
-
-        try:
-            import_data(data=data_to_import, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-
+        data = json_parameters(parse_response)
+        import_data(data=data, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         return 'Created', 201
 
 

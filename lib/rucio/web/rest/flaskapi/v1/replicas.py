@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2020 CERN
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,46 +21,33 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2019-2020
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019-2020
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Eric Vaandering <ewv@fnal.gov>, 2021
 
 from datetime import datetime
 from json import dumps, loads
-import logging
+from urllib.parse import parse_qs, unquote
 from xml.sax.saxutils import escape
 
 from flask import Flask, Blueprint, Response, request
-from flask.views import MethodView
-from rucio.api.replica import (add_replicas, list_replicas, list_dataset_replicas,
-                               list_dataset_replicas_bulk, delete_replicas,
-                               get_did_from_pfns, update_replicas_states,
-                               declare_bad_file_replicas, add_bad_dids, add_bad_pfns, get_suspicious_files,
-                               declare_suspicious_file_replicas, list_bad_replicas_status,
-                               get_bad_replicas_summary, list_datasets_per_rse,
-                               set_tombstone, list_dataset_replicas_vp)
+from six import string_types
+
+from rucio.api.replica import add_replicas, list_replicas, list_dataset_replicas, list_dataset_replicas_bulk, \
+    delete_replicas, get_did_from_pfns, update_replicas_states, declare_bad_file_replicas, add_bad_dids, add_bad_pfns, \
+    get_suspicious_files, declare_suspicious_file_replicas, list_bad_replicas_status, get_bad_replicas_summary, \
+    list_datasets_per_rse, set_tombstone, list_dataset_replicas_vp
 from rucio.common.config import config_get
 from rucio.common.constants import SUPPORTED_PROTOCOLS
-from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, InvalidType,
-                                    DataIdentifierNotFound, Duplicate, InvalidPath,
-                                    ResourceTemporaryUnavailable, RucioException,
-                                    RSENotFound, UnsupportedOperation, ReplicaNotFound,
-                                    InvalidObject, ScopeNotFound)
+from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, InvalidType, DataIdentifierNotFound, \
+    Duplicate, InvalidPath, ResourceTemporaryUnavailable, RSENotFound, ReplicaNotFound, InvalidObject, ScopeNotFound, ReplicaIsLocked
 from rucio.common.utils import parse_response, APIEncoder, render_json_list
 from rucio.core.replica_sorter import sort_replicas
 from rucio.db.sqla.constants import BadFilesStatus
-from rucio.web.rest.flaskapi.v1.common import (check_accept_header_wrapper_flask, try_stream, parse_scope_name,
-                                               request_auth_env, response_headers)
-from rucio.web.rest.utils import generate_http_error_flask
-from six import string_types
-
-try:
-    from urllib import unquote
-    from urlparse import parse_qs
-except ImportError:
-    from urllib.parse import unquote
-    from urllib.parse import parse_qs
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, try_stream, parse_scope_name, \
+    request_auth_env, response_headers, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
 
 
-class Replicas(MethodView):
+class Replicas(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream', 'application/metalink4+xml'])
     def get(self, scope_name):
@@ -83,32 +70,25 @@ class Replicas(MethodView):
         :status 401: Invalid auth token.
         :status 404: DID not found.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: A dictionary containing all replicas information.
         :returns: A metalink description of replicas if metalink(4)+xml is specified in Accept:
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
         except ValueError as error:
-            return generate_http_error_flask(400, 'ValueError', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(400, error)
 
         content_type = request.accept_mimetypes.best_match(['application/x-json-stream', 'application/metalink4+xml'], 'application/x-json-stream')
         metalink = (content_type == 'application/metalink4+xml')
-
-        dids, schemes, select, limit = [{'scope': scope, 'name': name}], None, None, None
+        dids = [{'scope': scope, 'name': name}]
+        select, limit = None, None
 
         client_ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
+        client_location = {'ip': client_ip, 'fqdn': None, 'site': None}
 
-        client_location = {'ip': client_ip,
-                           'fqdn': None,
-                           'site': None}
-
-        schemes = request.args.get('schemes', None)
-        select = request.args.get('select', None)
-        limit = request.args.get('limit', None)
+        schemes = request.args.get('schemes', default=None)
+        select = request.args.get('select', default=None)
+        limit = request.args.get('limit', default=None)
         if limit:
             limit = int(limit)
 
@@ -151,7 +131,7 @@ class Replicas(MethodView):
 
                         yield '  <size>' + str(rfile['bytes']) + '</size>\n'
 
-                        yield '  <glfn name="/atlas/rucio/%s:%s">' % (rfile['scope'], rfile['name'])
+                        yield f'  <glfn name="/atlas/rucio/{rfile["scope"]}:{rfile["name"]}">'
                         yield '</glfn>\n'
 
                         idx = 0
@@ -172,12 +152,7 @@ class Replicas(MethodView):
 
             return try_stream(generate(vo=request.environ.get('vo')), content_type=content_type)
         except DataIdentifierNotFound as error:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
     def post(self):
         """
@@ -197,34 +172,29 @@ class Replicas(MethodView):
         :status 409: DID already exists.
         :status 503: Resource Temporary Unavailable.
         """
-        try:
-            parameters = parse_response(request.get_data(as_text=True))
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+        parameters = json_parameters(parse_response)
+        rse = param_get(parameters, 'rse')
+        files = param_get(parameters, 'files')
 
         try:
-            add_replicas(rse=parameters['rse'], files=parameters['files'],
-                         issuer=request.environ.get('issuer'), vo=request.environ.get('vo'),
-                         ignore_availability=parameters.get('ignore_availability', False))
+            add_replicas(
+                rse=rse,
+                files=files,
+                issuer=request.environ.get('issuer'),
+                vo=request.environ.get('vo'),
+                ignore_availability=param_get(parameters, 'ignore_availability', default=False),
+            )
         except InvalidPath as error:
-            return generate_http_error_flask(400, 'InvalidPath', error.args[0])
+            return generate_http_error_flask(400, error)
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except Duplicate as error:
-            return generate_http_error_flask(409, 'Duplicate', error.args[0])
-        except DataIdentifierAlreadyExists as error:
-            return generate_http_error_flask(409, 'DataIdentifierAlreadyExists', error.args[0])
-        except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except ScopeNotFound as error:
-            return generate_http_error_flask(404, 'ScopeNotFound', error.args[0])
+            return generate_http_error_flask(401, error)
+        except (Duplicate, DataIdentifierAlreadyExists) as error:
+            return generate_http_error_flask(409, error)
+        except (RSENotFound, ScopeNotFound) as error:
+            return generate_http_error_flask(404, error)
         except ResourceTemporaryUnavailable as error:
-            return generate_http_error_flask(503, 'ResourceTemporaryUnavailable', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(503, error)
+
         return 'Created', 201
 
     def put(self):
@@ -238,24 +208,16 @@ class Replicas(MethodView):
         :status 201: Replica successfully updated.
         :status 400: Cannot decode json parameter list.
         :status 401: Invalid auth token.
-        :status 500: Internal Error.
         """
-        try:
-            parameters = parse_response(request.get_data(as_text=True))
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+        parameters = json_parameters(parse_response)
+        rse = param_get(parameters, 'rse')
+        files = param_get(parameters, 'files')
 
         try:
-            update_replicas_states(rse=parameters['rse'], files=parameters['files'], issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            update_replicas_states(rse=rse, files=files, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except UnsupportedOperation as error:
-            return generate_http_error_flask(500, 'UnsupportedOperation', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(401, error)
+
         return '', 200
 
     def delete(self):
@@ -272,34 +234,30 @@ class Replicas(MethodView):
         :status 401: Invalid auth token.
         :status 404: RSE not found.
         :status 404: Replica not found.
-        :status 500: Internal Error.
         """
-        try:
-            parameters = parse_response(request.get_data(as_text=True))
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+        parameters = json_parameters(parse_response)
+        rse = param_get(parameters, 'rse')
+        files = param_get(parameters, 'files')
 
         try:
-            delete_replicas(rse=parameters['rse'], files=parameters['files'],
-                            issuer=request.environ.get('issuer'), vo=request.environ.get('vo'),
-                            ignore_availability=parameters.get('ignore_availability', False))
+            delete_replicas(
+                rse=rse,
+                files=files,
+                issuer=request.environ.get('issuer'),
+                vo=request.environ.get('vo'),
+                ignore_availability=param_get(parameters, 'ignore_availability', default=False),
+            )
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
+            return generate_http_error_flask(401, error)
+        except (RSENotFound, ReplicaNotFound) as error:
+            return generate_http_error_flask(404, error)
         except ResourceTemporaryUnavailable as error:
-            return generate_http_error_flask(503, 'ResourceTemporaryUnavailable', error.args[0])
-        except ReplicaNotFound as error:
-            return generate_http_error_flask(404, 'ReplicaNotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(503, error)
+
         return '', 200
 
 
-class ListReplicas(MethodView):
+class ListReplicas(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream', 'application/metalink4+xml'])
     def post(self):
@@ -326,75 +284,48 @@ class ListReplicas(MethodView):
         :status 401: Invalid auth token.
         :status 404: DID not found.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: A dictionary containing all replicas information.
         :returns: A metalink description of replicas if metalink(4)+xml is specified in Accept:
         """
-
         content_type = request.accept_mimetypes.best_match(['application/x-json-stream', 'application/metalink4+xml'], 'application/x-json-stream')
         metalink = (content_type == 'application/metalink4+xml')
 
         client_ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
-        dids, schemes, select, unavailable, limit = [], None, None, False, None
-        ignore_availability, rse_expression, all_states, domain = False, None, False, None
-        signature_lifetime, resolve_archives, resolve_parents = None, True, False
-        updated_after = None
+        parameters = json_parameters(parse_response)
 
         client_location = {'ip': client_ip,
                            'fqdn': None,
                            'site': None}
+        client_location.update(param_get(parameters, 'client_location', default={}))
 
-        try:
-            params = parse_response(request.get_data(as_text=True))
-            if 'dids' in params:
-                dids = params['dids']
-            if 'schemes' in params:
-                schemes = params['schemes']
-            if 'unavailable' in params:
-                unavailable = params['unavailable']
-                ignore_availability = True
-            if 'all_states' in params:
-                all_states = params['all_states']
-            if 'rse_expression' in params:
-                rse_expression = params['rse_expression']
-            if 'client_location' in params:
-                client_location.update(params['client_location'])
-            if 'sort' in params:
-                select = params['sort']
-            if 'domain' in params:
-                domain = params['domain']
-            if 'resolve_archives' in params:
-                resolve_archives = params['resolve_archives']
-            if 'resolve_parents' in params:
-                resolve_parents = params['resolve_parents']
-
-            if 'signature_lifetime' in params:
-                signature_lifetime = params['signature_lifetime']
+        dids = param_get(parameters, 'dids', default=[])
+        schemes = param_get(parameters, 'schemes', default=None)
+        select = param_get(parameters, 'sort', default=None)
+        unavailable = param_get(parameters, 'unavailable', default=False)
+        ignore_availability = 'unavailable' in parameters
+        rse_expression = param_get(parameters, 'rse_expression', default=None)
+        all_states = param_get(parameters, 'all_states', default=False)
+        domain = param_get(parameters, 'domain', default=None)
+        if 'signature_lifetime' in parameters:
+            signature_lifetime = param_get(parameters, 'signature_lifetime')
+        else:
+            # hardcoded default of 10 minutes if config is not parseable
+            signature_lifetime = config_get('credentials', 'signature_lifetime', raise_exception=False, default=600)
+        resolve_archives = param_get(parameters, 'resolve_archives', default=True)
+        resolve_parents = param_get(parameters, 'resolve_parents', default=False)
+        updated_after = param_get(parameters, 'updated_after', default=None)
+        if updated_after is not None:
+            if isinstance(updated_after, (int, float)):
+                # convert from epoch time stamp to datetime object
+                updated_after = datetime.utcfromtimestamp(updated_after)
             else:
-                # hardcoded default of 10 minutes if config is not parseable
-                signature_lifetime = config_get('credentials', 'signature_lifetime', raise_exception=False, default=600)
+                # attempt UTC format '%Y-%m-%dT%H:%M:%S' conversion
+                updated_after = datetime.strptime(updated_after, '%Y-%m-%dT%H:%M:%S')
 
-            if 'updated_after' in params:
-                if isinstance(params['updated_after'], (int, float)):
-                    # convert from epoch time stamp to datetime object
-                    updated_after = datetime.utcfromtimestamp(params['updated_after'])
-                else:
-                    # attempt UTC format '%Y-%m-%dT%H:%M:%S' conversion
-                    updated_after = datetime.strptime(params['updated_after'], '%Y-%m-%dT%H:%M:%S')
-
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
-
-        if request.query_string:
-            query_string = request.query_string.decode(encoding='utf-8')
-            params = parse_qs(query_string)
-            if 'select' in params:
-                select = params['select'][0]
-            if 'limit' in params:
-                limit = params['limit'][0]
-            if 'sort' in params:
-                select = params['sort']
+        limit = request.args.get('limit', default=None)
+        select = request.args.get('select', default=select)
+        select = request.args.get('sort', default=select)
 
         # Resolve all reasonable protocols when doing metalink for maximum access possibilities
         if metalink and schemes is None:
@@ -454,11 +385,8 @@ class ListReplicas(MethodView):
                             yield '  <hash type="md5">' + rfile['md5'] + '</hash>\n'
                         yield '  <size>' + str(rfile['bytes']) + '</size>\n'
 
-                        yield '  <glfn name="/%s/rucio/%s:%s"></glfn>\n' % (config_get('policy', 'schema',
-                                                                                       raise_exception=False,
-                                                                                       default='generic'),
-                                                                            rfile['scope'],
-                                                                            rfile['name'])
+                        policy_schema = config_get('policy', 'schema', raise_exception=False, default='generic')
+                        yield f'  <glfn name="/{policy_schema}/rucio/{rfile["scope"]}:{rfile["name"]}"></glfn>\n'
 
                         lanreplicas = [replica for replica, v in dictreplica.items() if v[0] == 'lan']
                         replicas = lanreplicas + sort_replicas({k: v for k, v in dictreplica.items() if v[0] != 'lan'}, client_location, selection=select)
@@ -487,16 +415,13 @@ class ListReplicas(MethodView):
                                        issuer=request.environ.get('issuer'),
                                        vo=request.environ.get('vo')),
                               content_type=content_type)
+        except InvalidObject as error:
+            return generate_http_error_flask(400, error)
         except DataIdentifierNotFound as error:
-            return generate_http_error_flask(404, 'DataIdentifierNotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
 
-class ReplicasDIDs(MethodView):
+class ReplicasDIDs(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def post(self):
@@ -511,19 +436,11 @@ class ReplicasDIDs(MethodView):
         :status 200: OK.
         :status 400: Cannot decode json parameter list.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: A list of dictionaries containing the mapping PFNs to DIDs.
         """
-        rse, pfns = None, []
-        rse = None
-        try:
-            params = parse_response(request.get_data(as_text=True))
-            if 'pfns' in params:
-                pfns = params['pfns']
-            if 'rse' in params:
-                rse = params['rse']
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+        parameters = json_parameters()
+        pfns = param_get(parameters, 'pfns', default=[])
+        rse = param_get(parameters, 'rse')
 
         try:
             def generate(vo):
@@ -532,15 +449,10 @@ class ReplicasDIDs(MethodView):
 
             return try_stream(generate(vo=request.environ.get('vo')))
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(401, error)
 
 
-class BadReplicas(MethodView):
+class BadReplicas(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
     def post(self):
@@ -557,38 +469,22 @@ class BadReplicas(MethodView):
         :status 401: Invalid auth token.
         :status 404: RSE not found.
         :status 404: Replica not found.
-        :status 500: Internal Error.
         :returns: A list of not successfully declared files.
         """
-        pfns = []
+        parameters = json_parameters()
+        pfns = param_get(parameters, 'pfns', default=[])
+        reason = param_get(parameters, 'reason', default=None)
 
-        try:
-            params = parse_response(request.get_data(as_text=True))
-            if 'pfns' in params:
-                pfns = params['pfns']
-            if 'reason' in params:
-                reason = params['reason']
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
-
-        not_declared_files = {}
         try:
             not_declared_files = declare_bad_file_replicas(pfns=pfns, reason=reason, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            return not_declared_files, 201
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except ReplicaNotFound as error:
-            return generate_http_error_flask(404, 'ReplicaNotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
-        return Response(dumps(not_declared_files), status=201, content_type='application/json')
+            return generate_http_error_flask(401, error)
+        except (RSENotFound, ReplicaNotFound) as error:
+            return generate_http_error_flask(404, error)
 
 
-class SuspiciousReplicas(MethodView):
+class SuspiciousReplicas(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
     def post(self):
@@ -604,30 +500,17 @@ class SuspiciousReplicas(MethodView):
         :status 400: Cannot decode json parameter list.
         :status 401: Invalid auth token.
         :status 404: Replica not found.
-        :status 500: Internal Error.
         :returns: A list of not successfully declared files.
         """
-        pfns = []
-        try:
-            params = parse_response(request.get_data(as_text=True))
-            if 'pfns' in params:
-                pfns = params['pfns']
-            if 'reason' in params:
-                reason = params['reason']
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+        parameters = json_parameters(parse_response)
+        pfns = param_get(parameters, 'pfns', default=[])
+        reason = param_get(parameters, 'reason', default=None)
 
-        not_declared_files = {}
         try:
             not_declared_files = declare_suspicious_file_replicas(pfns=pfns, reason=reason, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            return not_declared_files, 201
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
-        return Response(dumps(not_declared_files), status=201, content_type='application/json')
+            return generate_http_error_flask(401, error)
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
@@ -639,10 +522,8 @@ class SuspiciousReplicas(MethodView):
         :resheader Content-Type: application/json
         :status 200: OK.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: List of suspicious file replicas.
         """
-        result = []
         rse_expression, younger_than, nattempts = None, None, None
         if request.query_string:
             query_string = request.query_string.decode(encoding='utf-8')
@@ -650,7 +531,7 @@ class SuspiciousReplicas(MethodView):
                 params = loads(unquote(query_string))
             except ValueError:
                 params = parse_qs(query_string)
-            print(params)
+
             if 'rse_expression' in params:
                 rse_expression = params['rse_expression'][0]
             if 'younger_than' in params and params['younger_than'][0]:
@@ -658,17 +539,11 @@ class SuspiciousReplicas(MethodView):
             if 'nattempts' in params:
                 nattempts = int(params['nattempts'][0])
 
-        try:
-            result = get_suspicious_files(rse_expression=rse_expression, younger_than=younger_than, nattempts=nattempts, vo=request.environ.get('vo'))
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        result = get_suspicious_files(rse_expression=rse_expression, younger_than=younger_than, nattempts=nattempts, vo=request.environ.get('vo'))
         return Response(render_json_list(result), 200, content_type='application/json')
 
 
-class BadReplicasStates(MethodView):
+class BadReplicasStates(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
@@ -687,7 +562,6 @@ class BadReplicasStates(MethodView):
         :status 200: OK.
         :status 401: Invalid auth token.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: List of dicts of bad file replicas.
         """
         state, rse, younger_than, older_than, limit, list_pfns = None, None, None, None, None, None
@@ -712,22 +586,16 @@ class BadReplicasStates(MethodView):
             if 'list_pfns' in params:
                 list_pfns = bool(params['list_pfns'][0])
 
-        try:
-            def generate(vo):
-                for row in list_bad_replicas_status(state=state, rse=rse, younger_than=younger_than,
-                                                    older_than=older_than, limit=limit, list_pfns=list_pfns,
-                                                    vo=vo):
-                    yield dumps(row, cls=APIEncoder) + '\n'
+        def generate(vo):
+            for row in list_bad_replicas_status(state=state, rse=rse, younger_than=younger_than,
+                                                older_than=older_than, limit=limit, list_pfns=list_pfns,
+                                                vo=vo):
+                yield dumps(row, cls=APIEncoder) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        return try_stream(generate(vo=request.environ.get('vo')))
 
 
-class BadReplicasSummary(MethodView):
+class BadReplicasSummary(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
@@ -743,7 +611,6 @@ class BadReplicasSummary(MethodView):
         :status 200: OK.
         :status 401: Invalid auth token.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: List of bad replicas by incident.
         """
         rse_expression, from_date, to_date = None, None, None
@@ -760,21 +627,15 @@ class BadReplicasSummary(MethodView):
             if 'to_date' in params:
                 to_date = datetime.strptime(params['to_date'][0], "%Y-%m-%d")
 
-        try:
-            def generate(vo):
-                for row in get_bad_replicas_summary(rse_expression=rse_expression, from_date=from_date,
-                                                    to_date=to_date, vo=vo):
-                    yield dumps(row, cls=APIEncoder) + '\n'
+        def generate(vo):
+            for row in get_bad_replicas_summary(rse_expression=rse_expression, from_date=from_date,
+                                                to_date=to_date, vo=vo):
+                yield dumps(row, cls=APIEncoder) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        return try_stream(generate(vo=request.environ.get('vo')))
 
 
-class DatasetReplicas(MethodView):
+class DatasetReplicas(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope_name):
@@ -789,27 +650,23 @@ class DatasetReplicas(MethodView):
         :status 200: OK.
         :status 401: Invalid auth token.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: A dictionary containing all replicas information.
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
 
-            def generate(deep, vo):
-                for row in list_dataset_replicas(scope=scope, name=name, deep=deep, vo=vo):
+            def generate(_deep, vo):
+                for row in list_dataset_replicas(scope=scope, name=name, deep=_deep, vo=vo):
                     yield dumps(row, cls=APIEncoder) + '\n'
 
-            return try_stream(generate(deep=request.args.get('deep', False), vo=request.environ.get('vo')))
+            deep = request.args.get('deep', default=False)
+
+            return try_stream(generate(_deep=deep, vo=request.environ.get('vo')))
         except ValueError as error:
-            return generate_http_error_flask(400, 'ValueError', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(400, error)
 
 
-class DatasetReplicasBulk(MethodView):
+class DatasetReplicasBulk(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def post(self):
@@ -824,25 +681,13 @@ class DatasetReplicasBulk(MethodView):
         :status 400: Bad Request.
         :status 401: Invalid auth token.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: A dictionary containing all replicas information.
         """
+        parameters = json_parameters(parse_response)
+        dids = param_get(parameters, 'dids')
+        if len(dids) == 0:
+            return generate_http_error_flask(400, ValueError.__name__, 'List of DIDs is empty')
 
-        try:
-            params = parse_response(request.get_data(as_text=True))
-            dids = params['dids']
-            didslength = len(dids)
-        except KeyError as error:
-            return generate_http_error_flask(400, 'KeyError', 'Cannot find mandatory parameter : %s' % str(error))
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
-        if didslength == 0:
-            return generate_http_error_flask(400, 'ValueError', 'List of DIDs is empty')
         try:
             def generate(vo):
                 for row in list_dataset_replicas_bulk(dids=dids, vo=vo):
@@ -850,15 +695,10 @@ class DatasetReplicasBulk(MethodView):
 
             return try_stream(generate(vo=request.environ.get('vo')))
         except InvalidObject as error:
-            return generate_http_error_flask(400, 'InvalidObject', 'Cannot validate DIDs: %s' % (str(error)))
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(400, error, f'Cannot validate DIDs: {error}')
 
 
-class DatasetReplicasVP(MethodView):
+class DatasetReplicasVP(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, scope_name):
         """
@@ -874,27 +714,23 @@ class DatasetReplicasVP(MethodView):
         :status 200: OK.
         :status 401: Invalid auth token.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: If VP exists a list of dicts of sites, otherwise nothing
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
 
-            def generate(deep, vo):
-                for row in list_dataset_replicas_vp(scope=scope, name=name, deep=deep, vo=vo):
+            def generate(_deep, vo):
+                for row in list_dataset_replicas_vp(scope=scope, name=name, deep=_deep, vo=vo):
                     yield dumps(row, cls=APIEncoder) + '\n'
 
-            return try_stream(generate(deep=request.args.get('deep', False), vo=request.environ.get('vo')))
+            deep = request.args.get('deep', default=False)
+
+            return try_stream(generate(_deep=deep, vo=request.environ.get('vo')))
         except ValueError as error:
-            return generate_http_error_flask(400, 'ValueError', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(400, error)
 
 
-class ReplicasRSE(MethodView):
+class ReplicasRSE(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, rse):
@@ -907,23 +743,17 @@ class ReplicasRSE(MethodView):
         :status 200: OK.
         :status 401: Invalid auth token.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: A dictionary containing all replicas on the RSE.
         """
-        try:
-            def generate(vo):
-                for row in list_datasets_per_rse(rse=rse, vo=vo):
-                    yield dumps(row, cls=APIEncoder) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        def generate(vo):
+            for row in list_datasets_per_rse(rse=rse, vo=vo):
+                yield dumps(row, cls=APIEncoder) + '\n'
+
+        return try_stream(generate(vo=request.environ.get('vo')))
 
 
-class BadDIDs(MethodView):
+class BadDIDs(ErrorHandlingMethodView):
 
     def post(self):
         """
@@ -940,45 +770,36 @@ class BadDIDs(MethodView):
         :status 400: Cannot decode json parameter list.
         :status 401: Invalid auth token.
         :status 404: Replica not found.
-        :status 500: Internal Error.
         :returns: A list of not successfully declared files.
         """
+        parameters = json_parameters(parse_response)
+        expires_at = param_get(parameters, 'expires_at', default=None)
+        if expires_at:
+            expires_at = datetime.strptime(expires_at, "%Y-%m-%dT%H:%M:%S.%f")
 
-        dids = []
-        rse = None
-        reason = None
-        state = None
-        expires_at = None
         try:
-            params = parse_response(request.get_data(as_text=True))
-            if 'dids' in params:
-                dids = params['dids']
-            if 'rse' in params:
-                rse = params['rse']
-            if 'reason' in params:
-                reason = params['reason']
-            state = BadFilesStatus.BAD
-            if 'expires_at' in params and params['expires_at']:
-                expires_at = datetime.strptime(params['expires_at'], "%Y-%m-%dT%H:%M:%S.%f")
-            not_declared_files = add_bad_dids(dids=dids, rse=rse, issuer=request.environ.get('issuer'), state=state,
-                                              reason=reason, expires_at=expires_at, vo=request.environ.get('vo'))
+            not_declared_files = add_bad_dids(
+                dids=param_get(parameters, 'dids', default=[]),
+                rse=param_get(parameters, 'rse', default=None),
+                issuer=request.environ.get('issuer'),
+                state=BadFilesStatus.BAD,
+                reason=param_get(parameters, 'reason', default=None),
+                expires_at=expires_at,
+                vo=request.environ.get('vo'),
+            )
         except (ValueError, InvalidType) as error:
-            return generate_http_error_flask(400, 'ValueError', error.args[0])
+            return generate_http_error_flask(400, ValueError.__name__, error.args[0])
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, error)
         except ReplicaNotFound as error:
-            return generate_http_error_flask(404, 'ReplicaNotFound', error.args[0])
+            return generate_http_error_flask(404, error)
         except Duplicate as error:
-            return generate_http_error_flask(409, 'Duplicate', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(409, error)
+
         return Response(dumps(not_declared_files), status=201, content_type='application/json')
 
 
-class BadPFNs(MethodView):
+class BadPFNs(ErrorHandlingMethodView):
 
     def post(self):
         """
@@ -995,42 +816,35 @@ class BadPFNs(MethodView):
         :status 400: Cannot decode json parameter list.
         :status 401: Invalid auth token.
         :status 404: Replica not found.
-        :status 500: Internal Error.
         :returns: A list of not successfully declared files.
         """
+        parameters = json_parameters(parse_response)
+        expires_at = param_get(parameters, 'expires_at', default=None)
+        if expires_at:
+            expires_at = datetime.strptime(expires_at, "%Y-%m-%dT%H:%M:%S.%f")
 
-        pfns = []
-        reason = None
-        state = None
-        expires_at = None
         try:
-            params = parse_response(request.get_data(as_text=True))
-            if 'pfns' in params:
-                pfns = params['pfns']
-            if 'reason' in params:
-                reason = params['reason']
-            if 'state' in params:
-                state = params['state']
-            if 'expires_at' in params and params['expires_at']:
-                expires_at = datetime.strptime(params['expires_at'], "%Y-%m-%dT%H:%M:%S.%f")
-            add_bad_pfns(pfns=pfns, issuer=request.environ.get('issuer'), state=state, reason=reason, expires_at=expires_at, vo=request.environ.get('vo'))
+            add_bad_pfns(
+                pfns=param_get(parameters, 'pfns', default=[]),
+                issuer=request.environ.get('issuer'),
+                state=param_get(parameters, 'state', default=None),
+                reason=param_get(parameters, 'reason', default=None),
+                expires_at=expires_at,
+                vo=request.environ.get('vo'),
+            )
         except (ValueError, InvalidType) as error:
-            return generate_http_error_flask(400, 'ValueError', error.args[0])
+            return generate_http_error_flask(400, ValueError.__name__, error.args[0])
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, error)
         except ReplicaNotFound as error:
-            return generate_http_error_flask(404, 'ReplicaNotFound', error.args[0])
+            return generate_http_error_flask(404, error)
         except Duplicate as error:
-            return generate_http_error_flask(409, 'Duplicate', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(409, error)
+
         return 'Created', 201
 
 
-class Tombstone(MethodView):
+class Tombstone(ErrorHandlingMethodView):
 
     def post(self):
         """
@@ -1043,28 +857,24 @@ class Tombstone(MethodView):
         :status 201: Created.
         :status 401: Invalid auth token.
         :status 404: ReplicaNotFound.
-        :status 500: Internal Error.
         """
-
-        replicas = []
-
-        try:
-            params = parse_response(request.get_data(as_text=True))
-            if 'replicas' in params:
-                replicas = params['replicas']
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+        parameters = json_parameters(parse_response)
+        replicas = param_get(parameters, 'replicas', default=[])
 
         try:
             for replica in replicas:
-                set_tombstone(replica['rse'], replica['scope'], replica['name'], issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+                set_tombstone(
+                    rse=replica['rse'],
+                    scope=replica['scope'],
+                    name=replica['name'],
+                    issuer=request.environ.get('issuer'),
+                    vo=request.environ.get('vo'),
+                )
         except ReplicaNotFound as error:
-            return generate_http_error_flask(404, 'ReplicaNotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
+        except ReplicaIsLocked as error:
+            return generate_http_error_flask(423, error)
+
         return 'Created', 201
 
 
