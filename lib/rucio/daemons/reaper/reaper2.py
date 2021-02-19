@@ -519,7 +519,12 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
                 if tot_needed_free_space:
                     percent = needed_free_space / tot_needed_free_space * 100
                 logger(logging.DEBUG, 'Working on %s. Percentage of the total space needed %.2f', rse_name, percent)
-                rse_hostname, rse_info = rses_hostname_mapping[rse_id]
+                try:
+                    rse_hostname, rse_info = rses_hostname_mapping[rse_id]
+                except KeyError:
+                    logger(logging.DEBUG, "Hostname lookup for %s failed.", rse_name)
+                    REGION.set('pause_deletion_%s' % rse_id, True)
+                    continue
                 rse_hostname_key = '%s,%s' % (rse_id, rse_hostname)
                 payload_cnt = list_payload_counts(executable, older_than=600, hash_executable=None, session=None)
                 # logger(logging.DEBUG, '%s Payload count : %s', prepend_str, str(payload_cnt))
