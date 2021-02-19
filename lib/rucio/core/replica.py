@@ -1835,7 +1835,7 @@ def list_and_mark_unlocked_replicas(limit, bytes=None, rse_id=None, delay_second
     for chunk in chunks(replica_clause, 100):
         session.query(models.RSEFileAssociation).filter(or_(*chunk)).\
             with_hint(models.RSEFileAssociation, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
-            update({'updated_at': datetime.utcnow(), 'state': ReplicaState.BEING_DELETED}, synchronize_session=False)
+            update({'updated_at': datetime.utcnow(), 'state': ReplicaState.BEING_DELETED, 'tombstone': datetime(1970, 1, 1)}, synchronize_session=False)
 
     return rows
 
