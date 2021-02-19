@@ -43,6 +43,7 @@ from xml.etree import ElementTree
 
 import pytest
 import xmltodict
+from werkzeug.datastructures import MultiDict
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.didclient import DIDClient
@@ -1085,21 +1086,36 @@ def test_list_replicas_streaming_error(content_type, vo, did_client, replica_cli
                     'request_id': generate_uuid(),
                 }
                 query_string = None
+                args = MultiDict()
                 data = json_data
                 get_data = mock.MagicMock(return_value=json_data)
                 headers = Headers()
                 accept_mimetypes = FakeAcceptMimetypes()
                 remote_addr = '127.0.0.1'
 
-            with mock.patch('rucio.web.rest.flaskapi.v1.common.request', new=FakeRequest()), \
+            response_mock = mock.Mock(return_value=None)
+
+            class FakeFlask:
+                request = FakeRequest()
+                abort = mock.MagicMock()
+                Response = response_mock
+
+            with mock.patch('rucio.web.rest.flaskapi.v1.common.flask', new=FakeFlask()), \
                     mock.patch('rucio.web.rest.flaskapi.v1.replicas.request', new=FakeRequest()), \
                     mock.patch('rucio.web.rest.flaskapi.v1.replicas.list_replicas', side_effect=api_returns):
                 from rucio.web.rest.flaskapi.v1.replicas import ListReplicas
                 list_replicas_restapi = ListReplicas()
-                result = list_replicas_restapi.post()
+                list_replicas_restapi.post()
+                # for debugging when this test fails
+                print(f'Response({response_mock.call_args})')
+                print(f'  args = {response_mock.call_args[0]}')
+                print(f'kwargs = {response_mock.call_args[1]}')
+                assert response_mock.call_args[1]['content_type'] == content_type
+                response_iter = response_mock.call_args[0][0]
+                assert response_iter != '', 'unexpected empty response'
                 # since we're directly accessing the generator for Flask, there is no error handling
                 with pytest.raises(DatabaseException, match='Database error for testing'):
-                    for element in result.response:
+                    for element in response_iter:
                         yield element
 
     else:

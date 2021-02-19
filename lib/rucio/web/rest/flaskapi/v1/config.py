@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2020 CERN
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,20 +21,19 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
-import logging
 
 from flask import Flask, Blueprint, request as request, jsonify
-from flask.views import MethodView
 
 from rucio.api import config
-from rucio.common.exception import ConfigurationError, RucioException, AccessDenied, ConfigNotFound
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask
-from rucio.web.rest.utils import generate_http_error_flask
+from rucio.common.exception import ConfigurationError, AccessDenied, ConfigNotFound
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, \
+    generate_http_error_flask, ErrorHandlingMethodView, json_parameters
 
 
-class Config(MethodView):
+class Config(ErrorHandlingMethodView):
     """ REST API for full configuration. """
 
     @check_accept_header_wrapper_flask(['application/json'])
@@ -48,24 +47,40 @@ class Config(MethodView):
         :status 200: OK.
         :status 401: Invalid Auth Token.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         """
-        try:
-            res = {}
-            for section in config.sections(issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
-                res[section] = {}
-                for item in config.items(section, issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
-                    res[section][item[0]] = item[1]
+        res = {}
+        for section in config.sections(issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
+            res[section] = {}
+            for item in config.items(section, issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
+                res[section][item[0]] = item[1]
 
-            return jsonify(res)
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        return jsonify(res), 200
+
+    def post(self):
+        """
+        Create or set the configuration option in the requested section.
+        The request body is expected to contain a json {"section": {"option": "value"}}.
+
+        .. :quickref: Config; set config value
+
+        :status 201: Option successfully created or updated.
+        :status 400: The input data is invalid or incomplete.
+        :status 401: Invalid Auth Token.
+        :status 500: Configuration Error.
+        """
+        parameters = json_parameters()
+        for section, section_config in parameters.items():
+            if not isinstance(section_config, dict):
+                return generate_http_error_flask(400, ValueError.__name__, '')
+            for option, value in section_config.items():
+                try:
+                    config.set(section=section, option=option, value=value, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+                except ConfigurationError:
+                    return generate_http_error_flask(400, 'ConfigurationError', f"Could not set value '{value}' for section '{section}' option '{option}'")
+        return 'Created', 201
 
 
-class Section(MethodView):
+class Section(ErrorHandlingMethodView):
     """ REST API for the sections in the configuration. """
 
     @check_accept_header_wrapper_flask(['application/json'])
@@ -81,25 +96,22 @@ class Section(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: Config not found.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         """
-        try:
-            res = {}
-            for item in config.items(section, issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
-                res[item[0]] = item[1]
+        res = {}
+        for item in config.items(section, issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
+            res[item[0]] = item[1]
 
-            if res == {}:
-                return generate_http_error_flask(404, 'ConfigNotFound', 'No configuration found for section \'%s\'' % section)
+        if res == {}:
+            return generate_http_error_flask(
+                status_code=404,
+                exc=ConfigNotFound.__name__,
+                exc_msg=f"No configuration found for section '{section}'"
+            )
 
-            return jsonify(res)
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        return jsonify(res), 200
 
 
-class OptionGetDel(MethodView):
+class OptionGetDel(ErrorHandlingMethodView):
     """ REST API for reading or deleting the options in the configuration. """
 
     @check_accept_header_wrapper_flask(['application/json'])
@@ -115,20 +127,14 @@ class OptionGetDel(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: Config not found.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         """
         try:
             result = config.get(section=section, option=option, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
-            return jsonify(result)
-        except AccessDenied:
-            return generate_http_error_flask(401, 'AccessDenied', 'Access to \'%s\' option \'%s\' denied' % (section, option))
-        except ConfigNotFound:
-            return generate_http_error_flask(404, 'ConfigNotFound', 'No configuration found for section \'%s\' option \'%s\'' % (section, option))
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return jsonify(result), 200
+        except AccessDenied as error:
+            return generate_http_error_flask(401, error, f"Access to '{section}' option '{option}' denied")
+        except ConfigNotFound as error:
+            return generate_http_error_flask(404, error, f"No configuration found for section '{section}' option '{option}'")
 
     def delete(self, section, option):
         """
@@ -138,18 +144,12 @@ class OptionGetDel(MethodView):
 
         :status 200: OK.
         :status 401: Invalid Auth Token.
-        :status 500: Internal Error.
         """
-        try:
-            config.remove_option(section=section, option=option, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        config.remove_option(section=section, option=option, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+        return '', 200
 
 
-class OptionSet(MethodView):
+class OptionSet(ErrorHandlingMethodView):
     """ REST API for setting the options in the configuration. """
 
     def put(self, section, option, value):
@@ -161,18 +161,12 @@ class OptionSet(MethodView):
 
         :status 201: Option successfully created or updated.
         :status 401: Invalid Auth Token.
-        :status 500: Configuration Error.
         """
         try:
             config.set(section=section, option=option, value=value, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
             return 'Created', 201
-        except ConfigurationError:
-            return generate_http_error_flask(500, 'ConfigurationError', 'Could not set value \'%s\' for section \'%s\' option \'%s\'' % (value, section, option))
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        except ConfigurationError as error:
+            return generate_http_error_flask(500, error, f"Could not set value '{value}' for section '{section}' option '{option}'")
 
 
 def blueprint():

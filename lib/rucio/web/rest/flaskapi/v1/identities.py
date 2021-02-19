@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,18 +19,16 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2021
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-
-import logging
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from flask import Flask, Blueprint, request, jsonify
-from flask.views import MethodView
 
 from rucio.api.identity import add_identity, add_account_identity, list_accounts_for_identity
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, \
+    ErrorHandlingMethodView
 
 
-class UserPass(MethodView):
+class UserPass(ErrorHandlingMethodView):
     """ Manage a username/password identity for an account. """
 
     def put(self, account):
@@ -46,7 +44,6 @@ class UserPass(MethodView):
         :status 201: Created.
         :status 400: Missing username or password.
         :status 401: Invalid Auth Token.
-        :status 500: Internal Error.
         """
         username = request.headers.get('X-Rucio-Username', default=None)
         password = request.headers.get('X-Rucio-Password', default=None)
@@ -55,25 +52,22 @@ class UserPass(MethodView):
         if not username or not password:
             return 'Username and Password must be set.', 400
 
-        try:
-            add_identity(username, 'userpass', email, password)
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        add_identity(username, 'userpass', email, password)
 
-        try:
-            add_account_identity(username, 'userpass', account,
-                                 email=email, password=password,
-                                 issuer=request.environ.get('issuer'),
-                                 vo=request.environ.get('vo'))
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        add_account_identity(
+            identity_key=username,
+            id_type='userpass',
+            account=account,
+            email=email,
+            password=password,
+            issuer=request.environ.get('issuer'),
+            vo=request.environ.get('vo'),
+        )
 
         return 'Created', 201
 
 
-class X509(MethodView):
+class X509(ErrorHandlingMethodView):
     """ Manage an x509 identity for an account. """
 
     def put(self, account):
@@ -86,30 +80,24 @@ class X509(MethodView):
         :reqheader X-Rucio-Email: the desired email.
         :status 201: Created.
         :status 401: Invalid Auth Token.
-        :status 500: Internal Error.
         """
         dn = request.environ.get('SSL_CLIENT_S_DN')
         email = request.headers.get('X-Rucio-Email', default=None)
 
-        try:
-            add_identity(dn, 'x509', email=email)
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
-
-        try:
-            add_account_identity(dn, 'x509', account,
-                                 email=email,
-                                 issuer=request.environ.get('issuer'),
-                                 vo=request.environ.get('vo'))
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        add_identity(dn, 'x509', email=email)
+        add_account_identity(
+            identity_key=dn,
+            id_type='x509',
+            account=account,
+            email=email,
+            issuer=request.environ.get('issuer'),
+            vo=request.environ.get('vo'),
+        )
 
         return 'Created', 201
 
 
-class GSS(MethodView):
+class GSS(ErrorHandlingMethodView):
     """ Manage a GSS identity for an account. """
 
     def put(self, account):
@@ -122,30 +110,24 @@ class GSS(MethodView):
         :reqheader X-Rucio-Email: the desired email.
         :status 201: Created.
         :status 401: Invalid Auth Token.
-        :status 500: Internal Error.
         """
         gsscred = request.environ.get('REMOTE_USER')
         email = request.headers.get('X-Rucio-Email', default=None)
 
-        try:
-            add_identity(gsscred, 'gss', email=email)
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
-
-        try:
-            add_account_identity(gsscred, 'gss', account,
-                                 email=email,
-                                 issuer=request.environ.get('issuer'),
-                                 vo=request.environ.get('vo'))
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        add_identity(gsscred, 'gss', email=email)
+        add_account_identity(
+            identity_key=gsscred,
+            id_type='gss',
+            account=account,
+            email=email,
+            issuer=request.environ.get('issuer'),
+            vo=request.environ.get('vo'),
+        )
 
         return 'Created', 201
 
 
-class Accounts(MethodView):
+class Accounts(ErrorHandlingMethodView):
     """ Retrieve list of accounts mapped to an identity. """
 
     @check_accept_header_wrapper_flask(['application/json'])
@@ -161,15 +143,10 @@ class Accounts(MethodView):
         :status 200: OK.
         :status 401: Invalid Auth Token.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: List of identities.
         """
-        try:
-            accounts = list_accounts_for_identity(identity_key, type)
-            return jsonify(accounts)
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        accounts = list_accounts_for_identity(identity_key, type)
+        return jsonify(accounts)
 
 
 def blueprint():
