@@ -21,12 +21,13 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 import json
 from logging import getLogger, StreamHandler, DEBUG
 from traceback import format_exc
 
-from web import application, ctx, Created, loadhook, header, InternalError
+from web import application, ctx, data, Created, loadhook, header, InternalError
 
 from rucio.api import config
 from rucio.common.exception import ConfigurationError
@@ -42,6 +43,19 @@ URLS = ('/(.+)/(.+)/(.*)', 'OptionSet',
         '/(.+)/(.+)', 'OptionGetDel',
         '/(.+)', 'Section',
         '', 'Config')
+
+
+def _config_items_from_input(input_data):
+    """
+    extract section, option, value from a dict with format {section: {option: value}}.
+    """
+    try:
+        for section, section_config in input_data.items():
+            for option, value in section_config.items():
+                return section, option, value
+    except ValueError:
+        return None, None, None
+    return None, None, None
 
 
 class Config(RucioController):
@@ -70,6 +84,43 @@ class Config(RucioController):
                 res[section][item[0]] = item[1]
 
         return json.dumps(res)
+
+    @exception_wrapper
+    def POST(self):
+        """
+        Set the value of an option.
+        If the option does not exist, create it.
+
+        HTTP Success:
+            200 OK
+
+        HTTP Error:
+            401 Unauthorized
+            400 The input data is invalid or incomplete
+            500 ConfigurationError
+
+        :param Rucio-Auth-Account: Account identifier.
+        :param Rucio-Auth-Token: 32 character hex string.
+        """
+
+        json_data = data().decode()
+        try:
+            input_data = json.loads(json_data)
+        except ValueError:
+            raise generate_http_error(400, 'ValueError', 'Cannot decode json parameter dictionary')
+
+        section, option, value = _config_items_from_input(input_data)
+        if section is None or option is None or value is None:
+            raise generate_http_error(400, 'ValueError', 'Invalid input data')
+
+        try:
+            config.set(section=section, option=option, value=value, issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo'))
+        except ConfigurationError:
+            raise generate_http_error(500, 'ConfigurationError', 'Could not set value \'%s\' for section \'%s\' option \'%s\'' % (value, section, option))
+        except Exception as error:
+            print(format_exc())
+            raise InternalError(error)
+        raise Created()
 
 
 class Section(RucioController):
@@ -154,6 +205,7 @@ class OptionSet(RucioController):
         """
         Set the value of an option.
         If the option does not exist, create it.
+        TODO: remove this endpoint after migrating all clients to pass input data via a json body
 
         HTTP Success:
             200 OK
