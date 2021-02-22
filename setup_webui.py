@@ -108,7 +108,7 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6'
+        'Programming Language :: Python :: 3.6',
         'Environment :: No Input/Output (Daemon)', ],
     install_requires=['rucio>=1.2.5', ],
     dependency_links=[],
