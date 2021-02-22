@@ -1,0 +1,19 @@
+=======
+1.20.13
+=======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Policies: Xenon LFN2PFN function `#4336 <https://github.com/rucio/rucio/issues/4336>`_
+
+****
+Bugs
+****
+
+- Rules: core/rule.py reencodes meta over and over again `#4337 <https://github.com/rucio/rucio/issues/4337>`_
