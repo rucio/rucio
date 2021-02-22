@@ -1,31 +1,29 @@
-version: "2"
 services:
   rucio:
-    image: rucio/rucio-dev:py3
-    hostname: rucio
+    image: docker.io/rucio/rucio-dev:py3
+    extra_hosts:
+      - "ruciodb:127.0.0.1"
+      - "graphite:127.0.0.1"
     ports:
-      - "443:443"
-    links:
-      - ruciodb:ruciodb
-      - graphite:graphite
+      - "8443:443"
+      - "5432:5432"
+      - "8080:80"
     volumes:
-      - ../../../tools:/opt/rucio/tools
-      - ../../../bin:/opt/rucio/bin
-      - ../../../lib:/opt/rucio/lib
+      - ../../../tools:/opt/rucio/tools:Z
+      - ../../../bin:/opt/rucio/bin:Z
+      - ../../../lib:/opt/rucio/lib:Z
     environment:
       - X509_USER_CERT=/opt/rucio/etc/usercert.pem
       - X509_USER_KEY=/opt/rucio/etc/userkey.pem
       - RDBMS=postgres11
   ruciodb:
-    image: postgres:11
+    image: docker.io/postgres:11
+    network_mode: "service:rucio"
     environment:
       - POSTGRES_USER=rucio
       - POSTGRES_DB=rucio
       - POSTGRES_PASSWORD=secret
-    ports:
-      - "5432:5432"
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
   graphite:
-    image: graphiteapp/graphite-statsd
-    ports:
-      - "80:80"
+    image: docker.io/graphiteapp/graphite-statsd
+    network_mode: "service:rucio"
