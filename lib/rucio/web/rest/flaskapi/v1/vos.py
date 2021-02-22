@@ -82,15 +82,17 @@ class VO(MethodView):
         :status 500: Internal Error.
 
         """
-        json_data = request.data.decode()
         kwargs = {'description': None, 'email': None}
 
         try:
-            parameters = json_data and loads(json_data)
-            if parameters:
-                for param in kwargs:
-                    if param in parameters:
-                        kwargs[param] = parameters[param]
+            data = request.get_data(as_text=True)
+            if data:
+                parameters = loads(data)
+            else:
+                parameters = {}
+            for param in kwargs:
+                if param in parameters:
+                    kwargs[param] = parameters[param]
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
         kwargs['issuer'] = request.environ.get('issuer')
@@ -127,10 +129,8 @@ class VO(MethodView):
         :status 500: Internal Error.
 
         """
-        json_data = request.data.decode()
-
         try:
-            parameters = loads(json_data)
+            parameters = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'cannot decode json parameter dictionary')
 
@@ -172,10 +172,8 @@ class RecoverVO(MethodView):
         :status 500: Internal Error.
 
         """
-        json_data = request.data.decode()
-
         try:
-            parameter = loads(json_data)
+            parameter = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'cannot decode json parameter dictionary')
 

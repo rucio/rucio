@@ -23,8 +23,8 @@
 
 import calendar
 import datetime
-import logging
 import json
+import logging
 import uuid
 
 from flask import Flask, Blueprint, request
@@ -57,7 +57,7 @@ class Trace(MethodView):
         headers.set('Access-Control-Allow-Credentials', 'true')
 
         try:
-            payload = json.loads(request.data)
+            payload = json.loads(request.get_data(as_text=True))
 
             # generate entry timestamp
             payload['traceTimeentry'] = datetime.datetime.utcnow()

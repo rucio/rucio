@@ -66,9 +66,9 @@ class Meta(MethodView):
         :status 409: Key already exists.
         :status 500: Internal Error.
         """
-        json_data = request.data.decode()
+        key_type, value_type, value_regexp = None, None, None
         try:
-            params = json_data and loads(json_data)
+            params = loads(request.get_data(as_text=True))
             if params and 'value_type' in params:
                 value_type = params['value_type']
             if params and 'value_regexp' in params:
@@ -129,9 +129,8 @@ class Values(MethodView):
         :status 409: Value already exists.
         :status 500: Internal Error.
         """
-        json_data = request.data
         try:
-            params = loads(json_data)
+            params = loads(request.get_data(as_text=True))
             value = params['value']
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
