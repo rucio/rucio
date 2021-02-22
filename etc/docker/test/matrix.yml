@@ -47,3 +47,6 @@ suites:
     REST_BACKEND:
       - webpy
       - flask
+image_identifier:
+  - id: autotest
+
