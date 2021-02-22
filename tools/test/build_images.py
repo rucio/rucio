@@ -28,8 +28,73 @@ import sys
 from functools import partial
 
 DIST_KEY = "DIST"
-BUILD_ARG_KEYS = ["PYTHON"]
+BUILD_ARG_KEYS = ["PYTHON", "IMAGE_IDENTIFIER"]
 BuildArgs = collections.namedtuple('BuildArgs', BUILD_ARG_KEYS)
+
+
+def add_image_identifier(grouped_args):
+    for dist, args in grouped_args:
+        for arg in args:
+            if "IMAGE_IDENTIFIER" not in arg:
+                arg['IMAGE_IDENTIFIER'] = 'autotest'
+    return grouped_args
+
+
+def build_images(matrix, script_args):
+    grouped_args = itertools.groupby(matrix, lambda d: d[DIST_KEY])
+    add_image_identifier(grouped_args)
+    filter_build_args = partial(map,
+                                lambda argdict: {arg: val for arg, val in argdict.items() if arg in BUILD_ARG_KEYS})
+    make_buildargs = partial(map, lambda argdict: BuildArgs(**argdict))
+    distribution_buildargs = {dist: (set(make_buildargs(filter_build_args(args)))) for dist, args in
+                              itertools.groupby(matrix, lambda d: d[DIST_KEY])}
+    use_podman = 'USE_PODMAN' in os.environ and os.environ['USE_PODMAN'] == '1'
+    images = dict()
+    for dist, buildargs_list in distribution_buildargs.items():
+        for buildargs in buildargs_list:
+            filtered_buildargs = buildargs._asdict()
+            del filtered_buildargs['IMAGE_IDENTIFIER']
+            buildargs_tags = '-'.join(map(lambda it: str(it[0]).lower() + str(it[1]).lower(),
+                                          filtered_buildargs.items()))
+            if buildargs_tags:
+                buildargs_tags = '-' + buildargs_tags
+            imagetag = f'rucio-{buildargs.IMAGE_IDENTIFIER}:{dist.lower()}{buildargs_tags}'
+            if script_args.cache_repo:
+                imagetag = script_args.cache_repo.lower() + '/' + imagetag
+            cache_args = ()
+            if script_args.build_no_cache:
+                cache_args = ('--no-cache', '--pull-always' if use_podman else '--pull')
+            elif script_args.cache_repo:
+                args = ('docker', 'pull', imagetag)
+                print("Running", " ".join(args), file=sys.stderr)
+                subprocess.run(args, stdout=sys.stderr, check=False)
+                cache_args = ('--cache-from', imagetag)
+            if buildargs.IMAGE_IDENTIFIER == 'integration-test':
+                if buildargs.PYTHON == '3.6':
+                    buildfile = pathlib.Path(script_args.buildfiles_dir) / 'Dockerfile_py3'
+                    args = ('docker', 'build', *cache_args, '--file', str(buildfile), '--tag', imagetag,
+                            *itertools.chain(
+                                *map(lambda x: ('--build-arg', f'{x[0]}={x[1]}'), filtered_buildargs.items())),
+                            f'{script_args.buildfiles_dir}')
+            elif buildargs.IMAGE_IDENTIFIER == 'autotest':
+                buildfile = pathlib.Path(script_args.buildfiles_dir) / f'{dist}.Dockerfile'
+                args = ('docker', 'build', *cache_args, '--file', str(buildfile), '--tag', imagetag,
+                        *itertools.chain(
+                            *map(lambda x: ('--build-arg', f'{x[0]}={x[1]}'), buildargs._asdict().items())),
+                        '.')
+
+            print("Running", " ".join(args), file=sys.stderr)
+            subprocess.run(args, stdout=sys.stderr, check=True)
+            print("Finished building image", imagetag, file=sys.stderr)
+
+            if script_args.push_cache:
+                args = ('docker', 'push', imagetag)
+                print("Running", " ".join(args), file=sys.stderr)
+                subprocess.run(args, stdout=sys.stderr, check=True)
+
+            images[imagetag] = {DIST_KEY: dist, **buildargs._asdict()}
+
+    return images
 
 
 def main():
@@ -49,47 +114,7 @@ def main():
                         help='push the images to the cache repo')
     script_args = parser.parse_args()
 
-    filter_build_args = partial(map,
-                                lambda argdict: {arg: val for arg, val in argdict.items() if arg in BUILD_ARG_KEYS})
-    make_buildargs = partial(map, lambda argdict: BuildArgs(**argdict))
-    distribution_buildargs = {dist: set(make_buildargs(filter_build_args(args))) for dist, args in
-                              itertools.groupby(matrix, lambda d: d[DIST_KEY])}
-    use_podman = 'USE_PODMAN' in os.environ and os.environ['USE_PODMAN'] == '1'
-
-    images = dict()
-    for dist, buildargs_list in distribution_buildargs.items():
-        for buildargs in buildargs_list:
-            buildargs_tags = '-'.join(map(lambda it: str(it[0]).lower() + str(it[1]).lower(),
-                                          buildargs._asdict().items()))
-            if buildargs_tags:
-                buildargs_tags = '-' + buildargs_tags
-            imagetag = f'rucio-autotest:{dist.lower()}{buildargs_tags}'
-            if script_args.cache_repo:
-                imagetag = script_args.cache_repo.lower() + '/' + imagetag
-
-            cache_args = ()
-            if script_args.build_no_cache:
-                cache_args = ('--no-cache', '--pull-always' if use_podman else '--pull')
-            elif script_args.cache_repo:
-                args = ('docker', 'pull', imagetag)
-                print("Running", " ".join(args), file=sys.stderr)
-                subprocess.run(args, stdout=sys.stderr, check=False)
-                cache_args = ('--cache-from', imagetag)
-
-            buildfile = pathlib.Path(script_args.buildfiles_dir) / f'{dist}.Dockerfile'
-            args = ('docker', 'build', *cache_args, '--file', str(buildfile), '--tag', imagetag,
-                    *itertools.chain(*map(lambda x: ('--build-arg', f'{x[0]}={x[1]}'), buildargs._asdict().items())),
-                    '.')
-            print("Running", " ".join(args), file=sys.stderr)
-            subprocess.run(args, stdout=sys.stderr, check=True)
-            print("Finished building image", imagetag, file=sys.stderr)
-
-            if script_args.push_cache:
-                args = ('docker', 'push', imagetag)
-                print("Running", " ".join(args), file=sys.stderr)
-                subprocess.run(args, stdout=sys.stderr, check=True)
-
-            images[imagetag] = {DIST_KEY: dist, **buildargs._asdict()}
+    images = build_images(matrix, script_args)
 
     if script_args.output == 'dict':
         json.dump(images, sys.stdout)

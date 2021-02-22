@@ -951,6 +951,9 @@ def make_valid_did(lfn_dict):
     additional `filename` key.  If this is not done, then the dictionary
     will not pass the DID JSON schema validation.
     """
+    if 'filename' not in lfn_dict:
+        return lfn_dict
+
     lfn_copy = dict(lfn_dict)
     lfn_copy['name'] = lfn_copy.get('name', lfn_copy['filename'])
     del lfn_copy['filename']
