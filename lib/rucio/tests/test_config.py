@@ -130,3 +130,31 @@ class TestConfigClients(unittest.TestCase):
 
         with pytest.raises(exception.ConfigNotFound):
             self.c.get_config(self.test_section_1, 'no_option')
+
+    def test_set_and_get_config_value_special_strings(self):
+        for test_option_description, option_value in [
+            ('dot', '.'),
+            ('slash', '/'),
+            ('aPath', 'a/b/c/../'),
+            ('percentEncodedSpecialChar', '%2E'),
+            ('urlParameters', 'a?x=y'),
+        ]:
+            self.c.set_config_option(self.test_section_1, test_option_description, option_value)
+            retrieved_value = self.c.get_config(self.test_section_1, test_option_description)
+            assert retrieved_value == option_value
+
+    def test_set_config_option_via_deprecated_url(self):
+        """
+        The format of the /config endpoint was recently changed, but we still support the old
+        format for API calls for the transition period.
+        TODO: remove this test
+        """
+        self.c.set_config_option(self.test_section_1, self.test_option_s + 'ViaUrl', self.test_option_sv, use_body_for_params=False)
+        self.c.set_config_option(self.test_section_1, self.test_option_b + 'ViaUrl', self.test_option_bv, use_body_for_params=False)
+        self.c.set_config_option(self.test_section_2, self.test_option_i + 'ViaUrl', self.test_option_iv, use_body_for_params=False)
+        self.c.set_config_option(self.test_section_2, self.test_option_f + 'ViaUrl', self.test_option_fv, use_body_for_params=False)
+        tmp = self.c.get_config(None, None)
+        assert self.test_option_s + 'ViaUrl' in tmp[self.test_section_1]
+        assert self.test_option_b + 'ViaUrl' in tmp[self.test_section_1]
+        assert self.test_option_i + 'ViaUrl' in tmp[self.test_section_2]
+        assert self.test_option_f + 'ViaUrl' in tmp[self.test_section_2]

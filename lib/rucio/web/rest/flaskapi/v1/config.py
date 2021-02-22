@@ -22,8 +22,10 @@
 # - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 import logging
+from json import loads
 
 from flask import Flask, Blueprint, request as request, jsonify
 from flask.views import MethodView
@@ -32,6 +34,19 @@ from rucio.api import config
 from rucio.common.exception import ConfigurationError, RucioException, AccessDenied, ConfigNotFound
 from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask
 from rucio.web.rest.utils import generate_http_error_flask
+
+
+def _config_items_from_input(input_data):
+    """
+    extract section, option, value from a dict with format {section: {option: value}}.
+    """
+    try:
+        for section, section_config in input_data.items():
+            for option, value in section_config.items():
+                return section, option, value
+    except ValueError:
+        return None, None, None
+    return None, None, None
 
 
 class Config(MethodView):
@@ -58,6 +73,39 @@ class Config(MethodView):
                     res[section][item[0]] = item[1]
 
             return jsonify(res)
+        except RucioException as error:
+            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
+        except Exception as error:
+            logging.exception("Internal Error")
+            return str(error), 500
+
+    def post(self):
+        """
+        Create or set the configuration option in the requested section.
+        The request body is expected to contain a json {"section": {"option": "value"}}.
+
+        .. :quickref: Config; set config value
+
+        :status 201: Option successfully created or updated.
+        :status 400: The input data is invalid or incomplete.
+        :status 401: Invalid Auth Token.
+        :status 500: Configuration Error.
+        """
+        json_data = request.data.decode()
+        try:
+            input_data = loads(json_data)
+        except ValueError:
+            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter dictionary')
+
+        section, option, value = _config_items_from_input(input_data)
+        if section is None or option is None or value is None:
+            return generate_http_error_flask(400, 'ValueError', 'Invalid input')
+
+        try:
+            config.set(section=section, option=option, value=value, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            return 'Created', 201
+        except ConfigurationError:
+            return generate_http_error_flask(500, 'ConfigurationError', 'Could not set value \'%s\' for section \'%s\' option \'%s\'' % (value, section, option))
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -142,6 +190,7 @@ class OptionGetDel(MethodView):
         """
         try:
             config.remove_option(section=section, option=option, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            return 'OK', 200
         except RucioException as error:
             return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
         except Exception as error:
@@ -156,6 +205,7 @@ class OptionSet(MethodView):
         """
         Set the value of an option.
         If the option does not exist, create it.
+        TODO: remove this endpoint after migrating all clients to pass input data via a json body
 
         .. :quickref: OptionSet; set config value.
 
@@ -185,7 +235,7 @@ def blueprint():
     section_view = Section.as_view('section')
     bp.add_url_rule('/<section>', view_func=section_view, methods=['get', ])
     config_view = Config.as_view('config')
-    bp.add_url_rule('', view_func=config_view, methods=['get', ])
+    bp.add_url_rule('', view_func=config_view, methods=['get', 'post'])
 
     bp.before_request(request_auth_env)
     bp.after_request(response_headers)
