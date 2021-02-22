@@ -22,8 +22,10 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 import unittest
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -38,6 +40,8 @@ from rucio.core.rse import add_rse_attribute, get_rse_id
 from rucio.core.rule import add_rule, get_rule, approve_rule, deny_rule, list_rules
 from rucio.daemons.judge.injector import rule_injector
 from rucio.db.sqla.constants import DIDType, RuleState
+from rucio.db.sqla.models import ReplicationRule
+from rucio.db.sqla.session import transactional_session
 from rucio.tests.test_rule import create_files, tag_generator
 
 
@@ -107,6 +111,39 @@ class TestJudgeEvaluator(unittest.TestCase):
         for file in files:
             assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2)
         assert(get_rule(rule_id)['state'] == RuleState.REPLICATING)
+
+    def test_judge_inject_delayed_rule(self):
+        """ JUDGE INJECTOR: Test the judge when injecting a delayed rule"""
+        scope = InternalScope('mock', **self.vo)
+        files = create_files(1, scope, self.rse1_id)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
+        [file] = files
+
+        # Add a delayed rule
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, delay_injection=3600)[0]
+
+        rule = get_rule(rule_id)
+        assert rule['state'] == RuleState.INJECT
+        assert rule['updated_at'] < rule['created_at']
+        assert datetime.utcnow() + timedelta(seconds=3550) < rule['created_at'] < datetime.utcnow() + timedelta(seconds=3650)
+
+        # The time to create the rule has not yet arrived. The injector must skip this rule, no locks must be created
+        rule_injector(once=True)
+        assert get_rule(rule_id)['state'] == RuleState.INJECT
+        assert not get_replica_locks(scope=file['scope'], name=file['name'])
+
+        # simulate that time to inject the rule has arrived
+        @transactional_session
+        def __update_created_at(session=None):
+            session.query(ReplicationRule).filter_by(id=rule_id).one().created_at = datetime.utcnow()
+        __update_created_at()
+
+        # The injector must create the locks now
+        rule_injector(once=True)
+        assert get_rule(rule_id)['state'] == RuleState.REPLICATING
+        assert len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2
 
     def test_judge_ask_approval(self):
         """ JUDGE INJECTOR: Test the judge when asking approval for a rule"""
