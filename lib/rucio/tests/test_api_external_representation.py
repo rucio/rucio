@@ -24,6 +24,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 #
 # PY3K COMPATIBLE
 
@@ -420,7 +421,7 @@ class TestApiExternalRepresentation(unittest.TestCase):
                              lifetime=180, grouping='DATASET', account=new_acc_name, locked=False, subscription_id=sub_id,
                              source_replica_expression=self.rse4_name, activity='User Subscriptions', notify=None,
                              purge_replicas=False, ignore_availability=False, comment='', ask_approval=False, asynchronous=False,
-                             priority=0, split_container=False, meta='', issuer='root', **self.new_vo)
+                             delay_injection=None, priority=0, split_container=False, meta='', issuer='root', **self.new_vo)
 
         out = list_subscriptions(sub, **self.new_vo)
         out = list(out)
