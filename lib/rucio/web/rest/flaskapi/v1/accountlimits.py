@@ -49,9 +49,8 @@ class LocalAccountLimit(MethodView):
         :status 404: RSE not found.
         :status 404: Account not found
         """
-        json_data = request.data
         try:
-            parameter = loads(json_data)
+            parameter = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'cannot decode json parameter dictionary')
         try:
@@ -116,9 +115,8 @@ class GlobalAccountLimit(MethodView):
         :status 404: RSE not found.
         :status 404: Account not found
         """
-        json_data = request.data
         try:
-            parameter = loads(json_data)
+            parameter = loads(request.get_data(as_text=True))
         except ValueError:
             return generate_http_error_flask(400, 'ValueError', 'cannot decode json parameter dictionary')
         try:
