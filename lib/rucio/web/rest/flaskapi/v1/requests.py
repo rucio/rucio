@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2020 CERN
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,29 +20,23 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import json
-import logging
 
-from flask import Flask, Blueprint, Response, request as f_request
-from flask.views import MethodView
+import flask
+from flask import Flask, Blueprint, Response
 
 from rucio.api import request
-from rucio.common.exception import RucioException
+from rucio.common.exception import RequestNotFound
 from rucio.common.utils import APIEncoder, render_json
 from rucio.core.rse import get_rses_with_attribute_value, get_rse_name
 from rucio.db.sqla.constants import RequestState
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream, request_auth_env, response_headers
-from rucio.web.rest.utils import generate_http_error_flask
-
-try:
-    from urlparse import parse_qs
-except ImportError:
-    from urllib.parse import parse_qs
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream, \
+    request_auth_env, response_headers, generate_http_error_flask, ErrorHandlingMethodView
 
 
-class RequestGet(MethodView):
+class RequestGet(ErrorHandlingMethodView):
     """ REST API to get requests. """
 
     @check_accept_header_wrapper_flask(['application/json'])
@@ -60,21 +54,24 @@ class RequestGet(MethodView):
         :status 406: Not Acceptable.
         """
         try:
-            scope, name = parse_scope_name(scope_name, f_request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, flask.request.environ.get('vo'))
         except ValueError as error:
-            return generate_http_error_flask(400, 'ValueError', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(400, error)
 
         try:
-            request_data = request.get_request_by_did(scope=scope, name=name, rse=rse, issuer=f_request.environ.get('issuer'), vo=f_request.environ.get('vo'))
+            request_data = request.get_request_by_did(
+                scope=scope,
+                name=name,
+                rse=rse,
+                issuer=flask.request.environ.get('issuer'),
+                vo=flask.request.environ.get('vo'),
+            )
             return Response(json.dumps(request_data, cls=APIEncoder), content_type='application/json')
-        except Exception:
-            return generate_http_error_flask(404, 'RequestNotFound', 'No request found for DID %s:%s at RSE %s' % (scope, name, rse))
+        except RequestNotFound as error:
+            return generate_http_error_flask(404, error.__class__.__name__, f'No request found for DID {scope}:{name} at RSE {rse}')
 
 
-class RequestList(MethodView):
+class RequestList(ErrorHandlingMethodView):
     """ REST API to get requests. """
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
@@ -89,57 +86,49 @@ class RequestList(MethodView):
         :status 404: Request not found.
         :status 406: Not Acceptable.
         """
+        src_rse = flask.request.args.get('src_rse', default=None)
+        dst_rse = flask.request.args.get('dst_rse', default=None)
+        src_site = flask.request.args.get('src_site', default=None)
+        dst_site = flask.request.args.get('dst_site', default=None)
+        request_states = flask.request.args.get('request_states', default=None)
+
+        if not request_states:
+            return generate_http_error_flask(400, 'MissingParameter', 'Request state is missing')
+        if src_rse and not dst_rse:
+            return generate_http_error_flask(400, 'MissingParameter', 'Destination RSE is missing')
+        elif dst_rse and not src_rse:
+            return generate_http_error_flask(400, 'MissingParameter', 'Source RSE is missing')
+        elif src_site and not dst_site:
+            return generate_http_error_flask(400, 'MissingParameter', 'Destination site is missing')
+        elif dst_site and not src_site:
+            return generate_http_error_flask(400, 'MissingParameter', 'Source site is missing')
+
         try:
-            query_string = f_request.query_string.decode(encoding='utf-8')
-            params = parse_qs(query_string)
-            src_rse = params.get('src_rse', [None])[0]
-            dst_rse = params.get('dst_rse', [None])[0]
-            src_site = params.get('src_site', [None])[0]
-            dst_site = params.get('dst_site', [None])[0]
-            request_states = params.get('request_states', [None])[0]
+            states = [RequestState(state) for state in request_states.split(',')]
+        except ValueError:
+            return generate_http_error_flask(400, 'Invalid', 'Request state value is invalid')
 
-            if not request_states:
-                return generate_http_error_flask(400, 'MissingParameter', 'Request state is missing')
-            if src_rse and not dst_rse:
-                return generate_http_error_flask(400, 'MissingParameter', 'Destination RSE is missing')
-            elif dst_rse and not src_rse:
-                return generate_http_error_flask(400, 'MissingParameter', 'Source RSE is missing')
-            elif src_site and not dst_site:
-                return generate_http_error_flask(400, 'MissingParameter', 'Destination site is missing')
-            elif dst_site and not src_site:
-                return generate_http_error_flask(400, 'MissingParameter', 'Source site is missing')
+        src_rses = []
+        dst_rses = []
+        if src_site:
+            src_rses = get_rses_with_attribute_value(key='site', value=src_site, lookup_key='site', vo=flask.request.environ.get('vo'))
+            if not src_rses:
+                return generate_http_error_flask(404, 'NotFound', f'Could not resolve site name {src_site} to RSE')
+            src_rses = [get_rse_name(rse['rse_id']) for rse in src_rses]
+            dst_rses = get_rses_with_attribute_value(key='site', value=dst_site, lookup_key='site', vo=flask.request.environ.get('vo'))
+            if not dst_rses:
+                return generate_http_error_flask(404, 'NotFound', f'Could not resolve site name {dst_site} to RSE')
+            dst_rses = [get_rse_name(rse['rse_id']) for rse in dst_rses]
+        else:
+            dst_rses = [dst_rse]
+            src_rses = [src_rse]
 
-            try:
-                states = [RequestState(state) for state in request_states.split(',')]
-            except ValueError:
-                return generate_http_error_flask(400, 'Invalid', 'Request state value is invalid')
+        def generate(issuer, vo):
+            for result in request.list_requests(src_rses, dst_rses, states, issuer=issuer, vo=vo):
+                del result['_sa_instance_state']
+                yield render_json(**result) + '\n'
 
-            src_rses = []
-            dst_rses = []
-            if src_site:
-                src_rses = get_rses_with_attribute_value(key='site', value=src_site, lookup_key='site', vo=f_request.environ.get('vo'))
-                if not src_rses:
-                    return generate_http_error_flask(404, 'NotFound', 'Could not resolve site name %s to RSE' % src_site)
-                src_rses = [get_rse_name(rse['rse_id']) for rse in src_rses]
-                dst_rses = get_rses_with_attribute_value(key='site', value=dst_site, lookup_key='site', vo=f_request.environ.get('vo'))
-                if not dst_rses:
-                    return generate_http_error_flask(404, 'NotFound', 'Could not resolve site name %s to RSE' % dst_site)
-                dst_rses = [get_rse_name(rse['rse_id']) for rse in dst_rses]
-            else:
-                dst_rses = [dst_rse]
-                src_rses = [src_rse]
-
-            def generate(issuer, vo):
-                for result in request.list_requests(src_rses, dst_rses, states, issuer=issuer, vo=vo):
-                    del result['_sa_instance_state']
-                    yield render_json(**result) + '\n'
-
-            return try_stream(generate(issuer=f_request.environ.get('issuer'), vo=f_request.environ.get('vo')))
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        return try_stream(generate(issuer=flask.request.environ.get('issuer'), vo=flask.request.environ.get('vo')))
 
 
 def blueprint():

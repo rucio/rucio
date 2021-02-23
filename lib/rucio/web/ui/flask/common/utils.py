@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2014-2020 CERN
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 
 import re
@@ -171,10 +171,10 @@ def select_account_name(identitystr, identity_type, vo=None):
     if len(accounts) == 0:
         return None, vo
     # check if ui_account param is set
-    ui_account = request.args.get('ui_account', None)
+    ui_account = request.args.get('ui_account', default=None)
     # if yes check if the accounts provided for users identity include this account
     if not ui_account:
-        ui_account = request.args.get('account', None)
+        ui_account = request.args.get('account', default=None)
     if ui_account:
         if ui_account not in accounts:
             return None, vo

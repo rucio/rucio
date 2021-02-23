@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2017-2020 CERN
+# Copyright 2017-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,20 +19,18 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from json import dumps
-import logging
 
 from flask import Flask, Blueprint, request
-from flask.views import MethodView
 
 from rucio.api.did import list_archive_content
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, parse_scope_name, try_stream
-from rucio.web.rest.utils import generate_http_error_flask
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, \
+    parse_scope_name, try_stream, generate_http_error_flask, ErrorHandlingMethodView
 
 
-class Archive(MethodView):
+class Archive(ErrorHandlingMethodView):
     """ REST APIs for archive. """
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
@@ -47,7 +45,6 @@ class Archive(MethodView):
         :status 200: OK.
         :status 400: Invalid value.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -58,10 +55,7 @@ class Archive(MethodView):
 
             return try_stream(generate(vo=request.environ.get('vo')))
         except ValueError as error:
-            return generate_http_error_flask(400, 'ValueError', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(400, error)
 
 
 def blueprint():

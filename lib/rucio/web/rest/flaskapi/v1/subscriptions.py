@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,23 +20,23 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
-from json import loads, dumps
-import logging
+from json import dumps
 
 from flask import Flask, Blueprint, Response, request
-from flask.views import MethodView
 
 from rucio.api.rule import list_replication_rules
-from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription, list_subscription_rule_states, get_subscription_by_id
-from rucio.common.exception import InvalidObject, RucioException, SubscriptionDuplicate, SubscriptionNotFound, RuleNotFound, AccessDenied
+from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription, \
+    list_subscription_rule_states, get_subscription_by_id
+from rucio.common.exception import InvalidObject, SubscriptionDuplicate, SubscriptionNotFound, RuleNotFound, \
+    AccessDenied
 from rucio.common.utils import render_json, APIEncoder
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, try_stream, request_auth_env, response_headers
-from rucio.web.rest.utils import generate_http_error_flask
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, try_stream, request_auth_env, \
+    response_headers, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
 
 
-class Subscription(MethodView):
+class Subscription(ErrorHandlingMethodView):
     """ REST APIs for subscriptions. """
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
@@ -53,7 +53,6 @@ class Subscription(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: Subscription Not Found.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: Line separated list of dictionaries with subscription information.
         """
         try:
@@ -63,10 +62,7 @@ class Subscription(MethodView):
 
             return try_stream(generate(vo=request.environ.get('vo')))
         except SubscriptionNotFound as error:
-            return generate_http_error_flask(404, 'SubscriptionNotFound', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
     def put(self, account, name):
         """
@@ -80,34 +76,29 @@ class Subscription(MethodView):
         :status 400: Cannot decode json parameter list.
         :status 401: Invalid Auth Token.
         :status 404: Subscription Not Found.
-        :status 500: Internal Error.
         """
-        try:
-            params = loads(request.get_data(as_text=True))
-            params = params['options']
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+        parameters = json_parameters()
+        options = param_get(parameters, 'options')
+        metadata = {
+            'filter': None,
+            'replication_rules': None,
+            'comments': None,
+            'lifetime': None,
+            'retroactive': None,
+            'priority': None,
+        }
+        for keyword in metadata:
+            metadata[keyword] = param_get(options, keyword, default=metadata[keyword])
 
-        metadata = {}
-        metadata['filter'] = params.get('filter', None)
-        metadata['replication_rules'] = params.get('replication_rules', None)
-        metadata['comments'] = params.get('comments', None)
-        metadata['lifetime'] = params.get('lifetime', None)
-        metadata['retroactive'] = params.get('retroactive', None)
-        metadata['priority'] = params.get('priority', None)
         try:
             update_subscription(name=name, account=account, metadata=metadata, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except (InvalidObject, TypeError) as error:
-            return generate_http_error_flask(400, 'InvalidObject', error.args[0])
+            return generate_http_error_flask(400, InvalidObject.__name__, error.args[0])
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, error)
         except SubscriptionNotFound as error:
-            return generate_http_error_flask(404, 'SubscriptionNotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
+
         return 'Created', 201
 
     def post(self, account, name):
@@ -122,51 +113,45 @@ class Subscription(MethodView):
         :status 400: Cannot decode json parameter list.
         :status 401: Invalid Auth Token.
         :status 404: Subscription Not Found.
-        :status 500: Internal Error.
         :returns: ID if newly created subscription.
         """
-        dry_run = 0
-        try:
-            params = loads(request.get_data(as_text=True))
-            params = params['options']
-            filter = params['filter']
-            replication_rules = params['replication_rules']
-            comments = params['comments']
-            lifetime = params['lifetime']
-            retroactive = params['retroactive']
-            dry_run = params['dry_run']
-            priority = params.get('priority', 3) or 3
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+        parameters = json_parameters()
+        options = param_get(parameters, 'options')
+        filter_param = param_get(options, 'filter')
+        replication_rules = param_get(options, 'replication_rules')
+        comments = param_get(options, 'comments')
+        lifetime = param_get(options, 'lifetime')
+        retroactive = param_get(options, 'retroactive')
+        dry_run = param_get(options, 'dry_run', default=False)
+        priority = param_get(options, 'priority', default=False)
+        if not priority:
+            priority = 3
 
         try:
-            subscription_id = add_subscription(name=name,
-                                               account=account,
-                                               filter=filter,
-                                               replication_rules=replication_rules,
-                                               comments=comments,
-                                               lifetime=lifetime,
-                                               retroactive=retroactive,
-                                               dry_run=dry_run,
-                                               priority=priority,
-                                               issuer=request.environ.get('issuer'),
-                                               vo=request.environ.get('vo'))
+            subscription_id = add_subscription(
+                name=name,
+                account=account,
+                filter=filter_param,
+                replication_rules=replication_rules,
+                comments=comments,
+                lifetime=lifetime,
+                retroactive=retroactive,
+                dry_run=dry_run,
+                priority=priority,
+                issuer=request.environ.get('issuer'),
+                vo=request.environ.get('vo'),
+            )
         except (InvalidObject, TypeError) as error:
-            return generate_http_error_flask(400, 'InvalidObject', error.args[0])
+            return generate_http_error_flask(400, InvalidObject.__name__, error.args[0])
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, error)
         except SubscriptionDuplicate as error:
-            return generate_http_error_flask(409, 'SubscriptionDuplicate', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(409, error)
 
         return Response(subscription_id, status=201)
 
 
-class SubscriptionName(MethodView):
+class SubscriptionName(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, name=None):
@@ -181,7 +166,6 @@ class SubscriptionName(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: Subscription Not Found.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: Line separated list of dictionaries with subscription information.
         """
         try:
@@ -191,13 +175,10 @@ class SubscriptionName(MethodView):
 
             return try_stream(generate(vo=request.environ.get('vo')))
         except SubscriptionNotFound as error:
-            return generate_http_error_flask(404, 'SubscriptionNotFound', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
 
-class Rules(MethodView):
+class Rules(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, account, name):
@@ -214,10 +195,9 @@ class Rules(MethodView):
         :status 404: Rule Not Found.
         :status 404: Subscription Not Found.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: Line separated list of dictionaries with rule information.
         """
-        state = request.args.get('state', None)
+        state = request.args.get('state', default=None)
         try:
             subscriptions = [subscription['id'] for subscription in list_subscriptions(name=name, account=account, vo=request.environ.get('vo'))]
 
@@ -231,18 +211,11 @@ class Rules(MethodView):
                             yield render_json(**rule) + '\n'
 
             return try_stream(generate(vo=request.environ.get('vo')))
-        except RuleNotFound as error:
-            return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
-        except SubscriptionNotFound as error:
-            return generate_http_error_flask(404, 'SubscriptionNotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        except (RuleNotFound, SubscriptionNotFound) as error:
+            return generate_http_error_flask(404, error)
 
 
-class States(MethodView):
+class States(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, account, name=None):
@@ -257,23 +230,16 @@ class States(MethodView):
         :status 200: OK.
         :status 401: Invalid Auth Token.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: Line separated list of dictionaries with rule information.
         """
-        try:
-            def generate(vo):
-                for row in list_subscription_rule_states(account=account, vo=vo):
-                    yield dumps(row, cls=APIEncoder) + '\n'
+        def generate(vo):
+            for row in list_subscription_rule_states(account=account, vo=vo):
+                yield dumps(row, cls=APIEncoder) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+        return try_stream(generate(vo=request.environ.get('vo')))
 
 
-class SubscriptionId(MethodView):
+class SubscriptionId(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, subscription_id):
@@ -288,18 +254,12 @@ class SubscriptionId(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: Subscription Not Found.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: dictionary with subscription information.
         """
         try:
             subscription = get_subscription_by_id(subscription_id, vo=request.environ.get('vo'))
         except SubscriptionNotFound as error:
-            return generate_http_error_flask(404, 'SubscriptionNotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
         return Response(render_json(**subscription), content_type="application/json")
 
