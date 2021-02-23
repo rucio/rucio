@@ -1000,7 +1000,7 @@ class TestMultiVOBinRucio(unittest.TestCase):
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert len(out) == 0
-        assert 'Cannot retrieve authentication token!' in err
+        assert 'Details: CannotAuthenticate' in err
 
         cmd = 'rucio-admin rse list'
         print(self.marker + cmd)
@@ -1030,7 +1030,7 @@ class TestMultiVOBinRucio(unittest.TestCase):
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert len(out) == 0
-        assert 'Cannot retrieve authentication token!' in err
+        assert 'Details: CannotAuthenticate' in err
 
         cmd = 'rucio list-rses'
         print(self.marker + cmd)

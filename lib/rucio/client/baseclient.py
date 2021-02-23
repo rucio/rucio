@@ -75,8 +75,8 @@ except ImportError:
     from urllib.parse import urlparse
     from configparser import NoOptionError, NoSectionError
 from dogpile.cache import make_region
-from requests import Session
-from requests.status_codes import codes, _codes
+from requests import Session, Response
+from requests.status_codes import codes
 from requests.exceptions import ConnectionError, RequestException
 from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
 disable_warnings()
@@ -331,19 +331,22 @@ class BaseClient(object):
             data = parse_response(data)
         except ValueError:
             data = {}
-        if 'ExceptionClass' not in data:
-            if 'ExceptionMessage' not in data:
-                human_http_code = _codes.get(status_code, None)  # NOQA, pylint: disable-msg=W0612
-                return getattr(exception, 'RucioException'), 'no error information passed (http status code: %(status_code)s %(human_http_code)s)' % locals()
-            return getattr(exception, 'RucioException'), data['ExceptionMessage']
 
-        exc_cls = None
-        try:
-            exc_cls = getattr(exception, data['ExceptionClass'])
-        except AttributeError:
-            return getattr(exception, 'RucioException'), data['ExceptionMessage']
+        exc_cls = 'RucioException'
+        exc_msg = 'no error information passed (http status code: %s)' % status_code
+        if 'ExceptionClass' in data:
+            exc_cls = data['ExceptionClass']
+        elif 'ExceptionClass' in headers:
+            exc_cls = headers['ExceptionClass']
+        if 'ExceptionMessage' in data:
+            exc_msg = data['ExceptionMessage']
+        elif 'ExceptionMessage' in headers:
+            exc_msg = headers['ExceptionMessage']
 
-        return exc_cls, data['ExceptionMessage']
+        if hasattr(exception, exc_cls):
+            return getattr(exception, exc_cls), exc_msg
+        else:
+            return exception.RucioException, "%s: %s" % (exc_cls, exc_msg)
 
     def _load_json_data(self, response):
         """
@@ -433,7 +436,16 @@ class BaseClient(object):
                 if retry > self.request_retries:
                     raise
 
-        if not result or 'result' not in locals():
+        if not result:
+            # result is either None or not OK.
+            if isinstance(result, Response):
+                if 'ExceptionClass' in result.headers and result.headers['ExceptionClass']:
+                    if 'ExceptionMessage' in result.headers and result.headers['ExceptionMessage']:
+                        raise CannotAuthenticate('%s: %s' % (result.headers['ExceptionClass'], result.headers['ExceptionMessage']))
+                    else:
+                        raise CannotAuthenticate(result.headers["ExceptionClass"])
+                elif result.text:
+                    raise CannotAuthenticate(result.text)
             LOG.error('Cannot retrieve authentication token!')
             return False
 
