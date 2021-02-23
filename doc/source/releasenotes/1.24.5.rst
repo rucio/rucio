@@ -1,0 +1,34 @@
+======
+1.24.5
+======
+
+-------
+General
+-------
+
+************
+Enhancements
+************
+
+- Policies: Xenon LFN2PFN function `#4336 <https://github.com/rucio/rucio/issues/4336>`_
+- Testing: Replace `links` in docker-compose `#4316 <https://github.com/rucio/rucio/issues/4316>`_
+
+****
+Bugs
+****
+
+- Deletion: Reaper2 __check_rse_usage issues `#4341 <https://github.com/rucio/rucio/issues/4341>`_
+- Deletion: list_and_mark_unlocked_replicas needs to handle BEING_DELETED replicas `#4342 <https://github.com/rucio/rucio/issues/4342>`_
+- Deletion: reaper2 jumps out if deletion loop if an RSE has no delete protocol `#4345 <https://github.com/rucio/rucio/issues/4345>`_
+- REST & API: Flask endpoints return error with wrong Content-Type where webpy endpoints don't `#4314 <https://github.com/rucio/rucio/issues/4314>`_
+- Rules: core/rule.py reencodes meta over and over again `#4337 <https://github.com/rucio/rucio/issues/4337>`_
+
+-------
+Clients
+-------
+
+****
+Bugs
+****
+
+- Documentation: "rucio download --no-subdir" behavior is different from its documentation `#4323 <https://github.com/rucio/rucio/issues/4323>`_
