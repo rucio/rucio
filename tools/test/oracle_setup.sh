@@ -7,9 +7,9 @@ export ORACLE_SID=XE
 LISTENER_ORA=/u01/app/oracle/product/11.2.0/xe/network/admin/listener.ora
 TNSNAMES_ORA=/u01/app/oracle/product/11.2.0/xe/network/admin/tnsnames.ora
 
-echo alter system set processes = 1000 scope = spfile\; | su oracle -s /bin/bash -c "$ORACLE_HOME/bin/sqlplus -s SYSTEM/oracle as sysdba"
-echo alter system set sessions = 1105 scope = spfile\; | su oracle -s /bin/bash -c "$ORACLE_HOME/bin/sqlplus -s SYSTEM/oracle as sysdba" 
-echo alter system set transactions = 1215 scope = spfile\; | su oracle -s /bin/bash -c "$ORACLE_HOME/bin/sqlplus -s SYSTEM/oracle as sysdba"
+echo alter system set processes = $processes scope = spfile\; | su oracle -s /bin/bash -c "$ORACLE_HOME/bin/sqlplus -s SYSTEM/oracle as sysdba"
+echo alter system set sessions = $sessions scope = spfile\; | su oracle -s /bin/bash -c "$ORACLE_HOME/bin/sqlplus -s SYSTEM/oracle as sysdba"
+echo alter system set transactions = $transactions scope = spfile\; | su oracle -s /bin/bash -c "$ORACLE_HOME/bin/sqlplus -s SYSTEM/oracle as sysdba"
 echo shutdown immediate\; | su oracle -s /bin/bash -c "$ORACLE_HOME/bin/sqlplus -s SYSTEM/oracle as sysdba"
 echo startup\; | su oracle -s /bin/bash -c "$ORACLE_HOME/bin/sqlplus -s SYSTEM/oracle as sysdba"
 
