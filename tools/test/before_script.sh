@@ -39,27 +39,26 @@ if [ "$REST_BACKEND" == "flask" ]; then
 fi
 
 if [ $RDBMS == "oracle" ]; then
-    CON_ORACLE=$(docker $CONTAINER_RUNTIME_ARGS run -d $CONTAINER_RUN_ARGS -e processes=1000 -e sessions=1105 -e transactions=1215 -e ORACLE_ALLOW_REMOTE=true -e ORACLE_DISABLE_ASYNCH_IO=true docker.io/wnameless/oracle-xe-11g-r2)
+    CON_ORACLE=$(docker $CONTAINER_RUNTIME_ARGS run --no-healthcheck -d $CONTAINER_RUN_ARGS -e processes=1000 -e sessions=1105 -e transactions=1215 -e ORACLE_ALLOW_REMOTE=true -e ORACLE_DISABLE_ASYNCH_IO=true docker.io/wnameless/oracle-xe-11g-r2)
     docker $CONTAINER_RUNTIME_ARGS run -d $CONTAINER_RUN_ARGS docker.io/webcenter/activemq:latest
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO sh -c 'echo 127.0.0.1 oracle activemq >> /etc/hosts'
-
-    docker $CONTAINER_RUNTIME_ARGS cp tools/test/oracle_startup.sh ${CON_ORACLE}:/
-    docker $CONTAINER_RUNTIME_ARGS cp tools/test/oracle_wait.sh ${CON_ORACLE}:/
     docker $CONTAINER_RUNTIME_ARGS cp tools/test/oracle_setup.sh ${CON_ORACLE}:/
     date
-    # sometimes, Oracle needs a little kick...
-    docker $CONTAINER_RUNTIME_ARGS exec $CON_ORACLE /bin/bash -c "/oracle_startup.sh" || true
+    ORACLE_STARTUP_STRING="Starting Oracle Database 11g Express Edition instance."
     for i in {1..60}; do
         sleep 2
-        cont=$(bash -c 'docker '"$CONTAINER_RUNTIME_ARGS"' exec '"$CON_ORACLE"' /bin/bash -c "/oracle_wait.sh" 1>&2; echo $?')
-        [ "$cont" -eq "0" ] && break
+        cont=$(bash -c 'docker '"$CONTAINER_RUNTIME_ARGS"' logs '"$CON_ORACLE"' | grep "'"$ORACLE_STARTUP_STRING"'" | wc -l')
+        [ "$cont" -eq "2" ] && break
     done
     date
-    if [ "$cont" -ne "0" ]; then
-        echo Could not connect to Oracle in time.
+    if [ "$cont" -ne "2" ]; then
+        echo "Oracle did not start up in time."
+        docker $CONTAINER_RUNTIME_ARGS logs $CON_ORACLE || true
         exit 1
     fi
-    docker $CONTAINER_RUNTIME_ARGS exec $CON_ORACLE /bin/bash -c "/oracle_setup.sh"
+    sleep 3
+    docker $CONTAINER_RUNTIME_ARGS exec $CON_ORACLE /oracle_setup.sh
+    sleep 3
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/rucio_oracle.cfg /opt/rucio/etc/rucio.cfg
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/alembic_oracle.ini /opt/rucio/etc/alembic.ini
     RESTART_HTTPD=1
