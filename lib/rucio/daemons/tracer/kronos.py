@@ -38,14 +38,13 @@ from json import loads as jloads, dumps as jdumps
 from os import getpid
 from threading import Event, Thread, current_thread
 from time import sleep, time
-from traceback import format_exc
 
 from stomp import Connection
 
 import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import ConfigNotFound, RSENotFound, DatabaseException
-from rucio.common.logging import setup_logging
+from rucio.common.logging import setup_logging, formatted_logger
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.config import get
 from rucio.core.did import touch_dids, list_parent_dids
@@ -68,7 +67,7 @@ graceful_stop = Event()
 
 
 class AMQConsumer(object):
-    def __init__(self, broker, conn, queue, chunksize, subscription_id, excluded_usrdns, dataset_queue, bad_files_patterns):
+    def __init__(self, broker, conn, queue, chunksize, subscription_id, excluded_usrdns, dataset_queue, bad_files_patterns, logger=logging.log):
         self.__broker = broker
         self.__conn = conn
         self.__queue = queue
@@ -82,10 +81,11 @@ class AMQConsumer(object):
         self.__excluded_usrdns = excluded_usrdns
         self.__dataset_queue = dataset_queue
         self.__bad_files_patterns = bad_files_patterns
+        self.__logger = logger
 
     def on_error(self, headers, message):
         record_counter('daemons.tracer.kronos.error')
-        logging.error('[%s] %s' % (self.__broker, message))
+        self.__logger(logging.ERROR, 'Message receive error: [%s] %s' % (self.__broker, message))
 
     def on_message(self, headers, message):
         record_counter('daemons.tracer.kronos.reports')
@@ -97,7 +97,7 @@ class AMQConsumer(object):
 
         if 'resubmitted' in headers:
             record_counter('daemons.tracer.kronos.received_resubmitted')
-            logging.warning('(kronos_file) got a resubmitted report')
+            self.__logger(logging.WARNING, 'got a resubmitted report')
 
         try:
             if appversion == 'dq2':
@@ -109,7 +109,7 @@ class AMQConsumer(object):
             # message is corrupt, not much to do here
             # send count to graphite, send ack to broker and return
             record_counter('daemons.tracer.kronos.json_error')
-            logging.error('(kronos_file) json error')
+            self.__logger(logging.ERROR, 'json error', exc_info=True)
             self.__conn.ack(msg_id, self.__subscription_id)
             return
 
@@ -117,7 +117,7 @@ class AMQConsumer(object):
         self.__reports.append(report)
 
         try:
-            logging.debug('(kronos_file) message received: %s %s %s' % (str(report['eventType']), report['filename'], report['remoteSite']))
+            self.__logger(logging.DEBUG, 'message received: %s %s %s' % (str(report['eventType']), report['filename'], report['remoteSite']))
         except Exception:
             pass
 
@@ -147,16 +147,16 @@ class AMQConsumer(object):
                             if 'stateReason' in report and report['stateReason'] and isinstance(report['stateReason'], str) and pattern.match(report['stateReason']):
                                 reason = report['stateReason'][:255]
                                 if 'url' not in report or not report['url']:
-                                    logging.error('Missing url in the following trace : ' + str(report))
+                                    self.__logger(logging.ERROR, 'Missing url in the following trace : ' + str(report))
                                 else:
                                     try:
                                         surl = report['url']
                                         declare_bad_file_replicas([surl, ], reason=reason, issuer=InternalAccount('root', vo=report['vo']), status=BadFilesStatus.SUSPICIOUS)
-                                        logging.info('Declare suspicious file %s with reason %s' % (report['url'], reason))
+                                        self.__logger(logging.INFO, 'Declare suspicious file %s with reason %s' % (report['url'], reason))
                                     except Exception as error:
-                                        logging.error('Failed to declare suspicious file' + str(error))
+                                        self.__logger(logging.ERROR, 'Failed to declare suspicious file' + str(error))
                 except Exception as error:
-                    logging.error('Problem with bad trace : %s . Error %s' % (str(report), str(error)))
+                    self.__logger(logging.ERROR, 'Problem with bad trace : %s . Error %s' % (str(report), str(error)))
 
                 # check if scope in report. if not skip this one.
                 if 'scope' not in report:
@@ -197,7 +197,6 @@ class AMQConsumer(object):
 
                 if report['usrdn'] in self.__excluded_usrdns:
                     continue
-
                 # handle touch and non-touch traces differently
                 if report['eventType'] != 'touch':
                     # check if the report has the right state.
@@ -220,7 +219,7 @@ class AMQConsumer(object):
                         try:
                             rse_id = get_rse_id(rse=rse, vo=report['vo'])
                         except RSENotFound:
-                            logging.error(format_exc())
+                            self.__logger(logging.WARNING, "Cannot lookup rse_id for %s. Will skip this report.", rse)
                             record_counter('daemons.tracer.kronos.rse_not_found')
                             continue
                         replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': rse, 'rse_id': rse_id, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix']),
@@ -236,7 +235,7 @@ class AMQConsumer(object):
                         try:
                             rse_id = get_rse_id(rse=rse, vo=report['vo'])
                         except RSENotFound:
-                            logging.error(format_exc())
+                            self.__logger(logging.WARNING, "Cannot lookup rse_id for %s.", rse)
                             record_counter('daemons.tracer.kronos.rse_not_found')
                     if 'datasetScope' in report:
                         self.__dataset_queue.put({'scope': InternalScope(report['datasetScope'], vo=report['vo']),
@@ -254,8 +253,11 @@ class AMQConsumer(object):
                                          'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
 
             except (KeyError, AttributeError):
-                logging.error(format_exc())
+                self.__logger(logging.ERROR, "Cannot handle report.", exc_info=True)
                 record_counter('daemons.tracer.kronos.report_error')
+                continue
+            except Exception:
+                self.__logger(logging.ERROR, "Exception", exc_info=True)
                 continue
 
             for did in list_parent_dids(report['scope'], report['filename']):
@@ -268,12 +270,15 @@ class AMQConsumer(object):
                     try:
                         rse_id = get_rse_id(rse=rse, vo=report['vo'])
                     except RSENotFound:
-                        logging.error(format_exc())
+                        self.__logger(logging.WARNING, "Cannot lookup rse_id for %s. Will skip this report.", rse)
                         record_counter('daemons.tracer.kronos.rse_not_found')
                         continue
                     self.__dataset_queue.put({'scope': did['scope'], 'name': did['name'], 'did_type': did['type'], 'rse_id': rse_id, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
 
-        logging.debug(replicas)
+        if not len(replicas):
+            return
+
+        self.__logger(logging.DEBUG, "trying to update replicas: %s", replicas)
 
         try:
             start_time = time()
@@ -292,26 +297,52 @@ class AMQConsumer(object):
                         resubmit['vo'] = replica['scope'].vo
                     self.__conn.send(body=jdumps(resubmit), destination=self.__queue, headers={'appversion': 'rucio', 'resubmitted': '1'})
                     record_counter('daemons.tracer.kronos.sent_resubmitted')
-                    logging.warning('(kronos_file) hit locked row, resubmitted to queue')
+                    self.__logger(logging.WARNING, 'hit locked row, resubmitted to queue')
             record_timer('daemons.tracer.kronos.update_atime', (time() - start_time) * 1000)
         except Exception:
-            logging.error(format_exc())
+            self.__logger(logging.ERROR, "Cannot update replicas.", exc_info=True)
             record_counter('daemons.tracer.kronos.update_error')
 
-        logging.info('(kronos_file) updated %d replicas' % len(replicas))
+        self.__logger(logging.INFO, 'updated %d replica(s)' % len(replicas))
 
 
-def kronos_file(once=False, thread=0, brokers_resolved=None, dataset_queue=None, sleep_time=60):
+def __get_broker_conns(brokers, port, use_ssl, vhost, reconnect_attempts, ssl_key_file, ssl_cert_file, logger=logging.log):
+    logger(logging.DEBUG, 'resolving broker dns alias: %s' % brokers)
+
+    brokers_resolved = []
+    for broker in brokers:
+        addrinfos = socket.getaddrinfo(broker, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
+        brokers_resolved.extend(ai[4][0] for ai in addrinfos)
+
+    logger(logging.DEBUG, 'broker resolved to %s', brokers_resolved)
+    conns = []
+    for broker in brokers_resolved:
+        if not use_ssl:
+            conns.append(Connection(host_and_ports=[(broker, port)],
+                                    use_ssl=False,
+                                    vhost=vhost,
+                                    reconnect_attempts_max=reconnect_attempts))
+        else:
+            conns.append(Connection(host_and_ports=[(broker, port)],
+                                    use_ssl=True,
+                                    ssl_key_file=ssl_key_file,
+                                    ssl_cert_file=ssl_cert_file,
+                                    vhost=vhost,
+                                    reconnect_attempts_max=reconnect_attempts))
+    return conns
+
+
+def kronos_file(once=False, thread=0, dataset_queue=None, sleep_time=60):
     """
     Main loop to consume tracer reports.
     """
 
-    logging.info('tracer consumer starting')
+    logging.info('kronos_file[%i/?] starting')
 
     executable = 'kronos-file'
     hostname = socket.gethostname()
     pid = getpid()
-    thread = current_thread()
+    hb_thread = current_thread()
 
     chunksize = config_get_int('tracer-kronos', 'chunksize')
     prefetch_size = config_get_int('tracer-kronos', 'prefetch_size')
@@ -326,7 +357,7 @@ def kronos_file(once=False, thread=0, brokers_resolved=None, dataset_queue=None,
     except ConfigNotFound:
         bad_files_patterns = []
     except Exception as error:
-        logging.error('(kronos_file) Failed to get bad_file_patterns' + str(error))
+        logging.log(logging.ERROR, 'kronos_file[%i/?] Failed to get bad_file_patterns %s', thread, str(error))
         bad_files_patterns = []
 
     use_ssl = True
@@ -342,31 +373,30 @@ def kronos_file(once=False, thread=0, brokers_resolved=None, dataset_queue=None,
     excluded_usrdns = set(config_get('tracer-kronos', 'excluded_usrdns').split(','))
     vhost = config_get('tracer-kronos', 'broker_virtual_host', raise_exception=False)
 
-    conns = []
-    for broker in brokers_resolved:
-        if not use_ssl:
-            conns.append(Connection(host_and_ports=[(broker, config_get_int('tracer-kronos', 'port'))],
-                                    use_ssl=False,
-                                    vhost=vhost,
-                                    reconnect_attempts_max=config_get_int('tracer-kronos', 'reconnect_attempts')))
-        else:
-            conns.append(Connection(host_and_ports=[(broker, config_get_int('tracer-kronos', 'port'))],
-                                    use_ssl=True,
-                                    ssl_key_file=config_get('tracer-kronos', 'ssl_key_file'),
-                                    ssl_cert_file=config_get('tracer-kronos', 'ssl_cert_file'),
-                                    vhost=vhost,
-                                    reconnect_attempts_max=config_get_int('tracer-kronos', 'reconnect_attempts')))
-
-    logging.info('(kronos_file) tracer consumer started')
+    brokers_alias = [b.strip() for b in config_get('tracer-kronos', 'brokers').split(',')]
+    port = config_get_int('tracer-kronos', 'port')
+    reconnect_attempts = config_get_int('tracer-kronos', 'reconnect_attempts')
+    ssl_key_file = config_get('tracer-kronos', 'ssl_key_file', raise_exception=False)
+    ssl_cert_file = config_get('tracer-kronos', 'ssl_cert_file', raise_exception=False)
 
     sanity_check(executable=executable, hostname=hostname)
     while not graceful_stop.is_set():
         start_time = time()
-        live(executable=executable, hostname=hostname, pid=pid, thread=thread)
+        heart_beat = live(executable, hostname, pid, hb_thread)
+        prepend_str = 'kronos-file[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+        logger = formatted_logger(logging.log, prepend_str + '%s')
+        conns = __get_broker_conns(brokers=brokers_alias,
+                                   port=port,
+                                   use_ssl=use_ssl,
+                                   vhost=vhost,
+                                   reconnect_attempts=reconnect_attempts,
+                                   ssl_key_file=ssl_key_file,
+                                   ssl_cert_file=ssl_cert_file,
+                                   logger=logger)
         for conn in conns:
             if not conn.is_connected():
-                logging.info('(kronos_file) connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
-                record_counter('daemons.tracer.kronos.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0].split('.')[0])
+                logger(logging.INFO, 'connecting to %s' % str(conn.transport._Transport__host_and_ports[0]))
+                record_counter('daemons.tracer.kronos.reconnect.%s' % conn.transport._Transport__host_and_ports[0][0])
                 conn.set_listener('rucio-tracer-kronos', AMQConsumer(broker=conn.transport._Transport__host_and_ports[0],
                                                                      conn=conn,
                                                                      queue=config_get('tracer-kronos', 'queue'),
@@ -374,7 +404,8 @@ def kronos_file(once=False, thread=0, brokers_resolved=None, dataset_queue=None,
                                                                      subscription_id=subscription_id,
                                                                      excluded_usrdns=excluded_usrdns,
                                                                      dataset_queue=dataset_queue,
-                                                                     bad_files_patterns=bad_files_patterns))
+                                                                     bad_files_patterns=bad_files_patterns,
+                                                                     logger=logger))
                 conn.start()
                 if not use_ssl:
                     conn.connect(username, password)
@@ -383,10 +414,10 @@ def kronos_file(once=False, thread=0, brokers_resolved=None, dataset_queue=None,
                 conn.subscribe(destination=config_get('tracer-kronos', 'queue'), ack='client-individual', id=subscription_id, headers={'activemq.prefetchSize': prefetch_size})
         tottime = time() - start_time
         if tottime < sleep_time:
-            logging.info('(kronos_file) Will sleep for %s seconds' % (sleep_time - tottime))
+            logger(logging.INFO, 'Will sleep for %s seconds' % (sleep_time - tottime))
             sleep(sleep_time - tottime)
 
-    logging.info('(kronos_file) graceful stop requested')
+    logger(logging.INFO, 'graceful stop requested')
 
     for conn in conns:
         try:
@@ -395,37 +426,39 @@ def kronos_file(once=False, thread=0, brokers_resolved=None, dataset_queue=None,
             pass
 
     die(executable=executable, hostname=hostname, pid=pid, thread=thread)
-    logging.info('(kronos_file) graceful stop done')
+    logger(logging.INFO, 'graceful stop done')
 
 
 def kronos_dataset(once=False, thread=0, dataset_queue=None, sleep_time=60):
-    logging.info('(kronos_dataset) starting')
+    logging.info('kronos-dataset[%d/?] starting', thread)
 
     executable = 'kronos-dataset'
     hostname = socket.gethostname()
     pid = getpid()
-    thread = current_thread()
+    hb_thread = current_thread()
 
     dataset_wait = config_get_int('tracer-kronos', 'dataset_wait')
     start = datetime.now()
     sanity_check(executable=executable, hostname=hostname)
     while not graceful_stop.is_set():
         start_time = time()
-        live(executable=executable, hostname=hostname, pid=pid, thread=thread)
+        heart_beat = live(executable, hostname, pid, hb_thread)
+        prepend_str = 'kronos-dataset[%i/%i] ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
+        logger = formatted_logger(logging.log, prepend_str + '%s')
         if (datetime.now() - start).seconds > dataset_wait:
-            __update_datasets(dataset_queue)
+            __update_datasets(dataset_queue, logger=logger)
             start = datetime.now()
         tottime = time() - start_time
         if tottime < sleep_time:
-            logging.info('(kronos_dataset) Will sleep for %s seconds' % (sleep_time - tottime))
+            logger(logging.INFO, 'Will sleep for %s seconds' % (sleep_time - tottime))
             sleep(sleep_time - tottime)
     # once again for the backlog
     die(executable=executable, hostname=hostname, pid=pid, thread=thread)
-    logging.info('(kronos_dataset) cleaning dataset backlog before shutdown...')
+    logger(logging.INFO, 'cleaning dataset backlog before shutdown...')
     __update_datasets(dataset_queue)
 
 
-def __update_datasets(dataset_queue):
+def __update_datasets(dataset_queue, logger=logging.log):
     len_ds = dataset_queue.qsize()
     datasets = {}
     dslocks = {}
@@ -447,7 +480,7 @@ def __update_datasets(dataset_queue):
             dslocks[did][rse] = dataset['accessed_at']
         else:
             dslocks[did][rse] = max(dataset['accessed_at'], dslocks[did][rse])
-    logging.debug('(kronos_dataset) fetched %d datasets from queue (%ds)' % (len_ds, time() - now))
+    logger(logging.INFO, 'fetched %d datasets from queue (%ds)' % (len_ds, time() - now))
 
     total, failed, start = 0, 0, time()
     for did, accessed_at in datasets.items():
@@ -460,7 +493,7 @@ def __update_datasets(dataset_queue):
             dataset_queue.put(update_did)
             failed += 1
         total += 1
-    logging.debug('(kronos_dataset) did update for %d datasets, %d failed (%ds)' % (total, failed, time() - start))
+    logger(logging.INFO, 'update done for %d datasets, %d failed (%ds)' % (total, failed, time() - start))
 
     total, failed, start = 0, 0, time()
     for did, rses in dslocks.items():
@@ -473,7 +506,7 @@ def __update_datasets(dataset_queue):
                 dataset_queue.put(update_dslock)
                 failed += 1
             total += 1
-    logging.debug('(kronos_dataset) did update for %d locks, %d failed (%ds)' % (total, failed, time() - start))
+    logger(logging.INFO, 'update done for %d locks, %d failed (%ds)' % (total, failed, time() - start))
 
     total, failed, start = 0, 0, time()
     for did, rses in dslocks.items():
@@ -486,7 +519,7 @@ def __update_datasets(dataset_queue):
                 dataset_queue.put(update_dslock)
                 failed += 1
             total += 1
-    logging.debug('(kronos_dataset) did update for %d collection replicas, %d failed (%ds)' % (total, failed, time() - start))
+    logger(logging.INFO, 'update done for %d collection replicas, %d failed (%ds)' % (total, failed, time() - start))
 
 
 def stop(signum=None, frame=None):
@@ -505,24 +538,6 @@ def run(once=False, threads=1, sleep_time_datasets=60, sleep_time_files=60):
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 
-    logging.info('resolving brokers')
-
-    brokers_alias = []
-    brokers_resolved = []
-    try:
-        brokers_alias = [b.strip() for b in config_get('tracer-kronos', 'brokers').split(',')]
-    except Exception:
-        raise Exception('Could not load brokers from configuration')
-
-    logging.info('resolving broker dns alias: %s' % brokers_alias)
-
-    brokers_resolved = []
-    for broker in brokers_alias:
-        addrinfos = socket.getaddrinfo(broker, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
-        brokers_resolved.extend(ai[4][0] for ai in addrinfos)
-
-    logging.debug('brokers resolved to %s', brokers_resolved)
-
     dataset_queue = Queue()
     logging.info('starting tracer consumer threads')
 
@@ -530,7 +545,6 @@ def run(once=False, threads=1, sleep_time_datasets=60, sleep_time_files=60):
     for thread in range(0, threads):
         thread_list.append(Thread(target=kronos_file, kwargs={'thread': thread,
                                                               'sleep_time': sleep_time_files,
-                                                              'brokers_resolved': brokers_resolved,
                                                               'dataset_queue': dataset_queue}))
         thread_list.append(Thread(target=kronos_dataset, kwargs={'thread': thread,
                                                                  'sleep_time': sleep_time_datasets,
@@ -540,5 +554,5 @@ def run(once=False, threads=1, sleep_time_datasets=60, sleep_time_files=60):
 
     logging.info('waiting for interrupts')
 
-    while thread_list > 0:
+    while len(thread_list) > 0:
         thread_list = [thread.join(timeout=3) for thread in thread_list if thread and thread.isAlive()]
