@@ -200,7 +200,7 @@ class TestDownloadClient(unittest.TestCase):
                 expected_result=[
                     {
                         'did': '%s:%s' % (scope, item100['did_name']),
-                        'clientState': 'ALREADY_DONE',  # TODO: fix #4323 and change this to 'DONE' if decided to overwrite
+                        'clientState': 'ALREADY_DONE',
                         'dest_file_paths': ['%s/%s' % (tmp_dir, item100['did_name'])],
                     }
                 ],
@@ -215,8 +215,10 @@ class TestDownloadClient(unittest.TestCase):
             # Create a zip archive with two files and upload it
             name000 = base_name + '.000'
             data000 = '000'
+            adler000 = '01230091'
             name001 = base_name + '.001'
             data001 = '001'
+            adler001 = '01240092'
             zip_name = base_name + '.zip'
             zip_path = '%s/%s' % (tmp_dir, zip_name)
             with ZipFile(zip_path, 'w') as myzip:
@@ -227,13 +229,13 @@ class TestDownloadClient(unittest.TestCase):
                 scope,
                 zip_name,
                 [
-                    {'scope': scope, 'name': name000, 'bytes': len(data000), 'type': 'FILE', 'meta': {'guid': str(generate_uuid())}},
-                    {'scope': scope, 'name': name001, 'bytes': len(data001), 'type': 'FILE', 'meta': {'guid': str(generate_uuid())}},
+                    {'scope': scope, 'name': name000, 'bytes': len(data000), 'type': 'FILE', 'adler32': adler000, 'meta': {'guid': str(generate_uuid())}},
+                    {'scope': scope, 'name': name001, 'bytes': len(data001), 'type': 'FILE', 'adler32': adler001, 'meta': {'guid': str(generate_uuid())}},
                 ],
             )
 
             # Download one file from the archive
-            result = self.download_client.download_dids([{'did': '%s:%s' % (scope, name000), 'base_dir': tmp_dir, 'ignore_checksum': True}])
+            result = self.download_client.download_dids([{'did': '%s:%s' % (scope, name000), 'base_dir': tmp_dir}])
             self._check_download_result(
                 actual_result=result,
                 expected_result=[
@@ -247,7 +249,7 @@ class TestDownloadClient(unittest.TestCase):
                 assert file.read() == data000
 
             # Download both files from the archive
-            result = self.download_client.download_dids([{'did': '%s:%s.00*' % (scope, base_name), 'base_dir': tmp_dir, 'ignore_checksum': True}])
+            result = self.download_client.download_dids([{'did': '%s:%s.00*' % (scope, base_name), 'base_dir': tmp_dir}])
             self._check_download_result(
                 actual_result=result,
                 expected_result=[
@@ -263,6 +265,19 @@ class TestDownloadClient(unittest.TestCase):
             )
             with open('%s/%s/%s' % (tmp_dir, scope, name001), 'r') as file:
                 assert file.read() == data001
+
+            pfn = next(filter(lambda r: name001 in r['did'], result))['sources'][0]['pfn']
+            # Download by pfn from the archive
+            result = self.download_client.download_pfns([{'did': '%s:%s' % (scope, name001), 'pfn': pfn, 'rse': rse, 'base_dir': tmp_dir, 'no_subdir': True}])
+            self._check_download_result(
+                actual_result=result,
+                expected_result=[
+                    {
+                        'did': '%s:%s' % (scope, name001),
+                        'clientState': 'DONE',
+                    },
+                ],
+            )
 
     def test_trace_copy_out_and_checksum_validation(self):
         rse = 'MOCK4'
@@ -287,6 +302,13 @@ class TestDownloadClient(unittest.TestCase):
             result = self.download_client.download_dids([{'did': '%s:%s' % (scope, name), 'base_dir': tmp_dir}], traces_copy_out=traces)
             assert len(traces) == 1 and traces[0]['clientState'] == 'ALREADY_DONE'
 
+            # Change the local file and download the same file again. Checksum validation should fail and it must be re-downloaded
+            with open(result[0]['dest_file_paths'][0], 'a') as f:
+                f.write("more data")
+            traces = []
+            result = self.download_client.download_dids([{'did': '%s:%s' % (scope, name), 'base_dir': tmp_dir}], traces_copy_out=traces)
+            assert len(traces) == 1 and traces[0]['clientState'] == 'DONE'
+
             pfn = result[0]['sources'][0]['pfn']
 
         # Switch to a new empty directory
@@ -301,6 +323,17 @@ class TestDownloadClient(unittest.TestCase):
             traces = []
             self.download_client.download_pfns([{'did': '%s:%s' % (scope, name), 'pfn': pfn, 'rse': rse, 'base_dir': tmp_dir}], traces_copy_out=traces)
             assert len(traces) == 1 and traces[0]['clientState'] == 'DONE'
+
+            # Same pfn. Local file already present. Shouldn't be overwritten.
+            traces = []
+            self.download_client.download_pfns([{'did': '%s:%s' % (scope, name), 'pfn': pfn, 'rse': rse, 'base_dir': tmp_dir}], traces_copy_out=traces)
+            assert len(traces) == 1 and traces[0]['clientState'] == 'ALREADY_DONE'
+
+            # Provide wrong checksum for validation, the file will be re-downloaded but checksum validation fails
+            traces = []
+            with pytest.raises(NoFilesDownloaded):
+                self.download_client.download_pfns([{'did': '%s:%s' % (scope, name), 'pfn': pfn, 'rse': rse, 'adler32': 'wrong', 'base_dir': tmp_dir}], traces_copy_out=traces)
+            assert len(traces) == 1 and traces[0]['clientState'] == 'FAIL_VALIDATE'
 
         # Switch to a new empty directory
         with TemporaryDirectory() as tmp_dir:
