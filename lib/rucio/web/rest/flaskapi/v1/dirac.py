@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020 CERN
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,25 +15,20 @@
 #
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - Thomas Beermann <thomas.beermann@cern.ch, 2021
-
-import logging
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 
 from flask import Flask, Blueprint, request
-from flask.views import MethodView
 
 from rucio.api.dirac import add_files
-from rucio.common.exception import (AccessDenied, DataIdentifierAlreadyExists, InvalidType,
-                                    DatabaseException, Duplicate, InvalidPath,
-                                    ResourceTemporaryUnavailable, RucioException,
-                                    RSENotFound, UnsupportedOperation)
+from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, DatabaseException, \
+    Duplicate, InvalidPath, ResourceTemporaryUnavailable, RSENotFound, UnsupportedOperation
 from rucio.common.utils import parse_response
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers
-from rucio.web.rest.utils import generate_http_error_flask
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, generate_http_error_flask, \
+    ErrorHandlingMethodView, json_parameters, param_get
 
 
-class AddFiles(MethodView):
+class AddFiles(ErrorHandlingMethodView):
 
     def post(self):
         """
@@ -54,38 +49,27 @@ class AddFiles(MethodView):
         :status 404: DID not found.
         :status 405: Unsupported Operation.
         :status 409: Duplicate.
-        :status 500: Internal Error.
         :status 503: Temporary error.
         """
-        try:
-            parameters = parse_response(request.get_data(as_text=True))
-        except (ValueError, InvalidType):
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+        parameters = json_parameters(parse_response)
+        lfns = param_get(parameters, 'lfns')
+        ignore_availability = param_get(parameters, 'ignore_availability', default=False)
 
         try:
-            add_files(lfns=parameters['lfns'], issuer=request.environ.get('issuer'), ignore_availability=parameters.get('ignore_availability', False))
+            add_files(lfns=lfns, issuer=request.environ.get('issuer'), ignore_availability=ignore_availability)
         except InvalidPath as error:
-            return generate_http_error_flask(400, 'InvalidPath', error.args[0])
+            return generate_http_error_flask(400, error)
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, error)
         except UnsupportedOperation as error:
-            return generate_http_error_flask(405, 'UnsupportedOperation', error.args[0])
-        except Duplicate as error:
-            return generate_http_error_flask(409, 'Duplicate', error.args[0])
-        except DataIdentifierAlreadyExists as error:
-            return generate_http_error_flask(409, 'DataIdentifierAlreadyExists', error.args[0])
+            return generate_http_error_flask(405, error)
+        except (Duplicate, DataIdentifierAlreadyExists) as error:
+            return generate_http_error_flask(409, error)
         except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except DatabaseException as error:
-            return generate_http_error_flask(503, 'DatabaseException', error.args[0])
-        except ResourceTemporaryUnavailable as error:
-            return generate_http_error_flask(503, 'ResourceTemporaryUnavailable', error.args[0])
-        except RucioException as error:
-            logging.exception("Internal Error")
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
+        except (DatabaseException, ResourceTemporaryUnavailable) as error:
+            return generate_http_error_flask(503, error)
+
         return 'Created', 201
 
 

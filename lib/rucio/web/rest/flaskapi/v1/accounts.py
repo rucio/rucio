@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,27 +25,28 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eric Vaandering <ewv@fnal.gov>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from datetime import datetime
-from json import dumps, loads
-import logging
+from json import dumps
 
 from flask import Flask, Blueprint, Response, request, redirect, jsonify
-from flask.views import MethodView
 
-from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities, list_account_attributes, add_account_attribute, del_account_attribute, update_account, get_usage_history
-from rucio.api.account_limit import get_local_account_limits, get_local_account_limit, get_local_account_usage, get_global_account_limit, get_global_account_limits, get_global_account_usage
+from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities, \
+    list_account_attributes, add_account_attribute, del_account_attribute, update_account, get_usage_history
+from rucio.api.account_limit import get_local_account_limits, get_local_account_limit, get_local_account_usage, \
+    get_global_account_limit, get_global_account_limits, get_global_account_usage
 from rucio.api.identity import add_account_identity, del_account_identity
 from rucio.api.rule import list_replication_rules
 from rucio.api.scope import add_scope, get_scopes
-from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound, RSENotFound, IdentityError, CounterNotFound
+from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RuleNotFound, RSENotFound, \
+    IdentityError, CounterNotFound, ScopeNotFound, InvalidObject
 from rucio.common.utils import APIEncoder, render_json
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, try_stream
-from rucio.web.rest.utils import generate_http_error_flask
+from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, \
+    try_stream, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
 
 
-class Attributes(MethodView):
+class Attributes(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account):
@@ -59,18 +60,13 @@ class Attributes(MethodView):
         :status 401: Invalid auth token.
         :status 404: Account not found.
         :status 406: Not Acceptable
-        :status 500: Database Exception.
         :returns: JSON dict containing informations about the requested account.
         """
         try:
             attribs = list_account_attributes(account, vo=request.environ.get('vo'))
         except AccountNotFound as error:
-            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
+
         return jsonify(attribs)
 
     def post(self, account, key):
@@ -86,34 +82,18 @@ class Attributes(MethodView):
         :status 401: Invalid auth token.
         :status 409: Attribute already exists.
         :status 404: Account not found.
-        :status 500: Database Exception.
         """
-        try:
-            parameter = loads(request.get_data(as_text=True))
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'cannot decode json parameter dictionary')
-
-        try:
-            key = parameter['key']
-            value = parameter['value']
-        except KeyError as error:
-            if error.args[0] == 'key' or error.args[0] == 'value':
-                return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(error))
-            raise
-        except TypeError:
-            return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
-
+        parameters = json_parameters()
+        key = param_get(parameters, 'key')
+        value = param_get(parameters, 'value')
         try:
             add_account_attribute(key=key, value=value, account=account, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, error)
         except Duplicate as error:
-            return generate_http_error_flask(409, 'Duplicate', error.args[0])
+            return generate_http_error_flask(409, error)
         except AccountNotFound as error:
-            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
         return 'Created', 201
 
@@ -127,22 +107,18 @@ class Attributes(MethodView):
         :status 200: Successfully deleted.
         :status 401: Invalid auth token.
         :status 404: Account not found.
-        :status 500: Database Exception.
         """
         try:
             del_account_attribute(account=account, key=key, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, error)
         except AccountNotFound as error:
-            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
         return '', 200
 
 
-class Scopes(MethodView):
+class Scopes(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account):
         """ list all scopes for an account.
@@ -156,21 +132,15 @@ class Scopes(MethodView):
         :status 404: Account not found.
         :status 404: Scope not found.
         :statsu 406: Not Acceptable
-        :status 500: Database exception.
         :returns: A list containing all scope names for an account.
         """
         try:
             scopes = get_scopes(account, vo=request.environ.get('vo'))
         except AccountNotFound as error:
-            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
         if not len(scopes):
-            return generate_http_error_flask(404, 'ScopeNotFound', 'no scopes found for account ID \'%s\'' % account)
+            return generate_http_error_flask(404, ScopeNotFound.__name__, f"no scopes found for account ID '{account}'")
 
         return jsonify(scopes)
 
@@ -185,26 +155,22 @@ class Scopes(MethodView):
         :status 401: Invalid auth token.
         :status 404: Account not found.
         :status 409: Scope already exists.
-        :status 500: Database exception.
         """
         try:
             add_scope(scope, account, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+        except InvalidObject as error:
+            return generate_http_error_flask(400, error)
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, error)
         except Duplicate as error:
-            return generate_http_error_flask(409, 'Duplicate', error.args[0])
+            return generate_http_error_flask(409, error)
         except AccountNotFound as error:
-            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
         return 'Created', 201
 
 
-class AccountParameter(MethodView):
+class AccountParameter(ErrorHandlingMethodView):
     """ create, update, get and disable rucio accounts. """
 
     @check_accept_header_wrapper_flask(['application/json'])
@@ -218,28 +184,21 @@ class AccountParameter(MethodView):
         :status 401: Invalid auth token.
         :status 404: Account not found.
         :status 406: Not Acceptable.
-        :status 500: Database exception.
         :returns: JSON dict containing informations about the requested user.
         """
         if account == 'whoami':
             # Redirect to the account uri
             frontend = request.headers.get('X-Requested-Host', default=None)
             if frontend:
-                return redirect(frontend + "/accounts/%s" % (request.environ.get('issuer')), code=302)
+                return redirect(f'{frontend}/accounts/{request.environ.get("issuer")}', code=302)
             return redirect(request.environ.get('issuer'), code=303)
 
-        acc = None
         try:
             acc = get_account_info(account, vo=request.environ.get('vo'))
         except AccountNotFound as error:
-            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
+            return generate_http_error_flask(404, error)
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(401, error)
 
         accdict = acc.to_dict()
 
@@ -261,24 +220,17 @@ class AccountParameter(MethodView):
         :status 400: Unknown status.
         :status 401: Invalid auth token.
         :status 404: Account not found.
-        :status 500: Database exception.
         """
-        try:
-            parameter = loads(request.get_data(as_text=True))
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'cannot decode json parameter dictionary')
-        for key, value in parameter.items():
+        parameters = json_parameters()
+        for key, value in parameters.items():
             try:
                 update_account(account, key=key, value=value, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
             except ValueError:
-                return generate_http_error_flask(400, 'ValueError', 'Unknown value %s' % value)
+                return generate_http_error_flask(400, ValueError.__name__, f'Unknown value {value}')
             except AccessDenied as error:
-                return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+                return generate_http_error_flask(401, error)
             except AccountNotFound as error:
-                return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
-            except Exception as error:
-                logging.exception("Internal Error")
-                return str(error), 500
+                return generate_http_error_flask(404, error)
 
         return '', 200
 
@@ -293,42 +245,18 @@ class AccountParameter(MethodView):
         :status 201: Successfully created.
         :status 401: Invalid auth token.
         :status 409: Account already exists.
-        :status 500: Database exception.
         """
+        parameters = json_parameters()
+        type_param = param_get(parameters, 'type')
+        email = param_get(parameters, 'email')
         try:
-            parameter = loads(request.get_data(as_text=True))
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'cannot decode json parameter dictionary')
-
-        type, email = None, None
-        try:
-            type = parameter['type']
-        except KeyError as error:
-            if error.args[0] == 'type':
-                return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(error))
-            raise
-        except TypeError:
-            return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
-        try:
-            email = parameter['email']
-        except KeyError as error:
-            if error.args[0] == 'email':
-                return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(error))
-            raise
-        except TypeError:
-            return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
-
-        try:
-            add_account(account, type, email, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            add_account(account, type_param, email, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except Duplicate as error:
-            return generate_http_error_flask(409, 'Duplicate', error.args[0])
+            return generate_http_error_flask(409, error)
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(401, error)
+        except InvalidObject as error:
+            return generate_http_error_flask(400, error)
 
         return 'Created', 201
 
@@ -341,22 +269,18 @@ class AccountParameter(MethodView):
         :status 200: OK.
         :status 401: Invalid auth token.
         :status 404: Account not found.
-        :status 500: Database exception.
         """
         try:
             del_account(account, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, error)
         except AccountNotFound as error:
-            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
         return '', 200
 
 
-class Account(MethodView):
+class Account(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
         """ list all rucio accounts.
@@ -367,9 +291,9 @@ class Account(MethodView):
         :status 200: OK.
         :status 401: Invalid auth token.
         :status 406: Not Acceptable
-        :status 500: Database exception
         :returns: A list containing all account names as dict.
         """
+
         def generate(_filter, vo):
             for account in list_accounts(filter=_filter, vo=vo):
                 yield render_json(**account) + "\n"
@@ -377,7 +301,7 @@ class Account(MethodView):
         return try_stream(generate(_filter=dict(request.args.items(multi=False)), vo=request.environ.get('vo')))
 
 
-class LocalAccountLimits(MethodView):
+class LocalAccountLimits(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account, rse=None):
         """ get the current local limits for an account on a specific RSE
@@ -391,22 +315,20 @@ class LocalAccountLimits(MethodView):
         :status 401: Invalid auth token.
         :status 404: RSE not found.
         :status 406: Not Acceptable.
-        :status 500: Database exception
         :returns: JSON dict containing informations about the requested user.
         """
-
         try:
             if rse:
                 limits = get_local_account_limit(account=account, rse=rse, vo=request.environ.get('vo'))
             else:
                 limits = get_local_account_limits(account=account, vo=request.environ.get('vo'))
         except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
+            return generate_http_error_flask(404, error)
 
         return Response(render_json(**limits), content_type="application/json")
 
 
-class GlobalAccountLimits(MethodView):
+class GlobalAccountLimits(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account, rse_expression=None):
         """ get the current global limits for an account on a specific RSE expression
@@ -420,22 +342,20 @@ class GlobalAccountLimits(MethodView):
         :status 401: Invalid auth token.
         :status 404: RSE not found.
         :status 406: Not Acceptable.
-        :status 500: Database exception
         :returns: JSON dict containing informations about the requested user.
         """
-
         try:
             if rse_expression:
                 limits = get_global_account_limit(account=account, rse_expression=rse_expression, vo=request.environ.get('vo'))
             else:
                 limits = get_global_account_limits(account=account, vo=request.environ.get('vo'))
         except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
+            return generate_http_error_flask(404, error)
 
         return Response(render_json(**limits), content_type="application/json")
 
 
-class Identities(MethodView):
+class Identities(ErrorHandlingMethodView):
     def post(self, account):
         """ Grant an identity access to an account.
 
@@ -450,40 +370,30 @@ class Identities(MethodView):
         :status 401: Invalid auth token.
         :status 409: Already exists.
         :status 404: Account not found.
-        :status 500: Database exception.
         """
+        parameters = json_parameters()
+        identity = param_get(parameters, 'identity')
+        authtype = param_get(parameters, 'authtype')
+        email = param_get(parameters, 'email')
         try:
-            parameter = loads(request.get_data(as_text=True))
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'cannot decode json parameter dictionary')
-
-        try:
-            identity = parameter['identity']
-            authtype = parameter['authtype']
-            email = parameter['email']
-            password = parameter.get('password', None)
-            default = parameter.get('default', False)
-        except KeyError as error:
-            if error.args[0] == 'authtype' or error.args[0] == 'identity' or error.args[0] == 'email':
-                return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(error))
-            raise
-        except TypeError:
-            return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
-
-        try:
-            add_account_identity(identity_key=identity, id_type=authtype, account=account, email=email,
-                                 password=password, issuer=request.environ.get('issuer'), default=default, vo=request.environ.get('vo'))
+            add_account_identity(
+                identity_key=identity,
+                id_type=authtype,
+                account=account,
+                email=email,
+                password=param_get(parameters, 'password', default=None),
+                issuer=request.environ.get('issuer'),
+                default=param_get(parameters, 'default', default=False),
+                vo=request.environ.get('vo'),
+            )
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
+            return generate_http_error_flask(401, error)
         except Duplicate as error:
-            return generate_http_error_flask(409, 'Duplicate', error.args[0])
+            return generate_http_error_flask(409, error)
         except AccountNotFound as error:
-            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
+            return generate_http_error_flask(404, error)
         except IdentityError as error:
-            return generate_http_error_flask(400, 'IdentityError', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(400, error)
 
         return 'Created', 201
 
@@ -500,10 +410,8 @@ class Identities(MethodView):
         :status 401: Invalid auth token.
         :status 404: Account not found.
         :statsu 406: Not Acceptable.
-        :status 500: Database exception
         :returns: Line separated dicts of identities.
         """
-
         try:
             def generate(vo):
                 for identity in list_identities(account, vo=vo):
@@ -511,10 +419,7 @@ class Identities(MethodView):
 
             return try_stream(generate(request.environ.get('vo')))
         except AccountNotFound as error:
-            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
     def delete(self, account):
 
@@ -529,37 +434,21 @@ class Identities(MethodView):
         :status 401: Invalid auth token.
         :status 404: Account not found.
         :status 404: Identity not found.
-        :status 500: Database exception.
         """
-        try:
-            parameter = loads(request.get_data(as_text=True))
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'cannot decode json parameter dictionary')
-        try:
-            identity = parameter['identity']
-            authtype = parameter['authtype']
-        except KeyError as error:
-            if error.args[0] == 'authtype' or error.args[0] == 'identity':
-                return generate_http_error_flask(400, 'KeyError', '%s not defined' % str(error))
-            raise
-        except TypeError:
-            return generate_http_error_flask(400, 'TypeError', 'body must be a json dictionary')
+        parameters = json_parameters()
+        identity = param_get(parameters, 'identity')
+        authtype = param_get(parameters, 'authtype')
         try:
             del_account_identity(identity, authtype, account, request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except AccountNotFound as error:
-            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
-        except IdentityError as error:
-            return generate_http_error_flask(404, 'IdentityError', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(401, error)
+        except (AccountNotFound, IdentityError) as error:
+            return generate_http_error_flask(404, error)
 
         return '', 200
 
 
-class Rules(MethodView):
+class Rules(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, account):
@@ -574,13 +463,10 @@ class Rules(MethodView):
         :status 401: Invalid auth token.
         :status 404: Rule not found.
         :status 406: Not Acceptable.
-        :status 500: Database exception.
         :returns: Line separated list of rules.
         """
-
         filters = {'account': account}
         filters.update(request.args)
-
         try:
             def generate(vo):
                 for rule in list_replication_rules(filters=filters, vo=vo):
@@ -588,13 +474,10 @@ class Rules(MethodView):
 
             return try_stream(generate(vo=request.environ.get('vo')))
         except RuleNotFound as error:
-            return generate_http_error_flask(404, 'RuleNotFound', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
 
-class UsageHistory(MethodView):
+class UsageHistory(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, account, rse):
@@ -610,21 +493,15 @@ class UsageHistory(MethodView):
         :status 401: Invalid auth token.
         :status 404: Account not found.
         :status 406: Not Acceptable.
-        :status 500: Database exception.
         :returns: Line separated list of account usages.
         Return the account usage of the account.
         """
         try:
             usage = get_usage_history(account=account, rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
-        except AccountNotFound as error:
-            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
-        except CounterNotFound as error:
-            return generate_http_error_flask(404, 'CounterNotFound', error.args[0])
+        except (AccountNotFound, CounterNotFound) as error:
+            return generate_http_error_flask(404, error)
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(401, error)
 
         for entry in usage:
             for key, value in entry.items():
@@ -634,7 +511,7 @@ class UsageHistory(MethodView):
         return jsonify(usage)
 
 
-class LocalUsage(MethodView):
+class LocalUsage(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, account, rse=None):
@@ -650,28 +527,21 @@ class LocalUsage(MethodView):
         :status 404: Account not found.
         :status 404: RSE not found.
         :status 406: Not Acceptable.
-        :status 500: Database exception.
         :returns: Line separated list of account usages.
         """
-
         try:
             def generate(issuer, vo):
                 for usage in get_local_account_usage(account=account, rse=rse, issuer=issuer, vo=vo):
                     yield dumps(usage, cls=APIEncoder) + '\n'
 
             return try_stream(generate(issuer=request.environ.get('issuer'), vo=request.environ.get('vo')))
-        except AccountNotFound as error:
-            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
+        except (AccountNotFound, RSENotFound) as error:
+            return generate_http_error_flask(404, error)
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(401, error)
 
 
-class GlobalUsage(MethodView):
+class GlobalUsage(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, account, rse_expression=None):
@@ -687,25 +557,18 @@ class GlobalUsage(MethodView):
         :status 404: Account not found.
         :status 404: RSE not found.
         :status 406: Not Acceptable.
-        :status 500: Database exception.
         :returns: Line separated list of account usages.
         """
-
         try:
             def generate(vo, issuer):
                 for usage in get_global_account_usage(account=account, rse_expression=rse_expression, issuer=issuer, vo=vo):
                     yield dumps(usage, cls=APIEncoder) + '\n'
 
             return try_stream(generate(vo=request.environ.get('vo'), issuer=request.environ.get('issuer')))
-        except AccountNotFound as error:
-            return generate_http_error_flask(404, 'AccountNotFound', error.args[0])
-        except RSENotFound as error:
-            return generate_http_error_flask(404, 'RSENotFound', error.args[0])
+        except (AccountNotFound, RSENotFound) as error:
+            return generate_http_error_flask(404, error)
         except AccessDenied as error:
-            return generate_http_error_flask(401, 'AccessDenied', error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(401, error)
 
 
 def blueprint(no_doc=True):

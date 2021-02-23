@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2014-2020 CERN
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@
 #
 # Authors:
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
-
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 from flask import Blueprint, request, render_template, make_response
 
 from rucio.api.authentication import get_auth_token_x509
 from rucio.common.config import config_get, config_get_bool
-from rucio.web.rest.utils import generate_http_error_flask
+from rucio.web.rest.flaskapi.v1.common import generate_http_error_flask
 from rucio.web.ui.flask.common.utils import get_token, authenticate, userpass_auth, x509token_auth, saml_auth, oidc_auth, finalize_auth, AUTH_ISSUERS, SAML_SUPPORT
 
 MULTI_VO = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)

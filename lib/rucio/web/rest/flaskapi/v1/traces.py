@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,25 +18,35 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2014-2021
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 
 import calendar
 import datetime
-import json
-import logging
 import uuid
+from typing import TYPE_CHECKING
 
 from flask import Flask, Blueprint, request
-from flask.views import MethodView
 from werkzeug.datastructures import Headers
 
 from rucio.core.trace import trace
-from rucio.web.rest.flaskapi.v1.common import response_headers
-from rucio.web.rest.utils import generate_http_error_flask
+from rucio.web.rest.flaskapi.v1.common import response_headers, ErrorHandlingMethodView, json_parameters
+
+if TYPE_CHECKING:
+    from typing import Optional
+    from rucio.web.rest.flaskapi.v1.common import HeadersType
 
 
-class Trace(MethodView):
+class Trace(ErrorHandlingMethodView):
+
+    def get_headers(self) -> "Optional[HeadersType]":
+        headers = Headers()
+        headers.set('Content-Type', 'application/octet-stream')
+        headers.set('Access-Control-Allow-Origin', request.environ.get('HTTP_ORIGIN'))
+        headers.set('Access-Control-Allow-Headers', request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        headers.set('Access-Control-Allow-Methods', '*')
+        headers.set('Access-Control-Allow-Credentials', 'true')
+        return headers
 
     def post(self):
         """
@@ -47,35 +57,21 @@ class Trace(MethodView):
         :<json dict payload: Dictionary contain the trace information.
         :status 201: Created.
         :status 400: Cannot decode json data.
-        :status 500: Internal Error.
         """
-        headers = Headers()
-        headers.set('Content-Type', 'application/octet-stream')
-        headers.set('Access-Control-Allow-Origin', request.environ.get('HTTP_ORIGIN'))
-        headers.set('Access-Control-Allow-Headers', request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
-        headers.set('Access-Control-Allow-Methods', '*')
-        headers.set('Access-Control-Allow-Credentials', 'true')
+        headers = self.get_headers()
+        payload = json_parameters()
 
-        try:
-            payload = json.loads(request.get_data(as_text=True))
+        # generate entry timestamp
+        payload['traceTimeentry'] = datetime.datetime.utcnow()
+        payload['traceTimeentryUnix'] = calendar.timegm(payload['traceTimeentry'].timetuple()) + payload['traceTimeentry'].microsecond / 1e6
 
-            # generate entry timestamp
-            payload['traceTimeentry'] = datetime.datetime.utcnow()
-            payload['traceTimeentryUnix'] = calendar.timegm(payload['traceTimeentry'].timetuple()) + payload['traceTimeentry'].microsecond / 1e6
+        # guess client IP
+        payload['traceIp'] = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
-            # guess client IP
-            payload['traceIp'] = request.headers.get('X-Forwarded-For', default=request.remote_addr)
+        # generate unique ID
+        payload['traceId'] = str(uuid.uuid4()).replace('-', '').lower()
 
-            # generate unique ID
-            payload['traceId'] = str(uuid.uuid4()).replace('-', '').lower()
-
-            trace(payload=payload)
-
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list', headers=headers)
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500, headers
+        trace(payload=payload)
 
         return 'Created', 201, headers
 

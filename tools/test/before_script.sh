@@ -34,7 +34,7 @@ echo
 
 RESTART_HTTPD=0
 if [ "$REST_BACKEND" == "flask" ]; then
-    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO sed -i 's/Include \/opt\/rucio\/etc\/web\/aliases.conf/WSGIScriptAlias \/  \/opt\/rucio\/lib\/rucio\/web\/rest\/flaskapi\/v1\/main\.py/' /etc/httpd/conf.d/rucio.conf
+    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO sed -i 's;Include /opt/rucio/etc/web/aliases\.conf;WSGIScriptAlias /  /opt/rucio/lib/rucio/web/rest/flaskapi/v1/main\.py;' /etc/httpd/conf.d/rucio.conf
     RESTART_HTTPD=1
 fi
 

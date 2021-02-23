@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,21 +19,17 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-
-from json import loads
-import logging
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from flask import Flask, Blueprint, request, jsonify
-from flask.views import MethodView
 
 from rucio.api.meta import add_key, add_value, list_keys, list_values
-from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedValueType, RucioException, UnsupportedKeyType
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, request_auth_env, response_headers
-from rucio.web.rest.utils import generate_http_error_flask
+from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedValueType, UnsupportedKeyType
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, request_auth_env, response_headers, \
+    generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
 
 
-class Meta(MethodView):
+class Meta(ErrorHandlingMethodView):
     """ REST APIs for data identifier attribute keys. """
 
     @check_accept_header_wrapper_flask(['application/json'])
@@ -47,7 +43,6 @@ class Meta(MethodView):
         :status 200: OK.
         :status 401: Invalid Auth Token.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: List of all DID keys.
         """
         return jsonify(list_keys())
@@ -64,38 +59,27 @@ class Meta(MethodView):
         :status 400: Unsupported Value Type.
         :status 401: Invalid Auth Token.
         :status 409: Key already exists.
-        :status 500: Internal Error.
         """
-        key_type, value_type, value_regexp = None, None, None
-        try:
-            params = loads(request.get_data(as_text=True))
-            if params and 'value_type' in params:
-                value_type = params['value_type']
-            if params and 'value_regexp' in params:
-                value_regexp = params['value_regexp']
-            if params and 'key_type' in params:
-                key_type = params['key_type']
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+        parameters = json_parameters()
 
         try:
-            add_key(key=key, key_type=key_type, value_type=value_type, value_regexp=value_regexp, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            add_key(
+                key=key,
+                key_type=param_get(parameters, 'key_type', default=None),
+                value_type=param_get(parameters, 'value_type', default=None),
+                value_regexp=param_get(parameters, 'value_regexp', default=None),
+                issuer=request.environ.get('issuer'),
+                vo=request.environ.get('vo'),
+            )
         except Duplicate as error:
-            return generate_http_error_flask(409, 'Duplicate', error.args[0])
-        except UnsupportedValueType as error:
-            return generate_http_error_flask(400, 'UnsupportedValueType', error.args[0])
-        except UnsupportedKeyType as error:
-            return generate_http_error_flask(400, 'UnsupportedKeyType', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(409, error)
+        except (UnsupportedValueType, UnsupportedKeyType) as error:
+            return generate_http_error_flask(400, error)
 
         return 'Created', 201
 
 
-class Values(MethodView):
+class Values(ErrorHandlingMethodView):
     """ REST APIs for data identifier attribute values. """
 
     @check_accept_header_wrapper_flask(['application/json'])
@@ -109,7 +93,6 @@ class Values(MethodView):
         :status 200: OK.
         :status 401: Invalid Auth Token.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: List of all key values.
         """
         return jsonify(list_values(key=key))
@@ -127,27 +110,18 @@ class Values(MethodView):
         :status 401: Invalid Auth Token.
         :status 404: Key Not Found.
         :status 409: Value already exists.
-        :status 500: Internal Error.
         """
-        try:
-            params = loads(request.get_data(as_text=True))
-            value = params['value']
-        except ValueError:
-            return generate_http_error_flask(400, 'ValueError', 'Cannot decode json parameter list')
+        parameters = json_parameters()
+        value = param_get(parameters, 'value')
 
         try:
             add_value(key=key, value=value, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except Duplicate as error:
-            return generate_http_error_flask(409, 'Duplicate', error.args[0])
+            return generate_http_error_flask(409, error)
         except InvalidValueForKey as error:
-            return generate_http_error_flask(400, 'InvalidValueForKey', error.args[0])
+            return generate_http_error_flask(400, error)
         except KeyNotFound as error:
-            return generate_http_error_flask(404, 'KeyNotFound', error.args[0])
-        except RucioException as error:
-            return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
-        except Exception as error:
-            logging.exception("Internal Error")
-            return str(error), 500
+            return generate_http_error_flask(404, error)
 
         return 'Created', 201
 

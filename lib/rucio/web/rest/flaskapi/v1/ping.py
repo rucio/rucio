@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,19 +18,35 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2012-2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014-2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+
+from typing import TYPE_CHECKING
 
 from flask import Flask, Blueprint, jsonify, request
-from flask.views import MethodView
 from werkzeug.datastructures import Headers
 
 from rucio import version
-from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask
+from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
+    ErrorHandlingMethodView
+
+if TYPE_CHECKING:
+    from typing import Optional
+    from rucio.web.rest.flaskapi.v1.common import HeadersType
 
 
-class Ping(MethodView):
+class Ping(ErrorHandlingMethodView):
+
+    def get_headers(self) -> "Optional[HeadersType]":
+        headers = Headers()
+        headers.set('Access-Control-Allow-Origin', request.environ.get('HTTP_ORIGIN'))
+        headers.set('Access-Control-Allow-Headers', request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
+        headers.set('Access-Control-Allow-Methods', '*')
+        headers.set('Access-Control-Allow-Credentials', 'true')
+
+        headers.set('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+        headers.add('Cache-Control', 'post-check=0, pre-check=0')
+        headers.set('Pragma', 'no-cache')
+        return headers
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
@@ -59,19 +75,9 @@ class Ping(MethodView):
 
         :status 200: OK.
         :status 406: Not Acceptable.
-        :status 500: Internal Error.
         :returns: JSON dictionary with the version.
         """
-        headers = Headers()
-        headers.set('Access-Control-Allow-Origin', request.environ.get('HTTP_ORIGIN'))
-        headers.set('Access-Control-Allow-Headers', request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))
-        headers.set('Access-Control-Allow-Methods', '*')
-        headers.set('Access-Control-Allow-Credentials', 'true')
-
-        headers.set('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        headers.add('Cache-Control', 'post-check=0, pre-check=0')
-        headers.set('Pragma', 'no-cache')
-
+        headers = self.get_headers()
         response = jsonify(version=version.version_string())
         response.headers.extend(headers)
         return response
