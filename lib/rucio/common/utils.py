@@ -39,7 +39,14 @@ try:
     import importlib
     importlib.util.find_spec('')
 except AttributeError:
+    pass
+
+# Fallback until Python <3.9
+# Must be removed with Python 3.9
+try:
     import imp
+except AttributeError:
+    pass
 
 import base64
 import copy
