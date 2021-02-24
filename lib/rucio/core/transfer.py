@@ -510,7 +510,8 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
 
     # Load the graph from the distances table
     # distance_graph = __load_distance_graph(session=session)
-    distance_graph = __load_distance_edges_node(rse_id=source_rse_id, session=session)
+    distance_graph = {}
+    distance_graph[source_rse_id] = __load_outgoing_distances_node(rse_id=source_rse_id, session=session)
 
     # 1. Check if there is a direct connection between source and dest:
     if distance_graph.get(source_rse_id, {dest_rse_id: None}).get(dest_rse_id) is not None:
@@ -544,8 +545,7 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
     HOP_PENALTY = core_config_get('transfers', 'hop_penalty', default=10, session=session)  # Penalty to be applied to each further hop
 
     # Check if the destination RSE is an island RSE:
-    if not __load_distance_edges_node(rse_id=dest_rse_id, session=session):
-        # The destination RSE is an island
+    if not __load_inbound_distances_node(rse_id=dest_rse_id, session=session):
         raise NoDistance()
 
     visited_nodes = {source_rse_id: {'distance': 0,
@@ -563,7 +563,7 @@ def get_hops(source_rse_id, dest_rse_id, include_multihop=False, multihop_rses=N
             current_path = visited_nodes[current_node]['path']
 
             if current_node not in distance_graph:
-                distance_graph[current_node] = __load_distance_edges_node(rse_id=current_node, session=session)[current_node]
+                distance_graph[current_node] = __load_outgoing_distances_node(rse_id=current_node, session=session)
 
             for out_v in distance_graph[current_node]:
                 # Check if the distance would be smaller
@@ -1472,7 +1472,31 @@ def __add_compatible_schemes(schemes, allowed_schemes):
 
 
 @transactional_session
-def __load_distance_edges_node(rse_id, session=None):
+def __load_inbound_distances_node(rse_id, session=None):
+    """
+    Loads the inbound edges of the distance graph for one node.
+    :param rse_id:    RSE id to load the edges for.
+    :param session:   The DB Session to use.
+    :returns:         Dictionary based graph object.
+    """
+
+    result = REGION_SHORT.get('inbound_edges_%s' % str(rse_id))
+    if isinstance(result, NoValue):
+        inbound_edges = {}
+        for distance in session.query(models.Distance).join(models.RSE, models.RSE.id == models.Distance.src_rse_id) \
+                .filter(models.Distance.dest_rse_id == rse_id) \
+                .filter(models.RSE.deleted == false()).all():
+            if distance.ranking is None:
+                continue
+            ranking = distance.ranking if distance.ranking >= 0 else 0
+            inbound_edges[distance.src_rse_id] = ranking
+        REGION_SHORT.set('inbound_edges_%s' % str(rse_id), inbound_edges)
+        result = inbound_edges
+    return result
+
+
+@transactional_session
+def __load_outgoing_distances_node(rse_id, session=None):
     """
     Loads the outgoing edges of the distance graph for one node.
     :param rse_id:    RSE id to load the edges for.
@@ -1480,21 +1504,18 @@ def __load_distance_edges_node(rse_id, session=None):
     :returns:         Dictionary based graph object.
     """
 
-    result = REGION_SHORT.get('distance_graph_%s' % str(rse_id))
+    result = REGION_SHORT.get('outgoing_edges_%s' % str(rse_id))
     if isinstance(result, NoValue):
-        distance_graph = {}
+        outgoing_edges = {}
         for distance in session.query(models.Distance).join(models.RSE, models.RSE.id == models.Distance.dest_rse_id)\
                                .filter(models.Distance.src_rse_id == rse_id)\
                                .filter(models.RSE.deleted == false()).all():
             if distance.ranking is None:
                 continue
             ranking = distance.ranking if distance.ranking >= 0 else 0
-            if distance.src_rse_id in distance_graph:
-                distance_graph[distance.src_rse_id][distance.dest_rse_id] = ranking
-            else:
-                distance_graph[distance.src_rse_id] = {distance.dest_rse_id: ranking}
-        REGION_SHORT.set('distance_graph_%s' % str(rse_id), distance_graph)
-        result = distance_graph
+            outgoing_edges[distance.dest_rse_id] = ranking
+        REGION_SHORT.set('outgoing_edges_%s' % str(rse_id), outgoing_edges)
+        result = outgoing_edges
     return result
 
 
