@@ -16,7 +16,9 @@ paramiko==2.7.2                                   # SSH2 protocol library
 Flask==1.1.2                                      # Python web framework
 oic==1.2.1                                        # for authentication via OpenID Connect protocol
 prometheus_client==0.9.0                          # Python client for the Prometheus monitoring system
+
 # All dependencies needed to run rucio client should be defined here
+
 setuptools>=36.8.0,<45.0.0; python_version < '3.0'          # Python packaging utilities (36.8.0 last py2.6 compatible version, 45.0 only Py3 compatible)
 setuptools>=45.0.0,<=50.3.2; python_version >= '3.0'        # Python packaging utilities
 argcomplete>=1.9.0,<=1.12.2                                 # Bash tab completion for argparse
@@ -34,6 +36,7 @@ six>=1.12.0<1.16.0                                          # Python 2 and 3 com
 boto3>=1.9.130,<1.17.0                                      # S3 boto protocol (new version)
 pysftp>=0.2.9,<0.3                                          # Used by sftp protocol
 jsonschema>=3.2.0                                           # For JSON schema validation (Policy modules)
+
 # All dependencies needed to develop/test rucio should be defined here
 
 pytest==4.6.11; python_version < '3.6'            # Used for testing

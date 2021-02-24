@@ -12,7 +12,7 @@ Python Dependencies
 
 Rucio clients need the following python modules:
 
-.. literalinclude:: ../../tools/pip-requires-client
+.. literalinclude:: ../../etc/pip-requires-client
    :lines: 2-
 
 All Dependencies are automatically installed with pip.

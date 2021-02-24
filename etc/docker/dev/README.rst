@@ -81,6 +81,7 @@ This creates a few random files and uploads them, creates a few datasets and con
 
     rucio rule-info <rule-id>
 
+
 On the second display of the rule, its state has cleared to OK.
 
 Using the environment including monitoring

@@ -1,9 +1,10 @@
 DID Metadata
-===========
+============
 
 Rucio supports adding Metadata on the dids.
 
 Example::
+
     # Create a dataset to use on the Example
     $ rucio add-dataset mock:testing_metadata
 
@@ -38,7 +39,7 @@ Another option available is the JSON metadata plugin which stores the metadata i
 When you are trying to add or fetch a VALUE for a given KEY, Rucio which asks in order each configured metadata plugin if it supports this KEY.
 
 How to develop a custom metadata solution
--------------------
+-----------------------------------------
 
 The module you develop needs to extend the [DidMetaPlugin](/) Abstract class. The methods needed are ::
 
@@ -71,7 +72,7 @@ The module you develop needs to extend the [DidMetaPlugin](/) Abstract class. Th
     """
 
 How to configure which metadata plugin to use
--------------------
+---------------------------------------------
 Configuration options for Metadata are::
 
     [metadata]
