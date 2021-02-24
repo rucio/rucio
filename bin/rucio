@@ -97,7 +97,7 @@ setup_gfal2_logger(gfal2_logger)
 
 
 def signal_handler(sig, frame):
-    logger(logging.WARNING, 'You pressed Ctrl+C! Exiting gracefully')
+    logger.warning('You pressed Ctrl+C! Exiting gracefully')
     child_processes = subprocess.Popen('ps -o pid --ppid %s --noheaders' % os.getpid(), shell=True, stdout=subprocess.PIPE)
     child_processes = child_processes.stdout.read()
     for pid in child_processes.split("\n")[:-1]:
@@ -128,47 +128,47 @@ def exception_handler(function):
         try:
             return function(*args, **kwargs)
         except InvalidObject as error:
-            logger(logging.ERROR, error)
+            logger.error(error)
             return error.error_code
         except DataIdentifierNotFound as error:
-            logger(logging.ERROR, error)
-            logger(logging.DEBUG, 'This means that the Data IDentifier you provided is not known by Rucio.')
+            logger.error(error)
+            logger.debug('This means that the Data IDentifier you provided is not known by Rucio.')
             return error.error_code
         except AccessDenied as error:
-            logger(logging.ERROR, error)
-            logger(logging.DEBUG, 'This error is a permission issue. You cannot run this command with your account.')
+            logger.error(error)
+            logger.debug('This error is a permission issue. You cannot run this command with your account.')
             return error.error_code
         except DataIdentifierAlreadyExists as error:
-            logger(logging.ERROR, error)
-            logger(logging.DEBUG, 'This means that the Data IDentifier you try to add is already registered in Rucio.')
+            logger.error(error)
+            logger.debug('This means that the Data IDentifier you try to add is already registered in Rucio.')
             return error.error_code
         except RSENotFound as error:
-            logger(logging.ERROR, error)
-            logger(logging.DEBUG, 'This means that the Rucio Storage Element you provided is not known by Rucio.')
+            logger.error(error)
+            logger.debug('This means that the Rucio Storage Element you provided is not known by Rucio.')
             return error.error_code
         except InvalidRSEExpression as error:
-            logger(logging.ERROR, error)
-            logger(logging.DEBUG, 'This means the RSE expression you provided is not syntactically correct.')
+            logger.error(error)
+            logger.debug('This means the RSE expression you provided is not syntactically correct.')
             return error.error_code
         except DuplicateContent as error:
-            logger(logging.ERROR, error)
-            logger(logging.DEBUG, 'This means that the DID you want to attach is already in the target DID.')
+            logger.error(error)
+            logger.debug('This means that the DID you want to attach is already in the target DID.')
             return error.error_code
         except TypeError as error:
-            logger(logging.ERROR, error)
-            logger(logging.DEBUG, 'This means the parameter you passed has a wrong type.')
+            logger.error(error)
+            logger.debug('This means the parameter you passed has a wrong type.')
             return FAILURE
         except RuleNotFound as error:
-            logger(logging.ERROR, error)
-            logger(logging.DEBUG, 'This means the rule you specified does not exist.')
+            logger.error(error)
+            logger.debug('This means the rule you specified does not exist.')
             return error.error_code
         except UnsupportedOperation as error:
-            logger(logging.ERROR, error)
-            logger(logging.DEBUG, 'This means you cannot change the status of the DID.')
+            logger.error(error)
+            logger.debug('This means you cannot change the status of the DID.')
             return error.error_code
         except MissingDependency as error:
-            logger(logging.ERROR, error)
-            logger(logging.DEBUG, 'This means one dependency is missing.')
+            logger.error(error)
+            logger.debug('This means one dependency is missing.')
             return error.error_code
         except KeyError as error:
             if 'x-rucio-auth-token' in str(error):
@@ -181,28 +181,28 @@ def exception_handler(function):
                     used_account = '%s (from RUCIO_ACCOUNT)' % os.environ['RUCIO_ACCOUNT']
                 except:
                     pass
-                logger(logging.ERROR, 'Specified account %s does not have an associated identity.' % used_account)
+                logger.error('Specified account %s does not have an associated identity.' % used_account)
             else:
-                logger(logging.DEBUG, traceback.format_exc())
+                logger.debug(traceback.format_exc())
                 contact = config_get('policy', 'support', raise_exception=False)
                 support = ('Please followup with all relevant information at: ' + contact) if contact else ''
-                logger(logging.ERROR, '\nThe object is missing this property: %s\n'
-                                      'This should never happen. Please rerun the last command with the "-v" option to gather more information.\n'
-                                      '%s' % (str(error), support))
+                logger.error('\nThe object is missing this property: %s\n'
+                             'This should never happen. Please rerun the last command with the "-v" option to gather more information.\n'
+                             '%s' % (str(error), support))
             return FAILURE
         except RucioException as error:
-            logger(logging.ERROR, error)
+            logger.error(error)
             return error.error_code
         except Exception as error:
-            logger(logging.DEBUG, traceback.format_exc())
-            logger(logging.ERROR, error)
+            logger.debug(traceback.format_exc())
+            logger.error(error)
             contact = config_get('policy', 'support', raise_exception=False)
             support = ("If it's a problem concerning your experiment or if you're unsure what to do, please followup at: %s\n" % contact) if contact else ''
             contact = config_get('policy', 'support_rucio', default='https://github.com/rucio/rucio/issues')
             support += "If you're sure there is a problem with Rucio itself, please followup at: " + contact
-            logger(logging.ERROR, '\nRucio exited with an unexpected/unknown error.\n'
-                                  'Please rerun the last command with the "-v" option to gather more information.\n'
-                                  '%s' % support)
+            logger.error('\nRucio exited with an unexpected/unknown error.\n'
+                         'Please rerun the last command with the "-v" option to gather more information.\n'
+                         '%s' % support)
             return FAILURE
     return new_funct
 
@@ -218,7 +218,7 @@ def get_client(args):
             try:
                 auth_type = config_get('client', 'auth_type').lower()
             except (NoOptionError, NoSectionError):
-                logger(logging.ERROR, 'Cannot get AUTH_TYPE')
+                logger.error('Cannot get AUTH_TYPE')
                 sys.exit(FAILURE)
     else:
         auth_type = args.auth_strategy.lower()
@@ -246,11 +246,11 @@ def get_client(args):
                         ca_cert=args.ca_certificate, timeout=args.timeout,
                         user_agent=args.user_agent, vo=args.vo)
     except CannotAuthenticate as error:
-        logger(logging.ERROR, error)
+        logger.error(error)
         if 'alert certificate expired' in str(error):
-            logger(logging.ERROR, 'The server certificate expired.')
+            logger.error('The server certificate expired.')
         elif auth_type.lower() == 'x509_proxy':
-            logger(logging.ERROR, 'Please verify that your proxy is still valid and renew it if needed.')
+            logger.error('Please verify that your proxy is still valid and renew it if needed.')
         sys.exit(FAILURE)
     return client
 
@@ -265,7 +265,7 @@ def ping(args):
     if server_info:
         print(server_info['version'])
         return SUCCESS
-    logger(logging.ERROR, 'Ping failed')
+    logger.error('Ping failed')
     return FAILURE
 
 
@@ -471,23 +471,23 @@ def attach(args):
 
     if args.fromfile:
         if len(dids) > 1:
-            logger(logging.ERROR, "If --fromfile option is active, only one file is supported. The file should contain a list of dids, one per line.")
+            logger.error("If --fromfile option is active, only one file is supported. The file should contain a list of dids, one per line.")
             return FAILURE
         try:
             f = open(dids[0], 'r')
             dids = [did.rstrip() for did in f.readlines()]
         except IOError:
-            logger(logging.ERROR, "Can't open file '" + dids[0] + "'.")
+            logger.error("Can't open file '" + dids[0] + "'.")
             return FAILURE
 
     dids = [{'scope': get_scope(did, client)[0], 'name': get_scope(did, client)[1]} for did in dids]
     if len(dids) <= limit:
         client.attach_dids(scope=scope, name=name, dids=dids)
     else:
-        logger(logging.WARNING, "You are trying to attach too much DIDs. Therefore they will be chunked and attached in multiple commands.")
+        logger.warning("You are trying to attach too much DIDs. Therefore they will be chunked and attached in multiple commands.")
         missing_dids = []
         for i, chunk in enumerate(chunks(dids, limit)):
-            logger(logging.INFO, "Try to attach chunk {0}/{1}".format(i, int(math.ceil(float(len(dids)) / float(limit)))))
+            logger.info("Try to attach chunk {0}/{1}".format(i, int(math.ceil(float(len(dids)) / float(limit)))))
             try:
                 client.attach_dids(scope=scope, name=name, dids=chunk)
             except Exception:
@@ -535,13 +535,13 @@ def list_dids(args):
         try:
             filters, type = parse_did_filter_from_string(args.filter)
         except InvalidType as error:
-            logger(logging.ERROR, error)
+            logger.error(error)
             return FAILURE
         except ValueError as error:
-            logger(logging.ERROR, error)
+            logger.error(error)
             return FAILURE
         except Exception:
-            logger(logging.ERROR, "Invalid Filter. Filter must be 'key=value', 'key>=value', 'key>value', 'key<=value', 'key<value'")
+            logger.error("Invalid Filter. Filter must be 'key=value', 'key>=value', 'key>value', 'key<=value', 'key<value'")
             return FAILURE
 
     try:
@@ -552,14 +552,14 @@ def list_dids(args):
         scope = args.did[0]
         name = '*'
     if scope not in client.list_scopes():
-        logger(logging.ERROR, 'Scope not found')
+        logger.error('Scope not found')
         return FAILURE
 
     if args.recursive and '*' in name:
-        logger(logging.ERROR, 'Option recursive cannot be used with wildcards')
+        logger.error('Option recursive cannot be used with wildcards')
         return FAILURE
     elif ('name' in filters) and (name != '*'):
-        logger(logging.ERROR, 'You cannot use a wildcard query and a filter by name')
+        logger.error('You cannot use a wildcard query and a filter by name')
         return FAILURE
     filters['name'] = name
 
@@ -589,13 +589,13 @@ def list_dids_extended(args):
         try:
             filters, type = parse_did_filter_from_string(args.filter)
         except InvalidType as error:
-            logger(logging.ERROR, error)
+            logger.error(error)
             return FAILURE
         except ValueError as error:
-            logger(logging.ERROR, error)
+            logger.error(error)
             return FAILURE
         except Exception:
-            logger(logging.ERROR, "Invalid Filter. Filter must be 'key=value', 'key>=value', 'key>value', 'key<=value', 'key<value'")
+            logger.error("Invalid Filter. Filter must be 'key=value', 'key>=value', 'key>value', 'key<=value', 'key<value'")
             return FAILURE
 
     try:
@@ -606,14 +606,14 @@ def list_dids_extended(args):
         scope = args.did[0]
         name = '*'
     if scope not in client.list_scopes():
-        logger(logging.ERROR, 'Scope not found')
+        logger.error('Scope not found')
         return FAILURE
 
     if args.recursive and '*' in name:
-        logger(logging.ERROR, 'Option recursive cannot be used with wildcards')
+        logger.error('Option recursive cannot be used with wildcards')
         return FAILURE
     elif ('name' in filters) and (name != '*'):
-        logger(logging.ERROR, 'You cannot use a wildcard query and a filter by name')
+        logger.error('You cannot use a wildcard query and a filter by name')
         return FAILURE
     filters['name'] = name
 
@@ -860,31 +860,31 @@ def erase(args):
     client = get_client(args)
     for did in args.dids:
         if '*' in did:
-            logger(logging.WARNING, "This command doesn't support wildcards! Skipping DID: %s" % did)
+            logger.warning("This command doesn't support wildcards! Skipping DID: %s" % did)
             continue
         try:
             scope, name = get_scope(did, client)
         except RucioException as error:
-            logger(logging.WARNING, 'DID is in wrong format: %s' % did)
-            logger(logging.DEBUG, 'Error: %s' % error)
+            logger.warning('DID is in wrong format: %s' % did)
+            logger.debug('Error: %s' % error)
             continue
 
         if args.undo:
             try:
                 client.set_metadata(scope=scope, name=name, key='lifetime', value=None)
-                logger(logging.INFO, 'Erase undo for DID: {0}:{1}'.format(scope, name))
+                logger.info('Erase undo for DID: {0}:{1}'.format(scope, name))
             except Exception:
-                logger(logging.WARNING, 'Cannot undo erase operation on DID. DID not existent or grace period of 24 hours already expired.')
-                logger(logging.WARNING, '    DID: {0}:{1}'.format(scope, name))
+                logger.warning('Cannot undo erase operation on DID. DID not existent or grace period of 24 hours already expired.')
+                logger.warning('    DID: {0}:{1}'.format(scope, name))
         else:
             try:
                 # set lifetime to expire in 24 hours (value is in seconds).
                 client.set_metadata(scope=scope, name=name, key='lifetime', value=86400)
-                logger(logging.INFO, 'CAUTION! erase operation is irreversible after 24 hours. To cancel this operation you can run the following command:')
+                logger.info('CAUTION! erase operation is irreversible after 24 hours. To cancel this operation you can run the following command:')
                 print("rucio erase --undo {0}:{1}".format(scope, name))
             except RucioException as error:
-                logger(logging.WARNING, 'Failed to erase DID: %s' % did)
-                logger(logging.DEBUG, 'Error: %s' % error)
+                logger.warning('Failed to erase DID: %s' % did)
+                logger.debug('Error: %s' % error)
     return SUCCESS
 
 
@@ -905,7 +905,7 @@ def upload(args):
             dsscope = did[0]
             dsname = did[1]
         elif len(did) == 2:
-            logger(logging.WARNING, 'Ignoring input {} because dataset DID is already set {}:{}'.format(arg, dsscope, dsname))
+            logger.warning('Ignoring input {} because dataset DID is already set {}:{}'.format(arg, dsscope, dsname))
 
     items = []
     for arg in args.args:
@@ -929,12 +929,12 @@ def upload(args):
         raise InputValidationError('No files could be extracted from the given arguments')
 
     if len(items) > 1 and args.guid:
-        logger(logging.ERROR, "A single GUID was specified on the command line, but there are multiple files to upload.")
-        logger(logging.ERROR, "If GUID auto-detection is not used, only one file may be uploaded at a time")
+        logger.error("A single GUID was specified on the command line, but there are multiple files to upload.")
+        logger.error("If GUID auto-detection is not used, only one file may be uploaded at a time")
         raise InputValidationError('Invalid input argument composition')
     if len(items) > 1 and args.name:
-        logger(logging.ERROR, "A single LFN was specified on the command line, but there are multiple files to upload.")
-        logger(logging.ERROR, "If LFN auto-detection is not used, only one file may be uploaded at a time")
+        logger.error("A single LFN was specified on the command line, but there are multiple files to upload.")
+        logger.error("If LFN auto-detection is not used, only one file may be uploaded at a time")
         raise InputValidationError('Invalid input argument composition')
 
     client = get_client(args)
@@ -954,18 +954,18 @@ def download(args):
     """
     # Input validation
     if not args.dids and not args.filter and not args.metalink_file:
-        logger(logging.ERROR, 'At least one did is mandatory')
+        logger.error('At least one did is mandatory')
         return FAILURE
     elif not args.dids and args.filter and not args.scope:
-        logger(logging.ERROR, 'The argument scope is mandatory')
+        logger.error('The argument scope is mandatory')
         return FAILURE
 
     if args.filter and args.metalink_file:
-        logger(logging.ERROR, 'Arguments filter and metalink cannot be used together.')
+        logger.error('Arguments filter and metalink cannot be used together.')
         return FAILURE
 
     if args.dids and args.metalink_file:
-        logger(logging.ERROR, 'Arguments dids and metalink cannot be used together.')
+        logger.error('Arguments dids and metalink cannot be used together.')
         return FAILURE
 
     trace_pattern = {}
@@ -998,7 +998,7 @@ def download(args):
     item_defaults['no_resolve_archives'] = args.no_resolve_archives
     archive_did = args.archive_did
     if archive_did:
-        logger(logging.WARNING, "Archives are treated transparently. --archive-did option is being obsoleted.")  # TODO
+        logger.warning("Archives are treated transparently. --archive-did option is being obsoleted.")  # TODO
 
     # Get filters
     filters = {}
@@ -1009,14 +1009,14 @@ def download(args):
             if args.scope:
                 filters['scope'] = args.scope
         except InvalidType as error:
-            logger(logging.ERROR, error)
+            logger.error(error)
             return FAILURE
         except ValueError as error:
-            logger(logging.ERROR, error)
+            logger.error(error)
             return FAILURE
         except Exception as error:
-            logger(logging.ERROR, error)
-            logger(logging.ERROR, "Invalid Filter. Filter must be 'key=value', 'key>=value', 'key>value', 'key<=value', 'key<value'")
+            logger.error(error)
+            logger.error("Invalid Filter. Filter must be 'key=value', 'key>=value', 'key>value', 'key<=value', 'key<value'")
             return FAILURE
         item_defaults['filters'] = filters
 
@@ -1041,14 +1041,14 @@ def download(args):
             result = download_client.download_dids(items, args.ndownloader, trace_pattern)
     else:
         if args.aria:
-            logger(logging.WARNING, 'Ignoring --aria option because --pfn option given')
+            logger.warning('Ignoring --aria option because --pfn option given')
         if args.protocol:
-            logger(logging.WARNING, 'Ignoring --protocol option because --pfn option given')
+            logger.warning('Ignoring --protocol option because --pfn option given')
         num_dids = len(args.dids)
         did_str = args.dids[0]
         if num_dids > 1:
-            logger(logging.WARNING, 'Download with --pfn option only supports one DID but {} DIDs were given. Considering only first DID: {}'.format(num_dids, did_str))
-            logger(logging.DEBUG, args.dids)
+            logger.warning('Download with --pfn option only supports one DID but {} DIDs were given. Considering only first DID: {}'.format(num_dids, did_str))
+            logger.debug(args.dids)
         item_defaults['pfn'] = args.pfn
         item_defaults['did'] = did_str
         result = download_client.download_pfns([item_defaults], 1, trace_pattern)
@@ -1152,7 +1152,7 @@ def list_dids_by_meta(args):
     select = {}
     for key_value in args.key_values:
         if len(key_value.split('=')) != 2:
-            logger(logging.ERROR, "Usage: rucio list-dids-by-meta key1=value1 key2=value2 ......")
+            logger.error("Usage: rucio list-dids-by-meta key1=value1 key2=value2 ......")
             return FAILURE
         else:
             key, value = key_value.split('=')
@@ -1237,7 +1237,7 @@ def delete_rule(args):
     except ValueError:
         # Otherwise, trying to extract the scope, name from args.rule_id
         if not args.rse_expression:
-            logger(logging.ERROR, 'A RSE expression must be specified if you do not provide a rule_id but a DID')
+            logger.error('A RSE expression must be specified if you do not provide a rule_id but a DID')
             return FAILURE
         scope, name = get_scope(args.rule_id, client)
         rules = client.list_did_rules(scope=scope, name=name)
@@ -1255,7 +1255,7 @@ def delete_rule(args):
                 client.delete_replication_rule(rule_id=rule['id'], purge_replicas=args.purge_replicas)
                 deletion_success = True
         if not deletion_success:
-            logger(logging.ERROR, 'No replication rule was deleted from the DID')
+            logger.error('No replication rule was deleted from the DID')
             return FAILURE
     return SUCCESS
 
@@ -2311,7 +2311,7 @@ if __name__ == '__main__':
 
     logger = None
     try:
-        logger = setup_logger(module_name=__name__, logger_name='user', verbose=args.verbose).log
+        logger = setup_logger(module_name=__name__, logger_name='user', verbose=args.verbose)
         start_time = time.time()
         result = args.function(args)
         end_time = time.time()
