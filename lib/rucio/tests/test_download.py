@@ -55,8 +55,8 @@ class TestDownloadClient(unittest.TestCase):
         logger.setLevel(logging.DEBUG)
         self.client = Client()
         self.did_client = DIDClient()
-        self.upload_client = UploadClient(_client=self.client, logger=logger.log)
-        self.download_client = DownloadClient(client=self.client, logger=logger.log)
+        self.upload_client = UploadClient(_client=self.client, logger=logger)
+        self.download_client = DownloadClient(client=self.client, logger=logger)
 
     def _upoad_test_file(self, rse, scope, name, path=None):
         item = {
