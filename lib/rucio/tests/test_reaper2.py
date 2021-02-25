@@ -60,8 +60,8 @@ def test_reaper():
                                  'write': 1,
                                  'delete': 1}}}
 
-    nb_files = 30
-    file_size = 2147483648  # 2G
+    nb_files = 250
+    file_size = 200  # 2G
 
     rse_names = []
     all_file_names = []
@@ -89,31 +89,37 @@ def test_reaper():
                                          account=InternalAccount('root', **new_vo), adler32=None, md5=None)
 
         all_file_names.append(file_names)
-        rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=800)
-        rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=10737418240)
-        rse_core.set_rse_limits(rse_id=rse_id, name='MaxBeingDeletedFiles', value=10)
+        rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=1)
+        rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=50 * file_size)
+        # rse_core.set_rse_limits(rse_id=rse_id, name='MaxBeingDeletedFiles', value=10)
         if new_vo:
-            rse_core.set_rse_usage(rse_id=rse_id_new, source='storage', used=nb_files * file_size, free=800)
-            rse_core.set_rse_limits(rse_id=rse_id_new, name='MinFreeSpace', value=10737418240)
-            rse_core.set_rse_limits(rse_id=rse_id_new, name='MaxBeingDeletedFiles', value=10)
+            rse_core.set_rse_usage(rse_id=rse_id_new, source='storage', used=nb_files * file_size, free=1)
+            rse_core.set_rse_limits(rse_id=rse_id_new, name='MinFreeSpace', value=50 * file_size)
+            # rse_core.set_rse_limits(rse_id=rse_id_new, name='MaxBeingDeletedFiles', value=10)
 
+    from rucio.daemons.reaper.reaper2 import REGION
+    REGION.invalidate()
     if not vo:
+        assert len(list(replica_core.list_replicas(dids=[{'scope': InternalScope('data13_hip', **vo), 'name': n} for n in all_file_names[0]],
+                                                   rse_expression=rse_name))) == nb_files
+        # Check first if the reaper does not delete anything if no space is needed
+        rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=323000000000)
+        reaper(once=True, rses=[], include_rses=rse_names[0], exclude_rses=[])
+        assert len(list(replica_core.list_replicas(dids=[{'scope': InternalScope('data13_hip', **vo), 'name': n} for n in all_file_names[0]],
+                                                   rse_expression=rse_name))) == nb_files
+        # Now put it over threshold and delete
+        rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=1)
+        from rucio.daemons.reaper.reaper2 import REGION
+        REGION.invalidate()
         reaper(once=True, rses=[], include_rses=rse_names[0], exclude_rses=[])
         reaper(once=True, rses=[], include_rses=rse_names[0], exclude_rses=[])
         assert len(list(replica_core.list_replicas(dids=[{'scope': InternalScope('data13_hip', **vo), 'name': n} for n in all_file_names[0]],
-                                                   rse_expression=rse_name))) == nb_files - 5
+                                                   rse_expression=rse_name))) == 200
     else:
         # Check we reap all VOs by default
         reaper(once=True, rses=[], include_rses=rse_names[0], exclude_rses=[])
         reaper(once=True, rses=[], include_rses=rse_names[0], exclude_rses=[])
         assert len(list(replica_core.list_replicas(dids=[{'scope': InternalScope('data13_hip', **vo), 'name': n} for n in all_file_names[0]],
-                                                   rse_expression=rse_names[0]))) == nb_files - 5
+                                                   rse_expression=rse_names[0]))) == 200
         assert len(list(replica_core.list_replicas(dids=[{'scope': InternalScope('data13_hip', **new_vo), 'name': n} for n in all_file_names[0]],
-                                                   rse_expression=rse_names[0]))) == nb_files - 5
-        # Check we don't affect a second VO that isn't specified
-        reaper(once=True, rses=[], include_rses=rse_names[1], exclude_rses=[], vos=['new'])
-        reaper(once=True, rses=[], include_rses=rse_names[1], exclude_rses=[], vos=['new'])
-        assert len(list(replica_core.list_replicas(dids=[{'scope': InternalScope('data13_hip', **vo), 'name': n} for n in all_file_names[1]],
-                                                   rse_expression=rse_names[1]))), nb_files
-        assert len(list(replica_core.list_replicas(dids=[{'scope': InternalScope('data13_hip', **new_vo), 'name': n} for n in all_file_names[1]],
-                                                   rse_expression=rse_names[1]))), nb_files - 5
+                                                   rse_expression=rse_names[0]))) == 200

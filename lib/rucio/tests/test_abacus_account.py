@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2020 CERN
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019-2021
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
@@ -36,7 +36,7 @@ from rucio.core.account_limit import get_local_account_usage, set_local_account_
 from rucio.core.rse import get_rse_id
 from rucio.daemons.abacus import account
 from rucio.daemons.judge import cleaner
-from rucio.daemons.reaper import reaper
+from rucio.daemons.reaper import reaper2
 from rucio.daemons.undertaker import undertaker
 from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
@@ -66,9 +66,9 @@ class TestAbacusAccount(unittest.TestCase):
         undertaker.run(once=True)
         cleaner.run(once=True)
         if cls.vo:
-            reaper.run(once=True, include_rses='vo=%s&(%s)' % (cls.vo['vo'], cls.rse), greedy=True)
+            reaper2.run(once=True, include_rses='vo=%s&(%s)' % (cls.vo['vo'], cls.rse), greedy=True)
         else:
-            reaper.run(once=True, include_rses=cls.rse, greedy=True)
+            reaper2.run(once=True, include_rses=cls.rse, greedy=True)
 
     def test_abacus_account(self):
         """ ABACUS (ACCOUNT): Test update of account usage """
