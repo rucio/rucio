@@ -120,16 +120,19 @@ class BaseExtractionTool:
 
 class DownloadClient:
 
-    def __init__(self, client=None, logger=logging.log, tracing=True, check_admin=False, check_pcache=False):
+    def __init__(self, client=None, logger=None, tracing=True, check_admin=False, check_pcache=False):
         """
         Initialises the basic settings for an DownloadClient object
 
         :param client:           Optional: rucio.client.client.Client object. If None, a new object will be created.
         :param external_traces:  Optional: reference to a list where traces can be added
-        :param logger:           Optional: decorated logging.log object that can be passed from the calling daemon or client.
+        :param logger:           Optional: logging.Logger object. If None, default logger will be used.
         """
         self.check_pcache = check_pcache
-        self.logger = logger
+        if not logger:
+            self.logger = logging.log
+        else:
+            self.logger = logger.log
         self.tracing = tracing
         if not self.tracing:
             logger(logging.DEBUG, 'Tracing is turned off.')

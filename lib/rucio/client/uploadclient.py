@@ -62,14 +62,17 @@ from rucio import version
 
 class UploadClient:
 
-    def __init__(self, _client=None, logger=logging.log, tracing=True):
+    def __init__(self, _client=None, logger=None, tracing=True):
         """
         Initialises the basic settings for an UploadClient object
 
         :param _client:     - Optional: rucio.client.client.Client object. If None, a new object will be created.
-        :param logger:      - Optional: decorated logging.log object that can be passed from the calling daemon or client.
+        :param logger:      - Optional: logging.Logger object. If None, default logger will be used.
         """
-        self.logger = logger
+        if not logger:
+            self.logger = logging.log
+        else:
+            self.logger = logger.log
 
         self.client = _client if _client else Client()
         self.client_location = detect_client_location()
