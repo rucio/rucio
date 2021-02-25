@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020 CERN
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 #
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2021
 
 import sys
 
@@ -33,7 +34,7 @@ from rucio.daemons.follower import follower
 from rucio.daemons.hermes import hermes, hermes2
 from rucio.daemons.judge import cleaner, evaluator, injector, repairer
 from rucio.daemons.oauthmanager import oauthmanager
-from rucio.daemons.reaper import dark_reaper, light_reaper, reaper, reaper2
+from rucio.daemons.reaper import dark_reaper, light_reaper, reaper2
 from rucio.daemons.replicarecoverer import suspicious_replica_recoverer
 from rucio.daemons.sonar.distribution import distribution_daemon
 from rucio.daemons.tracer import kronos
@@ -76,7 +77,6 @@ DAEMONS = [
     oauthmanager,
     dark_reaper,
     light_reaper,
-    reaper,
     reaper2,
     suspicious_replica_recoverer,
     distribution_daemon,

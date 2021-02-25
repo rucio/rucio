@@ -1,5 +1,6 @@
+
 # -*- coding: utf-8 -*-
-# Copyright 2018-2020 CERN
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +16,7 @@
 #
 # Authors:
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Martin Barisits <martin.barisits@cern.ch>, 2019
+# - Martin Barisits <martin.barisits@cern.ch>, 2019-2021
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
@@ -30,7 +31,7 @@ from rucio.common.utils import generate_uuid
 from rucio.core.rse import get_rse_id, get_rse_usage
 from rucio.daemons.abacus import rse
 from rucio.daemons.judge import cleaner
-from rucio.daemons.reaper import reaper
+from rucio.daemons.reaper import reaper2
 from rucio.daemons.undertaker import undertaker
 from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
@@ -59,9 +60,9 @@ class TestAbacusRSE(unittest.TestCase):
         undertaker.run(once=True)
         cleaner.run(once=True)
         if cls.vo:
-            reaper.run(once=True, include_rses='vo=%s&(%s)' % (cls.vo['vo'], cls.rse), greedy=True)
+            reaper2.run(once=True, include_rses='vo=%s&(%s)' % (cls.vo['vo'], cls.rse), greedy=True)
         else:
-            reaper.run(once=True, include_rses=cls.rse, greedy=True)
+            reaper2.run(once=True, include_rses=cls.rse, greedy=True)
 
     def test_abacus_rse(self):
         """ ABACUS (RSE): Test update of RSE usage. """
@@ -83,11 +84,13 @@ class TestAbacusRSE(unittest.TestCase):
         assert len(rse_usage_from_unavailable) == 0
 
         # Delete files -> rse usage should decrease
+        from rucio.daemons.reaper.reaper2 import REGION
+        REGION.invalidate()
         cleaner.run(once=True)
         if self.vo:
-            reaper.run(once=True, include_rses='vo=%s&(%s)' % (self.vo['vo'], self.rse), greedy=True)
+            reaper2.run(once=True, include_rses='vo=%s&(%s)' % (self.vo['vo'], self.rse), greedy=True)
         else:
-            reaper.run(once=True, include_rses=self.rse, greedy=True)
+            reaper2.run(once=True, include_rses=self.rse, greedy=True)
         rse.run(once=True)
         rse_usage = get_rse_usage(rse_id=self.rse_id)[0]
         assert rse_usage['used'] == 0
