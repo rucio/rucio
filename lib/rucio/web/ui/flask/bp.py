@@ -20,31 +20,14 @@
 
 from flask import Blueprint, request, render_template, make_response
 
-from rucio.api.authentication import get_auth_token_x509
 from rucio.common.config import config_get, config_get_bool
 from rucio.web.rest.flaskapi.v1.common import generate_http_error_flask
-from rucio.web.ui.flask.common.utils import get_token, authenticate, userpass_auth, x509token_auth, saml_auth, oidc_auth, finalize_auth, AUTH_ISSUERS, SAML_SUPPORT
+from rucio.web.ui.flask.common.utils import get_token, authenticate, userpass_auth, saml_auth, oidc_auth, finalize_auth, AUTH_ISSUERS, SAML_SUPPORT
 
 MULTI_VO = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
 POLICY = config_get('policy', 'permission')
 ATLAS_URLS = ()
 OTHER_URLS = ()
-
-
-def auth():
-    auth_type = request.cookies.get('x-rucio-auth-type')
-    if str(auth_type).lower() == 'x509':
-        token = get_token(get_auth_token_x509)
-        if token:
-            response = make_response()
-            response.headers['X-Rucio-Auth-Token'] = token
-            print("auth()")
-            print(token)
-            return response
-        else:
-            return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot get token')
-    else:
-        return render_template('select_login_method.html', oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT)
 
 
 def login():
@@ -78,17 +61,11 @@ def saml():
     return saml_auth(request.method)
 
 
-def x509():
-    return x509token_auth()
-
-
 AUTH_URLS = (
-    ('/auth', 'auth', auth, ['GET', ]),
     ('/login', 'login', login, ['GET', 'POST']),
     ('/oidc', 'oidc', oidc, ['GET', ]),
     ('/oidc_final', 'oidc_final', oidc_final, ['GET', ]),
-    ('/saml', 'saml', saml, ['GET', 'POST']),
-    ('/x509', 'x509', x509, ['GET', ])
+    ('/saml', 'saml', saml, ['GET', 'POST'])
 )
 
 COMMON_URLS = (

@@ -38,10 +38,9 @@ from requests import get, ConnectionError
 from web import application, header, input as param_input, seeother, template
 from web import cookies
 
-from rucio.api.authentication import get_auth_token_x509
 from rucio.common.config import config_get, config_get_bool
 from rucio.web.rest.utils import generate_http_error
-from rucio.web.ui.common.utils import get_token, authenticate, userpass_auth, x509token_auth, saml_auth, oidc_auth, finalize_auth, AUTH_ISSUERS, SAML_SUPPORT
+from rucio.web.ui.common.utils import get_token, authenticate, userpass_auth, saml_auth, oidc_auth, finalize_auth, AUTH_ISSUERS, SAML_SUPPORT
 
 COMMON_URLS = (
     '/account_rse_usage', 'AccountRSEUsage',
@@ -170,38 +169,6 @@ class AtlasIndex(object):
         """ GET """
         render = template.render(join(dirname(__file__), 'templates/'))
         return authenticate(render.atlas_index())
-
-
-class Auth(object):
-    """ Local Auth Proxy
-    serves for changes of account on WebUI when new authentication
-    token for newly selected account has to be found.
-    For x509 request a new token directly as all necessary input
-    is present in the browser. For all other authenticatino mechanisms,
-    redirect to select_login_method page.
-    """
-    def GET(self):  # pylint:disable=no-self-use,invalid-name
-        """ GET """
-        # get info about x509 or not and decide
-        auth_type = cookies().get('x-rucio-auth-type')
-        if str(auth_type).lower() == 'x509':
-            token = get_token(get_auth_token_x509)
-            if token:
-                header('X-Rucio-Auth-Token', token)
-                return str()
-            else:
-                raise generate_http_error(401, 'CannotAuthenticate', 'Cannot get token')
-        else:
-            render = template.render(join(dirname(__file__), 'templates/'))
-            return render.select_login_method(AUTH_ISSUERS, SAML_SUPPORT, None)
-
-
-class X509(object):
-    """ Local X509 Authentication for Rucio UI """
-    def GET(self):  # pylint:disable=no-self-use,invalid-name
-        """ GET """
-        data = param_input()
-        return x509token_auth(data)
 
 
 class OIDC(object):
