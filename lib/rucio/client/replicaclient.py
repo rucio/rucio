@@ -1,4 +1,5 @@
-# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,18 +14,19 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vgaronne@gmail.com>, 2013-2018
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2019
-# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2015
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2018
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2014-2018
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2015
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
-# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
+# - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
+# - Ilija Vukotic <ivukotic@cern.ch>, 2020
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Eric Vaandering <ewv@fnal.gov>, 2020
 
 try:
     from urllib import quote_plus
@@ -117,6 +119,7 @@ class ReplicaClient(BaseClient):
     def list_replicas(self, dids, schemes=None, unavailable=False,
                       all_states=False, metalink=False, rse_expression=None,
                       client_location=None, sort=None, domain=None,
+                      signature_lifetime=None,
                       resolve_archives=True, resolve_parents=False,
                       updated_after=None):
         """
@@ -134,6 +137,7 @@ class ReplicaClient(BaseClient):
                                         ``closeness`` - based on src/dst closeness
                                         ``dynamic`` - Rucio Dynamic Smart Sort (tm)
         :param domain: Define the domain. None is fallback to 'wan', otherwise 'wan, 'lan', or 'all'
+        :param signature_lifetime: If supported, in seconds, restrict the lifetime of the signed PFN.
         :param resolve_archives: When set to True, find archives which contain the replicas.
         :param resolve_parents: When set to True, find all parent datasets which contain the replicas.
         :param updated_after: epoch timestamp or datetime object (UTC time), only return replicas updated after this time
@@ -165,6 +169,9 @@ class ReplicaClient(BaseClient):
                 data['updated_after'] = updated_after.strftime('%Y-%m-%dT%H:%M:%S')
             else:
                 data['updated_after'] = updated_after
+
+        if signature_lifetime:
+            data['signature_lifetime'] = signature_lifetime
 
         data['resolve_archives'] = resolve_archives
 
