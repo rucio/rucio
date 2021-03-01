@@ -35,6 +35,7 @@ from rucio.common.exception import InputValidationError, NoFilesDownloaded
 from rucio.common.utils import generate_uuid
 from rucio.rse import rsemanager as rsemgr
 from rucio.rse.protocols.posix import Default as PosixProtocol
+from rucio.tests.common import skip_rse_tests_with_accounts
 
 
 @pytest.fixture
@@ -218,9 +219,9 @@ def test_download_multiple(rse_factory, file_factory, download_client):
         )
 
 
-@pytest.mark.xfail(reason='XRD1 must be initialized https://github.com/rucio/rucio/pull/4165/')
 @pytest.mark.dirty
 @pytest.mark.noparallel(reason='uses pre-defined XRD1 RSE, may fails when run in parallel')  # TODO: verify if it really fails
+@skip_rse_tests_with_accounts
 def test_download_from_archive_on_xrd(file_factory, download_client, did_client):
     scope = 'test'
     rse = 'XRD1'
