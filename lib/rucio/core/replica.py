@@ -36,6 +36,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -834,15 +835,6 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
             # if the file is a constituent, find the available archives and add them to the list of possible PFNs
             # taking into account the original rse_expression
             if '%s:%s' % (scope.internal, name) in constituents:
-
-                # special protocol handling for constituents
-                # force the use of root if client didn't specify
-                if not schemes:
-                    schemes = ['root']
-                else:
-                    # always add root for archives
-                    schemes.append('root')
-                    schemes = list(set(schemes))
 
                 archive_result = list_replicas(dids=constituents['%s:%s' % (scope.internal, name)],
                                                schemes=schemes, client_location=client_location,

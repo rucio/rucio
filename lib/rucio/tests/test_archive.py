@@ -1,4 +1,5 @@
-# Copyright 2017-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2017-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,14 +16,13 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017-2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2017
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 import unittest
 
@@ -181,3 +181,47 @@ class TestArchive(unittest.TestCase):
         res = self.rc.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in archived_file], metalink=True, rse_expression=rse2, resolve_archives=True)
         assert 'BLACKMESA' in res
         assert 'APERTURE' not in res
+
+    def test_root_priority_is_highest(self):
+        """ ARCHIVE (CORE): Ensure that the root protocol is prioritized for archives"""
+
+        scope = InternalScope('mock', **self.vo)
+        root = InternalAccount('root', **self.vo)
+
+        rse1 = rse_name_generator()
+        rse1_id = add_rse(rse1, **self.vo)
+        add_protocol(rse1_id, {'scheme': 'root',
+                               'hostname': 'root.aperture.com',
+                               'port': 1410,
+                               'prefix': '//test/chamber/',
+                               'impl': 'rucio.rse.protocols.xrootd.Default',
+                               'domains': {
+                                   'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                   'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+        rse2 = rse_name_generator()
+        rse2_id = add_rse(rse2, **self.vo)
+        add_protocol(rse2_id, {'scheme': 'file',
+                               'hostname': 'posix.aperture.com',
+                               'port': 1409,
+                               'prefix': '//lambda/complex/',
+                               'impl': 'rucio.rse.protocols.posix.Default',
+                               'domains': {
+                                   'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                   'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+
+        # register archive
+        archive = {'scope': scope, 'name': 'cube.1.zip', 'type': 'FILE', 'bytes': 2596, 'adler32': 'beefdead'}
+        add_replicas(rse_id=rse1_id, files=[archive], account=root)
+        add_replicas(rse_id=rse2_id, files=[archive], account=root)
+
+        # archived files with replicas
+        archived_file = [{'scope': scope.external, 'name': 'zippedfile-%i-%s' % (i, str(generate_uuid())), 'type': 'FILE',
+                          'bytes': 4322, 'adler32': 'beefbeef'} for i in range(2)]
+        self.dc.add_files_to_archive(scope=scope.external, name=archive['name'], files=archived_file)
+
+        both_rses = '%s|%s' % (rse1, rse2)
+        replicas = list(self.rc.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in archived_file], rse_expression=both_rses))
+        for replica in replicas:
+            root_pfn = next(filter(lambda pfn: pfn['rse_id'] == rse1_id, replica['pfns'].values()))
+            posix_pfn = next(filter(lambda pfn: pfn['rse_id'] == rse2_id, replica['pfns'].values()))
+            assert root_pfn['priority'] < posix_pfn['priority']
