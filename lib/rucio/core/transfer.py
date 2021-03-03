@@ -721,7 +721,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         # In case of non-connected, the list contains all the intermediary RSEs
         list_hops = []
         include_multihop = False
-        if transfertool == 'fts':
+        if transfertool in ['fts', None]:
             include_multihop = core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
 
         try:
