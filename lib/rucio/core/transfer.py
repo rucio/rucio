@@ -720,9 +720,9 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         # In case the source_rse and the dest_rse are connected, the list contains only the destination RSE
         # In case of non-connected, the list contains all the intermediary RSEs
         list_hops = []
-        include_multihop = core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
-        if transfertool:
-            include_multihop = False
+        include_multihop = False
+        if transfertool == 'fts':
+            include_multihop = core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
 
         try:
             list_hops = get_hops(source_rse_id,
@@ -1337,8 +1337,12 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
     if activity:
         sub_requests = sub_requests.filter(models.Request.activity == activity)
 
+    # if a transfertool is specified make sure to filter for those requests and apply related index
     if transfertool:
         sub_requests = sub_requests.filter(models.Request.transfertool == transfertool)
+        sub_requests = sub_requests.with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_TRA_ACT_IDX)", 'oracle')
+    else:
+        sub_requests = sub_requests.with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')
 
     sub_requests = filter_thread_work(session=session, query=sub_requests, total_threads=total_workers, thread_id=worker_number, hash_variable='requests.id')
 
@@ -1388,7 +1392,7 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
         query = session.query(query) \
             .join(models.RSEAttrAssociation, models.RSEAttrAssociation.rse_id == query.c.rse_id) \
             .filter(models.RSEAttrAssociation.key == 'transfertool',
-                    models.RSEAttrAssociation.value.like(transfertool))
+                    models.RSEAttrAssociation.value.like('%' + transfertool + '%'))
 
     if rses:
         result = []
