@@ -178,6 +178,12 @@ class TemporaryFileFactory:
         for rse_id, dids in dids_by_rse.items():
             replica_core.delete_replicas(rse_id=rse_id, files=dids, session=session)
 
+    def register_dids(self, dids):
+        """
+        Register the provided dids to be cleaned up on teardown
+        """
+        self.created_dids.extend(dids)
+
     def _sanitize_or_set_scope(self, scope):
         if not scope:
             scope = self.default_scope
