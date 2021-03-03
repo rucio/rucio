@@ -662,7 +662,8 @@ def archive_request(request_id, session=None):
                                                                 estimated_started_at=req['estimated_started_at'],
                                                                 estimated_at=req['estimated_at'],
                                                                 transferred_at=req['transferred_at'],
-                                                                estimated_transferred_at=req['estimated_transferred_at'])
+                                                                estimated_transferred_at=req['estimated_transferred_at'],
+                                                                transfertool=req['transfertool'])
         hist_request.save(session=session)
         try:
             time_diff = req['updated_at'] - req['created_at']
