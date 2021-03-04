@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,9 +28,7 @@
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from __future__ import print_function
 
@@ -126,6 +124,7 @@ class TestRSECoreApi(unittest.TestCase):
 
         del_rse(rse_id)
 
+    @pytest.mark.dirty
     def test_list_rse_attributes(self):
         """ RSE (CORE): Test the listing of RSE attributes """
         rse = rse_name_generator()
@@ -166,6 +165,7 @@ class TestRSECoreApi(unittest.TestCase):
 
         del_rse(rse_id=rse_id)
 
+    @pytest.mark.dirty
     def test_delete_rse_attribute(self):
         """ RSE (CORE): Test the deletion of a RSE attribute. """
         rse_name = rse_name_generator()
@@ -176,6 +176,7 @@ class TestRSECoreApi(unittest.TestCase):
         with pytest.raises(RSEAttributeNotFound):
             del_rse_attribute(rse_id=rse_id, key=rse_name)
 
+    @pytest.mark.dirty
     def test_delete_rse(self):
         """ RSE (CORE): Test deletion of RSE """
         # Deletion of not empty RSE
@@ -193,6 +194,7 @@ class TestRSECoreApi(unittest.TestCase):
         # with pytest.raises(RSENotFound):
         #     del_rse(rse=rse_name)
 
+    @pytest.mark.dirty
     def test_restore_rse(self):
         """ RSE (CORE): Test restore of RSE """
         # Restore deleted RSE
@@ -217,6 +219,7 @@ class TestRSECoreApi(unittest.TestCase):
         with pytest.raises(RSENotFound):
             restore_rse(rse_id=rse_id)
 
+    @pytest.mark.dirty
     def test_empty_rse(self):
         """ RSE (CORE): Test if RSE is empty """
         rse_name = rse_name_generator()
@@ -273,6 +276,8 @@ def test_create_rse_success(vo, rest_client, auth_token):
     assert response.status_code == 409
 
 
+@pytest.mark.dirty
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 def xtest_tag_rses(rest_client, auth_token):
     """ RSE (REST): send a POST to tag a RSE """
     headers_dict = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root'}
@@ -285,6 +290,8 @@ def xtest_tag_rses(rest_client, auth_token):
     assert response.status_code == 201
 
 
+@pytest.mark.dirty
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 def xtest_list_rse_tags(rest_client, auth_token):
     """ RSE (REST): Test the listing of RSE tags """
     headers_dict = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root'}
@@ -300,6 +307,8 @@ def xtest_list_rse_tags(rest_client, auth_token):
     assert response.status_code == 200
 
 
+@pytest.mark.dirty
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 def test_get_rse_account_usage(rest_client, auth_token):
     """ RSE (REST): Test of RSE account usage and limit """
     headers_dict = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root'}
@@ -307,6 +316,7 @@ def test_get_rse_account_usage(rest_client, auth_token):
     assert response.status_code == 200
 
 
+@pytest.mark.dirty
 def test_delete_rse_attribute(vo, rest_client, auth_token):
     """ RSE (REST): Test the deletion of a RSE attribute """
     rse_name = rse_name_generator()
@@ -320,6 +330,7 @@ def test_delete_rse_attribute(vo, rest_client, auth_token):
     assert response.status_code == 404
 
 
+@pytest.mark.dirty
 def test_delete_rse(vo, rest_client, auth_token):
     """ RSE (REST): Test the deletion of RSE """
     # Normal deletion
@@ -348,6 +359,7 @@ def test_delete_rse(vo, rest_client, auth_token):
     assert response.headers.get('ExceptionClass') == 'RSEOperationNotSupported'
 
 
+@pytest.mark.noparallel(reason='uses pre-defined RSE, fails when run in parallel')
 class TestRSEClient(unittest.TestCase):
 
     def setUp(self):
@@ -1330,6 +1342,7 @@ class TestRSEClient(unittest.TestCase):
         for usage in usages:
             assert 'account_usages' not in usage
 
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_set_rse_usage(self):
         """ RSE (CLIENTS): Test the update of RSE usage."""
         assert self.client.set_rse_usage(rse='MOCK', source='srm', used=999200, free=800)
@@ -1342,6 +1355,7 @@ class TestRSEClient(unittest.TestCase):
             assert usage['free'] == 80
             break
 
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_set_rse_limits(self):
         """ RSE (CLIENTS): Test the update of RSE limits."""
         assert self.client.set_rse_limits(rse='MOCK', name='MinFreeSpace', value=1000000)
@@ -1387,6 +1401,7 @@ class TestRSEClient(unittest.TestCase):
                         'volatile': False}
         assert len(mgr._get_possible_protocols(rse_settings, 'read')) == 3
 
+    @pytest.mark.dirty
     def test_add_distance(self):
         """ RSE (CLIENTS): add/get/update RSE distances."""
         source, destination = rse_name_generator(), rse_name_generator()
@@ -1428,6 +1443,7 @@ class TestRSEClient(unittest.TestCase):
         assert info['verify_checksum']is True
         del_rse(rse_id)
 
+    @pytest.mark.dirty
     def test_delete_rse_attribute(self):
         """ RSE (CLIENT): Test the deletion of a RSE attribute. """
         rse_name = rse_name_generator()
@@ -1438,6 +1454,7 @@ class TestRSEClient(unittest.TestCase):
         with pytest.raises(RSEAttributeNotFound):
             self.client.delete_rse_attribute(rse=rse_name, key=rse_name)
 
+    @pytest.mark.dirty
     def test_delete_rse(self):
         """ RSE (CLIENTS): delete RSE """
         # Deletion of not empty RSE

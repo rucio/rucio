@@ -1,4 +1,5 @@
-# Copyright 2019-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2019-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +17,7 @@
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from __future__ import print_function
 
@@ -24,6 +25,8 @@ import unittest
 from datetime import datetime, timedelta
 from os import remove, path
 from time import sleep
+
+import pytest
 
 from rucio.client.replicaclient import ReplicaClient
 from rucio.common.config import config_get, config_get_bool
@@ -35,6 +38,8 @@ from rucio.db.sqla.constants import DIDType, BadFilesStatus, ReplicaState
 from rucio.tests.common import execute, file_generator
 
 
+@pytest.mark.dirty
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 class TestReplicaRecoverer(unittest.TestCase):
 
     def setUp(self):

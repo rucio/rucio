@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,8 +26,8 @@
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import json
 import random
@@ -136,6 +136,7 @@ def check_rule_progress_callback(scope, name, progress, rule_id, session=None):
     return False
 
 
+@pytest.mark.noparallel(reason='empties database tables, sets account limits, adds global rse attributes')
 class TestReplicationRuleCore(unittest.TestCase):
 
     @classmethod
@@ -1183,6 +1184,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         assert(len(dsl3) == 0)
 
 
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 class TestReplicationRuleClient(unittest.TestCase):
 
     @classmethod

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,9 +19,7 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import sys
 from datetime import datetime
@@ -133,7 +131,6 @@ def test_sites_no_configuration_file(mock_ddmendpoint):
     assert pattern == 'dump_%Y%m%d'
 
 
-@pytest.mark.xfail
 def test_with_configuration_file():
     """ test_generate_url_returns_custom_url_for_sites_with_configuration_file"""
     config = ConfigParser()

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2017-2020 CERN
+# Copyright 2017-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2017-2018
 # - Vincent Garonne <vgaronne@gmail.com>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
-# - Mario Lassnig <mario.lassnig@cern.ch>, 2019
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2019-2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 memcached -u root -d
 
@@ -109,7 +109,7 @@ if test ${init_only}; then
 fi
 
 echo 'Running tests on VO "tst"'
-python -bb -m pytest -vvvrxs
+tools/pytest.sh -v --tb=short
 if [ $? != 0 ]; then
     echo 'Tests on first VO failed, not attempting tests at second VO'
     exit 1
@@ -148,8 +148,7 @@ if test ${activate_rse}; then
 fi
 
 echo 'Running tests on VO "ts2"'
-python -bb -m pytest -vvvrxs
-
+tools/pytest.sh -v --tb=short
 if [ $? != 0 ]; then
     echo 'Tests on second VO failed'
     exit 1

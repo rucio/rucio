@@ -1,4 +1,5 @@
-# Copyright 2014-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,11 +20,13 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import random
 import string
 import unittest
+
+import pytest
 
 from rucio.client.accountclient import AccountClient
 from rucio.client.accountlimitclient import AccountLimitClient
@@ -36,6 +39,8 @@ from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import AccountType
 
 
+@pytest.mark.dirty
+@pytest.mark.noparallel(reason='deletes database content on setUp and tearDownClass')
 class TestCoreAccountLimits(unittest.TestCase):
 
     @classmethod
@@ -132,6 +137,8 @@ class TestCoreAccountLimits(unittest.TestCase):
         assert len(results) == 0
 
 
+@pytest.mark.dirty
+@pytest.mark.noparallel(reason='deletes database content on setUp and tearDownClass')
 class TestAccountClient(unittest.TestCase):
 
     @classmethod

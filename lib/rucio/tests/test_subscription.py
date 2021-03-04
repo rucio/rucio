@@ -24,7 +24,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from __future__ import print_function
 
@@ -65,6 +65,7 @@ class TestSubscriptionCoreApi(unittest.TestCase):
         cls.pattern1 = r'(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
                         \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)'
 
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_create_and_update_and_list_subscription(self):
         """ SUBSCRIPTION (API): Test the creation of a new subscription, update it, list it """
         subscription_name = uuid()
@@ -104,6 +105,7 @@ class TestSubscriptionCoreApi(unittest.TestCase):
         assert len(sub) == 1
         assert loads(sub[0]['filter'])['project'][0] == 'toto'
 
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_create_list_subscription_by_id(self):
         """ SUBSCRIPTION (API): Test the creation of a new subscription and list it by id """
         subscription_name = uuid()
@@ -121,6 +123,7 @@ class TestSubscriptionCoreApi(unittest.TestCase):
         subscription_info = get_subscription_by_id(subscription_id, **self.vo)
         assert loads(subscription_info['filter'])['project'] == self.projects
 
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_create_existing_subscription(self):
         """ SUBSCRIPTION (API): Test the creation of a existing subscription """
         subscription_name = uuid()
@@ -151,6 +154,7 @@ class TestSubscriptionCoreApi(unittest.TestCase):
         with pytest.raises(SubscriptionNotFound):
             update_subscription(name=subscription_name, account='root', metadata={'filter': {'project': ['toto', ]}}, issuer='root', **self.vo)
 
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_list_rules_states(self):
         """ SUBSCRIPTION (API): Test listing of rule states for subscription """
         tmp_scope = InternalScope('mock_' + uuid()[:8], **self.vo)
@@ -191,6 +195,7 @@ class TestSubscriptionCoreApi(unittest.TestCase):
             assert rule[3] == 2
 
 
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 def test_create_and_update_and_list_subscription(rest_client, auth_token):
     """ SUBSCRIPTION (REST): Test the creation of a new subscription, update it, list it """
     subscription_name = uuid()
@@ -212,6 +217,7 @@ def test_create_and_update_and_list_subscription(rest_client, auth_token):
     assert loads(loads(response.get_data(as_text=True))['filter'])['project'][0] == 'toto'
 
 
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 def test_create_and_list_subscription_by_id(rest_client, auth_token):
     """ SUBSCRIPTION (REST): Test the creation of a new subscription and get by subscription id """
     subscription_name = uuid()
@@ -230,6 +236,7 @@ def test_create_and_list_subscription_by_id(rest_client, auth_token):
     assert loads(loads(response.get_data(as_text=True))['filter'])['project'][0] == 'data12_900GeV'
 
 
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 def test_create_existing_subscription(rest_client, auth_token):
     """ SUBSCRIPTION (REST): Test the creation of a existing subscription """
     subscription_name = uuid()
@@ -256,6 +263,7 @@ def test_update_nonexisting_subscription(rest_client, auth_token):
     assert response.headers.get('ExceptionClass') == 'SubscriptionNotFound'
 
 
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 def test_list_rules_states(vo, rest_client, auth_token):
     """ SUBSCRIPTION (REST): Test listing of rule states for subscription """
     tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
@@ -320,6 +328,7 @@ class TestSubscriptionClient(unittest.TestCase):
         cls.pattern1 = r'(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
                          \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)'
 
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_create_and_update_and_list_subscription(self):
         """ SUBSCRIPTION (CLIENT): Test the creation of a new subscription, update it, list it """
         subscription_name = uuid()
@@ -341,6 +350,7 @@ class TestSubscriptionClient(unittest.TestCase):
         assert len(sub) == 1
         assert loads(sub[0]['filter'])['project'][0] == 'toto'
 
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_create_existing_subscription(self):
         """ SUBSCRIPTION (CLIENT): Test the creation of a existing subscription """
         subscription_name = uuid()
@@ -357,6 +367,7 @@ class TestSubscriptionClient(unittest.TestCase):
         with pytest.raises(SubscriptionNotFound):
             self.sub_client.update_subscription(name=subscription_name, filter={'project': ['toto', ]})
 
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_create_and_list_subscription_by_account(self):
         """ SUBSCRIPTION (CLIENT): Test retrieval of subscriptions for an account """
         subscription_name = uuid()
@@ -367,6 +378,7 @@ class TestSubscriptionClient(unittest.TestCase):
         result = [sub['id'] for sub in self.sub_client.list_subscriptions(account=account_name)]
         assert subid == result[0]
 
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_create_and_list_subscription_by_name(self):
         """ SUBSCRIPTION (CLIENT): Test retrieval of subscriptions for an account """
         subscription_name = uuid()
@@ -375,6 +387,7 @@ class TestSubscriptionClient(unittest.TestCase):
         result = [sub['id'] for sub in self.sub_client.list_subscriptions(name=subscription_name)]
         assert subid == result[0]
 
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_run_transmogrifier(self):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier and the split_rule mode """
         tmp_scope = InternalScope('mock_' + uuid()[:8], **self.vo)
@@ -395,6 +408,7 @@ class TestSubscriptionClient(unittest.TestCase):
         rules = [rule for rule in self.did_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
         assert len(rules) == 2
 
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_run_transmogrifier_did_type(self):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier with did_type subscriptions """
         tmp_scope = InternalScope('mock_' + uuid()[:8], **self.vo)
