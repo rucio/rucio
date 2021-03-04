@@ -26,6 +26,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Matt Snyder <msnyder@bnl.gov>, 2021
 
 """
 Conveyor finisher is a daemon to update replicas and rules based on requests.

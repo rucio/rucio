@@ -24,10 +24,9 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Brandon White <bjwhite@fnal.gov>, 2019
-# - maatthias <maatthias@gmail.com>, 2019
 # - Gabriele Fronze' <gfronze@cern.ch>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
-# - Matt Snyder <msnyder@bnl.gov>, 2020
+# - Matt Snyder <msnyder@bnl.gov>, 2020-2021
 # - Eric Vaandering <ewv@fnal.gov>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Nick Smith <nick.smith@cern.ch>, 2020
@@ -630,7 +629,7 @@ def get_dsn(scope, name, dsn):
 
 @transactional_session
 def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, limit=None, activity=None, older_than=None, rses=None, schemes=None,
-                                              bring_online=43200, retry_other_fts=False, failover_schemes=None, session=None, logger=logging.log):
+                                              bring_online=43200, retry_other_fts=False, failover_schemes=None, transfertool=None, logger=logging.log, session=None):
     """
     Get transfer requests and the associated source replicas
     :param total_workers:         Number of total workers.
@@ -641,10 +640,11 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
     :param rses:                  Include RSES.
     :param schemes:               Include schemes.
     :param bring_online:          Bring online timeout.
-    :parm retry_other_fts:        Retry other fts servers.
+    :param retry_other_fts:       Retry other fts servers.
     :param failover_schemes:      Failover schemes.
+    :param transfertool:          The transfer tool as specified in rucio.cfg.
     :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
-    :session:                     The database session in use.
+    :param session:               The database session in use.
     :returns:                     transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
     """
 
@@ -655,6 +655,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                                                                older_than=older_than,
                                                                rses=rses,
                                                                request_state=RequestState.QUEUED,
+                                                               transfertool=transfertool,
                                                                session=session)
 
     unavailable_read_rse_ids = __get_unavailable_rse_ids(operation='read', session=session)
@@ -719,10 +720,14 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         # In case the source_rse and the dest_rse are connected, the list contains only the destination RSE
         # In case of non-connected, the list contains all the intermediary RSEs
         list_hops = []
+        include_multihop = False
+        if transfertool in ['fts', None]:
+            include_multihop = core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
+
         try:
             list_hops = get_hops(source_rse_id,
                                  dest_rse_id,
-                                 include_multihop=core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session),
+                                 include_multihop=include_multihop,
                                  multihop_rses=multihop_rses,
                                  limit_dest_schemes=transfers.get(req_id, {}).get('schemes', None),
                                  session=session)
@@ -1289,7 +1294,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
 @read_session
 def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, limit=None, activity=None,
-                                                 older_than=None, rses=None, request_state=None, session=None) -> "List[Tuple]":
+                                                 older_than=None, rses=None, request_state=None, transfertool=None, session=None) -> "List[Tuple]":
     """
     List requests with source replicas
     :param total_workers:     Number of total workers.
@@ -1298,6 +1303,7 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
     :param activity:         Activity to be selected.
     :param older_than:       Only select requests older than this DateTime.
     :param rses:             List of rse_id to select requests.
+    :param transfertool:     The transfer tool as specified in rucio.cfg.
     :param session:          Database session to use.
     :returns:                List.
     """
@@ -1331,6 +1337,13 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
     if activity:
         sub_requests = sub_requests.filter(models.Request.activity == activity)
 
+    # if a transfertool is specified make sure to filter for those requests and apply related index
+    if transfertool:
+        sub_requests = sub_requests.filter(models.Request.transfertool == transfertool)
+        sub_requests = sub_requests.with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_TRA_ACT_IDX)", 'oracle')
+    else:
+        sub_requests = sub_requests.with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')
+
     sub_requests = filter_thread_work(session=session, query=sub_requests, total_threads=total_workers, thread_id=worker_number, hash_variable='requests.id')
 
     if limit:
@@ -1357,8 +1370,8 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
                           models.RSEFileAssociation.path,
                           sub_requests.c.retry_count,
                           models.Source.url,
-                          models.Source.ranking,
-                          models.Distance.ranking) \
+                          models.Source.ranking.label("source_ranking"),
+                          models.Distance.ranking.label("distance_ranking")) \
         .outerjoin(models.RSEFileAssociation, and_(sub_requests.c.scope == models.RSEFileAssociation.scope,
                                                    sub_requests.c.name == models.RSEFileAssociation.name,
                                                    models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
@@ -1372,6 +1385,14 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
         .outerjoin(models.Distance, and_(sub_requests.c.dest_rse_id == models.Distance.dest_rse_id,
                                          models.RSEFileAssociation.rse_id == models.Distance.src_rse_id)) \
         .with_hint(models.Distance, "+ index(distances DISTANCES_PK)", 'oracle')
+
+    # if transfertool specified, select only the requests where the source rses are set up for the transfer tool
+    if transfertool:
+        query = query.subquery()
+        query = session.query(query) \
+            .join(models.RSEAttrAssociation, models.RSEAttrAssociation.rse_id == query.c.rse_id) \
+            .filter(models.RSEAttrAssociation.key == 'transfertool',
+                    models.RSEAttrAssociation.value.like('%' + transfertool + '%'))
 
     if rses:
         result = []
