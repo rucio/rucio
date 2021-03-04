@@ -128,6 +128,7 @@ class TestCredential(unittest.TestCase):
                     '5MT5g%3D%3D')
         assert value == expected
 
+    @pytest.mark.noparallel(reason='fails when run in parallel')
     def test_list_replicas_sign_url(self):
         """ CREDENTIAL: List replicas for an RSE where signature is enabled """
 

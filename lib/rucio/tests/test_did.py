@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from __future__ import print_function
 
@@ -87,6 +87,7 @@ class TestDIDCore(unittest.TestCase):
             add_did(scope=tmp_scope, name=dsn['name'], type='DATASET', account=root)
         delete_dids(dids=dsns, account=root)
 
+    @pytest.mark.dirty
     def test_touch_dids_atime(self):
         """ DATA IDENTIFIERS (CORE): Touch dids accessed_at timestamp"""
         tmp_scope = InternalScope('mock', **self.vo)
@@ -106,6 +107,7 @@ class TestDIDCore(unittest.TestCase):
         assert now == get_did_atime(scope=tmp_scope, name=tmp_dsn1)
         assert get_did_atime(scope=tmp_scope, name=tmp_dsn2) is None
 
+    @pytest.mark.dirty
     def test_touch_dids_access_cnt(self):
         """ DATA IDENTIFIERS (CORE): Increase dids access_cnt"""
         tmp_scope = InternalScope('mock', **self.vo)
@@ -124,6 +126,8 @@ class TestDIDCore(unittest.TestCase):
         assert 100 == get_did_access_cnt(scope=tmp_scope, name=tmp_dsn1)
         assert get_did_access_cnt(scope=tmp_scope, name=tmp_dsn2) is None
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_update_dids(self):
         """ DATA IDENTIFIERS (CORE): Update file size and checksum"""
         tmp_scope = InternalScope('mock', **self.vo)
@@ -146,6 +150,8 @@ class TestDIDCore(unittest.TestCase):
         set_metadata(scope=tmp_scope, name=lfn, key='bytes', value=724963577)
         assert get_metadata(scope=tmp_scope, name=lfn)['bytes'] == 724963577
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_get_did_with_dynamic(self):
         """ DATA IDENTIFIERS (CORE): Get did with dynamic resolve of size"""
         tmp_scope = InternalScope('mock', **self.vo)
@@ -168,6 +174,8 @@ class TestDIDCore(unittest.TestCase):
         assert get_did(scope=tmp_scope, name=tmp_dsn1, dynamic=True)['bytes'] == 20
         assert get_did(scope=tmp_scope, name=tmp_dsn4, dynamic=True)['bytes'] == 20
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_reattach_dids(self):
         """ DATA IDENTIFIERS (CORE): Repeatedly attach and detach DIDs """
         tmp_scope = InternalScope('mock', **self.vo)
@@ -188,6 +196,7 @@ class TestDIDCore(unittest.TestCase):
 
         detach_dids(scope=tmp_scope, name=parent_name, dids=files)
 
+    @pytest.mark.dirty
     def test_add_did_to_followed(self):
         """ DATA IDENTIFIERS (CORE): Mark a did as followed """
         tmp_scope = InternalScope('mock', **self.vo)
@@ -203,6 +212,7 @@ class TestDIDCore(unittest.TestCase):
 
         assert rows == 1
 
+    @pytest.mark.dirty
     def test_get_users_following_did(self):
         """ DATA IDENTIFIERS (CORE): Get the list of users following a did """
         tmp_scope = InternalScope('mock', **self.vo)
@@ -219,6 +229,7 @@ class TestDIDCore(unittest.TestCase):
 
         assert rows == 1
 
+    @pytest.mark.dirty
     def test_remove_did_from_followed(self):
         """ DATA IDENTIFIERS (CORE): Mark a did as not followed """
         tmp_scope = InternalScope('mock', **self.vo)
@@ -252,6 +263,7 @@ class TestDIDApi(unittest.TestCase):
         else:
             self.vo = {}
 
+    @pytest.mark.dirty
     def test_list_new_dids(self):
         """ DATA IDENTIFIERS (API): List new identifiers """
         tmp_scope = scope_name_generator()
@@ -267,6 +279,7 @@ class TestDIDApi(unittest.TestCase):
             assert i != {}
             break
 
+    @pytest.mark.dirty
     def test_update_new_dids(self):
         """ DATA IDENTIFIERS (API): List new identifiers and update the flag new """
         tmp_scope = scope_name_generator()
@@ -298,6 +311,8 @@ class TestDIDClients(unittest.TestCase):
         self.replica_client = ReplicaClient()
         self.rse_client = RSEClient()
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_list_dids(self):
         """ DATA IDENTIFIERS (CLIENT): List dids by pattern."""
         tmp_scope = scope_name_generator()
@@ -336,6 +351,8 @@ class TestDIDClients(unittest.TestCase):
         with pytest.raises(UnsupportedOperation):
             self.did_client.list_dids(tmp_scope, {'name': 'file*'}, type='whateverytype')
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined scope names')
     def test_list_recursive(self):
         """ DATA IDENTIFIERS (CLIENT): List did recursive """
         # Create nested containers and datast
@@ -380,6 +397,8 @@ class TestDIDClients(unittest.TestCase):
         assert tmp_dataset_2 not in dids
         assert len(dids) == 2
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined scope, fails when run in parallel')
     def test_list_by_length(self):
         """ DATA IDENTIFIERS (CLIENT): List did with length """
         tmp_scope = 'mock'
@@ -405,6 +424,7 @@ class TestDIDClients(unittest.TestCase):
             results.append(d)
         assert len(results) == 0
 
+    @pytest.mark.dirty
     def test_list_by_metadata(self):
         """ DATA IDENTIFIERS (CLIENT): List did with metadata"""
         dsns = []
@@ -457,6 +477,8 @@ class TestDIDClients(unittest.TestCase):
         with pytest.raises(KeyNotFound):
             self.did_client.list_dids(tmp_scope, {'NotReallyAKey': 'NotReallyAValue'})
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_add_did(self):
         """ DATA IDENTIFIERS (CLIENT): Add, populate, list did content and create a sample"""
         tmp_scope = 'mock'
@@ -534,6 +556,8 @@ class TestDIDClients(unittest.TestCase):
         files = [f for f in self.did_client.list_files(scope=tmp_scope, name=tmp_dsn_output)]
         assert len(files) == 2
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_attach_dids_to_dids(self):
         """ DATA IDENTIFIERS (CLIENT): Attach dids to dids"""
         tmp_scope = 'mock'
@@ -570,6 +594,8 @@ class TestDIDClients(unittest.TestCase):
         with pytest.raises(UnsupportedOperation):
             self.did_client.attach_dids_to_dids([{'scope': 'mock', 'name': cnt_name, 'rse': tmp_rse, 'dids': attachment['dids']}])
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_add_files_to_datasets(self):
         """ DATA IDENTIFIERS (CLIENT): Add files to Datasets"""
         tmp_scope = 'mock'
@@ -626,6 +652,7 @@ class TestDIDClients(unittest.TestCase):
         with pytest.raises(FileConsistencyMismatch):
             self.did_client.add_files_to_datasets(attachments, ignore_duplicate=True)
 
+    @pytest.mark.dirty
     def test_add_dataset(self):
         """ DATA IDENTIFIERS (CLIENT): Add dataset """
         tmp_scope = 'mock'
@@ -641,6 +668,7 @@ class TestDIDClients(unittest.TestCase):
         with pytest.raises(DataIdentifierNotFound):
             self.did_client.get_did('i_dont_exist', 'neither_do_i')
 
+    @pytest.mark.dirty
     def test_add_datasets(self):
         """ DATA IDENTIFIERS (CLIENT): Bulk add datasets """
         tmp_scope = 'mock'
@@ -650,6 +678,8 @@ class TestDIDClients(unittest.TestCase):
             dsns.append(tmp_dsn)
         self.did_client.add_datasets(dsns)
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_exists(self):
         """ DATA IDENTIFIERS (CLIENT): Check if data identifier exists """
         tmp_scope = 'mock'
@@ -666,6 +696,8 @@ class TestDIDClients(unittest.TestCase):
         with pytest.raises(DataIdentifierNotFound):
             self.did_client.get_did('i_dont_exist', 'neither_do_i')
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_did_hierarchy(self):
         """ DATA IDENTIFIERS (CLIENT): Check did hierarchy rule """
 
@@ -704,6 +736,8 @@ class TestDIDClients(unittest.TestCase):
             # else:
             #     assert r['level'] == 1
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_detach_did(self):
         """ DATA IDENTIFIERS (CLIENT): Detach dids from a did"""
 
@@ -762,6 +796,8 @@ class TestDIDClients(unittest.TestCase):
         assert i_bytes == f_bytes + file1_bytes + file2_bytes
         assert i_length == f_length + 1 + 1
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_scope_list(self):
         """ DATA IDENTIFIERS (CLIENT): Add, aggregate, and list data identifiers in a scope """
 
@@ -814,6 +850,8 @@ class TestDIDClients(unittest.TestCase):
                     assert self.tmp_scopes[j] + ':' + self.tmp_files[j] in r_otherscopedids
             assert self.tmp_scopes[i] + ':' + self.tmp_files[i] not in r_topdids
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_get_did(self):
         """ DATA IDENTIFIERS (CLIENT): add a new data identifier and try to retrieve it back"""
         rse = 'MOCK'
@@ -832,6 +870,8 @@ class TestDIDClients(unittest.TestCase):
         did2 = self.did_client.get_did(scope, dsn)
         assert type(did2['expired_at']) == datetime
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_get_meta(self):
         """ DATA IDENTIFIERS (CLIENT): add a new meta data for an identifier and try to retrieve it back"""
         rse = 'MOCK'
@@ -849,6 +889,8 @@ class TestDIDClients(unittest.TestCase):
         for i in range(2):
             assert meta[keys[i]] == values[i]
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_list_content(self):
         """ DATA IDENTIFIERS (CLIENT): test to list contents for an identifier"""
         rse = 'MOCK'
@@ -880,6 +922,8 @@ class TestDIDClients(unittest.TestCase):
         assert dataset1 in datasets_s
         assert dataset2 in datasets_s
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_list_files(self):
         """ DATA IDENTIFIERS (CLIENT): List files for a container"""
         rse = 'MOCK'
@@ -920,6 +964,8 @@ class TestDIDClients(unittest.TestCase):
         with pytest.raises(DataIdentifierNotFound):
             self.did_client.list_files(scope, 'Nimportnawak')
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_list_replicas(self):
         """ DATA IDENTIFIERS (CLIENT): List replicas for a container"""
         rse = 'MOCK'
@@ -948,6 +994,8 @@ class TestDIDClients(unittest.TestCase):
         replicas = self.replica_client.list_replicas(dids=[{'scope': scope, 'name': cnt}])
         assert replicas is not None
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_close(self):
         """ DATA IDENTIFIERS (CLIENT): test to close data identifiers"""
 
@@ -988,6 +1036,8 @@ class TestDIDClients(unittest.TestCase):
         with pytest.raises(exception.UnsupportedOperation):
             self.did_client.attach_dids(scope=tmp_scope, name=tmp_dataset, dids=files)
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_open(self):
         """ DATA IDENTIFIERS (CLIENT): test to re-open data identifiers for priv account"""
 
@@ -1023,6 +1073,8 @@ class TestDIDClients(unittest.TestCase):
         # Add a third file replica
         self.did_client.set_status(scope=tmp_scope, name=tmp_dataset, open=True)
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_bulk_get_meta(self):
         """ DATA IDENTIFIERS (CLIENT): Add a new meta data for a list of DIDs and try to retrieve them back"""
         key = 'project'
