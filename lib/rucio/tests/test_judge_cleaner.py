@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2020 CERN
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,10 +19,12 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 
 import unittest
+
+import pytest
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
@@ -37,6 +39,7 @@ from rucio.db.sqla.constants import DIDType
 from rucio.tests.test_rule import create_files, tag_generator
 
 
+@pytest.mark.noparallel(reason='uses pre-defined RSE, sets account limits, adds global rse attributes')
 class TestJudgeCleaner(unittest.TestCase):
 
     @classmethod

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2020 CERN
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import unittest
 
@@ -30,7 +30,6 @@ import pytest
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
-from rucio.db.sqla.constants import ReplicaState
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import InvalidObject
 from rucio.common.types import InternalAccount, InternalScope
@@ -40,6 +39,7 @@ from rucio.core.replica import list_datasets_per_rse, update_collection_replica,
     get_cleaned_updated_collection_replicas, delete_replicas, add_replicas
 from rucio.core.rse import add_rse, del_rse, add_protocol, get_rse_id
 from rucio.db.sqla import session, models, constants
+from rucio.db.sqla.constants import ReplicaState
 from rucio.tests.common import rse_name_generator
 
 
@@ -51,6 +51,7 @@ class TestDatasetReplicaClient(unittest.TestCase):
         else:
             self.vo = {}
 
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_list_dataset_replicas(self):
         """ REPLICA (CLIENT): List dataset replicas."""
         replica_client = ReplicaClient()
@@ -66,6 +67,7 @@ class TestDatasetReplicaClient(unittest.TestCase):
         replicas = [r for r in replica_client.list_dataset_replicas(scope=scope, name=dataset)]
         assert len(replicas) == 1
 
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_list_dataset_replicas_bulk(self):
         """ REPLICA (CLIENT): List dataset replicas bulk."""
         replica_client = ReplicaClient()
@@ -92,6 +94,7 @@ class TestDatasetReplicaClient(unittest.TestCase):
                 return all(map(lambda k: k in rep and did[k] == rep[k], did))
             assert any(map(replica_contains_did, replicas)), "%s must be in returned replicas" % (did, )
 
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_list_datasets_per_rse(self):
         """ REPLICA (CLIENT): List datasets in RSE."""
         rule_client = RuleClient()
@@ -173,6 +176,7 @@ class TestDatasetReplicaClient(unittest.TestCase):
         del_rse(rse_id)
 
 
+@pytest.mark.noparallel(reason='uses pre-defined RSEs, truncates table(s) updated_col_rep')
 class TestDatasetReplicaUpdate(unittest.TestCase):
 
     def setUp(self):

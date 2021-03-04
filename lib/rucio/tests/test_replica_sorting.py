@@ -183,17 +183,20 @@ def test_sort_geoip_wan(vo, rest_client, auth_token, protocols_setup, content_ty
         assert sorted_hosts == sorted_replica_hosts, 'assert sorting of result as distance suggested'
 
 
-argvalues = [
-    (Mime.METALINK, 0),
-    (Mime.METALINK, 1),
-    pytest.param(Mime.JSON_STREAM, 0, marks=pytest.mark.xfail(reason='see https://github.com/rucio/rucio/issues/4105')),
-    pytest.param(Mime.JSON_STREAM, 1, marks=pytest.mark.xfail(reason='see https://github.com/rucio/rucio/issues/4105')),
-]
-rargvalues = map(lambda p: p.values if hasattr(p, 'values') else p, argvalues)
-ids = [f'mime={repr(mime)}, lan-site={repr(base_rse_info[iid]["site"])}' for mime, iid in rargvalues]
+def prepare_sort_geoip_lan_before_wan_params():
+    argvalues = [
+        (Mime.METALINK, 0),
+        (Mime.METALINK, 1),
+        pytest.param(Mime.JSON_STREAM, 0, marks=pytest.mark.xfail(reason='see https://github.com/rucio/rucio/issues/4105')),
+        pytest.param(Mime.JSON_STREAM, 1, marks=pytest.mark.xfail(reason='see https://github.com/rucio/rucio/issues/4105')),
+    ]
+    rargvalues = map(lambda p: p.values if hasattr(p, 'values') else p, argvalues)
+    ids = [f'mime={repr(mime)}, lan-site={repr(base_rse_info[iid]["site"])}' for mime, iid in rargvalues]
+    return dict(argvalues=argvalues, ids=ids)
 
 
-@pytest.mark.parametrize("content_type,info_id", argvalues=argvalues, ids=ids)
+@pytest.mark.noparallel(reason='fails when run in parallel, uses site=… as rse expression with non-unique sites')
+@pytest.mark.parametrize("content_type,info_id", **prepare_sort_geoip_lan_before_wan_params())
 def test_sort_geoip_lan_before_wan(vo, rest_client, auth_token, protocols_setup, content_type, info_id):
     """Replicas: test sorting LAN sites before WANs via geoip."""
     n = 2
@@ -213,6 +216,9 @@ def test_sort_geoip_lan_before_wan(vo, rest_client, auth_token, protocols_setup,
         'schemes': schemes,
         'sort': 'geoip',
     }
+
+    # invalidate cache for parse_expression('site=…')
+    rse_expression_parser.REGION.invalidate()
 
     with mock.patch('rucio.core.replica_sorter.__get_distance', side_effect=fake_get_distance):
         response = rest_client.post(
@@ -267,6 +273,7 @@ def test_sort_geoip_lan_before_wan(vo, rest_client, auth_token, protocols_setup,
         assert sorted_wan_hosts == sorted_replica_wan_hosts
 
 
+@pytest.mark.noparallel(reason='fails when run in parallel, uses site=… as rse expression with non-unique sites')
 @pytest.mark.parametrize("content_type", [Mime.METALINK, Mime.JSON_STREAM])
 def test_not_sorting_lan_replicas(vo, rest_client, auth_token, protocols_setup, content_type):
     """Replicas: test not sorting only LANs."""
@@ -290,6 +297,9 @@ def test_not_sorting_lan_replicas(vo, rest_client, auth_token, protocols_setup, 
         # test that nothing is passed to sort_replicas
         assert not dictreplica
         return []
+
+    # invalidate cache for parse_expression('site=…')
+    rse_expression_parser.REGION.invalidate()
 
     with mock.patch(sort_replicas_mock_target, side_effect=fake_sort_replicas):
         response = rest_client.post(

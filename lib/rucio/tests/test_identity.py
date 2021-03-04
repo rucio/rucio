@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,12 +21,11 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
-"""
-Test the Identity abstraction layer
-"""
 import unittest
+
+import pytest
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount
@@ -37,6 +36,7 @@ from rucio.db.sqla.constants import AccountType, IdentityType
 from rucio.tests.common import account_name_generator, headers, hdrdict, auth
 
 
+@pytest.mark.noparallel(reason='adds/removes entities with non-unique names')
 class TestIdentity(unittest.TestCase):
     """
     Test the Identity abstraction layer

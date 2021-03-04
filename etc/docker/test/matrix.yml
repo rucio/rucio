@@ -48,5 +48,4 @@ suites:
       - webpy
       - flask
 image_identifier:
-  - id: autotest
-
+  - autotest

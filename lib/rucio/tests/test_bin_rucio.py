@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 # - Tobias Wegner <twegner@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
@@ -585,6 +585,7 @@ class TestBinRucio(unittest.TestCase):
         except Exception:
             pass
 
+    @pytest.mark.noparallel(reason='fails when run in parallel')
     def test_download_no_subdir(self):
         """CLIENT(USER): Rucio download files with --no-subdir and check that files already found locally are not replaced"""
         tmp_file = file_generator()
@@ -1155,6 +1156,7 @@ class TestBinRucio(unittest.TestCase):
         print(err)
         assert re.search("Data identifier not found.", err) is not None
 
+    @pytest.mark.dirty
     def test_list_did_recursive(self):
         """ CLIENT(USER): List did recursive """
         # Setup nested collections
@@ -1185,6 +1187,7 @@ class TestBinRucio(unittest.TestCase):
         exitcode, out, err = execute(cmd)
         assert re.search("Option recursive cannot be used with wildcards", err) is not None
 
+    @pytest.mark.dirty
     def test_attach_many_dids(self):
         """ CLIENT(USER): Rucio attach many (>1000) DIDs """
         # Setup data for CLI check
@@ -1243,6 +1246,7 @@ class TestBinRucio(unittest.TestCase):
         # last file must be in the dataset
         assert re.search("{0}:{1}".format(self.user, files[-1]['name']), out) is not None
 
+    @pytest.mark.dirty
     def test_attach_many_dids_twice(self):
         """ CLIENT(USER): Attach many (>1000) DIDs twice """
         # Setup data for CLI check
@@ -1280,6 +1284,7 @@ class TestBinRucio(unittest.TestCase):
         exitcode, out, err = execute(cmd)
         assert re.search("{0}:{1}".format(self.user, new_dataset['name']), out) is not None
 
+    @pytest.mark.noparallel(reason='might override global RSE settings')
     def test_import_data(self):
         """ CLIENT(ADMIN): Import data into rucio"""
         file_path = 'data_import.json'
@@ -1293,14 +1298,18 @@ class TestBinRucio(unittest.TestCase):
         assert re.search('Data successfully imported', out) is not None
         remove(file_path)
 
+    @pytest.mark.noparallel(reason='fails when run in parallel')
     def test_export_data(self):
         """ CLIENT(ADMIN): Export data from rucio"""
         file_path = 'data_export.json'
         cmd = 'rucio-admin data export {0}'.format(file_path)
         exitcode, out, err = execute(cmd)
+        print(out, err)
         assert re.search('Data successfully exported', out) is not None
         remove(file_path)
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='fails when run in parallel')
     def test_set_tombstone(self):
         """ CLIENT(ADMIN): set a tombstone on a replica. """
         # Set tombstone on one replica
@@ -1326,6 +1335,7 @@ class TestBinRucio(unittest.TestCase):
         exitcode, out, err = execute(cmd)
         assert re.search('Replica not found', err) is not None
 
+    @pytest.mark.noparallel(reason='modifies account limit on pre-defined RSE')
     def test_list_account_limits(self):
         """ CLIENT (USER): list account limits. """
         rse = 'MOCK4'
@@ -1346,6 +1356,7 @@ class TestBinRucio(unittest.TestCase):
         self.account_client.set_local_account_limit(account, rse, -1)
         self.account_client.set_global_account_limit(account, rse_exp, -1)
 
+    @pytest.mark.noparallel(reason='modifies account limit on pre-defined RSE')
     @pytest.mark.skipif('SUITE' in os.environ and os.environ['SUITE'] == 'client', reason='uses abacus daemon and core functions')
     def test_list_account_usage(self):
         """ CLIENT (USER): list account usage. """
