@@ -36,6 +36,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020-2021
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -1462,13 +1463,58 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable'
                                                      'for deleting' % replica_rse.rse)
 
-    replica_condition, parent_condition, did_condition, src_condition = [], [], [], []
-    clt_replica_condition, dst_replica_condition = [], []
-    incomplete_condition, messages, archive_contents_condition = [], [], []
+    replica_condition, src_condition = [], []
     for file in files:
         replica_condition.append(
             and_(models.RSEFileAssociation.scope == file['scope'],
                  models.RSEFileAssociation.name == file['name']))
+
+        src_condition.append(
+            and_(models.Source.scope == file['scope'],
+                 models.Source.name == file['name'],
+                 models.Source.rse_id == rse_id))
+
+    delta, bytes, rowcount = 0, 0, 0
+
+    # WARNING : This should not be necessary since that would mean the replica is used as a source.
+    for chunk in chunks(src_condition, 10):
+        rowcount = session.query(models.Source). \
+            filter(or_(*chunk)). \
+            delete(synchronize_session=False)
+
+    rowcount = 0
+    for chunk in chunks(replica_condition, 10):
+        for (scope, name, rid, replica_bytes) in session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id, models.RSEFileAssociation.bytes). \
+                with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle').filter(models.RSEFileAssociation.rse_id == rse_id).filter(or_(*chunk)):
+            bytes += replica_bytes
+            delta += 1
+
+        rowcount += session.query(models.RSEFileAssociation). \
+            filter(models.RSEFileAssociation.rse_id == rse_id). \
+            filter(or_(*chunk)). \
+            delete(synchronize_session=False)
+
+    if rowcount != len(files):
+        raise exception.ReplicaNotFound("One or several replicas don't exist.")
+
+    __cleanup_after_replica_deletion(rse_id=rse_id, files=files, session=session)
+
+    # Decrease RSE counter
+    decrease(rse_id=rse_id, files=delta, bytes=bytes, session=session)
+
+
+@transactional_session
+def __cleanup_after_replica_deletion(rse_id, files, session=None):
+    """
+    Perform update of collections/archive associations/dids after the removal of their replicas
+    :param rse_id: the rse id
+    :param files: list of files whose replica got deleted
+    :param session: The database session in use.
+    """
+    parent_condition, did_condition = [], []
+    clt_replica_condition, dst_replica_condition = [], []
+    incomplete_condition, messages, archive_contents_condition = [], [], []
+    for file in files:
 
         # Schedule update of all collections containing this file and having a collection replica in the RSE
         dst_replica_condition.append(
@@ -1519,34 +1565,6 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
                      and_(models.RSEFileAssociation.scope == file['scope'],
                           models.RSEFileAssociation.name == file['name']))))
 
-        src_condition.append(
-            and_(models.Source.scope == file['scope'],
-                 models.Source.name == file['name'],
-                 models.Source.rse_id == rse_id))
-
-    delta, bytes, rowcount = 0, 0, 0
-
-    # WARNING : This should not be necessary since that would mean the replica is used as a source.
-    for chunk in chunks(src_condition, 10):
-        rowcount = session.query(models.Source).\
-            filter(or_(*chunk)).\
-            delete(synchronize_session=False)
-
-    rowcount = 0
-    for chunk in chunks(replica_condition, 10):
-        for (scope, name, rid, replica_bytes) in session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id, models.RSEFileAssociation.bytes).\
-                with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle').filter(models.RSEFileAssociation.rse_id == rse_id).filter(or_(*chunk)):
-            bytes += replica_bytes
-            delta += 1
-
-        rowcount += session.query(models.RSEFileAssociation).\
-            filter(models.RSEFileAssociation.rse_id == rse_id).\
-            filter(or_(*chunk)).\
-            delete(synchronize_session=False)
-
-    if rowcount != len(files):
-        raise exception.ReplicaNotFound("One or several replicas don't exist.")
-
     # Get all collection_replicas at RSE, insert them into UpdatedCollectionReplica
     if dst_replica_condition:
         for chunk in chunks(dst_replica_condition, 10):
@@ -1558,7 +1576,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
                 models.UpdatedCollectionReplica(scope=parent_scope,
                                                 name=parent_name,
                                                 did_type=DIDType.DATASET,
-                                                rse_id=replica_rse.id).\
+                                                rse_id=rse_id).\
                     save(session=session, flush=False)
 
     # Delete did from the content for the last did
@@ -1722,9 +1740,6 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
             delete(synchronize_session=False)
         if session.bind.dialect.name != 'oracle':
             rucio.core.did.insert_deleted_dids(chunk, session=session)
-
-    # Decrease RSE counter
-    decrease(rse_id=rse_id, files=delta, bytes=bytes, session=session)
 
 
 @transactional_session
