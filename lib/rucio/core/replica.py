@@ -1470,6 +1470,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
             and_(models.RSEFileAssociation.scope == file['scope'],
                  models.RSEFileAssociation.name == file['name']))
 
+        # Schedule update of all collections containing this file and having a collection replica in the RSE
         dst_replica_condition.append(
             and_(models.DataIdentifierAssociation.child_scope == file['scope'],
                  models.DataIdentifierAssociation.child_name == file['name'],
@@ -1478,6 +1479,11 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
                           models.CollectionReplica.name == models.DataIdentifierAssociation.name,
                           models.CollectionReplica.rse_id == rse_id))))
 
+        # If the file doesn't have any replicas anymore, we should perform cleanups of objects
+        # related to this file. However, if the file is "lost", it's removal wasn't intentional,
+        # so we want to skip deleting the metadata here. Perform cleanups:
+
+        # 1) schedule removal of this file from all parent datasets
         parent_condition.append(
             and_(models.DataIdentifierAssociation.child_scope == file['scope'],
                  models.DataIdentifierAssociation.child_name == file['name'],
@@ -1489,6 +1495,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
                      and_(models.RSEFileAssociation.scope == file['scope'],
                           models.RSEFileAssociation.name == file['name']))))
 
+        # 2) schedule removal of this file from the DID table
         did_condition.append(
             and_(models.DataIdentifier.scope == file['scope'],
                  models.DataIdentifier.name == file['name'],
@@ -1500,6 +1507,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
                      and_(models.ConstituentAssociation.child_scope == file['scope'],
                           models.ConstituentAssociation.child_name == file['name']))))
 
+        # 3) if the file is an archive, schedule cleanup on the files from inside the archive
         archive_contents_condition.append(
             and_(models.ConstituentAssociation.scope == file['scope'],
                  models.ConstituentAssociation.name == file['name'],
@@ -1564,12 +1572,17 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
                 filter(or_(*chunk))
             for parent_scope, parent_name, did_type, child_scope, child_name in query:
 
+                # Schedule removal of child file/dataset/container from the parent dataset/container
                 child_did_condition.append(
                     and_(models.DataIdentifierAssociation.scope == parent_scope,
                          models.DataIdentifierAssociation.name == parent_name,
                          models.DataIdentifierAssociation.child_scope == child_scope,
                          models.DataIdentifierAssociation.child_name == child_name))
 
+                # If the parent dataset/container becomes empty as a result of the child removal
+                # (it was the last children), metadata cleanup has to be done:
+                #
+                # 1) Schedule to remove the replicas of this empty collection
                 clt_replica_condition.append(
                     and_(models.CollectionReplica.scope == parent_scope,
                          models.CollectionReplica.name == parent_name,
@@ -1581,6 +1594,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
                              and_(models.DataIdentifierAssociation.scope == parent_scope,
                                   models.DataIdentifierAssociation.name == parent_name))))
 
+                # 2) Schedule removal of this empty collection from its own parent collections
                 tmp_parent_condition.append(
                     and_(models.DataIdentifierAssociation.child_scope == parent_scope,
                          models.DataIdentifierAssociation.child_name == parent_name,
@@ -1588,6 +1602,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
                              and_(models.DataIdentifierAssociation.scope == parent_scope,
                                   models.DataIdentifierAssociation.name == parent_name))))
 
+                # 3) Schedule removal of the entry from the DIDs table
                 did_condition.append(
                     and_(models.DataIdentifier.scope == parent_scope,
                          models.DataIdentifier.name == parent_name,
