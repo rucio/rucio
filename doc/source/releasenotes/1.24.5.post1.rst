@@ -1,0 +1,13 @@
+============
+1.24.5.post1
+============
+
+-------
+General
+-------
+
+****
+Bugs
+****
+
+- Transfers: Conveyor-submitter ranking comparison fails with py3 `#4384 <https://github.com/rucio/rucio/issues/4384>`_
