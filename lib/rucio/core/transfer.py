@@ -15,7 +15,7 @@
 #
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2021
-# - Martin Barisits <martin.barisits@cern.ch>, 2017-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2017-2021
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2017
 # - Igor Mandrichenko <rucio@fermicloud055.fnal.gov>, 2018
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2018-2020
@@ -1058,7 +1058,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                             if founded_source[3] is not None and founded_source[3] > avail_top_ranking:
                                 avail_top_ranking = founded_source[3]
 
-                        if ranking >= avail_top_ranking or avail_top_ranking is None:
+                        if avail_top_ranking is None or ranking >= avail_top_ranking:
                             # current disk replica has higher ranking than founded sources
                             # remove founded Tape sources
                             transfers[req_id]['sources'] = []
@@ -1077,7 +1077,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
                     transfers[req_id]['use_ipv4'] = True
 
         except Exception:
-            logger(logging.CRITICAL, "Exception happened when trying to get transfer for request %s: %s" % (req_id), exc_info=True)
+            logger(logging.CRITICAL, "Exception happened when trying to get transfer for request %s:" % (req_id), exc_info=True)
             break
 
     # checking OIDC AuthN/Z support per destination and soucre RSEs;
