@@ -275,9 +275,7 @@ class DownloadClient:
         trace_custom_fields['uuid'] = generate_uuid()
 
         logger(logging.INFO, 'Processing %d item(s) for input' % len(items))
-        download_info = self._resolve_and_merge_input_items(copy.deepcopy(items))
-        did_to_options = download_info['did_to_options']
-        merged_items = download_info['merged_items']
+        did_to_options, merged_items = self._resolve_and_merge_input_items(copy.deepcopy(items))
 
         self.logger(logging.DEBUG, 'num_unmerged_items=%d; num_dids=%d; num_merged_items=%d' % (len(items), len(did_to_options), len(merged_items)))
 
@@ -705,9 +703,7 @@ class DownloadClient:
             item['force_scheme'] = ['https', 'davs']
 
         logger(logging.INFO, 'Processing %d item(s) for input' % len(items))
-        download_info = self._resolve_and_merge_input_items(copy.deepcopy(items))
-        did_to_options = download_info['did_to_options']
-        merged_items = download_info['merged_items']
+        did_to_options, merged_items = self._resolve_and_merge_input_items(copy.deepcopy(items))
 
         self.logger(logging.DEBUG, 'num_unmerged_items=%d; num_dids=%d; num_merged_items=%d' % (len(items), len(did_to_options), len(merged_items)))
 
@@ -960,7 +956,7 @@ class DownloadClient:
 
         :param items: List of dictionaries. Each dictionary describing an input item
 
-        :returns: a dictionary with a dictionary that maps the input DIDs to options
+        :returns: a dictionary that maps the input DIDs to options
                   and a list with a dictionary for each merged download item
 
         :raises InputValidationError: if one of the input items is in the wrong format
@@ -987,8 +983,6 @@ class DownloadClient:
 
         did_to_options = {}
         merged_items = []
-        download_info = {'did_to_options': did_to_options,
-                         'merged_items': merged_items}
 
         while len(items) > 0:
             item = items.pop()
@@ -1052,7 +1046,7 @@ class DownloadClient:
             if not was_merged:
                 item['dids'] = resolved_dids
                 merged_items.append(item)
-        return download_info
+        return did_to_options, merged_items
 
     def _get_sources(self, merged_items, resolve_archives=True):
         """
