@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
-# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2018
+# - Martin Barisits, <martin.barisits@cern.ch>, 2017-2021
 # - Mario Lassnig, <mario.lassnig@cern.ch>, 2017-2018
 # - Cedric Serfon, <cedric.serfon@cern.ch>, 2018-2019
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
@@ -422,6 +422,8 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
 
         # source_rse_id will be None if no source replicas
         # rse will be None if rse is staging area
+        if req_id not in reqs_no_source:
+            reqs_no_source.append(req_id)
         if source_rse_id is None or rse is None:
             continue
 
