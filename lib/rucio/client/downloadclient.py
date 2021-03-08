@@ -948,6 +948,34 @@ class DownloadClient:
 
         return items
 
+    def _resolve_one_item_dids(self, item):
+        """
+        Resolve scopes or wildcard DIDs to lists of full did names:
+        :param item: One input item
+        """
+        dids = item.get('did')
+        filters = item.get('filters', {})
+        if filters:
+            filters = copy.copy(filters)
+
+        if dids is None:
+            self.logger(logging.DEBUG, 'Resolving DIDs by using filter options')
+            scope = filters.pop('scope')
+            yield scope, list(self.client.list_dids(scope, filters=filters, type='all'))
+            return
+
+        if not isinstance(dids, list):
+            dids = [dids]
+
+        for did_str in dids:
+            scope, did_name = self._split_did_str(did_str)
+            if '*' in did_name:
+                filters['name'] = did_name
+                resolved_dids = list(self.client.list_dids(scope, filters=filters, type='all'))
+                yield scope, resolved_dids
+            else:
+                yield scope, [did_name]
+
     def _resolve_and_merge_input_items(self, items):
         """
         This function takes the input items given to download_dids etc. and merges them
@@ -969,14 +997,10 @@ class DownloadClient:
                 logger(logging.WARNING, 'resolve_archives option is deprecated and will be removed in a future release.')
                 item.setdefault('no_resolve_archives', not item.pop('resolve_archives'))
 
-            did = item.get('did', [])
-            if len(did) == 0:
+            if not item.get('did'):
                 if not item.get('filters', {}).get('scope'):
                     logger(logging.DEBUG, item)
                     raise InputValidationError('Item without did and filter/scope')
-                item['did'] = [None]
-            elif not isinstance(did, list):
-                item['did'] = [did]
 
         distinct_keys = ['rse', 'force_scheme', 'nrandom']
         all_resolved_did_strs = set()
@@ -984,33 +1008,16 @@ class DownloadClient:
         did_to_options = {}
         merged_items = []
 
-        while len(items) > 0:
-            item = items.pop()
-
-            filters = item.get('filters', {})
-            item_dids = item.pop('did')
-            if item_dids[0] is None:
-                logger(logging.DEBUG, 'Resolving DIDs by using filter options')
-                item_dids = []
-                scope = filters.pop('scope')
-                for did_name in self.client.list_dids(scope, filters=filters, type='all'):
-                    item_dids.append('%s:%s' % (scope, did_name))
-
+        for item in items:
             base_dir = item.pop('base_dir', '.')
             no_subdir = item.pop('no_subdir', False)
             ignore_checksum = item.pop('ignore_checksum', False)
             new_transfer_timeout = item.pop('transfer_timeout', None)
-            resolved_dids = item.setdefault('dids', [])
-            for did_str in item_dids:
-                did_scope, did_name = self._split_did_str(did_str)
-                tmp_did_names = []
-                if '*' in did_name:
-                    filters['name'] = did_name
-                    tmp_did_names = list(self.client.list_dids(did_scope, filters=filters, type='all'))
-                else:
-                    tmp_did_names = [did_name]
 
-                for did_name in tmp_did_names:
+            resolved_dids = item.setdefault('dids', [])
+
+            for did_scope, did_names in self._resolve_one_item_dids(item):
+                for did_name in did_names:
                     resolved_did_str = '%s:%s' % (did_scope, did_name)
                     options = did_to_options.setdefault(resolved_did_str, {})
                     options.setdefault('destinations', set()).add((base_dir, no_subdir))
