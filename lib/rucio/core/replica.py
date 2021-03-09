@@ -2842,7 +2842,7 @@ def update_collection_replica(update_request, session=None):
             updated_replica = session.query(models.CollectionReplica).filter_by(scope=update_request['scope'],
                                                                                 name=update_request['name'],
                                                                                 rse_id=update_request['rse_id'])\
-                                                   .one()
+                                                                     .one()
             updated_replica.state = ds_replica_state
             updated_replica.available_replicas_cnt = available_replicas
             updated_replica.length = ds_length
