@@ -29,6 +29,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Ilija Vukotic <ivukotic@uchicago.edu>, 2021
 
 from __future__ import print_function
 
