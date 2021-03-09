@@ -656,16 +656,16 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, resolve_ar
                                                                 models.DataIdentifier.name,
                                                                 models.DataIdentifier.did_type,
                                                                 models.DataIdentifier.constituent)\
-            .with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle')\
-                .filter(or_(*did_clause)):
+                                                         .with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle')\
+                                                         .filter(or_(*did_clause)):
             if resolve_archives and constituent:
                 # file is a constituent, resolve to parent archives if necessary
                 archive = session.query(models.ConstituentAssociation.scope,
                                         models.ConstituentAssociation.name)\
-                    .filter(models.ConstituentAssociation.child_scope == scope,
-                            models.ConstituentAssociation.child_name == name)\
-                    .with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)", 'oracle')\
-                    .all()
+                                 .filter(models.ConstituentAssociation.child_scope == scope,
+                                         models.ConstituentAssociation.child_name == name)\
+                                 .with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)", 'oracle')\
+                                 .all()
                 constituents['%s:%s' % (scope.internal, name)] = [{'scope': tmp[0], 'name': tmp[1]} for tmp in archive]
 
             if did_type == DIDType.FILE:
@@ -2164,14 +2164,14 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                               models.DataIdentifierAssociation.md5,
                               models.DataIdentifierAssociation.adler32,
                               models.RSEFileAssociation)\
-                       .with_hint(models.DataIdentifierAssociation,
-                                  "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                                  'oracle')\
-                       .filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                                    models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                                    models.RSEFileAssociation.state != ReplicaState.BEING_DELETED))\
-                       .filter(models.DataIdentifierAssociation.scope == scope,
-                               models.DataIdentifierAssociation.name == name)
+            .with_hint(models.DataIdentifierAssociation,
+                       "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
+                       'oracle')\
+            .filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                         models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                         models.RSEFileAssociation.state != ReplicaState.BEING_DELETED))\
+            .filter(models.DataIdentifierAssociation.scope == scope,
+                    models.DataIdentifierAssociation.name == name)
 
         if restrict_rses is not None:
             if len(restrict_rses) < 10:
@@ -2185,15 +2185,15 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                                           models.DataIdentifierAssociation.md5,
                                           models.DataIdentifierAssociation.adler32,
                                           models.RSEFileAssociation)\
-                                   .with_hint(models.DataIdentifierAssociation,
-                                              "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                                              'oracle')\
-                                   .filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                                           models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                                           models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
-                                           or_(*rse_clause)))\
-                                   .filter(models.DataIdentifierAssociation.scope == scope,
-                                           models.DataIdentifierAssociation.name == name)
+                        .with_hint(models.DataIdentifierAssociation,
+                                   "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
+                                   'oracle')\
+                        .filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                                     models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                                     models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
+                                     or_(*rse_clause)))\
+                        .filter(models.DataIdentifierAssociation.scope == scope,
+                                models.DataIdentifierAssociation.name == name)
 
     else:
         query = session.query(models.DataIdentifierAssociation.child_scope,
@@ -2202,9 +2202,9 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                               models.DataIdentifierAssociation.md5,
                               models.DataIdentifierAssociation.adler32,
                               models.RSEFileAssociation)\
-                       .with_hint(models.DataIdentifierAssociation,
-                                  "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                                  'oracle')\
+            .with_hint(models.DataIdentifierAssociation,
+                       "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
+                       'oracle')\
             .outerjoin(models.RSEFileAssociation,
                        and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
                             models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
