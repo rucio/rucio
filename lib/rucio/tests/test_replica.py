@@ -49,7 +49,7 @@ from rucio.client.baseclient import BaseClient
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get, config_get_bool, config_set
 from rucio.common.exception import (DataIdentifierNotFound, AccessDenied, UnsupportedOperation,
                                     RucioException, ReplicaIsLocked, ReplicaNotFound, ScopeNotFound,
                                     DatabaseException)
@@ -122,6 +122,8 @@ class TestReplicaCore(unittest.TestCase):
         files.append({'scope': tmp_scope, 'name': name, 'bytes': 1234, 'adler32': 'deadbeef', 'pfn': pfn})
 
         add_replicas(rse_id=rse_id, files=files, account=root)
+
+        # config_set('clientcachemap', 'BLACKMESA', 'AGLT2')
 
         for rep in list_replicas(
                 dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],

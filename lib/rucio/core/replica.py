@@ -820,7 +820,7 @@ def get_multi_cache_prefix(cache_site, filename):
             print('Could not reload from vps.')
 
     if cache_site not in x_caches:
-        print('cache not active')
+        # print('cache not active')
         return ''
 
     xcache_site = x_caches[cache_site]
@@ -829,7 +829,7 @@ def get_multi_cache_prefix(cache_site, filename):
     # print('hash:', h)
     for irange in xcache_site['ranges']:
         if h < irange[1]:
-            print('server:', irange[0])
+            # print('server:', irange[0])
             return xcache_site['servers'][irange[0]][0]
     return ''
 
@@ -1058,14 +1058,14 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                 if client_location['site'] != replica_site:
                                     cache_site = config_get('clientcachemap', client_location['site'], default='', session=session)
                                     if cache_site != '':
-                                        print('client', client_location['site'], 'has cache:', cache_site)
-                                        print('filename', name)
+                                        # print('client', client_location['site'], 'has cache:', cache_site)
+                                        # print('filename', name)
                                         selected_prefix = get_multi_cache_prefix(cache_site, name)
                                         pfn = 'root://' + selected_prefix + '//' + pfn.replace('davs://', 'https://')
                                         assert True
                                     else:
-                                        print('site:', client_location['site'], 'has no cache')
-                                        print('lets check if it has defined an internal root proxy ')
+                                        # print('site:', client_location['site'], 'has no cache')
+                                        # print('lets check if it has defined an internal root proxy ')
                                         root_proxy_internal = config_get('root-proxy-internal',    # section
                                                                          client_location['site'],  # option
                                                                          default='',               # empty string to circumvent exception
