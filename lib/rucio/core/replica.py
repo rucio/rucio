@@ -28,7 +28,7 @@
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Ilija Vukotic <ivukotic@cern.ch>, 2020
+# - Ilija Vukotic <ivukotic@cern.ch>, 2020, 2021
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
@@ -46,6 +46,9 @@ from datetime import datetime, timedelta
 from json import dumps
 from re import match
 from traceback import format_exc
+import requests
+from struct import unpack
+from hashlib import sha256
 
 from six import string_types
 from sqlalchemy import func, and_, or_, exists, not_, update
@@ -61,6 +64,7 @@ from rucio.common import exception
 from rucio.common.types import InternalScope
 from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
 from rucio.core.config import get as config_get
+from rucio.core.config import read_from_cache, write_to_cache
 from rucio.core.credential import get_signed_url
 from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute, get_rse_vo, list_rses
 from rucio.core.rse_counter import decrease, increase
@@ -644,16 +648,16 @@ def _resolve_dids(dids, unavailable, ignore_availability, all_states, resolve_ar
                                                                 models.DataIdentifier.name,
                                                                 models.DataIdentifier.did_type,
                                                                 models.DataIdentifier.constituent)\
-                                                         .with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle')\
-                                                         .filter(or_(*did_clause)):
+            .with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle')\
+                .filter(or_(*did_clause)):
             if resolve_archives and constituent:
                 # file is a constituent, resolve to parent archives if necessary
                 archive = session.query(models.ConstituentAssociation.scope,
                                         models.ConstituentAssociation.name)\
-                                 .filter(models.ConstituentAssociation.child_scope == scope,
-                                         models.ConstituentAssociation.child_name == name)\
-                                 .with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)", 'oracle')\
-                                 .all()
+                    .filter(models.ConstituentAssociation.child_scope == scope,
+                            models.ConstituentAssociation.child_name == name)\
+                    .with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)", 'oracle')\
+                    .all()
                 constituents['%s:%s' % (scope.internal, name)] = [{'scope': tmp[0], 'name': tmp[1]} for tmp in archive]
 
             if did_type == DIDType.FILE:
@@ -797,6 +801,37 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, updat
         for scope, name, bytes, md5, adler32 in files_wo_replicas_query:
             yield scope, name, bytes, md5, adler32, None, None, None, None, None, None
             {'scope': scope, 'name': name} in files and files.remove({'scope': scope, 'name': name})
+
+
+def get_multi_cache_prefix(cache_site, filename):
+
+    # print('Looking up prefix for cache:', cache_site, 'and filename:', filename)
+    x_caches = read_from_cache('CacheSites', expiration_time=60)
+    if not x_caches:
+        # print('reloading xcache sites and ranges.')
+        vp_endpoint = 'https://vps.cern.ch/serverRanges'
+        response = requests.get(vp_endpoint, verify=False)
+        if response:
+            # print('Success! Got XCache ranges.')
+            x_caches = response.json()
+            # print(x_caches)
+            write_to_cache('CacheSites', x_caches)
+        else:
+            print('Could not reload from vps.')
+
+    if cache_site not in x_caches:
+        print('cache not active')
+        return ''
+
+    xcache_site = x_caches[cache_site]
+    h = float(
+        unpack('Q', sha256(filename.encode('utf-8')).digest()[:8])[0]) / 2**64
+    # print('hash:', h)
+    for irange in xcache_site['ranges']:
+        if h < irange[1]:
+            print('server:', irange[0])
+            return xcache_site['servers'][irange[0]][0]
+    return ''
 
 
 def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
@@ -1012,7 +1047,6 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                         if domain == 'wan' and protocol.attributes['scheme'] in ['root', 'http', 'https'] and client_location:
 
                             if 'site' in client_location and client_location['site']:
-
                                 # is the RSE site-configured?
                                 rse_site_attr = get_rse_attribute('site', rse_id, session=session)
                                 replica_site = ['']
@@ -1022,19 +1056,29 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                 # does it match with the client? if not, it's an outgoing connection
                                 # therefore the internal proxy must be prepended
                                 if client_location['site'] != replica_site:
-                                    root_proxy_internal = config_get('root-proxy-internal',    # section
-                                                                     client_location['site'],  # option
-                                                                     default='',               # empty string to circumvent exception
-                                                                     session=session)
+                                    cache_site = config_get('clientcachemap', client_location['site'], default='', session=session)
+                                    if cache_site != '':
+                                        print('client', client_location['site'], 'has cache:', cache_site)
+                                        print('filename', name)
+                                        selected_prefix = get_multi_cache_prefix(cache_site, name)
+                                        pfn = 'root://' + selected_prefix + '//' + pfn.replace('davs://', 'https://')
+                                        assert True
+                                    else:
+                                        print('site:', client_location['site'], 'has no cache')
+                                        print('lets check if it has defined an internal root proxy ')
+                                        root_proxy_internal = config_get('root-proxy-internal',    # section
+                                                                         client_location['site'],  # option
+                                                                         default='',               # empty string to circumvent exception
+                                                                         session=session)
 
-                                    if root_proxy_internal:
-                                        # TODO: XCache does not seem to grab signed URLs. Doublecheck with XCache devs.
-                                        #       For now -> skip prepending XCache for GCS.
-                                        if 'storage.googleapis.com' in pfn or 'atlas-google-cloud.cern.ch' in pfn or 'amazonaws.com' in pfn:
-                                            pass  # ATLAS HACK
-                                        else:
-                                            # don't forget to mangle gfal-style davs URL into generic https URL
-                                            pfn = 'root://' + root_proxy_internal + '//' + pfn.replace('davs://', 'https://')
+                                        if root_proxy_internal:
+                                            # TODO: XCache does not seem to grab signed URLs. Doublecheck with XCache devs.
+                                            #       For now -> skip prepending XCache for GCS.
+                                            if 'storage.googleapis.com' in pfn or 'atlas-google-cloud.cern.ch' in pfn or 'amazonaws.com' in pfn:
+                                                pass  # ATLAS HACK
+                                            else:
+                                                # don't forget to mangle gfal-style davs URL into generic https URL
+                                                pfn = 'root://' + root_proxy_internal + '//' + pfn.replace('davs://', 'https://')
 
                         # PFNs don't have concepts, therefore quickly encapsulate in a tuple
                         # ('pfn', 'domain', 'priority', 'client_extract')
@@ -2133,15 +2177,15 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                                           models.DataIdentifierAssociation.md5,
                                           models.DataIdentifierAssociation.adler32,
                                           models.RSEFileAssociation)\
-                                   .with_hint(models.DataIdentifierAssociation,
-                                              "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                                              'oracle')\
-                                   .filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                                                models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                                                models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
-                                                or_(*rse_clause)))\
-                                   .filter(models.DataIdentifierAssociation.scope == scope,
-                                           models.DataIdentifierAssociation.name == name)
+                        .with_hint(models.DataIdentifierAssociation,
+                                   "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
+                                   'oracle')\
+                        .filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                                     models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                                     models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
+                                     or_(*rse_clause)))\
+                        .filter(models.DataIdentifierAssociation.scope == scope,
+                                models.DataIdentifierAssociation.name == name)
 
     else:
         query = session.query(models.DataIdentifierAssociation.child_scope,
@@ -2172,16 +2216,16 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                                           models.DataIdentifierAssociation.md5,
                                           models.DataIdentifierAssociation.adler32,
                                           models.RSEFileAssociation)\
-                                   .with_hint(models.DataIdentifierAssociation,
-                                              "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                                              'oracle')\
-                                   .outerjoin(models.RSEFileAssociation,
-                                              and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                                                   models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                                                   models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
-                                                   or_(*rse_clause)))\
-                                   .filter(models.DataIdentifierAssociation.scope == scope,
-                                           models.DataIdentifierAssociation.name == name)
+                        .with_hint(models.DataIdentifierAssociation,
+                                   "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
+                                   'oracle')\
+                        .outerjoin(models.RSEFileAssociation,
+                                   and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                                        models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                                        models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
+                                        or_(*rse_clause)))\
+                        .filter(models.DataIdentifierAssociation.scope == scope,
+                                models.DataIdentifierAssociation.name == name)
 
     if total_threads and total_threads > 1:
         query = filter_thread_work(session=session, query=query, total_threads=total_threads,
@@ -2242,14 +2286,14 @@ def get_source_replicas_for_dataset(scope, name, source_rses=None,
                 query = session.query(models.DataIdentifierAssociation.child_scope,
                                       models.DataIdentifierAssociation.child_name,
                                       models.RSEFileAssociation.rse_id)\
-                               .with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle')\
-                               .outerjoin(models.RSEFileAssociation,
-                                          and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                                               models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                                               models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                                               or_(*rse_clause)))\
-                               .filter(models.DataIdentifierAssociation.scope == scope,
-                                       models.DataIdentifierAssociation.name == name)
+                    .with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle')\
+                    .outerjoin(models.RSEFileAssociation,
+                               and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                                    models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                                    models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                                    or_(*rse_clause)))\
+                    .filter(models.DataIdentifierAssociation.scope == scope,
+                            models.DataIdentifierAssociation.name == name)
 
     if total_threads and total_threads > 1:
         query = filter_thread_work(session=session, query=query, total_threads=total_threads,
@@ -2785,12 +2829,12 @@ def update_collection_replica(update_request, session=None):
             session.query(models.CollectionReplica).filter_by(scope=update_request['scope'],
                                                               name=update_request['name'],
                                                               rse_id=update_request['rse_id'])\
-                                                   .delete()
+                .delete()
         else:
             updated_replica = session.query(models.CollectionReplica).filter_by(scope=update_request['scope'],
                                                                                 name=update_request['name'],
                                                                                 rse_id=update_request['rse_id'])\
-                                                                     .one()
+                .one()
             updated_replica.state = ds_replica_state
             updated_replica.available_replicas_cnt = available_replicas
             updated_replica.length = ds_length
@@ -3141,7 +3185,7 @@ def set_tombstone(rse_id, scope, name, tombstone=OBSOLETE, session=None):
     """
     stmt = update(models.RSEFileAssociation).where(and_(models.RSEFileAssociation.rse_id == rse_id, models.RSEFileAssociation.name == name, models.RSEFileAssociation.scope == scope,
                                                         ~session.query(models.ReplicaLock).filter_by(scope=scope, name=name, rse_id=rse_id).exists()))\
-                                            .values(tombstone=tombstone)
+        .values(tombstone=tombstone)
     result = session.execute(stmt)
     if not result.rowcount:
         try:
