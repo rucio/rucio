@@ -110,6 +110,33 @@ class TestDownloadClient(unittest.TestCase):
         finally:
             shutil.rmtree(scope)
 
+    def test_download_to_two_paths(self):
+        rse = 'MOCK4'
+        scope = 'mock'
+        base_name = 'testDownloadItem' + generate_uuid()
+        item000 = self._upoad_test_file(rse, scope, base_name + '.000')
+        item001 = self._upoad_test_file(rse, scope, base_name + '.001')
+        item100 = self._upoad_test_file(rse, scope, base_name + '.100')
+
+        with TemporaryDirectory() as tmp_dir1, TemporaryDirectory() as tmp_dir2:
+            # Download two overlapping wildcard dids to two separate paths.
+            # 000 will be in both paths. Other two files only in one of the two paths.
+            result = self.download_client.download_dids([{'did': '%s:%s.*0' % (scope, base_name), 'base_dir': tmp_dir1},
+                                                         {'did': '%s:%s.0*' % (scope, base_name), 'base_dir': tmp_dir2}])
+            paths000 = next(filter(lambda r: r['did'] == '%s:%s' % (scope, item000['did_name']), result))['dest_file_paths']
+            paths001 = next(filter(lambda r: r['did'] == '%s:%s' % (scope, item001['did_name']), result))['dest_file_paths']
+            paths100 = next(filter(lambda r: r['did'] == '%s:%s' % (scope, item100['did_name']), result))['dest_file_paths']
+
+            assert len(paths000) == 2
+            assert any(p.startswith(tmp_dir1) for p in paths000)
+            assert any(p.startswith(tmp_dir2) for p in paths000)
+
+            assert len(paths001) == 1
+            assert paths001[0].startswith(tmp_dir2)
+
+            assert len(paths100) == 1
+            assert paths100[0].startswith(tmp_dir1)
+
     def test_download_multiple(self):
         rse = 'MOCK4'
         scope = 'mock'
