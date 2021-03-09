@@ -426,6 +426,34 @@ class DownloadClient:
                 logger(logging.ERROR, '%sFailed to download item' % log_prefix)
                 logger(logging.DEBUG, error)
 
+    @staticmethod
+    def _compute_actual_transfer_timeout(item):
+        """
+        Merge the two options related to timeout into the value which will be used for protocol download.
+        :param item: dictionary that describes the item to download
+        :return: timeout in seconds
+        """
+        default_transfer_timeout = 360
+        default_transfer_speed_timeout = 1000000  # 1Mbps
+        # Static additive increment of the speed timeout. To include the static cost of
+        # establishing connections and download of small files
+        transfer_speed_timeout_static_increment = 60
+
+        transfer_timeout = item.get('merged_options', {}).get('transfer_timeout')
+        if transfer_timeout is not None:
+            return transfer_timeout
+
+        transfer_speed_timeout = item.get('merged_options', {}).get('transfer_speed_timeout')
+        bytes = item.get('bytes')
+        if not bytes or transfer_speed_timeout is None:
+            return default_transfer_timeout
+
+        if not transfer_speed_timeout > 0:
+            transfer_speed_timeout = default_transfer_speed_timeout
+
+        timeout = bytes // transfer_speed_timeout + transfer_speed_timeout_static_increment
+        return timeout
+
     def _download_item(self, item, trace, traces_copy_out, log_prefix=''):
         """
         Downloads the given item and sends traces for success/failure.
@@ -574,7 +602,7 @@ class DownloadClient:
                 start_time = time.time()
 
                 try:
-                    protocol.get(pfn, temp_file_path, transfer_timeout=item.get('merged_options', {}).get('transfer_timeout'))
+                    protocol.get(pfn, temp_file_path, transfer_timeout=self._compute_actual_transfer_timeout(item))
                     success = True
                 except Exception as error:
                     logger(logging.DEBUG, error)
@@ -1013,6 +1041,7 @@ class DownloadClient:
             no_subdir = item.pop('no_subdir', False)
             ignore_checksum = item.pop('ignore_checksum', False)
             new_transfer_timeout = item.pop('transfer_timeout', None)
+            new_transfer_speed_timeout = item.pop('transfer_speed_timeout', None)
 
             resolved_dids = item.setdefault('dids', [])
 
@@ -1025,11 +1054,18 @@ class DownloadClient:
                     # Merge some options
                     # The other options of this DID will be inherited from the first item that contained the DID
                     options['ignore_checksum'] = (options.get('ignore_checksum') or ignore_checksum)
+
                     cur_transfer_timeout = options.setdefault('transfer_timeout', None)
                     if cur_transfer_timeout is not None and new_transfer_timeout is not None:
                         options['transfer_timeout'] = max(int(cur_transfer_timeout), int(new_transfer_timeout))
                     elif new_transfer_timeout is not None:
                         options['transfer_timeout'] = int(new_transfer_timeout)
+
+                    cur_transfer_speed_timeout = options.setdefault('transfer_speed_timeout', None)
+                    if cur_transfer_speed_timeout is not None and new_transfer_speed_timeout is not None:
+                        options['transfer_speed_timeout'] = min(int(cur_transfer_speed_timeout), int(new_transfer_speed_timeout))
+                    elif new_transfer_speed_timeout is not None:
+                        options['transfer_speed_timeout'] = int(new_transfer_speed_timeout)
 
                     if resolved_did_str not in all_resolved_did_strs:
                         resolved_dids.append({'scope': did_scope, 'name': did_name})
