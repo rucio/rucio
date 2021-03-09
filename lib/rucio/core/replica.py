@@ -28,7 +28,7 @@
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - Ilija Vukotic <ivukotic@cern.ch>, 2020, 2021
+# - Ilija Vukotic <ivukotic@cern.ch>, 2020-2021
 # - Brandon White <bjwhite@fnal.gov>, 2019
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
@@ -39,6 +39,7 @@
 
 from __future__ import print_function
 
+import logging
 from collections import defaultdict
 from copy import deepcopy
 from curses.ascii import isprint
@@ -75,6 +76,13 @@ from rucio.db.sqla.constants import (DIDType, ReplicaState, OBSOLETE, DIDAvailab
 from rucio.db.sqla.session import (read_session, stream_session, transactional_session,
                                    DEFAULT_SCHEMA_NAME, BASE)
 from rucio.rse import rsemanager as rsemgr
+
+logging.basicConfig(stream=sys.stdout,
+                    level=getattr(logging,
+                                  config_get('common', 'loglevel',
+                                             raise_exception=False,
+                                             default='ERROR').upper()),
+                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
 
 
 @read_session
@@ -803,7 +811,7 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, updat
             {'scope': scope, 'name': name} in files and files.remove({'scope': scope, 'name': name})
 
 
-def get_multi_cache_prefix(cache_site, filename):
+def get_multi_cache_prefix(cache_site, filename, logger=logging.log):
 
     # print('Looking up prefix for cache:', cache_site, 'and filename:', filename)
     x_caches = read_from_cache('CacheSites', expiration_time=60)
@@ -817,7 +825,7 @@ def get_multi_cache_prefix(cache_site, filename):
             # print(x_caches)
             write_to_cache('CacheSites', x_caches)
         else:
-            print('Could not reload from vps.')
+            logger(logging.ERROR, 'Could not reload from vps.')
 
     if cache_site not in x_caches:
         # print('cache not active')
@@ -2156,14 +2164,14 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                               models.DataIdentifierAssociation.md5,
                               models.DataIdentifierAssociation.adler32,
                               models.RSEFileAssociation)\
-            .with_hint(models.DataIdentifierAssociation,
-                       "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                       'oracle')\
-            .filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                         models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                         models.RSEFileAssociation.state != ReplicaState.BEING_DELETED)).\
-            filter(models.DataIdentifierAssociation.scope == scope,
-                   models.DataIdentifierAssociation.name == name)
+                       .with_hint(models.DataIdentifierAssociation,
+                                  "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
+                                  'oracle')\
+                       .filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                                    models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                                    models.RSEFileAssociation.state != ReplicaState.BEING_DELETED))\
+                       .filter(models.DataIdentifierAssociation.scope == scope,
+                               models.DataIdentifierAssociation.name == name)
 
         if restrict_rses is not None:
             if len(restrict_rses) < 10:
@@ -2177,15 +2185,15 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                                           models.DataIdentifierAssociation.md5,
                                           models.DataIdentifierAssociation.adler32,
                                           models.RSEFileAssociation)\
-                        .with_hint(models.DataIdentifierAssociation,
-                                   "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                                   'oracle')\
-                        .filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                                     models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                                     models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
-                                     or_(*rse_clause)))\
-                        .filter(models.DataIdentifierAssociation.scope == scope,
-                                models.DataIdentifierAssociation.name == name)
+                                   .with_hint(models.DataIdentifierAssociation,
+                                              "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
+                                              'oracle')\
+                                   .filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                                           models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                                           models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
+                                           or_(*rse_clause)))\
+                                   .filter(models.DataIdentifierAssociation.scope == scope,
+                                           models.DataIdentifierAssociation.name == name)
 
     else:
         query = session.query(models.DataIdentifierAssociation.child_scope,
@@ -2194,9 +2202,9 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                               models.DataIdentifierAssociation.md5,
                               models.DataIdentifierAssociation.adler32,
                               models.RSEFileAssociation)\
-            .with_hint(models.DataIdentifierAssociation,
-                       "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                       'oracle')\
+                       .with_hint(models.DataIdentifierAssociation,
+                                  "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
+                                  'oracle')\
             .outerjoin(models.RSEFileAssociation,
                        and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
                             models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
