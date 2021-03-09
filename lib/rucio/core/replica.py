@@ -2185,15 +2185,15 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                                           models.DataIdentifierAssociation.md5,
                                           models.DataIdentifierAssociation.adler32,
                                           models.RSEFileAssociation)\
-                        .with_hint(models.DataIdentifierAssociation,
-                                   "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                                   'oracle')\
-                        .filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                                     models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                                     models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
-                                     or_(*rse_clause)))\
-                        .filter(models.DataIdentifierAssociation.scope == scope,
-                                models.DataIdentifierAssociation.name == name)
+                                   .with_hint(models.DataIdentifierAssociation,
+                                              "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
+                                              'oracle')\
+                                   .filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                                                models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                                                models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
+                                                or_(*rse_clause)))\
+                                   .filter(models.DataIdentifierAssociation.scope == scope,
+                                           models.DataIdentifierAssociation.name == name)
 
     else:
         query = session.query(models.DataIdentifierAssociation.child_scope,
@@ -2224,16 +2224,16 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                                           models.DataIdentifierAssociation.md5,
                                           models.DataIdentifierAssociation.adler32,
                                           models.RSEFileAssociation)\
-                        .with_hint(models.DataIdentifierAssociation,
-                                   "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                                   'oracle')\
-                        .outerjoin(models.RSEFileAssociation,
-                                   and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                                        models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                                        models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
-                                        or_(*rse_clause)))\
-                        .filter(models.DataIdentifierAssociation.scope == scope,
-                                models.DataIdentifierAssociation.name == name)
+                                   .with_hint(models.DataIdentifierAssociation,
+                                              "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
+                                              'oracle')\
+                                   .outerjoin(models.RSEFileAssociation,
+                                              and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                                                   models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                                                   models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
+                                                   or_(*rse_clause)))\
+                                   .filter(models.DataIdentifierAssociation.scope == scope,
+                                           models.DataIdentifierAssociation.name == name)
 
     if total_threads and total_threads > 1:
         query = filter_thread_work(session=session, query=query, total_threads=total_threads,
@@ -2294,14 +2294,14 @@ def get_source_replicas_for_dataset(scope, name, source_rses=None,
                 query = session.query(models.DataIdentifierAssociation.child_scope,
                                       models.DataIdentifierAssociation.child_name,
                                       models.RSEFileAssociation.rse_id)\
-                    .with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle')\
-                    .outerjoin(models.RSEFileAssociation,
-                               and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                                    models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                                    models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                                    or_(*rse_clause)))\
-                    .filter(models.DataIdentifierAssociation.scope == scope,
-                            models.DataIdentifierAssociation.name == name)
+                               .with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle')\
+                               .outerjoin(models.RSEFileAssociation,
+                                          and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                                               models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                                               models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                                               or_(*rse_clause)))\
+                               .filter(models.DataIdentifierAssociation.scope == scope,
+                                       models.DataIdentifierAssociation.name == name)
 
     if total_threads and total_threads > 1:
         query = filter_thread_work(session=session, query=query, total_threads=total_threads,
@@ -2837,12 +2837,12 @@ def update_collection_replica(update_request, session=None):
             session.query(models.CollectionReplica).filter_by(scope=update_request['scope'],
                                                               name=update_request['name'],
                                                               rse_id=update_request['rse_id'])\
-                .delete()
+                                                   .delete()
         else:
             updated_replica = session.query(models.CollectionReplica).filter_by(scope=update_request['scope'],
                                                                                 name=update_request['name'],
                                                                                 rse_id=update_request['rse_id'])\
-                .one()
+                                                   .one()
             updated_replica.state = ds_replica_state
             updated_replica.available_replicas_cnt = available_replicas
             updated_replica.length = ds_length
@@ -3193,7 +3193,7 @@ def set_tombstone(rse_id, scope, name, tombstone=OBSOLETE, session=None):
     """
     stmt = update(models.RSEFileAssociation).where(and_(models.RSEFileAssociation.rse_id == rse_id, models.RSEFileAssociation.name == name, models.RSEFileAssociation.scope == scope,
                                                         ~session.query(models.ReplicaLock).filter_by(scope=scope, name=name, rse_id=rse_id).exists()))\
-        .values(tombstone=tombstone)
+                                            .values(tombstone=tombstone)
     result = session.execute(stmt)
     if not result.rowcount:
         try:
