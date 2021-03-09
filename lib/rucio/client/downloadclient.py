@@ -1022,13 +1022,8 @@ class DownloadClient:
                     options = did_to_options.setdefault(resolved_did_str, {})
                     options.setdefault('destinations', set()).add((base_dir, no_subdir))
 
-                    if resolved_did_str in all_resolved_did_strs:
-                        # in this case the DID was already given in another item
-                        # the options of this DID will be ignored and the options of the first item that contained the DID will be used
-                        # another approach would be to compare the options and apply the more relaxed options
-                        logger(logging.DEBUG, 'Ignoring further options of DID: %s' % resolved_did_str)
-                        continue
-
+                    # Merge some options
+                    # The other options of this DID will be inherited from the first item that contained the DID
                     options['ignore_checksum'] = (options.get('ignore_checksum') or ignore_checksum)
                     cur_transfer_timeout = options.setdefault('transfer_timeout', None)
                     if cur_transfer_timeout is not None and new_transfer_timeout is not None:
@@ -1036,8 +1031,9 @@ class DownloadClient:
                     elif new_transfer_timeout is not None:
                         options['transfer_timeout'] = int(new_transfer_timeout)
 
-                    resolved_dids.append({'scope': did_scope, 'name': did_name})
-                    all_resolved_did_strs.add(resolved_did_str)
+                    if resolved_did_str not in all_resolved_did_strs:
+                        resolved_dids.append({'scope': did_scope, 'name': did_name})
+                        all_resolved_did_strs.add(resolved_did_str)
 
             if len(resolved_dids) == 0:
                 logger(logging.WARNING, 'An item didnt have any DIDs after resolving the input. Ignoring it.')
