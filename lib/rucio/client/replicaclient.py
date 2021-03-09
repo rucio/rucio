@@ -27,6 +27,8 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020
+# - Christoph Ames <christoph.ames@cern.ch>, 2021
+
 
 try:
     from urllib import quote_plus
@@ -190,6 +192,34 @@ class ReplicaClient(BaseClient):
             if not metalink:
                 return self._load_json_data(r)
             return r.text
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
+
+    def list_suspicious_replicas(self, rse_expression=None, younger_than=None, nattempts=None):
+        """
+        List file replicas tagged as suspicious.
+
+        :param rse_expression: The RSE expression to restrict replicas on a set of RSEs.
+        :param younger_than: Datetime object to select the replicas which were declared since younger_than date. Default value = 10 days ago.
+        :param nattempts: The minimum number of replica appearances in the bad_replica DB table from younger_than date. Default value = 0.
+        :param state: State of the replica, either 'BAD' or 'SUSPICIOUS'. No value returns replicas with either state.
+
+        """
+        params = {}
+        if rse_expression:
+            params['rse_expression'] = rse_expression
+
+        if younger_than:
+            params['younger_than'] = younger_than
+
+        if nattempts:
+            params['nattempts'] = nattempts
+
+        url = build_url(choice(self.list_hosts),
+                        path='/'.join([self.REPLICAS_BASEURL, 'suspicious']))
+        r = self._send_request(url, type='GET', params=params)
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
