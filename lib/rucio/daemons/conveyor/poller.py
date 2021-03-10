@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2018
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2018
 # - Wen Guan <wen.guan@cern.ch>, 2014-2016
-# - Martin Barisits <martin.barisits@cern.ch>, 2016-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2016-2021
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Matt Snyder <msnyder@bnl.gov>, 2019-2021
 # - Brandon White <bjwhite@fnal.gov>, 2019
@@ -63,7 +63,8 @@ graceful_stop = threading.Event()
 
 datetime.datetime.strptime('', '')
 
-TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)
+TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)  # NOTE: This should eventually be completely removed, as it can be fetched from the request
+FILTER_TRANSFERTOOL = config_get('conveyor', 'filter_transfertool', False, None)  # NOTE: TRANSFERTOOL to filter requests on
 
 
 def poller(once=False, activities=None, sleep_time=60,
@@ -85,8 +86,8 @@ def poller(once=False, activities=None, sleep_time=60,
     if activity_shares:
         activities.sort()
         executable += '--activity_shares' + str(activity_shares)
-    if TRANSFER_TOOL:
-        executable += ' --transfertool ' + TRANSFER_TOOL
+    if FILTER_TRANSFERTOOL:
+        executable += ' --filter-transfertool ' + FILTER_TRANSFERTOOL
 
     hostname = socket.getfqdn()
     pid = os.getpid()
@@ -121,7 +122,7 @@ def poller(once=False, activities=None, sleep_time=60,
                     continue
 
                 start_time = time.time()
-                logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s using transfer tool: %s' % (older_than, activity, TRANSFER_TOOL))
+                logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s using transfer tool: %s' % (older_than, activity, FILTER_TRANSFERTOOL))
                 transfs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
                                                 state=[RequestState.SUBMITTED],
                                                 limit=db_bulk,
@@ -130,7 +131,7 @@ def poller(once=False, activities=None, sleep_time=60,
                                                 mode_all=False, hash_variable='id',
                                                 activity=activity,
                                                 activity_shares=activity_shares,
-                                                transfertool=TRANSFER_TOOL)
+                                                transfertool=FILTER_TRANSFERTOOL)
 
                 record_timer('daemons.conveyor.poller.000-get_next', (time.time() - start_time) * 1000)
 
