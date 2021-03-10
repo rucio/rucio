@@ -31,6 +31,7 @@
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 """
 Methods common to different conveyor submitter daemons.
@@ -226,7 +227,7 @@ def submit_transfer(external_host, job, submitter='submitter', timeout=None, use
 
 
 @read_session
-def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strategy=None, max_time_in_queue=None, session=None, logger=logging.log):
+def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strategy=None, max_time_in_queue=None, session=None, logger=logging.log, group_by_scope=False):
     """
     Group transfers in bulk based on certain criterias
 
@@ -241,6 +242,9 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
 
     grouped_transfers = {}
     grouped_jobs = {}
+
+    # Use empty string, but any string is OK, it is internal to this function only
+    _catch_all_scopes_str = ''
 
     try:
         default_source_strategy = get(section='conveyor', option='default-source-strategy')
@@ -310,18 +314,22 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
 
         external_host = transfer['external_host']
         scope = t_file['metadata']['scope']
-        scope_str = scope.internal
         activity = t_file['activity']
+        if group_by_scope:
+            scope_str = scope.internal
+        else:
+            # Use a catch-all scope which will be removed at the end
+            scope_str = _catch_all_scopes_str
 
         if external_host not in grouped_transfers:
             grouped_transfers[external_host] = {}
-            if USER_TRANSFERS not in ['cms'] or activity not in USER_ACTIVITY:
-                grouped_jobs[external_host] = []
-            elif activity in USER_ACTIVITY:
-                grouped_jobs[external_host] = {}
-                if scope_str not in grouped_transfers[external_host]:
-                    grouped_transfers[external_host][scope_str] = {}
-                    grouped_jobs[external_host][scope_str] = []
+            grouped_jobs[external_host] = {}
+            if scope_str not in grouped_transfers[external_host]:
+                grouped_transfers[external_host][scope_str] = {}
+                grouped_jobs[external_host][scope_str] = []
+
+        current_transfers_group = grouped_transfers[external_host][scope_str]
+        current_jobs_group = grouped_jobs[external_host][scope_str]
 
         job_params = {'account': transfer['account'],
                       'use_oidc': transfer.get('use_oidc', False),
@@ -356,10 +364,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
         # for multiple source replicas, no bulk submission
         if len(transfer['sources']) > 1:
             job_params['job_metadata']['multi_sources'] = True
-            if USER_TRANSFERS not in ['cms'] or activity not in USER_ACTIVITY:
-                grouped_jobs[external_host].append({'files': [t_file], 'job_params': job_params})
-            elif activity in USER_ACTIVITY:
-                grouped_jobs[external_host][scope_str].append({'files': [t_file], 'job_params': job_params})
+            current_jobs_group.append({'files': [t_file], 'job_params': job_params})
         else:
             job_params['job_metadata']['multi_sources'] = False
             job_key = '%s,%s,%s,%s,%s,%s,%s,%s' % (job_params['verify_checksum'], job_params.get('spacetoken', None),
@@ -373,11 +378,8 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
             if multihop:
                 job_key = 'multihop_%s' % (transfer['initial_request_id'])
 
-            if job_key not in grouped_transfers[external_host]:
-                if USER_TRANSFERS not in ['cms'] or activity not in USER_ACTIVITY:
-                    grouped_transfers[external_host][job_key] = {}
-                elif activity in USER_ACTIVITY:
-                    grouped_transfers[external_host][scope_str][job_key] = {}
+            if job_key not in current_transfers_group:
+                current_transfers_group[job_key] = {}
 
             if multihop:
                 policy_key = 'multihop_%s' % (transfer['initial_request_id'])
@@ -398,50 +400,33 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                     policy_key = "_".join(policy_key.split(' '))
                     # maybe here we need to hash the key if it's too long
 
-            if USER_TRANSFERS not in ['cms'] or activity not in USER_ACTIVITY:
-                if policy_key not in grouped_transfers[external_host][job_key]:
-                    grouped_transfers[external_host][job_key][policy_key] = {'files': [t_file], 'job_params': job_params}
+            if policy_key not in current_transfers_group[job_key]:
+                current_transfers_group[job_key][policy_key] = {'files': [], 'job_params': job_params}
+            current_transfers_policy = current_transfers_group[job_key][policy_key]
+            if multihop:
+                # The parent transfer should be the first of the list
+                # TODO : Only work for a single hop now, need to be able to handle multiple hops
+                if transfer['parent_request']:  # This is the child
+                    current_transfers_policy['files'].append(t_file)
                 else:
-                    if multihop:
-                        # The parent transfer should be the first of the list
-                        # TODO : Only work for a single hop now, need to be able to handle multiple hops
-                        if transfer['parent_request']:  # This is the child
-                            grouped_transfers[external_host][job_key][policy_key]['files'].append(t_file)
-                        else:
-                            grouped_transfers[external_host][job_key][policy_key]['files'].insert(0, t_file)
-                    else:
-                        grouped_transfers[external_host][job_key][policy_key]['files'].append(t_file)
-            elif activity in USER_ACTIVITY:
-                if policy_key not in grouped_transfers[external_host][scope_str][job_key]:
-                    grouped_transfers[external_host][scope_str][job_key][policy_key] = {'files': [t_file], 'job_params': job_params}
-                else:
-                    if multihop:
-                        # The parent transfer should be the first of the list
-                        # TODO : Only work for a single hop now, need to be able to handle multiple hops
-                        if transfer['parent_request']:  # This is the child
-                            grouped_transfers[external_host][scope_str][job_key][policy_key]['files'].append(t_file)
-                        else:
-                            grouped_transfers[external_host][scope_str][job_key][policy_key]['files'].insert(0, t_file)
+                    current_transfers_policy['files'].insert(0, t_file)
+            else:
+                current_transfers_policy['files'].append(t_file)
 
     # for jobs with different job_key, we cannot put in one job.
     for external_host in grouped_transfers:
-        if USER_TRANSFERS not in ['cms'] or activity not in USER_ACTIVITY:
-            for job_key in grouped_transfers[external_host]:
+        for scope_key in grouped_transfers[external_host]:
+            for job_key in grouped_transfers[external_host][scope_key]:
                 # for all policy groups in job_key, the job_params is the same.
-                for policy_key in grouped_transfers[external_host][job_key]:
-                    job_params = grouped_transfers[external_host][job_key][policy_key]['job_params']
-                    for xfers_files in chunks(grouped_transfers[external_host][job_key][policy_key]['files'], group_bulk):
+                for policy_key in grouped_transfers[external_host][scope_key][job_key]:
+                    job_params = grouped_transfers[external_host][scope_key][job_key][policy_key]['job_params']
+                    for xfers_files in chunks(grouped_transfers[external_host][scope_key][job_key][policy_key]['files'], group_bulk):
                         # for the last small piece, just submit it.
-                        grouped_jobs[external_host].append({'files': xfers_files, 'job_params': job_params})
-        elif activity in USER_ACTIVITY:
-            for scope_key in grouped_transfers[external_host]:
-                for job_key in grouped_transfers[external_host][scope_key]:
-                    # for all policy groups in job_key, the job_params is the same.
-                    for policy_key in grouped_transfers[external_host][scope_key][job_key]:
-                        job_params = grouped_transfers[external_host][scope_key][job_key][policy_key]['job_params']
-                        for xfers_files in chunks(grouped_transfers[external_host][scope_key][job_key][policy_key]['files'], group_bulk):
-                            # for the last small piece, just submit it.
-                            grouped_jobs[external_host][scope_key].append({'files': xfers_files, 'job_params': job_params})
+                        grouped_jobs[external_host][scope_key].append({'files': xfers_files, 'job_params': job_params})
+
+    if not group_by_scope:
+        for external_host in grouped_jobs:
+            grouped_jobs[external_host] = grouped_jobs[external_host][_catch_all_scopes_str]
 
     return grouped_jobs
 
