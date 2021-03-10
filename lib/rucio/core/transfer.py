@@ -648,15 +648,17 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
     :returns:                     transfers, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source
     """
 
-    req_sources = __list_transfer_requests_and_source_replicas(total_workers=total_workers,
-                                                               worker_number=worker_number,
-                                                               limit=limit,
-                                                               activity=activity,
-                                                               older_than=older_than,
-                                                               rses=rses,
-                                                               request_state=RequestState.QUEUED,
-                                                               transfertool=transfertool,
-                                                               session=session)
+    req_sources = __list_transfer_requests_and_source_replicas(
+        total_workers=total_workers,
+        worker_number=worker_number,
+        limit=limit,
+        activity=activity,
+        older_than=older_than,
+        rses=rses,
+        request_state=RequestState.QUEUED,
+        # transfertool=transfertool,  disabled; using config variable transfertool must work without preparer
+        session=session,
+    )
 
     unavailable_read_rse_ids = __get_unavailable_rse_ids(operation='read', session=session)
     unavailable_write_rse_ids = __get_unavailable_rse_ids(operation='write', session=session)
@@ -721,7 +723,7 @@ def get_transfer_requests_and_source_replicas(total_workers=0, worker_number=0, 
         # In case of non-connected, the list contains all the intermediary RSEs
         list_hops = []
         include_multihop = False
-        if transfertool in ['fts', None]:
+        if transfertool in ['fts3', None]:
             include_multihop = core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
 
         try:

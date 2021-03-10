@@ -121,16 +121,19 @@ def poller(once=False, activities=None, sleep_time=60,
                     continue
 
                 start_time = time.time()
-                logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s using transfer tool: %s' % (older_than, activity, TRANSFER_TOOL))
-                transfs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-                                                state=[RequestState.SUBMITTED],
-                                                limit=db_bulk,
-                                                older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than),
-                                                total_workers=heart_beat['nr_threads'], worker_number=heart_beat['assign_thread'],
-                                                mode_all=False, hash_variable='id',
-                                                activity=activity,
-                                                activity_shares=activity_shares,
-                                                transfertool=TRANSFER_TOOL)
+                # logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s using transfer tool: %s' % (older_than, activity, TRANSFER_TOOL))
+                logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s' % (older_than, activity))
+                transfs = request_core.get_next(
+                    request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
+                    state=[RequestState.SUBMITTED],
+                    limit=db_bulk,
+                    older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than),
+                    total_workers=heart_beat['nr_threads'], worker_number=heart_beat['assign_thread'],
+                    mode_all=False, hash_variable='id',
+                    activity=activity,
+                    activity_shares=activity_shares,
+                    # transfertool=TRANSFER_TOOL,  disabled; using config variable transfertool must work without preparer
+                )
 
                 record_timer('daemons.conveyor.poller.000-get_next', (time.time() - start_time) * 1000)
 
