@@ -79,8 +79,8 @@ from rucio.rse import rsemanager as rsemgr
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
 
-REGION = make_region().configure('dogpile.cache.memory',
-                                 expiration_time=60)
+REGION = make_region().configure('dogpile.cache.memory', expiration_time=60)
+
 
 @read_session
 def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, filter=None, session=None):
@@ -807,13 +807,15 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, updat
             yield scope, name, bytes, md5, adler32, None, None, None, None, None, None
             {'scope': scope, 'name': name} in files and files.remove({'scope': scope, 'name': name})
 
+
 def get_vp_endpoint():
     vp_endpoint = config_get('virtual_placement', 'vp_endpoint', default='')
     print('vp endpoint: ', vp_endpoint)
     return vp_endpoint
 
+
 def get_multi_cache_prefix(cache_site, filename, logger=logging.log):
-    
+
     vp_endpoint = get_vp_endpoint()
     if not vp_endpoint:
         return ''
@@ -831,10 +833,9 @@ def get_multi_cache_prefix(cache_site, filename, logger=logging.log):
             else:
                 return ''
         except requests.exceptions.RequestException as re:
-            REGION.set('CacheSites', {'could not reload':''})
+            REGION.set('CacheSites', {'could not reload': ''})
             logger(logging.ERROR, 'In get_multi_cache_prefix, could not access {}. Error:{}'.format(vp_endpoint, re))
             return ''
-
 
     if cache_site not in x_caches:
         logger(logging.DEBUG, 'cache site: ' + cache_site + ' not active.')
