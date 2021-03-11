@@ -20,13 +20,20 @@
 # PY3K COMPATIBLE
 
 import rucio.core.scope
-from rucio.core.account import has_account_attribute, list_account_attributes
+from rucio.core.account import has_account_attribute
 from rucio.core.identity import exist_identity_account
 from rucio.core.permission.generic import perm_get_global_account_usage
 from rucio.core.rse import list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_rule
 from rucio.db.sqla.constants import IdentityType
+
+try:
+    # Python 2: "unicode" is built-in
+    unicode
+except NameError:
+    unicode = str
+    basestring = str
 
 
 def has_permission(issuer, action, kwargs):
@@ -114,7 +121,12 @@ def has_permission(issuer, action, kwargs):
             'del_account_identity': perm_del_account_identity,
             'del_identity': perm_del_identity,
             'remove_did_from_followed': perm_remove_did_from_followed,
-            'remove_dids_from_followed': perm_remove_dids_from_followed}
+            'remove_dids_from_followed': perm_remove_dids_from_followed,
+            'add_vo': perm_add_vo,
+            'list_vos': perm_list_vos,
+            'recover_vo_root_identity': perm_recover_vo_root_identity,
+            'update_vo': perm_update_vo,
+            'access_rule_vo': perm_access_rule_vo}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs)
 
@@ -166,15 +178,24 @@ def perm_add_rule(issuer, kwargs):
     """
 
     rses = parse_expression(kwargs['rse_expression'], filter={'vo': issuer.vo})
-    # If all the RSEs matching the expression need approval, the rule cannot be created
-    if not kwargs['ask_approval']:
-        all_rses_need_approval = True
-        for rse in rses:
-            rse_attr = list_rse_attributes(rse_id=rse['id'])
-            if rse_attr.get('requires_approval', False):
-                all_rses_need_approval = False
-        if not all_rses_need_approval:
-            return False
+
+    # Keep while sync is running so it can make rules on all RSEs
+    if _is_root(issuer) and repr(kwargs['account']).startswith('sync_'):
+        return True
+
+    if isinstance(repr(issuer), basestring) and repr(issuer).startswith('sync_'):
+        return True
+
+    # Anyone can use _Temp RSEs if a lifetime is set and under a month
+    all_temp = True
+    for rse in rses:
+        rse_attr = list_rse_attributes(rse_id=rse['id'])
+        rse_type = rse_attr.get('cms_type', None)
+        if rse_type not in ['temp']:
+            all_temp = False
+
+    if all_temp and kwargs['lifetime'] is not None and kwargs['lifetime'] < 31 * 24 * 60 * 60:
+        return True
 
     if kwargs['account'] == issuer and not kwargs['locked']:
         return True
@@ -377,6 +398,14 @@ def perm_add_did(issuer, kwargs):
     if not _is_root(issuer) and not has_account_attribute(account=issuer, key='admin'):
         for rule in kwargs.get('rules', []):
             if rule['account'] != issuer:
+                return False
+
+    if kwargs['scope'].external != u'cms':
+        if kwargs['type'] == 'DATASET':
+            if '/USER#' not in kwargs['name']:
+                return False
+        elif kwargs['type'] == 'CONTAINER':
+            if not kwargs['name'].endswith('/USER'):
                 return False
 
     return (_is_root(issuer)
@@ -646,9 +675,7 @@ def perm_declare_bad_file_replicas(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    is_cloud_admin = bool(list(filter(lambda x: (x['key'].startswith('cloud-')) and (x['value'] == 'admin'),
-                                      list_account_attributes(account=issuer))))
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin') or is_cloud_admin
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
 
 
 def perm_declare_suspicious_file_replicas(issuer, kwargs):
@@ -801,13 +828,14 @@ def perm_set_local_account_limit(issuer, kwargs):
     """
     if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
         return True
-    # Check if user is a country admin
-    admin_in_country = []
-    for kv in list_account_attributes(account=issuer):
-        if kv['key'].startswith('country-') and kv['value'] == 'admin':
-            admin_in_country.append(kv['key'].partition('-')[2])
-    if admin_in_country and list_rse_attributes(rse_id=kwargs['rse_id']).get('country') in admin_in_country:
-        return True
+    # # Check if user is a country admin
+    # admin_in_country = []
+    # from rucio.core.account import has_account_attribute, list_account_attributes
+    # for kv in list_account_attributes(account=issuer):
+    #     if kv['key'].startswith('country-') and kv['value'] == 'admin':
+    #         admin_in_country.append(kv['key'].partition('-')[2])
+    # if admin_in_country and list_rse_attributes(rse_id=kwargs['rse_id']).get('country') in admin_in_country:
+    #     return True
 
     # Those listed as quota approvers can add to quotas
     rse_attr = list_rse_attributes(rse_id=kwargs['rse_id'])
@@ -828,15 +856,15 @@ def perm_set_global_account_limit(issuer, kwargs):
     """
     if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
         return True
-    # Check if user is a country admin
-    admin_in_country = set()
-    for kv in list_account_attributes(account=issuer):
-        if kv['key'].startswith('country-') and kv['value'] == 'admin':
-            admin_in_country.add(kv['key'].partition('-')[2])
-    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country')
-                              for rse in parse_expression(kwargs['rse_expression'], filter={'vo': issuer.vo})}
-    if resolved_rse_countries.issubset(admin_in_country):
-        return True
+    # # Check if user is a country admin
+    # admin_in_country = set()
+    # for kv in list_account_attributes(account=issuer):
+    #     if kv['key'].startswith('country-') and kv['value'] == 'admin':
+    #         admin_in_country.add(kv['key'].partition('-')[2])
+    # resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country')
+    #                           for rse in parse_expression(kwargs['rse_expression'], filter={'vo': issuer.vo})}
+    # if resolved_rse_countries.issubset(admin_in_country):
+    #     return True
     return False
 
 
@@ -850,16 +878,16 @@ def perm_delete_global_account_limit(issuer, kwargs):
     """
     if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
         return True
-    # Check if user is a country admin
-    admin_in_country = set()
-    for kv in list_account_attributes(account=issuer):
-        if kv['key'].startswith('country-') and kv['value'] == 'admin':
-            admin_in_country.add(kv['key'].partition('-')[2])
-    if admin_in_country:
-        resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country')
-                                  for rse in parse_expression(kwargs['rse_expression'], filter={'vo': issuer.vo})}
-        if resolved_rse_countries.issubset(admin_in_country):
-            return True
+    # # Check if user is a country admin
+    # admin_in_country = set()
+    # for kv in list_account_attributes(account=issuer):
+    #     if kv['key'].startswith('country-') and kv['value'] == 'admin':
+    #         admin_in_country.add(kv['key'].partition('-')[2])
+    # if admin_in_country:
+    #     resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id']).get('country')
+    #                               for rse in parse_expression(kwargs['rse_expression'], filter={'vo': issuer.vo})}
+    #     if resolved_rse_countries.issubset(admin_in_country):
+    #         return True
     return False
 
 
@@ -873,13 +901,13 @@ def perm_delete_local_account_limit(issuer, kwargs):
     """
     if _is_root(issuer) or has_account_attribute(account=issuer, key='admin'):
         return True
-    # Check if user is a country admin
-    admin_in_country = []
-    for kv in list_account_attributes(account=issuer):
-        if kv['key'].startswith('country-') and kv['value'] == 'admin':
-            admin_in_country.append(kv['key'].partition('-')[2])
-    if admin_in_country and list_rse_attributes(rse_id=kwargs['rse_id']).get('country') in admin_in_country:
-        return True
+    # # Check if user is a country admin
+    # admin_in_country = []
+    # for kv in list_account_attributes(account=issuer):
+    #     if kv['key'].startswith('country-') and kv['value'] == 'admin':
+    #         admin_in_country.append(kv['key'].partition('-')[2])
+    # if admin_in_country and list_rse_attributes(rse_id=kwargs['rse_id']).get('country') in admin_in_country:
+    #     return True
 
     rse_attr = list_rse_attributes(rse_id=kwargs['rse_id'])
     quota_approvers = rse_attr.get('quota_approvers', None)
@@ -910,10 +938,10 @@ def perm_get_local_account_usage(issuer, kwargs):
     """
     if _is_root(issuer) or has_account_attribute(account=issuer, key='admin') or kwargs.get('account') == issuer:
         return True
-    # Check if user is a country admin
-    for kv in list_account_attributes(account=issuer):
-        if kv['key'].startswith('country-') and kv['value'] == 'admin':
-            return True
+    # # Check if user is a country admin
+    # for kv in list_account_attributes(account=issuer):
+    #     if kv['key'].startswith('country-') and kv['value'] == 'admin':
+    #         return True
     return False
 
 
@@ -1001,7 +1029,7 @@ def perm_add_bad_pfns(issuer, kwargs):
     :param kwargs: List of arguments for the action.
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer)
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin')
 
 
 def perm_remove_did_from_followed(issuer, kwargs):
@@ -1031,3 +1059,53 @@ def perm_remove_dids_from_followed(issuer, kwargs):
     if not kwargs['account'] == issuer:
         return False
     return True
+
+
+def perm_add_vo(issuer, kwargs):
+    """
+    Checks if an account can add a VO.
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return (issuer.internal == 'super_root')
+
+
+def perm_list_vos(issuer, kwargs):
+    """
+    Checks if an account can list a VO.
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return (issuer.internal == 'super_root')
+
+
+def perm_recover_vo_root_identity(issuer, kwargs):
+    """
+    Checks if an account can recover identities for VOs.
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return (issuer.internal == 'super_root')
+
+
+def perm_update_vo(issuer, kwargs):
+    """
+    Checks if an account can update a VO.
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return (issuer.internal == 'super_root')
+
+
+def perm_access_rule_vo(issuer, kwargs):
+    """
+    Checks if we're at the same VO as the rule_id's
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :returns: True if account is allowed, otherwise False
+    """
+    return get_rule(kwargs['rule_id'])['scope'].vo == issuer.vo
