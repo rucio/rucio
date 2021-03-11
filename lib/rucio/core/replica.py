@@ -65,7 +65,7 @@ from rucio.common import exception
 from rucio.common.types import InternalScope
 from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
 from rucio.core.config import get as config_get
-from rucio.core.config import read_from_cache, write_to_cache
+from rucio.core.config import set as config_set
 from rucio.core.credential import get_signed_url
 from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute, get_rse_vo, list_rses
 from rucio.core.rse_counter import decrease, increase
@@ -77,13 +77,11 @@ from rucio.db.sqla.session import (read_session, stream_session, transactional_s
                                    DEFAULT_SCHEMA_NAME, BASE)
 from rucio.rse import rsemanager as rsemgr
 
-logging.basicConfig(stream=sys.stdout,
-                    level=getattr(logging,
-                                  config_get('common', 'loglevel',
-                                             raise_exception=False,
-                                             default='ERROR').upper()),
-                    format='%(asctime)s\t%(process)d\t%(levelname)s\t%(message)s')
+from dogpile.cache import make_region
+from dogpile.cache.api import NO_VALUE
 
+REGION = make_region().configure('dogpile.cache.memory',
+                                 expiration_time=60)
 
 @read_session
 def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, filter=None, session=None):
@@ -810,34 +808,44 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, updat
             yield scope, name, bytes, md5, adler32, None, None, None, None, None, None
             {'scope': scope, 'name': name} in files and files.remove({'scope': scope, 'name': name})
 
+def get_vp_endpoint():
+    vp_endpoint = config_get('virtual_placement', 'vp_endpoint', default='')
+    print('vp endpoint: ', vp_endpoint)
+    return vp_endpoint
 
 def get_multi_cache_prefix(cache_site, filename, logger=logging.log):
+    
+    vp_endpoint = get_vp_endpoint()
+    if not vp_endpoint:
+        return ''
 
     # print('Looking up prefix for cache:', cache_site, 'and filename:', filename)
-    x_caches = read_from_cache('CacheSites', expiration_time=60)
-    if not x_caches:
-        # print('reloading xcache sites and ranges.')
-        vp_endpoint = 'https://vps.cern.ch/serverRanges'
-        response = requests.get(vp_endpoint, verify=False)
-        if response:
-            # print('Success! Got XCache ranges.')
-            x_caches = response.json()
-            # print(x_caches)
-            write_to_cache('CacheSites', x_caches)
-        else:
-            logger(logging.ERROR, 'Could not reload from vps.')
+    x_caches = REGION.get('CacheSites')
+    if x_caches is NO_VALUE:
+        logger(logging.DEBUG, 'reloading xcache sites and ranges.')
+        try:
+            response = requests.get('{}/serverRanges'.format(vp_endpoint), verify=False)
+            if response.status_code == 200:
+                x_caches = response.json()
+                logger(logging.DEBUG, x_caches)
+                REGION.set('CacheSites', x_caches)
+            else:
+                return ''
+        except requests.exceptions.RequestException as re:
+            REGION.set('CacheSites', {'could not reload':''})
+            logger(logging.ERROR, 'In get_multi_cache_prefix, could not access {}. Error:{}'.format(vp_endpoint, re))
+            return ''
+
 
     if cache_site not in x_caches:
-        # print('cache not active')
+        logger(logging.DEBUG, 'cache site: ' + cache_site + ' not active.')
         return ''
 
     xcache_site = x_caches[cache_site]
     h = float(
         unpack('Q', sha256(filename.encode('utf-8')).digest()[:8])[0]) / 2**64
-    # print('hash:', h)
     for irange in xcache_site['ranges']:
         if h < irange[1]:
-            # print('server:', irange[0])
             return xcache_site['servers'][irange[0]][0]
     return ''
 
@@ -1069,8 +1077,8 @@ def _list_replicas(dataset_clause, file_clause, state_clause, show_pfns,
                                         # print('client', client_location['site'], 'has cache:', cache_site)
                                         # print('filename', name)
                                         selected_prefix = get_multi_cache_prefix(cache_site, name)
-                                        pfn = 'root://' + selected_prefix + '//' + pfn.replace('davs://', 'https://')
-                                        assert True
+                                        if selected_prefix:
+                                            pfn = 'root://' + selected_prefix + '//' + pfn.replace('davs://', 'root://')
                                     else:
                                         # print('site:', client_location['site'], 'has no cache')
                                         # print('lets check if it has defined an internal root proxy ')
@@ -2583,13 +2591,16 @@ def list_dataset_replicas_vp(scope, name, deep=False, session=None):
 
     :returns: If VP exists and there is at least one non-TAPE replica, returns a list of dicts of sites
     """
-
+    vp_endpoint = get_vp_endpoint()
     vp_replies = ['other']
     nr_replies = 5  # force limit reply size
 
+    if not vp_endpoint:
+        return vp_replies
+
     try:
-        import requests
-        vp_replies = requests.get('http://vpservice.cern.ch/ds/%s/%s:%s' % (nr_replies, scope, name),
+        vp_replies = requests.get('{}/ds/{}/{}:{}'.format(vp_endpoint, nr_replies, scope, name),
+                                  verify=False,
                                   timeout=1)
         if vp_replies.status_code == 200:
             vp_replies = vp_replies.json()

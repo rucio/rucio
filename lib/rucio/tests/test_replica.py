@@ -126,6 +126,7 @@ class TestReplicaCore(unittest.TestCase):
         add_replicas(rse_id=rse_id, files=files, account=root)
 
         cconfig_set('clientcachemap', 'BLACKMESA', 'AGLT2')
+        cconfig_set('virtual_placement', 'vp_endpoint', 'https://vps.cern.ch')
 
         for rep in list_replicas(
                 dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
