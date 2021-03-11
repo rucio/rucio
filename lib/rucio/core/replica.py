@@ -2606,8 +2606,8 @@ def list_dataset_replicas_vp(scope, name, deep=False, session=None):
             vp_replies = vp_replies.json()
         else:
             vp_replies = ['other']
-    except Exception as exc:
-        print(exc)
+    except requests.exceptions.RequestException as re:
+        logger(logging.ERROR, 'In list_dataset_replicas_vp, could not access {}. Error:{}'.format(vp_endpoint, re))
         vp_replies = ['other']
 
     if vp_replies != ['other']:
