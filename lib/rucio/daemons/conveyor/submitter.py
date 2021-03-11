@@ -77,7 +77,8 @@ GET_TRANSFERS_COUNTER = Counter('rucio_daemons_conveyor_submitter_get_transfers'
 
 def submitter(once=False, rses=None, mock=False,
               bulk=100, group_bulk=1, group_policy='rule', source_strategy=None,
-              activities=None, sleep_time=600, max_sources=4, retry_other_fts=False):
+              activities=None, sleep_time=600, max_sources=4, retry_other_fts=False,
+              filter_transfertool=FILTER_TRANSFERTOOL, transfertool=TRANSFER_TOOL, transfertype=TRANSFER_TYPE):
     """
     Main loop to submit a new transfer primitive to a transfertool.
     """
@@ -120,8 +121,8 @@ def submitter(once=False, rses=None, mock=False,
     if activities:
         activities.sort()
         executable += '--activities ' + str(activities)
-    if FILTER_TRANSFERTOOL:
-        executable += ' --filter-transfertool ' + FILTER_TRANSFERTOOL
+    if filter_transfertool:
+        executable += ' --filter-transfertool ' + filter_transfertool
 
     hostname = socket.getfqdn()
     pid = os.getpid()
@@ -132,7 +133,8 @@ def submitter(once=False, rses=None, mock=False,
     logger = formatted_logger(logging.log, prefix + '%s')
     logger(logging.INFO, 'Submitter starting with timeout %s', timeout)
 
-    time.sleep(10)  # To prevent running on the same partition if all the poller restart at the same time
+    if not mock:
+        time.sleep(10)  # To prevent running on the same partition if all the poller restart at the same time
     heart_beat = heartbeat.live(executable, hostname, pid, hb_thread)
     prefix = 'conveyor-submitter[%i/%i] : ' % (heart_beat['assign_thread'], heart_beat['nr_threads'])
     logger = formatted_logger(logging.log, prefix + '%s')
@@ -174,7 +176,7 @@ def submitter(once=False, rses=None, mock=False,
                                             max_sources=max_sources,
                                             bring_online=bring_online,
                                             retry_other_fts=retry_other_fts,
-                                            transfertool=FILTER_TRANSFERTOOL,
+                                            transfertool=filter_transfertool,
                                             logger=logger)
 
                 record_timer('daemons.conveyor.transfer_submitter.get_transfers.per_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
@@ -192,21 +194,21 @@ def submitter(once=False, rses=None, mock=False,
 
                 logger(logging.INFO, 'Starting to submit transfers for %s', activity)
 
-                if TRANSFER_TOOL in ['fts3', 'mock']:
+                if transfertool in ['fts3', 'mock']:
                     for external_host in grouped_jobs:
                         if not user_transfer:
                             for job in grouped_jobs[external_host]:
                                 # submit transfers
                                 submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter',
-                                                timeout=timeout, logger=logger)
+                                                timeout=timeout, logger=logger, transfertool=transfertool)
                         else:
                             for _, jobs in iteritems(grouped_jobs[external_host]):
                                 # submit transfers
                                 for job in jobs:
                                     submit_transfer(external_host=external_host, job=job, submitter='transfer_submitter',
-                                                    timeout=timeout, user_transfer_job=user_transfer, logger=logger)
-                elif TRANSFER_TOOL == 'globus':
-                    if TRANSFER_TYPE == 'bulk':
+                                                    timeout=timeout, user_transfer_job=user_transfer, logger=logger, transfertool=transfertool)
+                elif transfertool == 'globus':
+                    if transfertype == 'bulk':
                         # build bulk job file list per external host to send to submit_transfer
                         for external_host in grouped_jobs:
                             # pad the job with job_params; irrelevant for globus but needed for further rucio parsing
@@ -214,7 +216,8 @@ def submitter(once=False, rses=None, mock=False,
                             for job in grouped_jobs[external_host]:
                                 submitjob.get('files').append(job.get('files')[0])
                             logger(logging.DEBUG, 'submitjob: %s' % submitjob)
-                            submit_transfer(external_host=external_host, job=submitjob, submitter='transfer_submitter', timeout=timeout, logger=logger)
+                            submit_transfer(external_host=external_host, job=submitjob, submitter='transfer_submitter',
+                                            timeout=timeout, logger=logger, transfertool=transfertool)
                     else:
                         # build single job files and individually send to submit_transfer
                         job_params = grouped_jobs[''][0].get('job_params') if grouped_jobs else None
@@ -223,7 +226,8 @@ def submitter(once=False, rses=None, mock=False,
                                 for file in job['files']:
                                     singlejob = {'files': [file], 'job_params': job_params}
                                     logger(logging.DEBUG, 'singlejob: %s' % singlejob)
-                                    submit_transfer(external_host=external_host, job=singlejob, submitter='transfer_submitter', timeout=timeout, logger=logger)
+                                    submit_transfer(external_host=external_host, job=singlejob, submitter='transfer_submitter',
+                                                    timeout=timeout, logger=logger, transfertool=transfertool)
                 else:
                     logger(logging.ERROR, 'Unknown transfer tool')
 
@@ -442,6 +446,6 @@ def __mock_sources(sources):
 
     tmp_sources = []
     for source in sources:
-        tmp_sources.append((source[0], ':'.join(['mock'] + source[1].split(':')[1:]), source[2], source[3]))
+        tmp_sources.append((source[0], ':'.join(['mock'] + source[1].split(':')[1:]), source[2], source[3], source[4]))
     sources = tmp_sources
     return tmp_sources

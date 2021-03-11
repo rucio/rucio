@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2020 CERN
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 # - dciangot <diego.ciangottini@cern.ch>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
-# - maatthias <maatthias@gmail.com>, 2019
+# - Matt Snyder <msnyder@bnl.gov>, 2019
 # - Gabriele Fronze' <gfronze@cern.ch>, 2019
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2019-2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
@@ -63,7 +63,7 @@ USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
 TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)
 
 
-def submit_transfer(external_host, job, submitter='submitter', timeout=None, user_transfer_job=False, logger=logging.log):
+def submit_transfer(external_host, job, submitter='submitter', timeout=None, user_transfer_job=False, logger=logging.log, transfertool=TRANSFER_TOOL):
     """
     Submit a transfer or staging request
 
@@ -124,7 +124,7 @@ def submit_transfer(external_host, job, submitter='submitter', timeout=None, use
         # A eid is returned if the job is properly submitted otherwise an exception is raised
         eid = transfer_core.submit_bulk_transfers(external_host,
                                                   files=job['files'],
-                                                  transfertool=TRANSFER_TOOL,
+                                                  transfertool=transfertool,
                                                   job_params=job['job_params'],
                                                   timeout=timeout,
                                                   user_transfer_job=user_transfer_job)
@@ -171,7 +171,7 @@ def submit_transfer(external_host, job, submitter='submitter', timeout=None, use
                 logger(logging.INFO, 'About to submit job to %s with timeout %s', external_host, timeout)
                 eid = transfer_core.submit_bulk_transfers(external_host,
                                                           files=[t_file],
-                                                          transfertool=TRANSFER_TOOL,
+                                                          transfertool=transfertool,
                                                           job_params=job['job_params'],
                                                           timeout=timeout,
                                                           user_transfer_job=user_transfer_job)
