@@ -54,7 +54,7 @@ import traceback
 from functools import wraps
 
 import argcomplete
-import tabulate
+from tabulate import tabulate
 
 from rucio import version
 from rucio.client import Client
@@ -935,7 +935,7 @@ def list_account_attributes(args):
     table = []
     for attr in attributes:
         table.append([attr['key'], attr['value']])
-    print(tabulate.tabulate(table, tablefmt=tablefmt, headers=['Key', 'Value']))
+    print(tabulate(table, tablefmt=tablefmt, headers=['Key', 'Value']))
     return SUCCESS
 
 
