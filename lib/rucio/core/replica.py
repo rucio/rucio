@@ -46,8 +46,8 @@ from curses.ascii import isprint
 from datetime import datetime, timedelta
 from json import dumps
 from re import match
-from traceback import format_exc
 import requests
+from traceback import format_exc
 from struct import unpack
 from hashlib import sha256
 
@@ -810,7 +810,6 @@ def _list_replicas_for_files(file_clause, state_clause, files, rse_clause, updat
 
 def get_vp_endpoint():
     vp_endpoint = config_get('virtual_placement', 'vp_endpoint', default='')
-    print('vp endpoint: ', vp_endpoint)
     return vp_endpoint
 
 
@@ -820,25 +819,22 @@ def get_multi_cache_prefix(cache_site, filename, logger=logging.log):
     if not vp_endpoint:
         return ''
 
-    # print('Looking up prefix for cache:', cache_site, 'and filename:', filename)
     x_caches = REGION.get('CacheSites')
     if x_caches is NO_VALUE:
-        logger(logging.DEBUG, 'reloading xcache sites and ranges.')
         try:
             response = requests.get('{}/serverRanges'.format(vp_endpoint), verify=False)
-            if response.status_code == 200:
+            if response.ok:
                 x_caches = response.json()
-                logger(logging.DEBUG, x_caches)
                 REGION.set('CacheSites', x_caches)
             else:
+                REGION.set('CacheSites', {'could not reload': ''})
                 return ''
         except requests.exceptions.RequestException as re:
             REGION.set('CacheSites', {'could not reload': ''})
-            logger(logging.ERROR, 'In get_multi_cache_prefix, could not access {}. Error:{}'.format(vp_endpoint, re))
+            logger(logging.WARNING, 'In get_multi_cache_prefix, could not access {}. Error:{}'.format(vp_endpoint, re))
             return ''
 
     if cache_site not in x_caches:
-        logger(logging.DEBUG, 'cache site: ' + cache_site + ' not active.')
         return ''
 
     xcache_site = x_caches[cache_site]
