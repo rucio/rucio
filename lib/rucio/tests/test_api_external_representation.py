@@ -18,6 +18,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2021
+# - Eric Vaandering <ewv@fnal.gov>, 2021
 
 import random
 import string
@@ -358,7 +359,7 @@ class TestApiExternalRepresentation(unittest.TestCase):
         add_did(self.scope_name, did, 'DATASET', 'root', account=self.account_name, rse=rse_mock, **self.vo)
         abacus_rse.run(once=True)
 
-        out = api_rse.get_rse_usage(rse_mock, per_account=True, issuer='root', **self.vo)
+        out = api_rse.get_rse_usage(rse_mock, source='rucio', per_account=True, issuer='root', **self.vo)
         assert rse_mock_id in [o['rse_id'] for o in out]
         for usage in out:
             if usage['rse_id'] == rse_mock_id:

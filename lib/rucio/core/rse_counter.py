@@ -11,12 +11,17 @@
 # - Martin Barisits, <martin.barisits@cern.ch>, 2014
 # - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Brandon White, <bjwhite@fnal.gov>, 2019
+# - Eric Vaandering <ewv@fnal.gov>, 2021
 
-from sqlalchemy.orm.exc import NoResultFound
+import datetime
 
 from rucio.common.exception import CounterNotFound
 from rucio.db.sqla import models, filter_thread_work
+from rucio.db.sqla.constants import OBSOLETE
 from rucio.db.sqla.session import read_session, transactional_session
+from sqlalchemy import func
+from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.sql.expression import null
 
 
 @transactional_session
@@ -27,8 +32,7 @@ def add_counter(rse_id, session=None):
     :param rse_id:  The id of the RSE.
     :param session: The database session in use.
     """
-    models.RSEUsage(rse_id=rse_id, source='rucio', files=0, used=0).\
-        save(session=session)
+    models.RSEUsage(rse_id=rse_id, source='rucio', files=0, used=0).save(session=session)
 
 
 @transactional_session
@@ -41,8 +45,7 @@ def increase(rse_id, files, bytes, session=None):
     :param bytes:   The number of added bytes.
     :param session: The database session in use.
     """
-    models.UpdatedRSECounter(rse_id=rse_id, files=files, bytes=bytes).\
-        save(session=session)
+    models.UpdatedRSECounter(rse_id=rse_id, files=files, bytes=bytes).save(session=session)
 
 
 @transactional_session
@@ -67,8 +70,7 @@ def del_counter(rse_id, session=None):
     :param session: The database session in use.
     """
 
-    session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').\
-        delete(synchronize_session=False)
+    session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').delete(synchronize_session=False)
 
 
 @read_session
@@ -84,8 +86,7 @@ def get_counter(rse_id, session=None):
     """
 
     try:
-        counter = session.query(models.RSEUsage).\
-            filter_by(rse_id=rse_id, source='rucio').one()
+        counter = session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').one()
         return {'bytes': counter.used,
                 'files': counter.files,
                 'updated_at': counter.updated_at}
@@ -103,10 +104,10 @@ def get_updated_rse_counters(total_workers, worker_number, session=None):
     :param session:            Database session in use.
     :returns:                  List of rse_ids whose rse_counters need to be updated.
     """
-    query = session.query(models.UpdatedRSECounter.rse_id).\
-        distinct(models.UpdatedRSECounter.rse_id)
+    query = session.query(models.UpdatedRSECounter.rse_id).distinct(models.UpdatedRSECounter.rse_id)
 
-    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='rse_id')
+    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number,
+                               hash_variable='rse_id')
     results = query.all()
     return [result.rse_id for result in results]
 
@@ -139,6 +140,46 @@ def update_rse_counter(rse_id, session=None):
 
 
 @transactional_session
+def update_replica_counts(rse_id, session=None):
+    """
+    Read the replica counts and update rse_usage.
+
+    :param rse_id:   The rse_id to update.
+    :param session:  Database session in use.
+    """
+
+    # Get the counds of obsolete and deletably (expired) files
+    obsolete_files, obsolete_bytes = (session
+                                      .query(func.count(), func.sum(models.RSEFileAssociation.bytes))
+                                      .with_hint(models.RSEFileAssociation,
+                                                 "INDEX_FFS(REPLICAS REPLICAS_TOMBSTONE_IDX)", 'oracle')
+                                      .filter(models.RSEFileAssociation.rse_id == rse_id,
+                                              models.RSEFileAssociation.tombstone != null(),
+                                              models.RSEFileAssociation.tombstone == OBSOLETE)
+                                      .one())
+    deletable_files, deletable_bytes = (session
+                                        .query(func.count(), func.sum(models.RSEFileAssociation.bytes))
+                                        .with_hint(models.RSEFileAssociation,
+                                                   "INDEX_FFS(REPLICAS REPLICAS_TOMBSTONE_IDX)", 'oracle')
+                                        .filter(models.RSEFileAssociation.rse_id == rse_id,
+                                                models.RSEFileAssociation.tombstone != null(),
+                                                models.RSEFileAssociation.tombstone < datetime.datetime.now())
+                                        .one())
+    # Integerize them if no rows are returned
+    if not deletable_files:
+        deletable_files = 0
+    if not obsolete_files:
+        obsolete_files = 0
+
+    # Merge (INSERT or UPDATE) the values
+    # fill_rse_counter_history_table takes care of the history for all types
+    deletable = models.RSEUsage(rse_id=rse_id, used=deletable_bytes, files=deletable_files, source='expired')
+    session.merge(deletable)
+    obsolete = models.RSEUsage(rse_id=rse_id, used=obsolete_bytes, files=obsolete_files, source='obsolete')
+    session.merge(obsolete)
+
+
+@transactional_session
 def fill_rse_counter_history_table(session=None):
     """
     Fill the RSE usage history table with the current usage.
@@ -147,4 +188,5 @@ def fill_rse_counter_history_table(session=None):
     """
     RSEUsageHistory = models.RSEUsage.__history_mapper__.class_
     for usage in session.query(models.RSEUsage).all():
-        RSEUsageHistory(rse_id=usage['rse_id'], used=usage['used'], files=usage['files'], source=usage['source']).save(session=session)
+        RSEUsageHistory(rse_id=usage['rse_id'], used=usage['used'],
+                        files=usage['files'], source=usage['source']).save(session=session)
