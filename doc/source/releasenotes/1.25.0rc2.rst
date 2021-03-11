@@ -1,0 +1,76 @@
+=========
+1.25.0rc2
+=========
+
+-----------------
+Release Candidate
+-----------------
+
+This is a release candidate! Only to be used in testing environments!
+
+--------------------
+Upgrade Instructions
+--------------------
+
+This feature release requires a database schema upgrade. Please consult the `documentation <https://rucio.readthedocs.io/en/latest/database.html>`_ about upgrading your database schema.
+
+The following changes are necessary and are covered by the ``alembic upgrade head`` command:
+
+1. Ading new column and indices to ``requests`` and ``requests_history`` tables. (Alembic revision ``f85a2962b021``)
+
+  - Adding ``transfertool`` column to ``requests`` table
+  - Adding ``transfertool`` column to ``requests_history`` table
+  - Adding new ``REQUESTS_TYP_STA_TRA_ACT_IDX`` index to ``requests`` table
+
+-----------------
+Important changes
+-----------------
+
+1. This release removed the deprecated ``reaper1`` daemon, which now has been fully replaced by the ``reaper2``daemon.
+   
+-------
+General
+-------
+
+********
+Features
+********
+
+- Deletion: Deprecate reaper1 `#4213 <https://github.com/rucio/rucio/issues/4213>`_
+- Release management: urllib3 dependency upgrade `#4163 <https://github.com/rucio/rucio/issues/4163>`_
+- Transfers: Stronger integration of Globus Online transfer tool `#4216 <https://github.com/rucio/rucio/issues/4216>`_
+
+************
+Enhancements
+************
+
+- REST & API: Flask dynamic endpoint loading `#4043 <https://github.com/rucio/rucio/issues/4043>`_
+- Testing: Functional download/upload tests with xrootd containers `#2311 <https://github.com/rucio/rucio/issues/2311>`_
+
+****
+Bugs
+****
+
+- Core & Internals: Configuration: set doesn't work properly if '.' is provided as a value `#3283 <https://github.com/rucio/rucio/issues/3283>`_
+- Core & Internals: imp / importlib incompatibility `#4361 <https://github.com/rucio/rucio/issues/4361>`_
+
+-------
+Clients
+-------
+
+****
+Bugs
+****
+
+- Clients: replica client: expose signature_lifetime `#3972 <https://github.com/rucio/rucio/issues/3972>`_
+- Clients: new logger in client broke pilot compatibility `#4359 <https://github.com/rucio/rucio/issues/4359>`_
+  
+-----
+WebUI
+-----
+
+****
+Bugs
+****
+
+- WebUI: Account quota cannot be changed if it's not set at all `#4080 <https://github.com/rucio/rucio/issues/4080>`_
