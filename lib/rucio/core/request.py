@@ -43,6 +43,7 @@ from sqlalchemy import and_, or_, func, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc, false, true
 
+from rucio.common.constants import FTSState
 from rucio.common.config import config_get_bool
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation, ConfigNotFound
 from rucio.common.types import InternalAccount, InternalScope
@@ -52,7 +53,7 @@ from rucio.core.message import add_message
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_name, get_rse_vo, get_rse_transfer_limits, get_rse_attribute
 from rucio.db.sqla import models, filter_thread_work
-from rucio.db.sqla.constants import RequestState, RequestType, FTSState, ReplicaState, LockState, RequestErrMsg
+from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState, LockState, RequestErrMsg
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 from rucio.transfertool.fts3 import FTS3Transfertool
 
@@ -399,11 +400,11 @@ def query_request(request_id, transfertool='fts3', session=None, logger=logging.
         else:
             if 'job_state' not in response:
                 req_status['new_state'] = RequestState.LOST
-            elif response['job_state'] in (str(FTSState.FAILED.name),
-                                           str(FTSState.FINISHEDDIRTY.name),
-                                           str(FTSState.CANCELED.name)):
+            elif response['job_state'] in (FTSState.FAILED,
+                                           FTSState.FINISHEDDIRTY,
+                                           FTSState.CANCELED):
                 req_status['new_state'] = RequestState.FAILED
-            elif response['job_state'] == str(FTSState.FINISHED.name):
+            elif response['job_state'] == FTSState.FINISHED:
                 req_status['new_state'] = RequestState.DONE
     else:
         raise NotImplementedError
@@ -411,7 +412,7 @@ def query_request(request_id, transfertool='fts3', session=None, logger=logging.
     return req_status
 
 
-@read_session
+@ read_session
 def query_request_details(request_id, transfertool='fts3', session=None, logger=logging.log):
     """
     Query the detailed status of a request. Can also be done after the
@@ -440,7 +441,7 @@ def query_request_details(request_id, transfertool='fts3', session=None, logger=
     raise NotImplementedError
 
 
-@transactional_session
+@ transactional_session
 def set_request_state(request_id, new_state, transfer_id=None, transferred_at=None, started_at=None, staging_started_at=None, staging_finished_at=None, src_rse_id=None, err_msg=None, session=None, logger=logging.log):
     """
     Update the state of a request. Fails silently if the request_id does not exist.
@@ -490,7 +491,7 @@ def set_request_state(request_id, new_state, transfer_id=None, transferred_at=No
         raise UnsupportedOperation("Request %s state cannot be updated." % request_id)
 
 
-@transactional_session
+@ transactional_session
 def set_requests_state(request_ids, new_state, session=None, logger=logging.log):
     """
     Bulk update the state of requests. Fails silently if the request_id does not exist.
@@ -510,7 +511,7 @@ def set_requests_state(request_ids, new_state, session=None, logger=logging.log)
         raise RucioException(error.args)
 
 
-@transactional_session
+@ transactional_session
 def touch_requests_by_rule(rule_id, session=None):
     """
     Update the update time of requests in a rule. Fails silently if no requests on this rule.
@@ -531,7 +532,7 @@ def touch_requests_by_rule(rule_id, session=None):
         raise RucioException(error.args)
 
 
-@read_session
+@ read_session
 def get_request(request_id, session=None):
     """
     Retrieve a request by its ID.
@@ -554,7 +555,7 @@ def get_request(request_id, session=None):
         raise RucioException(error.args)
 
 
-@read_session
+@ read_session
 def get_requests_by_transfer(external_host, transfer_id, session=None):
     """
     Retrieve requests by its transfer ID.
@@ -582,7 +583,7 @@ def get_requests_by_transfer(external_host, transfer_id, session=None):
         raise RucioException(error.args)
 
 
-@read_session
+@ read_session
 def get_request_by_did(scope, name, rse_id, request_type=None, session=None):
     """
     Retrieve a request by its DID for a destination RSE.
@@ -620,7 +621,7 @@ def get_request_by_did(scope, name, rse_id, request_type=None, session=None):
         raise RucioException(error.args)
 
 
-@transactional_session
+@ transactional_session
 def archive_request(request_id, session=None):
     """
     Move a request to the history table.
@@ -675,7 +676,7 @@ def archive_request(request_id, session=None):
             raise RucioException(error.args)
 
 
-@transactional_session
+@ transactional_session
 def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSFER, session=None, logger=logging.log):
     """
     Cancel a request based on a DID and request type.
@@ -731,7 +732,7 @@ def cancel_request_external_id(transfer_id, transfer_host):
         raise RucioException('Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfer_host, traceback.format_exc()))
 
 
-@read_session
+@ read_session
 def list_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, limit=None, activity=None, older_than=None, rses=None, session=None):
     """
     List stagein requests with source replicas
@@ -819,7 +820,7 @@ def list_stagein_requests_and_source_replicas(total_workers=0, worker_number=0, 
         return query.all()
 
 
-@read_session
+@ read_session
 def get_sources(request_id, rse_id=None, session=None):
     """
     Retrieve sources by its ID.
@@ -850,7 +851,7 @@ def get_sources(request_id, rse_id=None, session=None):
         raise RucioException(error.args)
 
 
-@read_session
+@ read_session
 def get_heavy_load_rses(threshold, session=None):
     """
     Retrieve heavy load rses.
@@ -861,9 +862,9 @@ def get_heavy_load_rses(threshold, session=None):
     """
     try:
         results = session.query(models.Source.rse_id, func.count(models.Source.rse_id).label('load'))\
-                         .filter(models.Source.is_using == true())\
-                         .group_by(models.Source.rse_id)\
-                         .all()
+            .filter(models.Source.is_using == true())\
+            .group_by(models.Source.rse_id)\
+            .all()
 
         if not results:
             return
@@ -879,7 +880,7 @@ def get_heavy_load_rses(threshold, session=None):
         raise RucioException(error.args)
 
 
-@read_session
+@ read_session
 def get_stats_by_activity_direction_state(state, all_activities=False, direction='destination', session=None):
     """
     Retrieve statistics about requests by destination, activity and state.
@@ -914,12 +915,12 @@ def get_stats_by_activity_direction_state(state, all_activities=False, direction
             group_by = (models.Request.source_rse_id, models.Request.activity)
 
         subquery = session.query(*inner_select)\
-                          .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
-                          .filter(models.Request.state.in_(state))\
-                          .group_by(models.Request.account,
-                                    models.Request.state)\
-                          .group_by(*group_by)\
-                          .subquery()
+            .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
+            .filter(models.Request.state.in_(state))\
+            .group_by(models.Request.account,
+                      models.Request.state)\
+            .group_by(*group_by)\
+            .subquery()
 
         outer_select = [subquery.c.account,
                         subquery.c.state,
@@ -943,7 +944,7 @@ def get_stats_by_activity_direction_state(state, all_activities=False, direction
         raise RucioException(error.args)
 
 
-@transactional_session
+@ transactional_session
 def release_waiting_requests_per_deadline(rse_id=None, deadline=1, session=None):
     """
     Release waiting requests that were waiting too long and exceeded the maximum waiting time to be released.
@@ -958,17 +959,17 @@ def release_waiting_requests_per_deadline(rse_id=None, deadline=1, session=None)
         old_requests_subquery = session.query(grouped_requests_subquery.c.name,
                                               grouped_requests_subquery.c.scope,
                                               grouped_requests_subquery.c.oldest_requested_at)\
-                                       .filter(grouped_requests_subquery.c.oldest_requested_at < datetime.datetime.now() - datetime.timedelta(hours=deadline))\
-                                       .subquery()
+            .filter(grouped_requests_subquery.c.oldest_requested_at < datetime.datetime.now() - datetime.timedelta(hours=deadline))\
+            .subquery()
         old_requests_subquery = session.query(filtered_requests_subquery.c.id)\
-                                       .join(old_requests_subquery, and_(filtered_requests_subquery.c.dataset_name == old_requests_subquery.c.name, filtered_requests_subquery.c.dataset_scope == old_requests_subquery.c.scope))
+            .join(old_requests_subquery, and_(filtered_requests_subquery.c.dataset_name == old_requests_subquery.c.name, filtered_requests_subquery.c.dataset_scope == old_requests_subquery.c.scope))
         old_requests_subquery = old_requests_subquery.subquery()
         statement = update(models.Request).where(models.Request.id.in_(old_requests_subquery)).values(state=RequestState.QUEUED)
         amount_released_requests = session.execute(statement).rowcount
     return amount_released_requests
 
 
-@transactional_session
+@ transactional_session
 def release_waiting_requests_per_free_volume(rse_id, volume=None, session=None):
     """
     Release waiting requests if they fit in available transfer volume. If the DID of a request is attached to a dataset, the volume will be checked for the whole dataset as all requests related to this dataset will be released.
@@ -982,16 +983,16 @@ def release_waiting_requests_per_free_volume(rse_id, volume=None, session=None):
     sum_volume_active_subquery = None
     if dialect == 'mysql' or dialect == 'sqlite':
         sum_volume_active_subquery = session.query(func.ifnull(func.sum(models.Request.bytes), 0).label('sum_bytes'))\
-                                            .filter(and_(or_(models.Request.state == RequestState.SUBMITTED, models.Request.state == RequestState.QUEUED),
-                                                         models.Request.dest_rse_id == rse_id))
+            .filter(and_(or_(models.Request.state == RequestState.SUBMITTED, models.Request.state == RequestState.QUEUED),
+                         models.Request.dest_rse_id == rse_id))
     elif dialect == 'postgresql':
         sum_volume_active_subquery = session.query(func.coalesce(func.sum(models.Request.bytes), 0).label('sum_bytes'))\
-                                            .filter(and_(or_(models.Request.state == RequestState.SUBMITTED, models.Request.state == RequestState.QUEUED),
-                                                         models.Request.dest_rse_id == rse_id))
+            .filter(and_(or_(models.Request.state == RequestState.SUBMITTED, models.Request.state == RequestState.QUEUED),
+                         models.Request.dest_rse_id == rse_id))
     elif dialect == 'oracle':
         sum_volume_active_subquery = session.query(func.nvl(func.sum(models.Request.bytes), 0).label('sum_bytes'))\
-                                            .filter(and_(or_(models.Request.state == RequestState.SUBMITTED, models.Request.state == RequestState.QUEUED),
-                                                         models.Request.dest_rse_id == rse_id))
+            .filter(and_(or_(models.Request.state == RequestState.SUBMITTED, models.Request.state == RequestState.QUEUED),
+                         models.Request.dest_rse_id == rse_id))
     sum_volume_active_subquery = sum_volume_active_subquery.subquery()
 
     grouped_requests_subquery, filtered_requests_subquery = create_base_query_grouped_fifo(rse_id, filter_by_rse='destination', session=session)
@@ -999,20 +1000,20 @@ def release_waiting_requests_per_free_volume(rse_id, volume=None, session=None):
     cumulated_volume_subquery = session.query(grouped_requests_subquery.c.name,
                                               grouped_requests_subquery.c.scope,
                                               func.sum(grouped_requests_subquery.c.volume).over(order_by=grouped_requests_subquery.c.oldest_requested_at).label('cum_volume'))\
-                                       .filter(grouped_requests_subquery.c.volume <= volume - sum_volume_active_subquery.c.sum_bytes)\
-                                       .subquery()
+        .filter(grouped_requests_subquery.c.volume <= volume - sum_volume_active_subquery.c.sum_bytes)\
+        .subquery()
 
     cumulated_volume_subquery = session.query(filtered_requests_subquery.c.id)\
-                                       .join(cumulated_volume_subquery, and_(filtered_requests_subquery.c.dataset_name == cumulated_volume_subquery.c.name, filtered_requests_subquery.c.dataset_scope == cumulated_volume_subquery.c.scope))\
-                                       .filter(cumulated_volume_subquery.c.cum_volume <= volume - sum_volume_active_subquery.c.sum_bytes)\
-                                       .subquery()
+        .join(cumulated_volume_subquery, and_(filtered_requests_subquery.c.dataset_name == cumulated_volume_subquery.c.name, filtered_requests_subquery.c.dataset_scope == cumulated_volume_subquery.c.scope))\
+        .filter(cumulated_volume_subquery.c.cum_volume <= volume - sum_volume_active_subquery.c.sum_bytes)\
+        .subquery()
 
     statement = update(models.Request).where(models.Request.id.in_(cumulated_volume_subquery)).values(state=RequestState.QUEUED)
     amount_released_requests = session.execute(statement).rowcount
     return amount_released_requests
 
 
-@read_session
+@ read_session
 def create_base_query_grouped_fifo(rse_id, filter_by_rse='destination', session=None):
     """
     Build the sqlalchemy queries to filter relevant requests and to group them in datasets.
@@ -1026,7 +1027,7 @@ def create_base_query_grouped_fifo(rse_id, filter_by_rse='destination', session=
     attachment_order_subquery = session.query(models.DataIdentifierAssociation.child_name, models.DataIdentifierAssociation.child_scope, models.DataIdentifierAssociation.name, models.DataIdentifierAssociation.scope,
                                               func.row_number().over(partition_by=(models.DataIdentifierAssociation.child_name, models.DataIdentifierAssociation.child_scope),
                                                                      order_by=models.DataIdentifierAssociation.created_at).label('order_of_attachment'))\
-                                       .subquery()
+        .subquery()
 
     # query transfer requests and join with according datasets
     filtered_requests_subquery = None
@@ -1086,12 +1087,12 @@ def create_base_query_grouped_fifo(rse_id, filter_by_rse='destination', session=
                                               func.count().label('amount_childs'),
                                               combined_attached_unattached_requests.c.name,
                                               combined_attached_unattached_requests.c.scope)\
-                                       .group_by(combined_attached_unattached_requests.c.scope, combined_attached_unattached_requests.c.name)\
-                                       .subquery()
+        .group_by(combined_attached_unattached_requests.c.scope, combined_attached_unattached_requests.c.name)\
+        .subquery()
     return grouped_requests_subquery, filtered_requests_subquery
 
 
-@transactional_session
+@ transactional_session
 def release_waiting_requests_fifo(rse_id, activity=None, count=None, account=None, direction='destination', session=None):
     """
     Release waiting requests. Transfer requests that were requested first, get released first (FIFO).
@@ -1108,8 +1109,8 @@ def release_waiting_requests_fifo(rse_id, activity=None, count=None, account=Non
     rowcount = 0
     if dialect == 'mysql':
         subquery = session.query(models.Request.id)\
-                          .filter(models.Request.state == RequestState.WAITING)\
-                          .order_by(asc(models.Request.requested_at))
+            .filter(models.Request.state == RequestState.WAITING)\
+            .order_by(asc(models.Request.requested_at))
         if direction == 'destination':
             subquery = subquery.filter(models.Request.dest_rse_id == rse_id)
         elif direction == 'source':
@@ -1123,16 +1124,16 @@ def release_waiting_requests_fifo(rse_id, activity=None, count=None, account=Non
 
         # join because IN and LIMIT cannot be used together
         subquery = session.query(models.Request.id)\
-                          .join(subquery, models.Request.id == subquery.c.id).subquery()
+            .join(subquery, models.Request.id == subquery.c.id).subquery()
         # wrap select to update and select from the same table
         subquery = session.query(subquery.c.id).subquery()
         rowcount = session.query(models.Request)\
-                          .filter(models.Request.id.in_(subquery))\
-                          .update({'state': RequestState.QUEUED},
-                                  synchronize_session=False)
+            .filter(models.Request.id.in_(subquery))\
+            .update({'state': RequestState.QUEUED},
+                    synchronize_session=False)
     else:
         subquery = session.query(models.Request.id)\
-                          .filter(models.Request.state == RequestState.WAITING)
+            .filter(models.Request.state == RequestState.WAITING)
         if direction == 'destination':
             subquery = subquery.filter(models.Request.dest_rse_id == rse_id)
         elif direction == 'source':
@@ -1144,15 +1145,15 @@ def release_waiting_requests_fifo(rse_id, activity=None, count=None, account=Non
             subquery = subquery.filter(models.Request.account == account)
 
         subquery = subquery.order_by(asc(models.Request.requested_at))\
-                           .limit(count)
+            .limit(count)
         rowcount = session.query(models.Request)\
-                          .filter(models.Request.id.in_(subquery))\
-                          .update({'state': RequestState.QUEUED},
-                                  synchronize_session=False)
+            .filter(models.Request.id.in_(subquery))\
+            .update({'state': RequestState.QUEUED},
+                    synchronize_session=False)
     return rowcount
 
 
-@transactional_session
+@ transactional_session
 def release_waiting_requests_grouped_fifo(rse_id, count=None, direction='destination', deadline=1, volume=0, session=None):
     """
     Release waiting requests. Transfer requests that were requested first, get released first (FIFO).
@@ -1181,11 +1182,11 @@ def release_waiting_requests_grouped_fifo(rse_id, count=None, direction='destina
                                                 grouped_requests_subquery.c.amount_childs,
                                                 grouped_requests_subquery.c.oldest_requested_at,
                                                 func.sum(grouped_requests_subquery.c.amount_childs).over(order_by=(grouped_requests_subquery.c.oldest_requested_at)).label('cum_amount_childs'))\
-                                         .subquery()
+        .subquery()
     cumulated_children_subquery = session.query(filtered_requests_subquery.c.id)\
-                                         .join(cumulated_children_subquery, and_(filtered_requests_subquery.c.dataset_name == cumulated_children_subquery.c.name, filtered_requests_subquery.c.dataset_scope == cumulated_children_subquery.c.scope))\
-                                         .filter(cumulated_children_subquery.c.cum_amount_childs - cumulated_children_subquery.c.amount_childs < count)\
-                                         .subquery()
+        .join(cumulated_children_subquery, and_(filtered_requests_subquery.c.dataset_name == cumulated_children_subquery.c.name, filtered_requests_subquery.c.dataset_scope == cumulated_children_subquery.c.scope))\
+        .filter(cumulated_children_subquery.c.cum_amount_childs - cumulated_children_subquery.c.amount_childs < count)\
+        .subquery()
 
     # needed for mysql to update and select from the same table
     cumulated_children_subquery = session.query(cumulated_children_subquery.c.id).subquery()
@@ -1201,7 +1202,7 @@ def release_waiting_requests_grouped_fifo(rse_id, count=None, direction='destina
     return amount_updated_requests
 
 
-@transactional_session
+@ transactional_session
 def release_all_waiting_requests(rse_id, activity=None, account=None, direction='destination', session=None):
     """
     Release all waiting requests per destination RSE.
@@ -1231,7 +1232,7 @@ def release_all_waiting_requests(rse_id, activity=None, account=None, direction=
         raise RucioException(error.args)
 
 
-@read_session
+@ read_session
 def update_requests_priority(priority, filter, session=None, logger=logging.log):
     """
     Update priority of requests.
@@ -1272,7 +1273,7 @@ def update_requests_priority(priority, filter, session=None, logger=logging.log)
         raise RucioException(error.args)
 
 
-@transactional_session
+@ transactional_session
 def update_request_state(response, session=None, logger=logging.log):
     """
     Used by poller and consumer to update the internal state of requests,
@@ -1347,7 +1348,7 @@ def update_request_state(response, session=None, logger=logging.log):
         logger(logging.CRITICAL, "Exception", exc_info=True)
 
 
-@read_session
+@ read_session
 def add_monitor_message(request, response, session=None):
     """
     Take a request and transfer response and create a message for hermes.
@@ -1449,7 +1450,7 @@ def get_transfer_error(state, reason=None):
     return err_msg
 
 
-@transactional_session
+@ transactional_session
 def __touch_request(request_id, session=None):
     """
     Update the timestamp of a request. Fails silently if the request_id does not exist.
@@ -1468,7 +1469,7 @@ def __touch_request(request_id, session=None):
         raise UnsupportedOperation("Request %s cannot be touched." % request_id)
 
 
-@read_session
+@ read_session
 def __get_source_rse(request_id, src_url, session=None, logger=logging.log):
     """
     Based on a request, scope, name and src_url extract the source rse name and id.
@@ -1500,7 +1501,7 @@ def __get_source_rse(request_id, src_url, session=None, logger=logging.log):
         return None, None
 
 
-@stream_session
+@ stream_session
 def list_requests(src_rse_ids, dst_rse_ids, states=[RequestState.WAITING], session=None):
     """
     List all requests in a specific state from a source RSE to a destination RSE.
@@ -1527,7 +1528,7 @@ distance_col = 20
 extra_transfertool_col = 21
 
 
-@transactional_session
+@ transactional_session
 def preparer_update_requests(source_iter: "Iterable[Sequence]", session: "Optional[Session]" = None) -> int:
     count = 0
     for req_source in source_iter:

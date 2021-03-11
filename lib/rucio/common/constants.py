@@ -15,6 +15,7 @@
 Constants.
 
 """
+from collections import namedtuple
 
 RESERVED_KEYS = ['scope', 'name', 'account', 'did_type', 'is_open', 'monotonic', 'obsolete', 'complete',
                  'availability', 'suppressed', 'bytes', 'length', 'md5', 'adler32', 'rule_evaluation_action',
@@ -33,3 +34,7 @@ SCHEME_MAP = {'srm': ['srm', 'gsiftp'],
               's3': ['https', 'davs', 's3']}
 
 SUPPORTED_PROTOCOLS = ['gsiftp', 'srm', 'root', 'davs', 'http', 'https', 'file', 's3', 's3+rucio', 's3+https', 'storm']
+
+
+FTSState_Tuple = namedtuple("FTSState_Tuple", ['SUBMITTED', 'READY', 'ACTIVE', 'FAILED', 'FINISHED', 'FINISHEDDIRTY', 'CANCELED'])
+FTSState = FTSState_Tuple('SUBMITTED', 'READY', 'ACTIVE', 'FAILED', 'FINISHED', 'FINISHEDDIRTY', 'CANCELED')

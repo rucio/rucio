@@ -54,11 +54,11 @@ from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 from prometheus_client import Counter, Summary
 
+from rucio.common.constants import FTSState
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer, DuplicateFileTransferSubmission
 from rucio.common.utils import APIEncoder
 from rucio.core.monitor import record_counter, record_timer
-from rucio.db.sqla.constants import FTSState
 from rucio.transfertool.transfertool import Transfertool
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
@@ -674,7 +674,7 @@ class FTS3Transfertool(Transfertool):
         """
         last_src_file = 0
         for i in range(len(fts_files_response)):
-            if fts_files_response[i]['file_state'] in [str(FTSState.FINISHED.name)]:
+            if fts_files_response[i]['file_state'] in [FTSState.FINISHED]:
                 last_src_file = i
                 break
             if fts_files_response[i]['file_state'] != 'NOT_USED':
@@ -742,10 +742,10 @@ class FTS3Transfertool(Transfertool):
                     continue
 
                 # not terminated job
-                if file_resp['file_state'] not in [str(FTSState.FAILED.name),
-                                                   str(FTSState.FINISHEDDIRTY.name),
-                                                   str(FTSState.CANCELED.name),
-                                                   str(FTSState.FINISHED.name)]:
+                if file_resp['file_state'] not in [FTSState.FAILED,
+                                                   FTSState.FINISHEDDIRTY,
+                                                   FTSState.CANCELED,
+                                                   FTSState.FINISHED]:
                     continue
 
                 if file_resp['start_time'] is None or file_resp['finish_time'] is None:
@@ -786,7 +786,7 @@ class FTS3Transfertool(Transfertool):
                                      'details': {'files': file_resp['file_metadata']}}
 
                 # multiple source replicas jobs and we found the successful one, it's the final state.
-                if multi_sources and file_resp['file_state'] in [str(FTSState.FINISHED.name)]:
+                if multi_sources and file_resp['file_state'] in [FTSState.FINISHED]:
                     break
         return resps
 
@@ -800,10 +800,10 @@ class FTS3Transfertool(Transfertool):
             if job_response['http_status'] == '200 Ok':
                 files_response = job_response['files']
                 multi_sources = job_response['job_metadata'].get('multi_sources', False)
-                if multi_sources and job_response['job_state'] not in [str(FTSState.FAILED.name),
-                                                                       str(FTSState.FINISHEDDIRTY.name),
-                                                                       str(FTSState.CANCELED.name),
-                                                                       str(FTSState.FINISHED.name)]:
+                if multi_sources and job_response['job_state'] not in [FTSState.FAILED,
+                                                                       FTSState.FINISHEDDIRTY,
+                                                                       FTSState.CANCELED,
+                                                                       FTSState.FINISHED]:
                     # multipe source replicas jobs is still running. should wait
                     responses[transfer_id] = {}
                     continue

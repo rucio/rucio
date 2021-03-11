@@ -53,7 +53,7 @@ from sqlalchemy.sql.expression import false
 
 from rucio.common import constants
 from rucio.common.config import config_get
-from rucio.common.constants import SUPPORTED_PROTOCOLS
+from rucio.common.constants import SUPPORTED_PROTOCOLS, FTSState
 from rucio.common.exception import (InvalidRSEExpression, NoDistance,
                                     RequestNotFound, RSEProtocolNotSupported,
                                     RucioException, UnsupportedOperation)
@@ -69,7 +69,7 @@ from rucio.core.request import queue_requests, set_requests_state
 from rucio.core.rse import get_rse_name, get_rse_vo, list_rses, get_rse_supported_checksums
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models, filter_thread_work
-from rucio.db.sqla.constants import DIDType, RequestState, FTSState, RSEType, RequestType, ReplicaState
+from rucio.db.sqla.constants import DIDType, RequestState, RSEType, RequestType, ReplicaState
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.fts3 import FTS3Transfertool
@@ -305,11 +305,11 @@ def bulk_query_transfers(request_host, transfer_ids, transfertool='fts3', timeou
                 fts_resps[transfer_id] = Exception("Transfer id %s is not returned" % transfer_id)
             if fts_resps[transfer_id] and not isinstance(fts_resps[transfer_id], Exception):
                 for request_id in fts_resps[transfer_id]:
-                    if fts_resps[transfer_id][request_id]['file_state'] in (str(FTSState.FAILED.name),
-                                                                            str(FTSState.FINISHEDDIRTY.name),
-                                                                            str(FTSState.CANCELED.name)):
+                    if fts_resps[transfer_id][request_id]['file_state'] in (FTSState.FAILED,
+                                                                            FTSState.FINISHEDDIRTY,
+                                                                            FTSState.CANCELED):
                         fts_resps[transfer_id][request_id]['new_state'] = RequestState.FAILED
-                    elif fts_resps[transfer_id][request_id]['file_state'] in str(FTSState.FINISHED.name):
+                    elif fts_resps[transfer_id][request_id]['file_state'] == FTSState.FINISHED:
                         fts_resps[transfer_id][request_id]['new_state'] = RequestState.DONE
         return fts_resps
     elif transfertool == 'globus':

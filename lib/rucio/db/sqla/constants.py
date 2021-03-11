@@ -90,16 +90,6 @@ class FTSCompleteState(Enum):
     ERROR = 'E'
 
 
-class FTSState(Enum):
-    SUBMITTED = 'S'
-    READY = 'R'
-    ACTIVE = 'A'
-    FAILED = 'F'
-    FINISHED = 'X'
-    FINISHEDDIRTY = 'D'
-    CANCELED = 'C'
-
-
 class IdentityType(Enum):
     X509 = 'X509'
     GSS = 'GSS'
