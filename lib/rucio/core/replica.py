@@ -65,7 +65,6 @@ from rucio.common import exception
 from rucio.common.types import InternalScope
 from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
 from rucio.core.config import get as config_get
-from rucio.core.config import set as config_set
 from rucio.core.credential import get_signed_url
 from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute, get_rse_vo, list_rses
 from rucio.core.rse_counter import decrease, increase
@@ -2577,7 +2576,7 @@ def list_dataset_replicas_bulk(names_by_intscope, session=None):
 
 
 @stream_session
-def list_dataset_replicas_vp(scope, name, deep=False, session=None):
+def list_dataset_replicas_vp(scope, name, deep=False, session=None, logger=logging.log):
     """
     List dataset replicas for a DID (scope:name) using the
     Virtual Placement service.
