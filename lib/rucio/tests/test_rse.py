@@ -144,7 +144,8 @@ class TestRSECoreApi(unittest.TestCase):
         waitings = 20
         rse_id = add_rse(rse, **self.vo)
 
-        set_rse_transfer_limits(rse_id=rse_id, activity=activity, max_transfers=max_transfers, transfers=transfers, waitings=waitings)
+        set_rse_transfer_limits(rse_id=rse_id, activity=activity, max_transfers=max_transfers, transfers=transfers,
+                                waitings=waitings)
         limits = get_rse_transfer_limits(rse_id=rse_id, activity=activity)
         assert activity in list(limits.keys())
         assert rse_id in limits[activity]
@@ -152,7 +153,8 @@ class TestRSECoreApi(unittest.TestCase):
         assert transfers == limits[activity][rse_id]['transfers']
         assert waitings == limits[activity][rse_id]['waitings']
 
-        set_rse_transfer_limits(rse_id=rse_id, activity=activity, max_transfers=max_transfers + 1, transfers=transfers + 1, waitings=waitings + 1)
+        set_rse_transfer_limits(rse_id=rse_id, activity=activity, max_transfers=max_transfers + 1,
+                                transfers=transfers + 1, waitings=waitings + 1)
         limits = get_rse_transfer_limits(rse_id=rse_id, activity=activity)
         assert activity in list(limits.keys())
         assert rse_id in limits[activity]
