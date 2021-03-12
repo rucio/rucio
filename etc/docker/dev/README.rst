@@ -161,7 +161,7 @@ If you edit server-side files, e.g. in `lib/rucio/web`, and your changes are not
 Database access
 ~~~~~~~~~~~~~~~
 
-The default database is PostgreSQL, and `docker-compose` is configured to open its port to the host machine. Using your favourite SQL navigator, e.g., `DBeaver <https://dbeaver.org>`_, you can connect to the database using the default access on `localhost:5432` to database name `rucio`, schema name `dev`, with username `rucio` and password `secret`.
+The default database is PostgreSQL, and `docker-compose` is configured to open its port to the host machine. Using your favourite SQL navigator, e.g., `DBeaver <https://dbeaver.io/>`_, you can connect to the database using the default access on `localhost:5432` to database name `rucio`, schema name `dev`, with username `rucio` and password `secret`.
 
 Docker is eating my disk space
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
