@@ -24,6 +24,8 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 
+#modified line
+
 from datetime import datetime
 from enum import Enum
 
@@ -31,6 +33,7 @@ from enum import Enum
 
 OBSOLETE = datetime(year=1970, month=1, day=1)  # Tombstone value to mark obsolete replicas
 
+year = 2020 #Adding a dummy number to initiare auto tests
 
 # The enum values below are the actual strings stored in the database -- these must be string types.
 # This is done explicitly via values_callable to SQLAlchemy enums in models.py and alembic scripts,
