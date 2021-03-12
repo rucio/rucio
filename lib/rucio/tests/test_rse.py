@@ -37,7 +37,6 @@ from __future__ import print_function
 import unittest
 
 import pytest
-
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.rseclient import RSEClient
 from rucio.common import exception
@@ -1327,9 +1326,13 @@ class TestRSEClient(unittest.TestCase):
         """ RSE (CLIENTS): Test getting the RSE usage. """
         usages = self.client.get_rse_usage(rse='MOCK', filters={'per_account': True})
         for usage in usages:
+            print('With')
+            print(usage)
             assert usage['account_usages']
         usages = self.client.get_rse_usage(rse='MOCK')
         for usage in usages:
+            print('Without')
+            print(usage)
             assert 'account_usages' not in usage
 
     def test_set_rse_usage(self):
