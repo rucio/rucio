@@ -85,21 +85,6 @@ class DIDType(Enum):
     DELETED_CONTAINER = 'Z'
 
 
-class FTSCompleteState(Enum):
-    OK = 'O'
-    ERROR = 'E'
-
-
-class FTSState(Enum):
-    SUBMITTED = 'S'
-    READY = 'R'
-    ACTIVE = 'A'
-    FAILED = 'F'
-    FINISHED = 'X'
-    FINISHEDDIRTY = 'D'
-    CANCELED = 'C'
-
-
 class IdentityType(Enum):
     X509 = 'X509'
     GSS = 'GSS'

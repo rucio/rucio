@@ -44,6 +44,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import asc, false, true
 
 from rucio.common.config import config_get_bool
+from rucio.common.constants import FTSState
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation, ConfigNotFound
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, chunks, get_parsed_throttler_mode
@@ -52,7 +53,7 @@ from rucio.core.message import add_message
 from rucio.core.monitor import record_counter, record_timer
 from rucio.core.rse import get_rse_name, get_rse_vo, get_rse_transfer_limits, get_rse_attribute
 from rucio.db.sqla import models, filter_thread_work
-from rucio.db.sqla.constants import RequestState, RequestType, FTSState, ReplicaState, LockState, RequestErrMsg
+from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState, LockState, RequestErrMsg
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 from rucio.transfertool.fts3 import FTS3Transfertool
 
@@ -399,11 +400,11 @@ def query_request(request_id, transfertool='fts3', session=None, logger=logging.
         else:
             if 'job_state' not in response:
                 req_status['new_state'] = RequestState.LOST
-            elif response['job_state'] in (str(FTSState.FAILED.name),
-                                           str(FTSState.FINISHEDDIRTY.name),
-                                           str(FTSState.CANCELED.name)):
+            elif response['job_state'] in (FTSState['FAILED'],
+                                           FTSState['FINISHEDDIRTY'],
+                                           FTSState['CANCELED']):
                 req_status['new_state'] = RequestState.FAILED
-            elif response['job_state'] == str(FTSState.FINISHED.name):
+            elif response['job_state'] == FTSState['FINISHED']:
                 req_status['new_state'] = RequestState.DONE
     else:
         raise NotImplementedError

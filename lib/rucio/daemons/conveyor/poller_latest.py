@@ -38,10 +38,10 @@ from requests.exceptions import RequestException
 
 import rucio.db.sqla.util
 from rucio.common import exception
+from rucio.common.constants import FTSState
 from rucio.common.logging import setup_logging
 from rucio.core import heartbeat, transfer, request
 from rucio.core.monitor import record_timer, record_counter
-from rucio.db.sqla.constants import FTSState
 
 graceful_stop = threading.Event()
 
@@ -73,10 +73,10 @@ def poller_latest(external_hosts, once=False, last_nhours=1, fts_wait=1800):
                 logging.debug('polling latest %s hours on host: %s' % (last_nhours, external_host))
                 ts = time.time()
                 resps = None
-                state = [str(FTSState.FINISHED.name),
-                         str(FTSState.FAILED.name),
-                         str(FTSState.FINISHEDDIRTY.name),
-                         str(FTSState.CANCELED.name)]
+                state = [FTSState['FINISHED'],
+                         FTSState['FAILED'],
+                         FTSState['FINISHEDDIRTY'],
+                         FTSState['CANCELED']]
                 try:
                     resps = transfer.query_latest(external_host, state=state, last_nhours=last_nhours)
                 except Exception:

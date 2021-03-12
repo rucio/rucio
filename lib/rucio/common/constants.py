@@ -33,3 +33,14 @@ SCHEME_MAP = {'srm': ['srm', 'gsiftp'],
               's3': ['https', 'davs', 's3']}
 
 SUPPORTED_PROTOCOLS = ['gsiftp', 'srm', 'root', 'davs', 'http', 'https', 'file', 's3', 's3+rucio', 's3+https', 'storm']
+
+FTSState = {'SUBMITTED': 'S',
+            'READY': 'R',
+            'ACTIVE': 'A',
+            'FAILED': 'F',
+            'FINISHED': 'X',
+            'FINISHEDDIRTY': 'D',
+            'CANCELED': 'C'}
+
+FTSCompleteState = {'OK': 'O',
+                    'ERROR': 'E'}
