@@ -1308,12 +1308,14 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
                                  models.Request.previous_attempt_id,
                                  models.Request.dest_rse_id,
                                  models.Request.retry_count,
-                                 models.Request.account)\
+                                 models.Request.account,
+                                 models.Request.created_at)\
         .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')\
         .filter(models.Request.state == RequestState.QUEUED)\
         .filter(models.Request.request_type == RequestType.TRANSFER)\
         .join(models.RSE, models.RSE.id == models.Request.dest_rse_id)\
         .filter(models.RSE.deleted == false())\
+        .order_by(models.Request.created_at)\
         .filter(models.RSE.availability.in_((2, 3, 6, 7)))
 
     if isinstance(older_than, datetime.datetime):
@@ -1350,6 +1352,7 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
                           models.Source.url,
                           models.Source.ranking,
                           models.Distance.ranking)\
+        .order_by(sub_requests.c.created_at)\
         .outerjoin(models.RSEFileAssociation, and_(sub_requests.c.scope == models.RSEFileAssociation.scope,
                                                    sub_requests.c.name == models.RSEFileAssociation.name,
                                                    models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
