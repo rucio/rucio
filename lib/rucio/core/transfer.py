@@ -74,6 +74,7 @@ from rucio.db.sqla.constants import DIDType, RequestState, FTSState, RSEType, Re
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.fts3 import FTS3Transfertool
+from rucio.transfertool.mock import MockTransfertool
 
 if TYPE_CHECKING:
     from typing import List, Tuple
@@ -174,8 +175,7 @@ def submit_bulk_transfers(external_host, files, transfertool='fts3', job_params=
         logger(logging.DEBUG, 'job_files: %s' % job_files)
         transfer_id = GlobusTransferTool(external_host=None).bulk_submit(submitjob=job_files, timeout=timeout)
     elif transfertool == 'mock':
-        import uuid
-        transfer_id = str(uuid.uuid1())
+        transfer_id = MockTransfertool(external_host=None).submit(files, None)
     return transfer_id
 
 
@@ -1323,12 +1323,14 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
                                  models.Request.previous_attempt_id,
                                  models.Request.dest_rse_id,
                                  models.Request.retry_count,
-                                 models.Request.account) \
+                                 models.Request.account,
+                                 models.Request.created_at) \
         .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle') \
         .filter(models.Request.state == request_state) \
         .filter(models.Request.request_type == RequestType.TRANSFER) \
         .join(models.RSE, models.RSE.id == models.Request.dest_rse_id) \
         .filter(models.RSE.deleted == false()) \
+        .order_by(models.Request.created_at) \
         .filter(models.RSE.availability.in_((2, 3, 6, 7)))
 
     if isinstance(older_than, datetime.datetime):
@@ -1372,6 +1374,7 @@ def __list_transfer_requests_and_source_replicas(total_workers=0, worker_number=
                           models.Source.url,
                           models.Source.ranking.label("source_ranking"),
                           models.Distance.ranking.label("distance_ranking")) \
+        .order_by(sub_requests.c.created_at) \
         .outerjoin(models.RSEFileAssociation, and_(sub_requests.c.scope == models.RSEFileAssociation.scope,
                                                    sub_requests.c.name == models.RSEFileAssociation.name,
                                                    models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
