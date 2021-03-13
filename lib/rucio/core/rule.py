@@ -2241,7 +2241,7 @@ def examine_rule(rule_id, session=None):
                     available_replicas = session.query(models.RSEFileAssociation).filter_by(scope=lock.scope, name=lock.name, state=ReplicaState.AVAILABLE).all()
 
                     for replica in available_replicas:
-                        sources.append((replica.rse_id,
+                        sources.append((replica.name,
                                         True if get_rse(rse_id=replica.rse_id, session=session).availability >= 4 else False))
 
                 result['transfers'].append({'scope': lock.scope,
