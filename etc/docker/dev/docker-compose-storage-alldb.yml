@@ -1,3 +1,4 @@
+version: "3"
 services:
   rucio:
     image: docker.io/rucio/rucio-dev:py3
