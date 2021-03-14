@@ -82,8 +82,7 @@ def delete_quarantined_replicas(rse_id, replicas, session=None):
     Delete file replicas.
 
     :param rse_id: the rse id.
-    :param files: the list of files to delete.
-    :param ignore_availability: Ignore the RSE blacklisting.
+    :param replicas: A list of dicts with the replica information.
     :param session: The database session in use.
     """
 
