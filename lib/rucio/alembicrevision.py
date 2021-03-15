@@ -17,5 +17,6 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
 # - Matt Snyder <msnyder@bnl.gov>, 2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2021
 
-ALEMBIC_REVISION = 'f85a2962b021'  # the current alembic head revision
+ALEMBIC_REVISION = 'e138c364ebd0'  # the current alembic head revision
