@@ -1,0 +1,120 @@
+# Code owner specification in Rucio
+#
+# Please consult the contribution guide for general contribution guidelines https://github.com/rucio/rucio/blob/master/CONTRIBUTING.rst
+#
+# In addition to peer-review, which is open to the entire Rucio community, we also notify the respective component leads to review pull requests involving their components.
+# Component leads: https://github.com/rucio/rucio/wiki
+
+# List of components:
+# Some components are out of the alphabetical order due to precedence of CODEOWNER files
+
+# Core & Internals (This goes first and is a catch-all for core)
+/lib/rucio/core/                        @bari12
+/lib/rucio/common/                      @bari12
+
+# Clients
+/lib/rucio/client/baseclient.py         @mlassnig
+/lib/rucio/client/uploadclient.py       @mlassnig
+/lib/rucio/client/downloadclient.py     @mlassnig
+/lib/rucio/client/                      @mlassnig
+/bin/                                   @mlassnig
+
+# ----
+
+# Authentication & Authorisation
+/lib/rucio/client/accountclient.py      @mlassnig
+/lib/rucio/api/authentication.py        @mlassnig
+/lib/rucio/api/account.py               @mlassnig
+/lib/rucio/api/permission.py            @mlassnig
+/lib/rucio/core/account.py              @mlassnig
+/lib/rucio/core/authentication.py       @mlassnig
+/lib/rucio/daemons/oauthmanager/        @mlassnig
+
+# Consistency checks
+/lib/rucio/daemons/auditor/             @dchristidis
+
+# Data Pre-Placement
+/lib/rucio/daemons/c3po/                @tbeerman
+
+# Database
+/lib/rucio/db/                          @mlassnig
+
+# Dataset deletion
+/lib/rucio/daemons/undertaker/          @bari12
+
+# Deletion
+/lib/rucio/daemons/reaper/              @tbeerman
+
+# DIRAC
+
+# Docker & Kubernetes
+
+# Documentation
+
+# Functional tests
+/lib/rucio/daemons/automatix/           @cserf
+
+# Life time model
+/lib/rucio/daemons/atropos/             @dchristidis
+
+# Messaging
+/lib/rucio/core/message.py              @mlassnig
+/lib/rucio/daemons/hermes/              @mlassnig
+
+# Monitoring & Logging
+
+# Multi VO
+
+# Policies
+
+# Probes & Alarms
+
+# Protocols
+/lib/rucio/rse/                         @mlassnig
+
+# Rebalancing
+
+# Recovery
+/lib/rucio/daemons/badreplicas/         @cserf
+/lib/rucio/daemons/replicarecoverer/    @cserf
+
+# Release management
+
+# Replicas
+/lib/rucio/core/replica.py              @mlassnig
+
+# REST & API
+/lib/rucio/api/                         @bziemons
+/lib/rucio/web/                         @bziemons
+
+# Rules
+/lib/rucio/client/ruleclient.py         @bari12
+/lib/rucio/api/rule.py                  @bari12
+/lib/rucio/core/rule*                   @bari12
+/lib/rucio/daemons/judge/               @bari12
+
+# Subscriptions
+/lib/rucio/core/subscription.py         @cserf
+/lib/rucio/client/subscriptionclient.py @cserf
+/lib/rucio/daemons/transmogrifier/      @cserf
+
+# Testing
+/.github/                               @bziemons
+/etc/docker/test/                       @bziemons
+/lib/rucio/tests/conftest.py            @bziemons
+/lib/rucio/tests/ruciopytest/           @bziemons
+/tools/github/                          @bziemons
+/tools/test/                            @bziemons
+
+# Traces
+/lib/rucio/core/trace.py                @tbeerman
+/lib/rucio/daemons/tracer/              @tbeerman
+
+# Transfers
+/lib/rucio/core/transfer.py             @bari12
+/lib/rucio/core/request.py              @bari12
+/lib/rucio/daemons/conveyor/            @bari12
+/lib/rucio/transfertool/                @bari12
+
+# WebUI
+/lib/rucio/web/ui/                      @tbeerman
