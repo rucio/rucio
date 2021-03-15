@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import unittest
 from random import choice
@@ -47,6 +47,7 @@ def attribute_name_generator(size=10):
     return ''.join(choice(ascii_uppercase)).join(choice(ascii_lowercase) for x in range(size - 1))
 
 
+@pytest.mark.noparallel(reason='uses pre-defined RSE, test_all_rse fails when run in parallel')
 class TestRSEExpressionParserCore(unittest.TestCase):
 
     def setUp(self):
@@ -229,6 +230,7 @@ class TestRSEExpressionParserCore(unittest.TestCase):
         assert value == expected
 
 
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 class TestRSEExpressionParserClient(unittest.TestCase):
 
     def setUp(self):

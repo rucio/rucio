@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,10 +16,12 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2012-2014
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013-2017
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Martin Barisits <martin.barisits@cern.ch>, 2020
 
 import unittest
+
+import pytest
 
 from rucio.client.didclient import DIDClient
 from rucio.client.metaclient import MetaClient
@@ -28,6 +30,7 @@ from rucio.client.scopeclient import ScopeClient
 from rucio.common.utils import generate_uuid as uuid
 
 
+@pytest.mark.dirty
 class TestMetaDIDClient(unittest.TestCase):
     """
     Test the metadata DID client

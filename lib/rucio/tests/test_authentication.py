@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 # - Ruturaj Gujar <ruturaj.gujar23@gmail.com>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import base64
 import unittest
@@ -79,6 +79,7 @@ VPEtp2ruk2N7rv0DixwcEQlD/DqsfmR2/QWDeDd1xxoTXPhIXQ==
 -----END RSA PRIVATE KEY-----"""
 
 
+@pytest.mark.noparallel(reason='changes identities of the same account')
 class TestAuthCoreApi(unittest.TestCase):
     '''
     TestAuthCoreApi
@@ -135,7 +136,6 @@ class TestAuthCoreApi(unittest.TestCase):
 
         del_account_identity(PUBLIC_KEY, IdentityType.SSH, root)
 
-    @pytest.mark.xfail(reason='The WebUI isn\'t linked to CERN SSO yet so this needs to be fixed once it is linked')
     def test_get_auth_token_saml_success(self):
         """AUTHENTICATION (CORE): SAML NameID (correct credentials)."""
         root = InternalAccount('root', **self.vo)
@@ -176,6 +176,7 @@ def test_userpass_success(vo, rest_client):
     assert len(response.headers.get('X-Rucio-Auth-Token')) > 32
 
 
+@pytest.mark.noparallel(reason='changes identities of the same account')
 def test_ssh_success(vo, rest_client):
     """AUTHENTICATION (REST): SSH RSA public key exchange (correct credentials)."""
 
@@ -200,6 +201,7 @@ def test_ssh_success(vo, rest_client):
     del_account_identity(PUBLIC_KEY, IdentityType.SSH, root)
 
 
+@pytest.mark.noparallel(reason='changes identities of the same account')
 def test_ssh_fail(vo, rest_client):
     """AUTHENTICATION (REST): SSH RSA public key exchange (wrong credentials)."""
 

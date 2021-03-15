@@ -1,4 +1,5 @@
-# Copyright 2016-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2016-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,19 +16,21 @@
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2017
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+
+import pytest
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.utils import generate_uuid
-from rucio.core.quarantined_replica import (add_quarantined_replicas,
-                                            list_quarantined_replicas,
-                                            delete_quarantined_replicas)
+from rucio.core.quarantined_replica import add_quarantined_replicas, list_quarantined_replicas, \
+    delete_quarantined_replicas
 from rucio.core.rse import get_rse_id
 
 
+@pytest.mark.noparallel(reason='uses pre-defined rses')
 def test_quarantined_replicas():
     """ QUARANTINED REPLICA (CORE): Add, List and Delete quarantined replicas """
     if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):

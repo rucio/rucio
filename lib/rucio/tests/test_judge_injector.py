@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015-2020 CERN
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 
 import unittest
@@ -41,6 +41,7 @@ from rucio.db.sqla.constants import DIDType, RuleState
 from rucio.tests.test_rule import create_files, tag_generator
 
 
+@pytest.mark.noparallel(reason='uses pre-defined RSE, sets account limits, adds global rse attributes')
 class TestJudgeEvaluator(unittest.TestCase):
 
     @classmethod

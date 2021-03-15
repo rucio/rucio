@@ -1,4 +1,5 @@
-# Copyright 2017-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2017-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,10 +15,12 @@
 #
 # Authors:
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import unittest
 from datetime import datetime
+
+import pytest
 
 from rucio.client.didclient import DIDClient
 from rucio.client.lifetimeclient import LifetimeClient
@@ -31,6 +34,7 @@ class TestDIDClients(unittest.TestCase):
         self.did_client = DIDClient()
         self.lifetime_client = LifetimeClient()
 
+    @pytest.mark.dirty
     def test_create_and_check_lifetime_exception(self):
         """ LIFETIME (CLIENT): Test the creation of a Lifetime Model exception """
         tmp_scope = 'mock'

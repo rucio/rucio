@@ -37,6 +37,7 @@ from rucio.core.naming_convention import (add_naming_convention,
 from rucio.db.sqla.constants import KeyType
 
 
+@pytest.mark.noparallel(reason='changes global naming conventions, breaks other tests')
 class TestNamingConventionCore(unittest.TestCase):
     '''
     Class to test naming convention enforcement.
