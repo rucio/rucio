@@ -1531,8 +1531,12 @@ def list_rse_attributes(args):
     """
     client = get_client(args)
     attributes = client.list_rse_attributes(rse=args.rse)
-    table = [(k + ':', str(v)) for (k, v) in sorted(attributes.items())]
-    print(tabulate.tabulate(table, tablefmt='plain', disable_numparse=True))
+    table = []
+    for (k, v) in sorted(attributes.items()):
+        if type(v) == float:
+            v = "\'" + str(v) + "\'"
+        table.append((k + ':', v))
+    print(tabulate.tabulate(table, tablefmt='plain'))
     return SUCCESS
 
 
