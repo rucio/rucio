@@ -29,6 +29,8 @@ import unittest
 from datetime import datetime, timedelta
 from logging import getLogger
 
+import pytest
+
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.policy import get_policy
 from rucio.common.types import InternalAccount, InternalScope
@@ -45,6 +47,8 @@ from rucio.tests.common import rse_name_generator
 LOG = getLogger(__name__)
 
 
+@pytest.mark.dirty
+@pytest.mark.noparallel(reason='uses pre-defined rses, fails when run in parallel')
 class TestUndertaker(unittest.TestCase):
 
     def setUp(self):

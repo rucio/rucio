@@ -21,6 +21,8 @@
 
 from datetime import datetime, timedelta
 
+import pytest
+
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
@@ -32,6 +34,7 @@ from rucio.daemons.reaper.reaper2 import reaper
 from rucio.tests.common import rse_name_generator
 
 
+@pytest.mark.noparallel(reason='fails when run in parallel')
 def test_reaper():
     """ REAPER2 (DAEMON): Test the reaper2 daemon."""
     if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):

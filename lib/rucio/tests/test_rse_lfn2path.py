@@ -1,4 +1,5 @@
-# Copyright 2018-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,11 +16,11 @@
 # Authors:
 # - Brian Bockelman <bbockelm@cse.unl.edu>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import unittest
+
+import pytest
 
 from rucio.common import config
 from rucio.rse.protocols.protocol import RSEDeterministicTranslation
@@ -32,6 +33,7 @@ except ImportError:
     from configparser import NoOptionError, NoSectionError
 
 
+@pytest.mark.noparallel(reason='uses pre-defined RSE, changes global configuration value')
 class TestDeterministicTranslation(unittest.TestCase):
     """
     Verify the deterministic translator.

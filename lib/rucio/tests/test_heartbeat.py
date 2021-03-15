@@ -1,4 +1,5 @@
-# Copyright 2015-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2015-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,17 +16,21 @@
 # Authors:
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2015
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2017
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Martin Barisits <martin.barisits@cern.ch>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import random
 import threading
 import unittest
 
+import pytest
+
 from rucio.core.heartbeat import live, die, cardiac_arrest, list_payload_counts
 
 
+@pytest.mark.dirty
+@pytest.mark.noparallel(reason='using the same executable for multiple tests')
 class TestHeartbeat(unittest.TestCase):
 
     def __pid(self):

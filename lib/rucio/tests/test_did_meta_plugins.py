@@ -47,6 +47,7 @@ class TestDidMetaDidColumn(unittest.TestCase):
         self.tmp_scope = InternalScope('mock', **self.vo)
         self.root = InternalAccount('root', **self.vo)
 
+    @pytest.mark.dirty
     def test_add_did_meta(self):
         """ DID Meta (Hardcoded): Add did meta """
         did_name = 'mock_did_%s' % generate_uuid()
@@ -54,6 +55,7 @@ class TestDidMetaDidColumn(unittest.TestCase):
         set_metadata(scope=self.tmp_scope, name=did_name, key='project', value='data12_8TeV')
         assert get_metadata(scope=self.tmp_scope, name=did_name)['project'] == 'data12_8TeV'
 
+    @pytest.mark.dirty
     def test_get_did_meta(self):
         """ DID Meta (Hardcoded): Get did meta """
         did_name = 'mock_did_%s' % generate_uuid()
@@ -61,6 +63,7 @@ class TestDidMetaDidColumn(unittest.TestCase):
         add_did(scope=self.tmp_scope, name=did_name, type='DATASET', meta=dataset_meta, account=self.root)
         assert get_metadata(scope=self.tmp_scope, name=did_name)['project'] == 'data12_8TeV'
 
+    @pytest.mark.dirty
     def test_list_did_meta(self):
         """ DID Meta (Hardcoded): List did meta """
         dsns = []
@@ -130,6 +133,7 @@ class TestDidMetaJSON(unittest.TestCase):
     def tearDown(self):
         self.session.commit()  # pylint: disable=no-member
 
+    @pytest.mark.dirty
     def test_add_did_meta(self):
         """ DID Meta (JSON): Add did meta """
         skip_without_json()
@@ -141,6 +145,7 @@ class TestDidMetaJSON(unittest.TestCase):
         set_metadata(scope=self.tmp_scope, name=did_name, key=meta_key, value=meta_value)
         assert get_metadata(scope=self.tmp_scope, name=did_name, plugin='JSON')[meta_key] == meta_value
 
+    @pytest.mark.dirty
     def test_get_metadata(self):
         """ DID Meta (JSON): Get did meta """
         skip_without_json()
@@ -152,6 +157,7 @@ class TestDidMetaJSON(unittest.TestCase):
         set_metadata(scope=self.tmp_scope, name=did_name, key=meta_key, value=meta_value)
         assert get_metadata(scope=self.tmp_scope, name=did_name, plugin='JSON')[meta_key] == meta_value
 
+    @pytest.mark.dirty
     def test_list_did_meta(self):
         """ DID Meta (JSON): List did meta """
         skip_without_json()
@@ -221,6 +227,7 @@ class TestDidMetaClient(unittest.TestCase):
     def tearDown(self):
         self.session.commit()  # pylint: disable=no-member
 
+    @pytest.mark.dirty
     def test_set_metadata(self):
         """ META (CLIENTS) : Adds a fully set json column to a did, updates if some keys present """
         tmp_name = 'name_%s' % generate_uuid()
@@ -247,6 +254,7 @@ class TestDidMetaClient(unittest.TestCase):
         self.did_client.set_metadata(scope=self.tmp_scope, name=tmp_name, key='project', value='data12_12TeV')
         assert self.did_client.get_metadata(scope=self.tmp_scope, name=tmp_name)['project'] == 'data12_12TeV'
 
+    @pytest.mark.dirty
     def test_delete_metadata(self):
         """ META (CLIENTS) : Deletes metadata key """
         skip_without_json()
@@ -271,6 +279,7 @@ class TestDidMetaClient(unittest.TestCase):
         with pytest.raises(KeyNotFound):
             self.did_client.delete_metadata(scope=self.tmp_scope, name=tmp_name, key="key9")
 
+    @pytest.mark.dirty
     def test_get_metadata(self):
         """ META (CLIENTS) : Gets all metadata for the given did """
         tmp_name = 'name_%s' % generate_uuid()
@@ -301,6 +310,8 @@ class TestDidMetaClient(unittest.TestCase):
             assert all_metadata['key2'] == value2
             assert all_metadata['project'] == "data12_14TeV"
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='fails when run in parallel')
     def test_list_dids_extended(self):
         """ META (CLIENTS) : Get all dids matching the values of the provided metadata keys """
 
