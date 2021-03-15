@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2017-2020 CERN
+# Copyright 2017-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,9 +22,9 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+
+from urllib.parse import urlencode
 
 import pytest
 
@@ -33,13 +33,6 @@ from rucio.core.config import set as config_set
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.rse import add_rse, add_rse_attribute, del_rse, add_protocol
 from rucio.tests.common import rse_name_generator, vohdr, headers
-
-try:
-    # PY3
-    from urllib import urlencode
-except ImportError:
-    # PY3
-    from urllib.parse import urlencode
 
 client_location_without_proxy = {'ip': '192.168.0.1',
                                  'fqdn': 'anomalous-materials.blackmesa.com',
@@ -112,6 +105,7 @@ def root_proxy_example_data(vo):
     del_rse(rse_without_proxy_id)
 
 
+@pytest.mark.noparallel(reason='fixture changes global configuration value')
 def test_client_list_replicas1(replica_client, root_proxy_example_data):
     """ ROOT (CLIENT): No proxy involved """
 
@@ -128,6 +122,7 @@ def test_client_list_replicas1(replica_client, root_proxy_example_data):
     assert sorted(found_pfns) == sorted(expected_pfns)
 
 
+@pytest.mark.noparallel(reason='fixture changes global configuration value')
 def test_client_list_replicas2(replica_client, root_proxy_example_data):
     """ ROOT (CLIENT): Outgoing proxy needs to be prepended"""
 
@@ -144,6 +139,7 @@ def test_client_list_replicas2(replica_client, root_proxy_example_data):
     assert sorted(found_pfns) == sorted(expected_pfns)
 
 
+@pytest.mark.noparallel(reason='fixture changes global configuration value')
 def test_client_list_replicas3(replica_client, root_proxy_example_data):
     """ ROOT (CLIENT): Outgoing proxy at destination does not matter"""
 
@@ -160,6 +156,7 @@ def test_client_list_replicas3(replica_client, root_proxy_example_data):
     assert sorted(found_pfns) == sorted(expected_pfns)
 
 
+@pytest.mark.noparallel(reason='fixture changes global configuration value')
 def test_client_list_replicas4(replica_client, root_proxy_example_data):
     """ ROOT (CLIENT): Outgoing proxy does not matter when staying at site"""
 
@@ -175,6 +172,7 @@ def test_client_list_replicas4(replica_client, root_proxy_example_data):
     assert sorted(found_pfns) == sorted(expected_pfns)
 
 
+@pytest.mark.noparallel(reason='fixture changes global configuration value')
 def test_redirect_metalink_list_replicas(vo, rest_client):
     """ ROOT (REDIRECT REST): Test internal proxy prepend with metalink"""
     # default behaviour - no location -> no proxy

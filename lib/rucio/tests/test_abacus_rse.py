@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 # Copyright 2018-2021 CERN
 #
@@ -20,10 +19,12 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import os
 import unittest
+
+import pytest
 
 from rucio.client.uploadclient import UploadClient
 from rucio.common.config import config_get, config_get_bool
@@ -38,6 +39,7 @@ from rucio.db.sqla.session import get_session
 from rucio.tests.common import file_generator
 
 
+@pytest.mark.noparallel(reason='uses daemon, failing in parallel to other tests, updates account')
 class TestAbacusRSE(unittest.TestCase):
     account = 'root'
     scope = 'mock'

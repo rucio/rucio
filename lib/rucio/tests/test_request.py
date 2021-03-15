@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019-2020 CERN
+# Copyright 2019-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2019-2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import unittest
 from datetime import datetime
@@ -37,6 +37,8 @@ from rucio.db.sqla.constants import RequestType, RequestState
 from rucio.tests.common import vohdr, hdrdict, headers, auth
 
 
+@pytest.mark.dirty
+@pytest.mark.noparallel(reason='uses pre-defined RSE, changes global configuration value')
 @pytest.mark.parametrize('use_preparer', ['preparer enabled', 'preparer disabled'])
 def test_queue_requests_state(vo, use_preparer):
     """ REQUEST (CORE): test queuing requests """
@@ -143,6 +145,8 @@ def test_queue_requests_state(vo, use_preparer):
         db_session.commit()
 
 
+@pytest.mark.dirty
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 class TestRequestCoreList(unittest.TestCase):
 
     @classmethod
@@ -191,6 +195,8 @@ class TestRequestCoreList(unittest.TestCase):
         assert len(requests) == 0
 
 
+@pytest.mark.dirty
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 def test_list_requests(vo, rest_client, auth_token):
     """ REQUEST (REST): list requests """
     source_rse = 'MOCK'

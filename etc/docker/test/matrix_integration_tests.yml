@@ -8,6 +8,6 @@ dists:
 python:
   - "3.6"
 suites:
-  - id: integration-test
+  - integration-test
 image_identifier:
-  - id: 'integration-test'
+  - integration-test

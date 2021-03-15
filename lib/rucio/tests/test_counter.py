@@ -1,4 +1,5 @@
-# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,14 +17,16 @@
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2013
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2013
 # - Martin Barisits <martin.barisits@cern.ch>, 2014
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import unittest
+
+import pytest
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount
@@ -35,6 +38,7 @@ from rucio.daemons.abacus.rse import rse_update
 from rucio.db.sqla import session, models
 
 
+@pytest.mark.noparallel(reason='uses pre-defined RSE, fails when run in parallel')
 class TestCoreRSECounter(unittest.TestCase):
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
@@ -101,6 +105,7 @@ class TestCoreRSECounter(unittest.TestCase):
             assert usage in current_usage
 
 
+@pytest.mark.noparallel(reason='uses pre-defined RSE, fails when run in parallel')
 class TestCoreAccountCounter(unittest.TestCase):
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):

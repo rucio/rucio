@@ -1,4 +1,5 @@
-# Copyright 2013-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +14,12 @@
 # limitations under the License.
 #
 # Authors:
-# - Vincent Garonne <vincent.garonne@cern.ch>, 2013-2017
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2014
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2016
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Vincent Garonne <vincent.garonne@cern.ch>, 2015-2017
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import pytest
 
@@ -28,7 +27,8 @@ from rucio.common.exception import InvalidObject
 from rucio.core.message import add_message, retrieve_messages, delete_messages, truncate_messages
 
 
-class TestMessagesCore():
+@pytest.mark.noparallel(reason='fails when run in parallel')
+class TestMessagesCore:
 
     def test_add_message(self):
         """ MESSAGE (CORE): Test valid and invalid message """

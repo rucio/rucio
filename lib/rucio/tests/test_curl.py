@@ -1,4 +1,5 @@
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,17 +18,19 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2012-2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2013
 # - Martin Barisits <martin.barisits@cern.ch>, 2014-2017
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from __future__ import print_function
 
 import json
 import os
 import unittest
+
+import pytest
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.tests.common import account_name_generator, rse_name_generator, execute
@@ -113,6 +116,7 @@ class TestCurlRucio(unittest.TestCase):
         print(out)
         assert 'datetime.datetime' in out
 
+    @pytest.mark.dirty
     def test_post_account(self):
         """ACCOUNT (CURL): add account"""
         cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" %s --cert %s --key %s -X GET %s/auth/x509 | tr -d \'\r\' | grep X-Rucio-Auth-Token:' % (self.cacert, self.vo_header, self.usercert, self.userkey, self.auth_host)
@@ -138,6 +142,7 @@ class TestCurlRucio(unittest.TestCase):
         print(out)
         assert '303 See Other'.lower() in out.lower()
 
+    @pytest.mark.dirty
     def test_post_rse(self):
         """RSE (CURL): add RSE"""
         cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" %s --cert %s --key %s -X GET %s/auth/x509 | tr -d \'\r\' | grep X-Rucio-Auth-Token:' % (self.cacert, self.vo_header, self.usercert, self.userkey, self.auth_host)
