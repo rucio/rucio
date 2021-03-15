@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 from __future__ import print_function
 
@@ -86,6 +86,7 @@ class TestBaseClient(unittest.TestCase):
                  'client_key': self.userkey}
         BaseClient(account='root', ca_cert=self.cacert, auth_type='x509', creds=creds, **self.vo)
 
+    @pytest.mark.noparallel(reason='fails when run in parallel')
     def testx509NonExistingCert(self):
         """ CLIENTS (BASECLIENT): authenticate with x509 with missing certificate."""
         creds = {'client_cert': '/opt/rucio/etc/web/notthere.crt'}

@@ -1,4 +1,5 @@
-# Copyright 2016-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2016-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,10 +15,12 @@
 #
 # Authors:
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2016-2018
-# - Joaquin Bogado <jbogado@linti.unlp.edu.ar>, 2018
+# - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+
+import pytest
 
 from rucio.client.didclient import DIDClient
 from rucio.common.config import config_get, config_get_bool
@@ -28,6 +31,7 @@ from rucio.core.temporary_did import (add_temporary_dids, compose, delete_tempor
                                       list_expired_temporary_dids)
 
 
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 def test_core_temporary_dids():
     """ TMP DATA IDENTIFIERS (CORE): """
 
@@ -61,6 +65,7 @@ def test_core_temporary_dids():
     assert rowcount == 10
 
 
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 def test_client_temporary_dids():
     """ TMP DATA IDENTIFIERS (CLIENT): """
     client = DIDClient()
