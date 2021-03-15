@@ -19,6 +19,7 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2021
 
 from web import (application, header, loadhook, ctx)
 
@@ -27,6 +28,11 @@ from rucio.common.exception import RucioException
 from rucio.common.utils import render_json
 from rucio.web.rest.common import rucio_loadhook, RucioController, check_accept_header_wrapper
 from rucio.web.rest.utils import generate_http_error
+
+try:
+    from urlparse import parse_qs
+except ImportError:
+    from urllib.parse import parse_qs
 
 URLS = (
     '/', 'Export',
@@ -52,8 +58,15 @@ class Export(RucioController):
             500 InternalError
         """
         header('Content-Type', 'application/json')
+        distance = True
+        if ctx.query:
+            params = parse_qs(ctx.query[1:])
+            for k, v in params.items():
+                if k == 'distance':
+                    distance = v[0] == 'True'
+
         try:
-            return render_json(**export_data(issuer=ctx.env.get('issuer'), vo=ctx.env.get('vo')))
+            return render_json(**export_data(issuer=ctx.env.get('issuer'), distance=distance, vo=ctx.env.get('vo')))
         except RucioException as error:
             raise generate_http_error(500, error.__class__.__name__, error.args[0])
 

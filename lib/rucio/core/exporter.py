@@ -15,6 +15,7 @@
 # Authors:
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2021
 #
 # PY3K COMPATIBLE
 
@@ -39,15 +40,21 @@ def export_rses(vo='def', session=None):
 
 
 @transactional_session
-def export_data(vo='def', session=None):
+def export_data(vo='def', distance=True, session=None):
     """
     Export data.
 
     :param vo: The VO to export.
+    :param distance: To enable the reporting of distance.
     :param session: database session in use.
     """
-    data = {
-        'rses': export_rses(vo=vo, session=session),
-        'distances': distance_module.export_distances(vo, session=session)
-    }
+    if distance:
+        data = {
+            'rses': export_rses(vo=vo, session=session),
+            'distances': distance_module.export_distances(vo, session=session)
+        }
+    else:
+        data = {
+            'rses': export_rses(vo=vo, session=session)
+        }
     return data

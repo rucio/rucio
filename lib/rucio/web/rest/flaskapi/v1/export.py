@@ -19,6 +19,7 @@
 # - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Cedric Serfon <cedric.serfon@cern.ch>, 2021
 
 from flask import Flask, Blueprint, request, Response
 
@@ -59,7 +60,8 @@ class Export(ErrorHandlingMethodView):
         :status 406: Not Acceptable
         :returns: dictionary with rucio data
         """
-        return Response(render_json(**export_data(issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))), content_type='application/json')
+        distance = request.args.get('distance', default=True)
+        return Response(render_json(**export_data(issuer=request.environ.get('issuer'), distance=distance, vo=request.environ.get('vo'))), content_type='application/json')
 
 
 def blueprint(no_doc=True):
