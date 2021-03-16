@@ -29,11 +29,21 @@ else
   echo "Running pytest with extra arguments: $@"
   ARGS=($@)
 fi
+
 export PYTHONPATH="$RUCIO_LIB"
+export PYTEST_DISABLE_PLUGIN_AUTOLOAD="True"
 
 NO_XDIST="${NO_XDIST:-False}"
 if [ "${RDBMS:-}" == "sqlite" ]; then
   # no parallel tests on sqlite, because of random "sqlite3.OperationalError: database is locked"
+  NO_XDIST="True"
+elif [ "${RDBMS:-}" == "mysql5" ]; then
+  # no parallel tests on mysql5, because of random "pymysql.err.OperationalError:
+  # (1213, 'Deadlock found when trying to get lock; try restarting transaction')"
+  NO_XDIST="True"
+elif [ "${RDBMS:-}" == "oracle" ]; then
+  # no parallel tests on oracle, because of random "cx_Oracle.DatabaseError:
+  # ORA-00060: deadlock detected while waiting for resource"
   NO_XDIST="True"
 fi
 
@@ -46,11 +56,11 @@ if [ "$NO_XDIST" == "False" ]; then
   NO_XDIST="$(python -c 'import sys; print(sys.version_info < (3, 6))' ||:)"
 fi
 
-XDIST_ARGS=("")
+XDIST_ARGS=("-p" "ruciopytest.plugin")
 if [ "$NO_XDIST" == "False" ]; then
   if [ "${GITHUB_ACTIONS:-false}" == "true" ]; then
-    # run on 4 processes instead of 2 on GitHub Actions
-    PROCESS_COUNT="4"
+    # run on 3 processes instead of 2 on GitHub Actions
+    PROCESS_COUNT="3"
   else
     PROCESS_COUNT="auto"
   fi

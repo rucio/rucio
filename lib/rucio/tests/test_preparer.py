@@ -271,6 +271,7 @@ def test_preparer_for_request_without_matching_transfertool_source(db_session, s
     assert updated_mock_request.state == RequestState.NO_SOURCES
 
 
+@pytest.mark.xfail(reason='fails when run in parallel')
 def test_two_sources_one_destination(db_session, vo, file, source_rse, dest_rse, mock_request):
     def setup(rse):
         add_distance(rse.rse_id, dest_rse['id'], ranking=2, session=rse.db_session)

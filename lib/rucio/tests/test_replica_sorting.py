@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2020 CERN
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 # - Martin Barisits <martin.barisits@cern.ch>, 2018
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 import copy
 import json
@@ -122,6 +122,7 @@ def protocols_setup(vo):
         del_rse(info['id'])
 
 
+@pytest.mark.noparallel(reason='fails when run in parallel, lists replicas and checks for length of returned list')
 @pytest.mark.parametrize("content_type", [
     Mime.METALINK,
     pytest.param(Mime.JSON_STREAM, marks=pytest.mark.xfail(reason='see https://github.com/rucio/rucio/issues/4105')),
@@ -330,6 +331,7 @@ def test_not_sorting_lan_replicas(vo, rest_client, auth_token, protocols_setup, 
         assert len(sources_dict) == 4
 
 
+@pytest.mark.noparallel(reason='fails when run in parallel')
 @pytest.mark.parametrize("content_type", [
     Mime.METALINK,
     pytest.param(Mime.JSON_STREAM, marks=pytest.mark.xfail(reason='see https://github.com/rucio/rucio/issues/4105')),
