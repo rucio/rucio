@@ -1192,7 +1192,8 @@ def add_rule(args):
                                                activity=args.activity,
                                                comment=args.comment,
                                                ask_approval=args.ask_approval,
-                                               asynchronous=args.asynchronous)
+                                               asynchronous=args.asynchronous,
+                                               delay_injection=args.delay_injection)
     except DuplicateRule as error:
         if args.ignore_duplicate:
             for did in dids:
@@ -1210,7 +1211,8 @@ def add_rule(args):
                                                           activity=args.activity,
                                                           comment=args.comment,
                                                           ask_approval=args.ask_approval,
-                                                          asynchronous=args.asynchronous)
+                                                          asynchronous=args.asynchronous,
+                                                          delay_injection=args.delay_injection)
                     rule_ids.extend(rule_id)
                 except DuplicateRule:
                     print('Duplicate rule for %s:%s found; Skipping.' % (did['scope'], did['name']))
@@ -2185,6 +2187,7 @@ You can filter by key/value, e.g.::
     add_rule_parser.add_argument('--comment', dest='comment', action='store', help='Comment about the replication rule')
     add_rule_parser.add_argument('--ask-approval', dest='ask_approval', action='store_true', help='Ask for rule approval')
     add_rule_parser.add_argument('--asynchronous', dest='asynchronous', action='store_true', help='Create rule asynchronously')
+    add_rule_parser.add_argument('--delay-injection', dest='delay_injection', action='store', type=int, help='Delay (in seconds) to wait before starting applying the rule. This option implies --asynchronous.')
     add_rule_parser.add_argument('--account', dest='rule_account', action='store', help='The account owning the rule')
     add_rule_parser.add_argument('--skip-duplicates', dest='ignore_duplicate', action='store_true', help='Skip duplicate rules')
 

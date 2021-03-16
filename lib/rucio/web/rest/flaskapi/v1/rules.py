@@ -26,6 +26,7 @@
 # - Muhammad Aditya Hilmy <didithilmy@gmail.com>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from json import dumps
 
@@ -207,6 +208,7 @@ class AllRule(ErrorHandlingMethodView):
                 comment=param_get(parameters, 'comment', default=None),
                 ask_approval=param_get(parameters, 'ask_approval', default=False),
                 asynchronous=param_get(parameters, 'asynchronous', default=False),
+                delay_injection=param_get(parameters, 'delay_injection', default=None),
                 priority=param_get(parameters, 'priority', default=3),
                 split_container=param_get(parameters, 'split_container', default=False),
                 meta=param_get(parameters, 'meta', default=None),

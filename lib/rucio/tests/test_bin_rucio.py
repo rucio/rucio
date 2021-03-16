@@ -30,12 +30,14 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Tomas Javurek <tomas.javurek@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from __future__ import print_function
 
 import os
 import re
 import unittest
+from datetime import datetime, timedelta
 from os import remove, unlink, listdir, rmdir, stat, path, environ
 
 import pytest
@@ -920,13 +922,61 @@ class TestBinRucio(unittest.TestCase):
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
+        assert not err
         rule = out[:-1]  # triming new line character
+        assert re.match(r'^\w+$', rule)
         # check if rule exist for the file
         cmd = "rucio list-rules {0}:{1}".format(self.user, tmp_file1[5:])
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert re.search(rule, out) is not None
+
+    def test_create_rule_delayed(self):
+        """CLIENT(USER): Rucio add rule delayed"""
+        tmp_file1 = file_generator()
+        # add files
+        cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # add rse
+        tmp_rse = rse_name_generator()
+        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # add quota
+        self.account_client.set_local_account_limit('root', tmp_rse, -1)
+        # add rse atributes
+        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASRULEDELAYED'.format(tmp_rse)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        # try adding rule with an incorrect delay-injection. Must fail
+        cmd = "rucio add-rule --delay-injection asdsaf {0}:{1} 1 'spacetoken=ATLASRULEDELAYED'".format(self.user, tmp_file1[5:])
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        assert err
+        # Add a correct rule
+        cmd = "rucio add-rule --delay-injection 3600 {0}:{1} 1 'spacetoken=ATLASRULEDELAYED'".format(self.user, tmp_file1[5:])
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert not err
+        rule = out[:-1]  # triming new line character
+        cmd = "rucio rule-info {0}".format(rule)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        out_lines = out.splitlines()
+        assert any(re.match(r'State:.* INJECT', line) for line in out_lines)
+        assert any(re.match(r'Locks OK/REPLICATING/STUCK:.* 0/0/0', line) for line in out_lines)
+        # Check that "Created at" is approximately 3600 seconds in the future
+        [created_at_line] = filter(lambda x: "Created at" in x, out_lines)
+        created_at = re.search(r'Created at:\s+(\d.*\d)$', created_at_line).group(1)
+        created_at = datetime.strptime(created_at, "%Y-%m-%d %H:%M:%S")
+        assert datetime.utcnow() + timedelta(seconds=3550) < created_at < datetime.utcnow() + timedelta(seconds=3650)
 
     def test_delete_rule(self):
         """CLIENT(USER): rule deletion"""
