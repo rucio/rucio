@@ -133,7 +133,6 @@ class TestReplicaCore(unittest.TestCase):
                 schemes=['root'],
                 domain='wan',
                 client_location={'site': 'BLACKMESA'}):
-            print('Got replica!', rep['pfns'].keys())
             assert list(rep['pfns'].keys())[0].count('root://') == 2
 
     def test_update_replicas_paths(self):
