@@ -20,6 +20,7 @@
 # - Jaroslav Guenther <jaroslav.guenther@gmail.com>, 2019
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 #
 # PY3K COMPATIBLE
 
@@ -32,6 +33,7 @@ ACCOUNT_LENGTH = 29
 ACCOUNT = {"description": "Account name",
            "type": "string",
            "pattern": "^[a-z0-9-_]{1,%s}$" % (ACCOUNT_LENGTH - 4)}
+
 
 ACCOUNTS = {"description": "Array of accounts",
             "type": "array",
@@ -81,6 +83,9 @@ ASK_APPROVAL = {"description": "Rule approval request",
 
 ASYNCHRONOUS = {"description": "Asynchronous rule creation",
                 "type": ["boolean", "null"]}
+
+DELAY_INJECTION = {"description": "Time (in seconds) to wait before starting applying the rule. Implies asynchronous rule creation.",
+                   "type": ["integer", "null"]}
 
 PURGE_REPLICAS = {"description": "Rule purge replica status",
                   "type": "boolean"}
@@ -190,6 +195,7 @@ RULE = {"description": "Replication rule",
                        "comment": COMMENT,
                        "ask_approval": ASK_APPROVAL,
                        "asynchronous": ASYNCHRONOUS,
+                       "delay_injection": DELAY_INJECTION,
                        "priority": PRIORITY,
                        'split_container': SPLIT_CONTAINER,
                        'meta': METADATA},
