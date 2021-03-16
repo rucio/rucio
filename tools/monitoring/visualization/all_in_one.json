@@ -1,0 +1,403 @@
+[
+  {
+    "_id": "90fd1400-9c12-11e9-9ef1-ab86ce457da9",
+    "_type": "visualization",
+    "_source": {
+      "title": "[rucio] Failures",
+      "visState": "{\n  \"title\": \"[rucio] Failures\",\n  \"type\": \"table\",\n  \"params\": {\n    \"perPage\": 5,\n    \"showPartialRows\": false,\n    \"showMetricsAtAllLevels\": false,\n    \"sort\": {\n      \"columnIndex\": null,\n      \"direction\": null\n    },\n    \"showTotal\": false,\n    \"totalFunc\": \"sum\"\n  },\n  \"aggs\": [\n    {\n      \"id\": \"2\",\n      \"enabled\": true,\n      \"type\": \"count\",\n      \"schema\": \"metric\",\n      \"params\": {}\n    },\n    {\n      \"id\": \"3\",\n      \"enabled\": true,\n      \"type\": \"terms\",\n      \"schema\": \"bucket\",\n      \"params\": {\n        \"field\": \"reason\",\n        \"size\": 5,\n        \"order\": \"asc\",\n        \"orderBy\": \"_key\",\n        \"otherBucket\": false,\n        \"otherBucketLabel\": \"Other\",\n        \"missingBucket\": false,\n        \"missingBucketLabel\": \"Missing\"\n      }\n    }\n  ]\n}",
+      "uiStateJSON": "{\n  \"vis\": {\n    \"params\": {\n      \"sort\": {\n        \"columnIndex\": 0,\n        \"direction\": null\n      }\n    }\n  }\n}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\n  \"query\": {\n    \"query\": \"\",\n    \"language\": \"kuery\"\n  },\n  \"filter\": [\n    {\n      \"meta\": {\n        \"type\": \"phrases\",\n        \"key\": \"event_type\",\n        \"value\": \"transfer-failed, transfer-submission_failed\",\n        \"params\": [\n          \"transfer-failed\",\n          \"transfer-submission_failed\"\n        ],\n        \"alias\": null,\n        \"negate\": false,\n        \"disabled\": false,\n        \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index\"\n      },\n      \"query\": {\n        \"bool\": {\n          \"should\": [\n            {\n              \"match_phrase\": {\n                \"event_type\": \"transfer-failed\"\n              }\n            },\n            {\n              \"match_phrase\": {\n                \"event_type\": \"transfer-submission_failed\"\n              }\n            }\n          ],\n          \"minimum_should_match\": 1\n        }\n      },\n      \"$state\": {\n        \"store\": \"appState\"\n      }\n    }\n  ],\n  \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.index\"\n}"
+      }
+    },
+    "_migrationVersion": {
+      "visualization": "7.0.1"
+    },
+    "_references": [
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      },
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      }
+    ]
+  },
+  {
+    "_id": "b2044840-9c07-11e9-9ef1-ab86ce457da9",
+    "_type": "visualization",
+    "_source": {
+      "title": "[rucio] Total transferred bytes",
+      "visState": "{\n  \"title\": \"[rucio] Total transferred bytes\",\n  \"type\": \"metric\",\n  \"params\": {\n    \"addTooltip\": true,\n    \"addLegend\": false,\n    \"type\": \"metric\",\n    \"metric\": {\n      \"percentageMode\": false,\n      \"useRanges\": false,\n      \"colorSchema\": \"Green to Red\",\n      \"metricColorMode\": \"None\",\n      \"colorsRange\": [\n        {\n          \"from\": 0,\n          \"to\": 10000\n        }\n      ],\n      \"labels\": {\n        \"show\": true\n      },\n      \"invertColors\": false,\n      \"style\": {\n        \"bgFill\": \"#000\",\n        \"bgColor\": false,\n        \"labelColor\": false,\n        \"subText\": \"\",\n        \"fontSize\": 25\n      }\n    }\n  },\n  \"aggs\": [\n    {\n      \"id\": \"1\",\n      \"enabled\": true,\n      \"type\": \"sum\",\n      \"schema\": \"metric\",\n      \"params\": {\n        \"field\": \"bytes\",\n        \"customLabel\": \"Transferred Bytes\"\n      }\n    }\n  ]\n}",
+      "uiStateJSON": "{}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\n  \"query\": {\n    \"query\": \"\",\n    \"language\": \"kuery\"\n  },\n  \"filter\": [\n    {\n      \"meta\": {\n        \"alias\": null,\n        \"negate\": false,\n        \"type\": \"phrase\",\n        \"key\": \"event_type\",\n        \"value\": \"transfer-done\",\n        \"params\": {\n          \"query\": \"transfer-done\"\n        },\n        \"disabled\": false,\n        \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index\"\n      },\n      \"query\": {\n        \"match\": {\n          \"event_type\": {\n            \"query\": \"transfer-done\",\n            \"type\": \"phrase\"\n          }\n        }\n      },\n      \"$state\": {\n        \"store\": \"appState\"\n      }\n    }\n  ],\n  \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.index\"\n}"
+      }
+    },
+    "_migrationVersion": {
+      "visualization": "7.0.1"
+    },
+    "_references": [
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      },
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      }
+    ]
+  },
+  {
+    "_id": "94f32e60-9c07-11e9-9ef1-ab86ce457da9",
+    "_type": "visualization",
+    "_source": {
+      "title": "[rucio] Total transfers",
+      "visState": "{\n  \"title\": \"[rucio] Total transfers\",\n  \"type\": \"metric\",\n  \"params\": {\n    \"addTooltip\": true,\n    \"addLegend\": false,\n    \"type\": \"metric\",\n    \"metric\": {\n      \"percentageMode\": false,\n      \"useRanges\": false,\n      \"colorSchema\": \"Green to Red\",\n      \"metricColorMode\": \"None\",\n      \"colorsRange\": [\n        {\n          \"from\": 0,\n          \"to\": 10000\n        }\n      ],\n      \"labels\": {\n        \"show\": true\n      },\n      \"invertColors\": false,\n      \"style\": {\n        \"bgFill\": \"#000\",\n        \"bgColor\": false,\n        \"labelColor\": false,\n        \"subText\": \"\",\n        \"fontSize\": 25\n      }\n    }\n  },\n  \"aggs\": [\n    {\n      \"id\": \"1\",\n      \"enabled\": true,\n      \"type\": \"count\",\n      \"schema\": \"metric\",\n      \"params\": {\n        \"customLabel\": \"Total Transfers\"\n      }\n    }\n  ]\n}",
+      "uiStateJSON": "{}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\n  \"query\": {\n    \"query\": \"\",\n    \"language\": \"kuery\"\n  },\n  \"filter\": [\n    {\n      \"meta\": {\n        \"alias\": null,\n        \"negate\": false,\n        \"type\": \"phrase\",\n        \"key\": \"event_type\",\n        \"value\": \"transfer-done\",\n        \"params\": {\n          \"query\": \"transfer-done\"\n        },\n        \"disabled\": false,\n        \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index\"\n      },\n      \"query\": {\n        \"match\": {\n          \"event_type\": {\n            \"query\": \"transfer-done\",\n            \"type\": \"phrase\"\n          }\n        }\n      },\n      \"$state\": {\n        \"store\": \"appState\"\n      }\n    }\n  ],\n  \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.index\"\n}"
+      }
+    },
+    "_migrationVersion": {
+      "visualization": "7.0.1"
+    },
+    "_references": [
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      },
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      }
+    ]
+  },
+  {
+    "_id": "d02bbd70-9cb2-11e9-9ef1-ab86ce457da9",
+    "_type": "visualization",
+    "_source": {
+      "title": "[rucio] Transfer per scope",
+      "visState": "{\n  \"aggs\": [\n    {\n      \"enabled\": true,\n      \"id\": \"1\",\n      \"params\": {},\n      \"schema\": \"metric\",\n      \"type\": \"count\"\n    },\n    {\n      \"enabled\": true,\n      \"id\": \"2\",\n      \"params\": {\n        \"customInterval\": \"2h\",\n        \"customLabel\": \"time\",\n        \"drop_partials\": false,\n        \"extended_bounds\": {},\n        \"field\": \"created_at\",\n        \"interval\": \"auto\",\n        \"min_doc_count\": 1,\n        \"timeRange\": {\n          \"from\": \"2019-03-31T17:11:00.451Z\",\n          \"to\": \"2019-04-12T19:11:03.122Z\"\n        },\n        \"useNormalizedEsInterval\": true\n      },\n      \"schema\": \"segment\",\n      \"type\": \"date_histogram\"\n    },\n    {\n      \"enabled\": true,\n      \"id\": \"3\",\n      \"params\": {\n        \"field\": \"scope\",\n        \"missingBucket\": false,\n        \"missingBucketLabel\": \"Missing\",\n        \"order\": \"desc\",\n        \"orderBy\": \"1\",\n        \"otherBucket\": false,\n        \"otherBucketLabel\": \"Other\",\n        \"size\": 5\n      },\n      \"schema\": \"group\",\n      \"type\": \"terms\"\n    },\n    {\n      \"enabled\": true,\n      \"id\": \"4\",\n      \"params\": {\n        \"customLabel\": \"Transferred bytes\",\n        \"field\": \"bytes\"\n      },\n      \"schema\": \"radius\",\n      \"type\": \"sum\"\n    }\n  ],\n  \"params\": {\n    \"addLegend\": true,\n    \"addTimeMarker\": false,\n    \"addTooltip\": true,\n    \"categoryAxes\": [\n      {\n        \"id\": \"CategoryAxis-1\",\n        \"labels\": {\n          \"show\": true,\n          \"truncate\": 100\n        },\n        \"position\": \"bottom\",\n        \"scale\": {\n          \"type\": \"linear\"\n        },\n        \"show\": true,\n        \"style\": {},\n        \"title\": {},\n        \"type\": \"category\"\n      }\n    ],\n    \"grid\": {\n      \"categoryLines\": false\n    },\n    \"legendPosition\": \"top\",\n    \"radiusRatio\": 51,\n    \"seriesParams\": [\n      {\n        \"data\": {\n          \"id\": \"1\",\n          \"label\": \"Count\"\n        },\n        \"drawLinesBetweenPoints\": true,\n        \"mode\": \"stacked\",\n        \"show\": \"true\",\n        \"showCircles\": true,\n        \"type\": \"histogram\",\n        \"valueAxis\": \"ValueAxis-1\"\n      }\n    ],\n    \"times\": [],\n    \"type\": \"histogram\",\n    \"valueAxes\": [\n      {\n        \"id\": \"ValueAxis-1\",\n        \"labels\": {\n          \"filter\": false,\n          \"rotate\": 0,\n          \"show\": true,\n          \"truncate\": 100\n        },\n        \"name\": \"LeftAxis-1\",\n        \"position\": \"left\",\n        \"scale\": {\n          \"mode\": \"normal\",\n          \"type\": \"linear\"\n        },\n        \"show\": true,\n        \"style\": {},\n        \"title\": {\n          \"text\": \"Count\"\n        },\n        \"type\": \"value\"\n      }\n    ]\n  },\n  \"title\": \"[rucio] Transfer per scope\",\n  \"type\": \"histogram\"\n}",
+      "uiStateJSON": "{}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\n  \"query\": {\n    \"language\": \"kuery\",\n    \"query\": \"\"\n  },\n  \"filter\": [\n    {\n      \"$state\": {\n        \"store\": \"appState\"\n      },\n      \"meta\": {\n        \"alias\": null,\n        \"disabled\": false,\n        \"key\": \"event_type\",\n        \"negate\": false,\n        \"params\": {\n          \"query\": \"transfer-done\"\n        },\n        \"type\": \"phrase\",\n        \"value\": \"transfer-done\",\n        \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index\"\n      },\n      \"query\": {\n        \"match\": {\n          \"event_type\": {\n            \"query\": \"transfer-done\",\n            \"type\": \"phrase\"\n          }\n        }\n      }\n    }\n  ],\n  \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.index\"\n}"
+      }
+    },
+    "_migrationVersion": {
+      "visualization": "7.0.1"
+    },
+    "_references": [
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      },
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      }
+    ]
+  },
+  {
+    "_id": "be44ea50-9cb2-11e9-9ef1-ab86ce457da9",
+    "_type": "visualization",
+    "_source": {
+      "title": "[rucio] Transfer per protocol",
+      "visState": "{\n  \"title\": \"[rucio] Transfer per protocol\",\n  \"type\": \"histogram\",\n  \"params\": {\n    \"type\": \"histogram\",\n    \"grid\": {\n      \"categoryLines\": false\n    },\n    \"categoryAxes\": [\n      {\n        \"id\": \"CategoryAxis-1\",\n        \"type\": \"category\",\n        \"position\": \"bottom\",\n        \"show\": true,\n        \"style\": {},\n        \"scale\": {\n          \"type\": \"linear\"\n        },\n        \"labels\": {\n          \"show\": true,\n          \"truncate\": 100\n        },\n        \"title\": {}\n      }\n    ],\n    \"valueAxes\": [\n      {\n        \"id\": \"ValueAxis-1\",\n        \"name\": \"LeftAxis-1\",\n        \"type\": \"value\",\n        \"position\": \"left\",\n        \"show\": true,\n        \"style\": {},\n        \"scale\": {\n          \"type\": \"linear\",\n          \"mode\": \"normal\"\n        },\n        \"labels\": {\n          \"show\": true,\n          \"rotate\": 0,\n          \"filter\": false,\n          \"truncate\": 100\n        },\n        \"title\": {\n          \"text\": \"Count\"\n        }\n      }\n    ],\n    \"seriesParams\": [\n      {\n        \"show\": \"true\",\n        \"type\": \"histogram\",\n        \"mode\": \"stacked\",\n        \"data\": {\n          \"label\": \"Count\",\n          \"id\": \"1\"\n        },\n        \"valueAxis\": \"ValueAxis-1\",\n        \"drawLinesBetweenPoints\": true,\n        \"showCircles\": true\n      }\n    ],\n    \"addTooltip\": true,\n    \"addLegend\": true,\n    \"legendPosition\": \"top\",\n    \"times\": [],\n    \"addTimeMarker\": false,\n    \"radiusRatio\": 51\n  },\n  \"aggs\": [\n    {\n      \"id\": \"1\",\n      \"enabled\": true,\n      \"type\": \"count\",\n      \"schema\": \"metric\",\n      \"params\": {}\n    },\n    {\n      \"id\": \"2\",\n      \"enabled\": true,\n      \"type\": \"date_histogram\",\n      \"schema\": \"segment\",\n      \"params\": {\n        \"field\": \"created_at\",\n        \"timeRange\": {\n          \"from\": \"2019-03-31T17:11:00.451Z\",\n          \"to\": \"2019-04-12T19:11:03.122Z\"\n        },\n        \"useNormalizedEsInterval\": true,\n        \"interval\": \"auto\",\n        \"drop_partials\": false,\n        \"customInterval\": \"2h\",\n        \"min_doc_count\": 1,\n        \"extended_bounds\": {},\n        \"customLabel\": \"time\"\n      }\n    },\n    {\n      \"id\": \"3\",\n      \"enabled\": true,\n      \"type\": \"terms\",\n      \"schema\": \"group\",\n      \"params\": {\n        \"field\": \"protocol\",\n        \"size\": 5,\n        \"order\": \"desc\",\n        \"orderBy\": \"1\",\n        \"otherBucket\": false,\n        \"otherBucketLabel\": \"Other\",\n        \"missingBucket\": false,\n        \"missingBucketLabel\": \"Missing\"\n      }\n    },\n    {\n      \"id\": \"4\",\n      \"enabled\": true,\n      \"type\": \"sum\",\n      \"schema\": \"radius\",\n      \"params\": {\n        \"field\": \"bytes\",\n        \"customLabel\": \"Transferred bytes\"\n      }\n    }\n  ]\n}",
+      "uiStateJSON": "{}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\n  \"query\": {\n    \"query\": \"\",\n    \"language\": \"kuery\"\n  },\n  \"filter\": [\n    {\n      \"meta\": {\n        \"alias\": null,\n        \"negate\": false,\n        \"type\": \"phrase\",\n        \"key\": \"event_type\",\n        \"value\": \"transfer-done\",\n        \"params\": {\n          \"query\": \"transfer-done\"\n        },\n        \"disabled\": false,\n        \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index\"\n      },\n      \"query\": {\n        \"match\": {\n          \"event_type\": {\n            \"query\": \"transfer-done\",\n            \"type\": \"phrase\"\n          }\n        }\n      },\n      \"$state\": {\n        \"store\": \"appState\"\n      }\n    }\n  ],\n  \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.index\"\n}"
+      }
+    },
+    "_migrationVersion": {
+      "visualization": "7.0.1"
+    },
+    "_references": [
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      },
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      }
+    ]
+  },
+  {
+    "_id": "3451d280-9c13-11e9-9ef1-ab86ce457da9",
+    "_type": "visualization",
+    "_source": {
+      "title": "[rucio] Transfer per dst",
+      "visState": "{\n  \"title\": \"[rucio] Transfer per dst\",\n  \"type\": \"histogram\",\n  \"params\": {\n    \"type\": \"histogram\",\n    \"grid\": {\n      \"categoryLines\": false\n    },\n    \"categoryAxes\": [\n      {\n        \"id\": \"CategoryAxis-1\",\n        \"type\": \"category\",\n        \"position\": \"bottom\",\n        \"show\": true,\n        \"style\": {},\n        \"scale\": {\n          \"type\": \"linear\"\n        },\n        \"labels\": {\n          \"show\": true,\n          \"truncate\": 100\n        },\n        \"title\": {}\n      }\n    ],\n    \"valueAxes\": [\n      {\n        \"id\": \"ValueAxis-1\",\n        \"name\": \"LeftAxis-1\",\n        \"type\": \"value\",\n        \"position\": \"left\",\n        \"show\": true,\n        \"style\": {},\n        \"scale\": {\n          \"type\": \"linear\",\n          \"mode\": \"normal\"\n        },\n        \"labels\": {\n          \"show\": true,\n          \"rotate\": 0,\n          \"filter\": false,\n          \"truncate\": 100\n        },\n        \"title\": {\n          \"text\": \"Count\"\n        }\n      }\n    ],\n    \"seriesParams\": [\n      {\n        \"show\": \"true\",\n        \"type\": \"histogram\",\n        \"mode\": \"stacked\",\n        \"data\": {\n          \"label\": \"Count\",\n          \"id\": \"1\"\n        },\n        \"valueAxis\": \"ValueAxis-1\",\n        \"drawLinesBetweenPoints\": true,\n        \"showCircles\": true\n      }\n    ],\n    \"addTooltip\": true,\n    \"addLegend\": true,\n    \"legendPosition\": \"top\",\n    \"times\": [],\n    \"addTimeMarker\": false,\n    \"radiusRatio\": 51\n  },\n  \"aggs\": [\n    {\n      \"id\": \"1\",\n      \"enabled\": true,\n      \"type\": \"count\",\n      \"schema\": \"metric\",\n      \"params\": {}\n    },\n    {\n      \"id\": \"2\",\n      \"enabled\": true,\n      \"type\": \"date_histogram\",\n      \"schema\": \"segment\",\n      \"params\": {\n        \"field\": \"created_at\",\n        \"timeRange\": {\n          \"from\": \"2019-03-31T17:11:00.451Z\",\n          \"to\": \"2019-04-12T19:11:03.122Z\"\n        },\n        \"useNormalizedEsInterval\": true,\n        \"interval\": \"auto\",\n        \"drop_partials\": false,\n        \"customInterval\": \"2h\",\n        \"min_doc_count\": 1,\n        \"extended_bounds\": {},\n        \"customLabel\": \"time\"\n      }\n    },\n    {\n      \"id\": \"3\",\n      \"enabled\": true,\n      \"type\": \"terms\",\n      \"schema\": \"group\",\n      \"params\": {\n        \"field\": \"dst-rse\",\n        \"size\": 5,\n        \"order\": \"desc\",\n        \"orderBy\": \"1\",\n        \"otherBucket\": false,\n        \"otherBucketLabel\": \"Other\",\n        \"missingBucket\": false,\n        \"missingBucketLabel\": \"Missing\"\n      }\n    },\n    {\n      \"id\": \"4\",\n      \"enabled\": true,\n      \"type\": \"sum\",\n      \"schema\": \"radius\",\n      \"params\": {\n        \"field\": \"bytes\",\n        \"customLabel\": \"Transferred bytes\"\n      }\n    }\n  ]\n}",
+      "uiStateJSON": "{}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\n  \"query\": {\n    \"query\": \"\",\n    \"language\": \"kuery\"\n  },\n  \"filter\": [\n    {\n      \"meta\": {\n        \"alias\": null,\n        \"negate\": false,\n        \"type\": \"phrase\",\n        \"key\": \"event_type\",\n        \"value\": \"transfer-done\",\n        \"params\": {\n          \"query\": \"transfer-done\"\n        },\n        \"disabled\": false,\n        \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index\"\n      },\n      \"query\": {\n        \"match\": {\n          \"event_type\": {\n            \"query\": \"transfer-done\",\n            \"type\": \"phrase\"\n          }\n        }\n      },\n      \"$state\": {\n        \"store\": \"appState\"\n      }\n    }\n  ],\n  \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.index\"\n}"
+      }
+    },
+    "_migrationVersion": {
+      "visualization": "7.0.1"
+    },
+    "_references": [
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      },
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      }
+    ]
+  },
+  {
+    "_id": "da00aa70-9c0f-11e9-9ef1-ab86ce457da9",
+    "_type": "visualization",
+    "_source": {
+      "title": "[rucio] Total Transfers vs Time",
+      "visState": "{\n  \"title\": \"[rucio] Total Transfers vs Time\",\n  \"type\": \"area\",\n  \"params\": {\n    \"type\": \"area\",\n    \"grid\": {\n      \"categoryLines\": false\n    },\n    \"categoryAxes\": [\n      {\n        \"id\": \"CategoryAxis-1\",\n        \"type\": \"category\",\n        \"position\": \"bottom\",\n        \"show\": true,\n        \"style\": {},\n        \"scale\": {\n          \"type\": \"linear\"\n        },\n        \"labels\": {\n          \"show\": true,\n          \"truncate\": 100\n        },\n        \"title\": {}\n      }\n    ],\n    \"valueAxes\": [\n      {\n        \"id\": \"ValueAxis-1\",\n        \"name\": \"LeftAxis-1\",\n        \"type\": \"value\",\n        \"position\": \"left\",\n        \"show\": true,\n        \"style\": {},\n        \"scale\": {\n          \"type\": \"linear\",\n          \"mode\": \"normal\"\n        },\n        \"labels\": {\n          \"show\": true,\n          \"rotate\": 0,\n          \"filter\": false,\n          \"truncate\": 100\n        },\n        \"title\": {\n          \"text\": \"Transfers\"\n        }\n      },\n      {\n        \"id\": \"ValueAxis-2\",\n        \"name\": \"RightAxis-1\",\n        \"type\": \"value\",\n        \"position\": \"right\",\n        \"show\": false,\n        \"style\": {},\n        \"scale\": {\n          \"type\": \"linear\",\n          \"mode\": \"normal\",\n          \"defaultYExtents\": false\n        },\n        \"labels\": {\n          \"show\": true,\n          \"rotate\": 0,\n          \"filter\": false,\n          \"truncate\": 100\n        },\n        \"title\": {\n          \"text\": \"Transferred Bytes\"\n        }\n      }\n    ],\n    \"seriesParams\": [\n      {\n        \"show\": true,\n        \"mode\": \"stacked\",\n        \"type\": \"histogram\",\n        \"drawLinesBetweenPoints\": true,\n        \"showCircles\": true,\n        \"interpolate\": \"linear\",\n        \"data\": {\n          \"id\": \"3\",\n          \"label\": \"Transfers\"\n        },\n        \"valueAxis\": \"ValueAxis-1\"\n      },\n      {\n        \"show\": true,\n        \"mode\": \"stacked\",\n        \"type\": \"line\",\n        \"drawLinesBetweenPoints\": true,\n        \"showCircles\": true,\n        \"interpolate\": \"linear\",\n        \"data\": {\n          \"id\": \"4\",\n          \"label\": \"Transferred Bytes\"\n        },\n        \"valueAxis\": \"ValueAxis-2\"\n      }\n    ],\n    \"addTooltip\": true,\n    \"addLegend\": true,\n    \"legendPosition\": \"right\",\n    \"times\": [],\n    \"addTimeMarker\": false,\n    \"radiusRatio\": 51\n  },\n  \"aggs\": [\n    {\n      \"id\": \"2\",\n      \"enabled\": true,\n      \"type\": \"date_histogram\",\n      \"schema\": \"segment\",\n      \"params\": {\n        \"field\": \"created_at\",\n        \"timeRange\": {\n          \"from\": \"2019-03-31T18:17:10.267Z\",\n          \"to\": \"2019-04-14T22:17:23.736Z\"\n        },\n        \"useNormalizedEsInterval\": true,\n        \"interval\": \"auto\",\n        \"drop_partials\": false,\n        \"customInterval\": \"2h\",\n        \"min_doc_count\": 1,\n        \"extended_bounds\": {}\n      }\n    },\n    {\n      \"id\": \"3\",\n      \"enabled\": true,\n      \"type\": \"count\",\n      \"schema\": \"metric\",\n      \"params\": {\n        \"customLabel\": \"Transfers\"\n      }\n    },\n    {\n      \"id\": \"4\",\n      \"enabled\": true,\n      \"type\": \"sum\",\n      \"schema\": \"metric\",\n      \"params\": {\n        \"field\": \"bytes\",\n        \"customLabel\": \"Transferred Bytes\"\n      }\n    }\n  ]\n}",
+      "uiStateJSON": "{}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\n  \"query\": {\n    \"query\": \"\",\n    \"language\": \"kuery\"\n  },\n  \"filter\": [\n    {\n      \"meta\": {\n        \"alias\": null,\n        \"negate\": false,\n        \"type\": \"phrase\",\n        \"key\": \"event_type\",\n        \"value\": \"transfer-done\",\n        \"params\": {\n          \"query\": \"transfer-done\"\n        },\n        \"disabled\": false,\n        \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index\"\n      },\n      \"query\": {\n        \"match\": {\n          \"event_type\": {\n            \"query\": \"transfer-done\",\n            \"type\": \"phrase\"\n          }\n        }\n      },\n      \"$state\": {\n        \"store\": \"appState\"\n      }\n    }\n  ],\n  \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.index\"\n}"
+      }
+    },
+    "_migrationVersion": {
+      "visualization": "7.0.1"
+    },
+    "_references": [
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      },
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      }
+    ]
+  },
+  {
+    "_id": "bd7e0300-9c11-11e9-9ef1-ab86ce457da9",
+    "_type": "visualization",
+    "_source": {
+      "title": "[rucio] Transfer bytes map",
+      "visState": "{\n  \"title\": \"[rucio] Transfer bytes map\",\n  \"type\": \"heatmap\",\n  \"params\": {\n    \"type\": \"heatmap\",\n    \"addTooltip\": false,\n    \"addLegend\": true,\n    \"enableHover\": false,\n    \"legendPosition\": \"top\",\n    \"times\": [],\n    \"colorsNumber\": 4,\n    \"colorSchema\": \"Blues\",\n    \"setColorRange\": false,\n    \"colorsRange\": [],\n    \"invertColors\": false,\n    \"percentageMode\": false,\n    \"valueAxes\": [\n      {\n        \"show\": false,\n        \"id\": \"ValueAxis-1\",\n        \"type\": \"value\",\n        \"scale\": {\n          \"type\": \"linear\",\n          \"defaultYExtents\": false\n        },\n        \"labels\": {\n          \"show\": true,\n          \"rotate\": 0,\n          \"overwriteColor\": false,\n          \"color\": \"black\"\n        }\n      }\n    ]\n  },\n  \"aggs\": [\n    {\n      \"id\": \"1\",\n      \"enabled\": true,\n      \"type\": \"sum\",\n      \"schema\": \"metric\",\n      \"params\": {\n        \"field\": \"bytes\"\n      }\n    },\n    {\n      \"id\": \"4\",\n      \"enabled\": true,\n      \"type\": \"terms\",\n      \"schema\": \"segment\",\n      \"params\": {\n        \"field\": \"src-rse\",\n        \"size\": 10,\n        \"order\": \"desc\",\n        \"orderBy\": \"1\",\n        \"otherBucket\": false,\n        \"otherBucketLabel\": \"Other\",\n        \"missingBucket\": false,\n        \"missingBucketLabel\": \"Missing\",\n        \"customLabel\": \"source\"\n      }\n    },\n    {\n      \"id\": \"5\",\n      \"enabled\": true,\n      \"type\": \"terms\",\n      \"schema\": \"group\",\n      \"params\": {\n        \"field\": \"dst-rse\",\n        \"size\": 10,\n        \"order\": \"desc\",\n        \"orderBy\": \"1\",\n        \"otherBucket\": false,\n        \"otherBucketLabel\": \"Other\",\n        \"missingBucket\": false,\n        \"missingBucketLabel\": \"Missing\",\n        \"customLabel\": \"destination\"\n      }\n    }\n  ]\n}",
+      "uiStateJSON": "{\n  \"vis\": {\n    \"defaultColors\": {\n      \"0B - 45.475TB\": \"rgb(247,251,255)\",\n      \"45.475TB - 90.949TB\": \"rgb(198,219,239)\",\n      \"90.949TB - 136.424TB\": \"rgb(107,174,214)\",\n      \"136.424TB - 181.899TB\": \"rgb(33,113,181)\"\n    }\n  }\n}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\n  \"query\": {\n    \"query\": \"\",\n    \"language\": \"kuery\"\n  },\n  \"filter\": [\n    {\n      \"meta\": {\n        \"alias\": null,\n        \"negate\": false,\n        \"type\": \"phrase\",\n        \"key\": \"event_type\",\n        \"value\": \"transfer-done\",\n        \"params\": {\n          \"query\": \"transfer-done\"\n        },\n        \"disabled\": false,\n        \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index\"\n      },\n      \"query\": {\n        \"match\": {\n          \"event_type\": {\n            \"query\": \"transfer-done\",\n            \"type\": \"phrase\"\n          }\n        }\n      },\n      \"$state\": {\n        \"store\": \"appState\"\n      }\n    }\n  ],\n  \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.index\"\n}"
+      }
+    },
+    "_migrationVersion": {
+      "visualization": "7.0.1"
+    },
+    "_references": [
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      },
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      }
+    ]
+  },
+  {
+    "_id": "af9140e0-9c11-11e9-9ef1-ab86ce457da9",
+    "_type": "visualization",
+    "_source": {
+      "title": "[rucio] Transfer map",
+      "visState": "{\n  \"title\": \"[rucio] Transfer map\",\n  \"type\": \"heatmap\",\n  \"params\": {\n    \"type\": \"heatmap\",\n    \"addTooltip\": false,\n    \"addLegend\": true,\n    \"enableHover\": false,\n    \"legendPosition\": \"top\",\n    \"times\": [],\n    \"colorsNumber\": 4,\n    \"colorSchema\": \"Blues\",\n    \"setColorRange\": false,\n    \"colorsRange\": [],\n    \"invertColors\": false,\n    \"percentageMode\": false,\n    \"valueAxes\": [\n      {\n        \"show\": false,\n        \"id\": \"ValueAxis-1\",\n        \"type\": \"value\",\n        \"scale\": {\n          \"type\": \"linear\",\n          \"defaultYExtents\": false\n        },\n        \"labels\": {\n          \"show\": true,\n          \"rotate\": 0,\n          \"overwriteColor\": false,\n          \"color\": \"black\"\n        }\n      }\n    ]\n  },\n  \"aggs\": [\n    {\n      \"id\": \"1\",\n      \"enabled\": true,\n      \"type\": \"count\",\n      \"schema\": \"metric\",\n      \"params\": {\n        \"customLabel\": \"Transfers\"\n      }\n    },\n    {\n      \"id\": \"4\",\n      \"enabled\": true,\n      \"type\": \"terms\",\n      \"schema\": \"segment\",\n      \"params\": {\n        \"field\": \"src-rse\",\n        \"size\": 10,\n        \"order\": \"desc\",\n        \"orderBy\": \"1\",\n        \"otherBucket\": false,\n        \"otherBucketLabel\": \"Other\",\n        \"missingBucket\": false,\n        \"missingBucketLabel\": \"Missing\",\n        \"customLabel\": \"source\"\n      }\n    },\n    {\n      \"id\": \"5\",\n      \"enabled\": true,\n      \"type\": \"terms\",\n      \"schema\": \"group\",\n      \"params\": {\n        \"field\": \"dst-rse\",\n        \"size\": 10,\n        \"order\": \"desc\",\n        \"orderBy\": \"1\",\n        \"otherBucket\": false,\n        \"otherBucketLabel\": \"Other\",\n        \"missingBucket\": false,\n        \"missingBucketLabel\": \"Missing\",\n        \"customLabel\": \"destination\"\n      }\n    }\n  ]\n}",
+      "uiStateJSON": "{\n  \"vis\": {\n    \"defaultColors\": {\n      \"0 - 6,000\": \"rgb(247,251,255)\",\n      \"6,000 - 12,000\": \"rgb(198,219,239)\",\n      \"12,000 - 18,000\": \"rgb(107,174,214)\",\n      \"18,000 - 24,000\": \"rgb(33,113,181)\"\n    }\n  }\n}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\n  \"query\": {\n    \"query\": \"\",\n    \"language\": \"kuery\"\n  },\n  \"filter\": [\n    {\n      \"meta\": {\n        \"alias\": null,\n        \"negate\": false,\n        \"type\": \"phrase\",\n        \"key\": \"event_type\",\n        \"value\": \"transfer-done\",\n        \"params\": {\n          \"query\": \"transfer-done\"\n        },\n        \"disabled\": false,\n        \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index\"\n      },\n      \"query\": {\n        \"match\": {\n          \"event_type\": {\n            \"query\": \"transfer-done\",\n            \"type\": \"phrase\"\n          }\n        }\n      },\n      \"$state\": {\n        \"store\": \"appState\"\n      }\n    }\n  ],\n  \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.index\"\n}"
+      }
+    },
+    "_migrationVersion": {
+      "visualization": "7.0.1"
+    },
+    "_references": [
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      },
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      }
+    ]
+  },
+  {
+    "_id": "1ad14740-9cb4-11e9-9ef1-ab86ce457da9",
+    "_type": "visualization",
+    "_source": {
+      "title": "[rucio] Transfer per event type",
+      "visState": "{\n  \"title\": \"[rucio] Transfer per event type\",\n  \"type\": \"histogram\",\n  \"params\": {\n    \"type\": \"histogram\",\n    \"grid\": {\n      \"categoryLines\": false\n    },\n    \"categoryAxes\": [\n      {\n        \"id\": \"CategoryAxis-1\",\n        \"type\": \"category\",\n        \"position\": \"bottom\",\n        \"show\": true,\n        \"style\": {},\n        \"scale\": {\n          \"type\": \"linear\"\n        },\n        \"labels\": {\n          \"show\": true,\n          \"truncate\": 100\n        },\n        \"title\": {}\n      }\n    ],\n    \"valueAxes\": [\n      {\n        \"id\": \"ValueAxis-1\",\n        \"name\": \"LeftAxis-1\",\n        \"type\": \"value\",\n        \"position\": \"left\",\n        \"show\": true,\n        \"style\": {},\n        \"scale\": {\n          \"type\": \"linear\",\n          \"mode\": \"normal\"\n        },\n        \"labels\": {\n          \"show\": true,\n          \"rotate\": 0,\n          \"filter\": false,\n          \"truncate\": 100\n        },\n        \"title\": {\n          \"text\": \"Count\"\n        }\n      }\n    ],\n    \"seriesParams\": [\n      {\n        \"show\": \"true\",\n        \"type\": \"histogram\",\n        \"mode\": \"stacked\",\n        \"data\": {\n          \"label\": \"Count\",\n          \"id\": \"1\"\n        },\n        \"valueAxis\": \"ValueAxis-1\",\n        \"drawLinesBetweenPoints\": true,\n        \"showCircles\": true\n      }\n    ],\n    \"addTooltip\": true,\n    \"addLegend\": true,\n    \"legendPosition\": \"right\",\n    \"times\": [],\n    \"addTimeMarker\": false,\n    \"radiusRatio\": 51\n  },\n  \"aggs\": [\n    {\n      \"id\": \"1\",\n      \"enabled\": true,\n      \"type\": \"count\",\n      \"schema\": \"metric\",\n      \"params\": {}\n    },\n    {\n      \"id\": \"2\",\n      \"enabled\": true,\n      \"type\": \"date_histogram\",\n      \"schema\": \"segment\",\n      \"params\": {\n        \"field\": \"created_at\",\n        \"timeRange\": {\n          \"from\": \"2019-04-01T09:10:22.827Z\",\n          \"to\": \"2019-04-13T23:02:54.252Z\"\n        },\n        \"useNormalizedEsInterval\": true,\n        \"interval\": \"auto\",\n        \"drop_partials\": false,\n        \"customInterval\": \"2h\",\n        \"min_doc_count\": 1,\n        \"extended_bounds\": {}\n      }\n    },\n    {\n      \"id\": \"4\",\n      \"enabled\": true,\n      \"type\": \"terms\",\n      \"schema\": \"group\",\n      \"params\": {\n        \"field\": \"event_type\",\n        \"size\": 5,\n        \"order\": \"desc\",\n        \"orderBy\": \"1\",\n        \"otherBucket\": false,\n        \"otherBucketLabel\": \"Other\",\n        \"missingBucket\": false,\n        \"missingBucketLabel\": \"Missing\"\n      }\n    }\n  ]\n}",
+      "uiStateJSON": "{}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\n  \"query\": {\n    \"query\": \"\",\n    \"language\": \"kuery\"\n  },\n  \"filter\": [],\n  \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.index\"\n}"
+      }
+    },
+    "_migrationVersion": {
+      "visualization": "7.0.1"
+    },
+    "_references": [
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      }
+    ]
+  },
+  {
+    "_id": "41070950-9cb3-11e9-9ef1-ab86ce457da9",
+    "_type": "visualization",
+    "_source": {
+      "title": "[rucio] Transfer duration ",
+      "visState": "{\n  \"title\": \"[rucio] Transfer duration \",\n  \"type\": \"histogram\",\n  \"params\": {\n    \"type\": \"histogram\",\n    \"grid\": {\n      \"categoryLines\": false,\n      \"valueAxis\": null\n    },\n    \"categoryAxes\": [\n      {\n        \"id\": \"CategoryAxis-1\",\n        \"type\": \"category\",\n        \"position\": \"bottom\",\n        \"show\": true,\n        \"style\": {},\n        \"scale\": {\n          \"type\": \"linear\"\n        },\n        \"labels\": {\n          \"show\": true,\n          \"truncate\": null,\n          \"rotate\": 75,\n          \"filter\": true\n        },\n        \"title\": {}\n      }\n    ],\n    \"valueAxes\": [\n      {\n        \"id\": \"ValueAxis-1\",\n        \"name\": \"LeftAxis-1\",\n        \"type\": \"value\",\n        \"position\": \"left\",\n        \"show\": true,\n        \"style\": {},\n        \"scale\": {\n          \"type\": \"linear\",\n          \"mode\": \"normal\"\n        },\n        \"labels\": {\n          \"show\": true,\n          \"rotate\": 0,\n          \"filter\": false,\n          \"truncate\": 100\n        },\n        \"title\": {\n          \"text\": \"Count\"\n        }\n      }\n    ],\n    \"seriesParams\": [\n      {\n        \"show\": \"true\",\n        \"type\": \"histogram\",\n        \"mode\": \"normal\",\n        \"data\": {\n          \"label\": \"Count\",\n          \"id\": \"1\"\n        },\n        \"valueAxis\": \"ValueAxis-1\",\n        \"drawLinesBetweenPoints\": true,\n        \"showCircles\": true\n      }\n    ],\n    \"addTooltip\": true,\n    \"addLegend\": true,\n    \"legendPosition\": \"top\",\n    \"times\": [],\n    \"addTimeMarker\": false,\n    \"radiusRatio\": 51\n  },\n  \"aggs\": [\n    {\n      \"id\": \"1\",\n      \"enabled\": true,\n      \"type\": \"count\",\n      \"schema\": \"metric\",\n      \"params\": {}\n    },\n    {\n      \"id\": \"2\",\n      \"enabled\": true,\n      \"type\": \"histogram\",\n      \"schema\": \"segment\",\n      \"params\": {\n        \"field\": \"duration\",\n        \"interval\": 60,\n        \"min_doc_count\": true,\n        \"extended_bounds\": {}\n      }\n    }\n  ]\n}",
+      "uiStateJSON": "{}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\n  \"query\": {\n    \"query\": \"\",\n    \"language\": \"kuery\"\n  },\n  \"filter\": [\n    {\n      \"meta\": {\n        \"alias\": null,\n        \"negate\": false,\n        \"type\": \"phrase\",\n        \"key\": \"event_type\",\n        \"value\": \"transfer-done\",\n        \"params\": {\n          \"query\": \"transfer-done\"\n        },\n        \"disabled\": false,\n        \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index\"\n      },\n      \"query\": {\n        \"match\": {\n          \"event_type\": {\n            \"query\": \"transfer-done\",\n            \"type\": \"phrase\"\n          }\n        }\n      },\n      \"$state\": {\n        \"store\": \"appState\"\n      }\n    }\n  ],\n  \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.index\"\n}"
+      }
+    },
+    "_migrationVersion": {
+      "visualization": "7.0.1"
+    },
+    "_references": [
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      },
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      }
+    ]
+  },
+  {
+    "_id": "49a8ee30-9c08-11e9-9ef1-ab86ce457da9",
+    "_type": "visualization",
+    "_source": {
+      "title": "[rucio] Transfer efficiency",
+      "visState": "{\n  \"title\": \"[rucio] Transfer efficiency\",\n  \"type\": \"pie\",\n  \"params\": {\n    \"type\": \"pie\",\n    \"addTooltip\": true,\n    \"addLegend\": true,\n    \"legendPosition\": \"top\",\n    \"isDonut\": true,\n    \"labels\": {\n      \"show\": true,\n      \"values\": true,\n      \"last_level\": true,\n      \"truncate\": 100\n    }\n  },\n  \"aggs\": [\n    {\n      \"id\": \"1\",\n      \"enabled\": true,\n      \"type\": \"count\",\n      \"schema\": \"metric\",\n      \"params\": {}\n    },\n    {\n      \"id\": \"2\",\n      \"enabled\": true,\n      \"type\": \"terms\",\n      \"schema\": \"segment\",\n      \"params\": {\n        \"field\": \"event_type\",\n        \"size\": 5,\n        \"order\": \"desc\",\n        \"orderBy\": \"1\",\n        \"otherBucket\": false,\n        \"otherBucketLabel\": \"Other\",\n        \"missingBucket\": false,\n        \"missingBucketLabel\": \"Missing\"\n      }\n    }\n  ]\n}",
+      "uiStateJSON": "{\n  \"vis\": {\n    \"colors\": {\n      \"transfer-failed\": \"#E24D42\",\n      \"transfer-done\": \"#7EB26D\",\n      \"transfer-submission_failed\": \"#EAB839\"\n    }\n  }\n}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\n  \"query\": {\n    \"query\": \"\",\n    \"language\": \"kuery\"\n  },\n  \"filter\": [\n    {\n      \"meta\": {\n        \"type\": \"phrases\",\n        \"key\": \"event_type\",\n        \"value\": \"transfer-submitted, transfer-queued\",\n        \"params\": [\n          \"transfer-submitted\",\n          \"transfer-queued\"\n        ],\n        \"alias\": null,\n        \"negate\": true,\n        \"disabled\": false,\n        \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index\"\n      },\n      \"query\": {\n        \"bool\": {\n          \"should\": [\n            {\n              \"match_phrase\": {\n                \"event_type\": \"transfer-submitted\"\n              }\n            },\n            {\n              \"match_phrase\": {\n                \"event_type\": \"transfer-queued\"\n              }\n            }\n          ],\n          \"minimum_should_match\": 1\n        }\n      },\n      \"$state\": {\n        \"store\": \"appState\"\n      }\n    }\n  ],\n  \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.index\"\n}"
+      }
+    },
+    "_migrationVersion": {
+      "visualization": "7.0.1"
+    },
+    "_references": [
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      },
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      }
+    ]
+  },
+  {
+    "_id": "8c2fb800-9c13-11e9-9ef1-ab86ce457da9",
+    "_type": "visualization",
+    "_source": {
+      "title": "[rucio] Transfer per src",
+      "visState": "{\n  \"title\": \"[rucio] Transfer per src\",\n  \"type\": \"histogram\",\n  \"params\": {\n    \"type\": \"histogram\",\n    \"grid\": {\n      \"categoryLines\": false\n    },\n    \"categoryAxes\": [\n      {\n        \"id\": \"CategoryAxis-1\",\n        \"type\": \"category\",\n        \"position\": \"bottom\",\n        \"show\": true,\n        \"style\": {},\n        \"scale\": {\n          \"type\": \"linear\"\n        },\n        \"labels\": {\n          \"show\": true,\n          \"truncate\": 100\n        },\n        \"title\": {}\n      }\n    ],\n    \"valueAxes\": [\n      {\n        \"id\": \"ValueAxis-1\",\n        \"name\": \"LeftAxis-1\",\n        \"type\": \"value\",\n        \"position\": \"left\",\n        \"show\": true,\n        \"style\": {},\n        \"scale\": {\n          \"type\": \"linear\",\n          \"mode\": \"normal\"\n        },\n        \"labels\": {\n          \"show\": true,\n          \"rotate\": 0,\n          \"filter\": false,\n          \"truncate\": 100\n        },\n        \"title\": {\n          \"text\": \"Count\"\n        }\n      }\n    ],\n    \"seriesParams\": [\n      {\n        \"show\": \"true\",\n        \"type\": \"histogram\",\n        \"mode\": \"stacked\",\n        \"data\": {\n          \"label\": \"Count\",\n          \"id\": \"1\"\n        },\n        \"valueAxis\": \"ValueAxis-1\",\n        \"drawLinesBetweenPoints\": true,\n        \"showCircles\": true\n      }\n    ],\n    \"addTooltip\": true,\n    \"addLegend\": true,\n    \"legendPosition\": \"right\",\n    \"times\": [],\n    \"addTimeMarker\": false,\n    \"radiusRatio\": 51\n  },\n  \"aggs\": [\n    {\n      \"id\": \"1\",\n      \"enabled\": true,\n      \"type\": \"count\",\n      \"schema\": \"metric\",\n      \"params\": {}\n    },\n    {\n      \"id\": \"2\",\n      \"enabled\": true,\n      \"type\": \"date_histogram\",\n      \"schema\": \"segment\",\n      \"params\": {\n        \"field\": \"created_at\",\n        \"timeRange\": {\n          \"from\": \"2019-03-31T18:17:10.267Z\",\n          \"to\": \"2019-04-14T22:17:23.736Z\"\n        },\n        \"useNormalizedEsInterval\": true,\n        \"interval\": \"auto\",\n        \"drop_partials\": false,\n        \"customInterval\": \"2h\",\n        \"min_doc_count\": 1,\n        \"extended_bounds\": {},\n        \"customLabel\": \"time\"\n      }\n    },\n    {\n      \"id\": \"3\",\n      \"enabled\": true,\n      \"type\": \"terms\",\n      \"schema\": \"group\",\n      \"params\": {\n        \"field\": \"src-rse\",\n        \"size\": 5,\n        \"order\": \"desc\",\n        \"orderBy\": \"1\",\n        \"otherBucket\": false,\n        \"otherBucketLabel\": \"Other\",\n        \"missingBucket\": false,\n        \"missingBucketLabel\": \"Missing\"\n      }\n    },\n    {\n      \"id\": \"4\",\n      \"enabled\": true,\n      \"type\": \"sum\",\n      \"schema\": \"radius\",\n      \"params\": {\n        \"field\": \"bytes\",\n        \"customLabel\": \"Transferred bytes\"\n      }\n    }\n  ]\n}",
+      "uiStateJSON": "{}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\n  \"query\": {\n    \"query\": \"\",\n    \"language\": \"kuery\"\n  },\n  \"filter\": [\n    {\n      \"meta\": {\n        \"alias\": null,\n        \"negate\": false,\n        \"type\": \"phrase\",\n        \"key\": \"event_type\",\n        \"value\": \"transfer-done\",\n        \"params\": {\n          \"query\": \"transfer-done\"\n        },\n        \"disabled\": false,\n        \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index\"\n      },\n      \"query\": {\n        \"match\": {\n          \"event_type\": {\n            \"query\": \"transfer-done\",\n            \"type\": \"phrase\"\n          }\n        }\n      },\n      \"$state\": {\n        \"store\": \"appState\"\n      }\n    }\n  ],\n  \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.index\"\n}"
+      }
+    },
+    "_migrationVersion": {
+      "visualization": "7.0.1"
+    },
+    "_references": [
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      },
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      }
+    ]
+  },
+  {
+    "_id": "935067b0-9cb3-11e9-9ef1-ab86ce457da9",
+    "_type": "visualization",
+    "_source": {
+      "title": "[rucio] Transfer size",
+      "visState": "{\n  \"title\": \"[rucio] Transfer size\",\n  \"type\": \"histogram\",\n  \"params\": {\n    \"type\": \"histogram\",\n    \"grid\": {\n      \"categoryLines\": false\n    },\n    \"categoryAxes\": [\n      {\n        \"id\": \"CategoryAxis-1\",\n        \"type\": \"category\",\n        \"position\": \"bottom\",\n        \"show\": true,\n        \"style\": {},\n        \"scale\": {\n          \"type\": \"linear\"\n        },\n        \"labels\": {\n          \"show\": true,\n          \"truncate\": 100\n        },\n        \"title\": {}\n      }\n    ],\n    \"valueAxes\": [\n      {\n        \"id\": \"ValueAxis-1\",\n        \"name\": \"LeftAxis-1\",\n        \"type\": \"value\",\n        \"position\": \"left\",\n        \"show\": true,\n        \"style\": {},\n        \"scale\": {\n          \"type\": \"linear\",\n          \"mode\": \"normal\"\n        },\n        \"labels\": {\n          \"show\": true,\n          \"rotate\": 0,\n          \"filter\": false,\n          \"truncate\": 100\n        },\n        \"title\": {\n          \"text\": \"Count\"\n        }\n      }\n    ],\n    \"seriesParams\": [\n      {\n        \"show\": \"true\",\n        \"type\": \"histogram\",\n        \"mode\": \"normal\",\n        \"data\": {\n          \"label\": \"Count\",\n          \"id\": \"1\"\n        },\n        \"valueAxis\": \"ValueAxis-1\",\n        \"drawLinesBetweenPoints\": true,\n        \"showCircles\": true\n      }\n    ],\n    \"addTooltip\": true,\n    \"addLegend\": true,\n    \"legendPosition\": \"top\",\n    \"times\": [],\n    \"addTimeMarker\": false,\n    \"radiusRatio\": 51,\n    \"orderBucketsBySum\": true\n  },\n  \"aggs\": [\n    {\n      \"id\": \"1\",\n      \"enabled\": true,\n      \"type\": \"count\",\n      \"schema\": \"metric\",\n      \"params\": {}\n    },\n    {\n      \"id\": \"2\",\n      \"enabled\": true,\n      \"type\": \"histogram\",\n      \"schema\": \"segment\",\n      \"params\": {\n        \"field\": \"bytes\",\n        \"interval\": 1073741824,\n        \"min_doc_count\": true,\n        \"extended_bounds\": {}\n      }\n    }\n  ]\n}",
+      "uiStateJSON": "{}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\n  \"query\": {\n    \"query\": \"\",\n    \"language\": \"kuery\"\n  },\n  \"filter\": [\n    {\n      \"meta\": {\n        \"alias\": null,\n        \"negate\": false,\n        \"type\": \"phrase\",\n        \"key\": \"event_type\",\n        \"value\": \"transfer-done\",\n        \"params\": {\n          \"query\": \"transfer-done\"\n        },\n        \"disabled\": false,\n        \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index\"\n      },\n      \"query\": {\n        \"match\": {\n          \"event_type\": {\n            \"query\": \"transfer-done\",\n            \"type\": \"phrase\"\n          }\n        }\n      },\n      \"$state\": {\n        \"store\": \"appState\"\n      }\n    }\n  ],\n  \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.index\"\n}"
+      }
+    },
+    "_migrationVersion": {
+      "visualization": "7.0.1"
+    },
+    "_references": [
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      },
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      }
+    ]
+  }
+]
