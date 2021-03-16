@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Ilija Vukotic <ivukotic@uchicago.edu>, 2021
 
 from __future__ import print_function
@@ -135,6 +135,8 @@ class TestReplicaCore(unittest.TestCase):
                 client_location={'site': 'BLACKMESA'}):
             assert list(rep['pfns'].keys())[0].count('root://') == 2
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_update_replicas_paths(self):
         """ REPLICA (CORE): Force update the replica path """
         tmp_scope = InternalScope('mock', **self.vo)
@@ -159,6 +161,8 @@ class TestReplicaCore(unittest.TestCase):
             # force the changed string - if we look it up from the DB, then we're not testing anything :-D
             assert replica['rses'][rse_id2][0] == 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/does/not/really/matter/where'
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_add_list_bad_replicas(self):
         """ REPLICA (CORE): Add bad replicas and list them"""
         tmp_scope = InternalScope('mock', **self.vo)
@@ -215,6 +219,8 @@ class TestReplicaCore(unittest.TestCase):
         output = ['%s Unknown replica' % rep for rep in files]
         assert r == {rse_id2: output}
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_add_list_replicas(self):
         """ REPLICA (CORE): Add and list file replicas """
         tmp_scope = InternalScope('mock', **self.vo)
@@ -232,6 +238,8 @@ class TestReplicaCore(unittest.TestCase):
 
         assert nbfiles == replica_cpt
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_delete_replicas(self):
         """ REPLICA (CORE): Delete replicas """
         tmp_scope = InternalScope('mock', **self.vo)
@@ -256,6 +264,8 @@ class TestReplicaCore(unittest.TestCase):
         for file in files2:
             get_did(scope=file['scope'], name=file['name'])
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_delete_replicas_from_datasets(self):
         """ REPLICA (CORE): Delete replicas from dataset """
         tmp_scope = InternalScope('mock', **self.vo)
@@ -283,6 +293,8 @@ class TestReplicaCore(unittest.TestCase):
 
         assert [f for f in list_files(scope=tmp_scope, name=tmp_dsn2)] == []
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_update_lock_counter(self):
         """ RSE (CORE): Test the update of a replica lock counter """
         rse = 'MOCK'
@@ -303,6 +315,8 @@ class TestReplicaCore(unittest.TestCase):
             assert value is tombstone
             assert lock_counter == replica['lock_cnt']
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_touch_replicas(self):
         """ REPLICA (CORE): Touch replicas accessed_at timestamp"""
         tmp_scope = InternalScope('mock', **self.vo)
@@ -335,6 +349,8 @@ class TestReplicaCore(unittest.TestCase):
         for i in range(0, nbfiles - 1):
             assert get_replica_atime({'scope': files2[i]['scope'], 'name': files2[i]['name'], 'rse_id': rse_id}) is None
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_list_replicas_all_states(self):
         """ REPLICA (CORE): list file replicas with all_states"""
         tmp_scope = InternalScope('mock', **self.vo)
@@ -357,6 +373,7 @@ class TestReplicaCore(unittest.TestCase):
 
         assert nbfiles == replica_cpt
 
+    @pytest.mark.dirty
     def test_list_replica_with_domain(self):
         """ REPLICA (CORE): Add and list file replicas forcing domain"""
 
@@ -439,6 +456,7 @@ class TestReplicaCore(unittest.TestCase):
             assert '/i/prefer/the/wan' in stdout
             assert '/i/prefer/the/lan' in stdout
 
+    @pytest.mark.dirty
     def test_list_replica_with_schemes(self):
         """ REPLICA (CORE): Add and list file replicas forcing schemes"""
 
@@ -467,6 +485,7 @@ class TestReplicaCore(unittest.TestCase):
         replicas = list(rc.list_replicas([{'scope': scope.external, 'name': name}]))
         assert 'http://' in list(replicas[0]['pfns'].keys())[0]
 
+    @pytest.mark.dirty
     def test_replica_no_site(self):
         """ REPLICA (CORE): Test listing replicas without site attribute """
 
@@ -506,6 +525,7 @@ class TestReplicaCore(unittest.TestCase):
                                                 client_location={'site': 'SOMEWHERE'})]
         assert 'root://' in list(replicas[0]['pfns'].keys())[0]
 
+    @pytest.mark.dirty
     def test_replica_mixed_protocols(self):
         """ REPLICA (CORE): Test adding replicas with mixed protocol """
 
@@ -546,6 +566,8 @@ class TestReplicaCore(unittest.TestCase):
 
         add_replicas(rse_id=rse_id, files=files, account=root)
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_set_tombstone(self):
         """ REPLICA (CORE): set tombstone on replica """
         # Set tombstone on one replica
@@ -571,6 +593,8 @@ class TestReplicaCore(unittest.TestCase):
         with pytest.raises(ReplicaNotFound):
             set_tombstone(rse_id, scope, name)
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_list_replicas_with_updated_after(self):
         """ REPLICA (CORE): Add and list file replicas with updated_after filter """
         scope = InternalScope('mock', **self.vo)
@@ -605,6 +629,8 @@ class TestReplicaCore(unittest.TestCase):
         assert len(list(list_replicas([{'scope': scope, 'name': dsn}], updated_after=t2))) == 1
         assert len(list(list_replicas([{'scope': scope, 'name': dsn}], updated_after=t3))) == 0
 
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_get_RSE_coverage_of_dataset(self):
         """ REPLICA (CORE): test RSE coverage retrieval """
         scope = InternalScope('mock', **self.vo)
@@ -635,6 +661,8 @@ class TestReplicaCore(unittest.TestCase):
         assert cov[mock4] == 500
 
 
+@pytest.mark.dirty
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 def test_add_list_bad_replicas(vo, replica_client, did_client):
     """ REPLICA (CLIENT): Add bad replicas"""
     tmp_scope = 'mock'
@@ -700,6 +728,8 @@ def test_add_list_bad_replicas(vo, replica_client, did_client):
     assert r == {'MOCK2': output}
 
 
+@pytest.mark.dirty
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 def test_add_suspicious_replicas(replica_client):
     """ REPLICA (CLIENT): Add suspicious replicas"""
     tmp_scope = 'mock'
@@ -736,6 +766,7 @@ def test_add_suspicious_replicas(replica_client):
     assert r == {'MOCK2': output}
 
 
+@pytest.mark.noparallel(reason='fails when run in parallel')
 def test_bad_replica_methods_for_UI(rest_client, auth_token):
     """ REPLICA (REST): Test the listing of bad and suspicious replicas """
     response = rest_client.get('/replicas/bad/states', headers=headers(auth(auth_token)))
@@ -796,6 +827,8 @@ def test_bad_replica_methods_for_UI(rest_client, auth_token):
     assert nb_tot_bad_files1 == nb_tot_bad_files2
 
 
+@pytest.mark.dirty
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 def test_list_replicas_content_type(replica_client, rest_client, auth_token):
     """ REPLICA (REST): send a GET to list replicas with specific ACCEPT header."""
     scope = 'mock'
@@ -831,6 +864,8 @@ def test_list_replicas_content_type(replica_client, rest_client, auth_token):
     assert [header[1] for header in response.headers if header[0] == 'Content-Type'][0] == Mime.JSON_STREAM
 
 
+@pytest.mark.dirty
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 def test_add_list_replicas(replica_client):
     """ REPLICA (CLIENT): Add, change state and list file replicas """
     tmp_scope = 'mock'
@@ -874,6 +909,8 @@ def test_add_replica_scope_not_found(replica_client):
         replica_client.add_replicas(rse='MOCK', files=files)
 
 
+@pytest.mark.dirty
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 def test_delete_replicas(replica_client):
     """ REPLICA (CLIENT): Add and delete file replicas """
     tmp_scope = 'mock'
@@ -887,6 +924,8 @@ def test_delete_replicas(replica_client):
     # assert len(replicas) == 0
 
 
+@pytest.mark.dirty
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 def test_add_temporary_unavailable_pfns(vo, replica_client):
     """ REPLICA (CLIENT): Add temporary unavailable PFNs"""
     tmp_scope = 'mock'
@@ -948,6 +987,8 @@ def test_add_temporary_unavailable_pfns(vo, replica_client):
         assert list(rep.keys())[0] == ReplicaState.AVAILABLE
 
 
+@pytest.mark.dirty
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 def test_set_tombstone2(vo, replica_client):
     """ REPLICA (CLIENT): set tombstone on replica """
     # Set tombstone on one replica
@@ -974,6 +1015,8 @@ def test_set_tombstone2(vo, replica_client):
         replica_client.set_tombstone([{'rse': rse, 'scope': scope.external, 'name': name}])
 
 
+@pytest.mark.dirty
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 class TestReplicaMetalink(unittest.TestCase):
 
     def setUp(self):

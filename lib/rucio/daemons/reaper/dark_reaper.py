@@ -52,6 +52,7 @@ from rucio.core.message import add_message
 from rucio.core.quarantined_replica import (list_quarantined_replicas,
                                             delete_quarantined_replicas,
                                             list_rses)
+import rucio.core.rse as rse_core
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.vo import list_vos
 from rucio.rse import rsemanager as rsemgr
@@ -90,6 +91,7 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
                          .format(locals()))
             nothing_to_do = True
 
+            rses = list(set(rses) & set(list_rses()))
             random.shuffle(rses)
             for rse_id in rses:
                 replicas = list_quarantined_replicas(rse_id=rse_id,
@@ -232,7 +234,7 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
 
     all_rses = []
     for vo in vos:
-        all_rses.extend(list_rses(filters={'vo': vo}))
+        all_rses.extend([rse['id'] for rse in rse_core.list_rses(filters={'vo': vo})])
 
     if rses:
         invalid = set(rses) - set([rse['rse'] for rse in all_rses])

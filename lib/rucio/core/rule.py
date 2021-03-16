@@ -31,6 +31,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Eric Vaandering <ewv@fnal.gov>, 2020-2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from __future__ import division
 
@@ -103,7 +104,7 @@ REGION = make_region().configure('dogpile.cache.memcached',
 def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id,
              source_replica_expression=None, activity='User Subscriptions', notify=None, purge_replicas=False,
              ignore_availability=False, comment=None, ask_approval=False, asynchronous=False, ignore_account_limit=False,
-             priority=3, split_container=False, meta=None, session=None, logger=logging.log):
+             priority=3, delay_injection=None, split_container=False, meta=None, session=None, logger=logging.log):
     """
     Adds a replication rule for every did in dids
 
@@ -126,6 +127,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
     :param comment:                    Comment about the rule.
     :param ask_approval:               Ask for approval for this rule.
     :param asynchronous:               Create replication rule asynchronously by the judge-injector.
+    :param delay_injection:            Create replication after 'delay' seconds. Implies asynchronous=True.
     :param ignore_account_limit:       Ignore quota and create the rule outside of the account limits.
     :param priority:                   Priority of the rule and the transfers which should be submitted.
     :param split_container:            Should a container rule be split into individual dataset rules.
@@ -303,10 +305,13 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 asynchronous = True
                 logger(logging.DEBUG, "Forced injection of rule %s", str(new_rule.id))
 
-            if asynchronous:
+            if asynchronous or delay_injection:
                 # TODO: asynchronous mode only available for closed dids (on the whole tree?)
                 new_rule.state = RuleState.INJECT
                 logger(logging.DEBUG, "Created rule %s for injection", str(new_rule.id))
+                if delay_injection:
+                    new_rule.created_at = datetime.utcnow() + timedelta(seconds=delay_injection)
+                    logger(logging.DEBUG, "Scheduled rule %s for injection on %s", (str(new_rule.id), new_rule.created_at))
                 continue
 
             # If Split Container is chosen, the rule will be processed ASYNC
@@ -582,9 +587,13 @@ def add_rules(dids, rules, session=None, logger=logging.log):
                         __create_rule_approval_email(rule=new_rule, session=session)
                         continue
 
-                    if rule.get('asynchronous', False):
+                    delay_injection = rule.get('delay_injection')
+                    if rule.get('asynchronous', False) or delay_injection:
                         new_rule.state = RuleState.INJECT
                         logger(logging.DEBUG, "Created rule %s for injection", str(new_rule.id))
+                        if delay_injection:
+                            new_rule.created_at = datetime.utcnow() + timedelta(seconds=delay_injection)
+                            logger(logging.DEBUG, "Scheduled rule %s for injection on %s", (str(new_rule.id), new_rule.created_at))
                         continue
 
                     if rule.get('split_container', False) and did.did_type == DIDType.CONTAINER:
@@ -1674,12 +1683,14 @@ def get_injected_rules(total_workers, worker_number, limit=100, blacklisted_rule
             with_hint(models.ReplicationRule, "index(rules RULES_INJECTIONSTATE_IDX)", 'oracle').\
             filter(text("(CASE when rules.state='I' THEN rules.state ELSE null END)= 'I' ")).\
             filter(models.ReplicationRule.state == RuleState.INJECT).\
-            order_by(models.ReplicationRule.created_at)
+            order_by(models.ReplicationRule.created_at).\
+            filter(models.ReplicationRule.created_at <= datetime.utcnow())
     else:
         query = session.query(models.ReplicationRule.id).\
             with_hint(models.ReplicationRule, "index(rules RULES_INJECTIONSTATE_IDX)", 'oracle').\
             filter(models.ReplicationRule.state == RuleState.INJECT).\
-            order_by(models.ReplicationRule.created_at)
+            order_by(models.ReplicationRule.created_at).\
+            filter(models.ReplicationRule.created_at <= datetime.utcnow())
 
     query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
 

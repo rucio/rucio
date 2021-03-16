@@ -1,4 +1,5 @@
-# Copyright 2019-2020 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2019-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,11 +19,10 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2019
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Thomas Beermann <thomas.beermann@cern.ch>, 2021
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
-#
-# PY3K COMPATIBLE
+
 import logging
 import shutil
 import unittest
@@ -43,6 +43,7 @@ from rucio.rse.protocols.posix import Default as PosixProtocol
 from rucio.tests.common import file_generator
 
 
+@pytest.mark.noparallel(reason='uses pre-defined RSEs, fails when run in parallel')
 class TestDownloadClient(unittest.TestCase):
     def setUp(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
@@ -109,6 +110,33 @@ class TestDownloadClient(unittest.TestCase):
             )
         finally:
             shutil.rmtree(scope)
+
+    def test_download_to_two_paths(self):
+        rse = 'MOCK4'
+        scope = 'mock'
+        base_name = 'testDownloadItem' + generate_uuid()
+        item000 = self._upoad_test_file(rse, scope, base_name + '.000')
+        item001 = self._upoad_test_file(rse, scope, base_name + '.001')
+        item100 = self._upoad_test_file(rse, scope, base_name + '.100')
+
+        with TemporaryDirectory() as tmp_dir1, TemporaryDirectory() as tmp_dir2:
+            # Download two overlapping wildcard dids to two separate paths.
+            # 000 will be in both paths. Other two files only in one of the two paths.
+            result = self.download_client.download_dids([{'did': '%s:%s.*0' % (scope, base_name), 'base_dir': tmp_dir1},
+                                                         {'did': '%s:%s.0*' % (scope, base_name), 'base_dir': tmp_dir2}])
+            paths000 = next(filter(lambda r: r['did'] == '%s:%s' % (scope, item000['did_name']), result))['dest_file_paths']
+            paths001 = next(filter(lambda r: r['did'] == '%s:%s' % (scope, item001['did_name']), result))['dest_file_paths']
+            paths100 = next(filter(lambda r: r['did'] == '%s:%s' % (scope, item100['did_name']), result))['dest_file_paths']
+
+            assert len(paths000) == 2
+            assert any(p.startswith(tmp_dir1) for p in paths000)
+            assert any(p.startswith(tmp_dir2) for p in paths000)
+
+            assert len(paths001) == 1
+            assert paths001[0].startswith(tmp_dir2)
+
+            assert len(paths100) == 1
+            assert paths100[0].startswith(tmp_dir1)
 
     def test_download_multiple(self):
         rse = 'MOCK4'

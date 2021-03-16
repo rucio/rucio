@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2017-2020 CERN
+# Copyright 2017-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 memcached -u root -d
 
@@ -37,18 +37,20 @@ function usage {
   echo '  -s    Run special tests for Dirac. Includes using BelleII schema'
   echo '  -t    Verbose output from pytest'
   echo '  -a    Skip alembic downgrade/upgrade test'
+  echo '  -x    exit instantly on first error or failed test'
   exit
 }
 
-while getopts hirsta opt
+while getopts hirstax opt
 do
   case "$opt" in
     h) usage;;
     i) init_only="true";;
     r) activate_rse="true";;
     s) special="true";;
-    t) notrace="true";;
+    t) trace="true";;
     a) noalembic="true";;
+    x) exitfirst="-x";;
   esac
 done
 export RUCIO_HOME=/opt/etc/test
@@ -147,14 +149,14 @@ fi
 
 if test ${special}; then
     echo 'Using the special config and only running test_dirac'
-    python -bb -m pytest -vvvrxs lib/rucio/tests/test_dirac.py
+    tools/pytest.sh -v --tb=short ${exitfirst:-} test_dirac.py
 else
     if test ${trace}; then
-	echo 'Running tests in verbose mode'
-	python -bb -m pytest -vvvrxs
+        echo 'Running tests in verbose mode'
+        tools/pytest.sh -vvv ${exitfirst:-}
     else
-	echo 'Running tests'
-	python -bb -m pytest -v --tb=short
+        echo 'Running tests'
+        tools/pytest.sh -v --tb=short ${exitfirst:-}
     fi
 fi
 

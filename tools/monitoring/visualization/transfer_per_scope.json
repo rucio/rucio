@@ -1,0 +1,31 @@
+[
+  {
+    "_id": "d02bbd70-9cb2-11e9-9ef1-ab86ce457da9",
+    "_type": "visualization",
+    "_source": {
+      "title": "[rucio] Transfer per scope",
+      "visState": "{\n  \"aggs\": [\n    {\n      \"enabled\": true,\n      \"id\": \"1\",\n      \"params\": {},\n      \"schema\": \"metric\",\n      \"type\": \"count\"\n    },\n    {\n      \"enabled\": true,\n      \"id\": \"2\",\n      \"params\": {\n        \"customInterval\": \"2h\",\n        \"customLabel\": \"time\",\n        \"drop_partials\": false,\n        \"extended_bounds\": {},\n        \"field\": \"created_at\",\n        \"interval\": \"auto\",\n        \"min_doc_count\": 1,\n        \"timeRange\": {\n          \"from\": \"2019-03-31T17:11:00.451Z\",\n          \"to\": \"2019-04-12T19:11:03.122Z\"\n        },\n        \"useNormalizedEsInterval\": true\n      },\n      \"schema\": \"segment\",\n      \"type\": \"date_histogram\"\n    },\n    {\n      \"enabled\": true,\n      \"id\": \"3\",\n      \"params\": {\n        \"field\": \"scope\",\n        \"missingBucket\": false,\n        \"missingBucketLabel\": \"Missing\",\n        \"order\": \"desc\",\n        \"orderBy\": \"1\",\n        \"otherBucket\": false,\n        \"otherBucketLabel\": \"Other\",\n        \"size\": 5\n      },\n      \"schema\": \"group\",\n      \"type\": \"terms\"\n    },\n    {\n      \"enabled\": true,\n      \"id\": \"4\",\n      \"params\": {\n        \"customLabel\": \"Transferred bytes\",\n        \"field\": \"bytes\"\n      },\n      \"schema\": \"radius\",\n      \"type\": \"sum\"\n    }\n  ],\n  \"params\": {\n    \"addLegend\": true,\n    \"addTimeMarker\": false,\n    \"addTooltip\": true,\n    \"categoryAxes\": [\n      {\n        \"id\": \"CategoryAxis-1\",\n        \"labels\": {\n          \"show\": true,\n          \"truncate\": 100\n        },\n        \"position\": \"bottom\",\n        \"scale\": {\n          \"type\": \"linear\"\n        },\n        \"show\": true,\n        \"style\": {},\n        \"title\": {},\n        \"type\": \"category\"\n      }\n    ],\n    \"grid\": {\n      \"categoryLines\": false\n    },\n    \"legendPosition\": \"top\",\n    \"radiusRatio\": 51,\n    \"seriesParams\": [\n      {\n        \"data\": {\n          \"id\": \"1\",\n          \"label\": \"Count\"\n        },\n        \"drawLinesBetweenPoints\": true,\n        \"mode\": \"stacked\",\n        \"show\": \"true\",\n        \"showCircles\": true,\n        \"type\": \"histogram\",\n        \"valueAxis\": \"ValueAxis-1\"\n      }\n    ],\n    \"times\": [],\n    \"type\": \"histogram\",\n    \"valueAxes\": [\n      {\n        \"id\": \"ValueAxis-1\",\n        \"labels\": {\n          \"filter\": false,\n          \"rotate\": 0,\n          \"show\": true,\n          \"truncate\": 100\n        },\n        \"name\": \"LeftAxis-1\",\n        \"position\": \"left\",\n        \"scale\": {\n          \"mode\": \"normal\",\n          \"type\": \"linear\"\n        },\n        \"show\": true,\n        \"style\": {},\n        \"title\": {\n          \"text\": \"Count\"\n        },\n        \"type\": \"value\"\n      }\n    ]\n  },\n  \"title\": \"[rucio] Transfer per scope\",\n  \"type\": \"histogram\"\n}",
+      "uiStateJSON": "{}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\n  \"query\": {\n    \"language\": \"kuery\",\n    \"query\": \"\"\n  },\n  \"filter\": [\n    {\n      \"$state\": {\n        \"store\": \"appState\"\n      },\n      \"meta\": {\n        \"alias\": null,\n        \"disabled\": false,\n        \"key\": \"event_type\",\n        \"negate\": false,\n        \"params\": {\n          \"query\": \"transfer-done\"\n        },\n        \"type\": \"phrase\",\n        \"value\": \"transfer-done\",\n        \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index\"\n      },\n      \"query\": {\n        \"match\": {\n          \"event_type\": {\n            \"query\": \"transfer-done\",\n            \"type\": \"phrase\"\n          }\n        }\n      }\n    }\n  ],\n  \"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.index\"\n}"
+      }
+    },
+    "_migrationVersion": {
+      "visualization": "7.0.1"
+    },
+    "_references": [
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      },
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9",
+        "type": "index-pattern"
+      }
+    ]
+  }
+]

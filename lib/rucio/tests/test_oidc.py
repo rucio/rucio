@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020 CERN
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,17 +16,17 @@
 # Authors:
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 
-from __future__ import print_function
-
-import sys
 import time
 import traceback
 import unittest
 from datetime import datetime, timedelta
+from unittest.mock import MagicMock, patch
+from urllib.parse import urlparse, parse_qs
 
+import pytest
 from oic import rndstr
 
 from rucio.common.config import config_get, config_get_bool
@@ -43,18 +43,6 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountType
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import get_session
-
-try:
-    # Python 2
-    from urlparse import urlparse, parse_qs
-except ImportError:
-    # Python 3
-    from urllib.parse import urlparse, parse_qs
-
-if sys.version_info >= (3, 3):
-    from unittest.mock import MagicMock, patch
-else:
-    from mock import MagicMock, patch
 
 NEW_TOKEN_DICT = {'access_token': 'eyJ3bG...',
                   'expires_in': 3599,
@@ -270,6 +258,7 @@ class MockADMINClientOtherISSOIDC(MagicMock):
         return None
 
 
+@pytest.mark.noparallel(reason='fails when run in parallel')
 class TestAuthCoreAPIoidc(unittest.TestCase):
 
     """ OIDC Core API Testing: Testing creation of authorization URL for Rucio Client,

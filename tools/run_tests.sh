@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2012-2020 CERN
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018
 # - Dimitrios Christidis <dimitrios.christidis@cern.ch>, 2019
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2019
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
 function usage {
   echo "Usage: $0 [OPTION]..."
@@ -140,7 +140,7 @@ fi
 for i in $iterations
 do
     echo 'Running test iteration' $i
-        echo python -bb -m pytest -vvvrxs $stop_on_failure $pytestextra
-        python -bb -m pytest -vvvrxs $stop_on_failure $pytestextra
+        echo tools/pytest.sh -v --tb=short $stop_on_failure $pytestextra
+        tools/pytest.sh -v --tb=short $stop_on_failure $pytestextra
     fi
 done

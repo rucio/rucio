@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2013-2019
 # - Ralph Vigne <ralph.vigne@cern.ch>, 2013
 # - Vincent Garonne <vincent.garonne@cern.ch>, 2014-2018
-# - Martin Barisits <martin.barisits@cern.ch>, 2014-2020
+# - Martin Barisits <martin.barisits@cern.ch>, 2014-2021
 # - Wen Guan <wen.guan@cern.ch>, 2014-2016
 # - Tomáš Kouba <tomas.kouba@cern.ch>, 2014
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2016
@@ -67,7 +67,8 @@ except Exception:
 graceful_stop = threading.Event()
 
 USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
-TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)
+TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)  # NOTE: This should eventually be completely removed, as it can be fetched from the request
+FILTER_TRANSFERTOOL = config_get('conveyor', 'filter_transfertool', False, None)  # NOTE: TRANSFERTOOL to filter requests on
 TRANSFER_TYPE = config_get('conveyor', 'transfertype', False, 'single')
 
 GET_TRANSFERS_COUNTER = Counter('rucio_daemons_conveyor_submitter_get_transfers', 'Number of transfers retrieved')
@@ -118,8 +119,8 @@ def submitter(once=False, rses=None, mock=False,
     if activities:
         activities.sort()
         executable += '--activities ' + str(activities)
-    if TRANSFER_TOOL:
-        executable += ' --transfertool ' + TRANSFER_TOOL
+    if FILTER_TRANSFERTOOL:
+        executable += ' --filter-transfertool ' + FILTER_TRANSFERTOOL
 
     hostname = socket.getfqdn()
     pid = os.getpid()
@@ -172,7 +173,7 @@ def submitter(once=False, rses=None, mock=False,
                                             max_sources=max_sources,
                                             bring_online=bring_online,
                                             retry_other_fts=retry_other_fts,
-                                            transfertool=TRANSFER_TOOL,
+                                            transfertool=FILTER_TRANSFERTOOL,
                                             logger=logger)
 
                 record_timer('daemons.conveyor.transfer_submitter.get_transfers.per_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))

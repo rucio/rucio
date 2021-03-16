@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2020 CERN
+# Copyright 2013-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,8 @@
 # - Luc Goossens <luc.goossens@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Jaroslav Guenther <jaroslav.guenther@cern.ch>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 import json
 import random
@@ -135,6 +136,7 @@ def check_rule_progress_callback(scope, name, progress, rule_id, session=None):
     return False
 
 
+@pytest.mark.noparallel(reason='empties database tables, sets account limits, adds global rse attributes')
 class TestReplicationRuleCore(unittest.TestCase):
 
     @classmethod
@@ -996,6 +998,23 @@ class TestReplicationRuleCore(unittest.TestCase):
         with pytest.raises(UnsupportedOperation):
             delete_rule(rule_id_1)
 
+    def test_rule_priority_set_and_update(self):
+        scope = InternalScope('mock', **self.vo)
+        files = create_files(1, scope, self.rse1_id)
+        dataset = 'dataset_' + str(uuid())
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse3, grouping='NONE',
+                           weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+        assert get_rule(rule_id)['priority'] == 3
+        request = get_request_by_did(scope=files[0]['scope'], name=files[0]['name'], rse_id=self.rse3_id)
+        assert request['priority'] == 3
+
+        update_rule(rule_id, {'priority': 5})
+        assert get_rule(rule_id)['priority'] == 5
+        assert get_request_by_did(scope=files[0]['scope'], name=files[0]['name'], rse_id=self.rse3_id)['priority'] == 5
+
     def test_release_rule(self):
         """ REPLICATION RULE (CORE): Test to release a parent rule after child rule is OK"""
         scope = InternalScope('mock', **self.vo)
@@ -1165,6 +1184,7 @@ class TestReplicationRuleCore(unittest.TestCase):
         assert(len(dsl3) == 0)
 
 
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
 class TestReplicationRuleClient(unittest.TestCase):
 
     @classmethod

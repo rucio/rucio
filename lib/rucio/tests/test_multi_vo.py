@@ -16,12 +16,11 @@
 # Authors:
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
-# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-# - Mario Lassnig <mlassnig@users.noreply.github.com>, 2020
+# - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Mario Lassnig <mario.lassnig@cern.ch>, 2020
 # - Martin Barisits <martin.barisits@cern.ch>, 2020-2021
 
 import os
-import sys
 import unittest
 from datetime import datetime, timedelta
 from logging import getLogger
@@ -29,6 +28,8 @@ from os import remove
 from random import choice
 from re import search
 from string import ascii_uppercase, ascii_lowercase
+from unittest.mock import patch
+from urllib.parse import urlparse, parse_qs
 
 import pytest
 from oic import rndstr
@@ -71,18 +72,6 @@ from rucio.tests.common import execute, headers, hdrdict, vohdr, auth, loginhdr
 from rucio.tests.test_authentication import PRIVATE_KEY, PUBLIC_KEY
 from rucio.tests.test_oidc import get_mock_oidc_client, NEW_TOKEN_DICT
 
-try:
-    # Python 2
-    from urlparse import urlparse, parse_qs
-except ImportError:
-    # Python 3
-    from urllib.parse import urlparse, parse_qs
-
-if sys.version_info >= (3, 3):
-    from unittest.mock import patch
-else:
-    from mock import patch
-
 LOG = getLogger(__name__)
 
 # module-level skip, see https://docs.pytest.org/en/latest/skipping.html#skip-all-test-functions-of-a-class-or-module
@@ -99,7 +88,7 @@ def setup_vo():
             add_vo(description='Test', email='rucio@email.com', **new_vo)
         return vo, new_vo
     else:
-        pytest.xfail(reason='multi_vo mode is not enabled. Running multi_vo tests in single_vo mode would result in failures.')
+        pytest.skip('multi_vo mode is not enabled. Running multi_vo tests in single_vo mode would result in failures.')
         return {}, {}
 
 
@@ -109,6 +98,7 @@ class TestVOCoreAPI(unittest.TestCase):
     def setUpClass(cls):
         cls.vo, cls.new_vo = setup_vo()
 
+    @pytest.mark.noparallel(reason='changes global configuration value')
     def test_multi_vo_flag(self):
         """ MULTI VO (CORE): Test operations fail in single_vo mode """
         try:
@@ -125,6 +115,7 @@ class TestVOCoreAPI(unittest.TestCase):
             else:
                 config_remove_option('common', 'multi_vo')
 
+    @pytest.mark.noparallel(reason='uses global RSE (MOCK) and fails when run in parallel')
     def test_access_rule_vo(self):
         """ MULTI VO (CORE): Test accessing rules from a different VO """
         scope = InternalScope('mock', **self.vo)
@@ -196,6 +187,7 @@ class TestVOCoreAPI(unittest.TestCase):
         add_scope(scope, 'super_root', 'super_root', vo='def')
         assert scope in [s for s in list_scopes(filter={}, vo='def')]
 
+    @pytest.mark.noparallel(reason='changes global configuration value')
     def test_super_root_naming(self):
         """ MULTI VO (CORE): Test we can only name accounts super_root when appropriate """
         with pytest.raises(Duplicate):  # Ensure we fail from duplication rather than the choice of name
@@ -512,6 +504,7 @@ class TestVORestAPI(unittest.TestCase):
         response = self.rest_client.get('/vos/', headers=headers(auth(token)))
         assert response.status_code == 401
 
+    @pytest.mark.noparallel(reason='changes global configuration value')
     def test_list_vos_unsupported(self):
         """ MULTI VO (REST): Test list VOs through REST layer raises UnsupportedOperation """
         response = self.rest_client.get('/auth/userpass', headers=headers(loginhdr('super_root', 'ddmlab', 'secret'), vohdr('def')))
@@ -546,6 +539,7 @@ class TestVORestAPI(unittest.TestCase):
         response = self.rest_client.post('/vos/' + self.vo['vo'], headers=headers(auth(token)), json=params)
         assert response.status_code == 401
 
+    @pytest.mark.noparallel(reason='changes global configuration value')
     def test_add_vo_unsupported(self):
         """ MULTI VO (REST): Test adding VO through REST layer raises UnsupportedOperation """
         response = self.rest_client.get('/auth/userpass', headers=headers(loginhdr('super_root', 'ddmlab', 'secret'), vohdr('def')))
@@ -610,6 +604,7 @@ class TestVORestAPI(unittest.TestCase):
         response = self.rest_client.put('/vos/' + self.vo['vo'], headers=headers(auth(token)), json=params)
         assert response.status_code == 401
 
+    @pytest.mark.noparallel(reason='changes global configuration value')
     def test_update_vo_unsupported(self):
         """ MULTI VO (REST): Test updating VO through REST layer raises UnsupportedOperation """
         response = self.rest_client.get('/auth/userpass', headers=headers(loginhdr('super_root', 'ddmlab', 'secret'), vohdr('def')))
@@ -1040,6 +1035,7 @@ class TestMultiVOBinRucio(unittest.TestCase):
         assert self.rse_new not in out
 
 
+@pytest.mark.noparallel(reason='runs daemons, fails when run in parallel')
 class TestMultiVODaemons(unittest.TestCase):
 
     @classmethod

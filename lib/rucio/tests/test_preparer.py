@@ -16,34 +16,45 @@
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
-from typing import Set
+from typing import TYPE_CHECKING
 
 import pytest
 
 from rucio.common.types import InternalScope, InternalAccount
 from rucio.common.utils import generate_uuid
-from rucio.core import config
+from rucio.core import config as rucio_config
 from rucio.core.did import add_did, delete_dids
 from rucio.core.distance import get_distances, add_distance
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.request import sort_requests_minimum_distance, request_id_col, distance_col, dest_rse_id_col, \
     source_rse_id_col, extra_transfertool_col, get_transfertool_filter, get_supported_transfertools
-from rucio.core.rse import get_rse_id, set_rse_transfer_limits, add_rse, del_rse, add_rse_attribute
+from rucio.core.rse import set_rse_transfer_limits, add_rse, del_rse, add_rse_attribute
 from rucio.core.transfer import __list_transfer_requests_and_source_replicas
 from rucio.daemons.conveyor import preparer
-from rucio.db.sqla import models, session
+from rucio.db.sqla import models
 from rucio.db.sqla.constants import RequestState, DIDType
+from rucio.db.sqla.session import get_session
 from rucio.tests.common import rse_name_generator
+
+if TYPE_CHECKING:
+    from typing import Set, Optional, Callable
+    from sqlalchemy.orm import Session
 
 
 class GeneratedRSE:
-    def __init__(self, vo, db_session, setup_func=None, teardown_func=None):
+    def __init__(
+        self,
+        vo: str,
+        db_session: "Session",
+        setup_func: "Optional[Callable]" = None,
+        teardown_func: "Optional[Callable]" = None,
+    ):
         self.vo = vo
         self.db_session = db_session
         self.setup = setup_func
         self.teardown = teardown_func
-        self.name = f"MOCK-{rse_name_generator()}"
-        self.rse_id = None
+        self.name = rse_name_generator()
+        self.rse_id: "Optional[str]" = None
 
     def __enter__(self):
         self.rse_id = add_rse(self.name, vo=self.vo, session=self.db_session)
@@ -61,14 +72,14 @@ class GeneratedRSE:
 
 class GeneratedRequest:
     def __init__(
-            self,
-            scope,
-            name,
-            dest_rse_id,
-            account,
-            db_session,
-            setup_func=None,
-            teardown_func=None,
+        self,
+        scope: "InternalScope",
+        name: str,
+        dest_rse_id: str,
+        account: "InternalAccount",
+        db_session: "Session",
+        setup_func: "Optional[Callable]" = None,
+        teardown_func: "Optional[Callable]" = None,
     ):
         self.db_session = db_session
         self.setup = setup_func
@@ -97,16 +108,15 @@ class GeneratedRequest:
 
 @pytest.fixture
 def db_session():
-    db_session = session.get_session()
+    db_session = get_session()
     yield db_session
     db_session.rollback()
 
 
-@pytest.fixture(scope='module')
-def dest_rse(vo):
-    dest_rse = 'MOCK'
-    dest_rse_id = get_rse_id(dest_rse, vo=vo)
-    return {'name': dest_rse, 'id': dest_rse_id}
+@pytest.fixture
+def dest_rse(vo, db_session):
+    with GeneratedRSE(vo=vo, db_session=db_session) as generated_rse:
+        yield {'name': generated_rse.name, 'id': generated_rse.rse_id}
 
 
 @pytest.fixture
@@ -154,31 +164,31 @@ def mock_request(db_session, vo, source_rse, dest_rse, file):
 
     add_replicas(rse_id=source_rse['id'], files=[file], account=account, session=db_session)
     with GeneratedRequest(
-            scope=file['scope'],
-            name=file['name'],
-            dest_rse_id=dest_rse['id'],
-            account=account,
-            db_session=db_session,
-            teardown_func=teardown,
-    ) as request:
-        yield request.db_object
+        scope=file['scope'],
+        name=file['name'],
+        dest_rse_id=dest_rse['id'],
+        account=account,
+        db_session=db_session,
+        teardown_func=teardown,
+    ) as rucio_request:
+        yield rucio_request.db_object
 
 
 @pytest.fixture
 def mock_request_no_source(db_session, dest_rse, dataset):
     with GeneratedRequest(
-            scope=dataset['scope'],
-            name=dataset['name'],
-            dest_rse_id=dest_rse['id'],
-            account=dataset['account'],
-            db_session=db_session,
-    ) as request:
-        yield request.db_object
+        scope=dataset['scope'],
+        name=dataset['name'],
+        dest_rse_id=dest_rse['id'],
+        account=dataset['account'],
+        db_session=db_session,
+    ) as rucio_request:
+        yield rucio_request.db_object
 
 
 @pytest.fixture
 def dest_throttler(db_session, mock_request):
-    config.set('throttler', 'mode', 'DEST_PER_ACT', session=db_session)
+    rucio_config.set('throttler', 'mode', 'DEST_PER_ACT', session=db_session)
     set_rse_transfer_limits(
         mock_request.dest_rse_id,
         activity=mock_request.activity,
@@ -191,7 +201,7 @@ def dest_throttler(db_session, mock_request):
     yield
 
     db_session.query(models.RSETransferLimit).filter_by(rse_id=mock_request.dest_rse_id).delete()
-    config.remove_option("throttler", "mode", session=db_session)
+    rucio_config.remove_option("throttler", "mode", session=db_session)
     db_session.commit()
 
 
@@ -203,6 +213,7 @@ def test_listing_preparing_transfers(db_session, mock_request):
     assert len(found_requests) == 1
 
 
+@pytest.mark.noparallel(reason='changes global configuration value')
 @pytest.mark.usefixtures("dest_throttler")
 def test_preparer_setting_request_state_waiting(db_session, mock_request):
     preparer.run_once(session=db_session, logger=print)
@@ -236,7 +247,9 @@ def test_preparer_for_request_without_source(db_session, mock_request_no_source)
     preparer.run_once(session=db_session, logger=print)
     db_session.commit()
 
-    updated_mock_request = db_session.query(models.Request).filter_by(id=mock_request_no_source.id).one()  # type: models.Request
+    updated_mock_request: "models.Request" = (
+        db_session.query(models.Request).filter_by(id=mock_request_no_source.id).one()
+    )
 
     assert updated_mock_request.state == RequestState.NO_SOURCES
 
@@ -247,6 +260,7 @@ def test_preparer_for_request_without_matching_transfertool_source(db_session, s
     db_session.commit()
 
     from rucio.core.rse import REGION
+
     REGION.invalidate()
 
     preparer.run_once(session=db_session, logger=print)
@@ -257,6 +271,7 @@ def test_preparer_for_request_without_matching_transfertool_source(db_session, s
     assert updated_mock_request.state == RequestState.NO_SOURCES
 
 
+@pytest.mark.xfail(reason='fails when run in parallel')
 def test_two_sources_one_destination(db_session, vo, file, source_rse, dest_rse, mock_request):
     def setup(rse):
         add_distance(rse.rse_id, dest_rse['id'], ranking=2, session=rse.db_session)
