@@ -218,8 +218,8 @@ def all_oidc_req_claims_present(scope, audience, required_scope, required_audien
         required_scope = ""
     if not required_audience:
         required_audience = ""
-    if (isinstance(scope, list) and isinstance(audience, list) and  # NOQA: W504
-        isinstance(required_scope, list) and isinstance(required_audience, list)):
+    if (isinstance(scope, list) and isinstance(audience, list)  # NOQA: W504
+        and isinstance(required_scope, list) and isinstance(required_audience, list)):
         scope = [str(it) for it in scope]
         audience = [str(it) for it in audience]
         required_scope = [str(it) for it in required_scope]
@@ -227,8 +227,8 @@ def all_oidc_req_claims_present(scope, audience, required_scope, required_audien
         req_scope_present = all(elem in scope for elem in required_scope)
         req_audience_present = all(elem in audience for elem in required_audience)
         return req_scope_present and req_audience_present
-    elif (isinstance(scope, string_types) and isinstance(audience, string_types) and  # NOQA: W504
-          isinstance(required_scope, string_types) and isinstance(required_audience, string_types)):
+    elif (isinstance(scope, string_types) and isinstance(audience, string_types)  # NOQA: W504
+          and isinstance(required_scope, string_types) and isinstance(required_audience, string_types)):
         scope = str(scope)
         audience = str(audience)
         required_scope = str(required_scope)
@@ -236,8 +236,8 @@ def all_oidc_req_claims_present(scope, audience, required_scope, required_audien
         req_scope_present = all(elem in scope.split(sepatator) for elem in required_scope.split(sepatator))
         req_audience_present = all(elem in audience.split(sepatator) for elem in required_audience.split(sepatator))
         return req_scope_present and req_audience_present
-    elif (isinstance(scope, list) and isinstance(audience, list) and  # NOQA: W504
-          isinstance(required_scope, string_types) and isinstance(required_audience, string_types)):
+    elif (isinstance(scope, list) and isinstance(audience, list)  # NOQA: W504
+          and isinstance(required_scope, string_types) and isinstance(required_audience, string_types)):
         scope = [str(it) for it in scope]
         audience = [str(it) for it in audience]
         required_scope = str(required_scope)
@@ -245,8 +245,8 @@ def all_oidc_req_claims_present(scope, audience, required_scope, required_audien
         req_scope_present = all(elem in scope for elem in required_scope.split(sepatator))
         req_audience_present = all(elem in audience for elem in required_audience.split(sepatator))
         return req_scope_present and req_audience_present
-    elif (isinstance(scope, string_types) and isinstance(audience, string_types) and  # NOQA: W504
-          isinstance(required_scope, list) and isinstance(required_audience, list)):
+    elif (isinstance(scope, string_types) and isinstance(audience, string_types)  # NOQA: W504
+          and isinstance(required_scope, list) and isinstance(required_audience, list)):
         scope = str(scope)
         audience = str(audience)
         required_scope = [str(it) for it in required_scope]
@@ -409,6 +409,7 @@ class APIEncoder(json.JSONEncoder):
     """ Propretary JSONEconder subclass used by the json render function.
     This is needed to address the encoding of special values.
     """
+
     def default(self, obj):  # pylint: disable=E0202
         if isinstance(obj, datetime.datetime):
             # convert any datetime to RFC 1123 format
@@ -662,9 +663,9 @@ def clean_surls(surls):
     for surl in surls:
         if surl.startswith('srm'):
             surl = re.sub(':[0-9]+/', '/', surl)
-            surl = re.sub('/srm/managerv1\?SFN=', '', surl)  # NOQA: W605
-            surl = re.sub('/srm/v2/server\?SFN=', '', surl)  # NOQA: W605
-            surl = re.sub('/srm/managerv2\?SFN=', '', surl)  # NOQA: W605
+            surl = re.sub(r'/srm/managerv1\?SFN=', '', surl)
+            surl = re.sub(r'/srm/v2/server\?SFN=', '', surl)
+            surl = re.sub(r'/srm/managerv2\?SFN=', '', surl)
         if surl.startswith('https://storage.googleapis.com'):
             surl = surl.split('?GoogleAccessId')[0]
         if '?X-Amz' in surl:

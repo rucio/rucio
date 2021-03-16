@@ -379,7 +379,7 @@ class TestBinRucio(unittest.TestCase):
         print(out)
         print(err)
         # get the rule for the file
-        cmd = "rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1_name)  # NOQA: W605
+        cmd = r"rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1_name)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -825,7 +825,7 @@ class TestBinRucio(unittest.TestCase):
         exitcode, out, err = execute(cmd)
         print(out, err)
 
-        report = 'Local\ checksum\:\ {0},\ Rucio\ checksum\:\ 0123456789abcdef0123456789abcdef'.format(file_md5)  # NOQA: W605
+        report = r'Local\ checksum\:\ {0},\ Rucio\ checksum\:\ 0123456789abcdef0123456789abcdef'.format(file_md5)
         print('searching', report, 'in', err)
         assert re.search(report, err) is not None
 
@@ -1007,7 +1007,7 @@ class TestBinRucio(unittest.TestCase):
         print(err)
         print(out)
         # get the rules for the file
-        cmd = "rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])  # NOQA: W605
+        cmd = r"rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -1049,7 +1049,7 @@ class TestBinRucio(unittest.TestCase):
         exitcode, out, err = execute(cmd)
         print(out, err)
         # get the rule for the file
-        cmd = "rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])  # NOQA: W605
+        cmd = r"rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)

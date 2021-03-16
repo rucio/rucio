@@ -188,7 +188,7 @@ def get_parser():
         default=3,
         type=int,
     )
-    parser.epilog = textwrap.dedent('''
+    parser.epilog = textwrap.dedent(r"""
         examples:
             # Check all RSEs using only 1 subprocess
             %(prog)s
@@ -198,7 +198,7 @@ def get_parser():
 
             # Check all Tier 2 DATADISKs, except "BLUE_DATADISK" and "RED_DATADISK"
             %(prog)s --rses "tier=1&type=DATADISK\(BLUE_DATADISK|RED_DATADISK)"
-    ''')  # NOQA: W605
+    """)
     return parser
 
 
