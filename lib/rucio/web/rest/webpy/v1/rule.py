@@ -26,6 +26,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - James Perry <j.perry@epcc.ed.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -224,9 +225,9 @@ class AllRule:
         json_data = data()
         try:
             grouping, weight, lifetime, locked, subscription_id, source_replica_expression, activity, notify,\
-                purge_replicas, ignore_availability, comment, ask_approval, asynchronous, priority,\
+                purge_replicas, ignore_availability, comment, ask_approval, asynchronous, delay_injection, priority,\
                 split_container, meta = 'DATASET', None, None, False, None, None, None, None, False, False, None,\
-                False, False, 3, False, None
+                False, False, None, 3, False, None
 
             params = loads(json_data)
             dids = params['dids']
@@ -259,6 +260,8 @@ class AllRule:
                 ask_approval = params['ask_approval']
             if 'asynchronous' in params:
                 asynchronous = params['asynchronous']
+            if 'delay_injection' in params:
+                delay_injection = params['delay_injection']
             if 'priority' in params:
                 priority = params['priority']
             if 'split_container' in params:
@@ -287,6 +290,7 @@ class AllRule:
                                             comment=comment,
                                             ask_approval=ask_approval,
                                             asynchronous=asynchronous,
+                                            delay_injection=delay_injection,
                                             priority=priority,
                                             split_container=split_container,
                                             meta=meta,

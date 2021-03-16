@@ -13,17 +13,18 @@
   - Patrick Austin, <patrick.austin@stfc.ac.uk>, 2020
   - Eli Chadwick, <eli.chadwick@stfc.ac.uk>, 2020
   - Ian Johnson, <ian.johnson@stfc.ac.uk>, 2021
+  - Radu Carpa <radu.carpa@cern.ch>, 2021
 
   PY3K COMPATIBLE
 '''
 
 from rucio.api.permission import has_permission
+from rucio.common.config import config_get_bool
 from rucio.common.exception import AccessDenied
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import api_update_return_dict
 from rucio.core import rule
-from rucio.common.config import config_get_bool
 
 
 def is_multi_vo():
@@ -35,8 +36,8 @@ def is_multi_vo():
 
 
 def add_replication_rule(dids, copies, rse_expression, weight, lifetime, grouping, account, locked, subscription_id, source_replica_expression,
-                         activity, notify, purge_replicas, ignore_availability, comment, ask_approval, asynchronous, priority, split_container,
-                         meta, issuer, vo='def'):
+                         activity, notify, purge_replicas, ignore_availability, comment, ask_approval, asynchronous, delay_injection, priority,
+                         split_container, meta, issuer, vo='def'):
     """
     Adds a replication rule.
 
@@ -76,8 +77,8 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
               'grouping': grouping, 'account': account, 'locked': locked, 'subscription_id': subscription_id,
               'source_replica_expression': source_replica_expression, 'notify': notify, 'activity': activity,
               'purge_replicas': purge_replicas, 'ignore_availability': ignore_availability, 'comment': comment,
-              'ask_approval': ask_approval, 'asynchronous': asynchronous, 'priority': priority, 'split_container': split_container,
-              'meta': meta}
+              'ask_approval': ask_approval, 'asynchronous': asynchronous, 'delay_injection': delay_injection, 'priority': priority,
+              'split_container': split_container, 'meta': meta}
 
     validate_schema(name='rule', obj=kwargs, vo=vo)
 
@@ -105,6 +106,7 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
                          comment=comment,
                          ask_approval=ask_approval,
                          asynchronous=asynchronous,
+                         delay_injection=delay_injection,
                          priority=priority,
                          split_container=split_container,
                          meta=meta)
