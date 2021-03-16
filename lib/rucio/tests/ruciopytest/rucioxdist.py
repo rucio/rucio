@@ -29,6 +29,7 @@ from xdist.scheduler import LoadScheduling
 
 if TYPE_CHECKING:
     from typing import Union, Sequence
+    import xdist.dsession
 
 
 class NoParallelAndLoadScheduling(LoadScheduling):
@@ -136,6 +137,17 @@ class NoParallelXDist:
         if not config.option.debug:
             py.log.setconsumer(self.log._keywords, None)  # pylint: disable-msg=E1101
 
+    @pytest.hookimpl
+    def pytest_xdist_make_scheduler(self, config, log):
+        dist = config.getoption('dist', default='load')
+
+        if dist == 'rucio':
+            return NoParallelAndLoadScheduling(config=config, log=log)
+        else:
+            dsession = config.pluginmanager.getplugin('dsession')  # type: xdist.dsession.DSession
+            return dsession.pytest_xdist_make_scheduler(config=config, log=log)
+
+    @pytest.hookimpl
     def pytest_collection_modifyitems(
             self,
             config,
