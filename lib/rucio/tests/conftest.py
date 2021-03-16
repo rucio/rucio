@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020 CERN
+# Copyright 2020-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 #
 # Authors:
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -142,3 +143,33 @@ def auth_token(rest_client, vo):
     token = auth_response.headers.get('X-Rucio-Auth-Token')
     assert token
     return str(token)
+
+
+@pytest.fixture(scope='module')
+def mock_scope(vo):
+    from rucio.common.types import InternalScope
+
+    return InternalScope('mock', vo=vo)
+
+
+@pytest.fixture(scope='module')
+def root_account(vo):
+    from rucio.common.types import InternalAccount
+
+    return InternalAccount('root', vo=vo)
+
+
+@pytest.fixture
+def rse_factory(vo):
+    from rucio.tests.temp_factories import TemporaryRSEFactory
+
+    with TemporaryRSEFactory(vo=vo) as factory:
+        yield factory
+
+
+@pytest.fixture
+def file_factory(vo, mock_scope):
+    from rucio.tests.temp_factories import TemporaryFileFactory
+
+    with TemporaryFileFactory(vo=vo, default_scope=mock_scope) as factory:
+        yield factory
