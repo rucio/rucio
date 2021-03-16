@@ -115,6 +115,7 @@ class TestVOCoreAPI(unittest.TestCase):
             else:
                 config_remove_option('common', 'multi_vo')
 
+    @pytest.mark.noparallel(reason='uses global RSE (MOCK) and fails when run in parallel')
     def test_access_rule_vo(self):
         """ MULTI VO (CORE): Test accessing rules from a different VO """
         scope = InternalScope('mock', **self.vo)
@@ -1034,6 +1035,7 @@ class TestMultiVOBinRucio(unittest.TestCase):
         assert self.rse_new not in out
 
 
+@pytest.mark.noparallel(reason='runs daemons, fails when run in parallel')
 class TestMultiVODaemons(unittest.TestCase):
 
     @classmethod
@@ -1083,7 +1085,6 @@ class TestMultiVODaemons(unittest.TestCase):
         assert len(replicas_tst) != 0
         assert len(replicas_new) == 0
 
-    @pytest.mark.noparallel(reason='fails when run in parallel')
     def test_reaper(self):
         """ MULTI VO (DAEMON): Test that reaper runs on the specified VO(s) """
         rse_str = ''.join(choice(ascii_uppercase) for x in range(10))

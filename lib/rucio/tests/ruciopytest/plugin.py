@@ -17,12 +17,9 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2021
 
 import os
-from typing import TYPE_CHECKING
+import sys
 
 import pytest
-
-if TYPE_CHECKING:
-    import xdist.dsession
 
 
 def pytest_configure(config):
@@ -31,24 +28,26 @@ def pytest_configure(config):
         'markers',
         'noparallel(reason): marks test being unable to run in parallel to other tests, i.e. changing global state',
     )
-    if config.pluginmanager.hasplugin('xdist'):
+    if sys.version_info >= (3, 6) and config.pluginmanager.hasplugin('xdist'):
         from rucio.tests.ruciopytest.rucioxdist import NoParallelXDist
 
         config.pluginmanager.register(NoParallelXDist(config))
 
 
-def pytest_addoption(parser):
-    group = parser.getgroup('xdist', 'distributed and subprocess testing')
-    option_appended = False
-    for opt in group.options:
-        if '--dist' in opt.names():
-            option_choices = opt._attrs['choices']
-            option_choices.append('rucio')
-            option_appended = True
-            break
+if sys.version_info >= (3, 6):
+    def pytest_addoption(parser, pluginmanager):
+        if pluginmanager.hasplugin('xdist'):
+            group = parser.getgroup('xdist', 'distributed and subprocess testing')
+            option_appended = False
+            for opt in group.options:
+                if '--dist' in opt.names():
+                    option_choices = opt._attrs['choices']
+                    option_choices.append('rucio')
+                    option_appended = True
+                    break
 
-    if not option_appended:
-        raise pytest.UsageError('rucio pytest plugin must be loaded after xdist plugin')
+            if not option_appended:
+                raise pytest.UsageError('rucio pytest plugin must be loaded after xdist plugin')
 
 
 def pytest_cmdline_main(config):
@@ -56,15 +55,3 @@ def pytest_cmdline_main(config):
     if os.environ.get('GITHUB_ACTIONS', '') == 'true':
         if config.getoption('usepdb', False):
             raise pytest.UsageError('Cannot use pdb on GitHub Actions')
-
-
-def pytest_xdist_make_scheduler(config, log):
-    dist = config.getoption('dist', default='load')
-
-    if dist == 'rucio':
-        from rucio.tests.ruciopytest.rucioxdist import NoParallelAndLoadScheduling
-
-        return NoParallelAndLoadScheduling(config=config, log=log)
-    else:
-        dsession = config.pluginmanager.getplugin('dsession')  # type: xdist.dsession.DSession
-        return dsession.pytest_xdist_make_scheduler(config=config, log=log)
