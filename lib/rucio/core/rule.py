@@ -2237,11 +2237,11 @@ def examine_rule(rule_id, session=None):
                     last_request = transfers[0]
                     last_error = last_request.state
                     last_time = last_request.created_at
-                    last_source = None if last_request.source_rse_id is None else last_request.source_rse_id
+                    last_source = None if last_request.source_rse_id is None else get_rse_name(rse_id=last_request.source_rse_id, session=session)
                     available_replicas = session.query(models.RSEFileAssociation).filter_by(scope=lock.scope, name=lock.name, state=ReplicaState.AVAILABLE).all()
 
                     for replica in available_replicas:
-                        sources.append((replica.rse_id,
+                        sources.append((get_rse_name(rse_id=replica.rse_id, session=session),
                                         True if get_rse(rse_id=replica.rse_id, session=session).availability >= 4 else False))
 
                 result['transfers'].append({'scope': lock.scope,
