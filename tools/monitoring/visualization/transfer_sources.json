@@ -1,0 +1,31 @@
+[
+  {
+    "_id": "67ad4960-a948-11e9-9ef1-ab86ce457da9",
+    "_type": "visualization",
+    "_source": {
+      "title": "[rucio] Transfer sources",
+      "visState": "{\"title\":\"[rucio] Transfer sources\",\"type\":\"pie\",\"params\":{\"type\":\"pie\",\"addTooltip\":true,\"addLegend\":true,\"legendPosition\":\"right\",\"isDonut\":true,\"labels\":{\"show\":true,\"values\":true,\"last_level\":true,\"truncate\":100}},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"count\",\"schema\":\"metric\",\"params\":{}},{\"id\":\"2\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"segment\",\"params\":{\"field\":\"src-rse\",\"size\":5,\"order\":\"desc\",\"orderBy\":\"1\",\"otherBucket\":false,\"otherBucketLabel\":\"Other\",\"missingBucket\":false,\"missingBucketLabel\":\"Missing\",\"customLabel\":\"\"}}]}",
+      "uiStateJSON": "{}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"filter\":[{\"meta\":{\"alias\":null,\"negate\":false,\"type\":\"phrase\",\"key\":\"event_type\",\"value\":\"transfer-done\",\"params\":{\"query\":\"transfer-done\"},\"disabled\":false,\"indexRefName\":\"kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index\"},\"query\":{\"match\":{\"event_type\":{\"query\":\"transfer-done\",\"type\":\"phrase\"}}},\"$state\":{\"store\":\"appState\"}}],\"indexRefName\":\"kibanaSavedObjectMeta.searchSourceJSON.index\"}"
+      }
+    },
+    "_migrationVersion": {
+      "visualization": "7.0.1"
+    },
+    "_references": [
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.index",
+        "type": "index-pattern",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9"
+      },
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index",
+        "type": "index-pattern",
+        "id": "ebddc0e0-9cd0-11e9-9ef1-ab86ce457da9"
+      }
+    ]
+  }
+]
