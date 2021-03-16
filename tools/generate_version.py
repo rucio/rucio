@@ -29,7 +29,7 @@ if os.path.isdir('.git'):
     else:
         GIT_VERSION_CMD = 'git describe --abbrev=4'
         GIT_VERSION = run_git_command(GIT_VERSION_CMD).decode()
-    BRANCH_NICK_CMD = 'git branch | grep -Ei "\* (.*)" | cut -f2 -d" "'  # NOQA: W605
+    BRANCH_NICK_CMD = r'git branch | grep -Ei "\* (.*)" | cut -f2 -d" "'
     BRANCH_NICK = run_git_command(BRANCH_NICK_CMD).decode()
     REVID_CMD = "git rev-parse HEAD"
     REVID = run_git_command(REVID_CMD).decode()
