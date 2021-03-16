@@ -814,16 +814,20 @@ def list_rules(filters={}, session=None):
                     continue
                 # else fall through
             elif key == 'created_before':
-                query = query.filter(models.ReplicationRule.created_at <= str_to_date(value))
+                created_before = str_to_date(value)
+                query = query.filter(models.ReplicationRule.created_at <= created_before)
                 continue
             elif key == 'created_after':
-                query = query.filter(models.ReplicationRule.created_at >= str_to_date(value))
+                created_after = str_to_date(value)
+                query = query.filter(models.ReplicationRule.created_at >= created_after)
                 continue
             elif key == 'updated_before':
-                query = query.filter(models.ReplicationRule.updated_at <= str_to_date(value))
+                updated_before = str_to_date(value)
+                query = query.filter(models.ReplicationRule.updated_at <= updated_before)
                 continue
             elif key == 'updated_after':
-                query = query.filter(models.ReplicationRule.updated_at >= str_to_date(value))
+                updated_after = str_to_date(value)
+                query = query.filter(models.ReplicationRule.updated_at >= updated_after)
                 continue
             elif key == 'state':
                 if isinstance(value, string_types):
