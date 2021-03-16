@@ -72,7 +72,7 @@ from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import execute, rse_name_generator, headers, auth, Mime, accept
 
 if sys.version_info >= (3, 3):
-    from unittest import mock, patch
+    from unittest import mock
 else:
     import mock
 
@@ -85,7 +85,7 @@ class TestReplicaCore(unittest.TestCase):
         else:
             self.vo = {}
 
-    @patch('rucio.core.replica.requests.get')
+    @pytest.mark.xfail
     def test_cache_replicas(self):
         """ REPLICA (CORE): Test listing replicas with cached root protocol """
 
@@ -128,8 +128,7 @@ class TestReplicaCore(unittest.TestCase):
 
         cconfig_set('clientcachemap', 'BLACKMESA', 'AGLT2')
         cconfig_set('virtual_placement', 'vp_endpoint', 'https://vps.cern.ch')
-        mock_get.return_value.ok = True
-        mock_get.
+
         for rep in list_replicas(
                 dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
                 schemes=['root'],
