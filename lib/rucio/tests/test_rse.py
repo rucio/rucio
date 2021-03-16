@@ -29,6 +29,7 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Eric Vaandering <ewv@fnal.gov>, 2021
 
 from __future__ import print_function
 
@@ -1335,9 +1336,9 @@ class TestRSEClient(unittest.TestCase):
 
     def test_get_rse_usage(self):
         """ RSE (CLIENTS): Test getting the RSE usage. """
-        usages = self.client.get_rse_usage(rse='MOCK', filters={'per_account': True})
+        usages = self.client.get_rse_usage(rse='MOCK', filters={'source': 'rucio', 'per_account': True})
         for usage in usages:
-            assert usage['account_usages']
+            assert 'account_usages' in usage
         usages = self.client.get_rse_usage(rse='MOCK')
         for usage in usages:
             assert 'account_usages' not in usage

@@ -20,6 +20,7 @@
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Eric Vaandering <ewv@fnal.gov>, 2021
 
 import os
 import unittest
@@ -78,7 +79,12 @@ class TestAbacusRSE(unittest.TestCase):
         self.upload_client.upload(self.files)
         [os.remove(file['path']) for file in self.files]
         rse.run(once=True)
-        rse_usage = get_rse_usage(rse_id=self.rse_id)[0]
+        rse_usage = {}
+
+        assert len(get_rse_usage(rse_id=self.rse_id)) == 3
+        for usage in get_rse_usage(rse_id=self.rse_id):
+            if usage['source'] == 'rucio':
+                rse_usage = usage        # rse_usage = get_rse_usage(rse_id=self.rse_id)[0]
         assert rse_usage['used'] == len(self.files) * self.file_sizes
         rse_usage_from_rucio = get_rse_usage(rse_id=self.rse_id, source='rucio')[0]
         assert rse_usage_from_rucio['used'] == len(self.files) * self.file_sizes
@@ -94,7 +100,12 @@ class TestAbacusRSE(unittest.TestCase):
         else:
             reaper2.run(once=True, include_rses=self.rse, greedy=True)
         rse.run(once=True)
-        rse_usage = get_rse_usage(rse_id=self.rse_id)[0]
+        rse_usage = {}
+        assert len(get_rse_usage(rse_id=self.rse_id)) == 3
+
+        for usage in get_rse_usage(rse_id=self.rse_id):
+            if usage['source'] == 'rucio':
+                rse_usage = usage
         assert rse_usage['used'] == 0
         rse_usage_from_rucio = get_rse_usage(rse_id=self.rse_id, source='rucio')[0]
         assert rse_usage_from_rucio['used'] == 0
