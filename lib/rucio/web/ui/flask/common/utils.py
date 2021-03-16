@@ -360,8 +360,12 @@ def x509token_auth(data=None):
         msg = "<br><br>Your certificate (%s) is not mapped to (possibly any) rucio account: %s at VO: %s." % (html_escape(dn), html_escape(ui_account), html_escape(ui_vo))
     else:
         msg = "<br><br>Your certificate (%s) is not mapped to (possibly any) rucio account: %s." % (html_escape(dn), html_escape(ui_account))
-    msg += "<br><br><font color=\"red\">First, please make sure it is correctly registered in <a href=\"https://voms2.cern.ch:8443/voms/atlas\">VOMS</a> and be patient until it has been fully propagated through the system.</font>"
-    msg += "<br><br>Then, if it is still not working please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>."
+        if "None" in config_get("client", "ca_cert"):
+            msg += "<br><br><font color=\"red\">First, please make sure it is correctly registered in <a href=\"https://voms2.cern.ch:8443/voms/atlas\">VOMS</a> and be patient until it has been fully propagated through the system.</font>"
+            msg += "<br><br>Then, if it is still not working please contact <a href=\"mailto:atlas-adc-ddm-support@cern.ch\">DDM Support</a>."
+        else:
+            msg += "<br><br> Please contact the concerned person incharge about the same, your account detail: %s, support: %s" % (html_escape(ui_account), config_get("policy", "support"))
+
     if not ui_account:
         return render_template("problem.html", msg=msg)
     token = get_token(auth.get_auth_token_x509, acc=ui_account, vo=ui_vo, idt=dn)
