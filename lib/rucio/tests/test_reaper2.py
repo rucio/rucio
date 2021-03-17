@@ -27,11 +27,13 @@ import pytest
 from rucio.common.config import config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
+from rucio.api import rse as rse_api
+from rucio.api import replica as replica_api
 from rucio.core import replica as replica_core
 from rucio.core import rse as rse_core
 from rucio.core import scope as scope_core
 from rucio.core import vo as vo_core
-from rucio.daemons.reaper.reaper2 import reaper, REGION
+from rucio.daemons.reaper.reaper2 import reaper, REGION, run as run_reaper
 from rucio.tests.common import rse_name_generator
 
 __mock_protocol = {'scheme': 'MOCK',
@@ -65,6 +67,17 @@ def __add_test_rse_and_replicas(vo, scope, nb_files, file_size):
     return rse_name, rse_id, dids
 
 
+def __setup_new_vo():
+    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
+    if not multi_vo:
+        pytest.skip('multi_vo mode is not enabled. Running multi_vo tests in single_vo mode would result in failures.')
+
+    new_vo = 'new'
+    if not vo_core.vo_exists(vo=new_vo):
+        vo_core.add_vo(vo=new_vo, description='Test', email='rucio@email.com')
+    return new_vo
+
+
 @pytest.mark.noparallel(reason='fails when run in parallel. It resets some memcached values.')
 def test_reaper(vo):
     """ REAPER2 (DAEMON): Test the reaper2 daemon."""
@@ -92,14 +105,134 @@ def test_reaper(vo):
 
 
 @pytest.mark.noparallel(reason='fails when run in parallel. It resets some memcached values.')
+def test_reaper_multi_vo_via_run(vo):
+    """ MULTI VO (DAEMON): Test that reaper runs on the specified VO(s) """
+    new_vo = __setup_new_vo()
+    rse_name = rse_name_generator()
+    rse_id_tst = rse_core.add_rse(rse_name, 'root', vo=vo)
+    rse_id_new = rse_core.add_rse(rse_name, 'root', vo=new_vo)
+
+    mock_protocol = {'scheme': 'MOCK',
+                     'hostname': 'localhost',
+                     'port': 123,
+                     'prefix': '/test/reaper',
+                     'impl': 'rucio.rse.protocols.mock.Default',
+                     'domains': {
+                         'lan': {'read': 1,
+                                 'write': 1,
+                                 'delete': 1},
+                         'wan': {'read': 1,
+                                 'write': 1,
+                                 'delete': 1}}}
+    rse_core.add_protocol(rse=rse_name, data=mock_protocol, issuer='root', vo=vo)
+    rse_core.add_protocol(rse=rse_name, data=mock_protocol, issuer='root', vo=new_vo)
+
+    scope_uuid = str(generate_uuid()).lower()[:16]
+    scope_name = 'shr_%s' % scope_uuid
+    scope_tst = InternalScope(scope_name, vo=vo)
+    scope_new = InternalScope(scope_name, vo=new_vo)
+    scope_core.add_scope(scope_name, 'root', 'root', vo=vo)
+    scope_core.add_scope(scope_name, 'root', 'root', vo=new_vo)
+
+    nb_files = 30
+    file_size = 200  # 2G
+
+    names = []
+    for i in range(nb_files):
+        name = 'lfn%s' % generate_uuid()
+        names.append(name)
+        replica_core.add_replica(rse_id=rse_id_tst, scope=scope_tst, name=name, bytes=file_size, account=InternalAccount('root', vo=vo),
+                                 adler32=None, md5=None, tombstone=datetime.utcnow() - timedelta(days=1))
+        replica_core.add_replica(rse_id=rse_id_new, scope=scope_new, name=name, bytes=file_size, account=InternalAccount('root', vo=new_vo),
+                                 adler32=None, md5=None, tombstone=datetime.utcnow() - timedelta(days=1))
+
+    rse_api.set_rse_usage(rse=rse_name, source='storage', used=nb_files * file_size, free=1, issuer='root', vo=vo)
+    rse_api.set_rse_limits(rse=rse_name, name='MinFreeSpace', value=5 * 200, issuer='root', vo=vo)
+    rse_api.set_rse_limits(rse=rse_name, name='MaxBeingDeletedFiles', value=10, issuer='root', vo=vo)
+
+    rse_api.set_rse_usage(rse=rse_name, source='storage', used=nb_files * file_size, free=1, issuer='root', vo=new_vo)
+    rse_api.set_rse_limits(rse=rse_name, name='MinFreeSpace', value=5 * 200, issuer='root', vo=new_vo)
+    rse_api.set_rse_limits(rse=rse_name, name='MaxBeingDeletedFiles', value=10, issuer='root', vo=new_vo)
+
+    # Check we start of with the expected number of replicas
+    assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=vo))) == nb_files
+    assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == nb_files
+
+    # Check we reap all VOs by default
+    from rucio.daemons.reaper.reaper2 import REGION
+    REGION.invalidate()
+    run_reaper(once=True, rses=[rse_name])
+    assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=vo))) == 25
+    assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == 25
+
+
+@pytest.mark.noparallel(reason='fails when run in parallel. It resets some memcached values.')
+def test_reaper_affect_other_vo_via_run(vo):
+    """ MULTI VO (DAEMON): Test that reaper runs on the specified VO(s) and does not reap others"""
+    new_vo = __setup_new_vo()
+    rse_name = rse_name_generator()
+    rse_id_tst = rse_core.add_rse(rse_name, 'root', vo=vo)
+    rse_id_new = rse_core.add_rse(rse_name, 'root', vo=new_vo)
+
+    mock_protocol = {'scheme': 'MOCK',
+                     'hostname': 'localhost',
+                     'port': 123,
+                     'prefix': '/test/reaper',
+                     'impl': 'rucio.rse.protocols.mock.Default',
+                     'domains': {
+                         'lan': {'read': 1,
+                                 'write': 1,
+                                 'delete': 1},
+                         'wan': {'read': 1,
+                                 'write': 1,
+                                 'delete': 1}}}
+    rse_core.add_protocol(rse=rse_name, data=mock_protocol, issuer='root', vo=vo)
+    rse_core.add_protocol(rse=rse_name, data=mock_protocol, issuer='root', vo=new_vo)
+
+    scope_uuid = str(generate_uuid()).lower()[:16]
+    scope_name = 'shr_%s' % scope_uuid
+    scope_tst = InternalScope(scope_name, vo=vo)
+    scope_new = InternalScope(scope_name, vo=new_vo)
+    scope_core.add_scope(scope_name, 'root', 'root', vo=vo)
+    scope_core.add_scope(scope_name, 'root', 'root', vo=new_vo)
+
+    nb_files = 30
+    file_size = 200  # 2G
+
+    names = []
+    for i in range(nb_files):
+        name = 'lfn%s' % generate_uuid()
+        names.append(name)
+        replica_core.add_replica(rse_id=rse_id_tst, scope=scope_tst, name=name, bytes=file_size, account=InternalAccount('root', vo=vo),
+                                 adler32=None, md5=None, tombstone=datetime.utcnow() - timedelta(days=1))
+        replica_core.add_replica(rse_id=rse_id_new, scope=scope_new, name=name, bytes=file_size, account=InternalAccount('root', vo=new_vo),
+                                 adler32=None, md5=None, tombstone=datetime.utcnow() - timedelta(days=1))
+
+    rse_api.set_rse_usage(rse=rse_name, source='storage', used=nb_files * file_size, free=1, issuer='root', vo=vo)
+    rse_api.set_rse_limits(rse=rse_name, name='MinFreeSpace', value=5 * 200, issuer='root', vo=vo)
+    rse_api.set_rse_limits(rse=rse_name, name='MaxBeingDeletedFiles', value=10, issuer='root', vo=vo)
+
+    rse_api.set_rse_usage(rse=rse_name, source='storage', used=nb_files * file_size, free=1, issuer='root', vo=new_vo)
+    rse_api.set_rse_limits(rse=rse_name, name='MinFreeSpace', value=5 * 200, issuer='root', vo=new_vo)
+    rse_api.set_rse_limits(rse=rse_name, name='MaxBeingDeletedFiles', value=10, issuer='root', vo=new_vo)
+
+    # Check we start of with the expected number of replicas
+    assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=vo))) == nb_files
+    assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == nb_files
+
+    # Check we don't affect a second VO that isn't specified
+    from rucio.daemons.reaper.reaper2 import REGION
+    REGION.invalidate()
+    run_reaper(once=True, rses=[rse_name], vos=['new'])
+    assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=vo))) == nb_files
+    assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == 25
+
+
+@pytest.mark.noparallel(reason='fails when run in parallel. It resets some memcached values.')
 def test_reaper_multi_vo(vo):
     """ REAPER2 (DAEMON): Test the reaper2 daemon with multiple vo."""
-    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
-    if not multi_vo:
-        pytest.skip()
-
     vo1 = vo
-    vo2 = 'new'
+    vo2 = __setup_new_vo()
     if not vo_core.vo_exists(vo=vo2):
         vo_core.add_vo(vo=vo2, description='Test', email='rucio@email.com')
     scope1 = InternalScope('data13_hip', vo=vo1)
