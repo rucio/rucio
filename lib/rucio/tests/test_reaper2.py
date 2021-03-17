@@ -50,15 +50,13 @@ __mock_protocol = {'scheme': 'MOCK',
                                'delete': 1}}}
 
 
-def __add_test_rse_and_replicas(vo, scope, nb_files, file_size):
-    rse_name = rse_name_generator()
+def __add_test_rse_and_replicas(vo, scope, rse_name, names, file_size):
     rse_id = rse_core.add_rse(rse_name, vo=vo)
 
     rse_core.add_protocol(rse_id=rse_id, parameter=__mock_protocol)
 
     dids = []
-    for i in range(nb_files):
-        file_name = 'lfn' + generate_uuid()
+    for file_name in names:
         dids.append({'scope': scope, 'name': file_name})
         replica_core.add_replica(rse_id=rse_id, scope=scope,
                                  name=file_name, bytes=file_size,
@@ -78,6 +76,17 @@ def __setup_new_vo():
     return new_vo
 
 
+def __setup_scopes_for_vos(*vos):
+    scope_uuid = str(generate_uuid()).lower()[:16]
+    scope_name = 'shr_%s' % scope_uuid
+    created_scopes = []
+    for vo in vos:
+        scope = InternalScope(scope_name, vo=vo)
+        scope_core.add_scope(scope, InternalAccount('root', vo=vo))
+        created_scopes.append(scope)
+    return scope_name, created_scopes
+
+
 @pytest.mark.noparallel(reason='fails when run in parallel. It resets some memcached values.')
 def test_reaper(vo):
     """ REAPER2 (DAEMON): Test the reaper2 daemon."""
@@ -85,7 +94,8 @@ def test_reaper(vo):
 
     nb_files = 250
     file_size = 200  # 2G
-    rse_name, rse_id, dids = __add_test_rse_and_replicas(vo=vo, scope=scope, nb_files=nb_files, file_size=file_size)
+    rse_name, rse_id, dids = __add_test_rse_and_replicas(vo=vo, scope=scope, rse_name=rse_name_generator(),
+                                                         names=['lfn' + generate_uuid() for _ in range(nb_files)], file_size=file_size)
 
     rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=50 * file_size)
     assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
@@ -108,43 +118,14 @@ def test_reaper(vo):
 def test_reaper_multi_vo_via_run(vo):
     """ MULTI VO (DAEMON): Test that reaper runs on the specified VO(s) """
     new_vo = __setup_new_vo()
+    scope_name, [scope_tst, scope_new] = __setup_scopes_for_vos(vo, new_vo)
     rse_name = rse_name_generator()
-    rse_id_tst = rse_core.add_rse(rse_name, 'root', vo=vo)
-    rse_id_new = rse_core.add_rse(rse_name, 'root', vo=new_vo)
-
-    mock_protocol = {'scheme': 'MOCK',
-                     'hostname': 'localhost',
-                     'port': 123,
-                     'prefix': '/test/reaper',
-                     'impl': 'rucio.rse.protocols.mock.Default',
-                     'domains': {
-                         'lan': {'read': 1,
-                                 'write': 1,
-                                 'delete': 1},
-                         'wan': {'read': 1,
-                                 'write': 1,
-                                 'delete': 1}}}
-    rse_core.add_protocol(rse=rse_name, data=mock_protocol, issuer='root', vo=vo)
-    rse_core.add_protocol(rse=rse_name, data=mock_protocol, issuer='root', vo=new_vo)
-
-    scope_uuid = str(generate_uuid()).lower()[:16]
-    scope_name = 'shr_%s' % scope_uuid
-    scope_tst = InternalScope(scope_name, vo=vo)
-    scope_new = InternalScope(scope_name, vo=new_vo)
-    scope_core.add_scope(scope_name, 'root', 'root', vo=vo)
-    scope_core.add_scope(scope_name, 'root', 'root', vo=new_vo)
 
     nb_files = 30
     file_size = 200  # 2G
-
-    names = []
-    for i in range(nb_files):
-        name = 'lfn%s' % generate_uuid()
-        names.append(name)
-        replica_core.add_replica(rse_id=rse_id_tst, scope=scope_tst, name=name, bytes=file_size, account=InternalAccount('root', vo=vo),
-                                 adler32=None, md5=None, tombstone=datetime.utcnow() - timedelta(days=1))
-        replica_core.add_replica(rse_id=rse_id_new, scope=scope_new, name=name, bytes=file_size, account=InternalAccount('root', vo=new_vo),
-                                 adler32=None, md5=None, tombstone=datetime.utcnow() - timedelta(days=1))
+    names = ['lfn' + generate_uuid() for _ in range(nb_files)]
+    _, rse_id_tst, _ = __add_test_rse_and_replicas(vo=vo, scope=scope_tst, rse_name=rse_name, names=names, file_size=file_size)
+    _, rse_id_new, _ = __add_test_rse_and_replicas(vo=new_vo, scope=scope_new, rse_name=rse_name, names=names, file_size=file_size)
 
     rse_api.set_rse_usage(rse=rse_name, source='storage', used=nb_files * file_size, free=1, issuer='root', vo=vo)
     rse_api.set_rse_limits(rse=rse_name, name='MinFreeSpace', value=5 * 200, issuer='root', vo=vo)
@@ -159,7 +140,6 @@ def test_reaper_multi_vo_via_run(vo):
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == nb_files
 
     # Check we reap all VOs by default
-    from rucio.daemons.reaper.reaper2 import REGION
     REGION.invalidate()
     run_reaper(once=True, rses=[rse_name])
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=vo))) == 25
@@ -170,43 +150,14 @@ def test_reaper_multi_vo_via_run(vo):
 def test_reaper_affect_other_vo_via_run(vo):
     """ MULTI VO (DAEMON): Test that reaper runs on the specified VO(s) and does not reap others"""
     new_vo = __setup_new_vo()
+    scope_name, [scope_tst, scope_new] = __setup_scopes_for_vos(vo, new_vo)
     rse_name = rse_name_generator()
-    rse_id_tst = rse_core.add_rse(rse_name, 'root', vo=vo)
-    rse_id_new = rse_core.add_rse(rse_name, 'root', vo=new_vo)
-
-    mock_protocol = {'scheme': 'MOCK',
-                     'hostname': 'localhost',
-                     'port': 123,
-                     'prefix': '/test/reaper',
-                     'impl': 'rucio.rse.protocols.mock.Default',
-                     'domains': {
-                         'lan': {'read': 1,
-                                 'write': 1,
-                                 'delete': 1},
-                         'wan': {'read': 1,
-                                 'write': 1,
-                                 'delete': 1}}}
-    rse_core.add_protocol(rse=rse_name, data=mock_protocol, issuer='root', vo=vo)
-    rse_core.add_protocol(rse=rse_name, data=mock_protocol, issuer='root', vo=new_vo)
-
-    scope_uuid = str(generate_uuid()).lower()[:16]
-    scope_name = 'shr_%s' % scope_uuid
-    scope_tst = InternalScope(scope_name, vo=vo)
-    scope_new = InternalScope(scope_name, vo=new_vo)
-    scope_core.add_scope(scope_name, 'root', 'root', vo=vo)
-    scope_core.add_scope(scope_name, 'root', 'root', vo=new_vo)
 
     nb_files = 30
     file_size = 200  # 2G
-
-    names = []
-    for i in range(nb_files):
-        name = 'lfn%s' % generate_uuid()
-        names.append(name)
-        replica_core.add_replica(rse_id=rse_id_tst, scope=scope_tst, name=name, bytes=file_size, account=InternalAccount('root', vo=vo),
-                                 adler32=None, md5=None, tombstone=datetime.utcnow() - timedelta(days=1))
-        replica_core.add_replica(rse_id=rse_id_new, scope=scope_new, name=name, bytes=file_size, account=InternalAccount('root', vo=new_vo),
-                                 adler32=None, md5=None, tombstone=datetime.utcnow() - timedelta(days=1))
+    names = ['lfn' + generate_uuid() for _ in range(nb_files)]
+    _, rse_id_tst, _ = __add_test_rse_and_replicas(vo=vo, scope=scope_tst, rse_name=rse_name, names=names, file_size=file_size)
+    _, rse_id_new, _ = __add_test_rse_and_replicas(vo=new_vo, scope=scope_new, rse_name=rse_name, names=names, file_size=file_size)
 
     rse_api.set_rse_usage(rse=rse_name, source='storage', used=nb_files * file_size, free=1, issuer='root', vo=vo)
     rse_api.set_rse_limits(rse=rse_name, name='MinFreeSpace', value=5 * 200, issuer='root', vo=vo)
@@ -221,7 +172,6 @@ def test_reaper_affect_other_vo_via_run(vo):
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == nb_files
 
     # Check we don't affect a second VO that isn't specified
-    from rucio.daemons.reaper.reaper2 import REGION
     REGION.invalidate()
     run_reaper(once=True, rses=[rse_name], vos=['new'])
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=vo))) == nb_files
@@ -231,19 +181,15 @@ def test_reaper_affect_other_vo_via_run(vo):
 @pytest.mark.noparallel(reason='fails when run in parallel. It resets some memcached values.')
 def test_reaper_multi_vo(vo):
     """ REAPER2 (DAEMON): Test the reaper2 daemon with multiple vo."""
-    vo1 = vo
-    vo2 = __setup_new_vo()
-    if not vo_core.vo_exists(vo=vo2):
-        vo_core.add_vo(vo=vo2, description='Test', email='rucio@email.com')
-    scope1 = InternalScope('data13_hip', vo=vo1)
-    scope2 = InternalScope('data13_hip', vo=vo2)
-    if not scope_core.check_scope(scope2):
-        scope_core.add_scope(scope2, InternalAccount('root', vo=vo2))
+    new_vo = __setup_new_vo()
+    _, [scope_tst, scope_new] = __setup_scopes_for_vos(vo, new_vo)
 
     nb_files = 250
     file_size = 200  # 2G
-    rse1_name, rse1_id, dids1 = __add_test_rse_and_replicas(vo=vo1, scope=scope1, nb_files=nb_files, file_size=file_size)
-    rse2_name, rse2_id, dids2 = __add_test_rse_and_replicas(vo=vo2, scope=scope2, nb_files=nb_files, file_size=file_size)
+    rse1_name, rse1_id, dids1 = __add_test_rse_and_replicas(vo=vo, scope=scope_tst, rse_name=rse_name_generator(),
+                                                            names=['lfn' + generate_uuid() for _ in range(nb_files)], file_size=file_size)
+    rse2_name, rse2_id, dids2 = __add_test_rse_and_replicas(vo=new_vo, scope=scope_new, rse_name=rse_name_generator(),
+                                                            names=['lfn' + generate_uuid() for _ in range(nb_files)], file_size=file_size)
 
     rse_core.set_rse_limits(rse_id=rse1_id, name='MinFreeSpace', value=50 * file_size)
     rse_core.set_rse_limits(rse_id=rse2_id, name='MinFreeSpace', value=50 * file_size)
