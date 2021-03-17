@@ -946,12 +946,12 @@ class TestBinRucio(unittest.TestCase):
         self.account_client.set_local_account_limit('root', tmp_rse, -1)
 
         # add rse atributes
-        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
+        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASDELETERULE'.format(tmp_rse)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
         # add rules
-        cmd = "rucio add-rule {0}:{1} 1 'spacetoken=ATLASSCRATCHDISK'".format(self.user, tmp_file1[5:])
+        cmd = "rucio add-rule {0}:{1} 1 'spacetoken=ATLASDELETERULE'".format(self.user, tmp_file1[5:])
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(err)
