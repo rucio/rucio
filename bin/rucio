@@ -425,7 +425,7 @@ def list_file_replicas(args):
                                     table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], '{0}: {1}'.format(rse, pfn)])
                             else:
                                 table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], '{0}: {1}'.format(rse, pfn)])
-            print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA']))
+            print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA'], disable_numparse=True))
 
     return SUCCESS
 
@@ -708,7 +708,7 @@ def list_files(args):
                 else:
                     guid = '(None)'
                 table.append(['%s:%s' % (file['scope'], file['name']), guid, 'ad:%s' % file['adler32'], sizefmt(file['bytes'], args.human), file['events']])
-            print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', 'GUID', 'ADLER32', 'FILESIZE', 'EVENTS']))
+            print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', 'GUID', 'ADLER32', 'FILESIZE', 'EVENTS'], disable_numparse=True))
             print('Total files : %s' % totfiles)
             print('Total size : %s' % sizefmt(totsize, args.human))
             if totevents:
@@ -1440,8 +1440,7 @@ def list_rules(args):
                           rule['copies'],
                           rule['expires_at'],
                           rule['created_at']])
-        print(tabulate(table, tablefmt='simple',
-                       headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE_EXPRESSION', 'COPIES', 'EXPIRES (UTC)', 'CREATED (UTC)']))
+        print(tabulate(table, tablefmt='simple', headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE_EXPRESSION', 'COPIES', 'EXPIRES (UTC)', 'CREATED (UTC)'], disable_numparse=True))
     return SUCCESS
 
 
