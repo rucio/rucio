@@ -46,17 +46,17 @@ sphinxcontrib-httpdomain==1.7.0                   # Provides a Sphinx domain for
 Pygments==2.5.2; python_version < '3.5'           # Python Syntax highlighter (2.5.2 last Py27 compatible version)
 Pygments==2.7.2; python_version >= '3.5'
 docutils>=0.15,<=0.16                             # Needed for sphinx
-pyflakes==2.1.1                                   # Passive checker of Python programs
-flake8==3.7.8                                     # Wrapper around PyFlakes&pep8
+pyflakes==2.3.0                                   # Passive checker of Python programs
+flake8==3.9.0                                     # Wrapper around PyFlakes&pep8
 pylint==1.9.4; python_version < '3.6'             # static code analysis. 1.9.5 last 2.7 compatible release
-pylint==2.6.0; python_version >= '3.6'
+pylint==2.8.0; python_version >= '3.6'
 isort>=4.2.5,<5                                   # pylint up to now (2.5.3) does not support isort 5
-virtualenv==20.2.1                                # Virtual Python Environment builder
+virtualenv==20.4.3                                # Virtual Python Environment builder
 xmltodict==0.12.0                                 # Makes working with XML feel like you are working with JSON
 pytz==2020.4                                      # World timezone definitions, modern and historical
 Babel==2.9.0                                      # Internationalization utilities - Dependency of sphinx
 subprocess32==3.5.4; python_version <= '3.0'      # A backport of the subprocess module from Python 3.2/3.3 for use on 2.x.
-pycodestyle==2.5.0                                # New package replacing pep8
+pycodestyle==2.7.0                                # New package replacing pep8
 mock==3.0.5; python_version < '3.3'               # Mock package needed for readthedocs build for mocking pycurls (mock seems to break SQLAlchemy in Python 3 tests + since Python 3.3 there is unittest.mock)
 s3cmd==2.0.2                                      # Used for testing of S3
 PyYAML==5.1.1                                     # Used for reading test configuration files (also in globus_extras)
