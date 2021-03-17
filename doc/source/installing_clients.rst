@@ -55,5 +55,3 @@ Otherwise, you can install from the distribution using the ``setup.py`` script::
 
    $> python setup.py install
 
-Installing with docker
-~~~~~~~~~~~~~~~~~~~~~~
