@@ -39,6 +39,7 @@ from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupporte
 from rucio.common.utils import get_tmp_dir
 
 
+@pytest.mark.noparallel(reason='fails when run in parallel')
 class TestBaseClient(unittest.TestCase):
     """ To test Clients"""
 
@@ -86,7 +87,6 @@ class TestBaseClient(unittest.TestCase):
                  'client_key': self.userkey}
         BaseClient(account='root', ca_cert=self.cacert, auth_type='x509', creds=creds, **self.vo)
 
-    @pytest.mark.noparallel(reason='fails when run in parallel')
     def testx509NonExistingCert(self):
         """ CLIENTS (BASECLIENT): authenticate with x509 with missing certificate."""
         creds = {'client_cert': '/opt/rucio/etc/web/notthere.crt'}
