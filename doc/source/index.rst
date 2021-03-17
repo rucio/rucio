@@ -58,7 +58,6 @@ User Documentation
     man/rucio-admin
     rse_expressions
     clients
-    advanced_usage
 
 
 Operator Documentation
