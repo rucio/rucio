@@ -397,7 +397,7 @@ class UploadClient:
             logger(logging.INFO, 'File DID already exists')
             logger(logging.DEBUG, 'local checksum: %s, remote checksum: %s' % (file['adler32'], meta['adler32']))
 
-            if meta['adler32'] != file['adler32']:
+            if str(meta['adler32']).lstrip('0') != str(file['adler32']).lstrip('0'):
                 logger(logging.ERROR, 'Local checksum %s does not match remote checksum %s' % (file['adler32'], meta['adler32']))
 
                 raise DataIdentifierAlreadyExists
@@ -646,7 +646,7 @@ class UploadClient:
                 if rse_settings['verify_checksum'] is not False:
                     if ('adler32' in stats) and ('adler32' in lfn):
                         self.logger(logging.DEBUG, 'Checksum: Expected=%s Found=%s' % (lfn['adler32'], stats['adler32']))
-                        if stats['adler32'] != lfn['adler32']:
+                        if str(stats['adler32']).lstrip('0') != str(lfn['adler32']).lstrip('0'):
                             raise RucioException('Checksum mismatch. Source: %s Destination: %s' % (lfn['adler32'], stats['adler32']))
 
             except Exception as error:
