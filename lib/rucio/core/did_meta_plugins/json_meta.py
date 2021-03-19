@@ -30,6 +30,7 @@
 # - Brandon White, <bjwhite@fnal.gov>, 2019
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
+# - Rizart Dona <rizart.dona@cern.ch>, 2021
 
 import json as json_lib
 
@@ -160,7 +161,7 @@ class JSONDidMeta(DidMetaPlugin):
         filters.pop('name', None)
         for k, v in iteritems(filters):
             if session.bind.dialect.name == 'oracle':
-                query = query.filter(text("json_exists(meta,'$.%s?(@==''%s'')')" % (k, v)))
+                query = query.filter(text("json_exists(meta,'$?(@.{} == \"{}\")')".format(k, v)))
             else:
                 query = query.filter(cast(models.DidMeta.meta[k], String) == type_coerce(v, JSON))
 
