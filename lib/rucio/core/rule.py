@@ -1282,7 +1282,7 @@ def update_rule(rule_id, options, session=None):
     :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used, ScratchDiskLifetimeConflict if wrong ScratchDiskLifetime is used.
     """
 
-    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority', 'child_rule_id', 'eol_at', 'meta', 'purge_replicas']
+    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority', 'child_rule_id', 'eol_at', 'meta', 'purge_replicas', 'comments']
 
     for key in options:
         if key not in valid_options:
