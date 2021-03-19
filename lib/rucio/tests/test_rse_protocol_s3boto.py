@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2014-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,12 +19,10 @@
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2019
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
-#
-# PY3K COMPATIBLE
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from __future__ import print_function
 
-import json
 import os
 import tempfile
 import unittest
@@ -37,7 +35,7 @@ from boto.s3.key import Key
 
 from rucio.common import exception
 from rucio.rse import rsemanager as mgr
-from rucio.tests.common import skip_rse_tests_with_accounts
+from rucio.tests.common import skip_rse_tests_with_accounts, load_test_conf_file
 from rucio.tests.rsemgr_api_test import MgrTestCases
 
 try:
@@ -92,8 +90,7 @@ class TestRseS3(unittest.TestCase):
         rse_tag = 'BNL-BOTO'
         rse_settings = mgr.get_rse_info(rse_tag)
         try:
-            with open('etc/rse-accounts.cfg') as f:
-                data = json.load(f)
+            data = load_test_conf_file('rse-accounts.cfg')
             rse_settings['credentials'] = data[rse_tag]
         except KeyError:
             print('No credentials found for this RSE.')
@@ -131,8 +128,7 @@ class TestRseS3(unittest.TestCase):
         rse_tag = 'BNL-BOTO'
         rse_settings = mgr.get_rse_info(rse_tag)
         try:
-            with open('etc/rse-accounts.cfg') as f:
-                data = json.load(f)
+            data = load_test_conf_file('rse-accounts.cfg')
             rse_settings['credentials'] = data[rse_tag]
         except KeyError:
             print('No credentials found for this RSE.')

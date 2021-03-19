@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from __future__ import print_function
 
-import json
 import os
 import tempfile
 import unittest
@@ -34,7 +34,7 @@ import requests
 from rucio.common import exception
 from rucio.common.exception import FileReplicaAlreadyExists
 from rucio.rse import rsemanager
-from rucio.tests.common import skip_rse_tests_with_accounts
+from rucio.tests.common import skip_rse_tests_with_accounts, load_test_conf_file
 from rucio.tests.rsemgr_api_test import MgrTestCases
 
 
@@ -59,8 +59,7 @@ class TestRseWebDAV(unittest.TestCase):
         # Creating local files
         cls.tmpdir = tempfile.mkdtemp()
         cls.user = 'jdoe'
-        with open('etc/rse_repository.json') as f:
-            data = json.load(f)
+        data = load_test_conf_file('rse_repository.json')
         scheme = data[cls.site]['protocols']['supported']['https']['scheme']
         prefix = data[cls.site]['protocols']['supported']['https']['prefix']
         hostname = data[cls.site]['protocols']['supported']['https']['hostname']
@@ -91,8 +90,7 @@ class TestRseWebDAV(unittest.TestCase):
     def tearDownClass(cls):
         """WebDAV (RSE/PROTOCOLS): Removing created directories and files """
         rse_settings = rsemanager.get_rse_info(cls.site)
-        with open('etc/rse_repository.json') as f:
-            data = json.load(f)
+        data = load_test_conf_file('rse_repository.json')
         scheme = data[cls.site]['protocols']['supported']['https']['scheme']
         prefix = data[cls.site]['protocols']['supported']['https']['prefix']
         hostname = data[cls.site]['protocols']['supported']['https']['hostname']
