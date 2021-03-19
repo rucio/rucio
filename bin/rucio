@@ -42,6 +42,7 @@
 # - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2020
 # - Patrick Austin <patrick.austin@stfc.ac.uk>, 2020
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
+# - Christoph Ames <christoph.ames@cern.ch>, 2021
 
 from __future__ import print_function
 
@@ -1492,6 +1493,35 @@ def list_rses(args):
 
 
 @exception_handler
+def list_suspicious_replicas(args):
+    """
+    %(prog)s list-suspicious-replicas [options] <field1=value1 field2=value2 ...>
+
+    List replicas marked as suspicious.
+
+    """
+    client = get_client(args)
+    rse_expression = None
+    younger_than = None
+    nattempts = None
+    if args.rse_expression:
+        rse_expression = args.rse_expression
+    if args.younger_than:
+        younger_than = args.younger_than
+    if args.nattempts:
+        nattempts = args.nattempts
+    # Generator is a list with one entry, which itself is a list of lists.
+    replicas_gen = client.list_suspicious_replicas(rse_expression, younger_than, nattempts)
+    for i in replicas_gen:
+        replicas = i
+    table = []
+    for rep in replicas:
+        table.append([rep['rse'], rep['scope'], rep['created_at'], rep['cnt'], rep['name']])
+    print(tabulate.tabulate(table, headers=(['RSE Expression:', 'Scope:', 'Created at:', 'Nattempts:', 'File Name:'])))
+    return SUCCESS
+
+
+@exception_handler
 def list_rse_attributes(args):
     """
     %(prog)s list-rse-attributes [options] <field1=value1 field2=value2 ...>
@@ -2270,6 +2300,15 @@ You can filter by account::
     list_rses_parser.set_defaults(function=list_rses)
     list_rses_parser.add_argument('--expression', dest='rse_expression', action='store', help='The RSE filter expression. A comprehensive help about RSE expressions \
 can be found in ' + Color.BOLD + 'http://rucio.cern.ch/client_tutorial.html#adding-rules-for-replication' + Color.END)
+
+    # The list-suspicoius-replicas command
+    list_suspicious_replicas_parser = subparsers.add_parser('list-suspicious-replicas', help='Show the list of all replicas marked "suspicious".')
+    list_suspicious_replicas_parser.set_defaults(function=list_suspicious_replicas)
+    list_suspicious_replicas_parser.add_argument('--expression', dest='rse_expression', action='store', help='The RSE filter expression. A comprehensive help about RSE expressions \
+can be found in ' + Color.BOLD + 'http://rucio.cern.ch/client_tutorial.html#adding-rules-for-replication' + Color.END)
+    list_suspicious_replicas_parser.add_argument('--younger_than', dest='younger_than', action='store', help='List files that have been marked suspicious since the date "younger_than".')
+    list_suspicious_replicas_parser.add_argument('--nattempts', dest='nattempts', action='store', help='Minimum number of failed attempts to access a suspicious file.')
+    list_suspicious_replicas_parser.add_argument('--state', dest='state', action='store', help='Either "BAD" or "SUSPICIOUS". If not specified, both bad and suspicious file are listed.')
 
     # The list-rses-attributes command
     list_rse_attributes_parser = subparsers.add_parser('list-rse-attributes', help='List the attributes of an RSE.', description='This command is useful to create RSE filter expressions.')
