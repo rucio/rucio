@@ -477,6 +477,8 @@ def set_request_state(request_id, new_state, transfer_id=None, transferred_at=No
         if err_msg:
             update_items['err_msg'] = err_msg
 
+        for attr in update_items.values():
+            attr = attr.encode('ascii', 'ignore')
         if transfer_id:
             rowcount = session.query(models.Request).filter_by(id=request_id, external_id=transfer_id).update(update_items, synchronize_session=False)
         else:
