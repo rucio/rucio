@@ -71,7 +71,7 @@ def build_images(matrix, script_args):
                 cache_args = ('--cache-from', imagetag)
             if buildargs.IMAGE_IDENTIFIER == 'integration-test':
                 if buildargs.PYTHON == '3.6':
-                    buildfile = pathlib.Path(script_args.buildfiles_dir) / 'Dockerfile_py3'
+                    buildfile = pathlib.Path(script_args.buildfiles_dir) / 'Dockerfile'
                     args = ('docker', 'build', *cache_args, '--file', str(buildfile), '--tag', imagetag,
                             *itertools.chain(
                                 *map(lambda x: ('--build-arg', f'{x[0]}={x[1]}'), filtered_buildargs.items())),
