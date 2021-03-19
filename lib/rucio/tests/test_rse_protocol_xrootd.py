@@ -40,6 +40,7 @@ from rucio.tests.common import skip_rse_tests_with_accounts, load_test_conf_file
 from rucio.tests.rsemgr_api_test import MgrTestCases
 
 
+@pytest.mark.noparallel(reason='creates and removes a test directory with a fixed name')
 @skip_rse_tests_with_accounts
 class TestRseXROOTD(unittest.TestCase):
     tmpdir = None
