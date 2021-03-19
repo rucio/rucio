@@ -18,21 +18,6 @@
 # - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2021
 
-'''
-  Copyright European Organization for Nuclear Research (CERN)
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  You may not use this file except in compliance with the License.
-  You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-
-  Authors:
-  - Hannes Hansen, <hannes.jakob.hansen@cern.ch>, 2018
-  - Andrew Lister, <andrew.lister@stfc.ac.uk>, 2019
-  - Cedric Serfon, <cedric.serfon@cern.ch>, 2021
-
-  PY3K COMPATIBLE
-'''
-
 from rucio.api import permission
 from rucio.common import exception
 from rucio.core import exporter
