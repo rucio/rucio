@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright 2018-2020 CERN
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2021
 
+from urllib.parse import parse_qs
 from web import (application, header, loadhook, ctx)
 
 from rucio.api.exporter import export_data
@@ -29,10 +30,6 @@ from rucio.common.utils import render_json
 from rucio.web.rest.common import rucio_loadhook, RucioController, check_accept_header_wrapper
 from rucio.web.rest.utils import generate_http_error
 
-try:
-    from urlparse import parse_qs
-except ImportError:
-    from urllib.parse import parse_qs
 
 URLS = (
     '/', 'Export',

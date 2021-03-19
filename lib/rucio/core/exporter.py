@@ -1,4 +1,5 @@
-# Copyright 2012-2018 CERN for the benefit of the ATLAS collaboration.
+# -*- coding: utf-8 -*-
+# Copyright 2018-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,11 +14,9 @@
 # limitations under the License.
 #
 # Authors:
-# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Hannes Hansen <hannes.jakob.hansen@cern.ch>, 2018-2019
+# - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 # - Cedric Serfon <cedric.serfon@cern.ch>, 2021
-#
-# PY3K COMPATIBLE
 
 from rucio.core import rse as rse_module, distance as distance_module
 from rucio.db.sqla.session import transactional_session
