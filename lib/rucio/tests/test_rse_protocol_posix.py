@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2012-2020 CERN for the benefit of the ATLAS collaboration.
+# Copyright 2012-2021 CERN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@
 # - Mario Lassnig <mario.lassnig@cern.ch>, 2017
 # - Joaquín Bogado <jbogado@linti.unlp.edu.ar>, 2018
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
+# - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 from __future__ import print_function
 
-import json
 import os
 import shutil
 import tempfile
@@ -33,7 +33,7 @@ import pytest
 
 from rucio.common import exception
 from rucio.rse import rsemanager as mgr
-from rucio.tests.common import skip_rse_tests_with_accounts
+from rucio.tests.common import skip_rse_tests_with_accounts, load_test_conf_file
 from rucio.tests.rsemgr_api_test import MgrTestCases
 
 
@@ -59,8 +59,7 @@ class TestRsePOSIX(unittest.TestCase):
         for f in MgrTestCases.files_local:
             shutil.copy('%s/data.raw' % cls.tmpdir, '%s/%s' % (cls.tmpdir, f))
 
-        with open('etc/rse_repository.json') as f:
-            data = json.load(f)
+        data = load_test_conf_file('rse_repository.json')
         prefix = data['MOCK-POSIX']['protocols']['supported']['file']['prefix']
         try:
             os.mkdir(prefix)
@@ -80,8 +79,7 @@ class TestRsePOSIX(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         """POSIX (RSE/PROTOCOLS): Removing created directorie s and files """
-        with open('etc/rse_repository.json') as f:
-            data = json.load(f)
+        data = load_test_conf_file('rse_repository.json')
         prefix = data['MOCK-POSIX']['protocols']['supported']['file']['prefix']
         shutil.rmtree(prefix)
         shutil.rmtree(cls.tmpdir)
