@@ -37,9 +37,8 @@ SCHEME_MAP = {'srm': ['srm', 'gsiftp'],
 SUPPORTED_PROTOCOLS = ['gsiftp', 'srm', 'root', 'davs', 'http', 'https', 'file', 's3', 's3+rucio', 's3+https', 'storm']
 
 FTS_STATE_NAMED_TUPLE = namedtuple('FTS_STATE', ['SUBMITTED', 'READY', 'ACTIVE', 'FAILED', 'FINISHED', 'FINISHEDDIRTY',
-                                                'CANCELED'])
+                                                 'CANCELED'])
 FTS_STATE = FTS_STATE_NAMED_TUPLE('SUBMITTED', 'READY', 'ACTIVE', 'FAILED', 'FINISHED', 'FINISHEDDIRTY', 'CANCELED')
 
 FTS_COMPLETE_STATE_NAMED_TUPLE = namedtuple('FTS_COMPLETE_STATE', ['OK', 'ERROR'])
 FTS_COMPLETE_STATE = FTS_COMPLETE_STATE_NAMED_TUPLE('OK', 'ERROR')
-

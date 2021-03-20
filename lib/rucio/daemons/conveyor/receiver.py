@@ -45,12 +45,13 @@ import stomp
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int
+from rucio.common.constants import FTS_COMPLETE_STATE
 from rucio.common.logging import setup_logging
 from rucio.common.policy import get_policy
 from rucio.core import heartbeat, request
 from rucio.core.monitor import record_counter
 from rucio.core.transfer import set_transfer_update_time
-from rucio.db.sqla.constants import RequestState, FTSCompleteState
+from rucio.db.sqla.constants import RequestState
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
@@ -143,9 +144,9 @@ class Receiver(object):
                                 'details': {'files': msg['file_metadata']}}
 
                 record_counter('daemons.conveyor.receiver.message_rucio')
-                if str(msg['t_final_transfer_state']) == str(FTSCompleteState.OK):
+                if str(msg['t_final_transfer_state']) == FTS_COMPLETE_STATE.OK:
                     response['new_state'] = RequestState.DONE
-                elif str(msg['t_final_transfer_state']) == str(FTSCompleteState.ERROR):
+                elif str(msg['t_final_transfer_state']) == FTS_COMPLETE_STATE.ERROR:
                     response['new_state'] = RequestState.FAILED
 
                 try:
