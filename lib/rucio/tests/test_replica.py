@@ -76,6 +76,38 @@ if sys.version_info >= (3, 3):
 else:
     import mock
 
+# This method will be used by the mock to replace requests.get to VP server
+
+
+def mocked_VP_requests_get(*args, **kwargs):
+    class MockResponse:
+        def __init__(self, json_data, status_code):
+            self.json_data = json_data
+            self.status_code = status_code
+            self.ok = True
+
+        def json(self):
+            return self.json_data
+
+    if args[0] == 'https://vps-mock.cern.ch/serverRanges':
+        return MockResponse({
+            "AGLT2": {
+                "servers": [
+                    ["192.41.231.239:1094", "100"],
+                    ["192.41.230.42:1094", "100"],
+                    ["192.41.230.43:1094", "100"]
+                ],
+                "ranges": [
+                    [1, 0.3333],
+                    [2, 0.6666],
+                    [0, 1]
+                ]
+            }}, 200)
+    if args[0] == 'https://vps-mock.cern.ch/ds/4/scope:name':
+        return MockResponse(["AGLT2_VP_DISK", "MWT2_VP_DISK", "NET2_VP_DISK"], 200)
+
+    return MockResponse(None, 404)
+
 
 class TestReplicaCore(unittest.TestCase):
 
@@ -85,8 +117,8 @@ class TestReplicaCore(unittest.TestCase):
         else:
             self.vo = {}
 
-    @pytest.mark.xfail
-    def test_cache_replicas(self):
+    @mock.patch('rucio.core.replica.requests.get', side_effect=mocked_VP_requests_get)
+    def test_cache_replicas(self, mock_get):
         """ REPLICA (CORE): Test listing replicas with cached root protocol """
 
         rse = 'APERTURE_%s' % rse_name_generator()
@@ -127,7 +159,7 @@ class TestReplicaCore(unittest.TestCase):
         add_replicas(rse_id=rse_id, files=files, account=root)
 
         cconfig_set('clientcachemap', 'BLACKMESA', 'AGLT2')
-        cconfig_set('virtual_placement', 'vp_endpoint', 'https://vps.cern.ch')
+        cconfig_set('virtual_placement', 'vp_endpoint', 'https://vps-mock.cern.ch')
 
         for rep in list_replicas(
                 dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],

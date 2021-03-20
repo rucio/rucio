@@ -831,7 +831,7 @@ def get_multi_cache_prefix(cache_site, filename, logger=logging.log):
                 return ''
         except requests.exceptions.RequestException as re:
             REGION.set('CacheSites', {'could not reload': ''})
-            logger(logging.WARNING, 'In get_multi_cache_prefix, could not access {}. Error:{}'.format(vp_endpoint, re))
+            logger(logging.WARNING, 'In get_multi_cache_prefix, could not access {}. Excaption:{}'.format(vp_endpoint, re))
             return ''
 
     if cache_site not in x_caches:
