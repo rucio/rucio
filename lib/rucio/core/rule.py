@@ -378,7 +378,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             insert_rule_history(rule=new_rule, recent=True, longterm=True, session=session)
 
             if use_new_rule_algorithm:
-                logger(logging.INFO, "Created rule %s [%d/%d/%d] with new algorithm for did %s:%s in state %s", str(new_rule.id), new_rule.locks_ok_cnt, new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt, new_rule.scope, new_rule.name, str(new_rule.state))
+                logger(logging.INFO, "Created rule %s [%d/%d/%d] with new algorithm for did %s:%s in state %s", str(new_rule.id), new_rule.locks_ok_cnt,
+                       new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt, new_rule.scope, new_rule.name, str(new_rule.state))
             else:
                 logger(logging.INFO, "Created rule %s [%d/%d/%d] for did %s:%s in state %s", str(new_rule.id), new_rule.locks_ok_cnt, new_rule.locks_replicating_cnt, new_rule.locks_stuck_cnt, new_rule.scope, new_rule.name, str(new_rule.state))
 
@@ -1282,7 +1283,7 @@ def update_rule(rule_id, options, session=None):
     :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used, ScratchDiskLifetimeConflict if wrong ScratchDiskLifetime is used.
     """
 
-    valid_options = ['locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority', 'child_rule_id', 'eol_at', 'meta', 'purge_replicas']
+    valid_options = ['comment', 'locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority', 'child_rule_id', 'eol_at', 'meta', 'purge_replicas']
 
     for key in options:
         if key not in valid_options:
@@ -1302,6 +1303,9 @@ def update_rule(rule_id, options, session=None):
                 rule.expires_at = datetime.utcnow() + timedelta(seconds=lifetime) if lifetime is not None else None
             if key == 'source_replica_expression':
                 rule.source_replica_expression = options['source_replica_expression']
+
+            if key == 'comment':
+                rule.comments = options['comment']
 
             if key == 'activity':
                 validate_schema('activity', options['activity'], vo=rule.account.vo)
